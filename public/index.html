@@ -478,7 +478,13 @@ async function api(method, path, data){
   if (data) opts.body = JSON.stringify(data);
   const res = await fetch(API + path, opts);
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Request failed');
+  if (!res.ok) {
+    if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register') {
+      doLogout();
+      throw new Error('Session expired. Please log in again.');
+    }
+    throw new Error(json.error || 'Request failed');
+  }
   return json;
 }
 
@@ -1116,6 +1122,8 @@ document.addEventListener('keydown', e => {
   } catch(e) {
     localStorage.removeItem('trackly_token');
     token = '';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
   }
 })();
 </script>
