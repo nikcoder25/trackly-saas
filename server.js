@@ -1,7 +1,7 @@
 /**
  * Trackly - AI Visibility Tracker SaaS Server
- * Stack: Node.js + Express + JSON file DB + JWT auth
- * Storage: data/db.json (swap for PostgreSQL in production)
+ * Stack: Node.js + Express + PostgreSQL + JWT auth
+ * Storage: PostgreSQL (persistent across deployments)
  */
 
 require('dotenv').config();
@@ -14,51 +14,54 @@ const fs       = require('fs');
 const path     = require('path');
 const https    = require('https');
 const http     = require('http');
+const { Pool } = require('pg');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
-// JWT Secret — use a stable secret so tokens survive server restarts
-// In production, always set JWT_SECRET in environment variables
-const JWT_SECRET_PATH = path.join(__dirname, 'data', '.jwt-secret');
-function getJWTSecret() {
-  // Priority: env var > persisted file > generate new
-  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-  const dataDir = path.join(__dirname, 'data');
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-  if (fs.existsSync(JWT_SECRET_PATH)) {
-    return fs.readFileSync(JWT_SECRET_PATH, 'utf8').trim();
-  }
-  // Generate and persist a stable secret
-  const secret = 'trackly-' + require('crypto').randomBytes(32).toString('hex');
-  fs.writeFileSync(JWT_SECRET_PATH, secret);
-  return secret;
-}
-const JWT_SECRET = getJWTSecret();
-const DB_PATH    = path.join(__dirname, 'data', 'db.json');
 
-// ─── ENSURE DATA DIR ─────────────────────────────────────────────
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-  fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
-}
+// JWT Secret — MUST be set in environment variables for persistent auth across deploys
+const JWT_SECRET = process.env.JWT_SECRET || 'trackly-dev-secret-change-me';
+if (!process.env.JWT_SECRET) console.warn('[WARN] JWT_SECRET not set in environment! Tokens will not survive redeploy.');
 
-// ─── JSON FILE DATABASE ───────────────────────────────────────────
-// Simple JSON file DB. For production swap with PostgreSQL/MySQL.
-function readDB() {
-  if (!fs.existsSync(DB_PATH)) return { users: [], brands: [] };
-  try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
-  catch(e) {
-    console.error('DB read error, backing up corrupt file:', e.message);
-    // Backup corrupt file and return empty DB
-    try { fs.copyFileSync(DB_PATH, DB_PATH + '.backup-' + Date.now()); } catch(_){}
-    return { users: [], brands: [] };
+// ─── POSTGRESQL DATABASE ──────────────────────────────────────────
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
+
+async function initDB() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        name TEXT,
+        password_hash TEXT NOT NULL,
+        plan TEXT DEFAULT 'free',
+        role TEXT,
+        api_keys JSONB DEFAULT '{}',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS brands (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        data JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_brands_user_id ON brands(user_id);
+    `);
+    console.log('[DB] PostgreSQL tables ready');
+  } finally {
+    client.release();
   }
 }
-function writeDB(data) {
-  // Write atomically to prevent corruption from crashes
-  const tmpPath = DB_PATH + '.tmp';
-  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
-  fs.renameSync(tmpPath, DB_PATH);
-}
+initDB().catch(e => {
+  console.error('[DB] Failed to initialize PostgreSQL:', e.message);
+  process.exit(1);
+});
+
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -86,51 +89,58 @@ app.post('/api/auth/register', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-  const db = readDB();
-  if (db.users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-    return res.status(400).json({ error: 'Email already registered' });
+  try {
+    const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const id = uid();
+    const userName = name || email.split('@')[0];
+    await pool.query(
+      'INSERT INTO users (id, email, name, password_hash, plan) VALUES ($1, $2, $3, $4, $5)',
+      [id, email.toLowerCase(), userName, hash, 'free']
+    );
+
+    const token = jwt.sign({ id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'free', createdAt: new Date().toISOString(), hasKeys: [] } });
+  } catch(e) {
+    console.error('[Register]', e.message);
+    res.status(500).json({ error: 'Registration failed' });
   }
-
-  const hash = await bcrypt.hash(password, 10);
-  const user = {
-    id: uid(),
-    email: email.toLowerCase(),
-    name: name || email.split('@')[0],
-    passwordHash: hash,
-    plan: 'free',  // free | pro | agency
-    apiKeys: {},   // stored server-side, never sent to client
-    createdAt: new Date().toISOString()
-  };
-  db.users.push(user);
-  writeDB(db);
-
-  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user: safeUser(user) });
 });
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  const db = readDB();
-  const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (!user) return res.status(400).json({ error: 'Invalid email or password' });
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    const user = result.rows[0];
+    if (!user) return res.status(400).json({ error: 'Invalid email or password' });
 
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(400).json({ error: 'Invalid email or password' });
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(400).json({ error: 'Invalid email or password' });
 
-  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user: safeUser(user) });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: safeUser(user) });
+  } catch(e) {
+    console.error('[Login]', e.message);
+    res.status(500).json({ error: 'Login failed' });
+  }
 });
 
-app.get('/api/auth/me', auth, (req, res) => {
-  const db = readDB();
-  const user = db.users.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ user: safeUser(user) });
+app.get('/api/auth/me', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ user: safeUser(user) });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 function safeUser(u) {
-  return { id: u.id, email: u.email, name: u.name, plan: u.plan, createdAt: u.createdAt,
-           hasKeys: Object.keys(u.apiKeys||{}).filter(k => u.apiKeys[k]) };
+  return { id: u.id, email: u.email, name: u.name, plan: u.plan, createdAt: u.created_at,
+           hasKeys: Object.keys(u.api_keys||{}).filter(k => u.api_keys[k]) };
 }
 
 // ─── API KEYS (from server environment variables — SaaS mode) ────
@@ -157,85 +167,117 @@ app.get('/api/keys/status', auth, (req, res) => {
   });
 });
 
+// ─── BRAND HELPERS ────────────────────────────────────────────────
+async function getBrand(brandId, userId) {
+  const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [brandId, userId]);
+  if (!result.rows.length) return null;
+  const row = result.rows[0];
+  return { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+async function saveBrand(brand) {
+  const { id, userId, createdAt, updatedAt, ...data } = brand;
+  await pool.query(
+    'UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2',
+    [JSON.stringify(data), id]
+  );
+}
+
 // ─── BRAND ROUTES ─────────────────────────────────────────────────
-app.get('/api/brands', auth, (req, res) => {
-  const db = readDB();
-  const brands = db.brands.filter(b => b.userId === req.user.id);
-  res.json({ brands });
-});
-
-app.post('/api/brands', auth, (req, res) => {
-  const db = readDB();
-  const { name, industry, website, city, goal } = req.body;
-  if (!name) return res.status(400).json({ error: 'Brand name required' });
-
-  // Plan limits
-  const userBrands = db.brands.filter(b => b.userId === req.user.id);
-  const user = db.users.find(u => u.id === req.user.id);
-  const limits = { free: 1, pro: 5, agency: 20 };
-  const limit = limits[user?.plan || 'free'];
-  if (userBrands.length >= limit) {
-    return res.status(403).json({ error: `Your ${user?.plan||'free'} plan allows up to ${limit} brand(s). Upgrade to add more.` });
+app.get('/api/brands', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
+    const brands = result.rows.map(row => ({ id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
+    res.json({ brands });
+  } catch(e) {
+    console.error('[Brands GET]', e.message);
+    res.status(500).json({ error: 'Failed to load brands' });
   }
-
-  const brand = {
-    id: uid(),
-    userId: req.user.id,
-    name, industry: industry||'', website: website||'', city: city||'',
-    goal: goal || 70,
-    competitors: [],
-    queries: [
-      `What is the best ${industry||'service'} company?`,
-      `Who are the top ${industry||'service'} providers near me?`,
-      `Best ${industry||'service'} recommendations`
-    ],
-    runs: [],
-    mentions: [],
-    queryStats: {},
-    sovHistory: [],
-    citations: {},
-    notes: {},
-    schedule: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  db.brands.push(brand);
-  writeDB(db);
-  res.json({ brand });
 });
 
-app.get('/api/brands/:id', auth, (req, res) => {
-  const db = readDB();
-  const brand = db.brands.find(b => b.id === req.params.id && b.userId === req.user.id);
-  if (!brand) return res.status(404).json({ error: 'Brand not found' });
-  res.json({ brand });
+app.post('/api/brands', auth, async (req, res) => {
+  try {
+    const { name, industry, website, city, goal } = req.body;
+    if (!name) return res.status(400).json({ error: 'Brand name required' });
+
+    // Plan limits
+    const countResult = await pool.query('SELECT COUNT(*) FROM brands WHERE user_id = $1', [req.user.id]);
+    const userResult = await pool.query('SELECT plan FROM users WHERE id = $1', [req.user.id]);
+    const plan = userResult.rows[0]?.plan || 'free';
+    const limits = { free: 1, pro: 5, agency: 20 };
+    const limit = limits[plan];
+    if (parseInt(countResult.rows[0].count) >= limit) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limit} brand(s). Upgrade to add more.` });
+    }
+
+    const id = uid();
+    const data = {
+      name, industry: industry||'', website: website||'', city: city||'',
+      goal: goal || 70,
+      competitors: [],
+      queries: [
+        `What is the best ${industry||'service'} company?`,
+        `Who are the top ${industry||'service'} providers near me?`,
+        `Best ${industry||'service'} recommendations`
+      ],
+      runs: [],
+      mentions: [],
+      queryStats: {},
+      sovHistory: [],
+      citations: {},
+      notes: {},
+      schedule: null
+    };
+    await pool.query(
+      'INSERT INTO brands (id, user_id, data) VALUES ($1, $2, $3)',
+      [id, req.user.id, JSON.stringify(data)]
+    );
+    const brand = { id, userId: req.user.id, ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    res.json({ brand });
+  } catch(e) {
+    console.error('[Brand POST]', e.message);
+    res.status(500).json({ error: 'Failed to create brand' });
+  }
 });
 
-app.put('/api/brands/:id', auth, (req, res) => {
-  const db = readDB();
-  const idx = db.brands.findIndex(b => b.id === req.params.id && b.userId === req.user.id);
-  if (idx === -1) return res.status(404).json({ error: 'Brand not found' });
-
-  // Merge updates (protect id and userId)
-  const updated = { ...db.brands[idx], ...req.body, id: db.brands[idx].id, userId: req.user.id, updatedAt: new Date().toISOString() };
-  db.brands[idx] = updated;
-  writeDB(db);
-  res.json({ brand: updated });
+app.get('/api/brands/:id', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    res.json({ brand });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.delete('/api/brands/:id', auth, (req, res) => {
-  const db = readDB();
-  const idx = db.brands.findIndex(b => b.id === req.params.id && b.userId === req.user.id);
-  if (idx === -1) return res.status(404).json({ error: 'Brand not found' });
-  db.brands.splice(idx, 1);
-  writeDB(db);
-  res.json({ success: true });
+app.put('/api/brands/:id', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    // Merge updates (protect id and userId)
+    const updated = { ...brand, ...req.body, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
+    await saveBrand(updated);
+    res.json({ brand: updated });
+  } catch(e) {
+    console.error('[Brand PUT]', e.message);
+    res.status(500).json({ error: 'Failed to update brand' });
+  }
+});
+
+app.delete('/api/brands/:id', auth, async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM brands WHERE id = $1 AND user_id = $2 RETURNING id', [req.params.id, req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to delete brand' });
+  }
 });
 
 // ─── RUN QUERIES (server-side AI calls) ───────────────────────────
 app.post('/api/brands/:id/run', auth, async (req, res) => {
-  const db = readDB();
-  const brand = db.brands.find(b => b.id === req.params.id && b.userId === req.user.id);
+  const brand = await getBrand(req.params.id, req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
   // Use server-side API keys (SaaS mode — admin configures keys via env vars)
@@ -370,9 +412,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
 
   brand.updatedAt = new Date().toISOString();
-  const idx = db.brands.findIndex(b => b.id === brand.id);
-  db.brands[idx] = brand;
-  writeDB(db);
+  await saveBrand(brand);
 
   const errorCount = allResults.filter(r => r.error).length;
   res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 6 - activePlatforms.length, errorCount } });
@@ -730,64 +770,81 @@ function parseResponse(text, brand, query) {
 // Only real API responses are used. Platforms without API keys are skipped.
 
 // ─── ADMIN: USER MANAGEMENT (for you, the owner) ──────────────────
-app.get('/api/admin/users', auth, (req, res) => {
-  const db = readDB();
-  const user = db.users.find(u => u.id === req.user.id);
-  if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-  res.json({ users: db.users.map(safeUser), total: db.users.length });
+app.get('/api/admin/users', auth, async (req, res) => {
+  try {
+    const adminCheck = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (!adminCheck.rows[0] || adminCheck.rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const result = await pool.query('SELECT * FROM users ORDER BY created_at');
+    res.json({ users: result.rows.map(safeUser), total: result.rows.length });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.put('/api/admin/users/:id/plan', auth, (req, res) => {
-  const db = readDB();
-  const admin = db.users.find(u => u.id === req.user.id);
-  if (!admin || admin.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-  const target = db.users.find(u => u.id === req.params.id);
-  if (!target) return res.status(404).json({ error: 'User not found' });
-  target.plan = req.body.plan;
-  writeDB(db);
-  res.json({ user: safeUser(target) });
+app.put('/api/admin/users/:id/plan', auth, async (req, res) => {
+  try {
+    const adminCheck = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (!adminCheck.rows[0] || adminCheck.rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const result = await pool.query('UPDATE users SET plan = $1 WHERE id = $2 RETURNING *', [req.body.plan, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ user: safeUser(result.rows[0]) });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Make first registered user an admin
-app.post('/api/admin/make-first-admin', (req, res) => {
-  const db = readDB();
-  if (db.users.length === 0) return res.status(404).json({ error: 'No users yet' });
-  if (db.users.some(u => u.role === 'admin')) return res.status(400).json({ error: 'Admin already exists' });
-  db.users[0].role = 'admin';
-  writeDB(db);
-  res.json({ success: true, email: db.users[0].email });
+app.post('/api/admin/make-first-admin', async (req, res) => {
+  try {
+    const users = await pool.query('SELECT id, email, role FROM users ORDER BY created_at LIMIT 1');
+    if (!users.rows.length) return res.status(404).json({ error: 'No users yet' });
+    const adminCheck = await pool.query('SELECT id FROM users WHERE role = $1', ['admin']);
+    if (adminCheck.rows.length) return res.status(400).json({ error: 'Admin already exists' });
+    await pool.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', users.rows[0].id]);
+    res.json({ success: true, email: users.rows[0].email });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  const db = readDB();
-  res.json({ status: 'ok', users: db.users.length, brands: db.brands.length, time: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    const users = await pool.query('SELECT COUNT(*) FROM users');
+    const brands = await pool.query('SELECT COUNT(*) FROM brands');
+    res.json({ status: 'ok', users: parseInt(users.rows[0].count), brands: parseInt(brands.rows[0].count), time: new Date().toISOString() });
+  } catch(e) {
+    res.json({ status: 'error', error: e.message, time: new Date().toISOString() });
+  }
 });
 
 // ─── SCHEDULED RUNS ───────────────────────────────────────────────
 cron.schedule('0 * * * *', async () => {
   // Run every hour - check which brands have scheduled runs due
-  const db = readDB();
-  const now = Date.now();
-  for (const brand of db.brands) {
-    if (!brand.schedule) continue;
-    const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
-    const intervalMs = brand.schedule * 1000;
-    if (now - lastRun >= intervalMs) {
-      const user = db.users.find(u => u.id === brand.userId);
-      if (user) {
+  try {
+    const result = await pool.query('SELECT b.*, u.api_keys FROM brands b JOIN users u ON b.user_id = u.id');
+    const now = Date.now();
+    for (const row of result.rows) {
+      const brand = { id: row.id, userId: row.user_id, ...row.data };
+      if (!brand.schedule) continue;
+      const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
+      const intervalMs = brand.schedule * 1000;
+      if (now - lastRun >= intervalMs) {
         console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
         try {
-          await runBrandQueries(brand, user.apiKeys || {}, db);
+          await runBrandQueries(brand);
         } catch(e) {
           console.error(`[Cron] Error for ${brand.name}:`, e.message);
         }
       }
     }
+  } catch(e) {
+    console.error('[Cron] Error:', e.message);
   }
 });
 
-async function runBrandQueries(brand, keys, db) {
+async function runBrandQueries(brand) {
+  const keys = getServerKeys();
   const PLATFORM_KEY_MAP = {
     'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
     'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini'
@@ -844,9 +901,7 @@ async function runBrandQueries(brand, keys, db) {
   brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
   brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
 
-  const idx = db.brands.findIndex(b => b.id === brand.id);
-  if (idx >= 0) db.brands[idx] = brand;
-  writeDB(db);
+  await saveBrand(brand);
 }
 
 // ─── SEO LANDING PAGES ──────────────────────────────────────────
@@ -1270,8 +1325,8 @@ app.listen(PORT, () => {
   ║  Trackly SaaS Server Running             ║
   ║  http://localhost:${PORT}                  ║
   ║                                          ║
-  ║  Data stored in: data/db.json            ║
-  ║  Set JWT_SECRET in .env for production   ║
+  ║  Database: PostgreSQL                    ║
+  ║  JWT_SECRET: ${process.env.JWT_SECRET ? 'SET ✓' : 'NOT SET ✗'}                     ║
   ╚══════════════════════════════════════════╝
   `);
 });
