@@ -665,6 +665,17 @@ select.finput{appearance:none;}
           <input class="finput" id="s-city" type="text" placeholder="e.g. Austin TX">
         </div>
         <div class="form-row">
+          <label class="flabel">Nearby Areas</label>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
+            Add state, nearby cities, and service areas. When a query has no location, these areas will also be checked in AI responses.
+          </div>
+          <div id="area-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+          <div class="add-query-row">
+            <input id="area-input" type="text" placeholder="Add nearby area (e.g. Round Rock, Texas)..." onkeydown="if(event.key==='Enter')addArea()">
+            <button onclick="addArea()">+ Add</button>
+          </div>
+        </div>
+        <div class="form-row">
           <label class="flabel">SOV Goal (%)</label>
           <input class="finput" id="s-goal" type="number" min="1" max="100" placeholder="70">
         </div>
@@ -1274,6 +1285,8 @@ function renderProof(){
       const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
       const cites = ((m && m.citations) || (fullResult && fullResult.citations) || []).length;
       const recommended = (m && m.recommended) || (fullResult && fullResult.recommended) || false;
+      const locRelevant = (m && m.locationRelevant) || (fullResult && fullResult.locationRelevant);
+      const matchedLoc = (m && m.matchedLocation) || (fullResult && fullResult.matchedLocation) || '';
 
       // Status badge — clear FOUND / NOT FOUND
       const statusBadge = isMentioned
@@ -1305,6 +1318,7 @@ function renderProof(){
         <div class="proof-card-footer">
           <span class="badge ${sentBadge}">${sentiment}</span>
           ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
+          ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
           ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
           ${viewBtn}
@@ -1519,6 +1533,39 @@ function autoGenerateAliases(){
   toast(generated.length + ' aliases generated', 'ok');
 }
 
+function renderAreaTags(){
+  const b = brand(); if (!b) return;
+  const cont = el('area-tags');
+  cont.innerHTML = '';
+  (b.nearbyAreas||[]).forEach((a,i) => {
+    const tag = document.createElement('span');
+    tag.className = 'query-tag';
+    tag.appendChild(document.createTextNode(a + ' '));
+    const btn = document.createElement('button');
+    btn.textContent = '\u2715';
+    btn.addEventListener('click', function(){ removeArea(i); });
+    tag.appendChild(btn);
+    cont.appendChild(tag);
+  });
+}
+
+function addArea(){
+  const b = brand(); if (!b) return;
+  const inp = el('area-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!b.nearbyAreas) b.nearbyAreas = [];
+  if (!b.nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) b.nearbyAreas.push(val);
+  inp.value = '';
+  renderAreaTags();
+}
+
+function removeArea(i){
+  const b = brand(); if (!b) return;
+  b.nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
+  renderAreaTags();
+}
+
 function renderSetup(){
   const b = brand(); if (!b) return;
   el('s-name').value = b.name||'';
@@ -1532,6 +1579,7 @@ function renderSetup(){
     b.aliases = generateAliasesFromBrand(b.name, b.website);
   }
   renderAliasTags();
+  renderAreaTags();
 
   // Render platform checkboxes
   const cont = el('setup-plat-list');
@@ -1576,7 +1624,8 @@ async function saveBrandSetup(){
       city: el('s-city').value.trim(),
       goal: parseInt(el('s-goal').value)||70,
       platforms: selectedPlats.length ? selectedPlats : PLATS,
-      aliases: b.aliases || []
+      aliases: b.aliases || [],
+      nearbyAreas: b.nearbyAreas || []
     });
     const idx = brands.findIndex(x=>x.id===b.id);
     if (idx >= 0) brands[idx] = data.brand;

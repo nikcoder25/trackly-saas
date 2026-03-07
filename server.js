@@ -280,7 +280,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
         if (!result) continue; // No API key — skip
 
         const { text, simulated, citations: extraCites, model: modelUsed } = result;
-        const parsed = parseResponse(text, brand);
+        const parsed = parseResponse(text, brand, q);
         parsed.simulated = false; // Always real — no more simulated
         if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,10);
         totalQ++;
@@ -291,7 +291,9 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
           context: text.substring(0, 300), raw: text,
           simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
-          citations: parsed.cites, model: modelUsed || plat
+          citations: parsed.cites, model: modelUsed || plat,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || ''
         });
 
         if (parsed.mentioned) {
@@ -302,6 +304,8 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
             sentiment: parsed.sentiment, recommended: parsed.recommended,
             citations: parsed.cites, simulated: false,
             model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
             time: new Date().toISOString()
           });
         }
@@ -561,7 +565,7 @@ async function callClaude(query, apiKey) {
 }
 
 // ─── RESPONSE PARSING (post-response analysis — no brand injection) ───────
-function parseResponse(text, brand) {
+function parseResponse(text, brand, query) {
   if (!text || !brand.name) return { mentioned: false, recommended: false, sentiment: 'neutral', cites: [], simulated: false };
 
   const lower = text.toLowerCase();
@@ -654,6 +658,41 @@ function parseResponse(text, brand) {
     }
   }
 
+  // ─── Location-aware detection ───
+  // If brand is mentioned AND query has no location, verify the response
+  // mentions the brand's city or nearby areas (to avoid false positives for generic queries)
+  let locationRelevant = true; // default: relevant
+  let matchedLocation = '';
+
+  if (mentioned && brand.city && query) {
+    const queryLower = (query || '').toLowerCase();
+    const cityLower = brand.city.toLowerCase().trim();
+    const allLocations = [cityLower];
+
+    // Add nearby areas
+    if (brand.nearbyAreas && brand.nearbyAreas.length) {
+      brand.nearbyAreas.forEach(a => allLocations.push(a.toLowerCase().trim()));
+    }
+
+    // Check if query already contains a location — if yes, don't add extra location check
+    const queryHasLocation = allLocations.some(loc => queryLower.includes(loc)) ||
+      /\b(in|near|around|at)\s+[A-Z]/i.test(query);
+
+    if (!queryHasLocation) {
+      // Query has no location — check if AI response mentions brand near any of our locations
+      const locationFound = allLocations.some(loc => {
+        if (loc.length >= 3 && lower.includes(loc)) {
+          matchedLocation = loc;
+          return true;
+        }
+        return false;
+      });
+      // If we have locations but response doesn't mention any, still count the mention
+      // but flag it as not location-verified
+      locationRelevant = locationFound;
+    }
+  }
+
   // Recommendation detection — only if brand was mentioned, with word boundaries
   const recommended = mentioned && /\b(recommend|best|top\s+pick|top\s+choice|leading|solid choice|preferred|go.?with|first choice|suggest|worth considering|strong contender|stands out|highly recommend|top.?rated)\b/i.test(text);
 
@@ -683,7 +722,7 @@ function parseResponse(text, brand) {
   const matches = text.match(urlRx) || [];
   [...new Set(matches)].slice(0, 6).forEach(u => cites.push(u));
 
-  return { mentioned, recommended, sentiment, cites, simulated: false };
+  return { mentioned, recommended, sentiment, cites, simulated: false, locationRelevant, matchedLocation };
 }
 
 // simulate() has been intentionally removed — no more fake/simulated responses.
@@ -770,7 +809,7 @@ async function runBrandQueries(brand, keys, db) {
         const result = await queryAI(q, plat, brand, keys);
         if (!result) continue;
         const { text, citations } = result;
-        const parsed = parseResponse(text, brand);
+        const parsed = parseResponse(text, brand, q);
         totalQ++;
         allResults.push({
           platform: plat, query: q,
