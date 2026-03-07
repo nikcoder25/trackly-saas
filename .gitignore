@@ -1,3 +1,5 @@
 node_modules/
-data/db.json
+data/*.json
+data/.jwt-secret
+!data/.gitkeep
 .env
