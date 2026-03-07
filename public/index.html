@@ -192,7 +192,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .proof-card-body{padding:16px;font-size:13px;line-height:1.7;flex:1;display:flex;flex-direction:column;}
 .proof-card-query{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);}
 .proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:180px;overflow:hidden;position:relative;}
-.proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--bg2));pointer-events:none;}
+.proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
 .proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
 .proof-card-footer{padding:10px 16px;display:flex;gap:8px;align-items:center;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
 .proof-view-btn{font-family:var(--mono);font-size:9px;padding:5px 12px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:1px;margin-left:auto;}
@@ -723,6 +723,7 @@ select.finput{appearance:none;}
 <script>
 // ─── LANDING / AUTH NAVIGATION ────────────────────────────────────
 function showAuth(tab){
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
   el('landing-page').style.display = 'none';
   el('auth-page').style.display = 'flex';
   el('app').style.display = 'none';
@@ -757,6 +758,7 @@ let runningQueries = false;
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function toast(msg, type='ok'){
   const t = el('toast');
   t.textContent = msg; t.className = type;
@@ -1021,8 +1023,8 @@ function renderMentions(){
   mentions.slice(0,100).forEach(m => {
     const t = PLAT_THEME[m.platform]||{};
     html += `<tr>
-      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${m.platform}</td>
-      <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.query}</td>
+      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(m.platform)}</td>
+      <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.query)}</td>
       <td><span class="badge ${m.sentiment==='positive'?'pos':m.sentiment==='negative'?'neg':'neu'}">${m.sentiment}</span></td>
       <td><span class="badge ${m.simulated?'sim':'real'}">${m.simulated?'SIMULATED':'REAL'}</span></td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${new Date(m.time).toLocaleDateString()}</td>
@@ -1146,7 +1148,7 @@ function renderProof(){
             </div>
           </div>
           <div class="proof-card-body">
-            <div class="proof-card-query">"${q}"</div>
+            <div class="proof-card-query">"${esc(q)}"</div>
             ${escapedText
               ? `<div class="proof-card-resp" style="color:var(--muted);">${escapedText.substring(0,300)}${escapedText.length>300?'...':''}</div>`
               : `<div class="proof-not-found">Brand not mentioned in this response.</div>`
@@ -1166,7 +1168,7 @@ function renderProof(){
       const typeBadge = m.simulated ? '<span class="badge sim">SIMULATED</span>' : '<span class="badge real">REAL</span>';
       const cites = (m.citations||[]).length;
       const mid = m.id;
-      return `<div class="proof-card" style="background:${t.bg||'var(--bg2)'};border:1px solid ${t.color||'var(--border)'}33;">
+      return `<div class="proof-card" style="background:${t.bg||'var(--bg2)'};--proof-card-bg:${t.bg||'var(--bg2)'};border:1px solid ${t.color||'var(--border)'}33;">
         <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${t.color||'var(--border)'}33;">
           <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
           <div class="proof-card-name" style="color:${t.color||'var(--text)'}">${plat}</div>
@@ -1176,7 +1178,7 @@ function renderProof(){
           </div>
         </div>
         <div class="proof-card-body">
-          <div class="proof-card-query">"${q}"</div>
+          <div class="proof-card-query">"${esc(q)}"</div>
           <div class="proof-card-resp">${highlighted}</div>
         </div>
         <div class="proof-card-footer">
@@ -1189,7 +1191,7 @@ function renderProof(){
     }).join('');
     if (hasCards && cards.trim()) {
       html += `<div style="margin-bottom:28px;">
-        <div class="proof-query-header"><span class="q-label">QUERY:</span> ${q}</div>
+        <div class="proof-query-header"><span class="q-label">QUERY:</span> ${esc(q)}</div>
         <div class="proof-grid">${cards}</div>
       </div>`;
     }
@@ -1202,9 +1204,16 @@ function exportProofCSV(){
   const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
   if (!run) return;
   let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Type','Excerpt']];
-  (run.mentions||[]).forEach(m => {
-    rows.push([m.platform, '"'+m.query+'"', 'Yes', m.sentiment, m.recommended?'Yes':'No', m.simulated?'Simulated':'Real', '"'+(m.context||'').replace(/"/g,"'").substring(0,150)+'"']);
-  });
+  const allResults = run.allResults || [];
+  if (allResults.length) {
+    allResults.forEach(r => {
+      rows.push([r.platform, '"'+r.query.replace(/"/g,"'")+'"', r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.simulated?'Simulated':'Real', '"'+(r.context||'').replace(/"/g,"'").substring(0,150)+'"']);
+    });
+  } else {
+    (run.mentions||[]).forEach(m => {
+      rows.push([m.platform, '"'+m.query.replace(/"/g,"'")+'"', 'Yes', m.sentiment, m.recommended?'Yes':'No', m.simulated?'Simulated':'Real', '"'+(m.context||'').replace(/"/g,"'").substring(0,150)+'"']);
+    });
+  }
   const csv = rows.map(r=>r.join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv,' + encodeURIComponent(csv);

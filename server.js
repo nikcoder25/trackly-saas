@@ -409,7 +409,7 @@ async function callOpenAI(prompt, apiKey, model, endpoint) {
 
 async function callPerplexity(prompt, apiKey) {
   const body = JSON.stringify({
-    model: 'llama-3.1-sonar-small-128k-online',
+    model: 'sonar',
     max_tokens: 600,
     return_citations: true,
     messages: [
