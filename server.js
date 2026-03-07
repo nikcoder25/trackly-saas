@@ -1,3 +1,4 @@
+
 /**
  * Trackly - AI Visibility Tracker SaaS Server
  * Stack: Node.js + Express + JSON file DB + JWT auth
@@ -138,11 +139,11 @@ function safeUser(u) {
 // Users don't need to provide their own keys
 function getServerKeys() {
   return {
-    openai:     process.env.OPENAI_API_KEY     || '',
-    perplexity: process.env.PERPLEXITY_API_KEY || '',
-    gemini:     process.env.GEMINI_API_KEY     || '',
-    claude:     process.env.CLAUDE_API_KEY     || '',
-    grok:       process.env.GROK_API_KEY       || ''
+        openai:     (process.env.OPENAI_API_KEY     || '').trim(),
+        perplexity: (process.env.PERPLEXITY_API_KEY || '').trim(),
+        gemini:     (process.env.GEMINI_API_KEY     || '').trim(),
+        claude:     (process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || '').trim(),
+        grok:       (process.env.GROK_API_KEY       || '').trim()
   };
 }
 
