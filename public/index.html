@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trackly - AI Visibility Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;
+  --border:#2a2a2a;--text:#e8e8e8;--muted:#666;
+  --green:#00ff88;--red:#ff4455;--amber:#f59e0b;--blue:#3b82f6;
+  --purple:#9b72ff;--font:'Syne',sans-serif;--mono:'Space Mono',monospace;
+}
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── AUTH PAGES ─────────────────────────── */
+#auth-page{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.auth-box{width:100%;max-width:420px;}
+.auth-logo{font-size:28px;font-weight:800;letter-spacing:-1px;margin-bottom:8px;}
+.auth-logo span{color:var(--green);}
+.auth-sub{color:var(--muted);font-size:13px;margin-bottom:32px;}
+.auth-tabs{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);}
+.auth-tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:700;font-family:var(--mono);cursor:pointer;background:var(--bg2);color:var(--muted);letter-spacing:1px;border:none;}
+.auth-tab.active{background:var(--bg3);color:var(--text);}
+.auth-panel{display:none;} .auth-panel.active{display:block;}
+.flabel{display:block;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;}
+.finput{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--font);font-size:14px;outline:none;margin-bottom:14px;}
+.finput:focus{border-color:var(--green);}
+.btn-primary{width:100%;padding:12px;background:var(--green);color:#000;border:none;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;}
+.btn-primary:hover{opacity:.9;}
+.auth-err{background:#1a0a0a;border:1px solid var(--red);color:var(--red);padding:10px 12px;font-size:12px;font-family:var(--mono);margin-bottom:14px;display:none;}
+
+/* ── APP LAYOUT ─────────────────────────── */
+#app{display:none;height:100vh;overflow:hidden;display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;}
+.topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);gap:16px;}
+.topbar-logo{font-size:18px;font-weight:800;letter-spacing:-0.5px;}
+.topbar-logo span{color:var(--green);}
+.topbar-brand-sel{flex:0 0 auto;min-width:160px;max-width:220px;}
+.topbar-brand-sel select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;font-family:var(--font);font-size:12px;outline:none;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.user-badge{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.plan-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);text-transform:uppercase;}
+.plan-badge.pro{border-color:var(--green);color:var(--green);}
+.plan-badge.agency{border-color:var(--purple);color:var(--purple);}
+.logout-btn{font-family:var(--mono);font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;letter-spacing:1px;}
+.logout-btn:hover{color:var(--text);}
+
+/* ── SIDEBAR ─────────────────────────────── */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:8px 0;}
+.nav-group{padding:6px 14px 4px;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.nav-item{display:block;width:100%;padding:8px 16px;font-size:12px;font-weight:600;color:var(--muted);background:none;border:none;text-align:left;cursor:pointer;font-family:var(--font);}
+.nav-item:hover{color:var(--text);background:var(--bg3);}
+.nav-item.active{color:var(--green);background:var(--bg3);border-left:2px solid var(--green);}
+.nav-item.run-btn-nav{color:var(--green);border:1px solid var(--green);margin:8px 12px;width:calc(100% - 24px);text-align:center;padding:8px;font-family:var(--mono);font-size:10px;letter-spacing:1px;}
+.nav-item.run-btn-nav:hover{background:var(--green);color:#000;}
+.nav-item.run-btn-nav.running{opacity:.6;cursor:not-allowed;}
+
+/* ── MAIN CONTENT ───────────────────────── */
+.main{overflow-y:auto;background:var(--bg);}
+.view{display:none;padding:24px;max-width:1100px;}
+.view.active{display:block;}
+.view-title{font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;}
+.view-sub{color:var(--muted);font-size:13px;margin-bottom:24px;}
+
+/* ── CARDS & GRIDS ──────────────────────── */
+.card{background:var(--bg2);border:1px solid var(--border);padding:20px;margin-bottom:16px;}
+.card-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);padding:16px;}
+.stat-val{font-size:28px;font-weight:800;font-family:var(--mono);}
+.stat-val.green{color:var(--green);}
+.stat-val.amber{color:var(--amber);}
+.stat-val.red{color:var(--red);}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* ── TABLES ─────────────────────────────── */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);}
+.tbl tr:hover td{background:var(--bg3);}
+.badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:2px;font-weight:700;}
+.badge.pos{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.badge.neg{background:rgba(255,68,85,.1);color:var(--red);border:1px solid rgba(255,68,85,.3);}
+.badge.neu{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
+.badge.sim{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.3);}
+.badge.real{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+
+/* ── PLATFORM GRID ──────────────────────── */
+.plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
+.plat-card{background:var(--bg2);border:1px solid var(--border);padding:14px;display:flex;align-items:center;gap:10px;}
+.plat-logo{font-size:20px;width:32px;text-align:center;}
+.plat-name{font-size:12px;font-weight:700;}
+.plat-sov{font-family:var(--mono);font-size:18px;font-weight:700;margin-left:auto;}
+.plat-status{font-family:var(--mono);font-size:9px;margin-top:2px;}
+
+/* ── PROOF CARDS ───────────────────────── */
+.proof-card{border-radius:4px;margin-bottom:16px;overflow:hidden;}
+.proof-card-header{display:flex;align-items:center;gap:10px;padding:10px 14px;}
+.proof-card-logo{font-size:18px;}
+.proof-card-name{font-size:13px;font-weight:700;}
+.proof-card-badge{margin-left:auto;font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;}
+.proof-card-body{padding:14px;font-size:13px;line-height:1.7;}
+.proof-card-query{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:10px;padding:6px 10px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);}
+.proof-card-resp{white-space:pre-wrap;word-break:break-word;}
+.proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
+.proof-card-footer{padding:8px 14px;display:flex;gap:8px;align-items:center;border-top:1px solid rgba(255,255,255,.05);}
+.proof-view-btn{font-family:var(--mono);font-size:9px;padding:4px 10px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:1px;}
+.proof-view-btn:hover{border-color:var(--text);color:var(--text);}
+.proof-not-found{opacity:.4;font-family:var(--mono);font-size:11px;padding:20px;text-align:center;}
+
+/* ── MODAL ──────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:center;justify-content:center;}
+.overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);width:90%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;}
+.modal-body{padding:20px;overflow-y:auto;flex:1;}
+
+/* ── SETUP & FORMS ──────────────────────── */
+.form-row{margin-bottom:16px;}
+.key-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
+.key-item label{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;}
+.key-item .key-src{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:3px;}
+.key-item input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:var(--mono);font-size:11px;outline:none;}
+.key-item input:focus{border-color:var(--green);}
+.key-item.has-key input{border-color:rgba(0,255,136,.3);}
+.save-keys-btn{width:100%;padding:10px;background:var(--green);color:#000;border:none;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;}
+
+/* ── QUERY TAGS ─────────────────────────── */
+.query-tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);font-size:12px;padding:5px 10px;margin:3px;}
+.query-tag button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;line-height:1;padding:0;}
+.query-tag button:hover{color:var(--red);}
+.add-query-row{display:flex;gap:8px;margin-top:8px;}
+.add-query-row input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;}
+.add-query-row button{padding:8px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;cursor:pointer;font-family:var(--font);}
+
+/* ── ADD BRAND MODAL ────────────────────── */
+.add-brand-box{background:var(--bg2);border:1px solid var(--border);width:90%;max-width:480px;padding:28px;}
+.add-brand-title{font-size:18px;font-weight:800;margin-bottom:20px;}
+
+/* ── TOASTS ─────────────────────────────── */
+#toast{position:fixed;bottom:20px;right:20px;font-family:var(--mono);font-size:11px;padding:10px 16px;background:var(--bg3);border:1px solid var(--border);color:var(--text);z-index:999;display:none;letter-spacing:.5px;}
+#toast.err{border-color:var(--red);color:var(--red);}
+#toast.ok{border-color:var(--green);color:var(--green);}
+
+/* ── MISC ───────────────────────────────── */
+.run-progress{background:var(--bg2);border:1px solid var(--border);padding:14px 20px;margin-bottom:20px;display:none;}
+.run-progress.active{display:block;}
+.run-progress-bar{height:3px;background:var(--bg3);margin-top:8px;}
+.run-progress-fill{height:100%;background:var(--green);transition:width .3s;width:0%;}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-state .icon{font-size:32px;margin-bottom:12px;}
+.empty-state p{font-size:13px;margin-bottom:16px;}
+select.finput{appearance:none;}
+.sov-bar-wrap{background:var(--bg3);height:6px;border-radius:0;overflow:hidden;width:100px;display:inline-block;vertical-align:middle;}
+.sov-bar{height:100%;background:var(--green);}
+@media(max-width:768px){
+  #app{grid-template-columns:1fr;grid-template-rows:52px auto 1fr;}
+  .sidebar{display:none;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);}
+  .plat-grid{grid-template-columns:repeat(2,1fr);}
+  .key-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── AUTH PAGE ──────────────────────────────────────────── -->
+<div id="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">Track<span>ly</span></div>
+    <div class="auth-sub">AI Visibility Tracker — see where your brand shows up in AI answers</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="authTab('login')">LOGIN</button>
+      <button class="auth-tab" onclick="authTab('register')">REGISTER</button>
+    </div>
+    <div id="auth-err" class="auth-err"></div>
+    <div id="panel-login" class="auth-panel active">
+      <label class="flabel">Email</label>
+      <input class="finput" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="flabel">Password</label>
+      <input class="finput" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn-primary" onclick="doLogin()">LOGIN</button>
+    </div>
+    <div id="panel-register" class="auth-panel">
+      <label class="flabel">Name</label>
+      <input class="finput" id="reg-name" type="text" placeholder="Your name">
+      <label class="flabel">Email</label>
+      <input class="finput" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="flabel">Password (min 8 chars)</label>
+      <input class="finput" id="reg-pass" type="password" placeholder="••••••••" autocomplete="new-password">
+      <button class="btn-primary" onclick="doRegister()">CREATE ACCOUNT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN APP ────────────────────────────────────────────── -->
+<div id="app" style="display:none;">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">Track<span>ly</span></div>
+    <div class="topbar-brand-sel">
+      <select id="brand-select" onchange="switchBrand(this.value)">
+        <option value="">-- Select brand --</option>
+      </select>
+    </div>
+    <button style="padding:6px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--green);font-size:11px;font-family:var(--mono);cursor:pointer;letter-spacing:1px;" onclick="openAddBrand()">+ ADD BRAND</button>
+    <div class="topbar-right">
+      <span class="user-badge" id="user-email-badge"></span>
+      <span class="plan-badge" id="plan-badge">FREE</span>
+      <button class="logout-btn" onclick="doLogout()">LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <button class="nav-item run-btn-nav" id="run-btn" onclick="runQueries()">▶ RUN QUERIES</button>
+    <div class="nav-group">Dashboard</div>
+    <button class="nav-item active" onclick="go('overview')">◈ Overview</button>
+    <button class="nav-item" onclick="go('mentions')">◎ Mentions</button>
+    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof</button>
+    <div class="nav-group">Analysis</div>
+    <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
+    <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
+    <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
+    <div class="nav-group">Settings</div>
+    <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
+    <button class="nav-item" onclick="go('apikeys')">⬤ API Keys</button>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- Run progress bar -->
+    <div id="run-progress" class="run-progress" style="margin:16px 24px 0;display:none;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="run-status-text">Running queries...</div>
+      <div class="run-progress-bar"><div class="run-progress-fill" id="run-progress-fill"></div></div>
+    </div>
+
+    <!-- OVERVIEW ─────────────────────────── -->
+    <div id="view-overview" class="view active">
+      <div class="view-title">Overview</div>
+      <div class="view-sub" id="ov-sub">Select a brand and run queries to see results.</div>
+      <div class="stat-grid" id="ov-stats">
+        <div class="stat-card"><div class="stat-val" id="ov-sov">--</div><div class="stat-lbl">Share of Voice</div></div>
+        <div class="stat-card"><div class="stat-val" id="ov-mentions">--</div><div class="stat-lbl">Total Mentions</div></div>
+        <div class="stat-card"><div class="stat-val" id="ov-platforms">--</div><div class="stat-lbl">Platforms Tracked</div></div>
+        <div class="stat-card"><div class="stat-val" id="ov-queries">--</div><div class="stat-lbl">Queries Running</div></div>
+      </div>
+      <div id="ov-plat-grid" class="plat-grid"></div>
+      <div class="card">
+        <div class="card-title">Tracked Queries</div>
+        <div id="ov-query-list"></div>
+        <div class="add-query-row">
+          <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
+          <button onclick="ovAddQuery()">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MENTIONS ─────────────────────────── -->
+    <div id="view-mentions" class="view">
+      <div class="view-title">Mentions</div>
+      <div class="view-sub">Every time your brand was found in an AI response.</div>
+      <div id="mentions-container">
+        <div class="empty-state"><div class="icon">◎</div><p>No mentions yet. Run queries to collect data.</p></div>
+      </div>
+    </div>
+
+    <!-- EVIDENCE & PROOF ─────────────────── -->
+    <div id="view-proof" class="view">
+      <div class="view-title">Evidence &amp; Proof</div>
+      <div class="view-sub">Full AI responses for any run — shareable client proof.</div>
+      <div class="card" style="padding:12px 16px;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RUN:</div>
+          <select class="finput" id="proof-run-sel" style="width:220px;margin:0;" onchange="renderProof()"></select>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">PLATFORM:</div>
+          <select class="finput" id="proof-plat-sel" style="width:150px;margin:0;" onchange="renderProof()">
+            <option value="">All Platforms</option>
+            <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
+            <option>Gemini</option><option>Grok</option><option>Google AIO</option>
+          </select>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RESULT:</div>
+          <select class="finput" id="proof-result-sel" style="width:130px;margin:0;" onchange="renderProof()">
+            <option value="">All Results</option>
+            <option value="found">Mentioned</option>
+            <option value="notfound">Not Mentioned</option>
+          </select>
+          <button onclick="exportProofCSV()" style="padding:7px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:11px;font-family:var(--mono);cursor:pointer;margin-left:auto;letter-spacing:1px;">EXPORT CSV</button>
+        </div>
+      </div>
+      <div id="proof-container"></div>
+    </div>
+
+    <!-- PLATFORM STATUS ──────────────────── -->
+    <div id="view-platforms" class="view">
+      <div class="view-title">Platform Status</div>
+      <div class="view-sub">SOV per AI platform over time.</div>
+      <div id="plat-status-container"></div>
+    </div>
+
+    <!-- QUERY PERFORMANCE ────────────────── -->
+    <div id="view-qperf" class="view">
+      <div class="view-title">Query Performance</div>
+      <div class="view-sub">How often each query triggers a brand mention.</div>
+      <div id="qperf-container"></div>
+    </div>
+
+    <!-- COMPETITORS ──────────────────────── -->
+    <div id="view-competitors" class="view">
+      <div class="view-title">Competitors</div>
+      <div class="view-sub">Track mentions alongside your brand.</div>
+      <div class="card">
+        <div class="card-title">Competitor Brands</div>
+        <div id="comp-tags"></div>
+        <div class="add-query-row" style="margin-top:10px;">
+          <input id="comp-input" type="text" placeholder="Add competitor name..." onkeydown="if(event.key==='Enter')addComp()">
+          <button onclick="addComp()">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BRAND SETUP ─────────────────────── -->
+    <div id="view-setup" class="view">
+      <div class="view-title">Brand Setup</div>
+      <div class="view-sub">Configure your brand details.</div>
+      <div class="card">
+        <div class="form-row">
+          <label class="flabel">Brand Name</label>
+          <input class="finput" id="s-name" type="text" placeholder="Your Brand Name">
+        </div>
+        <div class="form-row">
+          <label class="flabel">Industry</label>
+          <input class="finput" id="s-industry" type="text" placeholder="e.g. HVAC, Plumbing, Landscaping">
+        </div>
+        <div class="form-row">
+          <label class="flabel">Website</label>
+          <input class="finput" id="s-website" type="text" placeholder="yourbrand.com">
+        </div>
+        <div class="form-row">
+          <label class="flabel">City / Location</label>
+          <input class="finput" id="s-city" type="text" placeholder="e.g. Austin TX">
+        </div>
+        <div class="form-row">
+          <label class="flabel">SOV Goal (%)</label>
+          <input class="finput" id="s-goal" type="number" min="1" max="100" placeholder="70">
+        </div>
+        <button class="btn-primary" onclick="saveBrandSetup()">SAVE CHANGES</button>
+      </div>
+    </div>
+
+    <!-- API KEYS ─────────────────────────── -->
+    <div id="view-apikeys" class="view">
+      <div class="view-title">API Keys</div>
+      <div class="view-sub">Keys are stored securely on the server. They are never sent to your browser after saving.</div>
+      <div class="card">
+        <div style="background:var(--bg3);border:1px solid var(--border);padding:12px 14px;margin-bottom:20px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;">
+          Add keys for platforms you want to track. Platforms without a key will show simulated responses.<br>
+          One Gemini key covers both Gemini and Google AI Overview.
+        </div>
+        <div class="key-grid">
+          <div class="key-item" id="ki-openai">
+            <label>⬡ ChatGPT (OpenAI)</label>
+            <input type="password" id="key-openai" placeholder="sk-...">
+            <div class="key-src">platform.openai.com/api-keys</div>
+          </div>
+          <div class="key-item" id="ki-perplexity">
+            <label>◎ Perplexity</label>
+            <input type="password" id="key-perplexity" placeholder="pplx-...">
+            <div class="key-src">perplexity.ai/settings/api</div>
+          </div>
+          <div class="key-item" id="ki-gemini">
+            <label>✦ Gemini + Google AIO</label>
+            <input type="password" id="key-gemini" placeholder="AIza...">
+            <div class="key-src">aistudio.google.com/app/apikey</div>
+          </div>
+          <div class="key-item" id="ki-claude">
+            <label>◈ Claude (Anthropic)</label>
+            <input type="password" id="key-claude" placeholder="sk-ant-...">
+            <div class="key-src">console.anthropic.com/keys</div>
+          </div>
+          <div class="key-item" id="ki-grok">
+            <label>⚡ Grok (xAI)</label>
+            <input type="password" id="key-grok" placeholder="xai-...">
+            <div class="key-src">console.x.ai</div>
+          </div>
+        </div>
+        <button class="save-keys-btn" onclick="saveApiKeys()">SAVE API KEYS</button>
+        <div id="keys-status" style="margin-top:12px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Full Response Modal -->
+<div class="overlay" id="resp-modal">
+  <div class="modal" id="resp-modal-inner">
+    <div class="modal-head" id="resp-modal-head">
+      <div class="modal-title" id="resp-modal-title">Response</div>
+      <button class="modal-close" onclick="closeModal('resp-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="resp-modal-query" style="font-style:italic;color:var(--muted);font-size:12px;margin-bottom:14px;padding:8px 12px;background:var(--bg3);border-left:2px solid var(--border);"></div>
+      <div id="resp-modal-text" style="font-size:13px;line-height:1.8;white-space:pre-wrap;"></div>
+      <div id="resp-modal-cites" style="margin-top:14px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Brand Modal -->
+<div class="overlay open" id="add-brand-modal">
+  <div class="add-brand-box">
+    <div class="add-brand-title">Add New Brand</div>
+    <div id="add-brand-err" style="display:none;background:#1a0a0a;border:1px solid var(--red);color:var(--red);padding:8px 12px;font-size:11px;font-family:var(--mono);margin-bottom:12px;"></div>
+    <label class="flabel">Brand Name *</label>
+    <input class="finput" id="nb-name" type="text" placeholder="Your Brand Name">
+    <label class="flabel">Industry *</label>
+    <input class="finput" id="nb-industry" type="text" placeholder="e.g. HVAC, Plumbing">
+    <label class="flabel">Website</label>
+    <input class="finput" id="nb-website" type="text" placeholder="yourbrand.com">
+    <label class="flabel">City / Location</label>
+    <input class="finput" id="nb-city" type="text" placeholder="e.g. Austin TX">
+    <button class="btn-primary" onclick="doAddBrand()">CREATE BRAND</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── CONSTANTS ────────────────────────────────────────────────────
+const API = '';  // relative URLs - same server
+const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO'];
+const PLAT_THEME = {
+  'ChatGPT':    {bg:'#212121',color:'#19c37d',logo:'⬡'},
+  'Perplexity': {bg:'#1b1b2e',color:'#9b72ff',logo:'◎'},
+  'Claude':     {bg:'#1a1612',color:'#d97706',logo:'◈'},
+  'Gemini':     {bg:'#0d1117',color:'#4285f4',logo:'✦'},
+  'Grok':       {bg:'#0c0c0c',color:'#1d9bf0',logo:'⚡'},
+  'Google AIO': {bg:'#0d1117',color:'#34a853',logo:'⬤'},
+};
+
+// ─── STATE ────────────────────────────────────────────────────────
+let token = localStorage.getItem('trackly_token') || '';
+let currentUser = null;
+let brands = [];
+let currentBrandId = localStorage.getItem('trackly_brand') || '';
+let keyStatus = {};
+let runningQueries = false;
+
+// ─── UTILS ────────────────────────────────────────────────────────
+function el(id){ return document.getElementById(id); }
+function toast(msg, type='ok'){
+  const t = el('toast');
+  t.textContent = msg; t.className = type;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display='none', 3000);
+}
+function show(id){ const e=el(id); if(e) e.style.display='block'; }
+function hide(id){ const e=el(id); if(e) e.style.display='none'; }
+function closeModal(id){ el(id).classList.remove('open'); }
+function openModal(id){ el(id).classList.add('open'); }
+
+function brand(){
+  return brands.find(b => b.id === currentBrandId) || null;
+}
+
+async function api(method, path, data){
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+  };
+  if (data) opts.body = JSON.stringify(data);
+  const res = await fetch(API + path, opts);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Request failed');
+  return json;
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────
+function authTab(tab){
+  document.querySelectorAll('.auth-tab').forEach((t,i) => {
+    t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register'));
+  });
+  el('panel-login').classList.toggle('active', tab==='login');
+  el('panel-register').classList.toggle('active', tab==='register');
+  el('auth-err').style.display = 'none';
+}
+
+async function doLogin(){
+  const email = el('login-email').value.trim();
+  const password = el('login-pass').value;
+  el('auth-err').style.display = 'none';
+  try {
+    const data = await api('POST', '/api/auth/login', { email, password });
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('trackly_token', token);
+    await initApp();
+  } catch(e) {
+    el('auth-err').textContent = e.message;
+    el('auth-err').style.display = 'block';
+  }
+}
+
+async function doRegister(){
+  const name = el('reg-name').value.trim();
+  const email = el('reg-email').value.trim();
+  const password = el('reg-pass').value;
+  el('auth-err').style.display = 'none';
+  try {
+    const data = await api('POST', '/api/auth/register', { name, email, password });
+    token = data.token;
+    currentUser = data.user;
+    localStorage.setItem('trackly_token', token);
+    await initApp();
+  } catch(e) {
+    el('auth-err').textContent = e.message;
+    el('auth-err').style.display = 'block';
+  }
+}
+
+function doLogout(){
+  token = '';
+  currentUser = null;
+  brands = [];
+  localStorage.removeItem('trackly_token');
+  el('app').style.display = 'none';
+  el('auth-page').style.display = 'flex';
+}
+
+// ─── APP INIT ─────────────────────────────────────────────────────
+async function initApp(){
+  el('auth-page').style.display = 'none';
+  el('app').style.display = 'grid';
+
+  // Update topbar
+  el('user-email-badge').textContent = currentUser.email;
+  const pb = el('plan-badge');
+  pb.textContent = (currentUser.plan||'free').toUpperCase();
+  pb.className = 'plan-badge ' + (currentUser.plan||'free');
+
+  // Load brands
+  const data = await api('GET', '/api/brands');
+  brands = data.brands || [];
+
+  // Load key status
+  try {
+    const ks = await api('GET', '/api/keys/status');
+    keyStatus = ks;
+  } catch(e) {}
+
+  // Populate brand select
+  renderBrandSelect();
+
+  if (brands.length === 0) {
+    // Show add brand modal
+    openModal('add-brand-modal');
+  } else {
+    if (!currentBrandId || !brands.find(b => b.id === currentBrandId)) {
+      currentBrandId = brands[0].id;
+    }
+    el('brand-select').value = currentBrandId;
+    closeModal('add-brand-modal');
+    renderAll();
+  }
+}
+
+function renderBrandSelect(){
+  const sel = el('brand-select');
+  sel.innerHTML = '<option value="">-- Select brand --</option>';
+  brands.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id; opt.textContent = b.name;
+    sel.appendChild(opt);
+  });
+  sel.value = currentBrandId;
+}
+
+function switchBrand(id){
+  currentBrandId = id;
+  localStorage.setItem('trackly_brand', id);
+  const b = brand();
+  if (b) renderAll();
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────
+let currentView = 'overview';
+function go(view){
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const v = el('view-'+view);
+  if (v) v.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') === "go('"+view+"')") n.classList.add('active');
+  });
+  renderView(view);
+}
+
+function renderView(view){
+  const b = brand();
+  if (!b) return;
+  if (view==='overview')    renderOverview();
+  if (view==='mentions')    renderMentions();
+  if (view==='proof')       renderProof();
+  if (view==='platforms')   renderPlatformStatus();
+  if (view==='qperf')       renderQPerf();
+  if (view==='competitors') renderCompetitors();
+  if (view==='setup')       renderSetup();
+  if (view==='apikeys')     renderKeyStatus();
+}
+
+function renderAll(){
+  renderView(currentView);
+}
+
+// ─── OVERVIEW ─────────────────────────────────────────────────────
+function renderOverview(){
+  const b = brand();
+  if (!b) return;
+  el('ov-sub').textContent = b.name + ' — ' + (b.industry||'') + (b.city?' — '+b.city:'');
+
+  const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length-1] : null;
+  const sov = lastRun ? lastRun.sov : 0;
+  const mentions = lastRun ? (lastRun.mentions||[]).length : 0;
+  const platCount = 6;
+  const queries = (b.queries||[]).length;
+
+  el('ov-sov').textContent = sov+'%';
+  el('ov-sov').className = 'stat-val ' + (sov>=70?'green':sov>=40?'amber':'red');
+  el('ov-mentions').textContent = mentions;
+  el('ov-platforms').textContent = platCount;
+  el('ov-queries').textContent = queries;
+
+  // Platform cards
+  const pg = el('ov-plat-grid');
+  pg.innerHTML = '';
+  const platSOV = lastRun ? (lastRun.platforms||{}) : {};
+  PLATS.forEach(plat => {
+    const t = PLAT_THEME[plat]||{};
+    const sov = platSOV[plat]||0;
+    const div = document.createElement('div');
+    div.className = 'plat-card';
+    div.innerHTML = `<div class="plat-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
+      <div><div class="plat-name">${plat}</div>
+      <div class="plat-status" style="color:${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'var(--green)':'var(--muted)'}">
+        ${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'LIVE':'SIMULATED'}
+      </div></div>
+      <div class="plat-sov" style="color:${sov>0?t.color||'var(--green)':'var(--muted)'}">${sov}%</div>`;
+    pg.appendChild(div);
+  });
+
+  // Queries list
+  const ql = el('ov-query-list');
+  ql.innerHTML = '';
+  (b.queries||[]).forEach((q,i) => {
+    const tag = document.createElement('span');
+    tag.className = 'query-tag';
+    tag.innerHTML = q + '<button onclick="ovRemoveQuery('+i+')">✕</button>';
+    ql.appendChild(tag);
+  });
+}
+
+async function ovAddQuery(){
+  const inp = el('ov-new-query');
+  const q = inp.value.trim();
+  if (!q) return;
+  const b = brand();
+  if (!b) return;
+  const queries = [...(b.queries||[]), q];
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    inp.value = '';
+    renderOverview();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function ovRemoveQuery(i){
+  const b = brand();
+  const queries = (b.queries||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    renderOverview();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ─── MENTIONS ─────────────────────────────────────────────────────
+function renderMentions(){
+  const b = brand();
+  if (!b) return;
+  const cont = el('mentions-container');
+  const mentions = b.mentions||[];
+  if (!mentions.length) {
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No mentions yet. Run queries to collect data.</p></div>';
+    return;
+  }
+  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Sentiment</th><th>Type</th><th>Time</th><th></th></tr></thead><tbody>';
+  mentions.slice(0,100).forEach(m => {
+    const t = PLAT_THEME[m.platform]||{};
+    html += `<tr>
+      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${m.platform}</td>
+      <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.query}</td>
+      <td><span class="badge ${m.sentiment==='positive'?'pos':m.sentiment==='negative'?'neg':'neu'}">${m.sentiment}</span></td>
+      <td><span class="badge ${m.simulated?'sim':'real'}">${m.simulated?'SIMULATED':'REAL'}</span></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${new Date(m.time).toLocaleDateString()}</td>
+      <td><button onclick="openResp('${m.id}')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+
+function openResp(mentionId){
+  const b = brand();
+  if (!b) return;
+  let m = null;
+  // Search all runs
+  (b.runs||[]).forEach(r => {
+    (r.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
+  });
+  if (!m) (b.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
+  if (!m) return;
+  const t = PLAT_THEME[m.platform]||{};
+  const modal = el('resp-modal');
+  const head = el('resp-modal-head');
+  head.style.background = t.bg||'var(--bg2)';
+  head.style.borderBottom = '1px solid '+t.color;
+  el('resp-modal-title').textContent = (t.logo||'') + ' ' + m.platform;
+  el('resp-modal-query').textContent = m.query;
+  const textEl = el('resp-modal-text');
+  textEl.textContent = m.raw || m.context || '';
+  // Highlight brand
+  if (b.name) {
+    const re = new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
+    textEl.innerHTML = textEl.innerHTML.replace(re, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
+  }
+  // Citations
+  const cc = el('resp-modal-cites');
+  const cites = m.citations||[];
+  if (cites.length) {
+    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES</div>'
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${c}" target="_blank" style="color:var(--blue);text-decoration:none;">${c}</a></div>`).join('');
+  } else cc.innerHTML = '';
+  openModal('resp-modal');
+}
+
+// ─── EVIDENCE & PROOF ─────────────────────────────────────────────
+function renderProof(){
+  const b = brand();
+  if (!b) return;
+  // Populate run selector
+  const sel = el('proof-run-sel');
+  const curVal = sel.value;
+  sel.innerHTML = '';
+  (b.runs||[]).slice().reverse().forEach((r,i) => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
+    sel.appendChild(opt);
+  });
+  if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
+
+  const selectedRunId = sel.value;
+  const run = (b.runs||[]).find(r => r.id === selectedRunId);
+  const cont = el('proof-container');
+
+  if (!run) {
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◆</div><p>No runs yet. Click Run Queries to start.</p></div>';
+    return;
+  }
+
+  const platFilter = el('proof-plat-sel').value;
+  const resultFilter = el('proof-result-sel').value;
+  const queries = b.queries||[];
+  const mentions = run.mentions||[];
+
+  let html = '';
+  queries.forEach(q => {
+    const platList = platFilter ? [platFilter] : PLATS;
+    const cards = platList.map(plat => {
+      const m = mentions.find(x => x.platform===plat && x.query===q);
+      if (resultFilter==='found' && !m) return '';
+      if (resultFilter==='notfound' && m) return '';
+      const t = PLAT_THEME[plat]||{};
+      if (!m) {
+        return `<div class="proof-card" style="background:var(--bg2);border:1px solid var(--border);">
+          <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};">
+            <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
+            <div class="proof-card-name">${plat}</div>
+            <div class="proof-card-badge" style="color:var(--muted);border:1px solid var(--border)">✗ NOT FOUND</div>
+          </div>
+          <div class="proof-not-found">Brand not mentioned in this response.</div>
+        </div>`;
+      }
+      const raw = (m.raw||m.context||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const highlighted = b.name
+        ? raw.replace(new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>')
+        : raw;
+      const sentBadge = m.sentiment==='positive'?'pos':m.sentiment==='negative'?'neg':'neu';
+      const typeBadge = m.simulated ? '<span class="badge sim" style="margin-left:6px;">SIMULATED</span>' : '<span class="badge real" style="margin-left:6px;">REAL</span>';
+      const cites = (m.citations||[]).length;
+      const mid = m.id;
+      return `<div class="proof-card" style="background:${t.bg||'var(--bg2)'};border:1px solid ${t.color||'var(--border)'}33;">
+        <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${t.color||'var(--border)'}33;">
+          <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
+          <div class="proof-card-name" style="color:${t.color||'var(--text)'}">${plat}</div>
+          ${typeBadge}
+          <div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);">✓ MENTIONED</div>
+        </div>
+        <div class="proof-card-body">
+          <div class="proof-card-query">"${q}"</div>
+          <div class="proof-card-resp">${highlighted.substring(0,400)}${highlighted.length>400?'...':''}</div>
+        </div>
+        <div class="proof-card-footer">
+          <span class="badge ${sentBadge}">${m.sentiment}</span>
+          ${m.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
+          ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
+          <button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL ↗</button>
+        </div>
+      </div>`;
+    }).join('');
+    if (cards.trim()) {
+      html += `<div style="margin-bottom:24px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:12px;letter-spacing:1px;">QUERY: ${q}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;">${cards}</div>
+      </div>`;
+    }
+  });
+  cont.innerHTML = html || '<div class="empty-state"><p>No results match your filters.</p></div>';
+}
+
+function exportProofCSV(){
+  const b = brand(); if (!b) return;
+  const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
+  if (!run) return;
+  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Type','Excerpt']];
+  (run.mentions||[]).forEach(m => {
+    rows.push([m.platform, '"'+m.query+'"', 'Yes', m.sentiment, m.recommended?'Yes':'No', m.simulated?'Simulated':'Real', '"'+(m.context||'').replace(/"/g,"'").substring(0,150)+'"']);
+  });
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'trackly-proof-'+run.date+'.csv';
+  a.click();
+}
+
+// ─── PLATFORM STATUS ──────────────────────────────────────────────
+function renderPlatformStatus(){
+  const b = brand();
+  if (!b) return;
+  const cont = el('plat-status-container');
+  if (!b.runs || !b.runs.length) {
+    cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
+    return;
+  }
+  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Last SOV</th><th>Key Status</th><th>Trend (last 7 runs)</th></tr></thead><tbody>';
+  PLATS.forEach(plat => {
+    const t = PLAT_THEME[plat]||{};
+    const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
+    const hasKey = keyStatus[keyField];
+    const recent = b.runs.slice(-7);
+    const lastSOV = recent.length ? (recent[recent.length-1].platforms||{})[plat]||0 : 0;
+    const bars = recent.map(r => {
+      const sov = (r.platforms||{})[plat]||0;
+      return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;opacity:.8;"></div>`;
+    }).join('');
+    html += `<tr>
+      <td><span style="color:${t.color||'#fff'}">${t.logo}</span> ${plat}</td>
+      <td><span class="stat-val" style="font-size:18px;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
+      <td><span class="badge ${hasKey?'real':'sim'}">${hasKey?'LIVE':'SIMULATED'}</span></td>
+      <td style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+
+// ─── QUERY PERFORMANCE ────────────────────────────────────────────
+function renderQPerf(){
+  const b = brand(); if (!b) return;
+  const qs = b.queryStats||{};
+  const queries = b.queries||[];
+  const cont = el('qperf-container');
+  if (!queries.length) { cont.innerHTML='<div class="empty-state"><p>No queries set.</p></div>'; return; }
+  let html = '<table class="tbl"><thead><tr><th>Query</th><th>Runs</th><th>Mentions</th><th>Mention Rate</th><th>Bar</th></tr></thead><tbody>';
+  queries.forEach(q => {
+    const stat = qs[q]||{runs:0,mentions:0};
+    const rate = stat.runs ? Math.round((stat.mentions/stat.runs)*100) : 0;
+    html += `<tr>
+      <td>${q}</td>
+      <td style="font-family:var(--mono)">${stat.runs}</td>
+      <td style="font-family:var(--mono)">${stat.mentions}</td>
+      <td style="font-family:var(--mono);color:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}">${rate}%</td>
+      <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${rate}%;background:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}"></div></div></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  cont.innerHTML = html;
+}
+
+// ─── COMPETITORS ──────────────────────────────────────────────────
+function renderCompetitors(){
+  const b = brand(); if (!b) return;
+  const cont = el('comp-tags');
+  cont.innerHTML = '';
+  (b.competitors||[]).forEach((c,i) => {
+    const tag = document.createElement('span');
+    tag.className = 'query-tag';
+    tag.innerHTML = c + '<button onclick="removeComp('+i+')">✕</button>';
+    cont.appendChild(tag);
+  });
+}
+
+async function addComp(){
+  const inp = el('comp-input');
+  const v = inp.value.trim(); if (!v) return;
+  const b = brand(); if (!b) return;
+  const competitors = [...(b.competitors||[]), v];
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { competitors });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    inp.value = '';
+    renderCompetitors();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function removeComp(i){
+  const b = brand(); if (!b) return;
+  const competitors = (b.competitors||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { competitors });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderCompetitors();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ─── BRAND SETUP ──────────────────────────────────────────────────
+function renderSetup(){
+  const b = brand(); if (!b) return;
+  el('s-name').value = b.name||'';
+  el('s-industry').value = b.industry||'';
+  el('s-website').value = b.website||'';
+  el('s-city').value = b.city||'';
+  el('s-goal').value = b.goal||70;
+}
+
+async function saveBrandSetup(){
+  const b = brand(); if (!b) return;
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, {
+      name: el('s-name').value.trim(),
+      industry: el('s-industry').value.trim(),
+      website: el('s-website').value.trim(),
+      city: el('s-city').value.trim(),
+      goal: parseInt(el('s-goal').value)||70
+    });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderBrandSelect();
+    toast('Brand settings saved', 'ok');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ─── API KEYS ─────────────────────────────────────────────────────
+function renderKeyStatus(){
+  const status = keyStatus;
+  ['openai','perplexity','gemini','claude','grok'].forEach(k => {
+    const ki = el('ki-'+k);
+    const inp = el('key-'+k);
+    if (!ki || !inp) return;
+    if (status[k]) {
+      ki.classList.add('has-key');
+      inp.placeholder = '••••••••••••• (saved)';
+    } else {
+      ki.classList.remove('has-key');
+    }
+  });
+  const statusEl = el('keys-status');
+  const active = Object.keys(status).filter(k=>status[k]);
+  statusEl.textContent = active.length
+    ? 'Active keys: ' + active.join(', ').toUpperCase()
+    : 'No keys saved yet. Add keys to get real AI responses.';
+}
+
+async function saveApiKeys(){
+  const keys = {};
+  ['openai','perplexity','gemini','claude','grok'].forEach(k => {
+    const v = el('key-'+k)?.value.trim();
+    if (v && !v.includes('•')) keys[k] = v;
+  });
+  try {
+    const data = await api('PUT', '/api/keys', keys);
+    keyStatus = {};
+    (data.hasKeys||[]).forEach(k => keyStatus[k] = true);
+    // Clear inputs
+    ['openai','perplexity','gemini','claude','grok'].forEach(k => {
+      if (el('key-'+k)) el('key-'+k).value = '';
+    });
+    renderKeyStatus();
+    toast('API keys saved securely on server', 'ok');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ─── ADD BRAND ────────────────────────────────────────────────────
+function openAddBrand(){
+  el('add-brand-err').style.display = 'none';
+  ['nb-name','nb-industry','nb-website','nb-city'].forEach(id => { const e=el(id); if(e) e.value=''; });
+  openModal('add-brand-modal');
+}
+
+async function doAddBrand(){
+  const name = el('nb-name').value.trim();
+  const industry = el('nb-industry').value.trim();
+  if (!name || !industry) {
+    el('add-brand-err').textContent = 'Brand name and industry are required.';
+    el('add-brand-err').style.display = 'block';
+    return;
+  }
+  try {
+    const data = await api('POST', '/api/brands', {
+      name, industry,
+      website: el('nb-website').value.trim(),
+      city: el('nb-city').value.trim()
+    });
+    brands.push(data.brand);
+    currentBrandId = data.brand.id;
+    localStorage.setItem('trackly_brand', currentBrandId);
+    renderBrandSelect();
+    el('brand-select').value = currentBrandId;
+    closeModal('add-brand-modal');
+    renderAll();
+    toast('Brand "'+name+'" created', 'ok');
+  } catch(e) {
+    el('add-brand-err').textContent = e.message;
+    el('add-brand-err').style.display = 'block';
+  }
+}
+
+// ─── RUN QUERIES ──────────────────────────────────────────────────
+async function runQueries(){
+  if (runningQueries) return;
+  const b = brand();
+  if (!b) { toast('Select a brand first','err'); return; }
+  if (!b.queries||!b.queries.length) { toast('Add some queries first','err'); return; }
+
+  runningQueries = true;
+  const btn = el('run-btn');
+  const prog = el('run-progress');
+  const fill = el('run-progress-fill');
+  const statusTxt = el('run-status-text');
+
+  btn.classList.add('running');
+  btn.textContent = '⏳ RUNNING...';
+  prog.style.display = 'block';
+  fill.style.width = '0%';
+  statusTxt.textContent = 'Sending queries to AI platforms...';
+
+  // Animate progress bar
+  let progress = 0;
+  const progInt = setInterval(() => {
+    progress = Math.min(progress+2, 90);
+    fill.style.width = progress+'%';
+  }, 400);
+
+  try {
+    const data = await api('POST', '/api/brands/'+b.id+'/run', {});
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+
+    clearInterval(progInt);
+    fill.style.width = '100%';
+    statusTxt.textContent = `Done! ${data.result.newMentions} new mentions found across ${data.result.totalQ} queries.`;
+
+    setTimeout(() => {
+      prog.style.display = 'none';
+      fill.style.width = '0%';
+    }, 3000);
+
+    renderAll();
+    toast(`Run complete — SOV: ${data.result.sov}%`, 'ok');
+  } catch(e) {
+    clearInterval(progInt);
+    prog.style.display = 'none';
+    toast('Run failed: '+e.message, 'err');
+  }
+
+  runningQueries = false;
+  btn.classList.remove('running');
+  btn.textContent = '▶ RUN QUERIES';
+}
+
+// ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') {
+    document.querySelectorAll('.overlay.open').forEach(o => {
+      if (o.id !== 'add-brand-modal' || brands.length > 0) o.classList.remove('open');
+    });
+  }
+});
+
+// ─── AUTO-LOGIN ───────────────────────────────────────────────────
+(async function(){
+  if (!token) return;
+  try {
+    const data = await api('GET', '/api/auth/me');
+    currentUser = data.user;
+    await initApp();
+  } catch(e) {
+    localStorage.removeItem('trackly_token');
+    token = '';
+  }
+})();
+</script>
+</body>
+</html>
