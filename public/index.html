@@ -1444,12 +1444,9 @@ function openResp(mentionId){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
   el('resp-modal-query').innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
   const textEl = el('resp-modal-text');
-  textEl.textContent = m.raw || m.context || '';
-  // Highlight brand
+  const rawText = (m.raw || m.context || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const hre = brandHighlightRe(b);
-  if (hre) {
-    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
-  }
+  textEl.innerHTML = hre ? rawText.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText;
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
@@ -1475,12 +1472,9 @@ function openResultFromRun(runId, platform, encodedQuery){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
-  textEl.textContent = result.raw || result.context || '[No response text]';
-  // Highlight brand name
-  const hre = brandHighlightRe(b);
-  if (hre) {
-    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
-  }
+  const rawText1 = (result.raw || result.context || '[No response text]').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const hre1 = brandHighlightRe(b);
+  textEl.innerHTML = hre1 ? rawText1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText1;
   // Show citations if any
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1506,12 +1500,9 @@ function openFullResult(platform, encodedQuery){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
-  textEl.textContent = result.raw || result.context || '[No response text]';
-  // Highlight brand name
-  const hre = brandHighlightRe(b);
-  if (hre) {
-    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
-  }
+  const rawText2 = (result.raw || result.context || '[No response text]').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const hre2 = brandHighlightRe(b);
+  textEl.innerHTML = hre2 ? rawText2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText2;
   // Show citations
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
