@@ -729,6 +729,7 @@ function showAuth(tab){
   authTab(tab || 'login');
 }
 function showLanding(){
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
   el('landing-page').style.display = 'block';
   el('auth-page').style.display = 'none';
   el('app').style.display = 'none';
@@ -833,6 +834,8 @@ function doLogout(){
   currentBrandId = '';
   localStorage.removeItem('trackly_token');
   localStorage.removeItem('trackly_brand');
+  // Close all open overlays/modals
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
   el('app').style.display = 'none';
   el('auth-page').style.display = 'none';
   el('landing-page').style.display = 'block';
