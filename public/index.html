@@ -648,6 +648,19 @@ select.finput{appearance:none;}
           <input class="finput" id="s-website" type="text" placeholder="yourbrand.com">
         </div>
         <div class="form-row">
+          <label class="flabel">Alternate Names / Aliases</label>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
+            AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br>
+            Auto-generated from brand name &amp; website — add more if needed.
+          </div>
+          <div id="alias-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+          <div class="add-query-row">
+            <input id="alias-input" type="text" placeholder="Add alternate name..." onkeydown="if(event.key==='Enter')addAlias()">
+            <button onclick="addAlias()">+ Add</button>
+            <button onclick="autoGenerateAliases()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">AUTO-GENERATE</button>
+          </div>
+        </div>
+        <div class="form-row">
           <label class="flabel">City / Location</label>
           <input class="finput" id="s-city" type="text" placeholder="e.g. Austin TX">
         </div>
@@ -745,6 +758,16 @@ let runningQueries = false;
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function brandHighlightRe(b){
+  // Build regex that matches brand name + all aliases
+  const terms = [b.name];
+  if (b.aliases && b.aliases.length) terms.push(...b.aliases);
+  const escaped = terms.filter(t=>t&&t.length>=2).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  if (!escaped.length) return null;
+  // Sort longest first so longer matches take priority
+  escaped.sort((a,b) => b.length - a.length);
+  return new RegExp('('+escaped.join('|')+')', 'gi');
+}
 function toast(msg, type='ok'){
   const t = el('toast');
   t.textContent = msg; t.className = type;
@@ -1115,9 +1138,9 @@ function openResp(mentionId){
   const textEl = el('resp-modal-text');
   textEl.textContent = m.raw || m.context || '';
   // Highlight brand
-  if (b.name) {
-    const re = new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
-    textEl.innerHTML = textEl.innerHTML.replace(re, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
+  const hre = brandHighlightRe(b);
+  if (hre) {
+    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
   }
   // Citations
   const cc = el('resp-modal-cites');
@@ -1146,9 +1169,9 @@ function openResultFromRun(runId, platform, encodedQuery){
   const textEl = el('resp-modal-text');
   textEl.textContent = result.raw || result.context || '[No response text]';
   // Highlight brand name
-  if (b.name) {
-    const re = new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
-    textEl.innerHTML = textEl.innerHTML.replace(re, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
+  const hre = brandHighlightRe(b);
+  if (hre) {
+    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
   }
   // Show citations if any
   const cc = el('resp-modal-cites');
@@ -1177,9 +1200,9 @@ function openFullResult(platform, encodedQuery){
   const textEl = el('resp-modal-text');
   textEl.textContent = result.raw || result.context || '[No response text]';
   // Highlight brand name
-  if (b.name) {
-    const re = new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
-    textEl.innerHTML = textEl.innerHTML.replace(re, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
+  const hre = brandHighlightRe(b);
+  if (hre) {
+    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
   }
   // Show citations
   const cc = el('resp-modal-cites');
@@ -1242,8 +1265,9 @@ function renderProof(){
       const isMentioned = !!(m || (fullResult && fullResult.mentioned));
       const responseText = (isMentioned && m) ? (m.raw||m.context||'') : (fullResult ? fullResult.raw||fullResult.context||'' : '');
       const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const displayResp = (isMentioned && b.name)
-        ? escapedResp.replace(new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>')
+      const proofHre = brandHighlightRe(b);
+      const displayResp = (isMentioned && proofHre)
+        ? escapedResp.replace(proofHre,'<mark>$1</mark>')
         : escapedResp;
       const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
       const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
@@ -1415,6 +1439,86 @@ async function removeComp(i){
 }
 
 // ─── BRAND SETUP ──────────────────────────────────────────────────
+function generateAliasesFromBrand(name, website){
+  const aliases = new Set();
+  if (!name) return [];
+  const n = name.trim();
+  // Original name
+  aliases.add(n);
+  // Lowercase
+  aliases.add(n.toLowerCase());
+  // No spaces (CoolAirPro)
+  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, ''));
+  // Hyphenated (Cool-Air-Pro)
+  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, '-'));
+  // No punctuation (McDonald's → McDonalds)
+  const noPunc = n.replace(/[''`\-.,&!]/g, '');
+  if (noPunc !== n) aliases.add(noPunc);
+  // Lowercase no space
+  if (n.includes(' ')) aliases.add(n.toLowerCase().replace(/\s+/g, ''));
+  // First word only if multi-word and first word is long enough
+  const words = n.split(/\s+/);
+  if (words.length >= 2 && words[0].length >= 4) aliases.add(words[0]);
+  // Website domain
+  if (website) {
+    const domain = website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    if (domain) {
+      aliases.add(domain); // coolairpro.com
+      aliases.add(domain.split('.')[0]); // coolairpro
+    }
+  }
+  return [...aliases].filter(a => a.length >= 2);
+}
+
+function renderAliasTags(){
+  const b = brand(); if (!b) return;
+  const cont = el('alias-tags');
+  cont.innerHTML = '';
+  (b.aliases||[]).forEach((a,i) => {
+    const tag = document.createElement('span');
+    tag.className = 'query-tag';
+    tag.appendChild(document.createTextNode(a + ' '));
+    const btn = document.createElement('button');
+    btn.textContent = '\u2715';
+    btn.addEventListener('click', function(){ removeAlias(i); });
+    tag.appendChild(btn);
+    cont.appendChild(tag);
+  });
+}
+
+function addAlias(){
+  const b = brand(); if (!b) return;
+  const inp = el('alias-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  const aliases = [...(b.aliases||[])];
+  if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
+  b.aliases = aliases;
+  inp.value = '';
+  renderAliasTags();
+}
+
+async function removeAlias(i){
+  const b = brand(); if (!b) return;
+  b.aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
+  renderAliasTags();
+}
+
+function autoGenerateAliases(){
+  const b = brand(); if (!b) return;
+  const name = el('s-name').value.trim() || b.name;
+  const website = el('s-website').value.trim() || b.website;
+  const generated = generateAliasesFromBrand(name, website);
+  const existing = new Set((b.aliases||[]).map(a => a.toLowerCase()));
+  const newAliases = [...(b.aliases||[])];
+  generated.forEach(a => {
+    if (!existing.has(a.toLowerCase())) { newAliases.push(a); existing.add(a.toLowerCase()); }
+  });
+  b.aliases = newAliases;
+  renderAliasTags();
+  toast(generated.length + ' aliases generated', 'ok');
+}
+
 function renderSetup(){
   const b = brand(); if (!b) return;
   el('s-name').value = b.name||'';
@@ -1422,6 +1526,12 @@ function renderSetup(){
   el('s-website').value = b.website||'';
   el('s-city').value = b.city||'';
   el('s-goal').value = b.goal||70;
+
+  // Auto-generate aliases on first visit if none exist
+  if (!b.aliases || !b.aliases.length) {
+    b.aliases = generateAliasesFromBrand(b.name, b.website);
+  }
+  renderAliasTags();
 
   // Render platform checkboxes
   const cont = el('setup-plat-list');
@@ -1465,7 +1575,8 @@ async function saveBrandSetup(){
       website: el('s-website').value.trim(),
       city: el('s-city').value.trim(),
       goal: parseInt(el('s-goal').value)||70,
-      platforms: selectedPlats.length ? selectedPlats : PLATS
+      platforms: selectedPlats.length ? selectedPlats : PLATS,
+      aliases: b.aliases || []
     });
     const idx = brands.findIndex(x=>x.id===b.id);
     if (idx >= 0) brands[idx] = data.brand;

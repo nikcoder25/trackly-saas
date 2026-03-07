@@ -632,6 +632,28 @@ function parseResponse(text, brand) {
     }
   }
 
+  // Strategy 6: Check ALL aliases — user-defined alternate names, abbreviations, domain variations
+  if (!mentioned && brand.aliases && brand.aliases.length) {
+    for (const alias of brand.aliases) {
+      const aliasLower = alias.toLowerCase().trim();
+      if (aliasLower.length < 2) continue;
+      const aliasIdx = lower.indexOf(aliasLower);
+      if (aliasIdx !== -1) {
+        mentioned = true;
+        matchPosition = aliasIdx;
+        break;
+      }
+      // Also try without punctuation
+      const aliasNoPunc = aliasLower.replace(/[''`\-.,&!]/g, '');
+      const textNoPunc = lower.replace(/[''`\-.,&!]/g, '');
+      if (aliasNoPunc.length >= 3 && textNoPunc.includes(aliasNoPunc)) {
+        mentioned = true;
+        matchPosition = textNoPunc.indexOf(aliasNoPunc);
+        break;
+      }
+    }
+  }
+
   // Recommendation detection — only if brand was mentioned, with word boundaries
   const recommended = mentioned && /\b(recommend|best|top\s+pick|top\s+choice|leading|solid choice|preferred|go.?with|first choice|suggest|worth considering|strong contender|stands out|highly recommend|top.?rated)\b/i.test(text);
 
