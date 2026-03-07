@@ -701,7 +701,10 @@ select.finput{appearance:none;}
 <!-- Add Brand Modal -->
 <div class="overlay" id="add-brand-modal">
   <div class="add-brand-box">
-    <div class="add-brand-title">Add New Brand</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div class="add-brand-title" style="margin-bottom:0;">Add New Brand</div>
+      <button onclick="closeModal('add-brand-modal')" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:4px 8px;">&#x2715;</button>
+    </div>
     <div id="add-brand-err" style="display:none;background:#1a0a0a;border:1px solid var(--red);color:var(--red);padding:8px 12px;font-size:11px;font-family:var(--mono);margin-bottom:12px;"></div>
     <label class="flabel">Brand Name *</label>
     <input class="finput" id="nb-name" type="text" placeholder="Your Brand Name">
