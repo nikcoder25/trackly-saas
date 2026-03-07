@@ -17,12 +17,28 @@ const http     = require('http');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'trackly-super-secret-jwt-key-change-in-production';
+// JWT Secret — use a stable secret so tokens survive server restarts
+// In production, always set JWT_SECRET in environment variables
+const JWT_SECRET_PATH = path.join(__dirname, 'data', '.jwt-secret');
+function getJWTSecret() {
+  // Priority: env var > persisted file > generate new
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  const dataDir = path.join(__dirname, 'data');
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (fs.existsSync(JWT_SECRET_PATH)) {
+    return fs.readFileSync(JWT_SECRET_PATH, 'utf8').trim();
+  }
+  // Generate and persist a stable secret
+  const secret = 'trackly-' + require('crypto').randomBytes(32).toString('hex');
+  fs.writeFileSync(JWT_SECRET_PATH, secret);
+  return secret;
+}
+const JWT_SECRET = getJWTSecret();
 const DB_PATH    = path.join(__dirname, 'data', 'db.json');
 
 // ─── ENSURE DATA DIR ─────────────────────────────────────────────
 if (!fs.existsSync(path.join(__dirname, 'data'))) {
-  fs.mkdirSync(path.join(__dirname, 'data'));
+  fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
 }
 
 // ─── JSON FILE DATABASE ───────────────────────────────────────────
@@ -30,10 +46,18 @@ if (!fs.existsSync(path.join(__dirname, 'data'))) {
 function readDB() {
   if (!fs.existsSync(DB_PATH)) return { users: [], brands: [] };
   try { return JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
-  catch(e) { return { users: [], brands: [] }; }
+  catch(e) {
+    console.error('DB read error, backing up corrupt file:', e.message);
+    // Backup corrupt file and return empty DB
+    try { fs.copyFileSync(DB_PATH, DB_PATH + '.backup-' + Date.now()); } catch(_){}
+    return { users: [], brands: [] };
+  }
 }
 function writeDB(data) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+  // Write atomically to prevent corruption from crashes
+  const tmpPath = DB_PATH + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+  fs.renameSync(tmpPath, DB_PATH);
 }
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);

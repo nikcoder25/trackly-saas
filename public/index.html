@@ -1563,22 +1563,27 @@ document.addEventListener('keydown', e => {
 // ─── AUTO-LOGIN ───────────────────────────────────────────────────
 (async function(){
   if (!token) {
-    // No token - show landing page
     el('landing-page').style.display = 'block';
     el('auth-page').style.display = 'none';
     el('app').style.display = 'none';
     return;
   }
-  // Hide landing, try auto-login
+  // Try auto-login with saved token
   el('landing-page').style.display = 'none';
   try {
     const data = await api('GET', '/api/auth/me');
     currentUser = data.user;
     await initApp();
   } catch(e) {
+    // Token invalid or expired — show login page directly (not landing)
     localStorage.removeItem('trackly_token');
     token = '';
-    el('landing-page').style.display = 'block';
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    authTab('login');
+    // Show helpful message
+    el('auth-err').textContent = 'Session expired. Please log in again.';
+    el('auth-err').style.display = 'block';
   }
 })();
 </script>
