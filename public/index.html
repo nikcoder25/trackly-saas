@@ -796,6 +796,7 @@ select.finput{appearance:none;}
         <div class="stat-card"><div class="stat-val" id="ov-queries">--</div><div class="stat-lbl">Queries Running</div></div>
       </div>
       <div id="ov-plat-grid" class="plat-grid"></div>
+      <div id="ov-last-run-summary" style="display:none;margin-bottom:20px;"></div>
       <div class="card">
         <div class="card-title">Tracked Queries</div>
         <div id="ov-query-list"></div>
@@ -1244,6 +1245,29 @@ function renderOverview(){
       <div class="plat-sov" style="color:${sov>0?t.color||'var(--green)':'var(--muted)'}">${sov}%</div>`;
     pg.appendChild(div);
   });
+
+  // Last run summary
+  const lrs = el('ov-last-run-summary');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length) {
+    const errors = lastRun.allResults.filter(r => r.error);
+    const found = lastRun.allResults.filter(r => r.mentioned);
+    const runTime = new Date(lastRun.time || lastRun.date);
+    let summaryHtml = `<div class="card"><div class="card-title">Last Run — ${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div>`;
+    if (errors.length > 0) {
+      summaryHtml += `<div style="background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
+      summaryHtml += `<span style="color:var(--red,#ff4444);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
+      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check your API keys in Railway environment variables</span></div>`;
+    }
+    summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses`;
+    summaryHtml += ` · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div></div>`;
+    lrs.innerHTML = summaryHtml;
+    lrs.style.display = 'block';
+  } else if (lastRun) {
+    lrs.innerHTML = `<div class="card"><div class="card-title">Last Run</div><div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No results recorded. <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View Details →</a></div></div>`;
+    lrs.style.display = 'block';
+  } else {
+    lrs.style.display = 'none';
+  }
 
   // Queries list
   const ql = el('ov-query-list');
@@ -1990,15 +2014,24 @@ async function runQueries(){
 
     clearInterval(progInt);
     fill.style.width = '100%';
-    statusTxt.textContent = `Done! Brand found in ${data.result.newMentions} responses across ${data.result.totalQ} queries.`;
+
+    const errors = data.result.errorCount || 0;
+    const statusParts = [`Brand found in ${data.result.newMentions} of ${data.result.totalQ} responses`];
+    if (errors > 0) statusParts.push(`${errors} API error${errors>1?'s':''}`);
+    statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
 
     setTimeout(() => {
       prog.style.display = 'none';
       fill.style.width = '0%';
     }, 3000);
 
-    renderAll();
-    toast(`Run complete — SOV: ${data.result.sov}%`, 'ok');
+    // Auto-switch to All Results view so user sees the results immediately
+    go('mentions');
+
+    const toastMsg = errors > 0
+      ? `Run complete — SOV: ${data.result.sov}% (${errors} error${errors>1?'s':''})`
+      : `Run complete — SOV: ${data.result.sov}%`;
+    toast(toastMsg, errors > 0 ? 'warn' : 'ok');
   } catch(e) {
     clearInterval(progInt);
     prog.style.display = 'none';

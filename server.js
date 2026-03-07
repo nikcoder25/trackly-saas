@@ -374,7 +374,8 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   db.brands[idx] = brand;
   writeDB(db);
 
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 6 - activePlatforms.length } });
+  const errorCount = allResults.filter(r => r.error).length;
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 6 - activePlatforms.length, errorCount } });
 });
 
 // ─── AI QUERY FUNCTIONS (server-side) ─────────────────────────────
