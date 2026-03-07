@@ -109,31 +109,21 @@ function safeUser(u) {
            hasKeys: Object.keys(u.apiKeys||{}).filter(k => u.apiKeys[k]) };
 }
 
-// ─── API KEYS (server-side only, never returned to client) ────────
-app.put('/api/keys', auth, (req, res) => {
-  const db = readDB();
-  const user = db.users.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
-  const { openai, perplexity, gemini, claude, grok } = req.body;
-  if (!user.apiKeys) user.apiKeys = {};
-  // Only update keys that are provided and not masked
-  if (openai   && !openai.includes('•'))   user.apiKeys.openai      = openai;
-  if (perplexity && !perplexity.includes('•')) user.apiKeys.perplexity = perplexity;
-  if (gemini   && !gemini.includes('•'))   user.apiKeys.gemini      = gemini;
-  if (claude   && !claude.includes('•'))   user.apiKeys.claude      = claude;
-  if (grok     && !grok.includes('•'))     user.apiKeys.grok        = grok;
-
-  writeDB(db);
-  res.json({ success: true, hasKeys: Object.keys(user.apiKeys).filter(k => user.apiKeys[k]) });
-});
+// ─── API KEYS (from server environment variables — SaaS mode) ────
+// Keys are configured by the platform admin via .env / environment variables
+// Users don't need to provide their own keys
+function getServerKeys() {
+  return {
+    openai:     process.env.OPENAI_API_KEY     || '',
+    perplexity: process.env.PERPLEXITY_API_KEY || '',
+    gemini:     process.env.GEMINI_API_KEY     || '',
+    claude:     process.env.CLAUDE_API_KEY     || '',
+    grok:       process.env.GROK_API_KEY       || ''
+  };
+}
 
 app.get('/api/keys/status', auth, (req, res) => {
-  const db = readDB();
-  const user = db.users.find(u => u.id === req.user.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  // Return which platforms have keys (not the keys themselves)
-  const keys = user.apiKeys || {};
+  const keys = getServerKeys();
   res.json({
     openai:     !!keys.openai,
     perplexity: !!keys.perplexity,
@@ -224,8 +214,8 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   const brand = db.brands.find(b => b.id === req.params.id && b.userId === req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
-  const user = db.users.find(u => u.id === req.user.id);
-  const keys = user?.apiKeys || {};
+  // Use server-side API keys (SaaS mode — admin configures keys via env vars)
+  const keys = getServerKeys();
 
   const PLATFORM_KEY_MAP = {
     'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -240,7 +230,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
     .map(([plat]) => plat);
 
   if (!activePlatforms.length) {
-    return res.status(400).json({ error: 'No API keys configured. Add at least one API key to run queries.' });
+    return res.status(400).json({ error: 'No AI platforms configured. Please contact support.' });
   }
 
   const newMentions = [];

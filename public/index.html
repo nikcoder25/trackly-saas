@@ -513,7 +513,6 @@ select.finput{appearance:none;}
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
-    <button class="nav-item" onclick="go('apikeys')">⬤ API Keys</button>
   </div>
 
   <!-- Main -->
@@ -542,6 +541,14 @@ select.finput{appearance:none;}
         <div class="add-query-row">
           <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
           <button onclick="ovAddQuery()">+ Add</button>
+          <button onclick="toggleBulkAdd()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">BULK ADD</button>
+        </div>
+        <div id="bulk-query-box" style="display:none;margin-top:12px;">
+          <textarea id="bulk-query-input" placeholder="Paste multiple queries here — one per line&#10;&#10;Example:&#10;Best HVAC company in Austin TX&#10;Top rated AC repair near me&#10;Who is the best plumber in Dallas" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px;resize:vertical;box-sizing:border-box;"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+            <button onclick="bulkAddQueries()" class="btn-primary" style="padding:8px 16px;font-size:11px;">ADD ALL QUERIES</button>
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted);" id="bulk-count-hint">One query per line</span>
+          </div>
         </div>
       </div>
     </div>
@@ -557,8 +564,8 @@ select.finput{appearance:none;}
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FILTER:</div>
           <select class="finput" id="mentions-filter-sel" style="width:150px;margin:0;" onchange="renderMentions()">
             <option value="all">All Results</option>
-            <option value="mentioned">Mentioned Only</option>
-            <option value="not-mentioned">Not Mentioned</option>
+            <option value="mentioned">Found Only</option>
+            <option value="not-mentioned">Not Found Only</option>
           </select>
         </div>
       </div>
@@ -584,8 +591,8 @@ select.finput{appearance:none;}
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RESULT:</div>
           <select class="finput" id="proof-result-sel" style="width:130px;margin:0;" onchange="renderProof()">
             <option value="">All Results</option>
-            <option value="found">Mentioned</option>
-            <option value="notfound">Not Mentioned</option>
+            <option value="found">Found</option>
+            <option value="notfound">Not Found</option>
           </select>
           <button onclick="exportProofCSV()" style="padding:7px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:11px;font-family:var(--mono);cursor:pointer;margin-left:auto;letter-spacing:1px;">EXPORT CSV</button>
         </div>
@@ -651,46 +658,6 @@ select.finput{appearance:none;}
       </div>
     </div>
 
-    <!-- API KEYS ─────────────────────────── -->
-    <div id="view-apikeys" class="view">
-      <div class="view-title">API Keys</div>
-      <div class="view-sub">Keys are stored securely on the server. They are never sent to your browser after saving.</div>
-      <div class="card">
-        <div style="background:var(--bg3);border:1px solid var(--border);padding:12px 14px;margin-bottom:20px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;">
-          Add keys for platforms you want to track. Platforms without a key will be skipped — only real API responses are tracked.<br>
-          One Gemini key covers both Gemini and Google AI Overview.
-        </div>
-        <div class="key-grid">
-          <div class="key-item" id="ki-openai">
-            <label>⬡ ChatGPT (OpenAI)</label>
-            <input type="password" id="key-openai" placeholder="sk-...">
-            <div class="key-src">platform.openai.com/api-keys</div>
-          </div>
-          <div class="key-item" id="ki-perplexity">
-            <label>◎ Perplexity</label>
-            <input type="password" id="key-perplexity" placeholder="pplx-...">
-            <div class="key-src">perplexity.ai/settings/api</div>
-          </div>
-          <div class="key-item" id="ki-gemini">
-            <label>✦ Gemini + Google AIO</label>
-            <input type="password" id="key-gemini" placeholder="AIza...">
-            <div class="key-src">aistudio.google.com/app/apikey</div>
-          </div>
-          <div class="key-item" id="ki-claude">
-            <label>◈ Claude (Anthropic)</label>
-            <input type="password" id="key-claude" placeholder="sk-ant-...">
-            <div class="key-src">console.anthropic.com/keys</div>
-          </div>
-          <div class="key-item" id="ki-grok">
-            <label>⚡ Grok (xAI)</label>
-            <input type="password" id="key-grok" placeholder="xai-...">
-            <div class="key-src">console.x.ai</div>
-          </div>
-        </div>
-        <button class="save-keys-btn" onclick="saveApiKeys()">SAVE API KEYS</button>
-        <div id="keys-status" style="margin-top:12px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
-      </div>
-    </div>
 
   </div><!-- /main -->
 </div><!-- /app -->
@@ -935,7 +902,6 @@ function renderView(view){
   if (view==='qperf')       renderQPerf();
   if (view==='competitors') renderCompetitors();
   if (view==='setup')       renderSetup();
-  if (view==='apikeys')     renderKeyStatus();
 }
 
 function renderAll(){
@@ -973,7 +939,7 @@ function renderOverview(){
     div.innerHTML = `<div class="plat-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
       <div><div class="plat-name">${plat}</div>
       <div class="plat-status" style="color:${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'var(--green)':'var(--muted)'}">
-        ${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'LIVE':'SIMULATED'}
+        ${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'ACTIVE':'INACTIVE'}
       </div></div>
       <div class="plat-sov" style="color:${sov>0?t.color||'var(--green)':'var(--muted)'}">${sov}%</div>`;
     pg.appendChild(div);
@@ -1008,6 +974,40 @@ async function ovAddQuery(){
     brands[idx] = data.brand;
     inp.value = '';
     renderOverview();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+function toggleBulkAdd(){
+  const box = el('bulk-query-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') {
+    el('bulk-query-input').focus();
+    el('bulk-query-input').oninput = function(){
+      const lines = this.value.split('\n').filter(l => l.trim());
+      el('bulk-count-hint').textContent = lines.length + ' quer' + (lines.length===1?'y':'ies') + ' detected';
+    };
+  }
+}
+
+async function bulkAddQueries(){
+  const b = brand();
+  if (!b) return;
+  const raw = el('bulk-query-input').value;
+  const newQs = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (!newQs.length) { toast('No queries entered', 'err'); return; }
+  // Deduplicate against existing
+  const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+  const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
+  if (!unique.length) { toast('All queries already exist', 'err'); return; }
+  const queries = [...(b.queries||[]), ...unique];
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    el('bulk-query-input').value = '';
+    el('bulk-query-box').style.display = 'none';
+    renderOverview();
+    toast(unique.length + ' quer' + (unique.length===1?'y':'ies') + ' added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
@@ -1069,14 +1069,14 @@ function renderMentions(){
     return;
   }
 
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Mentioned</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
   filtered.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const preview = (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
     html += `<tr>
       <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
       <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
-      <td><span class="badge ${r.mentioned?'pos':'neu'}">${r.mentioned?'YES':'NO'}</span></td>
+      <td><span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span></td>
       <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${r.sentiment||'neutral'}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
       <td style="max-width:250px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${preview.length>=120?'...':''}</td>
@@ -1084,7 +1084,7 @@ function renderMentions(){
     </tr>`;
   });
   html += '</tbody></table>';
-  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;">Showing ${filtered.length} of ${allResults.length} results — ${allResults.filter(r=>r.mentioned).length} mentions found</div>`;
+  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;">Showing ${filtered.length} of ${allResults.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
   cont.innerHTML = html;
 }
 
@@ -1103,7 +1103,7 @@ function openResp(mentionId){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+t.color;
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— MENTIONED</span>';
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
   el('resp-modal-query').innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.textContent = m.raw || m.context || '';
@@ -1134,7 +1134,7 @@ function openResultFromRun(runId, platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— MENTIONED</span>' : ' <span style="color:var(--muted);font-size:11px;">— NOT MENTIONED</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.textContent = result.raw || result.context || '[No response text]';
@@ -1165,7 +1165,7 @@ function openFullResult(platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— MENTIONED</span>' : ' <span style="color:var(--muted);font-size:11px;">— NOT MENTIONED</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.textContent = result.raw || result.context || '[No response text]';
@@ -1218,73 +1218,65 @@ function renderProof(){
   // Build a lookup for ALL results per platform+query (including not-mentioned)
   const allResults = run.allResults || [];
 
+  // Evidence cards — show EXACT API response as proof
+  // For each query, show every platform's response with FOUND/NOT FOUND status
   let html = '';
   queries.forEach(q => {
     const platList = platFilter ? [platFilter] : PLATS;
     let hasCards = false;
     const cards = platList.map(plat => {
       const m = mentions.find(x => x.platform===plat && x.query===q);
-      // Also try to find the full response from allResults
       const fullResult = allResults.find(x => x.platform===plat && x.query===q);
       if (resultFilter==='found' && !m) return '';
       if (resultFilter==='notfound' && m) return '';
+      if (!fullResult && !m) return ''; // No data for this platform+query combo
       hasCards = true;
       const t = PLAT_THEME[plat]||{};
-      if (!m) {
-        // Show the actual response even when brand not mentioned
-        const notFoundText = fullResult ? fullResult.raw || fullResult.context || '' : '';
-        const escapedText = notFoundText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return `<div class="proof-card" style="background:var(--bg2);border:1px solid var(--border);">
-          <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};">
-            <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-            <div class="proof-card-name">${plat}</div>
-            <div class="proof-card-badges">
-              ${fullResult ? (fullResult.simulated ? '<span class="badge sim">SIMULATED</span>' : '<span class="badge real">REAL</span>') : ''}
-              <div class="proof-card-badge" style="color:var(--muted);border:1px solid var(--border);">&#x2717; NOT FOUND</div>
-            </div>
-          </div>
-          <div class="proof-card-body">
-            <div class="proof-card-query">"${esc(q)}"</div>
-            ${escapedText
-              ? `<div class="proof-card-resp" style="color:var(--muted);">${escapedText}</div>`
-              : `<div class="proof-not-found">No response received from this platform.</div>`
-            }
-          </div>
-          <div class="proof-card-footer">
-            <span class="badge neu">not mentioned</span>
-            ${fullResult && fullResult.model ? `<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${fullResult.model}</span>` : ''}
-            ${fullResult ? `<button class="proof-view-btn" onclick="openFullResult('${plat}','${btoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>` : ''}
-          </div>
-        </div>`;
-      }
-      const rawText = m.raw||m.context||'';
-      const raw = rawText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const highlighted = b.name
-        ? raw.replace(new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>')
-        : raw;
-      const sentBadge = m.sentiment==='positive'?'pos':m.sentiment==='negative'?'neg':'neu';
-      const typeBadge = m.simulated ? '<span class="badge sim">SIMULATED</span>' : '<span class="badge real">REAL</span>';
-      const cites = (m.citations||[]).length;
-      const mid = m.id;
-      return `<div class="proof-card" style="background:${t.bg||'var(--bg2)'};--proof-card-bg:${t.bg||'var(--bg2)'};border:1px solid ${t.color||'var(--border)'}33;">
-        <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${t.color||'var(--border)'}33;">
+      const isMentioned = !!(m || (fullResult && fullResult.mentioned));
+      const responseText = (isMentioned && m) ? (m.raw||m.context||'') : (fullResult ? fullResult.raw||fullResult.context||'' : '');
+      const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const displayResp = (isMentioned && b.name)
+        ? escapedResp.replace(new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>')
+        : escapedResp;
+      const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
+      const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
+      const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
+      const cites = ((m && m.citations) || (fullResult && fullResult.citations) || []).length;
+      const recommended = (m && m.recommended) || (fullResult && fullResult.recommended) || false;
+
+      // Status badge — clear FOUND / NOT FOUND
+      const statusBadge = isMentioned
+        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);font-weight:700;">&#x2713; FOUND</div>`
+        : `<div class="proof-card-badge" style="color:var(--red,#ff4444);border:1px solid rgba(255,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
+
+      const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
+      const cardBorder = isMentioned ? (t.color||'var(--border)')+'33' : 'var(--border)';
+      const mid = m ? m.id : null;
+      const viewBtn = mid
+        ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
+        : `<button class="proof-view-btn" onclick="openFullResult('${plat}','${btoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
+
+      return `<div class="proof-card" style="background:${cardBg};border:1px solid ${cardBorder};">
+        <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${cardBorder};">
           <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-          <div class="proof-card-name" style="color:${t.color||'var(--text)'}">${plat}</div>
+          <div class="proof-card-name" style="color:${isMentioned?(t.color||'var(--text)'):'var(--text)'}">${plat}</div>
           <div class="proof-card-badges">
-            ${typeBadge}
-            <div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);">&#x2713; MENTIONED</div>
+            ${statusBadge}
           </div>
         </div>
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"</div>
-          <div class="proof-card-resp">${highlighted}</div>
+          ${displayResp
+            ? `<div class="proof-card-resp" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
+            : `<div class="proof-not-found">No response received from this platform.</div>`
+          }
         </div>
         <div class="proof-card-footer">
-          <span class="badge ${sentBadge}">${m.sentiment}</span>
-          ${m.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
+          <span class="badge ${sentBadge}">${sentiment}</span>
+          ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
-          ${m.model?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${m.model}</span>`:''}
-          <button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>
+          ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
+          ${viewBtn}
         </div>
       </div>`;
     }).join('');
@@ -1343,7 +1335,7 @@ function renderPlatformStatus(){
     html += `<tr>
       <td><span style="color:${t.color||'#fff'}">${t.logo}</span> ${plat}</td>
       <td><span class="stat-val" style="font-size:18px;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
-      <td><span class="badge ${hasKey?'real':'sim'}">${hasKey?'LIVE':'SIMULATED'}</span></td>
+      <td><span class="badge ${hasKey?'real':'sim'}">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
       <td style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
     </tr>`;
   });
@@ -1446,45 +1438,7 @@ async function saveBrandSetup(){
   } catch(e) { toast(e.message,'err'); }
 }
 
-// ─── API KEYS ─────────────────────────────────────────────────────
-function renderKeyStatus(){
-  const status = keyStatus;
-  ['openai','perplexity','gemini','claude','grok'].forEach(k => {
-    const ki = el('ki-'+k);
-    const inp = el('key-'+k);
-    if (!ki || !inp) return;
-    if (status[k]) {
-      ki.classList.add('has-key');
-      inp.placeholder = '••••••••••••• (saved)';
-    } else {
-      ki.classList.remove('has-key');
-    }
-  });
-  const statusEl = el('keys-status');
-  const active = Object.keys(status).filter(k=>status[k]);
-  statusEl.textContent = active.length
-    ? 'Active keys: ' + active.join(', ').toUpperCase()
-    : 'No keys saved yet. Add keys to get real AI responses.';
-}
-
-async function saveApiKeys(){
-  const keys = {};
-  ['openai','perplexity','gemini','claude','grok'].forEach(k => {
-    const v = el('key-'+k)?.value.trim();
-    if (v && !v.includes('•')) keys[k] = v;
-  });
-  try {
-    const data = await api('PUT', '/api/keys', keys);
-    keyStatus = {};
-    (data.hasKeys||[]).forEach(k => keyStatus[k] = true);
-    // Clear inputs
-    ['openai','perplexity','gemini','claude','grok'].forEach(k => {
-      if (el('key-'+k)) el('key-'+k).value = '';
-    });
-    renderKeyStatus();
-    toast('API keys saved securely on server', 'ok');
-  } catch(e) { toast(e.message,'err'); }
-}
+// ─── PLATFORM STATUS (from server env vars) ─────────────────────
 
 // ─── ADD BRAND ────────────────────────────────────────────────────
 function openAddBrand(){
@@ -1577,7 +1531,7 @@ async function runQueries(){
 
     clearInterval(progInt);
     fill.style.width = '100%';
-    statusTxt.textContent = `Done! ${data.result.newMentions} new mentions found across ${data.result.totalQ} queries.`;
+    statusTxt.textContent = `Done! Brand found in ${data.result.newMentions} responses across ${data.result.totalQ} queries.`;
 
     setTimeout(() => {
       prog.style.display = 'none';
