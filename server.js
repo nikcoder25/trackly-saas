@@ -232,6 +232,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
   const newMentions = [];
+  const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
 
@@ -244,6 +245,16 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
         parsed.simulated = simulated;
         if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,6);
         totalQ++;
+
+        // Store every result for proof section
+        allResults.push({
+          platform: plat, query: q,
+          context: text.substring(0, 300), raw: text,
+          simulated: parsed.simulated, mentioned: parsed.mentioned,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: parsed.cites
+        });
+
         if (parsed.mentioned) {
           pm++; totalM++;
           newMentions.push({
@@ -267,7 +278,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   // Save run snapshot
   if (!brand.runs) brand.runs = [];
   brand.runs = brand.runs.filter(r => r.date !== today);
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, sov, platforms: platSOV, totalQ, totalM });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM });
   if (brand.runs.length > 30) brand.runs = brand.runs.slice(-30);
 
   // Rebuild queryStats
@@ -556,6 +567,7 @@ async function runBrandQueries(brand, keys, db) {
   const PLATS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AIO'];
   const queries = brand.queries || [];
   const newMentions = [];
+  const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
 
@@ -567,6 +579,13 @@ async function runBrandQueries(brand, keys, db) {
         const parsed = parseResponse(text, brand);
         parsed.simulated = simulated;
         totalQ++;
+        allResults.push({
+          platform: plat, query: q,
+          context: text.substring(0, 300), raw: text,
+          simulated: parsed.simulated, mentioned: parsed.mentioned,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: citations || parsed.cites
+        });
         if (parsed.mentioned) {
           pm++; totalM++;
           newMentions.push({ id: uid(), platform: plat, query: q, context: text.substring(0,300), raw: text, sentiment: parsed.sentiment, recommended: parsed.recommended, citations: citations||parsed.cites, simulated, time: new Date().toISOString() });
@@ -580,7 +599,7 @@ async function runBrandQueries(brand, keys, db) {
   const today = new Date().toISOString().split('T')[0];
   if (!brand.runs) brand.runs = [];
   brand.runs = brand.runs.filter(r => r.date !== today);
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, sov, platforms: platSOV, totalQ, totalM });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM });
   if (brand.runs.length > 30) brand.runs = brand.runs.slice(-30);
 
   if (!brand.mentions) brand.mentions = [];
