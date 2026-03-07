@@ -249,12 +249,22 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
   // Only query platforms with valid API keys — no fake/simulated data
-  const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+  const availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
     .filter(([, keyName]) => keys[keyName])
     .map(([plat]) => plat);
 
-  if (!activePlatforms.length) {
+  if (!availablePlatforms.length) {
     return res.status(400).json({ error: 'No AI platforms configured. Please contact support.' });
+  }
+
+  // Filter by user-selected platforms — from request body or brand settings
+  const requestedPlatforms = req.body.platforms || brand.platforms;
+  const activePlatforms = (requestedPlatforms && Array.isArray(requestedPlatforms) && requestedPlatforms.length)
+    ? availablePlatforms.filter(p => requestedPlatforms.includes(p))
+    : availablePlatforms;
+
+  if (!activePlatforms.length) {
+    return res.status(400).json({ error: 'No valid platforms selected.' });
   }
 
   const newMentions = [];

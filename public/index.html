@@ -239,6 +239,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 #toast.ok{border-color:var(--green);color:var(--green);}
 
 /* ── MISC ───────────────────────────────── */
+.plat-check{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;cursor:pointer;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);user-select:none;}
+.plat-check input{accent-color:var(--green);cursor:pointer;}
+.plat-check.active{border-color:var(--green);background:rgba(0,255,136,.05);}
 .run-progress{background:var(--bg2);border:1px solid var(--border);padding:14px 20px;margin-bottom:20px;display:none;}
 .run-progress.active{display:block;}
 .run-progress-bar{height:3px;background:var(--bg3);margin-top:8px;}
@@ -518,7 +521,6 @@ select.finput{appearance:none;}
   <!-- Main -->
   <div class="main">
 
-    <!-- Run progress bar -->
     <div id="run-progress" class="run-progress" style="margin:16px 24px 0;display:none;">
       <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="run-status-text">Running queries...</div>
       <div class="run-progress-bar"><div class="run-progress-fill" id="run-progress-fill"></div></div>
@@ -652,6 +654,11 @@ select.finput{appearance:none;}
         <div class="form-row">
           <label class="flabel">SOV Goal (%)</label>
           <input class="finput" id="s-goal" type="number" min="1" max="100" placeholder="70">
+        </div>
+        <div class="form-row">
+          <label class="flabel">AI Platforms to Track</label>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">Select which AI models to query when running keyword tracking.</div>
+          <div id="setup-plat-list" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
         </div>
         <button class="btn-primary" onclick="saveBrandSetup()">SAVE CHANGES</button>
         <button onclick="deleteBrand()" style="width:100%;padding:10px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;">DELETE BRAND</button>
@@ -1415,19 +1422,50 @@ function renderSetup(){
   el('s-website').value = b.website||'';
   el('s-city').value = b.city||'';
   el('s-goal').value = b.goal||70;
+
+  // Render platform checkboxes
+  const cont = el('setup-plat-list');
+  cont.innerHTML = '';
+  const savedPlats = b.platforms || PLATS; // default: all platforms
+  PLATS.forEach(plat => {
+    const t = PLAT_THEME[plat]||{};
+    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')];
+    const lbl = document.createElement('label');
+    lbl.className = 'plat-check';
+    lbl.style.color = t.color||'#fff';
+    if (!isActive) lbl.style.opacity = '0.4';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = isActive && savedPlats.includes(plat);
+    cb.disabled = !isActive;
+    cb.dataset.plat = plat;
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(' ' + (t.logo||'') + ' ' + plat));
+    if (!isActive) {
+      const hint = document.createElement('span');
+      hint.style.cssText = 'font-size:8px;color:var(--muted);margin-left:4px;';
+      hint.textContent = '(inactive)';
+      lbl.appendChild(hint);
+    }
+    cont.appendChild(lbl);
+  });
 }
 
 async function saveBrandSetup(){
   const b = brand(); if (!b) return;
   const name = el('s-name').value.trim();
   if (!name) { toast('Brand name cannot be empty','err'); return; }
+  // Get selected platforms
+  const platChecks = el('setup-plat-list').querySelectorAll('input[type=checkbox]:checked');
+  const selectedPlats = [...platChecks].map(cb => cb.dataset.plat);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, {
       name,
       industry: el('s-industry').value.trim(),
       website: el('s-website').value.trim(),
       city: el('s-city').value.trim(),
-      goal: parseInt(el('s-goal').value)||70
+      goal: parseInt(el('s-goal').value)||70,
+      platforms: selectedPlats.length ? selectedPlats : PLATS
     });
     const idx = brands.findIndex(x=>x.id===b.id);
     if (idx >= 0) brands[idx] = data.brand;
@@ -1505,6 +1543,8 @@ async function runQueries(){
   const b = brand();
   if (!b) { toast('Select a brand first','err'); return; }
   if (!b.queries||!b.queries.length) { toast('Add some queries first','err'); return; }
+  const selectedPlats = b.platforms || PLATS;
+  if (!selectedPlats.length) { toast('Select platforms in Brand Setup first','err'); return; }
 
   runningQueries = true;
   const btn = el('run-btn');
@@ -1526,7 +1566,7 @@ async function runQueries(){
   }, 400);
 
   try {
-    const data = await api('POST', '/api/brands/'+b.id+'/run', {});
+    const data = await api('POST', '/api/brands/'+b.id+'/run', { platforms: selectedPlats });
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
 
     clearInterval(progInt);
