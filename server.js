@@ -255,19 +255,19 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
         const result = await queryAI(q, plat, brand, keys);
         if (!result) continue; // No API key — skip
 
-        const { text, simulated, citations: extraCites } = result;
+        const { text, simulated, citations: extraCites, model: modelUsed } = result;
         const parsed = parseResponse(text, brand);
         parsed.simulated = false; // Always real — no more simulated
-        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,6);
+        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,10);
         totalQ++;
 
-        // Store every result for proof section
+        // Store every result for proof section — full unmodified response
         allResults.push({
           platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
           simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
-          citations: parsed.cites
+          citations: parsed.cites, model: modelUsed || plat
         });
 
         if (parsed.mentioned) {
@@ -277,6 +277,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
             context: text.substring(0, 300), raw: text,
             sentiment: parsed.sentiment, recommended: parsed.recommended,
             citations: parsed.cites, simulated: false,
+            model: modelUsed || plat,
             time: new Date().toISOString()
           });
         }
@@ -408,8 +409,9 @@ async function fetchJSON(url, options) {
 }
 
 async function callOpenAI(query, apiKey, model) {
+  const useModel = model || 'gpt-4o-mini';
   const body = JSON.stringify({
-    model, max_tokens: 1500,
+    model: useModel, max_tokens: 4000,
     messages: [{ role: 'user', content: query }]  // RAW query only — no brand injection
   });
   const d = await fetchJSON('https://api.openai.com/v1/chat/completions', {
@@ -418,14 +420,15 @@ async function callOpenAI(query, apiKey, model) {
     body
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return { text: d.choices?.[0]?.message?.content || '', simulated: false, citations: [] };
+  return { text: d.choices?.[0]?.message?.content || '', simulated: false, citations: [], model: d.model || useModel };
 }
 
 async function callPerplexity(query, apiKey) {
   const body = JSON.stringify({
-    model: 'sonar',
-    max_tokens: 1500,
+    model: 'sonar-pro',
+    max_tokens: 4000,
     return_citations: true,
+    search_recency_filter: 'month',
     messages: [{ role: 'user', content: query }]  // RAW query only
   });
   const d = await fetchJSON('https://api.perplexity.ai/chat/completions', {
@@ -437,15 +440,17 @@ async function callPerplexity(query, apiKey) {
   return {
     text: d.choices?.[0]?.message?.content || '',
     simulated: false,
-    citations: (d.citations || []).slice(0, 5)
+    citations: (d.citations || []).slice(0, 10),
+    model: d.model || 'sonar-pro'
   };
 }
 
 async function callGemini(query, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+  const geminiModel = 'gemini-2.0-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=` + apiKey;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: query }] }],  // RAW query only
-    generationConfig: { maxOutputTokens: 1500 }
+    generationConfig: { maxOutputTokens: 4000 }
   });
   const d = await fetchJSON(url, {
     method: 'POST',
@@ -453,15 +458,16 @@ async function callGemini(query, apiKey) {
     body
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: [] };
+  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: [], model: geminiModel };
 }
 
 async function callGeminiWithSearch(query, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+  const geminiModel = 'gemini-2.0-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=` + apiKey;
   const body = JSON.stringify({
     contents: [{ parts: [{ text: query }] }],  // RAW query only
     tools: [{ google_search: {} }],             // Enable grounding for AIO-like results
-    generationConfig: { maxOutputTokens: 1500 }
+    generationConfig: { maxOutputTokens: 4000 }
   });
   const d = await fetchJSON(url, {
     method: 'POST',
@@ -469,13 +475,35 @@ async function callGeminiWithSearch(query, apiKey) {
     body
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: [] };
+
+  // Extract grounding citations from Google Search results
+  const citations = [];
+  try {
+    const groundingMeta = d.candidates?.[0]?.groundingMetadata;
+    if (groundingMeta) {
+      const chunks = groundingMeta.groundingChunks || [];
+      chunks.forEach(chunk => {
+        if (chunk.web && chunk.web.uri) citations.push(chunk.web.uri);
+      });
+      const supports = groundingMeta.groundingSupports || [];
+      supports.forEach(s => {
+        (s.groundingChunkIndices || []).forEach(idx => {
+          if (chunks[idx]?.web?.uri && !citations.includes(chunks[idx].web.uri)) {
+            citations.push(chunks[idx].web.uri);
+          }
+        });
+      });
+    }
+  } catch(e) { /* ignore citation extraction errors */ }
+
+  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: citations.slice(0, 10), model: geminiModel + ' (with Search)' };
 }
 
 async function callGrok(query, apiKey) {
+  const grokModel = 'grok-3-mini';
   const body = JSON.stringify({
-    model: 'grok-3-mini',
-    max_tokens: 1500,
+    model: grokModel,
+    max_tokens: 4000,
     messages: [{ role: 'user', content: query }]  // RAW query only
   });
   const d = await fetchJSON('https://api.x.ai/v1/chat/completions', {
@@ -485,13 +513,14 @@ async function callGrok(query, apiKey) {
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
   if (!d.choices || !d.choices[0]) throw new Error('Grok API returned empty response');
-  return { text: d.choices[0].message.content || '', simulated: false, citations: [] };
+  return { text: d.choices[0].message.content || '', simulated: false, citations: [], model: d.model || grokModel };
 }
 
 async function callClaude(query, apiKey) {
+  const claudeModel = 'claude-sonnet-4-20250514';
   const body = JSON.stringify({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
+    model: claudeModel,
+    max_tokens: 4000,
     messages: [{ role: 'user', content: query }]  // RAW query only
   });
   const d = await fetchJSON('https://api.anthropic.com/v1/messages', {
@@ -504,7 +533,7 @@ async function callClaude(query, apiKey) {
     body
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return { text: d.content?.[0]?.text || '', simulated: false, citations: [] };
+  return { text: d.content?.[0]?.text || '', simulated: false, citations: [], model: d.model || claudeModel };
 }
 
 // ─── RESPONSE PARSING (post-response analysis — no brand injection) ───────
