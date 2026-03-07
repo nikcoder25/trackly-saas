@@ -215,11 +215,17 @@ app.post('/api/brands', auth, async (req, res) => {
       name, industry: industry||'', website: website||'', city: city||'',
       goal: goal || 70,
       competitors: [],
-      queries: [
-        `What is the best ${industry||'service'} company?`,
-        `Who are the top ${industry||'service'} providers near me?`,
-        `Best ${industry||'service'} recommendations`
-      ],
+      queries: city
+        ? [
+          `What is the best ${industry||'service'} company in ${city}?`,
+          `Who are the top ${industry||'service'} providers in ${city}?`,
+          `Best ${industry||'service'} recommendations in ${city}`
+        ]
+        : [
+          `What is the best ${industry||'service'} company?`,
+          `Who are the top ${industry||'service'} providers?`,
+          `Best ${industry||'service'} recommendations`
+        ],
       runs: [],
       mentions: [],
       queryStats: {},
@@ -425,7 +431,7 @@ async function queryAI(query, platform, brand, keys) {
 
   // ── Only query platforms that have valid API keys — no simulation fallback ──
   if (platform === 'ChatGPT' && keys.openai)
-    return await callOpenAI(rawQuery, keys.openai, 'gpt-4o-mini');
+    return await callOpenAI(rawQuery, keys.openai, 'gpt-4o');
 
   if (platform === 'Perplexity' && keys.perplexity)
     return await callPerplexity(rawQuery, keys.perplexity);
@@ -477,11 +483,18 @@ async function fetchJSON(url, options) {
   });
 }
 
+// System prompt — encourages AI to give specific named recommendations
+// Does NOT inject brand name — we want to see if AI naturally knows the brand
+const SYSTEM_PROMPT = 'You are a helpful recommendation assistant. When asked about businesses, services, or products, always provide specific company names, brands, or providers. Never say you cannot provide recommendations. Give concrete, named suggestions based on your knowledge. If asked about a specific location, name real businesses in that area.';
+
 async function callOpenAI(query, apiKey, model) {
-  const useModel = model || 'gpt-4o-mini';
+  const useModel = model || 'gpt-4o';
   const body = JSON.stringify({
     model: useModel, max_tokens: 4000,
-    messages: [{ role: 'user', content: query }]  // RAW query only — no brand injection
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: query }
+    ]
   });
   const d = await fetchJSON('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -497,8 +510,10 @@ async function callPerplexity(query, apiKey) {
     model: 'sonar-pro',
     max_tokens: 4000,
     return_citations: true,
-    search_recency_filter: 'month',
-    messages: [{ role: 'user', content: query }]  // RAW query only
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: query }
+    ]
   });
   const d = await fetchJSON('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -518,7 +533,8 @@ async function callGemini(query, apiKey) {
   const geminiModel = 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=` + apiKey;
   const body = JSON.stringify({
-    contents: [{ parts: [{ text: query }] }],  // RAW query only
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ parts: [{ text: query }] }],
     generationConfig: { maxOutputTokens: 4000 }
   });
   const d = await fetchJSON(url, {
@@ -534,7 +550,8 @@ async function callGeminiWithSearch(query, apiKey) {
   const geminiModel = 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=` + apiKey;
   const body = JSON.stringify({
-    contents: [{ parts: [{ text: query }] }],  // RAW query only
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ parts: [{ text: query }] }],
     tools: [{ google_search: {} }],             // Enable grounding for AIO-like results
     generationConfig: { maxOutputTokens: 4000 }
   });
@@ -573,7 +590,10 @@ async function callGrok(query, apiKey) {
   const body = JSON.stringify({
     model: grokModel,
     max_tokens: 4000,
-    messages: [{ role: 'user', content: query }]  // RAW query only
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: query }
+    ]
   });
   const d = await fetchJSON('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
@@ -590,7 +610,8 @@ async function callClaude(query, apiKey) {
   const body = JSON.stringify({
     model: claudeModel,
     max_tokens: 4000,
-    messages: [{ role: 'user', content: query }]  // RAW query only
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: query }]
   });
   const d = await fetchJSON('https://api.anthropic.com/v1/messages', {
     method: 'POST',

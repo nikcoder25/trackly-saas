@@ -340,7 +340,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .proof-card-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;}
 .proof-card-body{padding:16px;font-size:13px;line-height:1.7;flex:1;display:flex;flex-direction:column;}
 .proof-card-query{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);}
-.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:280px;overflow:hidden;position:relative;}
+.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:400px;overflow:hidden;position:relative;}
 .proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
 .proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
 .proof-card-footer{padding:10px 16px;display:flex;gap:8px;align-items:center;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
@@ -1259,7 +1259,17 @@ function renderOverview(){
       summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check your API keys in Railway environment variables</span></div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses`;
-    summaryHtml += ` · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div></div>`;
+    summaryHtml += ` · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
+    // Helpful tip when SOV is low
+    if (found.length === 0 && lastRun.allResults.length > 0 && errors.length === 0) {
+      summaryHtml += `<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);padding:12px 14px;margin-top:12px;font-size:12px;line-height:1.6;">
+        <div style="color:var(--blue);font-weight:700;font-size:11px;font-family:var(--mono);margin-bottom:6px;">💡 WHY 0% SOV?</div>
+        <div style="color:var(--muted);">Your brand was not mentioned in any AI response — this means AI platforms don't yet recommend "${esc(b.name)}" for these queries. This is <strong style="color:var(--text);">normal for newer or local brands</strong>.</div>
+        <div style="color:var(--muted);margin-top:8px;"><strong style="color:var(--text);">To improve:</strong> Get more reviews (Google, Yelp), create authoritative content, earn backlinks, and get listed on industry directories. Run tracking regularly to measure progress.</div>
+        <div style="color:var(--muted);margin-top:8px;">Go to <a href="#" onclick="go('proof');return false;" style="color:var(--green);text-decoration:none;">Evidence & Proof</a> to see the full AI responses and what brands ARE being recommended.</div>
+      </div>`;
+    }
+    summaryHtml += `</div>`;
     lrs.innerHTML = summaryHtml;
     lrs.style.display = 'block';
   } else if (lastRun) {
@@ -1396,15 +1406,19 @@ function renderMentions(){
   let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
   filtered.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
-    const preview = (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
-    html += `<tr>
+    const isErr = r.error;
+    const preview = isErr ? (r.errorMessage||'API Error') : (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
+    const statusBadge = isErr
+      ? '<span class="badge" style="background:rgba(255,136,0,.15);color:#ff8800;font-weight:700;">ERROR</span>'
+      : `<span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span>`;
+    html += `<tr${isErr?' style="opacity:0.6"':''}>
       <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
       <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
-      <td><span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span></td>
-      <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${r.sentiment||'neutral'}</span></td>
+      <td>${statusBadge}</td>
+      <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${isErr?'—':r.sentiment||'neutral'}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
-      <td style="max-width:250px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${preview.length>=120?'...':''}</td>
-      <td><button onclick="openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button></td>
+      <td style="max-width:250px;font-size:11px;color:${isErr?'#ff8800':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
+      <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1556,8 +1570,11 @@ function renderProof(){
       if (!fullResult && !m) return ''; // No data for this platform+query combo
       hasCards = true;
       const t = PLAT_THEME[plat]||{};
+      const isError = fullResult && fullResult.error;
       const isMentioned = !!(m || (fullResult && fullResult.mentioned));
-      const responseText = (isMentioned && m) ? (m.raw||m.context||'') : (fullResult ? fullResult.raw||fullResult.context||'' : '');
+      const responseText = isError
+        ? ''
+        : (isMentioned && m) ? (m.raw||m.context||'') : (fullResult ? fullResult.raw||fullResult.context||'' : '');
       const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const proofHre = brandHighlightRe(b);
       const displayResp = (isMentioned && proofHre)
@@ -1571,8 +1588,10 @@ function renderProof(){
       const locRelevant = (m && m.locationRelevant) || (fullResult && fullResult.locationRelevant);
       const matchedLoc = (m && m.matchedLocation) || (fullResult && fullResult.matchedLocation) || '';
 
-      // Status badge — clear FOUND / NOT FOUND
-      const statusBadge = isMentioned
+      // Status badge — clear FOUND / NOT FOUND / ERROR
+      const statusBadge = isError
+        ? `<div class="proof-card-badge" style="color:#ff8800;border:1px solid rgba(255,136,0,.3);font-weight:700;">⚠ API ERROR</div>`
+        : isMentioned
         ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);font-weight:700;">&#x2713; FOUND</div>`
         : `<div class="proof-card-badge" style="color:var(--red,#ff4444);border:1px solid rgba(255,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
 
@@ -1593,7 +1612,9 @@ function renderProof(){
         </div>
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"</div>
-          ${displayResp
+          ${isError
+            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:10px;color:var(--muted);">${esc(fullResult.errorMessage||'Unknown error')}</div><div style="font-size:10px;color:var(--muted);margin-top:8px;">Check that your API key is valid and has sufficient credits.</div></div>`
+            : displayResp
             ? `<div class="proof-card-resp" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
           }
@@ -2029,9 +2050,11 @@ async function runQueries(){
     go('mentions');
 
     const toastMsg = errors > 0
-      ? `Run complete — SOV: ${data.result.sov}% (${errors} error${errors>1?'s':''})`
-      : `Run complete — SOV: ${data.result.sov}%`;
-    toast(toastMsg, errors > 0 ? 'warn' : 'ok');
+      ? `Run complete — SOV: ${data.result.sov}% (${errors} API error${errors>1?'s':''})`
+      : data.result.sov === 0
+      ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
+      : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
+    toast(toastMsg, errors > 0 ? 'warn' : data.result.sov > 0 ? 'ok' : 'warn');
   } catch(e) {
     clearInterval(progInt);
     prog.style.display = 'none';
