@@ -227,22 +227,37 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   const user = db.users.find(u => u.id === req.user.id);
   const keys = user?.apiKeys || {};
 
-  const PLATS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AIO'];
+  const PLATFORM_KEY_MAP = {
+    'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
+    'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini'
+  };
   const queries = brand.queries || [];
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
+
+  // Only query platforms with valid API keys — no fake/simulated data
+  const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+    .filter(([, keyName]) => keys[keyName])
+    .map(([plat]) => plat);
+
+  if (!activePlatforms.length) {
+    return res.status(400).json({ error: 'No API keys configured. Add at least one API key to run queries.' });
+  }
 
   const newMentions = [];
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
 
-  for (const plat of PLATS) {
+  for (const plat of activePlatforms) {
     let pm = 0;
     for (const q of queries) {
       try {
-        const { text, simulated, citations: extraCites } = await queryAI(q, plat, brand, keys);
+        const result = await queryAI(q, plat, brand, keys);
+        if (!result) continue; // No API key — skip
+
+        const { text, simulated, citations: extraCites } = result;
         const parsed = parseResponse(text, brand);
-        parsed.simulated = simulated;
+        parsed.simulated = false; // Always real — no more simulated
         if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,6);
         totalQ++;
 
@@ -250,7 +265,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
         allResults.push({
           platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
-          simulated: parsed.simulated, mentioned: parsed.mentioned,
+          simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
           citations: parsed.cites
         });
@@ -261,12 +276,21 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
             id: uid(), platform: plat, query: q,
             context: text.substring(0, 300), raw: text,
             sentiment: parsed.sentiment, recommended: parsed.recommended,
-            citations: parsed.cites, simulated: parsed.simulated,
+            citations: parsed.cites, simulated: false,
             time: new Date().toISOString()
           });
         }
       } catch(e) {
-        console.error(`Error querying ${plat} for "${q}":`, e.message);
+        console.error(`[${plat}] API error for query "${q}":`, e.message);
+        // Store error result so user knows what happened — don't fake it
+        allResults.push({
+          platform: plat, query: q,
+          context: `[API Error] ${e.message}`, raw: `[API Error] ${e.message}`,
+          simulated: false, mentioned: false,
+          sentiment: 'neutral', recommended: false,
+          citations: [], error: true, errorMessage: e.message
+        });
+        totalQ++;
       }
     }
     platSOV[plat] = queries.length > 0 ? Math.round((pm / queries.length) * 100) : 0;
@@ -322,48 +346,39 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   db.brands[idx] = brand;
   writeDB(db);
 
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length } });
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 6 - activePlatforms.length } });
 });
 
 // ─── AI QUERY FUNCTIONS (server-side) ─────────────────────────────
 async function queryAI(query, platform, brand, keys) {
-  const prompt = buildPrompt(query, brand);
+  // Send ONLY the raw query — no brand name, city, or industry injection
+  const rawQuery = query;
 
-  try {
-    if (platform === 'ChatGPT' && keys.openai)
-      return await callOpenAI(prompt, keys.openai, 'gpt-4o-mini');
+  // ── Only query platforms that have valid API keys — no simulation fallback ──
+  if (platform === 'ChatGPT' && keys.openai)
+    return await callOpenAI(rawQuery, keys.openai, 'gpt-4o-mini');
 
-    if (platform === 'Perplexity' && keys.perplexity)
-      return await callPerplexity(prompt, keys.perplexity);
+  if (platform === 'Perplexity' && keys.perplexity)
+    return await callPerplexity(rawQuery, keys.perplexity);
 
-    if (platform === 'Gemini' && keys.gemini)
-      return await callGemini(prompt, keys.gemini);
+  if (platform === 'Gemini' && keys.gemini)
+    return await callGemini(rawQuery, keys.gemini);
 
-    if (platform === 'Grok' && keys.grok)
-      return await callOpenAI(prompt, keys.grok, 'grok-3-mini', 'https://api.x.ai/v1/chat/completions');
+  if (platform === 'Grok' && keys.grok)
+    return await callGrok(rawQuery, keys.grok);
 
-    if (platform === 'Claude' && keys.claude)
-      return await callClaude(prompt, keys.claude);
+  if (platform === 'Claude' && keys.claude)
+    return await callClaude(rawQuery, keys.claude);
 
-    if (platform === 'Google AIO' && keys.gemini)
-      return await callGemini(prompt, keys.gemini);
+  if (platform === 'Google AIO' && keys.gemini)
+    return await callGeminiWithSearch(rawQuery, keys.gemini);
 
-  } catch(e) {
-    console.error(`${platform} API error:`, e.message);
-  }
-
-  // Fallback to simulation
-  return { text: simulate(query, brand, platform), simulated: true, citations: [] };
+  // No API key for this platform — skip it (don't simulate)
+  return null;
 }
 
-function buildPrompt(query, brand) {
-  const city = brand.city ? ' in ' + brand.city : '';
-  const comps = (brand.competitors||[]).slice(0,3).join(', ');
-  return query
-    + '\n\nContext: The user is researching ' + (brand.industry||'service') + ' providers' + city + '. '
-    + 'Please mention and evaluate ' + brand.name + ' if it is relevant to the question. '
-    + (comps ? 'Other providers to compare: ' + comps + '.' : '');
-}
+// buildPrompt removed — we now send only the raw query with no brand injection.
+// The whole point of an AI rank tracker is to see if the AI naturally knows your brand.
 
 async function fetchJSON(url, options) {
   return new Promise((resolve, reject) => {
@@ -389,16 +404,12 @@ async function fetchJSON(url, options) {
   });
 }
 
-async function callOpenAI(prompt, apiKey, model, endpoint) {
-  endpoint = endpoint || 'https://api.openai.com/v1/chat/completions';
+async function callOpenAI(query, apiKey, model) {
   const body = JSON.stringify({
-    model, max_tokens: 600,
-    messages: [
-      { role: 'system', content: 'You are a helpful AI assistant. Answer questions accurately.' },
-      { role: 'user', content: prompt }
-    ]
+    model, max_tokens: 1500,
+    messages: [{ role: 'user', content: query }]  // RAW query only — no brand injection
   });
-  const d = await fetchJSON(endpoint, {
+  const d = await fetchJSON('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
     body
@@ -407,15 +418,12 @@ async function callOpenAI(prompt, apiKey, model, endpoint) {
   return { text: d.choices?.[0]?.message?.content || '', simulated: false, citations: [] };
 }
 
-async function callPerplexity(prompt, apiKey) {
+async function callPerplexity(query, apiKey) {
   const body = JSON.stringify({
     model: 'sonar',
-    max_tokens: 600,
+    max_tokens: 1500,
     return_citations: true,
-    messages: [
-      { role: 'system', content: 'Be precise and search for current information.' },
-      { role: 'user', content: prompt }
-    ]
+    messages: [{ role: 'user', content: query }]  // RAW query only
   });
   const d = await fetchJSON('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -430,26 +438,58 @@ async function callPerplexity(prompt, apiKey) {
   };
 }
 
-async function callGemini(prompt, apiKey) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+async function callGemini(query, apiKey) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
   const body = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: 600 }
+    contents: [{ parts: [{ text: query }] }],  // RAW query only
+    generationConfig: { maxOutputTokens: 1500 }
   });
   const d = await fetchJSON(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body
   });
-  if (d.error) throw new Error(d.error.message);
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
   return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: [] };
 }
 
-async function callClaude(prompt, apiKey) {
+async function callGeminiWithSearch(query, apiKey) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
   const body = JSON.stringify({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 600,
-    messages: [{ role: 'user', content: prompt }]
+    contents: [{ parts: [{ text: query }] }],  // RAW query only
+    tools: [{ google_search: {} }],             // Enable grounding for AIO-like results
+    generationConfig: { maxOutputTokens: 1500 }
+  });
+  const d = await fetchJSON(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body
+  });
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: [] };
+}
+
+async function callGrok(query, apiKey) {
+  const body = JSON.stringify({
+    model: 'grok-3-mini',
+    max_tokens: 1500,
+    messages: [{ role: 'user', content: query }]  // RAW query only
+  });
+  const d = await fetchJSON('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+    body
+  });
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+  if (!d.choices || !d.choices[0]) throw new Error('Grok API returned empty response');
+  return { text: d.choices[0].message.content || '', simulated: false, citations: [] };
+}
+
+async function callClaude(query, apiKey) {
+  const body = JSON.stringify({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1500,
+    messages: [{ role: 'user', content: query }]  // RAW query only
   });
   const d = await fetchJSON('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -464,46 +504,56 @@ async function callClaude(prompt, apiKey) {
   return { text: d.content?.[0]?.text || '', simulated: false, citations: [] };
 }
 
-// ─── RESPONSE PARSING ─────────────────────────────────────────────
+// ─── RESPONSE PARSING (post-response analysis — no brand injection) ───────
 function parseResponse(text, brand) {
-  const l = text.toLowerCase();
-  const bl = brand.name.toLowerCase();
-  const mentioned = l.includes(bl);
-  const recommended = mentioned && /recommend|best|top|leading|solid|preferred|go.?with|first choice|suggest/.test(l);
-  const pw = ['best','leading','top','recommend','strong','reliable','solid','preferred','consistent','quality','trusted'];
-  const nw = ['poor','bad','avoid','worst','issues','problems','unreliable','complaint','negative'];
-  let p = 0, n = 0;
-  pw.forEach(w => { if (l.includes(w)) p++; });
-  nw.forEach(w => { if (l.includes(w)) n++; });
-  const sentiment = p > n + 1 ? 'positive' : n > p ? 'negative' : 'neutral';
+  if (!text || !brand.name) return { mentioned: false, recommended: false, sentiment: 'neutral', cites: [], simulated: false };
 
-  // Extract URLs from text
+  const lower = text.toLowerCase();
+  const brandLower = brand.name.toLowerCase();
+
+  // Brand mention detection — check if AI naturally mentioned the brand
+  let mentioned = lower.includes(brandLower);
+  if (!mentioned) {
+    // Fuzzy: check if all significant words of the brand name appear
+    const words = brandLower.split(/\s+/).filter(w => w.length > 2);
+    if (words.length > 1) {
+      mentioned = words.every(w => lower.includes(w));
+    }
+  }
+
+  // Recommendation detection — only if brand was mentioned
+  const recommended = mentioned && /recommend|best|top|leading|solid|preferred|go.?with|first choice|suggest|worth considering|strong contender|stands out/.test(lower);
+
+  // Sentiment analysis — focused on context around brand mention
+  let sentiment = 'neutral';
+  if (mentioned) {
+    const brandIdx = lower.indexOf(brandLower);
+    const start = Math.max(0, brandIdx - 200);
+    const end = Math.min(lower.length, brandIdx + brandLower.length + 200);
+    const context = lower.substring(start, end);
+
+    const pw = ['recommend','excellent','top','best','leading','reputable','trusted','quality',
+      'professional','reliable','great','highly rated','well-known','popular','outstanding',
+      'praised','good reviews','well-regarded','strong','solid','preferred','consistent'];
+    const nw = ['avoid','complaint','poor','bad','worst','unreliable','scam','overpriced',
+      'unprofessional','negative reviews','problems','issues'];
+    let p = 0, n = 0;
+    pw.forEach(w => { if (context.includes(w)) p++; });
+    nw.forEach(w => { if (context.includes(w)) n++; });
+    sentiment = p > n ? 'positive' : n > p ? 'negative' : 'neutral';
+  }
+
+  // Extract URLs/citations from response
   const cites = [];
   const urlRx = /https?:\/\/[^\s"')>\]]+/g;
-  (text.match(urlRx) || []).slice(0, 4).forEach(u => cites.push(u));
-  if (!cites.length && mentioned && brand.website) {
-    cites.push('https://' + brand.website.replace(/^https?:\/\//, ''));
-  }
+  const matches = text.match(urlRx) || [];
+  [...new Set(matches)].slice(0, 6).forEach(u => cites.push(u));
 
   return { mentioned, recommended, sentiment, cites, simulated: false };
 }
 
-// ─── SIMULATION (when no API key for a platform) ──────────────────
-function simulate(query, brand, platform) {
-  const b = brand.name;
-  const ind = brand.industry || 'services';
-  const city = brand.city ? ' in ' + brand.city : '';
-  const cs = (brand.competitors||[]).slice(0,2).join(' and ') || 'other providers';
-  const styles = {
-    'ChatGPT': `Based on available information, **${b}** is a well-regarded ${ind} provider${city}.\n\n**Reputation**: Customers frequently praise ${b} for responsive service and transparent pricing.\n\n**Comparison**: While ${cs} are also popular, ${b} tends to score higher on customer satisfaction. I'd recommend contacting ${b} first for a consultation.`,
-    'Perplexity': `${b} is a leading ${ind} company${city} [1]. Reviews highlight professional technicians and fair pricing [2].\n\nCompared to ${cs}, ${b} consistently scores higher on response time [3].\n\n**Sources:**\n[1] ${brand.website||b.toLowerCase().replace(/\s/g,'')+'.com'}/about\n[2] Google Maps — ${b} reviews\n[3] Local ${ind} comparison guides`,
-    'Claude': `I can share what I know about ${b} as a ${ind} provider${city}. They've developed a solid reputation for professional service and customer transparency. Compared to ${cs}, ${b} appears to differentiate through responsiveness. I'd recommend checking their current reviews and getting multiple quotes for larger projects.`,
-    'Gemini': `**${b}** is a ${ind} provider${city} with consistent 4+ star ratings from verified customers.\n\n- ✓ Professional, licensed team\n- ✓ Transparent pricing\n- ✓ Strong local reputation\n\n${b} ranks among top-rated ${ind} providers. ${cs} is also frequently recommended but ${b} has more verified reviews.`,
-    'Grok': `${b} — yeah, they're legit. For ${ind}${city}, they keep coming up when people ask for solid recommendations. Upfront pricing, good reviews, actually follow up after the job. ${cs} is the other name you hear, but ${b} has the edge on service. Check their site for availability.`,
-    'Google AIO': `**AI Overview**\n\n${b} is a highly-rated ${ind} provider${city}.\n\n- ⭐ 4.8/5 average rating from 200+ reviews\n- ✓ Licensed, bonded, and insured\n- ✓ Same-day service available\n\n**Why customers choose ${b}:** Professional technicians and transparent pricing.\n\n**Compare with:** ${cs}`
-  };
-  return styles[platform] || `${b} is a trusted ${ind} provider${city}. Customers recommend them for quality service and transparent pricing.`;
-}
+// simulate() has been intentionally removed — no more fake/simulated responses.
+// Only real API responses are used. Platforms without API keys are skipped.
 
 // ─── ADMIN: USER MANAGEMENT (for you, the owner) ──────────────────
 app.get('/api/admin/users', auth, (req, res) => {
@@ -564,33 +614,45 @@ cron.schedule('0 * * * *', async () => {
 });
 
 async function runBrandQueries(brand, keys, db) {
-  const PLATS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AIO'];
+  const PLATFORM_KEY_MAP = {
+    'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
+    'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini'
+  };
   const queries = brand.queries || [];
+  const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+    .filter(([, keyName]) => keys[keyName])
+    .map(([plat]) => plat);
+  if (!activePlatforms.length || !queries.length) return;
+
   const newMentions = [];
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
 
-  for (const plat of PLATS) {
+  for (const plat of activePlatforms) {
     let pm = 0;
     for (const q of queries) {
       try {
-        const { text, simulated, citations } = await queryAI(q, plat, brand, keys);
+        const result = await queryAI(q, plat, brand, keys);
+        if (!result) continue;
+        const { text, citations } = result;
         const parsed = parseResponse(text, brand);
-        parsed.simulated = simulated;
         totalQ++;
         allResults.push({
           platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
-          simulated: parsed.simulated, mentioned: parsed.mentioned,
+          simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
           citations: citations || parsed.cites
         });
         if (parsed.mentioned) {
           pm++; totalM++;
-          newMentions.push({ id: uid(), platform: plat, query: q, context: text.substring(0,300), raw: text, sentiment: parsed.sentiment, recommended: parsed.recommended, citations: citations||parsed.cites, simulated, time: new Date().toISOString() });
+          newMentions.push({ id: uid(), platform: plat, query: q, context: text.substring(0,300), raw: text, sentiment: parsed.sentiment, recommended: parsed.recommended, citations: citations||parsed.cites, simulated: false, time: new Date().toISOString() });
         }
-      } catch(e) {}
+      } catch(e) {
+        console.error(`[Cron][${plat}] API error for "${q}":`, e.message);
+        totalQ++;
+      }
     }
     platSOV[plat] = queries.length ? Math.round((pm/queries.length)*100) : 0;
   }
