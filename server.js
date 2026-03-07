@@ -299,11 +299,10 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
   const today = new Date().toISOString().split('T')[0];
 
-  // Save run snapshot
+  // Save run snapshot — keep ALL runs (don't overwrite same-day runs)
   if (!brand.runs) brand.runs = [];
-  brand.runs = brand.runs.filter(r => r.date !== today);
   brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM });
-  if (brand.runs.length > 30) brand.runs = brand.runs.slice(-30);
+  if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
 
   // Rebuild queryStats
   const qsNew = {};
@@ -335,11 +334,11 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   const deduped = newMentions.filter(m => !keys2.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
   brand.mentions = [...deduped, ...brand.mentions].slice(0, 500);
 
-  // SOV history
+  // SOV history — keep latest entry per day for trend tracking
   if (!brand.sovHistory) brand.sovHistory = [];
   brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
   brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
-  if (brand.sovHistory.length > 60) brand.sovHistory = brand.sovHistory.slice(-60);
+  if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
 
   brand.updatedAt = new Date().toISOString();
   const idx = db.brands.findIndex(b => b.id === brand.id);
@@ -387,6 +386,7 @@ async function fetchJSON(url, options) {
     const reqOptions = {
       method: options.method || 'POST',
       headers: options.headers || {},
+      timeout: 45000, // 45 second connection timeout
     };
     if (body) reqOptions.headers['Content-Length'] = Buffer.byteLength(body);
 
@@ -395,10 +395,13 @@ async function fetchJSON(url, options) {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Invalid JSON: ' + data.substring(0, 200))); }
+        catch(e) { reject(new Error('Invalid JSON response from ' + new URL(url).hostname + ': ' + data.substring(0, 200))); }
       });
     });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout after 45s to ' + new URL(url).hostname)); });
     req.on('error', reject);
+    // Overall response timeout — 60 seconds max
+    req.setTimeout(60000, () => { req.destroy(); reject(new Error('Response timeout after 60s to ' + new URL(url).hostname)); });
     if (body) req.write(body);
     req.end();
   });
@@ -509,34 +512,90 @@ function parseResponse(text, brand) {
   if (!text || !brand.name) return { mentioned: false, recommended: false, sentiment: 'neutral', cites: [], simulated: false };
 
   const lower = text.toLowerCase();
-  const brandLower = brand.name.toLowerCase();
+  const brandLower = brand.name.toLowerCase().trim();
 
-  // Brand mention detection — check if AI naturally mentioned the brand
-  let mentioned = lower.includes(brandLower);
+  // Brand mention detection — multi-strategy approach for accurate tracking
+  let mentioned = false;
+  let matchPosition = -1;
+
+  // Strategy 1: Exact match (case-insensitive)
+  const exactIdx = lower.indexOf(brandLower);
+  if (exactIdx !== -1) {
+    mentioned = true;
+    matchPosition = exactIdx;
+  }
+
+  // Strategy 2: Match without punctuation (McDonald's → McDonalds, O'Brien → OBrien)
   if (!mentioned) {
-    // Fuzzy: check if all significant words of the brand name appear
-    const words = brandLower.split(/\s+/).filter(w => w.length > 2);
-    if (words.length > 1) {
-      mentioned = words.every(w => lower.includes(w));
+    const brandNoPunc = brandLower.replace(/[''`\-.,&!]/g, '');
+    const textNoPunc = lower.replace(/[''`\-.,&!]/g, '');
+    const noPuncIdx = textNoPunc.indexOf(brandNoPunc);
+    if (noPuncIdx !== -1 && brandNoPunc.length >= 3) {
+      mentioned = true;
+      matchPosition = noPuncIdx;
     }
   }
 
-  // Recommendation detection — only if brand was mentioned
-  const recommended = mentioned && /recommend|best|top|leading|solid|preferred|go.?with|first choice|suggest|worth considering|strong contender|stands out/.test(lower);
+  // Strategy 3: Match with common separators collapsed (Cool Air Pro → CoolAirPro, Cool-Air-Pro)
+  if (!mentioned) {
+    const brandNoSpace = brandLower.replace(/[\s\-_]+/g, '');
+    const textNoSpace = lower.replace(/[\s\-_]+/g, '');
+    if (brandNoSpace.length >= 4 && textNoSpace.includes(brandNoSpace)) {
+      mentioned = true;
+      matchPosition = lower.indexOf(brandLower.split(/\s+/)[0]); // approx position
+    }
+  }
+
+  // Strategy 4: Word-boundary fuzzy match — all significant words appear NEAR each other
+  // Only for multi-word brand names, requires words to appear within 100 chars of each other
+  if (!mentioned) {
+    const words = brandLower.split(/\s+/).filter(w => w.length > 2);
+    if (words.length >= 2) {
+      // Find positions of each word using word boundaries to avoid false positives
+      const wordPositions = words.map(w => {
+        const rx = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+        const m = rx.exec(lower);
+        return m ? m.index : -1;
+      });
+
+      // All words must be found AND within 150 chars of each other (proximity check)
+      if (wordPositions.every(p => p !== -1)) {
+        const minPos = Math.min(...wordPositions);
+        const maxPos = Math.max(...wordPositions);
+        if (maxPos - minPos <= 150) {
+          mentioned = true;
+          matchPosition = minPos;
+        }
+      }
+    }
+  }
+
+  // Strategy 5: Check brand website domain in response (e.g., "coolairpro.com")
+  if (!mentioned && brand.website) {
+    const domain = brand.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+    if (domain && domain.length > 3 && lower.includes(domain)) {
+      mentioned = true;
+      matchPosition = lower.indexOf(domain);
+    }
+  }
+
+  // Recommendation detection — only if brand was mentioned, with word boundaries
+  const recommended = mentioned && /\b(recommend|best|top\s+pick|top\s+choice|leading|solid choice|preferred|go.?with|first choice|suggest|worth considering|strong contender|stands out|highly recommend|top.?rated)\b/i.test(text);
 
   // Sentiment analysis — focused on context around brand mention
   let sentiment = 'neutral';
-  if (mentioned) {
-    const brandIdx = lower.indexOf(brandLower);
-    const start = Math.max(0, brandIdx - 200);
-    const end = Math.min(lower.length, brandIdx + brandLower.length + 200);
+  if (mentioned && matchPosition >= 0) {
+    const start = Math.max(0, matchPosition - 200);
+    const end = Math.min(lower.length, matchPosition + brandLower.length + 300);
     const context = lower.substring(start, end);
 
-    const pw = ['recommend','excellent','top','best','leading','reputable','trusted','quality',
+    const pw = ['recommend','excellent','top pick','best','leading','reputable','trusted','high quality',
       'professional','reliable','great','highly rated','well-known','popular','outstanding',
-      'praised','good reviews','well-regarded','strong','solid','preferred','consistent'];
+      'praised','good reviews','well-regarded','strong reputation','solid','preferred','consistent',
+      'top rated','award','certified','experienced','five star','5 star','4.5','4.8','4.9'];
     const nw = ['avoid','complaint','poor','bad','worst','unreliable','scam','overpriced',
-      'unprofessional','negative reviews','problems','issues'];
+      'unprofessional','negative reviews','problems','issues','lawsuit','shut down','closed',
+      'out of business','fraudulent','deceptive','disappointing','terrible'];
     let p = 0, n = 0;
     pw.forEach(w => { if (context.includes(w)) p++; });
     nw.forEach(w => { if (context.includes(w)) n++; });
@@ -660,9 +719,8 @@ async function runBrandQueries(brand, keys, db) {
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   const today = new Date().toISOString().split('T')[0];
   if (!brand.runs) brand.runs = [];
-  brand.runs = brand.runs.filter(r => r.date !== today);
   brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM });
-  if (brand.runs.length > 30) brand.runs = brand.runs.slice(-30);
+  if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
 
   if (!brand.mentions) brand.mentions = [];
   const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));

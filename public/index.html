@@ -191,7 +191,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .proof-card-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;}
 .proof-card-body{padding:16px;font-size:13px;line-height:1.7;flex:1;display:flex;flex-direction:column;}
 .proof-card-query{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);}
-.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:180px;overflow:hidden;position:relative;}
+.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:280px;overflow:hidden;position:relative;}
 .proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
 .proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
 .proof-card-footer{padding:10px 16px;display:flex;gap:8px;align-items:center;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
@@ -548,10 +548,22 @@ select.finput{appearance:none;}
 
     <!-- MENTIONS ─────────────────────────── -->
     <div id="view-mentions" class="view">
-      <div class="view-title">Mentions</div>
-      <div class="view-sub">Every time your brand was found in an AI response.</div>
+      <div class="view-title">All Results</div>
+      <div class="view-sub">Every AI response from your queries — see exactly what each platform said.</div>
+      <div class="card" style="padding:12px 16px;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RUN:</div>
+          <select class="finput" id="mentions-run-sel" style="width:220px;margin:0;" onchange="renderMentions()"></select>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FILTER:</div>
+          <select class="finput" id="mentions-filter-sel" style="width:150px;margin:0;" onchange="renderMentions()">
+            <option value="all">All Results</option>
+            <option value="mentioned">Mentioned Only</option>
+            <option value="not-mentioned">Not Mentioned</option>
+          </select>
+        </div>
+      </div>
       <div id="mentions-container">
-        <div class="empty-state"><div class="icon">◎</div><p>No mentions yet. Run queries to collect data.</p></div>
+        <div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to collect data.</p></div>
       </div>
     </div>
 
@@ -645,7 +657,7 @@ select.finput{appearance:none;}
       <div class="view-sub">Keys are stored securely on the server. They are never sent to your browser after saving.</div>
       <div class="card">
         <div style="background:var(--bg3);border:1px solid var(--border);padding:12px 14px;margin-bottom:20px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7;">
-          Add keys for platforms you want to track. Platforms without a key will show simulated responses.<br>
+          Add keys for platforms you want to track. Platforms without a key will be skipped — only real API responses are tracked.<br>
           One Gemini key covers both Gemini and Google AI Overview.
         </div>
         <div class="key-grid">
@@ -939,13 +951,14 @@ function renderOverview(){
   const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length-1] : null;
   const sov = lastRun ? lastRun.sov : 0;
   const mentions = lastRun ? (lastRun.mentions||[]).length : 0;
-  const platCount = 6;
+  const totalResults = lastRun ? (lastRun.allResults||[]).length : 0;
+  const activePlats = lastRun ? Object.keys(lastRun.platforms||{}).length : 0;
   const queries = (b.queries||[]).length;
 
   el('ov-sov').textContent = sov+'%';
   el('ov-sov').className = 'stat-val ' + (sov>=70?'green':sov>=40?'amber':'red');
-  el('ov-mentions').textContent = mentions;
-  el('ov-platforms').textContent = platCount;
+  el('ov-mentions').textContent = mentions + '/' + totalResults;
+  el('ov-platforms').textContent = activePlats + '/6';
   el('ov-queries').textContent = queries;
 
   // Platform cards
@@ -1009,29 +1022,68 @@ async function ovRemoveQuery(i){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// ─── MENTIONS ─────────────────────────────────────────────────────
+// ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
 function renderMentions(){
   const b = brand();
   if (!b) return;
   const cont = el('mentions-container');
-  const mentions = b.mentions||[];
-  if (!mentions.length) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No mentions yet. Run queries to collect data.</p></div>';
+
+  // Populate run selector
+  const sel = el('mentions-run-sel');
+  const curVal = sel.value;
+  sel.innerHTML = '';
+  const runs = (b.runs||[]).slice().reverse();
+  if (!runs.length) {
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to collect data.</p></div>';
     return;
   }
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Sentiment</th><th>Type</th><th>Time</th><th></th></tr></thead><tbody>';
-  mentions.slice(0,100).forEach(m => {
-    const t = PLAT_THEME[m.platform]||{};
+  runs.forEach((r,i) => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    const d = new Date(r.time);
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%';
+    sel.appendChild(opt);
+  });
+  if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
+
+  const selectedRunId = sel.value;
+  const run = (b.runs||[]).find(r => r.id === selectedRunId);
+  if (!run) { cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
+
+  const filter = el('mentions-filter-sel').value;
+  const allResults = run.allResults || [];
+
+  if (!allResults.length) {
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results in this run.</p></div>';
+    return;
+  }
+
+  const filtered = allResults.filter(r => {
+    if (filter === 'mentioned') return r.mentioned;
+    if (filter === 'not-mentioned') return !r.mentioned;
+    return true;
+  });
+
+  if (!filtered.length) {
+    cont.innerHTML = '<div class="empty-state"><p>No results match your filter.</p></div>';
+    return;
+  }
+
+  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Mentioned</th><th>Sentiment</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  filtered.forEach(r => {
+    const t = PLAT_THEME[r.platform]||{};
+    const preview = (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
     html += `<tr>
-      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(m.platform)}</td>
-      <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.query)}</td>
-      <td><span class="badge ${m.sentiment==='positive'?'pos':m.sentiment==='negative'?'neg':'neu'}">${m.sentiment}</span></td>
-      <td><span class="badge ${m.simulated?'sim':'real'}">${m.simulated?'SIMULATED':'REAL'}</span></td>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--muted)">${new Date(m.time).toLocaleDateString()}</td>
-      <td><button onclick="openResp('${m.id}')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button></td>
+      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
+      <td style="max-width:250px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
+      <td><span class="badge ${r.mentioned?'pos':'neu'}">${r.mentioned?'YES':'NO'}</span></td>
+      <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${r.sentiment||'neutral'}</span></td>
+      <td style="max-width:300px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${preview.length>=120?'...':''}</td>
+      <td><button onclick="openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button></td>
     </tr>`;
   });
   html += '</tbody></table>';
+  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;">Showing ${filtered.length} of ${allResults.length} results — ${allResults.filter(r=>r.mentioned).length} mentions found</div>`;
   cont.innerHTML = html;
 }
 
@@ -1062,6 +1114,37 @@ function openResp(mentionId){
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
+  if (cites.length) {
+    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES</div>'
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${c}" target="_blank" style="color:var(--blue);text-decoration:none;">${c}</a></div>`).join('');
+  } else cc.innerHTML = '';
+  openModal('resp-modal');
+}
+
+function openResultFromRun(runId, platform, encodedQuery){
+  const b = brand();
+  if (!b) return;
+  const q = decodeURIComponent(atob(encodedQuery));
+  const run = (b.runs||[]).find(r => r.id === runId);
+  if (!run || !run.allResults) return;
+  const result = run.allResults.find(x => x.platform===platform && x.query===q);
+  if (!result) return;
+  const t = PLAT_THEME[platform]||{};
+  const head = el('resp-modal-head');
+  head.style.background = t.bg||'var(--bg2)';
+  head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
+  el('resp-modal-title').textContent = (t.logo||'') + ' ' + platform + (result.mentioned ? ' — MENTIONED' : ' — NOT MENTIONED');
+  el('resp-modal-query').textContent = q;
+  const textEl = el('resp-modal-text');
+  textEl.textContent = result.raw || result.context || '[No response text]';
+  // Highlight brand name
+  if (b.name) {
+    const re = new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')', 'gi');
+    textEl.innerHTML = textEl.innerHTML.replace(re, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
+  }
+  // Show citations if any
+  const cc = el('resp-modal-cites');
+  const cites = result.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES</div>'
       + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${c}" target="_blank" style="color:var(--blue);text-decoration:none;">${c}</a></div>`).join('');
@@ -1100,7 +1183,8 @@ function renderProof(){
   (b.runs||[]).slice().reverse().forEach((r,i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    opt.textContent = new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
+    const d = new Date(r.time || r.date);
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -1150,8 +1234,8 @@ function renderProof(){
           <div class="proof-card-body">
             <div class="proof-card-query">"${esc(q)}"</div>
             ${escapedText
-              ? `<div class="proof-card-resp" style="color:var(--muted);">${escapedText.substring(0,300)}${escapedText.length>300?'...':''}</div>`
-              : `<div class="proof-not-found">Brand not mentioned in this response.</div>`
+              ? `<div class="proof-card-resp" style="color:var(--muted);">${escapedText}</div>`
+              : `<div class="proof-not-found">No response received from this platform.</div>`
             }
           </div>
           <div class="proof-card-footer">
@@ -1160,7 +1244,8 @@ function renderProof(){
           </div>
         </div>`;
       }
-      const raw = (m.raw||m.context||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const rawText = m.raw||m.context||'';
+      const raw = rawText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const highlighted = b.name
         ? raw.replace(new RegExp('('+b.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>')
         : raw;
