@@ -98,7 +98,7 @@ app.post('/api/auth/register', async (req, res) => {
     email: email.toLowerCase(),
     name: name || email.split('@')[0],
     passwordHash: hash,
-    plan: 'free',  // free | pro | agency
+    plan: 'agency',  // free | pro | agency
     apiKeys: {},   // stored server-side, never sent to client
     createdAt: new Date().toISOString()
   };
