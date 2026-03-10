@@ -378,7 +378,7 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
 
   // Save run snapshot — keep ALL runs (don't overwrite same-day runs)
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
   if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
 
   // Rebuild queryStats
@@ -912,7 +912,7 @@ async function runBrandQueries(brand) {
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   const today = new Date().toISOString().split('T')[0];
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
   if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
 
   if (!brand.mentions) brand.mentions = [];

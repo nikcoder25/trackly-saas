@@ -340,9 +340,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .proof-card-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;}
 .proof-card-body{padding:16px;font-size:13px;line-height:1.7;flex:1;display:flex;flex-direction:column;}
 .proof-card-query{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);}
-.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:400px;overflow:hidden;position:relative;}
-.proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
+.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:200px;overflow:hidden;position:relative;transition:max-height 0.3s ease;}
+.proof-card-resp.expanded{max-height:none;overflow:visible;}
+.proof-card-resp:not(.expanded)::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
 .proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
+.proof-expand-btn{font-family:var(--mono);font-size:9px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--green);cursor:pointer;letter-spacing:1px;margin-top:4px;}
+.proof-expand-btn:hover{background:var(--border);}
 .proof-card-footer{padding:10px 16px;display:flex;gap:8px;align-items:center;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
 .proof-view-btn{font-family:var(--mono);font-size:9px;padding:5px 12px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:1px;margin-left:auto;}
 .proof-view-btn:hover{border-color:var(--text);color:var(--text);}
@@ -1541,34 +1544,58 @@ function renderProof(){
 
   const platFilter = el('proof-plat-sel').value;
   const resultFilter = el('proof-result-sel').value;
-  const queries = b.queries||[];
   const mentions = run.mentions||[];
 
   // Build a lookup for ALL results per platform+query (including not-mentioned)
   const allResults = run.allResults || [];
 
-  // Evidence cards — show EXACT API response as proof
-  // For each query, show every platform's response with FOUND/NOT FOUND status
-  let html = '';
+  // CRITICAL: Use queries FROM THE RUN, not current brand queries.
+  // If user changed queries after running, evidence must still show original run results.
+  // Derive unique queries from run data (allResults + run.queries fallback + brand queries)
+  const runQueries = run.queries || [];
+  const resultQueries = [...new Set(allResults.map(r => r.query))];
+  const queries = runQueries.length ? runQueries : (resultQueries.length ? resultQueries : (b.queries||[]));
+
+  // Evidence summary — show run stats at top
+  const totalResults = allResults.length;
+  const foundCount = allResults.filter(r => r.mentioned).length;
+  const errorCount = allResults.filter(r => r.error).length;
+  const runDate = new Date(run.time || run.date);
+  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);font-family:var(--mono);font-size:11px;">
+    <span style="color:var(--muted);">RUN: ${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
+    <span style="color:var(--text);font-weight:700;">${totalResults} results</span>
+    <span style="color:var(--green);font-weight:700;">${foundCount} found</span>
+    <span style="color:${errorCount?'#ff8800':'var(--muted)'}">${errorCount} errors</span>
+    <span style="color:var(--muted);">${queries.length} queries × ${(run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size} platforms</span>
+    <span style="color:var(--text);font-weight:700;">SOV: ${run.sov}%</span>
+  </div>`;
+
+  // Evidence cards — show EXACT AI response as proof for each query+platform
   queries.forEach(q => {
-    const platList = platFilter ? [platFilter] : PLATS;
+    // Use platforms from run data, not just PLATS constant
+    const runPlatforms = run.activePlatforms || [...new Set(allResults.map(r => r.platform))];
+    const platList = platFilter ? [platFilter] : (runPlatforms.length ? runPlatforms : PLATS);
     let hasCards = false;
     const cards = platList.map(plat => {
       const m = mentions.find(x => x.platform===plat && x.query===q);
       const fullResult = allResults.find(x => x.platform===plat && x.query===q);
-      if (resultFilter==='found' && !m) return '';
-      if (resultFilter==='notfound' && m) return '';
+      const isMentionedResult = m || (fullResult && fullResult.mentioned);
+      if (resultFilter==='found' && !isMentionedResult) return '';
+      if (resultFilter==='notfound' && isMentionedResult) return '';
       if (!fullResult && !m) return ''; // No data for this platform+query combo
       hasCards = true;
       const t = PLAT_THEME[plat]||{};
       const isError = fullResult && fullResult.error;
       const isMentioned = !!(m || (fullResult && fullResult.mentioned));
+      // Always prefer fullResult.raw (full AI response) as the authoritative source
+      // Fall back to mention data only if fullResult is missing
       const responseText = isError
         ? ''
-        : (isMentioned && m) ? (m.raw||m.context||'') : (fullResult ? fullResult.raw||fullResult.context||'' : '');
+        : (fullResult ? (fullResult.raw || fullResult.context || '') : (m ? (m.raw || m.context || '') : ''));
       const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const proofHre = brandHighlightRe(b);
-      const displayResp = (isMentioned && proofHre)
+      // Highlight brand name in ALL responses (not just mentioned) so user can verify
+      const displayResp = proofHre
         ? escapedResp.replace(proofHre,'<mark>$1</mark>')
         : escapedResp;
       const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
@@ -1606,7 +1633,8 @@ function renderProof(){
           ${isError
             ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:10px;color:var(--muted);">${esc(fullResult.errorMessage||'Unknown error')}</div><div style="font-size:10px;color:var(--muted);margin-top:8px;">Check that your API key is valid and has sufficient credits.</div></div>`
             : displayResp
-            ? `<div class="proof-card-resp" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
+            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>
+               <button class="proof-expand-btn" onclick="toggleProofExpand(this)">SHOW FULL RESPONSE</button>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
           }
         </div>
@@ -1628,6 +1656,13 @@ function renderProof(){
     }
   });
   cont.innerHTML = html || '<div class="empty-state"><p>No results match your filters.</p></div>';
+}
+
+function toggleProofExpand(btn){
+  const resp = btn.previousElementSibling;
+  if (!resp) return;
+  const isExpanded = resp.classList.toggle('expanded');
+  btn.textContent = isExpanded ? 'COLLAPSE' : 'SHOW FULL RESPONSE';
 }
 
 function exportProofCSV(){
