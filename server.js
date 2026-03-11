@@ -152,7 +152,9 @@ function getServerKeys() {
     perplexity: process.env.PERPLEXITY_API_KEY || '',
     gemini:     process.env.GEMINI_API_KEY     || '',
     claude:     process.env.CLAUDE_API_KEY     || '',
-    grok:       process.env.GROK_API_KEY       || ''
+    grok:       process.env.GROK_API_KEY       || '',
+    deepseek:   process.env.DEEPSEEK_API_KEY   || '',
+    mistral:    process.env.MISTRAL_API_KEY    || ''
   };
 }
 
@@ -163,7 +165,9 @@ app.get('/api/keys/status', auth, (req, res) => {
     perplexity: !!keys.perplexity,
     gemini:     !!keys.gemini,
     claude:     !!keys.claude,
-    grok:       !!keys.grok
+    grok:       !!keys.grok,
+    deepseek:   !!keys.deepseek,
+    mistral:    !!keys.mistral
   });
 });
 
@@ -262,7 +266,7 @@ app.put('/api/brands/:id', auth, async (req, res) => {
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
     // Whitelist allowed fields to prevent overwriting runs/mentions data
-    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule'];
+    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
     const safeBody = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) safeBody[key] = req.body[key];
@@ -296,7 +300,8 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
 
   const PLATFORM_KEY_MAP = {
     'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
-    'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini'
+    'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini',
+    'DeepSeek': 'deepseek', 'Mistral': 'mistral'
   };
   const queries = brand.queries || [];
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
@@ -338,6 +343,9 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
         if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,10);
         totalQ++;
 
+        // Detect competitor mentions in same response
+        const compMentions = detectCompetitors(text, brand.competitors || []);
+
         // Store every result for proof section — full unmodified response
         allResults.push({
           platform: plat, query: q,
@@ -346,7 +354,8 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
           sentiment: parsed.sentiment, recommended: parsed.recommended,
           citations: parsed.cites, model: modelUsed || plat,
           locationRelevant: parsed.locationRelevant,
-          matchedLocation: parsed.matchedLocation || ''
+          matchedLocation: parsed.matchedLocation || '',
+          competitorMentions: compMentions
         });
 
         if (parsed.mentioned) {
@@ -425,8 +434,14 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
 
+  // Send webhook alert if configured and SOV changed
+  const previousSOV = brand.sovHistory.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2].overall : 0;
+  if (brand.webhookUrl && sov !== previousSOV) {
+    sendWebhookAlert(brand, brand.runs[brand.runs.length - 1], previousSOV).catch(() => {});
+  }
+
   const errorCount = allResults.filter(r => r.error).length;
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 6 - activePlatforms.length, errorCount } });
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 8 - activePlatforms.length, errorCount } });
 });
 
 // ─── AI QUERY FUNCTIONS (server-side) ─────────────────────────────
@@ -452,6 +467,12 @@ async function queryAI(query, platform, brand, keys) {
 
   if (platform === 'Google AIO' && keys.gemini)
     return await callGeminiWithSearch(rawQuery, keys.gemini);
+
+  if (platform === 'DeepSeek' && keys.deepseek)
+    return await callDeepSeek(rawQuery, keys.deepseek);
+
+  if (platform === 'Mistral' && keys.mistral)
+    return await callMistral(rawQuery, keys.mistral);
 
   // No API key for this platform — skip it (don't simulate)
   return null;
@@ -638,6 +659,42 @@ async function callClaude(query, apiKey) {
   // Join all text content blocks — Claude can return multiple content blocks
   const claudeText = (d.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
   return { text: claudeText || '', simulated: false, citations: [], model: d.model || claudeModel };
+}
+
+async function callDeepSeek(query, apiKey) {
+  const model = 'deepseek-chat';
+  const body = JSON.stringify({
+    model, max_tokens: 4000,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: query }
+    ]
+  });
+  const d = await fetchJSON('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+    body
+  });
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+  return { text: d.choices?.[0]?.message?.content || '', simulated: false, citations: [], model: d.model || model };
+}
+
+async function callMistral(query, apiKey) {
+  const model = 'mistral-large-latest';
+  const body = JSON.stringify({
+    model, max_tokens: 4000,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: query }
+    ]
+  });
+  const d = await fetchJSON('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+    body
+  });
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+  return { text: d.choices?.[0]?.message?.content || '', simulated: false, citations: [], model: d.model || model };
 }
 
 // ─── RESPONSE PARSING (post-response analysis — no brand injection) ───────
@@ -829,6 +886,23 @@ function parseResponse(text, brand, query) {
   return { mentioned, recommended, sentiment, cites, simulated: false, locationRelevant, matchedLocation };
 }
 
+// ─── COMPETITOR DETECTION (in AI responses) ─────────────────────
+function detectCompetitors(text, competitors) {
+  if (!text || !competitors || !competitors.length) return [];
+  const lower = text.toLowerCase();
+  const found = [];
+  for (const comp of competitors) {
+    const compLower = comp.toLowerCase().trim();
+    if (compLower.length < 2) continue;
+    const compEsc = compLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('\\b' + compEsc + '\\b', 'i');
+    if (re.test(text)) {
+      found.push(comp);
+    }
+  }
+  return found;
+}
+
 // simulate() has been intentionally removed — no more fake/simulated responses.
 // Only real API responses are used. Platforms without API keys are skipped.
 
@@ -870,6 +944,80 @@ app.post('/api/admin/make-first-admin', async (req, res) => {
   }
 });
 
+// ─── QUERY SUGGESTIONS ────────────────────────────────────────────
+const QUERY_TEMPLATES = {
+  'HVAC':        ['best {industry} company in {city}','top rated AC repair in {city}','who is the best heating and cooling company in {city}','best {industry} near me','emergency AC repair {city}','most reliable HVAC company {city}','best furnace repair in {city}','top {industry} contractors in {city}'],
+  'Plumbing':    ['best plumber in {city}','top rated plumbing company {city}','emergency plumber near {city}','who is the best plumbing contractor in {city}','best drain cleaning service {city}','most reliable plumber {city}','best water heater repair {city}'],
+  'Roofing':     ['best roofing company in {city}','top rated roofers {city}','who is the best roofing contractor in {city}','best roof repair in {city}','most reliable roofing company {city}','best metal roof installers {city}'],
+  'Landscaping': ['best landscaping company in {city}','top rated lawn care in {city}','best landscape design {city}','most reliable landscaper {city}','best tree service in {city}','best lawn maintenance company {city}'],
+  'Dental':      ['best dentist in {city}','top rated dental clinic {city}','best cosmetic dentist {city}','best family dentist in {city}','who is the best dentist near {city}','best dental implants {city}'],
+  'Legal':       ['best lawyer in {city}','top rated attorney {city}','best personal injury lawyer {city}','best family lawyer in {city}','who is the best law firm in {city}','best criminal defense attorney {city}'],
+  'Restaurant':  ['best restaurants in {city}','top rated places to eat {city}','best food in {city}','where to eat in {city}','best new restaurants {city}','best brunch in {city}'],
+  'Real Estate': ['best real estate agent in {city}','top realtors in {city}','best property management company {city}','who is the best realtor in {city}','best real estate company {city}'],
+  'Auto Repair': ['best auto mechanic in {city}','top rated auto repair shop {city}','best car repair in {city}','most reliable mechanic {city}','best transmission repair {city}'],
+  'Cleaning':    ['best cleaning service in {city}','top rated house cleaning {city}','best commercial cleaning company {city}','most reliable cleaning service {city}','best maid service {city}'],
+  '_default':    ['best {industry} in {city}','top rated {industry} company {city}','who is the best {industry} provider in {city}','best {industry} near me','most recommended {industry} in {city}','top {industry} companies','best {industry} service {city}','leading {industry} providers in {city}']
+};
+
+app.get('/api/query-suggestions', auth, (req, res) => {
+  const industry = (req.query.industry || '').trim();
+  const city = (req.query.city || '').trim();
+  if (!industry && !city) return res.json({ suggestions: [] });
+
+  // Find best matching template set
+  const industryLower = industry.toLowerCase();
+  let templateKey = '_default';
+  for (const key of Object.keys(QUERY_TEMPLATES)) {
+    if (key === '_default') continue;
+    if (industryLower.includes(key.toLowerCase()) || key.toLowerCase().includes(industryLower)) {
+      templateKey = key;
+      break;
+    }
+  }
+
+  const templates = QUERY_TEMPLATES[templateKey];
+  const suggestions = templates.map(t =>
+    t.replace(/\{industry\}/g, industry || 'service').replace(/\{city\}/g, city || 'my area')
+  );
+  res.json({ suggestions });
+});
+
+// ─── WEBHOOK ALERTS ───────────────────────────────────────────────
+async function sendWebhookAlert(brand, run, previousSOV) {
+  if (!brand.webhookUrl) return;
+  const url = brand.webhookUrl.trim();
+  if (!url.startsWith('http')) return;
+
+  const sov = run.sov;
+  const change = sov - previousSOV;
+  const direction = change > 0 ? 'increased' : change < 0 ? 'decreased' : 'unchanged';
+
+  const payload = {
+    event: 'sov_change',
+    brand: brand.name,
+    sov: sov,
+    previousSOV: previousSOV,
+    change: change,
+    direction: direction,
+    mentions: (run.mentions || []).length,
+    totalQueries: run.totalQ,
+    platforms: run.platforms,
+    timestamp: new Date().toISOString(),
+    summary: `${brand.name} SOV ${direction}: ${previousSOV}% → ${sov}% (${change > 0 ? '+' : ''}${change}%)`
+  };
+
+  try {
+    await fetchJSON(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    console.log(`[Webhook] Alert sent for ${brand.name} to ${url}`);
+  } catch(e) {
+    console.error(`[Webhook] Failed for ${brand.name}:`, e.message);
+  }
+}
+
 // ─── HEALTH CHECK ─────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   try {
@@ -910,7 +1058,8 @@ async function runBrandQueries(brand) {
   const keys = getServerKeys();
   const PLATFORM_KEY_MAP = {
     'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
-    'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini'
+    'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini',
+    'DeepSeek': 'deepseek', 'Mistral': 'mistral'
   };
   const queries = brand.queries || [];
   const activePlatforms = Object.entries(PLATFORM_KEY_MAP)

@@ -32,6 +32,7 @@
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <!-- JSON-LD Structured Data -->
 <script type="application/ld+json">
 {
@@ -784,9 +785,11 @@ select.finput{appearance:none;}
     <div class="nav-group">Analysis</div>
     <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
+    <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
+    <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
   </div>
 
   <!-- Main -->
@@ -808,6 +811,10 @@ select.finput{appearance:none;}
         <div class="stat-card"><div class="stat-val" id="ov-queries">--</div><div class="stat-lbl">Queries Running</div></div>
       </div>
       <div id="ov-plat-grid" class="plat-grid"></div>
+      <div id="ov-mini-trend" style="display:none;margin-bottom:16px;" class="card">
+        <div class="card-title">SOV Trend</div>
+        <canvas id="ov-mini-chart" style="width:100%;max-height:180px;"></canvas>
+      </div>
       <div id="ov-last-run-summary" style="display:none;margin-bottom:20px;"></div>
       <div class="card">
         <div class="card-title">Tracked Queries</div>
@@ -816,6 +823,7 @@ select.finput{appearance:none;}
           <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
           <button onclick="ovAddQuery()">+ Add</button>
           <button onclick="toggleBulkAdd()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">BULK ADD</button>
+          <button onclick="loadQuerySuggestions()" style="background:var(--bg3);border:1px solid rgba(59,130,246,.3);color:var(--blue);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">SUGGEST</button>
         </div>
         <div id="bulk-query-box" style="display:none;margin-top:12px;">
           <textarea id="bulk-query-input" placeholder="Paste multiple queries here — one per line&#10;&#10;Example:&#10;Best HVAC company in Austin TX&#10;Top rated AC repair near me&#10;Who is the best plumber in Dallas" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px;resize:vertical;box-sizing:border-box;"></textarea>
@@ -861,6 +869,7 @@ select.finput{appearance:none;}
             <option value="">All Platforms</option>
             <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
             <option>Gemini</option><option>Grok</option><option>Google AIO</option>
+            <option>DeepSeek</option><option>Mistral</option>
           </select>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RESULT:</div>
           <select class="finput" id="proof-result-sel" style="width:130px;margin:0;" onchange="renderProof()">
@@ -899,6 +908,55 @@ select.finput{appearance:none;}
           <input id="comp-input" type="text" placeholder="Add competitor name..." onkeydown="if(event.key==='Enter')addComp()">
           <button onclick="addComp()">+ Add</button>
         </div>
+      </div>
+      <div id="comp-comparison" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- SOV TRENDS ────────────────────────── -->
+    <div id="view-trends" class="view">
+      <div class="view-title">SOV Trends</div>
+      <div class="view-sub">Share of Voice over time — overall and per platform.</div>
+      <div class="card" style="padding:20px;">
+        <div class="card-title">Overall SOV Trend</div>
+        <canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>
+      </div>
+      <div class="card" style="padding:20px;margin-top:16px;">
+        <div class="card-title">Per-Platform SOV Trend</div>
+        <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- ALERTS ─────────────────────────── -->
+    <div id="view-alerts" class="view">
+      <div class="view-title">Alerts &amp; Webhooks</div>
+      <div class="view-sub">Get notified when your SOV changes.</div>
+      <div class="card">
+        <div class="card-title">Webhook URL</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
+          Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
+          We'll POST a JSON payload whenever your SOV changes after a run.
+        </div>
+        <div class="add-query-row">
+          <input class="finput" id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;">
+          <button onclick="saveWebhook()" class="btn-primary" style="padding:8px 16px;font-size:11px;">SAVE</button>
+        </div>
+        <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Webhook Payload Format</div>
+        <pre style="background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-x:auto;white-space:pre-wrap;line-height:1.6;">{
+  "event": "sov_change",
+  "brand": "Your Brand Name",
+  "sov": 45,
+  "previousSOV": 30,
+  "change": 15,
+  "direction": "increased",
+  "mentions": 3,
+  "totalQueries": 8,
+  "platforms": {"ChatGPT": 50, "Perplexity": 40, ...},
+  "timestamp": "2026-03-11T12:00:00.000Z",
+  "summary": "Your Brand SOV increased: 30% → 45% (+15%)"
+}</pre>
       </div>
     </div>
 
@@ -1021,7 +1079,7 @@ function showLanding(){
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const API = '';  // relative URLs - same server
-const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO'];
+const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO','DeepSeek','Mistral'];
 const PLAT_THEME = {
   'ChatGPT':    {bg:'#212121',color:'#19c37d',logo:'⬡'},
   'Perplexity': {bg:'#1b1b2e',color:'#9b72ff',logo:'◎'},
@@ -1029,6 +1087,8 @@ const PLAT_THEME = {
   'Gemini':     {bg:'#0d1117',color:'#4285f4',logo:'✦'},
   'Grok':       {bg:'#0c0c0c',color:'#1d9bf0',logo:'⚡'},
   'Google AIO': {bg:'#0d1117',color:'#34a853',logo:'⬤'},
+  'DeepSeek':   {bg:'#0d1a2e',color:'#4a9eff',logo:'◇'},
+  'Mistral':    {bg:'#1a0d1e',color:'#ff7000',logo:'▣'},
 };
 
 // ─── STATE ────────────────────────────────────────────────────────
@@ -1236,8 +1296,10 @@ function renderView(view){
   if (view==='proof')       renderProof();
   if (view==='platforms')   renderPlatformStatus();
   if (view==='qperf')       renderQPerf();
+  if (view==='trends')      renderTrends();
   if (view==='competitors') renderCompetitors();
   if (view==='setup')       renderSetup();
+  if (view==='alerts')      renderAlerts();
 }
 
 function renderAll(){
@@ -1260,7 +1322,7 @@ function renderOverview(){
   el('ov-sov').textContent = sov+'%';
   el('ov-sov').className = 'stat-val ' + (sov>=70?'green':sov>=40?'amber':'red');
   el('ov-mentions').textContent = mentions + '/' + totalResults;
-  el('ov-platforms').textContent = activePlats + '/6';
+  el('ov-platforms').textContent = activePlats + '/' + PLATS.length;
   el('ov-queries').textContent = queries;
 
   // Platform cards
@@ -1328,6 +1390,47 @@ function renderOverview(){
     tag.appendChild(btn);
     ql.appendChild(tag);
   });
+
+  // Mini SOV trend chart on overview
+  const miniTrend = el('ov-mini-trend');
+  const history = b.sovHistory || [];
+  if (history.length >= 2 && typeof Chart !== 'undefined') {
+    miniTrend.style.display = 'block';
+    const miniLabels = history.slice(-14).map(h => {
+      const d = new Date(h.date);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    const miniData = history.slice(-14).map(h => h.overall);
+    if (window._ovMiniChart) window._ovMiniChart.destroy();
+    const mCtx = el('ov-mini-chart').getContext('2d');
+    window._ovMiniChart = new Chart(mCtx, {
+      type: 'line',
+      data: {
+        labels: miniLabels,
+        datasets: [{
+          label: 'SOV %',
+          data: miniData,
+          borderColor: '#00ff88',
+          backgroundColor: 'rgba(0,255,136,0.08)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: '#00ff88'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#666', font: { size: 9 } }, grid: { color: '#1a1a1a' } },
+          y: { min: 0, max: 100, ticks: { color: '#666', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        }
+      }
+    });
+  } else {
+    miniTrend.style.display = 'none';
+  }
 }
 
 async function ovAddQuery(){
@@ -1637,6 +1740,7 @@ function renderProof(){
       const recommended = (m && m.recommended) || (fullResult && fullResult.recommended) || false;
       const locRelevant = (m && m.locationRelevant) || (fullResult && fullResult.locationRelevant);
       const matchedLoc = (m && m.matchedLocation) || (fullResult && fullResult.matchedLocation) || '';
+      const compMentions = (fullResult && fullResult.competitorMentions) || [];
 
       // Status badge — clear FOUND / NOT FOUND / ERROR
       const statusBadge = isError
@@ -1675,6 +1779,7 @@ function renderProof(){
           ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
           ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
+          ${compMentions.length?`<span style="font-family:var(--mono);font-size:8px;color:var(--red);background:rgba(255,68,68,.08);padding:2px 6px;border:1px solid rgba(255,68,68,.2);" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
           ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
           ${viewBtn}
         </div>
@@ -1789,6 +1894,55 @@ function renderCompetitors(){
     tag.appendChild(btn);
     cont.appendChild(tag);
   });
+
+  // Competitor comparison from run data
+  const compDiv = el('comp-comparison');
+  const competitors = b.competitors || [];
+  const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
+  if (!competitors.length || !lastRun || !lastRun.allResults) {
+    compDiv.innerHTML = competitors.length ? '<div class="card"><div class="empty-state"><p>Run queries to see competitor comparison data.</p></div></div>' : '';
+    return;
+  }
+
+  const allResults = lastRun.allResults || [];
+  // Count brand vs competitor mentions
+  const brandMentions = allResults.filter(r => r.mentioned).length;
+  const compStats = {};
+  competitors.forEach(c => { compStats[c] = 0; });
+  allResults.forEach(r => {
+    const cm = r.competitorMentions || [];
+    cm.forEach(c => { if (compStats[c] !== undefined) compStats[c]++; });
+  });
+
+  let html = '<div class="card"><div class="card-title">Mention Comparison (Last Run)</div>';
+  html += '<table class="tbl"><thead><tr><th>Brand</th><th>Mentions</th><th>Share</th><th>Bar</th></tr></thead><tbody>';
+
+  // Your brand row
+  const total = allResults.length;
+  const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
+  html += `<tr style="background:rgba(0,255,136,.05);">
+    <td><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
+    <td style="font-family:var(--mono)">${brandMentions}/${total}</td>
+    <td style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
+    <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${brandPct}%;background:var(--green);"></div></div></td>
+  </tr>`;
+
+  // Competitor rows sorted by mention count
+  const sorted = competitors.slice().sort((a,b2) => (compStats[b2]||0) - (compStats[a]||0));
+  sorted.forEach(c => {
+    const cnt = compStats[c] || 0;
+    const pct = total ? Math.round((cnt / total) * 100) : 0;
+    const clr = cnt > brandMentions ? 'var(--red)' : cnt === brandMentions ? 'var(--amber,#f59e0b)' : 'var(--muted)';
+    html += `<tr>
+      <td>${esc(c)}</td>
+      <td style="font-family:var(--mono)">${cnt}/${total}</td>
+      <td style="font-family:var(--mono);color:${clr};font-weight:700;">${pct}%</td>
+      <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${pct}%;background:${clr};"></div></div></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  compDiv.innerHTML = html;
 }
 
 async function addComp(){
@@ -1812,6 +1966,136 @@ async function removeComp(i){
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     renderCompetitors();
   } catch(e) { toast(e.message,'err'); }
+}
+
+// ─── SOV TRENDS (Chart.js) ────────────────────────────────────────
+let sovChartInstance = null;
+let platSovChartInstance = null;
+
+function renderTrends(){
+  const b = brand(); if (!b) return;
+  const history = b.sovHistory || [];
+  if (!history.length) {
+    el('sov-chart').parentElement.innerHTML = '<div class="card-title">Overall SOV Trend</div><div class="empty-state"><p>No trend data yet. Run queries at least twice to see trends.</p></div>';
+    el('plat-sov-chart').parentElement.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><div class="empty-state"><p>No trend data yet.</p></div>';
+    return;
+  }
+
+  const labels = history.map(h => {
+    const d = new Date(h.date);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+  const sovData = history.map(h => h.overall);
+
+  // Overall SOV chart
+  if (sovChartInstance) sovChartInstance.destroy();
+  const ctx = el('sov-chart').getContext('2d');
+  sovChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Overall SOV %',
+        data: sovData,
+        borderColor: '#00ff88',
+        backgroundColor: 'rgba(0,255,136,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#00ff88',
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#888', font: { family: "'Space Mono', monospace", size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
+        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+      }
+    }
+  });
+
+  // Per-platform SOV chart
+  if (platSovChartInstance) platSovChartInstance.destroy();
+  const allPlatforms = new Set();
+  history.forEach(h => { if (h.platforms) Object.keys(h.platforms).forEach(p => allPlatforms.add(p)); });
+  const datasets = [...allPlatforms].map(plat => {
+    const t = PLAT_THEME[plat] || {};
+    return {
+      label: plat,
+      data: history.map(h => (h.platforms || {})[plat] || 0),
+      borderColor: t.color || '#888',
+      backgroundColor: 'transparent',
+      tension: 0.3,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      borderWidth: 2
+    };
+  });
+
+  const ctx2 = el('plat-sov-chart').getContext('2d');
+  platSovChartInstance = new Chart(ctx2, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#888', font: { family: "'Space Mono', monospace", size: 10 } } } },
+      scales: {
+        x: { ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
+        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+      }
+    }
+  });
+}
+
+// ─── ALERTS ──────────────────────────────────────────────────────
+function renderAlerts(){
+  const b = brand(); if (!b) return;
+  el('alert-webhook-url').value = b.webhookUrl || '';
+  const status = el('webhook-status');
+  if (b.webhookUrl) {
+    status.innerHTML = '<span style="color:var(--green);">&#x2713; Webhook configured</span>';
+  } else {
+    status.innerHTML = '<span style="color:var(--muted);">No webhook configured</span>';
+  }
+}
+
+async function saveWebhook(){
+  const b = brand(); if (!b) return;
+  const url = el('alert-webhook-url').value.trim();
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { webhookUrl: url });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAlerts();
+    toast(url ? 'Webhook saved' : 'Webhook removed', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ─── QUERY SUGGESTIONS ───────────────────────────────────────────
+async function loadQuerySuggestions(){
+  const b = brand(); if (!b) return;
+  const industry = b.industry || '';
+  const city = b.city || '';
+  if (!industry && !city) { toast('Set industry and city in Brand Setup first', 'err'); return; }
+  try {
+    const data = await api('GET', '/api/query-suggestions?industry='+encodeURIComponent(industry)+'&city='+encodeURIComponent(city));
+    const suggestions = data.suggestions || [];
+    if (!suggestions.length) { toast('No suggestions available', 'warn'); return; }
+    // Show in a modal-like dropdown
+    const existing = new Set((b.queries || []).map(q => q.toLowerCase()));
+    const newSuggestions = suggestions.filter(s => !existing.has(s.toLowerCase()));
+    if (!newSuggestions.length) { toast('All suggestions already added!', 'ok'); return; }
+    const pick = confirm('Add ' + newSuggestions.length + ' suggested queries?\n\n' + newSuggestions.join('\n'));
+    if (!pick) return;
+    const queries = [...(b.queries || []), ...newSuggestions];
+    const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    brands[brands.findIndex(x=>x.id===b.id)] = result.brand;
+    renderAll();
+    toast(newSuggestions.length + ' queries added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 // ─── BRAND SETUP ──────────────────────────────────────────────────
