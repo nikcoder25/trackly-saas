@@ -1620,7 +1620,7 @@ function renderProof(){
         ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
         : `<button class="proof-view-btn" onclick="openFullResult('${plat}','${btoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
 
-      return `<div class="proof-card" style="background:${cardBg};border:1px solid ${cardBorder};">
+      return `<div class="proof-card" style="background:${cardBg};--proof-card-bg:${cardBg};border:1px solid ${cardBorder};">
         <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${cardBorder};">
           <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
           <div class="proof-card-name" style="color:${isMentioned?(t.color||'var(--text)'):'var(--text)'}">${plat}</div>

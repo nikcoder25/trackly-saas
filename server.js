@@ -633,55 +633,75 @@ function parseResponse(text, brand, query) {
   const lower = text.toLowerCase();
   const brandLower = brand.name.toLowerCase().trim();
 
-  // Brand mention detection — multi-strategy approach for accurate tracking
+  // Brand mention detection — word-boundary approach to avoid false positives
   let mentioned = false;
   let matchPosition = -1;
 
-  // Strategy 1: Exact match (case-insensitive)
-  const exactIdx = lower.indexOf(brandLower);
-  if (exactIdx !== -1) {
-    mentioned = true;
-    matchPosition = exactIdx;
+  // Strategy 1: Word-boundary exact match (case-insensitive)
+  // Uses \b to prevent "Pro" matching inside "Professional" or "Air" inside "repair"
+  {
+    const brandEsc = brandLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const exactRe = new RegExp('\\b' + brandEsc + '\\b', 'i');
+    const exactMatch = exactRe.exec(text);
+    if (exactMatch) {
+      mentioned = true;
+      matchPosition = exactMatch.index;
+    }
   }
 
   // Strategy 2: Match without punctuation (McDonald's → McDonalds, O'Brien → OBrien)
   if (!mentioned) {
     const brandNoPunc = brandLower.replace(/[''`\-.,&!]/g, '');
     const textNoPunc = lower.replace(/[''`\-.,&!]/g, '');
-    const noPuncIdx = textNoPunc.indexOf(brandNoPunc);
-    if (noPuncIdx !== -1 && brandNoPunc.length >= 3) {
-      mentioned = true;
-      matchPosition = noPuncIdx;
+    if (brandNoPunc.length >= 3) {
+      const noPuncEsc = brandNoPunc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const noPuncRe = new RegExp('\\b' + noPuncEsc + '\\b', 'i');
+      const noPuncMatch = noPuncRe.exec(textNoPunc);
+      if (noPuncMatch) {
+        mentioned = true;
+        matchPosition = noPuncMatch.index;
+      }
     }
   }
 
   // Strategy 3: Match with common separators collapsed (Cool Air Pro → CoolAirPro, Cool-Air-Pro)
+  // Higher minimum length to avoid false matches on short collapsed strings
   if (!mentioned) {
     const brandNoSpace = brandLower.replace(/[\s\-_]+/g, '');
     const textNoSpace = lower.replace(/[\s\-_]+/g, '');
-    if (brandNoSpace.length >= 4 && textNoSpace.includes(brandNoSpace)) {
+    if (brandNoSpace.length >= 6 && textNoSpace.includes(brandNoSpace)) {
       mentioned = true;
       matchPosition = lower.indexOf(brandLower.split(/\s+/)[0]); // approx position
     }
   }
 
-  // Strategy 4: Word-boundary fuzzy match — all significant words appear NEAR each other
+  // Strategy 4: Word-boundary fuzzy match — all significant words appear NEAR each other in ORDER
   // Only for multi-word brand names, requires words to appear within 100 chars of each other
   if (!mentioned) {
     const words = brandLower.split(/\s+/).filter(w => w.length > 2);
     if (words.length >= 2) {
-      // Find positions of each word using word boundaries to avoid false positives
-      const wordPositions = words.map(w => {
+      // Find positions of each word using word boundaries — must appear in order
+      const wordPositions = [];
+      let searchFrom = 0;
+      let allFound = true;
+      for (const w of words) {
         const rx = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-        const m = rx.exec(lower);
-        return m ? m.index : -1;
-      });
+        const sub = lower.substring(searchFrom);
+        const m = rx.exec(sub);
+        if (m) {
+          wordPositions.push(searchFrom + m.index);
+          searchFrom = searchFrom + m.index + m[0].length;
+        } else {
+          allFound = false;
+          break;
+        }
+      }
 
-      // All words must be found AND within 150 chars of each other (proximity check)
-      if (wordPositions.every(p => p !== -1)) {
-        const minPos = Math.min(...wordPositions);
-        const maxPos = Math.max(...wordPositions);
-        if (maxPos - minPos <= 150) {
+      // All words must be found in order AND within 120 chars span (tighter proximity)
+      if (allFound && wordPositions.length === words.length) {
+        const minPos = wordPositions[0];
+        const maxPos = wordPositions[wordPositions.length - 1];
+        if (maxPos - minPos <= 120) {
           mentioned = true;
           matchPosition = minPos;
         }
@@ -699,23 +719,31 @@ function parseResponse(text, brand, query) {
   }
 
   // Strategy 6: Check ALL aliases — user-defined alternate names, abbreviations, domain variations
+  // Uses word boundaries to avoid false matches (e.g., alias "AC" matching inside "practical")
   if (!mentioned && brand.aliases && brand.aliases.length) {
     for (const alias of brand.aliases) {
       const aliasLower = alias.toLowerCase().trim();
       if (aliasLower.length < 2) continue;
-      const aliasIdx = lower.indexOf(aliasLower);
-      if (aliasIdx !== -1) {
+      const aliasEsc = aliasLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const aliasRe = new RegExp('\\b' + aliasEsc + '\\b', 'i');
+      const aliasMatch = aliasRe.exec(text);
+      if (aliasMatch) {
         mentioned = true;
-        matchPosition = aliasIdx;
+        matchPosition = aliasMatch.index;
         break;
       }
       // Also try without punctuation
       const aliasNoPunc = aliasLower.replace(/[''`\-.,&!]/g, '');
-      const textNoPunc = lower.replace(/[''`\-.,&!]/g, '');
-      if (aliasNoPunc.length >= 3 && textNoPunc.includes(aliasNoPunc)) {
-        mentioned = true;
-        matchPosition = textNoPunc.indexOf(aliasNoPunc);
-        break;
+      if (aliasNoPunc.length >= 3) {
+        const textNoPunc = lower.replace(/[''`\-.,&!]/g, '');
+        const noPuncEsc = aliasNoPunc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const noPuncRe = new RegExp('\\b' + noPuncEsc + '\\b', 'i');
+        const noPuncMatch = noPuncRe.exec(textNoPunc);
+        if (noPuncMatch) {
+          mentioned = true;
+          matchPosition = noPuncMatch.index;
+          break;
+        }
       }
     }
   }
