@@ -526,6 +526,7 @@
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
     <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
     <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
+    <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;">⚑ Admin Panel</button>
   </div>
 
   <!-- Main -->
@@ -553,7 +554,11 @@
       </div>
       <div id="ov-last-run-summary" style="display:none;margin-bottom:20px;"></div>
       <div class="card">
-        <div class="card-title">Tracked Queries</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="card-title" style="margin-bottom:0;">Tracked Queries</div>
+          <div id="ov-query-count" style="font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+        </div>
+        <div id="ov-query-limit-msg" style="display:none;background:rgba(255,165,0,.1);border:1px solid rgba(255,165,0,.25);padding:8px 12px;margin:8px 0;font-size:11px;color:#f0a030;font-family:var(--mono);"></div>
         <div id="ov-query-list"></div>
         <div class="add-query-row">
           <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
@@ -666,18 +671,28 @@
     <div id="view-alerts" class="view">
       <div class="view-title">Alerts &amp; Webhooks</div>
       <div class="view-sub">Get notified when your SOV changes.</div>
+
+      <!-- SOV Change History -->
       <div class="card">
+        <div class="card-title">Recent SOV Changes</div>
+        <div id="alert-sov-history"></div>
+      </div>
+
+      <!-- Webhook Configuration -->
+      <div class="card" style="margin-top:16px;">
         <div class="card-title">Webhook URL</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
           Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
           We'll POST a JSON payload whenever your SOV changes after a run.
         </div>
         <div class="add-query-row">
-          <input class="finput" id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;">
-          <button onclick="saveWebhook()" class="btn-primary" style="padding:8px 16px;font-size:11px;">SAVE</button>
+          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;">
+          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--green);color:#000;border:none;font-family:var(--mono);font-weight:700;cursor:pointer;letter-spacing:.5px;">SAVE</button>
         </div>
         <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
       </div>
+
+      <!-- Payload Format -->
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Webhook Payload Format</div>
         <pre style="background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-x:auto;white-space:pre-wrap;line-height:1.6;">{
@@ -775,6 +790,20 @@
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Change Plan</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL ──────────────────────── -->
+    <div id="view-admin" class="view">
+      <div class="view-title">Admin Panel</div>
+      <div class="view-sub">Manage all users and their plans.</div>
+      <div class="card">
+        <div class="card-title">All Users</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+          <input class="finput" id="admin-search" type="text" placeholder="Search by email..." style="margin:0;max-width:300px;" oninput="filterAdminUsers()">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="admin-user-count"></div>
+        </div>
+        <div id="admin-users-table"></div>
       </div>
     </div>
 

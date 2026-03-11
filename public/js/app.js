@@ -83,6 +83,11 @@ async function api(method, path, data){
   const res = await fetch(API + path, opts);
   const json = await res.json();
   if (!res.ok) {
+    // Handle expired/invalid sessions — auto-logout on 401
+    if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register') {
+      doLogout();
+      throw new Error('Session expired. Please log in again.');
+    }
     // Auto-show upgrade modal on plan limit errors
     if (json.planLimit) {
       showUpgradeModal(json.error);
@@ -161,6 +166,10 @@ async function initApp(){
   pb.textContent = (currentUser.plan||'free').toUpperCase();
   pb.className = 'plan-badge ' + (currentUser.plan||'free');
 
+  // Show admin nav if user is admin
+  const adminNav = el('nav-admin');
+  if (adminNav) adminNav.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+
   // Load brands
   const data = await api('GET', '/api/brands');
   brands = data.brands || [];
@@ -218,6 +227,14 @@ function closeMobileMenu(){
   el('mobile-overlay').classList.remove('active');
 }
 function go(view){
+  // Clean up chart instances when leaving views to prevent memory leaks
+  if (currentView === 'trends') {
+    if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
+    if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
+  }
+  if (currentView === 'overview' && window._ovMiniChart) {
+    window._ovMiniChart.destroy(); window._ovMiniChart = null;
+  }
   currentView = view;
   closeMobileMenu();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -233,7 +250,23 @@ function go(view){
 function renderView(view){
   const b = brand();
   if (view==='account') { renderAccount(); return; }
-  if (!b) return;
+  if (view==='admin')   { renderAdmin(); return; }
+  if (!b) {
+    // Show helpful message for views that require a brand
+    const viewEl = el('view-' + view);
+    if (viewEl) {
+      const existing = viewEl.querySelector('.no-brand-msg');
+      if (!existing) {
+        const msg = document.createElement('div');
+        msg.className = 'empty-state no-brand-msg';
+        msg.innerHTML = '<p>Select or create a brand first to view this section.</p>';
+        viewEl.prepend(msg);
+      }
+    }
+    return;
+  }
+  // Remove no-brand messages when brand is available
+  document.querySelectorAll('.no-brand-msg').forEach(m => m.remove());
   if (view==='overview')    renderOverview();
   if (view==='mentions')    renderMentions();
   if (view==='proof')       renderProof();
@@ -430,7 +463,24 @@ function renderOverview(){
     lrs.style.display = 'none';
   }
 
-  // Queries list
+  // Queries list with count indicator
+  const queryCount = (b.queries||[]).length;
+  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  const qCountEl = el('ov-query-count');
+  if (qCountEl) {
+    const atLimit = queryCount >= queryLimit;
+    qCountEl.textContent = queryCount + ' / ' + queryLimit + ' queries';
+    qCountEl.style.color = atLimit ? '#f0a030' : 'var(--muted)';
+  }
+  const limitMsg = el('ov-query-limit-msg');
+  if (limitMsg) {
+    if (queryCount >= queryLimit) {
+      limitMsg.textContent = 'Query limit reached (' + queryLimit + '). Remove a query or upgrade your plan to add more.';
+      limitMsg.style.display = 'block';
+    } else {
+      limitMsg.style.display = 'none';
+    }
+  }
   const ql = el('ov-query-list');
   ql.innerHTML = '';
   (b.queries||[]).forEach((q,i) => {
@@ -493,6 +543,12 @@ async function ovAddQuery(){
   if (!q) return;
   const b = brand();
   if (!b) return;
+  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  if ((b.queries||[]).length >= queryLimit) {
+    toast('Query limit reached (' + queryLimit + '). Upgrade your plan to add more.', 'err');
+    showUpgradeModal('Your plan allows up to ' + queryLimit + ' queries. Upgrade for more.');
+    return;
+  }
   const queries = [...(b.queries||[]), q];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
@@ -1029,11 +1085,33 @@ let platSovChartInstance = null;
 function renderTrends(){
   const b = brand(); if (!b) return;
   const history = b.sovHistory || [];
+
+  // Destroy existing chart instances safely
+  if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
+  if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
+
+  // Ensure canvas elements exist (recreate if previously destroyed)
+  const sovParent = el('sov-chart') ? el('sov-chart').parentElement : document.querySelector('#view-trends .card:first-child');
+  if (!el('sov-chart')) {
+    sovParent.innerHTML = '<div class="card-title">Overall SOV Trend</div><canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>';
+  }
+  const platParent = el('plat-sov-chart') ? el('plat-sov-chart').parentElement : document.querySelector('#view-trends .card:nth-child(2)');
+  if (!el('plat-sov-chart')) {
+    platParent.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>';
+  }
+
   if (!history.length) {
-    el('sov-chart').parentElement.innerHTML = '<div class="card-title">Overall SOV Trend</div><div class="empty-state"><p>No trend data yet. Run queries at least twice to see trends.</p></div>';
-    el('plat-sov-chart').parentElement.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><div class="empty-state"><p>No trend data yet.</p></div>';
+    el('sov-chart').style.display = 'none';
+    sovParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet. Run queries at least twice to see trends.</p></div>');
+    el('plat-sov-chart').style.display = 'none';
+    platParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet.</p></div>');
     return;
   }
+
+  // Remove any previous empty-state messages
+  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
+  el('sov-chart').style.display = '';
+  el('plat-sov-chart').style.display = '';
 
   const labels = history.map(h => {
     const d = new Date(h.date);
@@ -1042,7 +1120,6 @@ function renderTrends(){
   const sovData = history.map(h => h.overall);
 
   // Overall SOV chart
-  if (sovChartInstance) sovChartInstance.destroy();
   const ctx = el('sov-chart').getContext('2d');
   sovChartInstance = new Chart(ctx, {
     type: 'line',
@@ -1072,7 +1149,6 @@ function renderTrends(){
   });
 
   // Per-platform SOV chart
-  if (platSovChartInstance) platSovChartInstance.destroy();
   const allPlatforms = new Set();
   history.forEach(h => { if (h.platforms) Object.keys(h.platforms).forEach(p => allPlatforms.add(p)); });
   const datasets = [...allPlatforms].map(plat => {
@@ -1115,6 +1191,30 @@ function renderAlerts(){
   } else {
     status.innerHTML = '<span style="color:var(--muted);">No webhook configured</span>';
   }
+
+  // SOV change history
+  const histEl = el('alert-sov-history');
+  const history = b.sovHistory || [];
+  if (history.length < 2) {
+    histEl.innerHTML = '<div class="empty-state"><p>No SOV changes recorded yet. Run queries at least twice to see changes here.</p></div>';
+    return;
+  }
+  let html = '<table class="tbl"><thead><tr><th>Date</th><th>SOV</th><th>Change</th><th>Platforms</th></tr></thead><tbody>';
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    const prev = i > 0 ? history[i - 1].overall : 0;
+    const change = h.overall - prev;
+    const changeStr = i === 0 ? '—' : (change > 0 ? '+' + change + '%' : change + '%');
+    const changeColor = change > 0 ? 'var(--green)' : change < 0 ? 'var(--red)' : 'var(--muted)';
+    const date = new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const plats = h.platforms ? Object.entries(h.platforms).map(([p, v]) => p + ': ' + v + '%').join(', ') : '—';
+    html += '<tr><td style="font-family:var(--mono);font-size:11px;">' + date + '</td>';
+    html += '<td style="font-family:var(--mono);font-weight:700;">' + h.overall + '%</td>';
+    html += '<td style="font-family:var(--mono);color:' + changeColor + ';">' + (i === 0 ? '—' : changeStr) + '</td>';
+    html += '<td style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + esc(plats) + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  histEl.innerHTML = html;
 }
 
 async function saveWebhook(){
@@ -1462,6 +1562,86 @@ async function runQueries(){
   btn.textContent = '▶ RUN QUERIES';
 }
 
+// ─── ADMIN PANEL ──────────────────────────────────────────────
+let adminUsers = [];
+
+async function renderAdmin(){
+  if (!currentUser || currentUser.role !== 'admin') {
+    el('admin-users-table').innerHTML = '<div class="empty-state"><p>Admin access required.</p></div>';
+    return;
+  }
+  el('admin-users-table').innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading users...</div>';
+  try {
+    const data = await api('GET', '/api/admin/users');
+    adminUsers = data.users || [];
+    el('admin-user-count').textContent = adminUsers.length + ' user' + (adminUsers.length !== 1 ? 's' : '');
+    renderAdminTable(adminUsers);
+  } catch(e) {
+    el('admin-users-table').innerHTML = '<div class="empty-state"><p>Failed to load users: ' + esc(e.message) + '</p></div>';
+  }
+}
+
+function filterAdminUsers(){
+  const q = (el('admin-search').value || '').toLowerCase().trim();
+  if (!q) { renderAdminTable(adminUsers); return; }
+  const filtered = adminUsers.filter(u => u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q));
+  renderAdminTable(filtered);
+}
+
+function renderAdminTable(users){
+  if (!users.length) {
+    el('admin-users-table').innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
+    return;
+  }
+  let html = '<table class="tbl"><thead><tr><th>Email</th><th>Name</th><th>Plan</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
+  users.forEach(u => {
+    const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    html += `<tr>
+      <td style="font-family:var(--mono);font-size:11px;">${esc(u.email)}</td>
+      <td>${esc(u.name || '—')}</td>
+      <td>
+        <select class="finput" style="width:110px;margin:0;padding:4px 8px;font-size:11px;font-family:var(--mono);color:${planColor};" onchange="changeUserPlan('${u.id}', this.value)" id="admin-plan-${u.id}">
+          <option value="free" ${u.plan==='free'?'selected':''}>FREE</option>
+          <option value="pro" ${u.plan==='pro'?'selected':''}>PRO</option>
+          <option value="agency" ${u.plan==='agency'?'selected':''}>AGENCY</option>
+        </select>
+      </td>
+      <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
+      <td>
+        <span id="admin-status-${u.id}" style="font-family:var(--mono);font-size:9px;color:var(--green);display:none;">SAVED</span>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el('admin-users-table').innerHTML = html;
+}
+
+async function changeUserPlan(userId, newPlan){
+  const statusEl = el('admin-status-' + userId);
+  try {
+    await api('PUT', '/api/admin/users/' + userId + '/plan', { plan: newPlan });
+    // Update local cache
+    const idx = adminUsers.findIndex(u => u.id === userId);
+    if (idx >= 0) adminUsers[idx].plan = newPlan;
+    // Update select color
+    const sel = el('admin-plan-' + userId);
+    if (sel) sel.style.color = newPlan === 'agency' ? 'var(--purple)' : newPlan === 'pro' ? 'var(--green)' : 'var(--muted)';
+    // Show confirmation
+    if (statusEl) { statusEl.style.display = 'inline'; setTimeout(() => { statusEl.style.display = 'none'; }, 2000); }
+    toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+    // Revert select
+    const idx = adminUsers.findIndex(u => u.id === userId);
+    if (idx >= 0) {
+      const sel = el('admin-plan-' + userId);
+      if (sel) sel.value = adminUsers[idx].plan;
+    }
+  }
+}
+
 // ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
@@ -1490,6 +1670,7 @@ document.addEventListener('keydown', e => {
     localStorage.removeItem('trackly_token');
     token = '';
     el('landing-page').style.display = 'none';
+    el('app').style.display = 'none';
     el('auth-page').style.display = 'flex';
     authTab('login');
     // Show helpful message
