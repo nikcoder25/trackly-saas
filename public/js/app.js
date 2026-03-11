@@ -222,6 +222,14 @@ function closeMobileMenu(){
   el('mobile-overlay').classList.remove('active');
 }
 function go(view){
+  // Clean up chart instances when leaving views to prevent memory leaks
+  if (currentView === 'trends') {
+    if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
+    if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
+  }
+  if (currentView === 'overview' && window._ovMiniChart) {
+    window._ovMiniChart.destroy(); window._ovMiniChart = null;
+  }
   currentView = view;
   closeMobileMenu();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -238,7 +246,22 @@ function renderView(view){
   const b = brand();
   if (view==='account') { renderAccount(); return; }
   if (view==='admin')   { renderAdmin(); return; }
-  if (!b) return;
+  if (!b) {
+    // Show helpful message for views that require a brand
+    const viewEl = el('view-' + view);
+    if (viewEl) {
+      const existing = viewEl.querySelector('.no-brand-msg');
+      if (!existing) {
+        const msg = document.createElement('div');
+        msg.className = 'empty-state no-brand-msg';
+        msg.innerHTML = '<p>Select or create a brand first to view this section.</p>';
+        viewEl.prepend(msg);
+      }
+    }
+    return;
+  }
+  // Remove no-brand messages when brand is available
+  document.querySelectorAll('.no-brand-msg').forEach(m => m.remove());
   if (view==='overview')    renderOverview();
   if (view==='mentions')    renderMentions();
   if (view==='proof')       renderProof();
@@ -1057,11 +1080,33 @@ let platSovChartInstance = null;
 function renderTrends(){
   const b = brand(); if (!b) return;
   const history = b.sovHistory || [];
+
+  // Destroy existing chart instances safely
+  if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
+  if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
+
+  // Ensure canvas elements exist (recreate if previously destroyed)
+  const sovParent = el('sov-chart') ? el('sov-chart').parentElement : document.querySelector('#view-trends .card:first-child');
+  if (!el('sov-chart')) {
+    sovParent.innerHTML = '<div class="card-title">Overall SOV Trend</div><canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>';
+  }
+  const platParent = el('plat-sov-chart') ? el('plat-sov-chart').parentElement : document.querySelector('#view-trends .card:nth-child(2)');
+  if (!el('plat-sov-chart')) {
+    platParent.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>';
+  }
+
   if (!history.length) {
-    el('sov-chart').parentElement.innerHTML = '<div class="card-title">Overall SOV Trend</div><div class="empty-state"><p>No trend data yet. Run queries at least twice to see trends.</p></div>';
-    el('plat-sov-chart').parentElement.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><div class="empty-state"><p>No trend data yet.</p></div>';
+    el('sov-chart').style.display = 'none';
+    sovParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet. Run queries at least twice to see trends.</p></div>');
+    el('plat-sov-chart').style.display = 'none';
+    platParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet.</p></div>');
     return;
   }
+
+  // Remove any previous empty-state messages
+  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
+  el('sov-chart').style.display = '';
+  el('plat-sov-chart').style.display = '';
 
   const labels = history.map(h => {
     const d = new Date(h.date);
@@ -1070,7 +1115,6 @@ function renderTrends(){
   const sovData = history.map(h => h.overall);
 
   // Overall SOV chart
-  if (sovChartInstance) sovChartInstance.destroy();
   const ctx = el('sov-chart').getContext('2d');
   sovChartInstance = new Chart(ctx, {
     type: 'line',
@@ -1100,7 +1144,6 @@ function renderTrends(){
   });
 
   // Per-platform SOV chart
-  if (platSovChartInstance) platSovChartInstance.destroy();
   const allPlatforms = new Set();
   history.forEach(h => { if (h.platforms) Object.keys(h.platforms).forEach(p => allPlatforms.add(p)); });
   const datasets = [...allPlatforms].map(plat => {
@@ -1143,6 +1186,30 @@ function renderAlerts(){
   } else {
     status.innerHTML = '<span style="color:var(--muted);">No webhook configured</span>';
   }
+
+  // SOV change history
+  const histEl = el('alert-sov-history');
+  const history = b.sovHistory || [];
+  if (history.length < 2) {
+    histEl.innerHTML = '<div class="empty-state"><p>No SOV changes recorded yet. Run queries at least twice to see changes here.</p></div>';
+    return;
+  }
+  let html = '<table class="tbl"><thead><tr><th>Date</th><th>SOV</th><th>Change</th><th>Platforms</th></tr></thead><tbody>';
+  for (let i = history.length - 1; i >= 0; i--) {
+    const h = history[i];
+    const prev = i > 0 ? history[i - 1].overall : 0;
+    const change = h.overall - prev;
+    const changeStr = i === 0 ? '—' : (change > 0 ? '+' + change + '%' : change + '%');
+    const changeColor = change > 0 ? 'var(--green)' : change < 0 ? 'var(--red)' : 'var(--muted)';
+    const date = new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const plats = h.platforms ? Object.entries(h.platforms).map(([p, v]) => p + ': ' + v + '%').join(', ') : '—';
+    html += '<tr><td style="font-family:var(--mono);font-size:11px;">' + date + '</td>';
+    html += '<td style="font-family:var(--mono);font-weight:700;">' + h.overall + '%</td>';
+    html += '<td style="font-family:var(--mono);color:' + changeColor + ';">' + (i === 0 ? '—' : changeStr) + '</td>';
+    html += '<td style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + esc(plats) + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  histEl.innerHTML = html;
 }
 
 async function saveWebhook(){

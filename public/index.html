@@ -671,18 +671,28 @@
     <div id="view-alerts" class="view">
       <div class="view-title">Alerts &amp; Webhooks</div>
       <div class="view-sub">Get notified when your SOV changes.</div>
+
+      <!-- SOV Change History -->
       <div class="card">
+        <div class="card-title">Recent SOV Changes</div>
+        <div id="alert-sov-history"></div>
+      </div>
+
+      <!-- Webhook Configuration -->
+      <div class="card" style="margin-top:16px;">
         <div class="card-title">Webhook URL</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
           Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
           We'll POST a JSON payload whenever your SOV changes after a run.
         </div>
         <div class="add-query-row">
-          <input class="finput" id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;">
-          <button onclick="saveWebhook()" class="btn-primary" style="padding:8px 16px;font-size:11px;">SAVE</button>
+          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;">
+          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--green);color:#000;border:none;font-family:var(--mono);font-weight:700;cursor:pointer;letter-spacing:.5px;">SAVE</button>
         </div>
         <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
       </div>
+
+      <!-- Payload Format -->
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Webhook Payload Format</div>
         <pre style="background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-x:auto;white-space:pre-wrap;line-height:1.6;">{
