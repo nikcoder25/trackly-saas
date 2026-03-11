@@ -25,11 +25,11 @@ router.post('/register', async (req, res) => {
     const userName = name || email.split('@')[0];
     await pool.query(
       'INSERT INTO users (id, email, name, password_hash, plan) VALUES ($1, $2, $3, $4, $5)',
-      [id, email.toLowerCase(), userName, hash, 'free']
+      [id, email.toLowerCase(), userName, hash, 'agency']
     );
 
     const token = jwt.sign({ id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'free', createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
+    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'agency', createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('agency') } });
   } catch(e) {
     console.error('[Register]', e.message);
     res.status(500).json({ error: 'Registration failed' });
