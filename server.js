@@ -261,8 +261,13 @@ app.put('/api/brands/:id', auth, async (req, res) => {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
-    // Merge updates (protect id and userId)
-    const updated = { ...brand, ...req.body, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
+    // Whitelist allowed fields to prevent overwriting runs/mentions data
+    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule'];
+    const safeBody = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) safeBody[key] = req.body[key];
+    }
+    const updated = { ...brand, ...safeBody, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
     await saveBrand(updated);
     res.json({ brand: updated });
   } catch(e) {
