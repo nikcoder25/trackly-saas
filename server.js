@@ -467,6 +467,7 @@ async function fetchJSON(url, options) {
     if (body) reqOptions.headers['Content-Length'] = Buffer.byteLength(body);
 
     const req = lib.request(url, reqOptions, (res) => {
+      res.setEncoding('utf8'); // Ensure proper UTF-8 decoding for non-ASCII AI responses
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
@@ -543,7 +544,10 @@ async function callGemini(query, apiKey) {
     body
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: [], model: geminiModel };
+  // Join all text parts — Gemini can return multi-part responses
+  const parts = d.candidates?.[0]?.content?.parts || [];
+  const fullText = parts.map(p => p.text || '').join('\n').trim();
+  return { text: fullText || '', simulated: false, citations: [], model: geminiModel };
 }
 
 async function callGeminiWithSearch(query, apiKey) {
@@ -582,7 +586,10 @@ async function callGeminiWithSearch(query, apiKey) {
     }
   } catch(e) { /* ignore citation extraction errors */ }
 
-  return { text: d.candidates?.[0]?.content?.parts?.[0]?.text || '', simulated: false, citations: citations.slice(0, 10), model: geminiModel + ' (with Search)' };
+  // Join all text parts — Gemini can return multi-part responses
+  const aioParts = d.candidates?.[0]?.content?.parts || [];
+  const aioFullText = aioParts.map(p => p.text || '').join('\n').trim();
+  return { text: aioFullText || '', simulated: false, citations: citations.slice(0, 10), model: geminiModel + ' (with Search)' };
 }
 
 async function callGrok(query, apiKey) {
@@ -623,7 +630,9 @@ async function callClaude(query, apiKey) {
     body
   });
   if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return { text: d.content?.[0]?.text || '', simulated: false, citations: [], model: d.model || claudeModel };
+  // Join all text content blocks — Claude can return multiple content blocks
+  const claudeText = (d.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+  return { text: claudeText || '', simulated: false, citations: [], model: d.model || claudeModel };
 }
 
 // ─── RESPONSE PARSING (post-response analysis — no brand injection) ───────
@@ -915,22 +924,41 @@ async function runBrandQueries(brand) {
       try {
         const result = await queryAI(q, plat, brand, keys);
         if (!result) continue;
-        const { text, citations } = result;
+        const { text, citations: extraCites, model: modelUsed } = result;
         const parsed = parseResponse(text, brand, q);
+        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
         totalQ++;
         allResults.push({
           platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
           simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
-          citations: citations || parsed.cites
+          citations: parsed.cites, model: modelUsed || plat,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || ''
         });
         if (parsed.mentioned) {
           pm++; totalM++;
-          newMentions.push({ id: uid(), platform: plat, query: q, context: text.substring(0,300), raw: text, sentiment: parsed.sentiment, recommended: parsed.recommended, citations: citations||parsed.cites, simulated: false, time: new Date().toISOString() });
+          newMentions.push({
+            id: uid(), platform: plat, query: q,
+            context: text.substring(0, 300), raw: text,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, simulated: false,
+            model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            time: new Date().toISOString()
+          });
         }
       } catch(e) {
         console.error(`[Cron][${plat}] API error for "${q}":`, e.message);
+        allResults.push({
+          platform: plat, query: q,
+          context: `[API Error] ${e.message}`, raw: `[API Error] ${e.message}`,
+          simulated: false, mentioned: false,
+          sentiment: 'neutral', recommended: false,
+          citations: [], error: true, errorMessage: e.message
+        });
         totalQ++;
       }
     }
