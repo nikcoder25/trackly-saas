@@ -149,22 +149,25 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   const keys = getServerKeys();
-  // Load user model preferences
+  // Load user settings (model preferences + enabled platforms)
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
-  const modelPrefs = (userRow.rows[0]?.settings?.models) || {};
+  const userSettings = userRow.rows[0]?.settings || {};
+  const modelPrefs = userSettings.models || {};
+  const enabledPlatforms = userSettings.enabledPlatforms || {};
   const queries = brand.queries || [];
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
   let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
     .filter(([, keyName]) => keys[keyName])
-    .map(([plat]) => plat);
+    .map(([plat]) => plat)
+    .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
 
   if (availablePlatforms.length > limits.platforms) {
     availablePlatforms = availablePlatforms.slice(0, limits.platforms);
   }
 
   if (!availablePlatforms.length) {
-    return res.status(400).json({ error: 'No AI platforms configured. Please contact support.' });
+    return res.status(400).json({ error: 'No AI platforms enabled. Enable platforms in Account settings.' });
   }
 
   const requestedPlatforms = req.body.platforms || brand.platforms;
@@ -180,15 +183,12 @@ router.post('/:id/run', auth, async (req, res) => {
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
-  const queryDelay = (ms) => new Promise(r => setTimeout(r, ms));
 
   for (const plat of activePlatforms) {
     let pm = 0;
-    for (let qi = 0; qi < queries.length; qi++) {
-      const q = queries[qi];
-      // Add delay between queries to same platform to avoid rate limits
-      if (qi > 0) await queryDelay(1500);
+    for (const q of queries) {
       try {
+        // Rate limiting is handled per-platform inside queryAI
         const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;
         const { text, citations: extraCites, model: modelUsed } = result;
@@ -327,26 +327,25 @@ async function sendWebhookAlert(brand, run, previousSOV) {
 async function runBrandQueries(brand) {
   const keys = getServerKeys();
   const queries = brand.queries || [];
+  // Load user settings for scheduled runs
+  const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
+  const userSettings = userRow.rows[0]?.settings || {};
+  const modelPrefs = userSettings.models || {};
+  const enabledPlatforms = userSettings.enabledPlatforms || {};
   const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
     .filter(([, keyName]) => keys[keyName])
-    .map(([plat]) => plat);
+    .map(([plat]) => plat)
+    .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
   if (!activePlatforms.length || !queries.length) return;
-  // Load user model preferences for scheduled runs
-  const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
-  const modelPrefs = (userRow.rows[0]?.settings?.models) || {};
 
   const newMentions = [];
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
-  const cronDelay = (ms) => new Promise(r => setTimeout(r, ms));
 
   for (const plat of activePlatforms) {
     let pm = 0;
-    for (let qi = 0; qi < queries.length; qi++) {
-      const q = queries[qi];
-      // Add delay between queries to same platform to avoid rate limits
-      if (qi > 0) await cronDelay(1500);
+    for (const q of queries) {
       try {
         const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;

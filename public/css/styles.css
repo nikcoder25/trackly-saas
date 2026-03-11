@@ -221,6 +221,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;}
 .modal-body{padding:20px;overflow-y:auto;flex:1;}
 
+/* ── TOGGLE SWITCH ─────────────────────── */
+.toggle-switch{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg);border:1px solid var(--border);border-radius:20px;transition:.2s;}
+.toggle-slider::before{content:'';position:absolute;height:14px;width:14px;left:2px;bottom:2px;background:var(--muted);border-radius:50%;transition:.2s;}
+.toggle-switch input:checked+.toggle-slider{background:rgba(0,255,136,.15);border-color:var(--green);}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(16px);background:var(--green);}
+
 /* ── SETUP & FORMS ──────────────────────── */
 .form-row{margin-bottom:16px;}
 .key-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}

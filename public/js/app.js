@@ -380,6 +380,7 @@ async function loadModelSettings() {
     // Load current user settings
     const settingsResp = await api('GET', '/api/settings');
     const currentModels = (settingsResp.settings && settingsResp.settings.models) || {};
+    const enabledPlatforms = (settingsResp.settings && settingsResp.settings.enabledPlatforms) || {};
 
     const platformIcons = {
       'ChatGPT': '<span style="color:#74aa9c;">&#9675;</span>',
@@ -396,9 +397,15 @@ async function loadModelSettings() {
     for (const [platform, models] of Object.entries(platformModels)) {
       const currentModel = currentModels[platform] || models.find(m => m.default)?.id || models[0]?.id;
       const icon = platformIcons[platform] || '';
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;">
-        <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:100px;">${icon} ${platform}</div>
-        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;">
+      // Default to enabled if not explicitly set
+      const isEnabled = enabledPlatforms[platform] !== false;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;${isEnabled?'':'opacity:0.5;'}">
+        <label class="toggle-switch" style="flex-shrink:0;">
+          <input type="checkbox" class="platform-toggle" data-platform="${platform}" ${isEnabled?'checked':''} onchange="togglePlatformRow(this)">
+          <span class="toggle-slider"></span>
+        </label>
+        <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:90px;">${icon} ${platform}</div>
+        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;" ${isEnabled?'':'disabled'}>
           ${models.map(m => `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.label}</option>`).join('')}
         </select>
       </div>`;
@@ -410,6 +417,20 @@ async function loadModelSettings() {
   }
 }
 
+function togglePlatformRow(cb) {
+  let rowDiv = cb.parentElement;
+  while (rowDiv && !rowDiv.querySelector('.model-select')) rowDiv = rowDiv.parentElement;
+  if (!rowDiv) return;
+  const sel = rowDiv.querySelector('.model-select');
+  if (cb.checked) {
+    rowDiv.style.opacity = '1';
+    if (sel) sel.disabled = false;
+  } else {
+    rowDiv.style.opacity = '0.5';
+    if (sel) sel.disabled = true;
+  }
+}
+
 async function saveModelSettings() {
   const btn = el('btn-save-models');
   const status = el('model-save-status');
@@ -418,10 +439,14 @@ async function saveModelSettings() {
   status.style.display = 'none';
   try {
     const models = {};
+    const enabledPlatforms = {};
     document.querySelectorAll('.model-select').forEach(sel => {
       models[sel.dataset.platform] = sel.value;
     });
-    await api('PUT', '/api/settings', { settings: { models } });
+    document.querySelectorAll('.platform-toggle').forEach(cb => {
+      enabledPlatforms[cb.dataset.platform] = cb.checked;
+    });
+    await api('PUT', '/api/settings', { settings: { models, enabledPlatforms } });
     status.textContent = 'SAVED';
     status.style.color = 'var(--green)';
     status.style.display = 'inline';
