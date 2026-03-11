@@ -38,6 +38,43 @@ let runningQueries = false;
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// Simple markdown to HTML for AI responses
+function mdToHtml(s){
+  if (!s) return '';
+  let h = esc(s);
+  // Headers: ### Title → <strong>Title</strong> with margin
+  h = h.replace(/^#{1,4}\s+(.+)$/gm, '<div style="font-weight:700;margin:10px 0 4px;">$1</div>');
+  // Bold: **text** or __text__
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  // Italic: *text* or _text_ (but not inside words)
+  h = h.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+  // Unordered list items: - item or * item
+  h = h.replace(/^[\s]*[-*]\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">• $1</div>');
+  // Numbered list items: 1. item
+  h = h.replace(/^[\s]*(\d+)\.\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">$1. $2</div>');
+  // Paragraphs — convert double newlines
+  h = h.replace(/\n\n/g, '<div style="margin:8px 0;"></div>');
+  // Single newlines
+  h = h.replace(/\n/g, '<br>');
+  return h;
+}
+// Friendly error message for display
+function friendlyError(msg){
+  if (!msg) return 'Unknown error';
+  const m = msg.toLowerCase();
+  if (m.includes('rate limit') || m.includes('rate_limit') || m.includes('too many requests'))
+    return 'Rate limited — too many requests. Retried automatically but limit persists. Try again in a few minutes.';
+  if (m.includes('exceed') && m.includes('rate'))
+    return 'Rate limited — request limit exceeded. Try again in a few minutes.';
+  if (m.includes('credit') || m.includes('billing') || m.includes('quota') || m.includes('insufficient'))
+    return 'No credits / quota exceeded. Check your API billing.';
+  if (m.includes('invalid') && (m.includes('key') || m.includes('auth')))
+    return 'Invalid API key. Check your key in Settings.';
+  if (m.includes('timeout'))
+    return 'Request timed out. The API took too long to respond.';
+  return msg.length > 100 ? msg.substring(0, 100) + '...' : msg;
+}
 function brandHighlightRe(b){
   // Build regex that matches brand name + all aliases with word boundaries
   // Must use \b to avoid highlighting "Pro" inside "Professional" etc.
@@ -723,18 +760,23 @@ function renderMentions(){
   }
 
   let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
+  const sentimentTips = {positive:'AI spoke favorably about your brand',negative:'AI expressed concerns about your brand',neutral:'AI mentioned your brand without strong opinion'};
   filtered.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
-    const preview = isErr ? (r.errorMessage||'API Error') : (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
+    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 120).replace(/\n/g, ' ');
     const statusBadge = isErr
       ? '<span class="badge" style="background:rgba(255,136,0,.15);color:#ff8800;font-weight:700;">ERROR</span>'
       : `<span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span>`;
+    const sent = r.sentiment || 'neutral';
+    const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
+    const sentTip = isErr ? '' : (sentimentTips[sent] || '');
     html += `<tr${isErr?' style="opacity:0.6"':''}>
       <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
       <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
       <td>${statusBadge}</td>
-      <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${isErr?'—':r.sentiment||'neutral'}</span></td>
+      <td><span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" title="${sentTip}">${sentLabel}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
       <td style="max-width:250px;font-size:11px;color:${isErr?'#ff8800':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
       <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
@@ -763,9 +805,10 @@ function openResp(mentionId){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
   el('resp-modal-query').innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
   const textEl = el('resp-modal-text');
-  const rawText = (m.raw || m.context || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  textEl.style.whiteSpace = 'normal';
+  const rawHtml = mdToHtml(m.raw || m.context || '');
   const hre = brandHighlightRe(b);
-  textEl.innerHTML = hre ? rawText.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText;
+  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml;
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
@@ -791,9 +834,10 @@ function openResultFromRun(runId, platform, encodedQuery){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
-  const rawText1 = (result.raw || result.context || '[No response text]').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  textEl.style.whiteSpace = 'normal';
+  const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre1 = brandHighlightRe(b);
-  textEl.innerHTML = hre1 ? rawText1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText1;
+  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml1;
   // Show citations if any
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -819,9 +863,10 @@ function openFullResult(platform, encodedQuery){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
-  const rawText2 = (result.raw || result.context || '[No response text]').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  textEl.style.whiteSpace = 'normal';
+  const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre2 = brandHighlightRe(b);
-  textEl.innerHTML = hre2 ? rawText2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText2;
+  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml2;
   // Show citations
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -908,12 +953,12 @@ function renderProof(){
       const responseText = isError
         ? ''
         : (fullResult ? (fullResult.raw || fullResult.context || '') : (m ? (m.raw || m.context || '') : ''));
-      const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const renderedResp = mdToHtml(responseText);
       const proofHre = brandHighlightRe(b);
       // Highlight brand name in ALL responses (not just mentioned) so user can verify
       const displayResp = proofHre
-        ? escapedResp.replace(proofHre,'<mark>$1</mark>')
-        : escapedResp;
+        ? renderedResp.replace(proofHre,'<mark>$1</mark>')
+        : renderedResp;
       const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
       const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
       const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
@@ -948,7 +993,7 @@ function renderProof(){
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"</div>
           ${isError
-            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:10px;color:var(--muted);">${esc(fullResult.errorMessage||'Unknown error')}</div><div style="font-size:10px;color:var(--muted);margin-top:8px;">Check that your API key is valid and has sufficient credits.</div></div>`
+            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
             ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>
                <button class="proof-expand-btn" onclick="toggleProofExpand(this)">SHOW FULL RESPONSE</button>`
@@ -956,7 +1001,7 @@ function renderProof(){
           }
         </div>
         <div class="proof-card-footer">
-          <span class="badge ${sentBadge}">${sentiment}</span>
+          <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
           ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
           ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
