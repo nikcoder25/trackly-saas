@@ -20,6 +20,7 @@ async function initDB() {
         plan TEXT DEFAULT 'free',
         role TEXT,
         api_keys JSONB DEFAULT '{}',
+        settings JSONB DEFAULT '{}',
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE TABLE IF NOT EXISTS brands (
@@ -30,6 +31,10 @@ async function initDB() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_brands_user_id ON brands(user_id);
+    `);
+    // Add settings column if missing (migration for existing DBs)
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
     `);
     console.log('[DB] PostgreSQL tables ready');
   } finally {

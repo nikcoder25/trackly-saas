@@ -249,7 +249,7 @@ function go(view){
 
 function renderView(view){
   const b = brand();
-  if (view==='account') { renderAccount(); return; }
+  if (view==='account') { renderAccount(); loadModelSettings(); return; }
   if (view==='admin')   { renderAdmin(); return; }
   if (!b) {
     // Show helpful message for views that require a brand
@@ -326,6 +326,77 @@ function renderAccount(){
       <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
     </div>
   `).join('');
+}
+
+// ── Model Settings ────────────────────────────────────
+let platformModels = null;
+
+async function loadModelSettings() {
+  const container = el('model-settings');
+  if (!container) return;
+  try {
+    // Load available models
+    if (!platformModels) {
+      const resp = await api('GET', '/api/models');
+      platformModels = resp.models || {};
+    }
+    // Load current user settings
+    const settingsResp = await api('GET', '/api/settings');
+    const currentModels = (settingsResp.settings && settingsResp.settings.models) || {};
+
+    const platformIcons = {
+      'ChatGPT': '<span style="color:#74aa9c;">&#9675;</span>',
+      'Claude': '<span style="color:#d97706;">&#9670;</span>',
+      'Gemini': '<span style="color:#4285f4;">&#9733;</span>',
+      'Grok': '<span style="color:#1da1f2;">&#9889;</span>',
+      'Perplexity': '<span style="color:#20b2aa;">&#9678;</span>',
+      'DeepSeek': '<span style="color:#6366f1;">&#9673;</span>',
+      'Mistral': '<span style="color:#ff7000;">&#9670;</span>',
+      'Google AIO': '<span style="color:#ea4335;">&#9733;</span>'
+    };
+
+    let html = '<div style="display:grid;gap:10px;">';
+    for (const [platform, models] of Object.entries(platformModels)) {
+      const currentModel = currentModels[platform] || models.find(m => m.default)?.id || models[0]?.id;
+      const icon = platformIcons[platform] || '';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:100px;">${icon} ${platform}</div>
+        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;">
+          ${models.map(m => `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.label}</option>`).join('')}
+        </select>
+      </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">Failed to load model settings</div>';
+  }
+}
+
+async function saveModelSettings() {
+  const btn = el('btn-save-models');
+  const status = el('model-save-status');
+  btn.disabled = true;
+  btn.textContent = 'SAVING...';
+  status.style.display = 'none';
+  try {
+    const models = {};
+    document.querySelectorAll('.model-select').forEach(sel => {
+      models[sel.dataset.platform] = sel.value;
+    });
+    await api('PUT', '/api/settings', { settings: { models } });
+    status.textContent = 'SAVED';
+    status.style.color = 'var(--green)';
+    status.style.display = 'inline';
+    setTimeout(() => { status.style.display = 'none'; }, 3000);
+  } catch(e) {
+    status.textContent = 'FAILED';
+    status.style.color = 'var(--red)';
+    status.style.display = 'inline';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'SAVE MODEL SETTINGS';
+  }
 }
 
 function usageBar(label, current, max) {

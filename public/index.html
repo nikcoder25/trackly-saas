@@ -788,6 +788,15 @@
         <div id="acct-usage"></div>
       </div>
       <div class="card" style="margin-top:16px;">
+        <div class="card-title">AI Model Settings</div>
+        <div class="view-sub" style="margin-bottom:12px;font-size:11px;">Choose which model to use for each AI platform when running queries.</div>
+        <div id="model-settings"></div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+          <button class="btn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
+          <span id="model-save-status" style="font-family:var(--mono);font-size:10px;color:var(--green);display:none;">SAVED</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
         <div class="card-title">Change Plan</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
       </div>

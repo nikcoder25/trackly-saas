@@ -8,6 +8,7 @@ const { pool } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
+const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 
 // API key status
 router.get('/keys/status', auth, (req, res) => {
@@ -78,6 +79,47 @@ router.post('/admin/make-first-admin', async (req, res) => {
     res.json({ success: true, email: users.rows[0].email });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Available models per platform
+router.get('/models', auth, (req, res) => {
+  res.json({ models: PLATFORM_MODELS });
+});
+
+// Get/Update user settings (model preferences)
+router.get('/settings', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ settings: result.rows[0].settings || {} });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/settings', auth, async (req, res) => {
+  try {
+    const { settings } = req.body;
+    if (!settings || typeof settings !== 'object') return res.status(400).json({ error: 'Invalid settings' });
+    // Validate model selections
+    const modelPrefs = settings.models || {};
+    for (const [platform, modelId] of Object.entries(modelPrefs)) {
+      const platformModels = PLATFORM_MODELS[platform];
+      if (!platformModels) continue;
+      const valid = platformModels.some(m => m.id === modelId);
+      if (!valid) {
+        return res.status(400).json({ error: `Invalid model "${modelId}" for ${platform}` });
+      }
+    }
+    const result = await pool.query(
+      'UPDATE users SET settings = settings || $1::jsonb WHERE id = $2 RETURNING *',
+      [JSON.stringify(settings), req.user.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ settings: result.rows[0].settings || {}, message: 'Settings saved' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to save settings' });
   }
 });
 

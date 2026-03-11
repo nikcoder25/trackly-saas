@@ -149,6 +149,9 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   const keys = getServerKeys();
+  // Load user model preferences
+  const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+  const modelPrefs = (userRow.rows[0]?.settings?.models) || {};
   const queries = brand.queries || [];
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
@@ -182,7 +185,7 @@ router.post('/:id/run', auth, async (req, res) => {
     let pm = 0;
     for (const q of queries) {
       try {
-        const result = await queryAI(q, plat, brand, keys);
+        const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;
         const { text, citations: extraCites, model: modelUsed } = result;
         const parsed = parseResponse(text, brand, q);
@@ -324,6 +327,9 @@ async function runBrandQueries(brand) {
     .filter(([, keyName]) => keys[keyName])
     .map(([plat]) => plat);
   if (!activePlatforms.length || !queries.length) return;
+  // Load user model preferences for scheduled runs
+  const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
+  const modelPrefs = (userRow.rows[0]?.settings?.models) || {};
 
   const newMentions = [];
   const allResults = [];
@@ -334,7 +340,7 @@ async function runBrandQueries(brand) {
     let pm = 0;
     for (const q of queries) {
       try {
-        const result = await queryAI(q, plat, brand, keys);
+        const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;
         const { text, citations: extraCites, model: modelUsed } = result;
         const parsed = parseResponse(text, brand, q);
