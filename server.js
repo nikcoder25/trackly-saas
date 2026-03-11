@@ -979,10 +979,36 @@ async function runBrandQueries(brand) {
   if (!brand.mentions) brand.mentions = [];
   const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
   brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0])), ...brand.mentions].slice(0,500);
+  // Rebuild queryStats (same as manual run)
+  const qsNew = {};
+  queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+  brand.runs.forEach(run => {
+    queries.forEach(q => {
+      if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+      qsNew[q].runs++;
+      if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
+    });
+  });
+  brand.queryStats = qsNew;
+
+  // Rebuild citations
+  const citMap = {};
+  brand.runs.forEach(r => {
+    (r.mentions||[]).forEach(m => {
+      (m.citations||[]).forEach(url => {
+        if (!citMap[url]) citMap[url] = { url, count: 0 };
+        citMap[url].count++;
+      });
+    });
+  });
+  brand.citations = citMap;
+
   if (!brand.sovHistory) brand.sovHistory = [];
   brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
   brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
+  if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
 
+  brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
 }
 

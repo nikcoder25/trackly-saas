@@ -1043,14 +1043,15 @@ let runningQueries = false;
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function brandHighlightRe(b){
-  // Build regex that matches brand name + all aliases
+  // Build regex that matches brand name + all aliases with word boundaries
+  // Must use \b to avoid highlighting "Pro" inside "Professional" etc.
   const terms = [b.name];
   if (b.aliases && b.aliases.length) terms.push(...b.aliases);
   const escaped = terms.filter(t=>t&&t.length>=2).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
   if (!escaped.length) return null;
   // Sort longest first so longer matches take priority
   escaped.sort((a,b) => b.length - a.length);
-  return new RegExp('('+escaped.join('|')+')', 'gi');
+  return new RegExp('\\b('+escaped.join('|')+')\\b', 'gi');
 }
 function toast(msg, type='ok'){
   const t = el('toast');
