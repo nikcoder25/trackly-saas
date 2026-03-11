@@ -83,6 +83,11 @@ async function api(method, path, data){
   const res = await fetch(API + path, opts);
   const json = await res.json();
   if (!res.ok) {
+    // Handle expired/invalid sessions — auto-logout on 401
+    if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register') {
+      doLogout();
+      throw new Error('Session expired. Please log in again.');
+    }
     // Auto-show upgrade modal on plan limit errors
     if (json.planLimit) {
       showUpgradeModal(json.error);
@@ -1665,6 +1670,7 @@ document.addEventListener('keydown', e => {
     localStorage.removeItem('trackly_token');
     token = '';
     el('landing-page').style.display = 'none';
+    el('app').style.display = 'none';
     el('auth-page').style.display = 'flex';
     authTab('login');
     // Show helpful message
