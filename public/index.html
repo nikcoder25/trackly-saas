@@ -32,6 +32,7 @@
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <!-- JSON-LD Structured Data -->
 <script type="application/ld+json">
 {
@@ -48,7 +49,7 @@
       "name": "Free",
       "price": "0",
       "priceCurrency": "USD",
-      "description": "1 brand, 6 AI platforms, unlimited queries"
+      "description": "1 brand, 3 AI platforms, 5 queries, SOV tracking"
     },
     {
       "@type": "Offer",
@@ -59,7 +60,7 @@
         "@type": "UnitPriceSpecification",
         "billingDuration": "P1M"
       },
-      "description": "5 brands, real API responses, competitor tracking"
+      "description": "5 brands, 8 AI platforms, 25 queries, competitor tracking"
     },
     {
       "@type": "Offer",
@@ -70,7 +71,7 @@
         "@type": "UnitPriceSpecification",
         "billingDuration": "P1M"
       },
-      "description": "20 brands, white-label reports, scheduled runs"
+      "description": "20 brands, 8 AI platforms, 50 queries, scheduled runs"
     }
   ],
   "aggregateRating": {
@@ -147,268 +148,9 @@
   ]
 }
 </script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;
-  --border:#2a2a2a;--text:#e8e8e8;--muted:#666;
-  --green:#00ff88;--red:#ff4455;--amber:#f59e0b;--blue:#3b82f6;
-  --purple:#9b72ff;--font:'Syne',sans-serif;--mono:'Space Mono',monospace;
-}
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
-
-/* ── LANDING PAGE ──────────────────────── */
-#landing-page{min-height:100vh;}
-.land-nav{display:flex;align-items:center;padding:16px 40px;border-bottom:1px solid var(--border);background:rgba(10,10,10,.95);position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);}
-.land-nav-logo{font-size:22px;font-weight:800;letter-spacing:-1px;}
-.land-nav-logo span{color:var(--green);}
-.land-nav-links{display:flex;gap:24px;margin-left:40px;}
-.land-nav-links a{color:var(--muted);font-size:13px;text-decoration:none;font-weight:600;transition:color .2s;}
-.land-nav-links a:hover{color:var(--text);}
-.land-nav-right{margin-left:auto;display:flex;gap:10px;}
-.land-btn{padding:8px 20px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .2s;}
-.land-btn-ghost{background:none;color:var(--text);border:1px solid var(--border);}
-.land-btn-ghost:hover{border-color:var(--green);color:var(--green);}
-.land-btn-primary{background:var(--green);color:#000;}
-.land-btn-primary:hover{opacity:.9;}
-
-.land-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:80px 20px 60px;}
-.land-hero-badge{font-family:var(--mono);font-size:11px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:4px 14px;margin-bottom:24px;letter-spacing:1px;background:rgba(0,255,136,.05);}
-.land-hero h1{font-size:clamp(36px,6vw,64px);font-weight:800;letter-spacing:-2px;line-height:1.1;margin-bottom:20px;max-width:800px;}
-.land-hero h1 span{color:var(--green);}
-.land-hero p{color:var(--muted);font-size:17px;max-width:560px;line-height:1.6;margin-bottom:36px;}
-.land-hero-cta{display:flex;gap:12px;}
-.land-hero-cta .land-btn{padding:14px 32px;font-size:15px;}
-
-.land-platforms{display:flex;justify-content:center;gap:24px;padding:40px 20px;flex-wrap:wrap;}
-.land-plat-chip{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg2);border:1px solid var(--border);font-size:13px;font-weight:600;}
-.land-plat-chip .plat-icon{font-size:16px;}
-
-.land-demo{padding:40px 20px 60px;max-width:900px;margin:0 auto;}
-.land-demo-box{background:var(--bg2);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
-.land-demo-header{padding:14px 20px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
-.land-demo-header .dot{width:10px;height:10px;border-radius:50%;background:var(--border);}
-.land-demo-header .dot.g{background:var(--green);}
-.land-demo-body{padding:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-.land-demo-card{background:var(--bg3);border:1px solid var(--border);padding:14px;position:relative;overflow:hidden;}
-.land-demo-card .plat-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700;}
-.land-demo-card .plat-head .icon{font-size:16px;}
-.land-demo-card .response-text{font-size:11px;color:var(--muted);line-height:1.6;}
-.land-demo-card .response-text mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
-.land-demo-card .found-badge{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:8px;padding:2px 6px;background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
-
-.land-section{padding:60px 20px;max-width:1000px;margin:0 auto;}
-.land-section-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:8px;text-align:center;}
-.land-section h2{font-size:32px;font-weight:800;letter-spacing:-1px;text-align:center;margin-bottom:12px;}
-.land-section .section-sub{color:var(--muted);font-size:14px;text-align:center;margin-bottom:40px;max-width:500px;margin-left:auto;margin-right:auto;}
-
-.land-features{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-.land-feature{background:var(--bg2);border:1px solid var(--border);padding:24px;}
-.land-feature .feat-icon{font-size:24px;margin-bottom:12px;}
-.land-feature h3{font-size:15px;font-weight:700;margin-bottom:8px;}
-.land-feature p{font-size:12px;color:var(--muted);line-height:1.6;}
-
-.land-how{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-.land-how-step{text-align:center;padding:24px;}
-.land-how-num{font-family:var(--mono);font-size:32px;font-weight:700;color:var(--green);margin-bottom:12px;}
-.land-how-step h3{font-size:15px;font-weight:700;margin-bottom:8px;}
-.land-how-step p{font-size:12px;color:var(--muted);line-height:1.6;}
-
-.land-pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:40px;}
-.land-price-card{background:var(--bg2);border:1px solid var(--border);padding:28px;text-align:center;}
-.land-price-card.featured{border-color:var(--green);position:relative;}
-.land-price-card.featured::before{content:'POPULAR';position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:9px;background:var(--green);color:#000;padding:2px 12px;letter-spacing:1px;}
-.land-price-card h3{font-size:14px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;}
-.land-price-card .price{font-size:36px;font-weight:800;font-family:var(--mono);margin:12px 0 4px;}
-.land-price-card .price span{font-size:14px;color:var(--muted);font-weight:400;}
-.land-price-card .price-sub{font-size:11px;color:var(--muted);margin-bottom:16px;}
-.land-price-card ul{list-style:none;text-align:left;margin-bottom:20px;}
-.land-price-card ul li{font-size:12px;padding:5px 0;color:var(--muted);border-bottom:1px solid var(--border);}
-.land-price-card ul li::before{content:'✓ ';color:var(--green);}
-
-.faq-item{background:var(--bg2);border:1px solid var(--border);margin-bottom:8px;padding:0;}
-.faq-item summary{padding:16px 20px;font-size:14px;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;}
-.faq-item summary::-webkit-details-marker{display:none;}
-.faq-item summary::after{content:'+';font-family:var(--mono);font-size:18px;color:var(--green);}
-.faq-item[open] summary::after{content:'-';}
-.faq-item p{padding:0 20px 16px;font-size:13px;color:var(--muted);line-height:1.7;}
-.land-footer{border-top:1px solid var(--border);padding:32px 40px;display:flex;justify-content:space-between;align-items:center;}
-.land-footer-text{font-size:12px;color:var(--muted);}
-.land-footer-links{display:flex;gap:20px;}
-.land-footer-links a{color:var(--muted);font-size:12px;text-decoration:none;}
-.land-footer-links a:hover{color:var(--text);}
-
-@media(max-width:768px){
-  .land-nav{padding:12px 16px;}
-  .land-nav-links{display:none;}
-  .land-hero h1{font-size:32px;}
-  .land-demo-body{grid-template-columns:1fr;}
-  .land-features{grid-template-columns:1fr;}
-  .land-how{grid-template-columns:1fr;}
-  .land-pricing{grid-template-columns:1fr;}
-  .land-platforms{gap:10px;}
-  .land-footer{flex-direction:column;gap:16px;text-align:center;}
-}
-
-/* ── AUTH PAGES ─────────────────────────── */
-#auth-page{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
-.auth-box{width:100%;max-width:420px;}
-.auth-logo{font-size:28px;font-weight:800;letter-spacing:-1px;margin-bottom:8px;}
-.auth-logo span{color:var(--green);}
-.auth-sub{color:var(--muted);font-size:13px;margin-bottom:32px;}
-.auth-tabs{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);}
-.auth-tab{flex:1;padding:10px;text-align:center;font-size:12px;font-weight:700;font-family:var(--mono);cursor:pointer;background:var(--bg2);color:var(--muted);letter-spacing:1px;border:none;}
-.auth-tab.active{background:var(--bg3);color:var(--text);}
-.auth-panel{display:none;} .auth-panel.active{display:block;}
-.flabel{display:block;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;}
-.finput{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--font);font-size:14px;outline:none;margin-bottom:14px;}
-.finput:focus{border-color:var(--green);}
-.btn-primary{width:100%;padding:12px;background:var(--green);color:#000;border:none;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px;}
-.btn-primary:hover{opacity:.9;}
-.auth-err{background:#1a0a0a;border:1px solid var(--red);color:var(--red);padding:10px 12px;font-size:12px;font-family:var(--mono);margin-bottom:14px;display:none;}
-
-/* ── APP LAYOUT ─────────────────────────── */
-#app{height:100vh;overflow:hidden;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;}
-.topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);gap:16px;}
-.topbar-logo{font-size:18px;font-weight:800;letter-spacing:-0.5px;}
-.topbar-logo span{color:var(--green);}
-.topbar-brand-sel{flex:0 0 auto;min-width:160px;max-width:220px;}
-.topbar-brand-sel select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;font-family:var(--font);font-size:12px;outline:none;}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
-.user-badge{font-family:var(--mono);font-size:10px;color:var(--muted);}
-.plan-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);text-transform:uppercase;}
-.plan-badge.pro{border-color:var(--green);color:var(--green);}
-.plan-badge.agency{border-color:var(--purple);color:var(--purple);}
-.logout-btn{font-family:var(--mono);font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;letter-spacing:1px;}
-.logout-btn:hover{color:var(--text);}
-
-/* ── SIDEBAR ─────────────────────────────── */
-.sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:8px 0;}
-.nav-group{padding:6px 14px 4px;font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
-.nav-item{display:block;width:100%;padding:8px 16px;font-size:12px;font-weight:600;color:var(--muted);background:none;border:none;text-align:left;cursor:pointer;font-family:var(--font);}
-.nav-item:hover{color:var(--text);background:var(--bg3);}
-.nav-item.active{color:var(--green);background:var(--bg3);border-left:2px solid var(--green);}
-.nav-item.run-btn-nav{color:var(--green);border:1px solid var(--green);margin:8px 12px;width:calc(100% - 24px);text-align:center;padding:8px;font-family:var(--mono);font-size:10px;letter-spacing:1px;}
-.nav-item.run-btn-nav:hover{background:var(--green);color:#000;}
-.nav-item.run-btn-nav.running{opacity:.6;cursor:not-allowed;}
-
-/* ── MAIN CONTENT ───────────────────────── */
-.main{overflow-y:auto;background:var(--bg);}
-.view{display:none;padding:24px;max-width:1100px;}
-.view.active{display:block;}
-.view-title{font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;}
-.view-sub{color:var(--muted);font-size:13px;margin-bottom:24px;}
-
-/* ── CARDS & GRIDS ──────────────────────── */
-.card{background:var(--bg2);border:1px solid var(--border);padding:20px;margin-bottom:16px;}
-.card-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;}
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-.stat-card{background:var(--bg2);border:1px solid var(--border);padding:16px;}
-.stat-val{font-size:28px;font-weight:800;font-family:var(--mono);}
-.stat-val.green{color:var(--green);}
-.stat-val.amber{color:var(--amber);}
-.stat-val.red{color:var(--red);}
-.stat-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
-
-/* ── TABLES ─────────────────────────────── */
-.tbl{width:100%;border-collapse:collapse;font-size:12px;}
-.tbl th{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;}
-.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);}
-.tbl tr:hover td{background:var(--bg3);}
-.badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:2px;font-weight:700;}
-.badge.pos{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
-.badge.neg{background:rgba(255,68,85,.1);color:var(--red);border:1px solid rgba(255,68,85,.3);}
-.badge.neu{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
-.badge.sim{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.3);}
-.badge.real{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
-
-/* ── PLATFORM GRID ──────────────────────── */
-.plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
-.plat-card{background:var(--bg2);border:1px solid var(--border);padding:14px;display:flex;align-items:center;gap:10px;}
-.plat-logo{font-size:20px;width:32px;text-align:center;}
-.plat-name{font-size:12px;font-weight:700;}
-.plat-sov{font-family:var(--mono);font-size:18px;font-weight:700;margin-left:auto;}
-.plat-status{font-family:var(--mono);font-size:9px;margin-top:2px;}
-
-/* ── PROOF CARDS ───────────────────────── */
-.proof-card{border-radius:4px;margin-bottom:0;overflow:hidden;display:flex;flex-direction:column;height:100%;}
-.proof-card-header{display:flex;align-items:center;gap:10px;padding:12px 16px;}
-.proof-card-logo{font-size:20px;}
-.proof-card-name{font-size:13px;font-weight:700;}
-.proof-card-badges{margin-left:auto;display:flex;gap:6px;align-items:center;}
-.proof-card-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;}
-.proof-card-body{padding:16px;font-size:13px;line-height:1.7;flex:1;display:flex;flex-direction:column;}
-.proof-card-query{font-style:italic;color:var(--muted);font-size:11px;margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-left:2px solid var(--border);}
-.proof-card-resp{white-space:pre-wrap;word-break:break-word;flex:1;font-size:12px;line-height:1.7;max-height:280px;overflow:hidden;position:relative;}
-.proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
-.proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;}
-.proof-card-footer{padding:10px 16px;display:flex;gap:8px;align-items:center;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap;}
-.proof-view-btn{font-family:var(--mono);font-size:9px;padding:5px 12px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:1px;margin-left:auto;}
-.proof-view-btn:hover{border-color:var(--text);color:var(--text);}
-.proof-not-found{font-family:var(--mono);font-size:11px;padding:24px 16px;text-align:center;color:var(--muted);flex:1;display:flex;align-items:center;justify-content:center;}
-.proof-query-header{font-family:var(--mono);font-size:11px;color:var(--muted);padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:14px;letter-spacing:1px;display:flex;align-items:center;gap:8px;}
-.proof-query-header .q-label{color:var(--green);font-weight:700;}
-.proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:28px;}
-
-/* ── MODAL ──────────────────────────────── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:center;justify-content:center;}
-.overlay.open{display:flex;}
-.modal{background:var(--bg2);border:1px solid var(--border);width:90%;max-width:600px;max-height:85vh;display:flex;flex-direction:column;}
-.modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-.modal-title{font-size:14px;font-weight:700;}
-.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;}
-.modal-body{padding:20px;overflow-y:auto;flex:1;}
-
-/* ── SETUP & FORMS ──────────────────────── */
-.form-row{margin-bottom:16px;}
-.key-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
-.key-item label{display:block;font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;}
-.key-item .key-src{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:3px;}
-.key-item input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:var(--mono);font-size:11px;outline:none;}
-.key-item input:focus{border-color:var(--green);}
-.key-item.has-key input{border-color:rgba(0,255,136,.3);}
-.save-keys-btn{width:100%;padding:10px;background:var(--green);color:#000;border:none;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;}
-
-/* ── QUERY TAGS ─────────────────────────── */
-.query-tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);font-size:12px;padding:5px 10px;margin:3px;}
-.query-tag button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;line-height:1;padding:0;}
-.query-tag button:hover{color:var(--red);}
-.add-query-row{display:flex;gap:8px;margin-top:8px;}
-.add-query-row input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;}
-.add-query-row button{padding:8px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;cursor:pointer;font-family:var(--font);}
-
-/* ── ADD BRAND MODAL ────────────────────── */
-.add-brand-box{background:var(--bg2);border:1px solid var(--border);width:90%;max-width:480px;padding:28px;}
-.add-brand-title{font-size:18px;font-weight:800;margin-bottom:20px;}
-
-/* ── TOASTS ─────────────────────────────── */
-#toast{position:fixed;bottom:20px;right:20px;font-family:var(--mono);font-size:11px;padding:10px 16px;background:var(--bg3);border:1px solid var(--border);color:var(--text);z-index:999;display:none;letter-spacing:.5px;}
-#toast.err{border-color:var(--red);color:var(--red);}
-#toast.ok{border-color:var(--green);color:var(--green);}
-
-/* ── MISC ───────────────────────────────── */
-.plat-check{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;cursor:pointer;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);user-select:none;}
-.plat-check input{accent-color:var(--green);cursor:pointer;}
-.plat-check.active{border-color:var(--green);background:rgba(0,255,136,.05);}
-.run-progress{background:var(--bg2);border:1px solid var(--border);padding:14px 20px;margin-bottom:20px;display:none;}
-.run-progress.active{display:block;}
-.run-progress-bar{height:3px;background:var(--bg3);margin-top:8px;}
-.run-progress-fill{height:100%;background:var(--green);transition:width .3s;width:0%;}
-.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
-.empty-state .icon{font-size:32px;margin-bottom:12px;}
-.empty-state p{font-size:13px;margin-bottom:16px;}
-select.finput{appearance:none;}
-.sov-bar-wrap{background:var(--bg3);height:6px;border-radius:0;overflow:hidden;width:100px;display:inline-block;vertical-align:middle;}
-.sov-bar{height:100%;background:var(--green);}
-@media(max-width:768px){
-  #app{grid-template-columns:1fr;grid-template-rows:52px auto 1fr;}
-  .sidebar{display:none;}
-  .stat-grid{grid-template-columns:repeat(2,1fr);}
-  .plat-grid{grid-template-columns:repeat(2,1fr);}
-  .key-grid{grid-template-columns:1fr;}
-}
-</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="/css/styles.css">
+<!-- styles loaded from /css/styles.css -->
 </head>
 <body>
 
@@ -562,10 +304,10 @@ select.finput{appearance:none;}
         <div class="price-sub">Perfect for getting started</div>
         <ul>
           <li>1 brand</li>
-          <li>6 AI platforms</li>
-          <li>Unlimited queries</li>
-          <li>Evidence & proof export</li>
-          <li>SOV tracking</li>
+          <li>3 AI platforms</li>
+          <li>5 queries per brand</li>
+          <li>2 runs per day</li>
+          <li>SOV tracking &amp; evidence export</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Get Started</button>
       </div>
@@ -575,10 +317,11 @@ select.finput{appearance:none;}
         <div class="price-sub">For growing businesses</div>
         <ul>
           <li>5 brands</li>
-          <li>6 AI platforms</li>
-          <li>Real API responses</li>
-          <li>Competitor tracking</li>
-          <li>Priority support</li>
+          <li>All 8 AI platforms</li>
+          <li>25 queries per brand</li>
+          <li>10 runs per day</li>
+          <li>Competitor tracking (5)</li>
+          <li>Scheduled runs &amp; webhooks</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Pro</button>
       </div>
@@ -588,10 +331,11 @@ select.finput{appearance:none;}
         <div class="price-sub">For agencies & teams</div>
         <ul>
           <li>20 brands</li>
-          <li>6 AI platforms</li>
-          <li>White-label reports</li>
-          <li>Scheduled runs</li>
-          <li>Dedicated support</li>
+          <li>All 8 AI platforms</li>
+          <li>50 queries per brand</li>
+          <li>50 runs per day</li>
+          <li>Competitor tracking (20)</li>
+          <li>Scheduled runs &amp; webhooks</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Agency</button>
       </div>
@@ -683,7 +427,7 @@ select.finput{appearance:none;}
       </details>
       <details class="faq-item">
         <summary>Is Trackly free to use?</summary>
-        <p>Yes, Trackly offers a free plan that includes 1 brand, 6 AI platforms, unlimited queries, and evidence export. Pro ($29/mo) and Agency ($79/mo) plans are available for more brands, competitor tracking, and advanced features.</p>
+        <p>Yes, Trackly offers a free plan that includes 1 brand, 3 AI platforms, 5 queries, and evidence export. Pro ($29/mo) adds 5 brands, all 8 AI platforms, 25 queries, competitor tracking, and scheduled runs. Agency ($79/mo) unlocks 20 brands, 50 queries, and full access.</p>
       </details>
       <details class="faq-item">
         <summary>How is Trackly different from traditional SEO tools?</summary>
@@ -726,9 +470,9 @@ select.finput{appearance:none;}
     <div id="auth-err" class="auth-err"></div>
     <div id="panel-login" class="auth-panel active">
       <label class="flabel">Email</label>
-      <input class="finput" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <input class="finput" id="login-email" type="email" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')doLogin()">
       <label class="flabel">Password</label>
-      <input class="finput" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+      <input class="finput" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="btn-primary" onclick="doLogin()">LOGIN</button>
     </div>
     <div id="panel-register" class="auth-panel">
@@ -737,7 +481,7 @@ select.finput{appearance:none;}
       <label class="flabel">Email</label>
       <input class="finput" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email">
       <label class="flabel">Password (min 8 chars)</label>
-      <input class="finput" id="reg-pass" type="password" placeholder="••••••••" autocomplete="new-password">
+      <input class="finput" id="reg-pass" type="password" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()">
       <button class="btn-primary" onclick="doRegister()">CREATE ACCOUNT</button>
     </div>
   </div>
@@ -746,8 +490,12 @@ select.finput{appearance:none;}
 <!-- ── MAIN APP ────────────────────────────────────────────── -->
 <div id="app" style="display:none;">
 
+  <!-- Mobile overlay -->
+  <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
+
   <!-- Topbar -->
   <div class="topbar">
+    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
     <div class="topbar-logo">Track<span>ly</span></div>
     <div class="topbar-brand-sel">
       <select id="brand-select" onchange="switchBrand(this.value)">
@@ -757,7 +505,7 @@ select.finput{appearance:none;}
     <button style="padding:6px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--green);font-size:11px;font-family:var(--mono);cursor:pointer;letter-spacing:1px;" onclick="openAddBrand()">+ ADD BRAND</button>
     <div class="topbar-right">
       <span class="user-badge" id="user-email-badge"></span>
-      <span class="plan-badge" id="plan-badge">FREE</span>
+      <span class="plan-badge" id="plan-badge" onclick="showUpgradeModal()">FREE</span>
       <button class="logout-btn" onclick="doLogout()">LOGOUT</button>
     </div>
   </div>
@@ -772,9 +520,12 @@ select.finput{appearance:none;}
     <div class="nav-group">Analysis</div>
     <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
+    <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
+    <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
+    <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
   </div>
 
   <!-- Main -->
@@ -796,6 +547,10 @@ select.finput{appearance:none;}
         <div class="stat-card"><div class="stat-val" id="ov-queries">--</div><div class="stat-lbl">Queries Running</div></div>
       </div>
       <div id="ov-plat-grid" class="plat-grid"></div>
+      <div id="ov-mini-trend" style="display:none;margin-bottom:16px;" class="card">
+        <div class="card-title">SOV Trend</div>
+        <canvas id="ov-mini-chart" style="width:100%;max-height:180px;"></canvas>
+      </div>
       <div id="ov-last-run-summary" style="display:none;margin-bottom:20px;"></div>
       <div class="card">
         <div class="card-title">Tracked Queries</div>
@@ -804,6 +559,7 @@ select.finput{appearance:none;}
           <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
           <button onclick="ovAddQuery()">+ Add</button>
           <button onclick="toggleBulkAdd()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">BULK ADD</button>
+          <button onclick="loadQuerySuggestions()" style="background:var(--bg3);border:1px solid rgba(59,130,246,.3);color:var(--blue);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">SUGGEST</button>
         </div>
         <div id="bulk-query-box" style="display:none;margin-top:12px;">
           <textarea id="bulk-query-input" placeholder="Paste multiple queries here — one per line&#10;&#10;Example:&#10;Best HVAC company in Austin TX&#10;Top rated AC repair near me&#10;Who is the best plumber in Dallas" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px;resize:vertical;box-sizing:border-box;"></textarea>
@@ -849,6 +605,7 @@ select.finput{appearance:none;}
             <option value="">All Platforms</option>
             <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
             <option>Gemini</option><option>Grok</option><option>Google AIO</option>
+            <option>DeepSeek</option><option>Mistral</option>
           </select>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RESULT:</div>
           <select class="finput" id="proof-result-sel" style="width:130px;margin:0;" onchange="renderProof()">
@@ -887,6 +644,55 @@ select.finput{appearance:none;}
           <input id="comp-input" type="text" placeholder="Add competitor name..." onkeydown="if(event.key==='Enter')addComp()">
           <button onclick="addComp()">+ Add</button>
         </div>
+      </div>
+      <div id="comp-comparison" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- SOV TRENDS ────────────────────────── -->
+    <div id="view-trends" class="view">
+      <div class="view-title">SOV Trends</div>
+      <div class="view-sub">Share of Voice over time — overall and per platform.</div>
+      <div class="card" style="padding:20px;">
+        <div class="card-title">Overall SOV Trend</div>
+        <canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>
+      </div>
+      <div class="card" style="padding:20px;margin-top:16px;">
+        <div class="card-title">Per-Platform SOV Trend</div>
+        <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- ALERTS ─────────────────────────── -->
+    <div id="view-alerts" class="view">
+      <div class="view-title">Alerts &amp; Webhooks</div>
+      <div class="view-sub">Get notified when your SOV changes.</div>
+      <div class="card">
+        <div class="card-title">Webhook URL</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
+          Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
+          We'll POST a JSON payload whenever your SOV changes after a run.
+        </div>
+        <div class="add-query-row">
+          <input class="finput" id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;">
+          <button onclick="saveWebhook()" class="btn-primary" style="padding:8px 16px;font-size:11px;">SAVE</button>
+        </div>
+        <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Webhook Payload Format</div>
+        <pre style="background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-x:auto;white-space:pre-wrap;line-height:1.6;">{
+  "event": "sov_change",
+  "brand": "Your Brand Name",
+  "sov": 45,
+  "previousSOV": 30,
+  "change": 15,
+  "direction": "increased",
+  "mentions": 3,
+  "totalQueries": 8,
+  "platforms": {"ChatGPT": 50, "Perplexity": 40, ...},
+  "timestamp": "2026-03-11T12:00:00.000Z",
+  "summary": "Your Brand SOV increased: 30% → 45% (+15%)"
+}</pre>
       </div>
     </div>
 
@@ -950,6 +756,28 @@ select.finput{appearance:none;}
     </div>
 
 
+    <!-- ACCOUNT & PLAN ──────────────────── -->
+    <div id="view-account" class="view">
+      <div class="view-title">Account &amp; Plan</div>
+      <div class="view-sub">Manage your account and subscription.</div>
+      <div class="card">
+        <div class="card-title">Account Info</div>
+        <div style="font-family:var(--mono);font-size:12px;line-height:2;">
+          <div>Email: <strong id="acct-email"></strong></div>
+          <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
+          <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Plan Usage</div>
+        <div id="acct-usage"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Change Plan</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -962,8 +790,48 @@ select.finput{appearance:none;}
     </div>
     <div class="modal-body">
       <div id="resp-modal-query" style="font-style:italic;color:var(--muted);font-size:12px;margin-bottom:14px;padding:8px 12px;background:var(--bg3);border-left:2px solid var(--border);"></div>
+      <div style="text-align:right;margin-bottom:8px;"><button id="copy-resp-btn" onclick="copyResponse()" style="font-family:var(--mono);font-size:10px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:.5px;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">COPY RESPONSE</button></div>
       <div id="resp-modal-text" style="font-size:13px;line-height:1.8;white-space:pre-wrap;"></div>
       <div id="resp-modal-cites" style="margin-top:14px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="overlay" id="upgrade-modal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-head">
+      <div class="modal-title">Upgrade Your Plan</div>
+      <button class="modal-close" onclick="closeModal('upgrade-modal')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="upgrade-reason" style="background:rgba(255,136,0,.08);border:1px solid rgba(255,136,0,.2);padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:#ff8800;display:none;"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="upgrade-plans">
+        <div class="upgrade-plan-card" data-plan="free">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Free</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$0<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            1 brand<br>3 AI platforms<br>5 queries<br>2 runs/day<br>SOV tracking
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('free')">CURRENT</button>
+        </div>
+        <div class="upgrade-plan-card featured" data-plan="pro">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--green);">Pro</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$29<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            5 brands<br>All 8 platforms<br>25 queries<br>10 runs/day<br>Competitors &amp; webhooks<br>Scheduled runs
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('pro')">UPGRADE TO PRO</button>
+        </div>
+        <div class="upgrade-plan-card" data-plan="agency">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--purple,#9b72ff);">Agency</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$79<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            20 brands<br>All 8 platforms<br>50 queries<br>50 runs/day<br>Competitors (20)<br>Scheduled runs
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('agency')">UPGRADE TO AGENCY</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -990,1094 +858,6 @@ select.finput{appearance:none;}
 
 <div id="toast"></div>
 
-<script>
-// ─── LANDING / AUTH NAVIGATION ────────────────────────────────────
-function showAuth(tab){
-  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
-  el('landing-page').style.display = 'none';
-  el('auth-page').style.display = 'flex';
-  el('app').style.display = 'none';
-  authTab(tab || 'login');
-}
-function showLanding(){
-  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
-  el('landing-page').style.display = 'block';
-  el('auth-page').style.display = 'none';
-  el('app').style.display = 'none';
-}
-
-// ─── CONSTANTS ────────────────────────────────────────────────────
-const API = '';  // relative URLs - same server
-const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO'];
-const PLAT_THEME = {
-  'ChatGPT':    {bg:'#212121',color:'#19c37d',logo:'⬡'},
-  'Perplexity': {bg:'#1b1b2e',color:'#9b72ff',logo:'◎'},
-  'Claude':     {bg:'#1a1612',color:'#d97706',logo:'◈'},
-  'Gemini':     {bg:'#0d1117',color:'#4285f4',logo:'✦'},
-  'Grok':       {bg:'#0c0c0c',color:'#1d9bf0',logo:'⚡'},
-  'Google AIO': {bg:'#0d1117',color:'#34a853',logo:'⬤'},
-};
-
-// ─── STATE ────────────────────────────────────────────────────────
-let token = localStorage.getItem('trackly_token') || '';
-let currentUser = null;
-let brands = [];
-let currentBrandId = localStorage.getItem('trackly_brand') || '';
-let keyStatus = {};
-let runningQueries = false;
-
-// ─── UTILS ────────────────────────────────────────────────────────
-function el(id){ return document.getElementById(id); }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function brandHighlightRe(b){
-  // Build regex that matches brand name + all aliases
-  const terms = [b.name];
-  if (b.aliases && b.aliases.length) terms.push(...b.aliases);
-  const escaped = terms.filter(t=>t&&t.length>=2).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
-  if (!escaped.length) return null;
-  // Sort longest first so longer matches take priority
-  escaped.sort((a,b) => b.length - a.length);
-  return new RegExp('('+escaped.join('|')+')', 'gi');
-}
-function toast(msg, type='ok'){
-  const t = el('toast');
-  t.textContent = msg; t.className = type;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display='none', 3000);
-}
-function show(id){ const e=el(id); if(e) e.style.display='block'; }
-function hide(id){ const e=el(id); if(e) e.style.display='none'; }
-function closeModal(id){ el(id).classList.remove('open'); }
-function openModal(id){ el(id).classList.add('open'); }
-
-function brand(){
-  return brands.find(b => b.id === currentBrandId) || null;
-}
-
-async function api(method, path, data){
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
-  };
-  if (data) opts.body = JSON.stringify(data);
-  const res = await fetch(API + path, opts);
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Request failed');
-  return json;
-}
-
-// ─── AUTH ─────────────────────────────────────────────────────────
-function authTab(tab){
-  document.querySelectorAll('.auth-tab').forEach((t,i) => {
-    t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register'));
-  });
-  el('panel-login').classList.toggle('active', tab==='login');
-  el('panel-register').classList.toggle('active', tab==='register');
-  el('auth-err').style.display = 'none';
-}
-
-async function doLogin(){
-  const email = el('login-email').value.trim();
-  const password = el('login-pass').value;
-  el('auth-err').style.display = 'none';
-  try {
-    const data = await api('POST', '/api/auth/login', { email, password });
-    token = data.token;
-    currentUser = data.user;
-    localStorage.setItem('trackly_token', token);
-    await initApp();
-  } catch(e) {
-    el('auth-err').textContent = e.message;
-    el('auth-err').style.display = 'block';
-  }
-}
-
-async function doRegister(){
-  const name = el('reg-name').value.trim();
-  const email = el('reg-email').value.trim();
-  const password = el('reg-pass').value;
-  el('auth-err').style.display = 'none';
-  try {
-    const data = await api('POST', '/api/auth/register', { name, email, password });
-    token = data.token;
-    currentUser = data.user;
-    localStorage.setItem('trackly_token', token);
-    await initApp();
-  } catch(e) {
-    el('auth-err').textContent = e.message;
-    el('auth-err').style.display = 'block';
-  }
-}
-
-function doLogout(){
-  token = '';
-  currentUser = null;
-  brands = [];
-  currentBrandId = '';
-  localStorage.removeItem('trackly_token');
-  localStorage.removeItem('trackly_brand');
-  // Close all open overlays/modals
-  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
-  el('app').style.display = 'none';
-  el('auth-page').style.display = 'none';
-  el('landing-page').style.display = 'block';
-}
-
-// ─── APP INIT ─────────────────────────────────────────────────────
-async function initApp(){
-  el('landing-page').style.display = 'none';
-  el('auth-page').style.display = 'none';
-  el('app').style.display = 'grid';
-
-  // Update topbar
-  el('user-email-badge').textContent = currentUser.email;
-  const pb = el('plan-badge');
-  pb.textContent = (currentUser.plan||'free').toUpperCase();
-  pb.className = 'plan-badge ' + (currentUser.plan||'free');
-
-  // Load brands
-  const data = await api('GET', '/api/brands');
-  brands = data.brands || [];
-
-  // Load key status
-  try {
-    const ks = await api('GET', '/api/keys/status');
-    keyStatus = ks;
-  } catch(e) {}
-
-  // Populate brand select
-  renderBrandSelect();
-
-  if (brands.length === 0) {
-    // Show add brand modal
-    openModal('add-brand-modal');
-  } else {
-    if (!currentBrandId || !brands.find(b => b.id === currentBrandId)) {
-      currentBrandId = brands[0].id;
-    }
-    el('brand-select').value = currentBrandId;
-    closeModal('add-brand-modal');
-    renderAll();
-  }
-}
-
-function renderBrandSelect(){
-  const sel = el('brand-select');
-  sel.innerHTML = '<option value="">-- Select brand --</option>';
-  brands.forEach(b => {
-    const opt = document.createElement('option');
-    opt.value = b.id; opt.textContent = b.name;
-    sel.appendChild(opt);
-  });
-  sel.value = currentBrandId;
-}
-
-function switchBrand(id){
-  currentBrandId = id;
-  localStorage.setItem('trackly_brand', id);
-  const b = brand();
-  if (b) renderAll();
-}
-
-// ─── NAVIGATION ───────────────────────────────────────────────────
-let currentView = 'overview';
-function go(view){
-  currentView = view;
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const v = el('view-'+view);
-  if (v) v.classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.getAttribute('onclick') === "go('"+view+"')") n.classList.add('active');
-  });
-  renderView(view);
-}
-
-function renderView(view){
-  const b = brand();
-  if (!b) return;
-  if (view==='overview')    renderOverview();
-  if (view==='mentions')    renderMentions();
-  if (view==='proof')       renderProof();
-  if (view==='platforms')   renderPlatformStatus();
-  if (view==='qperf')       renderQPerf();
-  if (view==='competitors') renderCompetitors();
-  if (view==='setup')       renderSetup();
-}
-
-function renderAll(){
-  renderView(currentView);
-}
-
-// ─── OVERVIEW ─────────────────────────────────────────────────────
-function renderOverview(){
-  const b = brand();
-  if (!b) return;
-  el('ov-sub').textContent = b.name + ' — ' + (b.industry||'') + (b.city?' — '+b.city:'');
-
-  const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length-1] : null;
-  const sov = lastRun ? lastRun.sov : 0;
-  const mentions = lastRun ? (lastRun.mentions||[]).length : 0;
-  const totalResults = lastRun ? (lastRun.allResults||[]).length : 0;
-  const activePlats = lastRun ? Object.keys(lastRun.platforms||{}).length : 0;
-  const queries = (b.queries||[]).length;
-
-  el('ov-sov').textContent = sov+'%';
-  el('ov-sov').className = 'stat-val ' + (sov>=70?'green':sov>=40?'amber':'red');
-  el('ov-mentions').textContent = mentions + '/' + totalResults;
-  el('ov-platforms').textContent = activePlats + '/6';
-  el('ov-queries').textContent = queries;
-
-  // Platform cards
-  const pg = el('ov-plat-grid');
-  pg.innerHTML = '';
-  const platSOV = lastRun ? (lastRun.platforms||{}) : {};
-  PLATS.forEach(plat => {
-    const t = PLAT_THEME[plat]||{};
-    const sov = platSOV[plat]||0;
-    const div = document.createElement('div');
-    div.className = 'plat-card';
-    div.innerHTML = `<div class="plat-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-      <div><div class="plat-name">${plat}</div>
-      <div class="plat-status" style="color:${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'var(--green)':'var(--muted)'}">
-        ${keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')]?'ACTIVE':'INACTIVE'}
-      </div></div>
-      <div class="plat-sov" style="color:${sov>0?t.color||'var(--green)':'var(--muted)'}">${sov}%</div>`;
-    pg.appendChild(div);
-  });
-
-  // Last run summary
-  const lrs = el('ov-last-run-summary');
-  if (lastRun && lastRun.allResults && lastRun.allResults.length) {
-    const errors = lastRun.allResults.filter(r => r.error);
-    const found = lastRun.allResults.filter(r => r.mentioned);
-    const runTime = new Date(lastRun.time || lastRun.date);
-    let summaryHtml = `<div class="card"><div class="card-title">Last Run — ${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div>`;
-    if (errors.length > 0) {
-      summaryHtml += `<div style="background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
-      summaryHtml += `<span style="color:var(--red,#ff4444);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
-      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check your API keys in Railway environment variables</span></div>`;
-    }
-    summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses`;
-    summaryHtml += ` · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div></div>`;
-    lrs.innerHTML = summaryHtml;
-    lrs.style.display = 'block';
-  } else if (lastRun) {
-    lrs.innerHTML = `<div class="card"><div class="card-title">Last Run</div><div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No results recorded. <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View Details →</a></div></div>`;
-    lrs.style.display = 'block';
-  } else {
-    lrs.style.display = 'none';
-  }
-
-  // Queries list
-  const ql = el('ov-query-list');
-  ql.innerHTML = '';
-  (b.queries||[]).forEach((q,i) => {
-    const tag = document.createElement('span');
-    tag.className = 'query-tag';
-    const qText = document.createTextNode(q + ' ');
-    tag.appendChild(qText);
-    const btn = document.createElement('button');
-    btn.textContent = '\u2715';
-    btn.addEventListener('click', function(){ ovRemoveQuery(i); });
-    tag.appendChild(btn);
-    ql.appendChild(tag);
-  });
-}
-
-async function ovAddQuery(){
-  const inp = el('ov-new-query');
-  const q = inp.value.trim();
-  if (!q) return;
-  const b = brand();
-  if (!b) return;
-  const queries = [...(b.queries||[]), q];
-  try {
-    const data = await api('PUT', '/api/brands/'+b.id, { queries });
-    const idx = brands.findIndex(x => x.id === b.id);
-    brands[idx] = data.brand;
-    inp.value = '';
-    renderOverview();
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-function toggleBulkAdd(){
-  const box = el('bulk-query-box');
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
-  if (box.style.display === 'block') {
-    el('bulk-query-input').focus();
-    el('bulk-query-input').oninput = function(){
-      const lines = this.value.split('\n').filter(l => l.trim());
-      el('bulk-count-hint').textContent = lines.length + ' quer' + (lines.length===1?'y':'ies') + ' detected';
-    };
-  }
-}
-
-async function bulkAddQueries(){
-  const b = brand();
-  if (!b) return;
-  const raw = el('bulk-query-input').value;
-  const newQs = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  if (!newQs.length) { toast('No queries entered', 'err'); return; }
-  // Deduplicate against existing
-  const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
-  const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
-  if (!unique.length) { toast('All queries already exist', 'err'); return; }
-  const queries = [...(b.queries||[]), ...unique];
-  try {
-    const data = await api('PUT', '/api/brands/'+b.id, { queries });
-    const idx = brands.findIndex(x => x.id === b.id);
-    brands[idx] = data.brand;
-    el('bulk-query-input').value = '';
-    el('bulk-query-box').style.display = 'none';
-    renderOverview();
-    toast(unique.length + ' quer' + (unique.length===1?'y':'ies') + ' added', 'ok');
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-async function ovRemoveQuery(i){
-  const b = brand();
-  const queries = (b.queries||[]).filter((_,idx)=>idx!==i);
-  try {
-    const data = await api('PUT', '/api/brands/'+b.id, { queries });
-    const idx = brands.findIndex(x => x.id === b.id);
-    brands[idx] = data.brand;
-    renderOverview();
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-// ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
-function renderMentions(){
-  const b = brand();
-  if (!b) return;
-  const cont = el('mentions-container');
-
-  // Populate run selector
-  const sel = el('mentions-run-sel');
-  const curVal = sel.value;
-  sel.innerHTML = '';
-  const runs = (b.runs||[]).slice().reverse();
-  if (!runs.length) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to collect data.</p></div>';
-    return;
-  }
-  runs.forEach((r,i) => {
-    const opt = document.createElement('option');
-    opt.value = r.id;
-    const d = new Date(r.time);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%';
-    sel.appendChild(opt);
-  });
-  if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
-
-  const selectedRunId = sel.value;
-  const run = (b.runs||[]).find(r => r.id === selectedRunId);
-  if (!run) { cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
-
-  const filter = el('mentions-filter-sel').value;
-  const allResults = run.allResults || [];
-
-  if (!allResults.length) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results in this run.</p></div>';
-    return;
-  }
-
-  const filtered = allResults.filter(r => {
-    if (filter === 'mentioned') return r.mentioned;
-    if (filter === 'not-mentioned') return !r.mentioned;
-    return true;
-  });
-
-  if (!filtered.length) {
-    cont.innerHTML = '<div class="empty-state"><p>No results match your filter.</p></div>';
-    return;
-  }
-
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
-  filtered.forEach(r => {
-    const t = PLAT_THEME[r.platform]||{};
-    const preview = (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
-    html += `<tr>
-      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
-      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
-      <td><span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span></td>
-      <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${r.sentiment||'neutral'}</span></td>
-      <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
-      <td style="max-width:250px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${preview.length>=120?'...':''}</td>
-      <td><button onclick="openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button></td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;">Showing ${filtered.length} of ${allResults.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
-  cont.innerHTML = html;
-}
-
-function openResp(mentionId){
-  const b = brand();
-  if (!b) return;
-  let m = null;
-  // Search all runs
-  (b.runs||[]).forEach(r => {
-    (r.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
-  });
-  if (!m) (b.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
-  if (!m) return;
-  const t = PLAT_THEME[m.platform]||{};
-  const modal = el('resp-modal');
-  const head = el('resp-modal-head');
-  head.style.background = t.bg||'var(--bg2)';
-  head.style.borderBottom = '1px solid '+t.color;
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
-  el('resp-modal-query').innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
-  const textEl = el('resp-modal-text');
-  textEl.textContent = m.raw || m.context || '';
-  // Highlight brand
-  const hre = brandHighlightRe(b);
-  if (hre) {
-    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
-  }
-  // Citations
-  const cc = el('resp-modal-cites');
-  const cites = m.citations||[];
-  if (cites.length) {
-    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-  } else cc.innerHTML = '';
-  openModal('resp-modal');
-}
-
-function openResultFromRun(runId, platform, encodedQuery){
-  const b = brand();
-  if (!b) return;
-  const q = decodeURIComponent(atob(encodedQuery));
-  const run = (b.runs||[]).find(r => r.id === runId);
-  if (!run || !run.allResults) return;
-  const result = run.allResults.find(x => x.platform===platform && x.query===q);
-  if (!result) return;
-  const t = PLAT_THEME[platform]||{};
-  const head = el('resp-modal-head');
-  head.style.background = t.bg||'var(--bg2)';
-  head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
-  el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
-  const textEl = el('resp-modal-text');
-  textEl.textContent = result.raw || result.context || '[No response text]';
-  // Highlight brand name
-  const hre = brandHighlightRe(b);
-  if (hre) {
-    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
-  }
-  // Show citations if any
-  const cc = el('resp-modal-cites');
-  const cites = result.citations||[];
-  if (cites.length) {
-    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-  } else cc.innerHTML = '';
-  openModal('resp-modal');
-}
-
-function openFullResult(platform, encodedQuery){
-  const b = brand();
-  if (!b) return;
-  const q = decodeURIComponent(atob(encodedQuery));
-  const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
-  if (!run || !run.allResults) return;
-  const result = run.allResults.find(x => x.platform===platform && x.query===q);
-  if (!result) return;
-  const t = PLAT_THEME[platform]||{};
-  const head = el('resp-modal-head');
-  head.style.background = t.bg||'var(--bg2)';
-  head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
-  el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
-  const textEl = el('resp-modal-text');
-  textEl.textContent = result.raw || result.context || '[No response text]';
-  // Highlight brand name
-  const hre = brandHighlightRe(b);
-  if (hre) {
-    textEl.innerHTML = textEl.innerHTML.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>');
-  }
-  // Show citations
-  const cc = el('resp-modal-cites');
-  const cites = result.citations||[];
-  if (cites.length) {
-    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-  } else cc.innerHTML = '';
-  openModal('resp-modal');
-}
-
-// ─── EVIDENCE & PROOF ─────────────────────────────────────────────
-function renderProof(){
-  const b = brand();
-  if (!b) return;
-  // Populate run selector
-  const sel = el('proof-run-sel');
-  const curVal = sel.value;
-  sel.innerHTML = '';
-  (b.runs||[]).slice().reverse().forEach((r,i) => {
-    const opt = document.createElement('option');
-    opt.value = r.id;
-    const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
-    sel.appendChild(opt);
-  });
-  if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
-
-  const selectedRunId = sel.value;
-  const run = (b.runs||[]).find(r => r.id === selectedRunId);
-  const cont = el('proof-container');
-
-  if (!run) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◆</div><p>No runs yet. Click Run Queries to start.</p></div>';
-    return;
-  }
-
-  const platFilter = el('proof-plat-sel').value;
-  const resultFilter = el('proof-result-sel').value;
-  const queries = b.queries||[];
-  const mentions = run.mentions||[];
-
-  // Build a lookup for ALL results per platform+query (including not-mentioned)
-  const allResults = run.allResults || [];
-
-  // Evidence cards — show EXACT API response as proof
-  // For each query, show every platform's response with FOUND/NOT FOUND status
-  let html = '';
-  queries.forEach(q => {
-    const platList = platFilter ? [platFilter] : PLATS;
-    let hasCards = false;
-    const cards = platList.map(plat => {
-      const m = mentions.find(x => x.platform===plat && x.query===q);
-      const fullResult = allResults.find(x => x.platform===plat && x.query===q);
-      if (resultFilter==='found' && !m) return '';
-      if (resultFilter==='notfound' && m) return '';
-      if (!fullResult && !m) return ''; // No data for this platform+query combo
-      hasCards = true;
-      const t = PLAT_THEME[plat]||{};
-      const isMentioned = !!(m || (fullResult && fullResult.mentioned));
-      const responseText = (isMentioned && m) ? (m.raw||m.context||'') : (fullResult ? fullResult.raw||fullResult.context||'' : '');
-      const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const proofHre = brandHighlightRe(b);
-      const displayResp = (isMentioned && proofHre)
-        ? escapedResp.replace(proofHre,'<mark>$1</mark>')
-        : escapedResp;
-      const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
-      const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
-      const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
-      const cites = ((m && m.citations) || (fullResult && fullResult.citations) || []).length;
-      const recommended = (m && m.recommended) || (fullResult && fullResult.recommended) || false;
-      const locRelevant = (m && m.locationRelevant) || (fullResult && fullResult.locationRelevant);
-      const matchedLoc = (m && m.matchedLocation) || (fullResult && fullResult.matchedLocation) || '';
-
-      // Status badge — clear FOUND / NOT FOUND
-      const statusBadge = isMentioned
-        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);font-weight:700;">&#x2713; FOUND</div>`
-        : `<div class="proof-card-badge" style="color:var(--red,#ff4444);border:1px solid rgba(255,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
-
-      const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
-      const cardBorder = isMentioned ? (t.color||'var(--border)')+'33' : 'var(--border)';
-      const mid = m ? m.id : null;
-      const viewBtn = mid
-        ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
-        : `<button class="proof-view-btn" onclick="openFullResult('${plat}','${btoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
-
-      return `<div class="proof-card" style="background:${cardBg};border:1px solid ${cardBorder};">
-        <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${cardBorder};">
-          <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-          <div class="proof-card-name" style="color:${isMentioned?(t.color||'var(--text)'):'var(--text)'}">${plat}</div>
-          <div class="proof-card-badges">
-            ${statusBadge}
-          </div>
-        </div>
-        <div class="proof-card-body">
-          <div class="proof-card-query">"${esc(q)}"</div>
-          ${displayResp
-            ? `<div class="proof-card-resp" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
-            : `<div class="proof-not-found">No response received from this platform.</div>`
-          }
-        </div>
-        <div class="proof-card-footer">
-          <span class="badge ${sentBadge}">${sentiment}</span>
-          ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-          ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
-          ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
-          ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
-          ${viewBtn}
-        </div>
-      </div>`;
-    }).join('');
-    if (hasCards && cards.trim()) {
-      html += `<div style="margin-bottom:28px;">
-        <div class="proof-query-header"><span class="q-label">QUERY:</span> ${esc(q)}</div>
-        <div class="proof-grid">${cards}</div>
-      </div>`;
-    }
-  });
-  cont.innerHTML = html || '<div class="empty-state"><p>No results match your filters.</p></div>';
-}
-
-function exportProofCSV(){
-  const b = brand(); if (!b) return;
-  const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
-  if (!run) return;
-  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response']];
-  const allResults = run.allResults || [];
-  if (allResults.length) {
-    allResults.forEach(r => {
-      rows.push([r.platform, '"'+r.query.replace(/"/g,"'")+'"', r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', '"'+(r.raw||r.context||'').replace(/"/g,"'").replace(/\n/g,' ')+'"']);
-    });
-  } else {
-    (run.mentions||[]).forEach(m => {
-      rows.push([m.platform, '"'+m.query.replace(/"/g,"'")+'"', 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', '"'+(m.raw||m.context||'').replace(/"/g,"'").replace(/\n/g,' ')+'"']);
-    });
-  }
-  const csv = rows.map(r=>r.join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv,' + encodeURIComponent(csv);
-  a.download = 'trackly-proof-'+run.date+'.csv';
-  a.click();
-}
-
-// ─── PLATFORM STATUS ──────────────────────────────────────────────
-function renderPlatformStatus(){
-  const b = brand();
-  if (!b) return;
-  const cont = el('plat-status-container');
-  if (!b.runs || !b.runs.length) {
-    cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
-    return;
-  }
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Last SOV</th><th>Key Status</th><th>Trend (last 7 runs)</th></tr></thead><tbody>';
-  PLATS.forEach(plat => {
-    const t = PLAT_THEME[plat]||{};
-    const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
-    const hasKey = keyStatus[keyField];
-    const recent = b.runs.slice(-7);
-    const lastSOV = recent.length ? (recent[recent.length-1].platforms||{})[plat]||0 : 0;
-    const bars = recent.map(r => {
-      const sov = (r.platforms||{})[plat]||0;
-      return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;opacity:.8;"></div>`;
-    }).join('');
-    html += `<tr>
-      <td><span style="color:${t.color||'#fff'}">${t.logo}</span> ${plat}</td>
-      <td><span class="stat-val" style="font-size:18px;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
-      <td><span class="badge ${hasKey?'real':'sim'}">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
-      <td style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  cont.innerHTML = html;
-}
-
-// ─── QUERY PERFORMANCE ────────────────────────────────────────────
-function renderQPerf(){
-  const b = brand(); if (!b) return;
-  const qs = b.queryStats||{};
-  const queries = b.queries||[];
-  const cont = el('qperf-container');
-  if (!queries.length) { cont.innerHTML='<div class="empty-state"><p>No queries set.</p></div>'; return; }
-  let html = '<table class="tbl"><thead><tr><th>Query</th><th>Runs</th><th>Mentions</th><th>Mention Rate</th><th>Bar</th></tr></thead><tbody>';
-  queries.forEach(q => {
-    const stat = qs[q]||{runs:0,mentions:0};
-    const rate = stat.runs ? Math.round((stat.mentions/stat.runs)*100) : 0;
-    html += `<tr>
-      <td>${q}</td>
-      <td style="font-family:var(--mono)">${stat.runs}</td>
-      <td style="font-family:var(--mono)">${stat.mentions}</td>
-      <td style="font-family:var(--mono);color:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}">${rate}%</td>
-      <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${rate}%;background:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}"></div></div></td>
-    </tr>`;
-  });
-  html += '</tbody></table>';
-  cont.innerHTML = html;
-}
-
-// ─── COMPETITORS ──────────────────────────────────────────────────
-function renderCompetitors(){
-  const b = brand(); if (!b) return;
-  const cont = el('comp-tags');
-  cont.innerHTML = '';
-  (b.competitors||[]).forEach((c,i) => {
-    const tag = document.createElement('span');
-    tag.className = 'query-tag';
-    const cText = document.createTextNode(c + ' ');
-    tag.appendChild(cText);
-    const btn = document.createElement('button');
-    btn.textContent = '\u2715';
-    btn.addEventListener('click', function(){ removeComp(i); });
-    tag.appendChild(btn);
-    cont.appendChild(tag);
-  });
-}
-
-async function addComp(){
-  const inp = el('comp-input');
-  const v = inp.value.trim(); if (!v) return;
-  const b = brand(); if (!b) return;
-  const competitors = [...(b.competitors||[]), v];
-  try {
-    const data = await api('PUT', '/api/brands/'+b.id, { competitors });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
-    inp.value = '';
-    renderCompetitors();
-  } catch(e) { toast(e.message,'err'); }
-}
-
-async function removeComp(i){
-  const b = brand(); if (!b) return;
-  const competitors = (b.competitors||[]).filter((_,idx)=>idx!==i);
-  try {
-    const data = await api('PUT', '/api/brands/'+b.id, { competitors });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
-    renderCompetitors();
-  } catch(e) { toast(e.message,'err'); }
-}
-
-// ─── BRAND SETUP ──────────────────────────────────────────────────
-function generateAliasesFromBrand(name, website){
-  const aliases = new Set();
-  if (!name) return [];
-  const n = name.trim();
-  // Original name
-  aliases.add(n);
-  // Lowercase
-  aliases.add(n.toLowerCase());
-  // No spaces (CoolAirPro)
-  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, ''));
-  // Hyphenated (Cool-Air-Pro)
-  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, '-'));
-  // No punctuation (McDonald's → McDonalds)
-  const noPunc = n.replace(/[''`\-.,&!]/g, '');
-  if (noPunc !== n) aliases.add(noPunc);
-  // Lowercase no space
-  if (n.includes(' ')) aliases.add(n.toLowerCase().replace(/\s+/g, ''));
-  // First word only if multi-word and first word is long enough
-  const words = n.split(/\s+/);
-  if (words.length >= 2 && words[0].length >= 4) aliases.add(words[0]);
-  // Website domain
-  if (website) {
-    const domain = website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
-    if (domain) {
-      aliases.add(domain); // coolairpro.com
-      aliases.add(domain.split('.')[0]); // coolairpro
-    }
-  }
-  return [...aliases].filter(a => a.length >= 2);
-}
-
-function renderAliasTags(){
-  const b = brand(); if (!b) return;
-  const cont = el('alias-tags');
-  cont.innerHTML = '';
-  (b.aliases||[]).forEach((a,i) => {
-    const tag = document.createElement('span');
-    tag.className = 'query-tag';
-    tag.appendChild(document.createTextNode(a + ' '));
-    const btn = document.createElement('button');
-    btn.textContent = '\u2715';
-    btn.addEventListener('click', function(){ removeAlias(i); });
-    tag.appendChild(btn);
-    cont.appendChild(tag);
-  });
-}
-
-function addAlias(){
-  const b = brand(); if (!b) return;
-  const inp = el('alias-input');
-  const val = inp.value.trim();
-  if (!val) return;
-  const aliases = [...(b.aliases||[])];
-  if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
-  b.aliases = aliases;
-  inp.value = '';
-  renderAliasTags();
-}
-
-async function removeAlias(i){
-  const b = brand(); if (!b) return;
-  b.aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
-  renderAliasTags();
-}
-
-function autoGenerateAliases(){
-  const b = brand(); if (!b) return;
-  const name = el('s-name').value.trim() || b.name;
-  const website = el('s-website').value.trim() || b.website;
-  const generated = generateAliasesFromBrand(name, website);
-  const existing = new Set((b.aliases||[]).map(a => a.toLowerCase()));
-  const newAliases = [...(b.aliases||[])];
-  generated.forEach(a => {
-    if (!existing.has(a.toLowerCase())) { newAliases.push(a); existing.add(a.toLowerCase()); }
-  });
-  b.aliases = newAliases;
-  renderAliasTags();
-  toast(generated.length + ' aliases generated', 'ok');
-}
-
-function renderAreaTags(){
-  const b = brand(); if (!b) return;
-  const cont = el('area-tags');
-  cont.innerHTML = '';
-  (b.nearbyAreas||[]).forEach((a,i) => {
-    const tag = document.createElement('span');
-    tag.className = 'query-tag';
-    tag.appendChild(document.createTextNode(a + ' '));
-    const btn = document.createElement('button');
-    btn.textContent = '\u2715';
-    btn.addEventListener('click', function(){ removeArea(i); });
-    tag.appendChild(btn);
-    cont.appendChild(tag);
-  });
-}
-
-function addArea(){
-  const b = brand(); if (!b) return;
-  const inp = el('area-input');
-  const val = inp.value.trim();
-  if (!val) return;
-  if (!b.nearbyAreas) b.nearbyAreas = [];
-  if (!b.nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) b.nearbyAreas.push(val);
-  inp.value = '';
-  renderAreaTags();
-}
-
-function removeArea(i){
-  const b = brand(); if (!b) return;
-  b.nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
-  renderAreaTags();
-}
-
-function renderSetup(){
-  const b = brand(); if (!b) return;
-  el('s-name').value = b.name||'';
-  el('s-industry').value = b.industry||'';
-  el('s-website').value = b.website||'';
-  el('s-city').value = b.city||'';
-  el('s-goal').value = b.goal||70;
-
-  // Auto-generate aliases on first visit if none exist
-  if (!b.aliases || !b.aliases.length) {
-    b.aliases = generateAliasesFromBrand(b.name, b.website);
-  }
-  renderAliasTags();
-  renderAreaTags();
-
-  // Render platform checkboxes
-  const cont = el('setup-plat-list');
-  cont.innerHTML = '';
-  const savedPlats = b.platforms || PLATS; // default: all platforms
-  PLATS.forEach(plat => {
-    const t = PLAT_THEME[plat]||{};
-    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')];
-    const lbl = document.createElement('label');
-    lbl.className = 'plat-check';
-    lbl.style.color = t.color||'#fff';
-    if (!isActive) lbl.style.opacity = '0.4';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = isActive && savedPlats.includes(plat);
-    cb.disabled = !isActive;
-    cb.dataset.plat = plat;
-    lbl.appendChild(cb);
-    lbl.appendChild(document.createTextNode(' ' + (t.logo||'') + ' ' + plat));
-    if (!isActive) {
-      const hint = document.createElement('span');
-      hint.style.cssText = 'font-size:8px;color:var(--muted);margin-left:4px;';
-      hint.textContent = '(inactive)';
-      lbl.appendChild(hint);
-    }
-    cont.appendChild(lbl);
-  });
-}
-
-async function saveBrandSetup(){
-  const b = brand(); if (!b) return;
-  const name = el('s-name').value.trim();
-  if (!name) { toast('Brand name cannot be empty','err'); return; }
-  // Get selected platforms
-  const platChecks = el('setup-plat-list').querySelectorAll('input[type=checkbox]:checked');
-  const selectedPlats = [...platChecks].map(cb => cb.dataset.plat);
-  try {
-    const data = await api('PUT', '/api/brands/'+b.id, {
-      name,
-      industry: el('s-industry').value.trim(),
-      website: el('s-website').value.trim(),
-      city: el('s-city').value.trim(),
-      goal: parseInt(el('s-goal').value)||70,
-      platforms: selectedPlats.length ? selectedPlats : PLATS,
-      aliases: b.aliases || [],
-      nearbyAreas: b.nearbyAreas || []
-    });
-    const idx = brands.findIndex(x=>x.id===b.id);
-    if (idx >= 0) brands[idx] = data.brand;
-    renderBrandSelect();
-    el('brand-select').value = currentBrandId;
-    renderAll();
-    toast('Brand settings saved', 'ok');
-  } catch(e) { toast(e.message,'err'); }
-}
-
-// ─── PLATFORM STATUS (from server env vars) ─────────────────────
-
-// ─── ADD BRAND ────────────────────────────────────────────────────
-function openAddBrand(){
-  el('add-brand-err').style.display = 'none';
-  ['nb-name','nb-industry','nb-website','nb-city'].forEach(id => { const e=el(id); if(e) e.value=''; });
-  openModal('add-brand-modal');
-}
-
-async function doAddBrand(){
-  const name = el('nb-name').value.trim();
-  const industry = el('nb-industry').value.trim();
-  if (!name || !industry) {
-    el('add-brand-err').textContent = 'Brand name and industry are required.';
-    el('add-brand-err').style.display = 'block';
-    return;
-  }
-  try {
-    const data = await api('POST', '/api/brands', {
-      name, industry,
-      website: el('nb-website').value.trim(),
-      city: el('nb-city').value.trim()
-    });
-    brands.push(data.brand);
-    currentBrandId = data.brand.id;
-    localStorage.setItem('trackly_brand', currentBrandId);
-    renderBrandSelect();
-    el('brand-select').value = currentBrandId;
-    closeModal('add-brand-modal');
-    renderAll();
-    toast('Brand "'+name+'" created', 'ok');
-  } catch(e) {
-    el('add-brand-err').textContent = e.message;
-    el('add-brand-err').style.display = 'block';
-  }
-}
-
-async function deleteBrand(){
-  const b = brand();
-  if (!b) return;
-  if (!confirm('Delete brand "'+b.name+'"? This cannot be undone.')) return;
-  try {
-    await api('DELETE', '/api/brands/'+b.id);
-    brands = brands.filter(x => x.id !== b.id);
-    if (brands.length > 0) {
-      currentBrandId = brands[0].id;
-    } else {
-      currentBrandId = '';
-    }
-    localStorage.setItem('trackly_brand', currentBrandId);
-    renderBrandSelect();
-    if (brands.length === 0) {
-      openModal('add-brand-modal');
-    } else {
-      el('brand-select').value = currentBrandId;
-      renderAll();
-    }
-    toast('Brand deleted', 'ok');
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-// ─── RUN QUERIES ──────────────────────────────────────────────────
-async function runQueries(){
-  if (runningQueries) return;
-  const b = brand();
-  if (!b) { toast('Select a brand first','err'); return; }
-  if (!b.queries||!b.queries.length) { toast('Add some queries first','err'); return; }
-  const selectedPlats = b.platforms || PLATS;
-  if (!selectedPlats.length) { toast('Select platforms in Brand Setup first','err'); return; }
-
-  runningQueries = true;
-  const btn = el('run-btn');
-  const prog = el('run-progress');
-  const fill = el('run-progress-fill');
-  const statusTxt = el('run-status-text');
-
-  btn.classList.add('running');
-  btn.textContent = '⏳ RUNNING...';
-  prog.style.display = 'block';
-  fill.style.width = '0%';
-  statusTxt.textContent = 'Sending queries to AI platforms...';
-
-  // Animate progress bar
-  let progress = 0;
-  const progInt = setInterval(() => {
-    progress = Math.min(progress+2, 90);
-    fill.style.width = progress+'%';
-  }, 400);
-
-  try {
-    const data = await api('POST', '/api/brands/'+b.id+'/run', { platforms: selectedPlats });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
-
-    clearInterval(progInt);
-    fill.style.width = '100%';
-
-    const errors = data.result.errorCount || 0;
-    const statusParts = [`Brand found in ${data.result.newMentions} of ${data.result.totalQ} responses`];
-    if (errors > 0) statusParts.push(`${errors} API error${errors>1?'s':''}`);
-    statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
-
-    setTimeout(() => {
-      prog.style.display = 'none';
-      fill.style.width = '0%';
-    }, 3000);
-
-    // Auto-switch to All Results view so user sees the results immediately
-    go('mentions');
-
-    const toastMsg = errors > 0
-      ? `Run complete — SOV: ${data.result.sov}% (${errors} error${errors>1?'s':''})`
-      : `Run complete — SOV: ${data.result.sov}%`;
-    toast(toastMsg, errors > 0 ? 'warn' : 'ok');
-  } catch(e) {
-    clearInterval(progInt);
-    prog.style.display = 'none';
-    toast('Run failed: '+e.message, 'err');
-  }
-
-  runningQueries = false;
-  btn.classList.remove('running');
-  btn.textContent = '▶ RUN QUERIES';
-}
-
-// ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.key==='Escape') {
-    document.querySelectorAll('.overlay.open').forEach(o => {
-      if (o.id !== 'add-brand-modal' || brands.length > 0) o.classList.remove('open');
-    });
-  }
-});
-
-// ─── AUTO-LOGIN ───────────────────────────────────────────────────
-(async function(){
-  if (!token) {
-    el('landing-page').style.display = 'block';
-    el('auth-page').style.display = 'none';
-    el('app').style.display = 'none';
-    return;
-  }
-  // Try auto-login with saved token
-  el('landing-page').style.display = 'none';
-  try {
-    const data = await api('GET', '/api/auth/me');
-    currentUser = data.user;
-    await initApp();
-  } catch(e) {
-    // Token invalid or expired — show login page directly (not landing)
-    localStorage.removeItem('trackly_token');
-    token = '';
-    el('landing-page').style.display = 'none';
-    el('auth-page').style.display = 'flex';
-    authTab('login');
-    // Show helpful message
-    el('auth-err').textContent = 'Session expired. Please log in again.';
-    el('auth-err').style.display = 'block';
-  }
-})();
-</script>
+<script src="/js/app.js"></script>
 </body>
 </html>

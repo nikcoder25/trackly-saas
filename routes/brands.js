@@ -1,0 +1,422 @@
+/**
+ * Brand CRUD and query execution routes
+ */
+const express = require('express');
+const router  = express.Router();
+
+const { pool } = require('../config/db');
+const { auth } = require('../middleware/auth');
+const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
+const { getPlanLimits, getUserPlan } = require('../lib/plans');
+const { queryAI, fetchJSON } = require('../lib/ai-platforms');
+const { parseResponse, detectCompetitors } = require('../lib/parser');
+
+const PLATFORM_KEY_MAP = {
+  'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
+  'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini',
+  'DeepSeek': 'deepseek', 'Mistral': 'mistral'
+};
+
+// List brands
+router.get('/', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
+    const brands = result.rows.map(row => ({ id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
+    res.json({ brands });
+  } catch(e) {
+    console.error('[Brands GET]', e.message);
+    res.status(500).json({ error: 'Failed to load brands' });
+  }
+});
+
+// Create brand
+router.post('/', auth, async (req, res) => {
+  try {
+    const { name, industry, website, city, goal } = req.body;
+    if (!name) return res.status(400).json({ error: 'Brand name required' });
+
+    const countResult = await pool.query('SELECT COUNT(*) FROM brands WHERE user_id = $1', [req.user.id]);
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    if (parseInt(countResult.rows[0].count) >= limits.brands) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: parseInt(countResult.rows[0].count), max: limits.brands });
+    }
+
+    const id = uid();
+    const data = {
+      name, industry: industry||'', website: website||'', city: city||'',
+      goal: goal || 70,
+      competitors: [],
+      queries: city
+        ? [
+          `What is the best ${industry||'service'} company in ${city}?`,
+          `Who are the top ${industry||'service'} providers in ${city}?`,
+          `Best ${industry||'service'} recommendations in ${city}`
+        ]
+        : [
+          `What is the best ${industry||'service'} company?`,
+          `Who are the top ${industry||'service'} providers?`,
+          `Best ${industry||'service'} recommendations`
+        ],
+      runs: [], mentions: [], queryStats: {}, sovHistory: [],
+      citations: {}, notes: {}, schedule: null
+    };
+    await pool.query(
+      'INSERT INTO brands (id, user_id, data) VALUES ($1, $2, $3)',
+      [id, req.user.id, JSON.stringify(data)]
+    );
+    const brand = { id, userId: req.user.id, ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    res.json({ brand });
+  } catch(e) {
+    console.error('[Brand POST]', e.message);
+    res.status(500).json({ error: 'Failed to create brand' });
+  }
+});
+
+// Get single brand
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    res.json({ brand });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update brand
+router.put('/:id', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+
+    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
+    const safeBody = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) safeBody[key] = req.body[key];
+    }
+
+    if (safeBody.queries && safeBody.queries.length > limits.queries) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries. Upgrade for more.`, planLimit: true, limit: 'queries', max: limits.queries });
+    }
+    if (safeBody.competitors && safeBody.competitors.length > limits.competitors) {
+      return res.status(403).json({ error: limits.competitors === 0 ? `Competitor tracking is available on Pro and Agency plans.` : `Your ${plan} plan allows up to ${limits.competitors} competitors. Upgrade for more.`, planLimit: true, limit: 'competitors', max: limits.competitors });
+    }
+    if (safeBody.schedule && !limits.scheduledRuns) {
+      return res.status(403).json({ error: `Scheduled runs are available on Pro and Agency plans. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
+    }
+
+    const updated = { ...brand, ...safeBody, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
+    await saveBrand(updated);
+    res.json({ brand: updated });
+  } catch(e) {
+    console.error('[Brand PUT]', e.message);
+    res.status(500).json({ error: 'Failed to update brand' });
+  }
+});
+
+// Delete brand
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM brands WHERE id = $1 AND user_id = $2 RETURNING id', [req.params.id, req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to delete brand' });
+  }
+});
+
+// Run queries
+router.post('/:id/run', auth, async (req, res) => {
+  const brand = await getBrand(req.params.id, req.user.id);
+  if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+  const plan = await getUserPlan(req.user.id);
+  const limits = getPlanLimits(plan);
+
+  const queryCount = (brand.queries || []).length;
+  if (queryCount > limits.queries) {
+    return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`, planLimit: true, limit: 'queries' });
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
+  if (todayRuns >= limits.runsPerDay) {
+    return res.status(403).json({ error: `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`, planLimit: true, limit: 'runsPerDay' });
+  }
+
+  const keys = getServerKeys();
+  const queries = brand.queries || [];
+  if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
+
+  let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
+    .filter(([, keyName]) => keys[keyName])
+    .map(([plat]) => plat);
+
+  if (availablePlatforms.length > limits.platforms) {
+    availablePlatforms = availablePlatforms.slice(0, limits.platforms);
+  }
+
+  if (!availablePlatforms.length) {
+    return res.status(400).json({ error: 'No AI platforms configured. Please contact support.' });
+  }
+
+  const requestedPlatforms = req.body.platforms || brand.platforms;
+  const activePlatforms = (requestedPlatforms && Array.isArray(requestedPlatforms) && requestedPlatforms.length)
+    ? availablePlatforms.filter(p => requestedPlatforms.includes(p))
+    : availablePlatforms;
+
+  if (!activePlatforms.length) {
+    return res.status(400).json({ error: 'No valid platforms selected.' });
+  }
+
+  const newMentions = [];
+  const allResults = [];
+  const platSOV = {};
+  let totalQ = 0, totalM = 0;
+
+  for (const plat of activePlatforms) {
+    let pm = 0;
+    for (const q of queries) {
+      try {
+        const result = await queryAI(q, plat, brand, keys);
+        if (!result) continue;
+        const { text, citations: extraCites, model: modelUsed } = result;
+        const parsed = parseResponse(text, brand, q);
+        parsed.simulated = false;
+        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,10);
+        totalQ++;
+        const compMentions = detectCompetitors(text, brand.competitors || []);
+        allResults.push({
+          platform: plat, query: q,
+          context: text.substring(0, 300), raw: text,
+          simulated: false, mentioned: parsed.mentioned,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: parsed.cites, model: modelUsed || plat,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || '',
+          competitorMentions: compMentions
+        });
+        if (parsed.mentioned) {
+          pm++; totalM++;
+          newMentions.push({
+            id: uid(), platform: plat, query: q,
+            context: text.substring(0, 300), raw: text,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, simulated: false,
+            model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            time: new Date().toISOString()
+          });
+        }
+      } catch(e) {
+        console.error(`[${plat}] API error for query "${q}":`, e.message);
+        allResults.push({
+          platform: plat, query: q,
+          context: `[API Error] ${e.message}`, raw: `[API Error] ${e.message}`,
+          simulated: false, mentioned: false,
+          sentiment: 'neutral', recommended: false,
+          citations: [], error: true, errorMessage: e.message
+        });
+        totalQ++;
+      }
+    }
+    platSOV[plat] = queries.length > 0 ? Math.round((pm / queries.length) * 100) : 0;
+  }
+
+  const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+
+  if (!brand.runs) brand.runs = [];
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
+
+  // Rebuild queryStats
+  const qsNew = {};
+  queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+  brand.runs.forEach(run => {
+    queries.forEach(q => {
+      if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+      qsNew[q].runs++;
+      if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
+    });
+  });
+  brand.queryStats = qsNew;
+
+  // Rebuild citations
+  const citMap = {};
+  brand.runs.forEach(r => {
+    (r.mentions||[]).forEach(m => {
+      (m.citations||[]).forEach(url => {
+        if (!citMap[url]) citMap[url] = { url, count: 0 };
+        citMap[url].count++;
+      });
+    });
+  });
+  brand.citations = citMap;
+
+  // Update all-time mentions
+  if (!brand.mentions) brand.mentions = [];
+  const keys2 = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
+  const deduped = newMentions.filter(m => !keys2.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
+  brand.mentions = [...deduped, ...brand.mentions].slice(0, 500);
+
+  // SOV history
+  if (!brand.sovHistory) brand.sovHistory = [];
+  brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
+  brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
+  if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
+
+  brand.updatedAt = new Date().toISOString();
+  await saveBrand(brand);
+
+  // Send webhook alert if configured and SOV changed
+  const previousSOV = brand.sovHistory.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2].overall : 0;
+  if (brand.webhookUrl && sov !== previousSOV) {
+    sendWebhookAlert(brand, brand.runs[brand.runs.length - 1], previousSOV).catch(() => {});
+  }
+
+  const errorCount = allResults.filter(r => r.error).length;
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 8 - activePlatforms.length, errorCount } });
+});
+
+// Webhook alert helper
+async function sendWebhookAlert(brand, run, previousSOV) {
+  if (!brand.webhookUrl) return;
+  const url = brand.webhookUrl.trim();
+  if (!url.startsWith('http')) return;
+
+  const sov = run.sov;
+  const change = sov - previousSOV;
+  const direction = change > 0 ? 'increased' : change < 0 ? 'decreased' : 'unchanged';
+
+  const payload = {
+    event: 'sov_change',
+    brand: brand.name,
+    sov, previousSOV, change, direction,
+    mentions: (run.mentions || []).length,
+    totalQueries: run.totalQ,
+    platforms: run.platforms,
+    timestamp: new Date().toISOString(),
+    summary: `${brand.name} SOV ${direction}: ${previousSOV}% → ${sov}% (${change > 0 ? '+' : ''}${change}%)`
+  };
+
+  try {
+    await fetchJSON(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    console.log(`[Webhook] Alert sent for ${brand.name} to ${url}`);
+  } catch(e) {
+    console.error(`[Webhook] Failed for ${brand.name}:`, e.message);
+  }
+}
+
+// Scheduled run helper (exported for cron)
+async function runBrandQueries(brand) {
+  const keys = getServerKeys();
+  const queries = brand.queries || [];
+  const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+    .filter(([, keyName]) => keys[keyName])
+    .map(([plat]) => plat);
+  if (!activePlatforms.length || !queries.length) return;
+
+  const newMentions = [];
+  const allResults = [];
+  const platSOV = {};
+  let totalQ = 0, totalM = 0;
+
+  for (const plat of activePlatforms) {
+    let pm = 0;
+    for (const q of queries) {
+      try {
+        const result = await queryAI(q, plat, brand, keys);
+        if (!result) continue;
+        const { text, citations: extraCites, model: modelUsed } = result;
+        const parsed = parseResponse(text, brand, q);
+        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+        totalQ++;
+        allResults.push({
+          platform: plat, query: q,
+          context: text.substring(0, 300), raw: text,
+          simulated: false, mentioned: parsed.mentioned,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: parsed.cites, model: modelUsed || plat,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || ''
+        });
+        if (parsed.mentioned) {
+          pm++; totalM++;
+          newMentions.push({
+            id: uid(), platform: plat, query: q,
+            context: text.substring(0, 300), raw: text,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, simulated: false,
+            model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            time: new Date().toISOString()
+          });
+        }
+      } catch(e) {
+        console.error(`[Cron][${plat}] API error for "${q}":`, e.message);
+        allResults.push({
+          platform: plat, query: q,
+          context: `[API Error] ${e.message}`, raw: `[API Error] ${e.message}`,
+          simulated: false, mentioned: false,
+          sentiment: 'neutral', recommended: false,
+          citations: [], error: true, errorMessage: e.message
+        });
+        totalQ++;
+      }
+    }
+    platSOV[plat] = queries.length ? Math.round((pm/queries.length)*100) : 0;
+  }
+
+  const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
+  const today = new Date().toISOString().split('T')[0];
+  if (!brand.runs) brand.runs = [];
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
+
+  if (!brand.mentions) brand.mentions = [];
+  const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
+  brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0])), ...brand.mentions].slice(0,500);
+
+  const qsNew = {};
+  queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+  brand.runs.forEach(run => {
+    queries.forEach(q => {
+      if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+      qsNew[q].runs++;
+      if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
+    });
+  });
+  brand.queryStats = qsNew;
+
+  const citMap = {};
+  brand.runs.forEach(r => {
+    (r.mentions||[]).forEach(m => {
+      (m.citations||[]).forEach(url => {
+        if (!citMap[url]) citMap[url] = { url, count: 0 };
+        citMap[url].count++;
+      });
+    });
+  });
+  brand.citations = citMap;
+
+  if (!brand.sovHistory) brand.sovHistory = [];
+  brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
+  brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
+  if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
+
+  brand.updatedAt = new Date().toISOString();
+  await saveBrand(brand);
+}
+
+module.exports = router;
+module.exports.runBrandQueries = runBrandQueries;
