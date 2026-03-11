@@ -554,7 +554,11 @@
       </div>
       <div id="ov-last-run-summary" style="display:none;margin-bottom:20px;"></div>
       <div class="card">
-        <div class="card-title">Tracked Queries</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="card-title" style="margin-bottom:0;">Tracked Queries</div>
+          <div id="ov-query-count" style="font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+        </div>
+        <div id="ov-query-limit-msg" style="display:none;background:rgba(255,165,0,.1);border:1px solid rgba(255,165,0,.25);padding:8px 12px;margin:8px 0;font-size:11px;color:#f0a030;font-family:var(--mono);"></div>
         <div id="ov-query-list"></div>
         <div class="add-query-row">
           <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">

@@ -435,7 +435,24 @@ function renderOverview(){
     lrs.style.display = 'none';
   }
 
-  // Queries list
+  // Queries list with count indicator
+  const queryCount = (b.queries||[]).length;
+  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  const qCountEl = el('ov-query-count');
+  if (qCountEl) {
+    const atLimit = queryCount >= queryLimit;
+    qCountEl.textContent = queryCount + ' / ' + queryLimit + ' queries';
+    qCountEl.style.color = atLimit ? '#f0a030' : 'var(--muted)';
+  }
+  const limitMsg = el('ov-query-limit-msg');
+  if (limitMsg) {
+    if (queryCount >= queryLimit) {
+      limitMsg.textContent = 'Query limit reached (' + queryLimit + '). Remove a query or upgrade your plan to add more.';
+      limitMsg.style.display = 'block';
+    } else {
+      limitMsg.style.display = 'none';
+    }
+  }
   const ql = el('ov-query-list');
   ql.innerHTML = '';
   (b.queries||[]).forEach((q,i) => {
@@ -498,6 +515,12 @@ async function ovAddQuery(){
   if (!q) return;
   const b = brand();
   if (!b) return;
+  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  if ((b.queries||[]).length >= queryLimit) {
+    toast('Query limit reached (' + queryLimit + '). Upgrade your plan to add more.', 'err');
+    showUpgradeModal('Your plan allows up to ' + queryLimit + ' queries. Upgrade for more.');
+    return;
+  }
   const queries = [...(b.queries||[]), q];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
