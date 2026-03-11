@@ -161,6 +161,10 @@ async function initApp(){
   pb.textContent = (currentUser.plan||'free').toUpperCase();
   pb.className = 'plan-badge ' + (currentUser.plan||'free');
 
+  // Show admin nav if user is admin
+  const adminNav = el('nav-admin');
+  if (adminNav) adminNav.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+
   // Load brands
   const data = await api('GET', '/api/brands');
   brands = data.brands || [];
@@ -233,6 +237,7 @@ function go(view){
 function renderView(view){
   const b = brand();
   if (view==='account') { renderAccount(); return; }
+  if (view==='admin')   { renderAdmin(); return; }
   if (!b) return;
   if (view==='overview')    renderOverview();
   if (view==='mentions')    renderMentions();
@@ -1460,6 +1465,86 @@ async function runQueries(){
   runningQueries = false;
   btn.classList.remove('running');
   btn.textContent = '▶ RUN QUERIES';
+}
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────
+let adminUsers = [];
+
+async function renderAdmin(){
+  if (!currentUser || currentUser.role !== 'admin') {
+    el('admin-users-table').innerHTML = '<div class="empty-state"><p>Admin access required.</p></div>';
+    return;
+  }
+  el('admin-users-table').innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading users...</div>';
+  try {
+    const data = await api('GET', '/api/admin/users');
+    adminUsers = data.users || [];
+    el('admin-user-count').textContent = adminUsers.length + ' user' + (adminUsers.length !== 1 ? 's' : '');
+    renderAdminTable(adminUsers);
+  } catch(e) {
+    el('admin-users-table').innerHTML = '<div class="empty-state"><p>Failed to load users: ' + esc(e.message) + '</p></div>';
+  }
+}
+
+function filterAdminUsers(){
+  const q = (el('admin-search').value || '').toLowerCase().trim();
+  if (!q) { renderAdminTable(adminUsers); return; }
+  const filtered = adminUsers.filter(u => u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q));
+  renderAdminTable(filtered);
+}
+
+function renderAdminTable(users){
+  if (!users.length) {
+    el('admin-users-table').innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
+    return;
+  }
+  let html = '<table class="tbl"><thead><tr><th>Email</th><th>Name</th><th>Plan</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
+  users.forEach(u => {
+    const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    html += `<tr>
+      <td style="font-family:var(--mono);font-size:11px;">${esc(u.email)}</td>
+      <td>${esc(u.name || '—')}</td>
+      <td>
+        <select class="finput" style="width:110px;margin:0;padding:4px 8px;font-size:11px;font-family:var(--mono);color:${planColor};" onchange="changeUserPlan('${u.id}', this.value)" id="admin-plan-${u.id}">
+          <option value="free" ${u.plan==='free'?'selected':''}>FREE</option>
+          <option value="pro" ${u.plan==='pro'?'selected':''}>PRO</option>
+          <option value="agency" ${u.plan==='agency'?'selected':''}>AGENCY</option>
+        </select>
+      </td>
+      <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
+      <td>
+        <span id="admin-status-${u.id}" style="font-family:var(--mono);font-size:9px;color:var(--green);display:none;">SAVED</span>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el('admin-users-table').innerHTML = html;
+}
+
+async function changeUserPlan(userId, newPlan){
+  const statusEl = el('admin-status-' + userId);
+  try {
+    await api('PUT', '/api/admin/users/' + userId + '/plan', { plan: newPlan });
+    // Update local cache
+    const idx = adminUsers.findIndex(u => u.id === userId);
+    if (idx >= 0) adminUsers[idx].plan = newPlan;
+    // Update select color
+    const sel = el('admin-plan-' + userId);
+    if (sel) sel.style.color = newPlan === 'agency' ? 'var(--purple)' : newPlan === 'pro' ? 'var(--green)' : 'var(--muted)';
+    // Show confirmation
+    if (statusEl) { statusEl.style.display = 'inline'; setTimeout(() => { statusEl.style.display = 'none'; }, 2000); }
+    toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+    // Revert select
+    const idx = adminUsers.findIndex(u => u.id === userId);
+    if (idx >= 0) {
+      const sel = el('admin-plan-' + userId);
+      if (sel) sel.value = adminUsers[idx].plan;
+    }
+  }
 }
 
 // ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
