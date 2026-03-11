@@ -180,10 +180,14 @@ router.post('/:id/run', auth, async (req, res) => {
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
+  const queryDelay = (ms) => new Promise(r => setTimeout(r, ms));
 
   for (const plat of activePlatforms) {
     let pm = 0;
-    for (const q of queries) {
+    for (let qi = 0; qi < queries.length; qi++) {
+      const q = queries[qi];
+      // Add delay between queries to same platform to avoid rate limits
+      if (qi > 0) await queryDelay(1500);
       try {
         const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;
@@ -335,10 +339,14 @@ async function runBrandQueries(brand) {
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
+  const cronDelay = (ms) => new Promise(r => setTimeout(r, ms));
 
   for (const plat of activePlatforms) {
     let pm = 0;
-    for (const q of queries) {
+    for (let qi = 0; qi < queries.length; qi++) {
+      const q = queries[qi];
+      // Add delay between queries to same platform to avoid rate limits
+      if (qi > 0) await cronDelay(1500);
       try {
         const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;
