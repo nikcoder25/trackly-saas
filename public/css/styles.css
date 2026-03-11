@@ -5,7 +5,6 @@
   --green:#00ff88;--red:#ff4455;--amber:#f59e0b;--blue:#3b82f6;
   --purple:#9b72ff;--font:'Syne',sans-serif;--mono:'Space Mono',monospace;
 }
-
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
 
 /* ── LANDING PAGE ──────────────────────── */
@@ -275,4 +274,3 @@ select.finput{appearance:none;}
   .key-grid{grid-template-columns:1fr;}
 }
 .hamburger-btn{display:none;}
-</style>
