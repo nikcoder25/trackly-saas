@@ -102,7 +102,7 @@ app.post('/api/auth/register', async (req, res) => {
     );
 
     const token = jwt.sign({ id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'free', createdAt: new Date().toISOString(), hasKeys: [] } });
+    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'free', createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
   } catch(e) {
     console.error('[Register]', e.message);
     res.status(500).json({ error: 'Registration failed' });
@@ -139,8 +139,10 @@ app.get('/api/auth/me', auth, async (req, res) => {
 });
 
 function safeUser(u) {
-  return { id: u.id, email: u.email, name: u.name, plan: u.plan, createdAt: u.created_at,
-           hasKeys: Object.keys(u.api_keys||{}).filter(k => u.api_keys[k]) };
+  const plan = u.plan || 'free';
+  return { id: u.id, email: u.email, name: u.name, plan, createdAt: u.created_at,
+           hasKeys: Object.keys(u.api_keys||{}).filter(k => u.api_keys[k]),
+           limits: getPlanLimits(plan) };
 }
 
 // ─── API KEYS (from server environment variables — SaaS mode) ────
@@ -169,6 +171,46 @@ app.get('/api/keys/status', auth, (req, res) => {
     deepseek:   !!keys.deepseek,
     mistral:    !!keys.mistral
   });
+});
+
+// ─── PLAN LIMITS ──────────────────────────────────────────────────
+const PLAN_LIMITS = {
+  free:   { brands: 1, queries: 5,  runsPerDay: 2,  competitors: 0,  scheduledRuns: false, platforms: 3  },
+  pro:    { brands: 5, queries: 25, runsPerDay: 10, competitors: 5,  scheduledRuns: true,  platforms: 8  },
+  agency: { brands: 20, queries: 50, runsPerDay: 50, competitors: 20, scheduledRuns: true,  platforms: 8  }
+};
+
+function getPlanLimits(plan) {
+  return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+}
+
+async function getUserPlan(userId) {
+  const result = await pool.query('SELECT plan FROM users WHERE id = $1', [userId]);
+  return result.rows[0]?.plan || 'free';
+}
+
+// ─── PLAN UPGRADE (self-service) ──────────────────────────────────
+app.get('/api/plans', auth, (req, res) => {
+  res.json({ plans: PLAN_LIMITS, current: null }); // current filled by client from user object
+});
+
+app.post('/api/upgrade', auth, async (req, res) => {
+  const { plan } = req.body;
+  if (!['free', 'pro', 'agency'].includes(plan)) {
+    return res.status(400).json({ error: 'Invalid plan' });
+  }
+  try {
+    // In production, integrate Stripe checkout here before updating plan.
+    // For now, allow self-service upgrade (payment integration placeholder).
+    const result = await pool.query(
+      'UPDATE users SET plan = $1 WHERE id = $2 RETURNING *',
+      [plan, req.user.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ user: safeUser(result.rows[0]), message: `Plan updated to ${plan}` });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to update plan' });
+  }
 });
 
 // ─── BRAND HELPERS ────────────────────────────────────────────────
@@ -206,12 +248,10 @@ app.post('/api/brands', auth, async (req, res) => {
 
     // Plan limits
     const countResult = await pool.query('SELECT COUNT(*) FROM brands WHERE user_id = $1', [req.user.id]);
-    const userResult = await pool.query('SELECT plan FROM users WHERE id = $1', [req.user.id]);
-    const plan = userResult.rows[0]?.plan || 'free';
-    const limits = { free: 1, pro: 5, agency: 20 };
-    const limit = limits[plan];
-    if (parseInt(countResult.rows[0].count) >= limit) {
-      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limit} brand(s). Upgrade to add more.` });
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    if (parseInt(countResult.rows[0].count) >= limits.brands) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: parseInt(countResult.rows[0].count), max: limits.brands });
     }
 
     const id = uid();
@@ -265,12 +305,32 @@ app.put('/api/brands/:id', auth, async (req, res) => {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
+    // Plan enforcement on updates
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+
     // Whitelist allowed fields to prevent overwriting runs/mentions data
     const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
     const safeBody = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) safeBody[key] = req.body[key];
     }
+
+    // Enforce query limit
+    if (safeBody.queries && safeBody.queries.length > limits.queries) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries. Upgrade for more.`, planLimit: true, limit: 'queries', max: limits.queries });
+    }
+
+    // Enforce competitor limit
+    if (safeBody.competitors && safeBody.competitors.length > limits.competitors) {
+      return res.status(403).json({ error: limits.competitors === 0 ? `Competitor tracking is available on Pro and Agency plans.` : `Your ${plan} plan allows up to ${limits.competitors} competitors. Upgrade for more.`, planLimit: true, limit: 'competitors', max: limits.competitors });
+    }
+
+    // Enforce scheduled runs limit
+    if (safeBody.schedule && !limits.scheduledRuns) {
+      return res.status(403).json({ error: `Scheduled runs are available on Pro and Agency plans. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
+    }
+
     const updated = { ...brand, ...safeBody, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
     await saveBrand(updated);
     res.json({ brand: updated });
@@ -295,6 +355,23 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   const brand = await getBrand(req.params.id, req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
+  // Plan enforcement
+  const plan = await getUserPlan(req.user.id);
+  const limits = getPlanLimits(plan);
+
+  // Check query count limit
+  const queryCount = (brand.queries || []).length;
+  if (queryCount > limits.queries) {
+    return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`, planLimit: true, limit: 'queries' });
+  }
+
+  // Check daily run limit
+  const today = new Date().toISOString().split('T')[0];
+  const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
+  if (todayRuns >= limits.runsPerDay) {
+    return res.status(403).json({ error: `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`, planLimit: true, limit: 'runsPerDay' });
+  }
+
   // Use server-side API keys (SaaS mode — admin configures keys via env vars)
   const keys = getServerKeys();
 
@@ -307,9 +384,14 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
   // Only query platforms with valid API keys — no fake/simulated data
-  const availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
+  let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
     .filter(([, keyName]) => keys[keyName])
     .map(([plat]) => plat);
+
+  // Plan-based platform cap — free users limited to first N platforms
+  if (availablePlatforms.length > limits.platforms) {
+    availablePlatforms = availablePlatforms.slice(0, limits.platforms);
+  }
 
   if (!availablePlatforms.length) {
     return res.status(400).json({ error: 'No AI platforms configured. Please contact support.' });
@@ -388,7 +470,6 @@ app.post('/api/brands/:id/run', auth, async (req, res) => {
   }
 
   const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
-  const today = new Date().toISOString().split('T')[0];
 
   // Save run snapshot — keep ALL runs (don't overwrite same-day runs)
   if (!brand.runs) brand.runs = [];

@@ -49,7 +49,7 @@
       "name": "Free",
       "price": "0",
       "priceCurrency": "USD",
-      "description": "1 brand, 6 AI platforms, unlimited queries"
+      "description": "1 brand, 3 AI platforms, 5 queries, SOV tracking"
     },
     {
       "@type": "Offer",
@@ -60,7 +60,7 @@
         "@type": "UnitPriceSpecification",
         "billingDuration": "P1M"
       },
-      "description": "5 brands, real API responses, competitor tracking"
+      "description": "5 brands, 8 AI platforms, 25 queries, competitor tracking"
     },
     {
       "@type": "Offer",
@@ -71,7 +71,7 @@
         "@type": "UnitPriceSpecification",
         "billingDuration": "P1M"
       },
-      "description": "20 brands, white-label reports, scheduled runs"
+      "description": "20 brands, 8 AI platforms, 50 queries, scheduled runs"
     }
   ],
   "aggregateRating": {
@@ -278,9 +278,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .topbar-brand-sel select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;font-family:var(--font);font-size:12px;outline:none;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
 .user-badge{font-family:var(--mono);font-size:10px;color:var(--muted);}
-.plan-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);text-transform:uppercase;}
+.plan-badge{font-family:var(--mono);font-size:9px;padding:2px 8px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);text-transform:uppercase;cursor:pointer;transition:opacity .15s;}
+.plan-badge:hover{opacity:.7;}
 .plan-badge.pro{border-color:var(--green);color:var(--green);}
 .plan-badge.agency{border-color:var(--purple);color:var(--purple);}
+.upgrade-plan-card{background:var(--bg2);border:1px solid var(--border);padding:20px;text-align:center;transition:border-color .15s;}
+.upgrade-plan-card.featured{border-color:var(--green);}
+.upgrade-plan-card.active{border-color:var(--green);background:rgba(0,255,136,.03);}
+.btn-upgrade{width:100%;padding:8px;margin-top:12px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text);transition:all .15s;}
+.btn-upgrade:hover{border-color:var(--green);color:var(--green);}
+.btn-upgrade.current{background:transparent;border-color:var(--muted);color:var(--muted);cursor:default;}
+.plan-limit-bar{height:4px;background:var(--bg3);border-radius:2px;margin-top:4px;overflow:hidden;}
+.plan-limit-fill{height:100%;border-radius:2px;transition:width .3s;}
 .logout-btn{font-family:var(--mono);font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;letter-spacing:1px;}
 .logout-btn:hover{color:var(--text);}
 
@@ -571,10 +580,10 @@ select.finput{appearance:none;}
         <div class="price-sub">Perfect for getting started</div>
         <ul>
           <li>1 brand</li>
-          <li>6 AI platforms</li>
-          <li>Unlimited queries</li>
-          <li>Evidence & proof export</li>
-          <li>SOV tracking</li>
+          <li>3 AI platforms</li>
+          <li>5 queries per brand</li>
+          <li>2 runs per day</li>
+          <li>SOV tracking &amp; evidence export</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Get Started</button>
       </div>
@@ -584,10 +593,11 @@ select.finput{appearance:none;}
         <div class="price-sub">For growing businesses</div>
         <ul>
           <li>5 brands</li>
-          <li>6 AI platforms</li>
-          <li>Real API responses</li>
-          <li>Competitor tracking</li>
-          <li>Priority support</li>
+          <li>All 8 AI platforms</li>
+          <li>25 queries per brand</li>
+          <li>10 runs per day</li>
+          <li>Competitor tracking (5)</li>
+          <li>Scheduled runs &amp; webhooks</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Pro</button>
       </div>
@@ -597,10 +607,11 @@ select.finput{appearance:none;}
         <div class="price-sub">For agencies & teams</div>
         <ul>
           <li>20 brands</li>
-          <li>6 AI platforms</li>
-          <li>White-label reports</li>
-          <li>Scheduled runs</li>
-          <li>Dedicated support</li>
+          <li>All 8 AI platforms</li>
+          <li>50 queries per brand</li>
+          <li>50 runs per day</li>
+          <li>Competitor tracking (20)</li>
+          <li>Scheduled runs &amp; webhooks</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Agency</button>
       </div>
@@ -692,7 +703,7 @@ select.finput{appearance:none;}
       </details>
       <details class="faq-item">
         <summary>Is Trackly free to use?</summary>
-        <p>Yes, Trackly offers a free plan that includes 1 brand, 6 AI platforms, unlimited queries, and evidence export. Pro ($29/mo) and Agency ($79/mo) plans are available for more brands, competitor tracking, and advanced features.</p>
+        <p>Yes, Trackly offers a free plan that includes 1 brand, 3 AI platforms, 5 queries, and evidence export. Pro ($29/mo) adds 5 brands, all 8 AI platforms, 25 queries, competitor tracking, and scheduled runs. Agency ($79/mo) unlocks 20 brands, 50 queries, and full access.</p>
       </details>
       <details class="faq-item">
         <summary>How is Trackly different from traditional SEO tools?</summary>
@@ -770,7 +781,7 @@ select.finput{appearance:none;}
     <button style="padding:6px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--green);font-size:11px;font-family:var(--mono);cursor:pointer;letter-spacing:1px;" onclick="openAddBrand()">+ ADD BRAND</button>
     <div class="topbar-right">
       <span class="user-badge" id="user-email-badge"></span>
-      <span class="plan-badge" id="plan-badge">FREE</span>
+      <span class="plan-badge" id="plan-badge" onclick="showUpgradeModal()">FREE</span>
       <button class="logout-btn" onclick="doLogout()">LOGOUT</button>
     </div>
   </div>
@@ -790,6 +801,7 @@ select.finput{appearance:none;}
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
     <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
+    <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
   </div>
 
   <!-- Main -->
@@ -1020,6 +1032,28 @@ select.finput{appearance:none;}
     </div>
 
 
+    <!-- ACCOUNT & PLAN ──────────────────── -->
+    <div id="view-account" class="view">
+      <div class="view-title">Account &amp; Plan</div>
+      <div class="view-sub">Manage your account and subscription.</div>
+      <div class="card">
+        <div class="card-title">Account Info</div>
+        <div style="font-family:var(--mono);font-size:12px;line-height:2;">
+          <div>Email: <strong id="acct-email"></strong></div>
+          <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
+          <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Plan Usage</div>
+        <div id="acct-usage"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Change Plan</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -1035,6 +1069,45 @@ select.finput{appearance:none;}
       <div style="text-align:right;margin-bottom:8px;"><button id="copy-resp-btn" onclick="copyResponse()" style="font-family:var(--mono);font-size:10px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:.5px;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">COPY RESPONSE</button></div>
       <div id="resp-modal-text" style="font-size:13px;line-height:1.8;white-space:pre-wrap;"></div>
       <div id="resp-modal-cites" style="margin-top:14px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="overlay" id="upgrade-modal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-head">
+      <div class="modal-title">Upgrade Your Plan</div>
+      <button class="modal-close" onclick="closeModal('upgrade-modal')">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="upgrade-reason" style="background:rgba(255,136,0,.08);border:1px solid rgba(255,136,0,.2);padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:#ff8800;display:none;"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="upgrade-plans">
+        <div class="upgrade-plan-card" data-plan="free">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Free</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$0<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            1 brand<br>3 AI platforms<br>5 queries<br>2 runs/day<br>SOV tracking
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('free')">CURRENT</button>
+        </div>
+        <div class="upgrade-plan-card featured" data-plan="pro">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--green);">Pro</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$29<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            5 brands<br>All 8 platforms<br>25 queries<br>10 runs/day<br>Competitors &amp; webhooks<br>Scheduled runs
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('pro')">UPGRADE TO PRO</button>
+        </div>
+        <div class="upgrade-plan-card" data-plan="agency">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--purple,#9b72ff);">Agency</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$79<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            20 brands<br>All 8 platforms<br>50 queries<br>50 runs/day<br>Competitors (20)<br>Scheduled runs
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('agency')">UPGRADE TO AGENCY</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1146,7 +1219,13 @@ async function api(method, path, data){
   if (data) opts.body = JSON.stringify(data);
   const res = await fetch(API + path, opts);
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Request failed');
+  if (!res.ok) {
+    // Auto-show upgrade modal on plan limit errors
+    if (json.planLimit) {
+      showUpgradeModal(json.error);
+    }
+    throw new Error(json.error || 'Request failed');
+  }
   return json;
 }
 
@@ -1290,6 +1369,7 @@ function go(view){
 
 function renderView(view){
   const b = brand();
+  if (view==='account') { renderAccount(); return; }
   if (!b) return;
   if (view==='overview')    renderOverview();
   if (view==='mentions')    renderMentions();
@@ -1300,6 +1380,115 @@ function renderView(view){
   if (view==='competitors') renderCompetitors();
   if (view==='setup')       renderSetup();
   if (view==='alerts')      renderAlerts();
+}
+
+// ─── ACCOUNT & PLAN ──────────────────────────────────────────────
+function getUserLimits() {
+  return (currentUser && currentUser.limits) || { brands: 1, queries: 5, runsPerDay: 2, competitors: 0, scheduledRuns: false, platforms: 3 };
+}
+
+function renderAccount(){
+  if (!currentUser) return;
+  el('acct-email').textContent = currentUser.email;
+  const planEl = el('acct-plan');
+  planEl.textContent = currentUser.plan || 'free';
+  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple,#9b72ff)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+  el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+
+  // Usage stats
+  const limits = getUserLimits();
+  const brandCount = brands.length;
+  const b = brand();
+  const queryCount = b ? (b.queries || []).length : 0;
+  const compCount = b ? (b.competitors || []).length : 0;
+  const today = new Date().toISOString().split('T')[0];
+  const todayRuns = b ? (b.runs || []).filter(r => (r.date || '').startsWith(today)).length : 0;
+
+  const usageHtml = `
+    <div style="display:grid;gap:12px;margin-top:8px;">
+      ${usageBar('Brands', brandCount, limits.brands)}
+      ${usageBar('Queries (current brand)', queryCount, limits.queries)}
+      ${usageBar('Runs today', todayRuns, limits.runsPerDay)}
+      ${usageBar('Platforms', limits.platforms, 8)}
+      ${usageBar('Competitors', compCount, limits.competitors)}
+    </div>
+  `;
+  el('acct-usage').innerHTML = usageHtml;
+
+  // Plan cards
+  const planData = [
+    { id: 'free', name: 'Free', price: '$0', features: '1 brand, 3 platforms, 5 queries, 2 runs/day' },
+    { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 8 platforms, 25 queries, 10 runs/day, competitors, scheduled runs' },
+    { id: 'agency', name: 'Agency', price: '$79/mo', features: '20 brands, 8 platforms, 50 queries, 50 runs/day, 20 competitors, scheduled runs' }
+  ];
+  const current = currentUser.plan || 'free';
+  el('acct-plans').innerHTML = planData.map(p => `
+    <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple,#9b72ff);':''}">${p.name}</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${p.price}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">${p.features}</div>
+      <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
+    </div>
+  `).join('');
+}
+
+function usageBar(label, current, max) {
+  const pct = max > 0 ? Math.min(100, Math.round((current / max) * 100)) : 0;
+  const color = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber,#f59e0b)' : 'var(--green)';
+  return `<div>
+    <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);">
+      <span>${label}</span>
+      <span style="color:${color};font-weight:700;">${current}/${max}</span>
+    </div>
+    <div class="plan-limit-bar"><div class="plan-limit-fill" style="width:${pct}%;background:${color};"></div></div>
+  </div>`;
+}
+
+function showUpgradeModal(reason) {
+  const reasonEl = el('upgrade-reason');
+  if (reason) {
+    reasonEl.textContent = reason;
+    reasonEl.style.display = 'block';
+  } else {
+    reasonEl.style.display = 'none';
+  }
+  // Highlight current plan
+  const current = (currentUser && currentUser.plan) || 'free';
+  document.querySelectorAll('#upgrade-plans .upgrade-plan-card').forEach(card => {
+    const plan = card.dataset.plan;
+    card.classList.toggle('active', plan === current);
+    const btn = card.querySelector('.btn-upgrade');
+    if (plan === current) {
+      btn.textContent = 'CURRENT PLAN';
+      btn.classList.add('current');
+      btn.disabled = true;
+    } else {
+      btn.textContent = 'SWITCH TO ' + plan.toUpperCase();
+      btn.classList.remove('current');
+      btn.disabled = false;
+    }
+  });
+  openModal('upgrade-modal');
+}
+
+async function doUpgrade(plan) {
+  const current = (currentUser && currentUser.plan) || 'free';
+  if (plan === current) return;
+  const action = ['pro','agency'].includes(plan) && current === 'free' ? 'upgrade' : plan === 'free' ? 'downgrade' : 'switch';
+  if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
+  try {
+    const data = await api('POST', '/api/upgrade', { plan });
+    currentUser = data.user;
+    // Update plan badge
+    const pb = el('plan-badge');
+    pb.textContent = plan.toUpperCase();
+    pb.className = 'plan-badge ' + plan;
+    closeModal('upgrade-modal');
+    toast('Plan updated to ' + plan.toUpperCase(), 'ok');
+    if (currentView === 'account') renderAccount();
+  } catch(e) {
+    toast(e.message, 'err');
+  }
 }
 
 function renderAll(){
@@ -1323,7 +1512,9 @@ function renderOverview(){
   el('ov-sov').className = 'stat-val ' + (sov>=70?'green':sov>=40?'amber':'red');
   el('ov-mentions').textContent = mentions + '/' + totalResults;
   el('ov-platforms').textContent = activePlats + '/' + PLATS.length;
-  el('ov-queries').textContent = queries;
+  const qLimit = getUserLimits().queries;
+  el('ov-queries').textContent = queries + '/' + qLimit;
+  el('ov-queries').style.color = queries >= qLimit ? 'var(--red)' : '';
 
   // Platform cards
   const pg = el('ov-plat-grid');
