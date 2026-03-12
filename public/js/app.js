@@ -1821,12 +1821,26 @@ async function runQueries(){
   const prog = el('run-progress');
   const fill = el('run-progress-fill');
   const statusTxt = el('run-status-text');
+  const timerEl = el('run-timer');
 
   btn.classList.add('running');
   btn.textContent = '⏳ RUNNING...';
   prog.style.display = 'block';
   fill.style.width = '0%';
   statusTxt.textContent = 'Sending queries to AI platforms...';
+
+  // Live timer
+  const startTime = Date.now();
+  function fmtTime(ms) {
+    const s = Math.floor(ms/1000);
+    const m = Math.floor(s/60);
+    const sec = s%60;
+    return m > 0 ? m+'m '+sec+'s' : sec+'s';
+  }
+  timerEl.textContent = '0s';
+  const timerInt = setInterval(() => {
+    timerEl.textContent = fmtTime(Date.now()-startTime);
+  }, 1000);
 
   // Animate progress bar
   let progress = 0;
@@ -1840,17 +1854,22 @@ async function runQueries(){
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
 
     clearInterval(progInt);
+    clearInterval(timerInt);
     fill.style.width = '100%';
 
+    const elapsed = fmtTime(Date.now()-startTime);
+    timerEl.textContent = elapsed;
     const errors = data.result.errorCount || 0;
     const statusParts = [`Brand found in ${data.result.newMentions} of ${data.result.totalQ} responses`];
     if (errors > 0) statusParts.push(`${errors} API error${errors>1?'s':''}`);
+    statusParts.push(elapsed);
     statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
 
     setTimeout(() => {
       prog.style.display = 'none';
       fill.style.width = '0%';
-    }, 3000);
+      timerEl.textContent = '';
+    }, 5000);
 
     // Auto-switch to All Results view so user sees the results immediately
     go('mentions');
@@ -1863,6 +1882,8 @@ async function runQueries(){
     toast(toastMsg, errors > 0 ? 'warn' : data.result.sov > 0 ? 'ok' : 'warn');
   } catch(e) {
     clearInterval(progInt);
+    clearInterval(timerInt);
+    timerEl.textContent = '';
     prog.style.display = 'none';
     toast('Run failed: '+e.message, 'err');
   }
