@@ -213,12 +213,7 @@ async function doLogin(){
   el('auth-err').style.display = 'none';
   const btn = document.querySelector('#panel-login .btn-primary');
   if (!email || !password) {
-    el('auth-err').textContent = 'Email and password are required.';
-    el('auth-err').style.display = 'block';
-    return;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    el('auth-err').textContent = 'Please enter a valid email address.';
+    el('auth-err').textContent = 'Email/username and password are required.';
     el('auth-err').style.display = 'block';
     return;
   }
@@ -241,6 +236,7 @@ async function doLogin(){
 
 async function doRegister(){
   const name = el('reg-name').value.trim();
+  const username = el('reg-username').value.trim();
   const email = el('reg-email').value.trim();
   const password = el('reg-pass').value;
   el('auth-err').style.display = 'none';
@@ -267,7 +263,7 @@ async function doRegister(){
   const btn = document.querySelector('#panel-register .btn-primary');
   btn.disabled = true; btn.textContent = 'CREATING ACCOUNT...';
   try {
-    const data = await api('POST', '/api/auth/register', { name, email, password });
+    const data = await api('POST', '/api/auth/register', { name, username: username || undefined, email, password });
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
@@ -504,6 +500,9 @@ function getUserLimits() {
 function renderAccount(){
   if (!currentUser) return;
   el('acct-email').textContent = currentUser.email;
+  // Username
+  const usernameEl = el('acct-username');
+  if (usernameEl) usernameEl.textContent = currentUser.username ? '@' + currentUser.username : '—';
   // Email verification status
   const verifyEl = el('acct-email-verify');
   if (verifyEl) {
@@ -668,6 +667,22 @@ async function changePassword() {
     el('pw-confirm').value = '';
     toast('Password updated successfully', 'ok');
   } catch(e) { toast(e.message, 'err'); }
+}
+
+async function promptSetUsername(){
+  const current = currentUser.username || '';
+  const newUsername = prompt('Enter your username (letters, numbers, dots, dashes, underscores):', current);
+  if (newUsername === null) return;
+  const trimmed = newUsername.trim().toLowerCase();
+  if (trimmed && trimmed.length < 3) { toast('Username must be at least 3 characters', 'err'); return; }
+  try {
+    const data = await api('PUT', '/api/auth/username', { username: trimmed || null });
+    currentUser.username = data.username;
+    el('acct-username').textContent = data.username ? '@' + data.username : '—';
+    toast(data.username ? 'Username set to @' + data.username : 'Username removed', 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
 }
 
 async function deleteAccount() {
@@ -2800,7 +2815,7 @@ function renderAdminTable(users){
     html += `<tr>
       <td>
         <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>
         <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
@@ -2823,6 +2838,7 @@ function openAdminEdit(userId){
   if (!u) return;
   el('admin-edit-id').value = u.id;
   el('admin-edit-email').value = u.email || '';
+  el('admin-edit-username').value = u.username || '';
   el('admin-edit-name').value = u.name || '';
   el('admin-edit-plan').value = u.plan || 'free';
   el('admin-edit-role').value = u.role || 'user';
@@ -2852,10 +2868,12 @@ async function saveAdminEdit(){
   if (!u) return;
   const payload = {};
   const newEmail = el('admin-edit-email').value.trim();
+  const newUsername = el('admin-edit-username').value.trim();
   const newName = el('admin-edit-name').value.trim();
   const newPlan = el('admin-edit-plan').value;
   const newRole = el('admin-edit-role').value;
   if (newEmail !== u.email) payload.email = newEmail;
+  if (newUsername !== (u.username || '')) payload.username = newUsername || null;
   if (newName !== (u.name || '')) payload.name = newName;
   if (newPlan !== u.plan) payload.plan = newPlan;
   if (newRole !== (u.role || 'user')) payload.role = newRole;
@@ -2889,6 +2907,7 @@ async function changeUserPlan(userId, newPlan){
 // ─── Admin: Add User ──────────────────────────────────────────────
 function openAdminAddUser(){
   el('admin-add-email').value = '';
+  el('admin-add-username').value = '';
   el('admin-add-name').value = '';
   el('admin-add-password').value = '';
   el('admin-add-plan').value = 'free';
@@ -2909,6 +2928,7 @@ function generateRandomPassword(){
 
 async function submitAdminAddUser(){
   const email = el('admin-add-email').value.trim();
+  const username = el('admin-add-username').value.trim();
   const name = el('admin-add-name').value.trim();
   const password = el('admin-add-password').value;
   const plan = el('admin-add-plan').value;
@@ -2916,7 +2936,7 @@ async function submitAdminAddUser(){
   if (!email || !password) { toast('Email and password are required', 'err'); return; }
   if (password.length < 8) { toast('Password must be at least 8 characters', 'err'); return; }
   try {
-    const data = await api('POST', '/api/admin/users', { email, name, password, plan, role });
+    const data = await api('POST', '/api/admin/users', { email, username: username || undefined, name, password, plan, role });
     adminUsers.push(data.user);
     closeAdminAddUser();
     renderAdminStats(adminUsers);

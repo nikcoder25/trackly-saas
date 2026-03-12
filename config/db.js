@@ -21,6 +21,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
+        username TEXT UNIQUE,
         name TEXT,
         password_hash TEXT NOT NULL,
         plan TEXT DEFAULT 'free',
@@ -111,7 +112,10 @@ async function initDB() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS refresh_token TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
     `);
+    // Add unique index on username (only for non-null values)
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;`);
     console.log('[DB] PostgreSQL tables ready');
   } finally {
     client.release();

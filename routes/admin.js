@@ -139,10 +139,10 @@ router.get('/admin/users', auth, requireAdmin, async (req, res) => {
   }
 });
 
-// Admin: update user (plan, name, email, role)
+// Admin: update user (plan, name, email, username, role)
 router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
   try {
-    const { plan, name, email, role } = req.body;
+    const { plan, name, email, username, role } = req.body;
     const updates = [];
     const values = [];
     let idx = 1;
@@ -159,11 +159,21 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     if (email !== undefined) {
       const trimmed = email.trim().toLowerCase();
       if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return res.status(400).json({ error: 'Invalid email' });
-      // Check uniqueness
       const dup = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [trimmed, req.params.id]);
       if (dup.rows.length) return res.status(400).json({ error: 'Email already in use' });
       updates.push(`email = $${idx++}`);
       values.push(trimmed);
+    }
+    if (username !== undefined) {
+      const trimmedU = username ? username.trim().toLowerCase() : null;
+      if (trimmedU) {
+        if (trimmedU.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+        if (!/^[a-z0-9_.-]+$/.test(trimmedU)) return res.status(400).json({ error: 'Username can only contain letters, numbers, dots, dashes, and underscores' });
+        const dupU = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id != $2', [trimmedU, req.params.id]);
+        if (dupU.rows.length) return res.status(400).json({ error: 'Username already taken' });
+      }
+      updates.push(`username = $${idx++}`);
+      values.push(trimmedU);
     }
     if (role !== undefined) {
       if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
@@ -190,13 +200,20 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
 // Admin: create user
 router.post('/admin/users', auth, requireAdmin, async (req, res) => {
   try {
-    const { email, name, password, plan, role } = req.body;
+    const { email, name, username, password, plan, role } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
     const trimmedEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return res.status(400).json({ error: 'Invalid email format' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     if (plan && !['free', 'pro', 'agency', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
     if (role && !['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    const trimmedUsername = username ? username.trim().toLowerCase() : null;
+    if (trimmedUsername) {
+      if (trimmedUsername.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+      if (!/^[a-z0-9_.-]+$/.test(trimmedUsername)) return res.status(400).json({ error: 'Username can only contain letters, numbers, dots, dashes, and underscores' });
+      const dupUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
+      if (dupUser.rows.length) return res.status(400).json({ error: 'Username already taken' });
+    }
 
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [trimmedEmail]);
     if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
@@ -208,12 +225,12 @@ router.post('/admin/users', auth, requireAdmin, async (req, res) => {
     const userPlan = plan || 'free';
 
     await pool.query(
-      'INSERT INTO users (id, email, name, password_hash, plan, role, email_verified) VALUES ($1, $2, $3, $4, $5, $6, TRUE)',
-      [id, trimmedEmail, userName, hash, userPlan, userRole]
+      'INSERT INTO users (id, email, username, name, password_hash, plan, role, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)',
+      [id, trimmedEmail, trimmedUsername, userName, hash, userPlan, userRole]
     );
 
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    auditLog(req.user.id, 'admin_create_user', 'user', id, { email: trimmedEmail, plan: userPlan }, req.ip);
+    auditLog(req.user.id, 'admin_create_user', 'user', id, { email: trimmedEmail, username: trimmedUsername, plan: userPlan }, req.ip);
     res.json({ user: { ...safeUser(result.rows[0]), brandCount: 0 } });
   } catch(e) {
     console.error('[Admin Create User]', e.message);

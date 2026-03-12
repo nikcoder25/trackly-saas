@@ -475,8 +475,8 @@
     <div id="auth-err" class="auth-err"></div>
     <div id="panel-login" class="auth-panel active">
       <form onsubmit="event.preventDefault(); doLogin();">
-      <label class="flabel" for="login-email">Email</label>
-      <input class="finput" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <label class="flabel" for="login-email">Email or Username</label>
+      <input class="finput" id="login-email" type="text" placeholder="you@example.com or username" autocomplete="username">
       <label class="flabel" for="login-pass">Password</label>
       <input class="finput" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
       <button type="submit" class="btn-primary">LOG IN</button>
@@ -512,6 +512,8 @@
       <form onsubmit="event.preventDefault(); doRegister();">
       <label class="flabel" for="reg-name">Name</label>
       <input class="finput" id="reg-name" type="text" placeholder="Your name" autocomplete="name">
+      <label class="flabel" for="reg-username">Username <span style="color:var(--muted);font-size:10px;">(optional — used for login)</span></label>
+      <input class="finput" id="reg-username" type="text" placeholder="e.g. johndoe" autocomplete="username" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
       <label class="flabel" for="reg-email">Email</label>
       <input class="finput" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email">
       <label class="flabel" for="reg-pass">Password (min 8 chars)</label>
@@ -865,6 +867,9 @@
         <div class="card-title">Account Info</div>
         <div style="font-family:var(--mono);font-size:12px;line-height:2;">
           <div>Email: <strong id="acct-email"></strong> <span id="acct-email-verify"></span></div>
+          <div style="display:flex;align-items:center;gap:8px;">Username: <strong id="acct-username" style="color:var(--green);">—</strong>
+            <button onclick="promptSetUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:2px 8px;cursor:pointer;">SET</button>
+          </div>
           <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
           <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
         </div>
@@ -970,6 +975,9 @@
           <label class="flabel">Email</label>
           <input class="finput" id="admin-edit-email" type="email" placeholder="user@example.com">
 
+          <label class="flabel">Username</label>
+          <input class="finput" id="admin-edit-username" type="text" placeholder="e.g. johndoe" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
+
           <label class="flabel">Name</label>
           <input class="finput" id="admin-edit-name" type="text" placeholder="Full name">
 
@@ -1032,6 +1040,9 @@
         <div style="padding:20px;">
           <label class="flabel">Email *</label>
           <input class="finput" id="admin-add-email" type="email" placeholder="user@example.com">
+
+          <label class="flabel">Username <span style="color:var(--muted);font-size:10px;">(optional)</span></label>
+          <input class="finput" id="admin-add-username" type="text" placeholder="e.g. johndoe" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
 
           <label class="flabel">Name</label>
           <input class="finput" id="admin-add-name" type="text" placeholder="Full name">
