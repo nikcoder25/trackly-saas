@@ -594,56 +594,84 @@
 
     <!-- OVERVIEW ─────────────────────────── -->
     <div id="view-overview" class="view active">
-      <div class="view-title">Overview</div>
-      <div class="view-sub" id="ov-sub">Select a brand and run queries to see results.</div>
-      <div class="stat-grid" id="ov-stats">
-        <div class="stat-card"><div class="stat-val" id="ov-sov">--</div><div class="stat-lbl">Share of Voice</div></div>
-        <div class="stat-card"><div class="stat-val" id="ov-mentions">--</div><div class="stat-lbl">Total Mentions</div></div>
-        <div class="stat-card"><div class="stat-val" id="ov-platforms">--</div><div class="stat-lbl">Platforms Tracked</div></div>
-        <div class="stat-card"><div class="stat-val" id="ov-queries">--</div><div class="stat-lbl">Queries Running</div></div>
+      <!-- Header Row: Brand name + Run button + Last run age -->
+      <div class="ov-header">
+        <div>
+          <div class="view-title" id="ov-brand-title">Overview</div>
+          <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and run queries to see results.</div>
+        </div>
+        <div class="ov-header-actions" id="ov-header-actions"></div>
       </div>
-      <!-- Quick Actions -->
-      <div id="ov-quick-actions" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;"></div>
 
-      <!-- Insights Row -->
-      <div id="ov-insights-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;"></div>
+      <!-- SOV Hero Card -->
+      <div class="ov-hero" id="ov-hero">
+        <div class="ov-hero-sov">
+          <div class="ov-hero-sov-ring" id="ov-sov-ring">
+            <svg viewBox="0 0 120 120" class="ov-ring-svg">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" stroke-width="8"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="8" stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round" transform="rotate(-90 60 60)" id="ov-sov-circle"/>
+            </svg>
+            <div class="ov-ring-label">
+              <span class="ov-ring-pct" id="ov-sov">0%</span>
+              <span class="ov-ring-diff" id="ov-sov-diff"></span>
+            </div>
+          </div>
+          <div class="ov-hero-sov-label">Share of Voice</div>
+        </div>
+        <div class="ov-hero-stats">
+          <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-mentions">--</div><div class="ov-hero-stat-lbl">Mentions / Total</div></div>
+          <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-platforms">--</div><div class="ov-hero-stat-lbl">Platforms Active</div></div>
+          <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-queries">--</div><div class="ov-hero-stat-lbl">Queries Tracked</div></div>
+          <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-last-run-age">--</div><div class="ov-hero-stat-lbl">Last Run</div></div>
+        </div>
+      </div>
 
-      <!-- API Health -->
-      <div id="ov-api-health" style="margin-bottom:16px;"></div>
+      <!-- API Health Banner -->
+      <div id="ov-api-health"></div>
 
-      <div id="ov-plat-grid" class="plat-grid"></div>
+      <!-- Category SOV + Best/Worst Row -->
+      <div class="ov-grid-3" id="ov-category-row"></div>
 
-      <!-- SOV by Category -->
-      <div id="ov-sov-category" style="margin-bottom:16px;"></div>
+      <!-- Platform Cards -->
+      <div id="ov-plat-grid" class="ov-plat-grid"></div>
 
-      <div id="ov-mini-trend" style="display:none;margin-bottom:16px;" class="card">
-        <div class="card-title">SOV Trend</div>
+      <!-- SOV Trend Chart -->
+      <div id="ov-mini-trend" style="display:none;" class="ov-card">
+        <div class="ov-card-head">
+          <div class="ov-card-title">SOV Trend</div>
+          <div class="ov-card-sub">Last 14 runs</div>
+        </div>
         <canvas id="ov-mini-chart" style="width:100%;max-height:180px;"></canvas>
       </div>
 
-      <!-- Query Performance -->
-      <div id="ov-query-perf" style="margin-bottom:16px;"></div>
+      <!-- Query Performance + Competitors Row -->
+      <div class="ov-grid-2">
+        <div id="ov-query-perf"></div>
+        <div id="ov-competitors"></div>
+      </div>
 
-      <!-- Top Competitors -->
-      <div id="ov-competitors" style="margin-bottom:16px;"></div>
+      <!-- Last Run Summary -->
+      <div id="ov-last-run-summary" style="display:none;"></div>
 
-      <div id="ov-last-run-summary" style="display:none;margin-bottom:20px;"></div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div class="card-title" style="margin-bottom:0;">Tracked Queries</div>
-          <div id="ov-query-count" style="font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      <!-- Tracked Queries -->
+      <div class="ov-card">
+        <div class="ov-card-head">
+          <div class="ov-card-title">Tracked Queries</div>
+          <div id="ov-query-count" class="ov-card-sub"></div>
         </div>
-        <div id="ov-query-limit-msg" style="display:none;background:rgba(255,165,0,.1);border:1px solid rgba(255,165,0,.25);padding:8px 12px;margin:8px 0;font-size:11px;color:#f0a030;font-family:var(--mono);"></div>
-        <div id="ov-query-list"></div>
-        <div class="add-query-row">
-          <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
-          <button onclick="ovAddQuery()">+ Add</button>
-          <button onclick="toggleBulkAdd()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">BULK ADD</button>
-          <button onclick="loadQuerySuggestions()" style="background:var(--bg3);border:1px solid rgba(59,130,246,.3);color:var(--blue);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">SUGGEST</button>
-          <button id="ai-gen-queries-btn" onclick="aiGenerateQueries()" style="background:var(--bg3);border:1px solid rgba(0,255,136,.3);color:var(--green);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;">AI GENERATE</button>
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-          <button onclick="clearAllQueries()" style="background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.3);color:var(--red);font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;font-weight:700;letter-spacing:.5px;">CLEAR ALL QUERIES</button>
+        <div id="ov-query-limit-msg" style="display:none;background:rgba(255,165,0,.06);border:1px solid rgba(255,165,0,.2);padding:8px 14px;margin-bottom:12px;font-size:11px;color:#f0a030;font-family:var(--mono);"></div>
+        <div id="ov-query-list" class="ov-query-tags"></div>
+        <div class="ov-query-actions">
+          <div class="add-query-row">
+            <input id="ov-new-query" type="text" placeholder="Add a new query..." onkeydown="if(event.key==='Enter')ovAddQuery()">
+            <button onclick="ovAddQuery()">+ Add</button>
+          </div>
+          <div class="ov-query-btns">
+            <button onclick="toggleBulkAdd()" class="ov-btn-subtle">BULK ADD</button>
+            <button onclick="loadQuerySuggestions()" class="ov-btn-subtle ov-btn-blue">SUGGEST</button>
+            <button id="ai-gen-queries-btn" onclick="aiGenerateQueries()" class="ov-btn-subtle ov-btn-green">AI GENERATE</button>
+            <button onclick="clearAllQueries()" class="ov-btn-subtle ov-btn-red">CLEAR ALL</button>
+          </div>
         </div>
         <div id="bulk-query-box" style="display:none;margin-top:12px;">
           <textarea id="bulk-query-input" placeholder="Paste multiple queries here — one per line&#10;&#10;Example:&#10;Best HVAC company in Austin TX&#10;Top rated AC repair near me&#10;Who is the best plumber in Dallas" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px;resize:vertical;box-sizing:border-box;"></textarea>
