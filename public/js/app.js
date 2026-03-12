@@ -1207,7 +1207,10 @@ function renderMentions(){
   const pageStart = mentionsPage * MENTIONS_PER_PAGE;
   const pageItems = filtered.slice(pageStart, pageStart + MENTIONS_PER_PAGE);
 
-  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  const runTime = new Date(run.time || run.date);
+  const runTimeStr = runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Timestamp</th><th>Response Preview</th><th></th></tr></thead><tbody>';
   const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
   const sentimentTips = {positive:'AI spoke favorably about your brand',negative:'AI expressed concerns about your brand',neutral:'AI mentioned your brand without strong opinion'};
   pageItems.forEach(r => {
@@ -1226,6 +1229,7 @@ function renderMentions(){
       <td>${statusBadge}</td>
       <td><span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" title="${sentTip}">${sentLabel}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
+      <td style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">${esc(runTimeStr)}</td>
       <td style="max-width:250px;font-size:11px;color:${isErr?'#ff8800':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
       <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
     </tr>`;
