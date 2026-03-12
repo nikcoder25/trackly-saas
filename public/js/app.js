@@ -475,6 +475,33 @@ async function saveModelSettings() {
   }
 }
 
+async function changePassword() {
+  const cur = el('pw-current').value;
+  const nw = el('pw-new').value;
+  const confirm = el('pw-confirm').value;
+  if (!cur || !nw) { toast('Fill in all password fields', 'err'); return; }
+  if (nw.length < 8) { toast('New password must be at least 8 characters', 'err'); return; }
+  if (nw !== confirm) { toast('New passwords do not match', 'err'); return; }
+  try {
+    await api('POST', '/api/auth/change-password', { currentPassword: cur, newPassword: nw });
+    el('pw-current').value = '';
+    el('pw-new').value = '';
+    el('pw-confirm').value = '';
+    toast('Password updated successfully', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function deleteAccount() {
+  const pw = prompt('Type your password to confirm account deletion:');
+  if (!pw) return;
+  if (!confirm('Are you sure? This will permanently delete your account and all brands. This cannot be undone.')) return;
+  try {
+    await api('DELETE', '/api/auth/account', { password: pw });
+    localStorage.removeItem('trackly_token');
+    location.reload();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
 function usageBar(label, current, max) {
   const pct = max > 0 ? Math.min(100, Math.round((current / max) * 100)) : 0;
   const color = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber,#f59e0b)' : 'var(--green)';
@@ -1674,6 +1701,35 @@ async function removeArea(i){
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     renderAreaTags();
   } catch(e) { toast(e.message, 'err'); }
+}
+
+async function autoFetchNearbyAreas(){
+  const b = brand(); if (!b) return;
+  const city = (el('s-city').value || b.city || '').trim();
+  if (!city) { toast('Enter a city/location first', 'err'); return; }
+
+  const btn = el('auto-fetch-areas-btn');
+  btn.disabled = true;
+  btn.textContent = 'FETCHING...';
+  btn.style.color = 'var(--amber)';
+
+  try {
+    const data = await api('POST', '/api/nearby-areas', { city });
+    const existing = (b.nearbyAreas || []).map(a => a.toLowerCase());
+    const newAreas = data.areas.filter(a => !existing.includes(a.toLowerCase()));
+    if (!newAreas.length) { toast('No new areas found (all already added)', 'ok'); return; }
+
+    const nearbyAreas = [...(b.nearbyAreas || []), ...newAreas];
+    const saveData = await api('PUT', '/api/brands/' + b.id, { nearbyAreas });
+    brands[brands.findIndex(x => x.id === b.id)] = saveData.brand;
+    renderAreaTags();
+    toast(newAreas.length + ' nearby areas added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = 'AUTO-FETCH';
+    btn.style.color = 'var(--muted)';
+  }
 }
 
 function renderSetup(){

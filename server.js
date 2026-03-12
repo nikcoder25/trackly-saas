@@ -4,10 +4,13 @@
  */
 
 require('dotenv').config();
-const express = require('express');
-const cors    = require('cors');
-const cron    = require('node-cron');
-const path    = require('path');
+const express     = require('express');
+const cors        = require('cors');
+const helmet      = require('helmet');
+const compression = require('compression');
+const rateLimit   = require('express-rate-limit');
+const cron        = require('node-cron');
+const path        = require('path');
 
 const { pool, initDB } = require('./config/db');
 const { auth }         = require('./middleware/auth');
@@ -28,11 +31,47 @@ initDB().catch(e => {
 });
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
+app.set('trust proxy', 1); // Trust first proxy (Railway, Render, etc.)
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP to allow inline scripts/styles in SPA
+  crossOriginEmbedderPolicy: false
+}));
+
+// Gzip compression
+app.use(compression());
+
+// CORS
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
   credentials: true
 }));
+
 app.use(express.json({ limit: '2mb' }));
+
+// Rate limiting — auth endpoints (prevent brute force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 attempts per window
+  message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+// Rate limiting — API endpoints (general, excludes long-running run endpoint)
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120, // 120 requests per minute
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.includes('/run') // Don't rate-limit query runs
+});
+app.use('/api/', apiLimiter);
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── API ROUTES ──────────────────────────────────────────────────
@@ -84,7 +123,7 @@ app.get('*', (req, res) => {
 });
 
 // ─── START ────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`
   ╔══════════════════════════════════════════╗
   ║  Trackly SaaS Server Running             ║
@@ -95,3 +134,18 @@ app.listen(PORT, () => {
   ╚══════════════════════════════════════════╝
   `);
 });
+
+// ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────
+function shutdown(signal) {
+  console.log(`[Server] ${signal} received. Shutting down gracefully...`);
+  server.close(() => {
+    pool.end().then(() => {
+      console.log('[Server] Database connections closed.');
+      process.exit(0);
+    });
+  });
+  // Force exit after 10s if graceful shutdown fails
+  setTimeout(() => { process.exit(1); }, 10000);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
