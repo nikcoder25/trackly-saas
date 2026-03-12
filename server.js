@@ -40,9 +40,13 @@ app.use('/api/auth',   authRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api',        adminRoutes);
 
-// ─── Admin panel page ────────────────────────────────────────────
+// ─── Admin panel page (secured with ADMIN_SECRET) ───────────────
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || req.query.key !== secret) {
+    return res.status(404).send('Not found');
+  }
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // ─── SEO LANDING PAGES ──────────────────────────────────────────
