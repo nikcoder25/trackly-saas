@@ -4,7 +4,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool, auditLog } = require('../config/db');
+const { pool, auditLog, logApiCall } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
@@ -215,6 +215,9 @@ router.post('/:id/run', auth, async (req, res) => {
   const platSOV = {};
   totalQ = 0; totalM = 0;
 
+  // Log context for tracking every API call in the database
+  const logCtx = { userId: req.user.id, brandId: brand.id, logFn: logApiCall };
+
   // Run all platforms in parallel, and within each platform run queries
   // in parallel batches (batch size = number of API keys for that platform)
   async function runPlatform(plat) {
@@ -229,7 +232,7 @@ router.post('/:id/run', auth, async (req, res) => {
       const batch = queries.slice(i, i + concurrency);
       const batchResults = await Promise.allSettled(
         batch.map(async (q) => {
-          const result = await queryAI(q, plat, brand, keys, modelPrefs);
+          const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
           return { q, result };
         })
       );
@@ -485,6 +488,7 @@ async function runBrandQueries(brand) {
   const allResults = [];
   const platSOV = {};
   let totalQ = 0, totalM = 0;
+  const logCtx = { userId: brand.userId, brandId: brand.id, logFn: logApiCall };
 
   // Run all platforms in parallel with batched queries per platform
   async function runCronPlatform(plat) {
@@ -498,7 +502,7 @@ async function runBrandQueries(brand) {
       const batch = queries.slice(i, i + concurrency);
       const batchResults = await Promise.allSettled(
         batch.map(async (q) => {
-          const result = await queryAI(q, plat, brand, keys, modelPrefs);
+          const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
           return { q, result };
         })
       );

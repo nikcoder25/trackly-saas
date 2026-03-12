@@ -2396,219 +2396,143 @@ async function runQueries(){
 }
 
 // ─── API LOGS / DIAGNOSTICS ─────────────────────────────────────
-function renderApiLogs(){
-  const b = brand();
+let apiLogsData = null;
+async function renderApiLogs(){
   const container = el('apilogs-content');
-  if (!b) { container.innerHTML = '<div class="empty-state"><p>Select a brand to view API logs.</p></div>'; return; }
-
-  const runs = (b.runs || []).slice().reverse(); // newest first
+  container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading API logs from server...</div>';
 
   let html = '';
 
-  // Check for recent client-side failures stored in localStorage (persists across reloads)
+  // 1. Client-side errors (localStorage)
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
     html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,68,68,.4);background:rgba(255,68,68,.06);">
-      <div class="card-title" style="color:var(--red);">Recent Run Errors (${clientErrors.length})</div>`;
+      <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
     clientErrors.forEach(err => {
       const dt = new Date(err.time);
       const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isCrash = err.type === 'crash';
       html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);">
         <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
-        <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>
-        <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:4px;word-break:break-word;">${esc(err.error)}</div>`;
-      // Show platform-specific errors if available
+        <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>`;
       if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
-        html += `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,68,68,.15);">`;
         Object.entries(err.platformErrors).forEach(([plat, msgs]) => {
           const t = PLAT_THEME[plat] || {};
           const uniqueMsgs = [...new Set(msgs)];
-          html += `<div style="margin-bottom:4px;">
-            <span style="color:${t.color || 'var(--text)'};font-weight:700;">${esc(plat)}</span>:
-            <span style="color:var(--red);">${esc(friendlyError(uniqueMsgs[0]))}</span>
-            ${uniqueMsgs.length > 1 ? '<span style="color:var(--muted);"> (+' + (uniqueMsgs.length-1) + ' more)</span>' : ''}</div>`;
+          html += `<div style="margin-top:4px;"><span style="color:${t.color||'var(--text)'};font-weight:700;">${esc(plat)}</span>: <span style="color:var(--red);">${esc(friendlyError(uniqueMsgs[0]))}</span></div>`;
         });
-        html += `</div>`;
       }
       html += `</div>`;
     });
-    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS ALL</button>
-    </div>`;
+    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS ALL</button></div>`;
   }
 
-  // Check latest run for crash errors or emergency saves
-  if (runs.length > 0) {
-    const latest = runs[0];
-    const isCrash = latest.emergencySave || latest.crashError;
-    const latestErrors = (latest.allResults || []).filter(r => r.error);
-    if (isCrash || latestErrors.length > 0) {
-      const dt = new Date(latest.time || latest.date);
-      const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-      html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,165,0,.4);background:rgba(255,165,0,.06);">
-        <div class="card-title" style="color:var(--amber);">Last Run — ${esc(dateStr)}${isCrash ? ' (CRASHED)' : ' (ERRORS)'}</div>`;
-      if (latest.crashError) {
-        html += `<div style="font-family:var(--mono);font-size:11px;color:var(--red);margin-bottom:8px;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);word-break:break-word;">
-          CRASH: ${esc(latest.crashError)}</div>`;
-      }
-      if (latestErrors.length > 0) {
-        // Group by platform
-        const errByPlat = {};
-        latestErrors.forEach(r => {
-          if (!errByPlat[r.platform]) errByPlat[r.platform] = new Set();
-          errByPlat[r.platform].add(friendlyError((r.errorMessage || r.raw || '').replace('[API Error] ', '')));
-        });
-        Object.entries(errByPlat).forEach(([plat, msgs]) => {
-          const t = PLAT_THEME[plat] || {};
-          html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:6px;">
-            <span style="color:${t.color || 'var(--text)'}; font-weight:700;">${esc(plat)}</span>
-            <span style="color:var(--red);"> — ${[...msgs].join('; ')}</span></div>`;
-        });
-      }
-      const successCount = (latest.allResults || []).length - latestErrors.length;
-      if (successCount > 0) {
-        html += `<div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-top:6px;">${successCount} queries succeeded despite errors</div>`;
-      }
-      html += `</div>`;
-    }
-  }
-
-  // API Key Status card
+  // 2. API Key Status
   html += `<div class="card" style="margin-bottom:16px;">
     <div class="card-title">API Key Status</div>
     <div id="apilogs-key-status" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
   </div>`;
 
-  if (!runs.length) {
-    html += '<div class="card"><div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No runs recorded yet. Run queries to see history here.</div></div>';
-    html += renderApiLogsGuide();
-    container.innerHTML = html;
-    loadKeyStatus();
-    return;
-  }
+  // 3. Server-side API call logs
+  html += `<div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="card-title" style="margin-bottom:0;">API Call Log</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">REFRESH</button>
+        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(255,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">CLEAR LOGS</button>
+      </div>
+    </div>
+    <div id="apilogs-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:8px 0;"></div>
+    <div id="apilogs-server-logs">Loading...</div>
+  </div>`;
 
-  // Run history table
-  html += `<div class="card">
-    <div class="card-title">Run History — Last ${Math.min(runs.length, 20)} Runs</div>
-    <div style="overflow-x:auto;">
-    <table class="data-table" style="width:100%;">
-    <thead><tr>
-      <th style="width:140px;">Date / Time</th>
-      <th>Platforms</th>
-      <th>Queries</th>
-      <th>Success</th>
-      <th>Errors</th>
-      <th>SOV</th>
-      <th style="width:60px;"></th>
-    </tr></thead>
-    <tbody>`;
-
-  runs.slice(0, 20).forEach((run, idx) => {
-    const dt = new Date(run.time || run.date);
-    const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    const results = run.allResults || [];
-    const errors = results.filter(r => r.error);
-    const success = results.length - errors.length;
-    const plats = Object.keys(run.platforms || {}).join(', ') || (run.activePlatforms || []).join(', ') || '—';
-    const queryCount = (run.queries || []).length || run.totalQ || 0;
-    const sovVal = run.sov || 0;
-    const hasErrors = errors.length > 0 || run.crashError;
-    const isCrash = run.emergencySave || run.crashError;
-
-    html += `<tr style="${hasErrors ? 'background:rgba(255,68,68,.04);' : ''}">
-      <td style="font-family:var(--mono);font-size:11px;">${esc(dateStr)}${isCrash ? ' <span style="color:var(--red);font-size:9px;">CRASH</span>' : ''}</td>
-      <td style="font-size:11px;">${esc(plats)}</td>
-      <td style="text-align:center;">${queryCount}</td>
-      <td style="text-align:center;color:var(--green);">${success}</td>
-      <td style="text-align:center;color:${hasErrors ? 'var(--red)' : 'var(--muted)'}; font-weight:${hasErrors?'700':'400'};">${errors.length}${run.crashError ? '+' : ''}</td>
-      <td style="text-align:center;">${sovVal}%</td>
-      <td><button onclick="toggleRunErrors(${idx})" style="background:none;border:1px solid var(--border);color:${hasErrors?'var(--red)':'var(--muted)'};font-size:10px;padding:2px 8px;cursor:pointer;font-family:var(--mono);">${hasErrors ? 'ERRORS' : 'VIEW'}</button></td>
-    </tr>`;
-
-    // Expandable details row (auto-open first row if it has errors)
-    html += `<tr id="run-errors-${idx}" style="display:${idx===0 && hasErrors ? '' : 'none'};"><td colspan="7" style="padding:0;">
-      <div style="background:var(--bg2);border:1px solid var(--border);padding:12px 14px;margin:4px 0;">`;
-
-    // Show crash error first
-    if (run.crashError) {
-      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;padding:8px;background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.2);">
-        RUN CRASHED: ${esc(run.crashError)}</div>`;
-    }
-
-    if (errors.length > 0) {
-      const errByPlat = {};
-      errors.forEach(r => {
-        if (!errByPlat[r.platform]) errByPlat[r.platform] = [];
-        errByPlat[r.platform].push({
-          query: r.query,
-          error: (r.errorMessage || r.raw || r.context || '').replace('[API Error] ', ''),
-          friendly: friendlyError((r.errorMessage || r.raw || '').replace('[API Error] ', ''))
-        });
-      });
-
-      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;">${errors.length} API ERROR${errors.length>1?'S':''}</div>`;
-      Object.entries(errByPlat).forEach(([plat, errs]) => {
-        const t = PLAT_THEME[plat] || {};
-        html += `<div style="margin-bottom:10px;">
-          <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:${t.color || 'var(--text)'};">${esc(plat)} — ${errs.length} error${errs.length>1?'s':''}</div>`;
-        errs.forEach(e => {
-          html += `<div style="margin:4px 0 4px 12px;font-size:11px;line-height:1.5;">
-            <div style="color:var(--muted);">Query: <span style="color:var(--text);">${esc(e.query || '(unknown)')}</span></div>
-            <div style="color:var(--red);">${esc(e.friendly)}</div>
-            <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:2px;word-break:break-word;">${esc(e.error.substring(0, 300))}</div>
-          </div>`;
-        });
-        html += `</div>`;
-      });
-    }
-
-    if (!errors.length && !run.crashError) {
-      html += `<div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-bottom:6px;">All queries completed successfully.</div>`;
-    }
-
-    // Success summary
-    const successResults = results.filter(r => !r.error);
-    if (successResults.length > 0) {
-      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;${errors.length||run.crashError?'margin-top:10px;border-top:1px solid var(--border);padding-top:10px;':''}">
-        ${successResults.length} SUCCESSFUL RESPONSE${successResults.length>1?'S':''}</div>`;
-      const successByPlat = {};
-      successResults.forEach(r => {
-        if (!successByPlat[r.platform]) successByPlat[r.platform] = { mentioned: 0, total: 0 };
-        successByPlat[r.platform].total++;
-        if (r.mentioned) successByPlat[r.platform].mentioned++;
-      });
-      html += `<div style="font-size:11px;color:var(--muted);">`;
-      Object.entries(successByPlat).forEach(([plat, s]) => {
-        const t = PLAT_THEME[plat] || {};
-        html += `<span style="margin-right:16px;"><span style="color:${t.color || 'var(--text)'};">${esc(plat)}</span>: ${s.mentioned}/${s.total} mentioned</span>`;
-      });
-      html += `</div>`;
-    } else if (!run.crashError && results.length === 0) {
-      html += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No responses recorded for this run.</div>`;
-    }
-
-    html += `</div></td></tr>`;
-  });
-
-  html += `</tbody></table></div></div>`;
-
-  html += renderApiLogsGuide();
-  container.innerHTML = html;
-  loadKeyStatus();
-}
-
-function renderApiLogsGuide() {
-  return `<div class="card" style="margin-top:16px;">
+  // 4. Guide
+  html += `<div class="card" style="margin-top:16px;">
     <div class="card-title">Common Errors &amp; Fixes</div>
     <div style="font-size:12px;line-height:1.8;color:var(--muted);">
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Rate limited / 429</span> — Too many requests. With multiple API keys, this is less likely. Wait a few minutes and retry.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Invalid API key / 401</span> — Key is wrong, expired, or revoked. Replace it in Railway variables and redeploy.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">No credits / quota / insufficient_quota</span> — Billing issue. Add credits in your API provider dashboard.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Request timed out</span> — API took too long (>45s). Usually temporary — retry later.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">CRASH / 500 error</span> — Server-side error during processing. Results may have been partially saved.</div>
-      <div><span style="color:var(--red);font-family:var(--mono);font-size:11px;">0 key(s)</span> — No API keys loaded for this platform. Add keys in Railway as PLATFORM_API_KEY_1, _2, _3.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Rate limited / 429</span> — Too many requests. Multiple API keys help. Wait and retry.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Invalid API key / 401</span> — Key is wrong or expired. Replace in Railway and redeploy.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">No credits / quota exceeded</span> — Add credits in your API provider dashboard.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Request timed out</span> — API took too long (>45s). Retry later.</div>
+      <div><span style="color:var(--red);font-family:var(--mono);font-size:11px;">0 key(s)</span> — No keys loaded. Add PLATFORM_API_KEY_1, _2, _3 in Railway.</div>
     </div>
   </div>`;
+
+  container.innerHTML = html;
+
+  // Load key status
+  loadKeyStatus();
+
+  // Load server logs
+  try {
+    const b = brand();
+    const brandParam = b ? '&brandId=' + b.id : '';
+    const data = await api('GET', '/api/api-logs?limit=200' + brandParam);
+    const logs = data.logs || [];
+    const stats = data.stats || {};
+
+    // Stats summary
+    const statsEl = el('apilogs-stats');
+    if (statsEl) {
+      statsEl.innerHTML = `Last 24h: <span style="color:var(--green);">${stats.success || 0} ok</span> · <span style="color:var(--red);">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms`;
+    }
+
+    // Render logs table
+    const logsEl = el('apilogs-server-logs');
+    if (!logs.length) {
+      logsEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:12px 0;">No API calls logged yet. Run queries to see every API call tracked here.</div>';
+      return;
+    }
+
+    let tbl = `<div style="overflow-x:auto;max-height:600px;overflow-y:auto;">
+      <table class="data-table" style="width:100%;font-size:11px;">
+      <thead style="position:sticky;top:0;background:var(--bg1);z-index:1;"><tr>
+        <th style="width:130px;">Time</th>
+        <th style="width:80px;">Platform</th>
+        <th>Query</th>
+        <th style="width:60px;">Status</th>
+        <th style="width:60px;">Key</th>
+        <th style="width:50px;">Time</th>
+        <th>Error</th>
+      </tr></thead><tbody>`;
+
+    logs.forEach(log => {
+      const dt = new Date(log.created_at);
+      const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const isErr = log.status === 'error';
+      const t = PLAT_THEME[log.platform] || {};
+      const queryShort = (log.query || '').length > 50 ? log.query.substring(0, 50) + '...' : (log.query || '—');
+      const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
+
+      tbl += `<tr style="${isErr ? 'background:rgba(255,68,68,.06);' : ''}">
+        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;">${esc(timeStr)}</td>
+        <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
+        <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
+        <td style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${isErr ? 'FAIL' : 'OK'}</span></td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${respTime}</td>
+        <td style="font-size:10px;color:var(--red);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
+      </tr>`;
+    });
+
+    tbl += '</tbody></table></div>';
+    if (logs.length >= 200) tbl += '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px;">Showing last 200 entries. Older logs are auto-cleaned after 7 days.</div>';
+    logsEl.innerHTML = tbl;
+
+  } catch(e) {
+    const logsEl = el('apilogs-server-logs');
+    if (logsEl) logsEl.innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:11px;">Failed to load logs: ${esc(e.message)}</div>`;
+  }
+}
+
+async function clearApiLogs() {
+  if (!confirm('Clear all API logs? This cannot be undone.')) return;
+  try {
+    await api('DELETE', '/api/api-logs');
+    clearStoredRunErrors();
+    toast('All logs cleared', 'ok');
+    renderApiLogs();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function loadKeyStatus() {
@@ -2625,19 +2549,11 @@ function loadKeyStatus() {
     if (Object.values(counts).some(c => c === 0)) {
       ksHtml += `<div style="margin-top:8px;color:var(--amber);font-size:10px;">Platforms with 0 keys will be skipped. Add keys in Railway variables.</div>`;
     }
-    if (Object.values(counts).some(c => c >= 2)) {
-      ksHtml += `<div style="margin-top:4px;color:var(--green);font-size:10px;">Multiple keys detected — round-robin rotation active for faster queries.</div>`;
-    }
     ksEl.innerHTML = ksHtml;
   }).catch(() => {
     const ksEl = el('apilogs-key-status');
-    if (ksEl) ksEl.innerHTML = '<span style="color:var(--red);">Failed to load key status. Check server connection.</span>';
+    if (ksEl) ksEl.innerHTML = '<span style="color:var(--red);">Failed to load key status.</span>';
   });
-}
-
-function toggleRunErrors(idx) {
-  const row = el('run-errors-' + idx);
-  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────

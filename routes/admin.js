@@ -10,6 +10,49 @@ const { safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 
+// ─── API LOGS (per-user, server-side) ────────────────────────────
+router.get('/api-logs', auth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const brandId = req.query.brandId || null;
+    let query = 'SELECT * FROM api_logs WHERE user_id = $1';
+    const params = [req.user.id];
+    if (brandId) {
+      query += ' AND brand_id = $2';
+      params.push(brandId);
+    }
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    const result = await pool.query(query, params);
+
+    // Also get summary stats
+    const statsResult = await pool.query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE status = 'ok')::int AS success,
+         COUNT(*) FILTER (WHERE status = 'error')::int AS errors,
+         COUNT(DISTINCT platform) AS platforms_used,
+         AVG(response_ms)::int AS avg_ms
+       FROM api_logs WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'`,
+      [req.user.id]
+    );
+
+    res.json({ logs: result.rows, stats: statsResult.rows[0] || {} });
+  } catch(e) {
+    console.error('[API Logs]', e.message);
+    res.status(500).json({ error: 'Failed to load API logs' });
+  }
+});
+
+router.delete('/api-logs', auth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM api_logs WHERE user_id = $1', [req.user.id]);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to clear logs' });
+  }
+});
+
 // API key status (includes key counts for rotation visibility)
 router.get('/keys/status', auth, (req, res) => {
   const keys = getServerKeys();
