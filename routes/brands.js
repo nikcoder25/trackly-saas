@@ -262,14 +262,46 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   // Run all platforms simultaneously
+  const runStartTime = Date.now();
   console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms: ${activePlatforms.join(', ')}`);
-  await Promise.all(activePlatforms.map(plat => runPlatform(plat)));
-  console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors`);
+
+  // Catch per-platform errors so one failing platform doesn't kill the whole run
+  const platformResults = await Promise.allSettled(activePlatforms.map(plat => runPlatform(plat)));
+  const platformErrors = [];
+  platformResults.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      const errMsg = r.reason?.message || 'Unknown platform error';
+      console.error(`[Run] Platform ${activePlatforms[i]} crashed:`, errMsg);
+      platformErrors.push({ platform: activePlatforms[i], error: errMsg });
+    }
+  });
+
+  const runDurationMs = Date.now() - runStartTime;
+  const errorCount = allResults.filter(r => r.error).length;
+  console.log(`[Run] Complete in ${Math.round(runDurationMs/1000)}s: ${totalQ} queries, ${totalM} mentions, ${errorCount} errors, ${platformErrors.length} platform crashes`);
 
   const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
 
+  // Build run log with detailed error info
+  const runLog = {
+    errors: allResults.filter(r => r.error).map(r => ({
+      platform: r.platform, query: r.query, error: r.errorMessage
+    })),
+    platformErrors,
+    durationMs: runDurationMs,
+    keysUsed: Object.fromEntries(
+      activePlatforms.map(p => [p, (keys[PLATFORM_KEY_MAP[p]] || []).length])
+    )
+  };
+
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  brand.runs.push({
+    id: uid(), date: today, time: new Date().toISOString(),
+    mentions: newMentions, allResults, sov, platforms: platSOV,
+    totalQ, totalM, queries: [...queries],
+    activePlatforms: [...activePlatforms],
+    log: runLog
+  });
   if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
 
   // Rebuild queryStats
@@ -317,12 +349,11 @@ router.post('/:id/run', auth, async (req, res) => {
     sendWebhookAlert(brand, brand.runs[brand.runs.length - 1], previousSOV).catch(() => {});
   }
 
-  const errorCount = allResults.filter(r => r.error).length;
   const totalPlatformCount = Object.keys(PLATFORM_KEY_MAP).length;
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount } });
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors, durationMs: runDurationMs } });
   } catch(e) {
-    console.error('[Run]', e.message);
-    res.status(500).json({ error: 'Failed to run queries' });
+    console.error('[Run] FATAL:', e.message, e.stack);
+    res.status(500).json({ error: 'Failed to run queries: ' + e.message });
   }
 });
 

@@ -834,7 +834,34 @@ function renderMentions(){
     return;
   }
 
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  // Show run log summary if there were errors
+  let html = '';
+  const runLog = run.log;
+  const errResults = allResults.filter(r => r.error);
+  if (errResults.length > 0 || (runLog && runLog.platformErrors && runLog.platformErrors.length > 0)) {
+    html += '<div style="background:rgba(239,68,68,0.1);border:1px solid var(--red);padding:12px 16px;margin-bottom:16px;font-family:var(--mono);font-size:11px;line-height:1.8;">';
+    html += '<div style="color:var(--red);font-weight:700;margin-bottom:6px;">RUN ERROR LOG</div>';
+    if (runLog && runLog.durationMs) html += '<div style="color:var(--muted);">Duration: ' + (runLog.durationMs/1000).toFixed(1) + 's</div>';
+    if (runLog && runLog.keysUsed) {
+      const keyInfo = Object.entries(runLog.keysUsed).map(([p,c]) => p+': '+c+' key'+(c!==1?'s':'')).join(', ');
+      html += '<div style="color:var(--muted);">API Keys: ' + esc(keyInfo) + '</div>';
+    }
+    if (runLog && runLog.platformErrors && runLog.platformErrors.length) {
+      html += '<div style="color:var(--red);margin-top:6px;font-weight:600;">Platform Crashes:</div>';
+      runLog.platformErrors.forEach(pe => {
+        html += '<div style="color:var(--red);padding-left:12px;">• ' + esc(pe.platform) + ': ' + esc(pe.error) + '</div>';
+      });
+    }
+    if (errResults.length > 0) {
+      html += '<div style="color:var(--amber);margin-top:6px;font-weight:600;">' + errResults.length + ' Query Error' + (errResults.length>1?'s':'') + ':</div>';
+      errResults.forEach(r => {
+        html += '<div style="color:var(--amber);padding-left:12px;">• [' + esc(r.platform) + '] ' + esc(r.query.substring(0,60)) + ' → ' + esc(friendlyError(r.errorMessage)) + '</div>';
+      });
+    }
+    html += '</div>';
+  }
+
+  html += '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
   const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
   const sentimentTips = {positive:'AI spoke favorably about your brand',negative:'AI expressed concerns about your brand',neutral:'AI mentioned your brand without strong opinion'};
   filtered.forEach(r => {
@@ -1939,9 +1966,17 @@ async function runQueries(){
   } catch(e) {
     clearInterval(progInt);
     clearInterval(timerInt);
-    timerEl.textContent = '';
-    prog.style.display = 'none';
-    toast('Run failed: '+e.message, 'err');
+    const elapsed = fmtTime(Date.now()-startTime);
+    timerEl.textContent = elapsed;
+    fill.style.width = '0%';
+    statusTxt.textContent = 'Failed after ' + elapsed + ' — ' + friendlyError(e.message);
+    statusTxt.style.color = 'var(--red)';
+    setTimeout(() => {
+      prog.style.display = 'none';
+      timerEl.textContent = '';
+      statusTxt.style.color = '';
+    }, 10000);
+    toast('Run failed: ' + friendlyError(e.message), 'err');
   }
 
   runningQueries = false;
