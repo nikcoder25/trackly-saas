@@ -213,12 +213,7 @@ async function doLogin(){
   el('auth-err').style.display = 'none';
   const btn = document.querySelector('#panel-login .btn-primary');
   if (!email || !password) {
-    el('auth-err').textContent = 'Email and password are required.';
-    el('auth-err').style.display = 'block';
-    return;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    el('auth-err').textContent = 'Please enter a valid email address.';
+    el('auth-err').textContent = 'Email/username and password are required.';
     el('auth-err').style.display = 'block';
     return;
   }
@@ -241,6 +236,7 @@ async function doLogin(){
 
 async function doRegister(){
   const name = el('reg-name').value.trim();
+  const username = el('reg-username').value.trim();
   const email = el('reg-email').value.trim();
   const password = el('reg-pass').value;
   el('auth-err').style.display = 'none';
@@ -267,7 +263,7 @@ async function doRegister(){
   const btn = document.querySelector('#panel-register .btn-primary');
   btn.disabled = true; btn.textContent = 'CREATING ACCOUNT...';
   try {
-    const data = await api('POST', '/api/auth/register', { name, email, password });
+    const data = await api('POST', '/api/auth/register', { name, username: username || undefined, email, password });
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
@@ -504,6 +500,9 @@ function getUserLimits() {
 function renderAccount(){
   if (!currentUser) return;
   el('acct-email').textContent = currentUser.email;
+  // Username
+  const usernameEl = el('acct-username');
+  if (usernameEl) usernameEl.textContent = currentUser.username ? '@' + currentUser.username : '—';
   // Email verification status
   const verifyEl = el('acct-email-verify');
   if (verifyEl) {
@@ -668,6 +667,22 @@ async function changePassword() {
     el('pw-confirm').value = '';
     toast('Password updated successfully', 'ok');
   } catch(e) { toast(e.message, 'err'); }
+}
+
+async function promptSetUsername(){
+  const current = currentUser.username || '';
+  const newUsername = prompt('Enter your username (letters, numbers, dots, dashes, underscores):', current);
+  if (newUsername === null) return;
+  const trimmed = newUsername.trim().toLowerCase();
+  if (trimmed && trimmed.length < 3) { toast('Username must be at least 3 characters', 'err'); return; }
+  try {
+    const data = await api('PUT', '/api/auth/username', { username: trimmed || null });
+    currentUser.username = data.username;
+    el('acct-username').textContent = data.username ? '@' + data.username : '—';
+    toast(data.username ? 'Username set to @' + data.username : 'Username removed', 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
 }
 
 async function deleteAccount() {
@@ -869,13 +884,183 @@ function renderOverview(){
   const activePlats = lastRun ? Object.keys(lastRun.platforms||{}).length : 0;
   const queries = (b.queries||[]).length;
 
-  el('ov-sov').textContent = sov+'%';
+  // SOV change indicator
+  const prevRun = b.runs && b.runs.length > 1 ? b.runs[b.runs.length - 2] : null;
+  const prevSOV = prevRun ? (prevRun.sov || 0) : null;
+  const sovDiff = prevSOV !== null ? sov - prevSOV : null;
+  let sovExtra = '';
+  if (sovDiff !== null && sovDiff !== 0) {
+    const arrow = sovDiff > 0 ? '↑' : '↓';
+    const diffColor = sovDiff > 0 ? 'var(--green)' : 'var(--red,#ff4444)';
+    sovExtra = ` <span style="font-size:12px;color:${diffColor};font-weight:700;">${arrow}${Math.abs(sovDiff)}%</span>`;
+  }
+  el('ov-sov').innerHTML = sov + '%' + sovExtra;
   el('ov-sov').className = 'stat-val ' + (sov>=70?'green':sov>=40?'amber':'red');
+
+  // Last run age
+  let runAgeText = '--';
+  if (lastRun) {
+    const runTime = new Date(lastRun.time || lastRun.date);
+    const ageMs = Date.now() - runTime.getTime();
+    const ageMins = Math.floor(ageMs / 60000);
+    if (ageMins < 60) runAgeText = ageMins + 'm ago';
+    else if (ageMins < 1440) runAgeText = Math.floor(ageMins / 60) + 'h ago';
+    else runAgeText = Math.floor(ageMins / 1440) + 'd ago';
+  }
   el('ov-mentions').textContent = mentions + '/' + totalResults;
   el('ov-platforms').textContent = activePlats + '/' + PLATS.length;
   const qLimit = getUserLimits().queries;
   el('ov-queries').textContent = queries + '/' + qLimit;
   el('ov-queries').style.color = queries >= qLimit ? 'var(--red)' : '';
+
+  // ─── Quick Actions Bar ───────────────────────────────────────
+  const qaEl = el('ov-quick-actions');
+  let qaHtml = '';
+  if (b.queries && b.queries.length > 0) {
+    qaHtml += `<button onclick="runQueries()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:11px;padding:8px 20px;cursor:pointer;font-weight:700;letter-spacing:.5px;">▶ RUN NOW</button>`;
+  }
+  qaHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">Last run: <span style="color:${lastRun ? (runAgeText.includes('d') && parseInt(runAgeText) > 3 ? 'var(--red,#ff4444)' : 'var(--text)') : 'var(--muted)'}">${lastRun ? runAgeText : 'Never'}</span></div>`;
+  qaEl.innerHTML = qaHtml;
+
+  // ─── Insights Row: Best/Worst Platform ───────────────────────
+  const insightsEl = el('ov-insights-row');
+  if (lastRun && lastRun.platforms && Object.keys(lastRun.platforms).length > 0) {
+    const platEntries = Object.entries(lastRun.platforms);
+    const best = platEntries.reduce((a, b) => b[1] > a[1] ? b : a);
+    const worst = platEntries.reduce((a, b) => b[1] < a[1] ? b : a);
+    insightsEl.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);padding:14px;">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Best Platform</div>
+        <div style="font-size:18px;font-weight:700;color:var(--green);">${esc(best[0])}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;">${best[1]}% SOV</div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);padding:14px;">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Needs Work</div>
+        <div style="font-size:18px;font-weight:700;color:${worst[1] > 0 ? 'var(--amber,#f0a030)' : 'var(--red,#ff4444)'}">${esc(worst[0])}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;">${worst[1]}% SOV</div>
+      </div>`;
+  } else {
+    insightsEl.innerHTML = '';
+  }
+
+  // ─── API Health Summary ──────────────────────────────────────
+  const healthEl = el('ov-api-health');
+  if (lastRun && lastRun.allResults) {
+    const errs = lastRun.allResults.filter(r => r.error).length;
+    const okCount = lastRun.allResults.filter(r => !r.error).length;
+    const healthyPlats = new Set(lastRun.allResults.filter(r => !r.error).map(r => r.platform)).size;
+    const totalPlats = new Set(lastRun.allResults.map(r => r.platform)).size;
+    const statusColor = errs === 0 ? 'var(--green)' : errs <= 3 ? 'var(--amber,#f0a030)' : 'var(--red,#ff4444)';
+    healthEl.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;">API Health</div>
+      <div style="font-family:var(--mono);font-size:12px;"><span style="color:${statusColor};font-weight:700;">${healthyPlats}/${totalPlats}</span> <span style="color:var(--muted);">platforms healthy</span></div>
+      <div style="font-family:var(--mono);font-size:12px;"><span style="color:var(--green);font-weight:700;">${okCount}</span> <span style="color:var(--muted);">ok</span> · <span style="color:${errs > 0 ? 'var(--red,#ff4444)' : 'var(--muted)'};font-weight:${errs > 0 ? '700' : '400'};">${errs}</span> <span style="color:var(--muted);">errors</span></div>
+      ${errs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:11px;color:var(--red,#ff4444);text-decoration:none;">View Errors →</a>` : ''}
+    </div>`;
+  } else {
+    healthEl.innerHTML = '';
+  }
+
+  // ─── SOV by Category ─────────────────────────────────────────
+  const catEl = el('ov-sov-category');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral'];
+    const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
+    const chatResults = lastRun.allResults.filter(r => chatAI.includes(r.platform) && !r.error);
+    const searchResults = lastRun.allResults.filter(r => searchAI.includes(r.platform) && !r.error);
+    const chatSOV = chatResults.length > 0 ? Math.round(chatResults.filter(r => r.mentioned).length / chatResults.length * 100) : null;
+    const searchSOV = searchResults.length > 0 ? Math.round(searchResults.filter(r => r.mentioned).length / searchResults.length * 100) : null;
+    if (chatSOV !== null || searchSOV !== null) {
+      catEl.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        ${chatSOV !== null ? `<div style="background:var(--bg2);border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Chat AI SOV</div>
+          <div style="font-size:24px;font-weight:800;color:${chatSOV >= 40 ? 'var(--green)' : chatSOV > 0 ? 'var(--amber,#f0a030)' : 'var(--red,#ff4444)'};">${chatSOV}%</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">ChatGPT, Claude, Grok, DeepSeek, Mistral</div>
+        </div>` : ''}
+        ${searchSOV !== null ? `<div style="background:var(--bg2);border:1px solid var(--border);padding:14px;">
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Search AI SOV</div>
+          <div style="font-size:24px;font-weight:800;color:${searchSOV >= 40 ? 'var(--green)' : searchSOV > 0 ? 'var(--amber,#f0a030)' : 'var(--red,#ff4444)'};">${searchSOV}%</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">Perplexity, Google AIO, Gemini</div>
+        </div>` : ''}
+      </div>`;
+    } else {
+      catEl.innerHTML = '';
+    }
+  } else {
+    catEl.innerHTML = '';
+  }
+
+  // ─── Query Performance Breakdown ─────────────────────────────
+  const qpEl = el('ov-query-perf');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const queryStats = {};
+    lastRun.allResults.filter(r => !r.error).forEach(r => {
+      const q = r.query || 'Unknown';
+      if (!queryStats[q]) queryStats[q] = { total: 0, found: 0 };
+      queryStats[q].total++;
+      if (r.mentioned) queryStats[q].found++;
+    });
+    const sorted = Object.entries(queryStats).map(([q, s]) => ({ query: q, ...s, rate: Math.round(s.found / s.total * 100) })).sort((a, b) => b.rate - a.rate);
+    if (sorted.length > 0) {
+      const bestQ = sorted[0];
+      const worstQ = sorted[sorted.length - 1];
+      let qpHtml = `<div class="card"><div class="card-title">Query Performance</div>`;
+      qpHtml += `<div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Query</th><th>Found</th><th>Total</th><th style="text-align:right;">Hit Rate</th></tr></thead><tbody>`;
+      sorted.forEach(s => {
+        const barColor = s.rate >= 50 ? 'var(--green)' : s.rate > 0 ? 'var(--amber,#f0a030)' : 'var(--red,#ff4444)';
+        qpHtml += `<tr><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;">${esc(s.query)}</td><td style="font-family:var(--mono);font-size:11px;">${s.found}</td><td style="font-family:var(--mono);font-size:11px;">${s.total}</td><td style="text-align:right;"><span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${barColor};">${s.rate}%</span></td></tr>`;
+      });
+      qpHtml += `</tbody></table></div></div>`;
+      qpEl.innerHTML = qpHtml;
+    } else {
+      qpEl.innerHTML = '';
+    }
+  } else {
+    qpEl.innerHTML = '';
+  }
+
+  // ─── Top Competitors ─────────────────────────────────────────
+  const compEl = el('ov-competitors');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    // Extract competitor mentions from AI responses
+    const brandName = (b.name || '').toLowerCase();
+    const competitors = {};
+    lastRun.allResults.forEach(r => {
+      if (!r.raw && !r.context) return;
+      const text = (r.raw || r.context || '');
+      // Look for numbered list items like "1. CompanyName" or "- CompanyName" or "**CompanyName**"
+      const patterns = [
+        /(?:^|\n)\s*\d+[\.\)]\s*\*?\*?([A-Z][A-Za-z0-9' &\-\.]+)\*?\*?/g,
+        /(?:^|\n)\s*[-•]\s*\*?\*?([A-Z][A-Za-z0-9' &\-\.]+)\*?\*?/g
+      ];
+      patterns.forEach(pat => {
+        let m;
+        while ((m = pat.exec(text)) !== null) {
+          const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-—:].*/,'').trim();
+          if (name.length >= 3 && name.length <= 50 && name.toLowerCase() !== brandName && !/^(the|and|for|with|best|top|most|also|here|this|that|these|note)$/i.test(name)) {
+            competitors[name] = (competitors[name] || 0) + 1;
+          }
+        }
+      });
+    });
+    const topComp = Object.entries(competitors).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    if (topComp.length > 0) {
+      let compHtml = `<div class="card"><div class="card-title">Top Competitors Mentioned by AI</div>`;
+      compHtml += `<div style="display:flex;flex-wrap:wrap;gap:8px;">`;
+      topComp.forEach(([name, count]) => {
+        compHtml += `<div style="background:var(--bg3);border:1px solid var(--border);padding:8px 14px;font-family:var(--mono);font-size:11px;">
+          <span style="color:var(--text);font-weight:600;">${esc(name)}</span>
+          <span style="color:var(--muted);margin-left:8px;">${count}x</span>
+        </div>`;
+      });
+      compHtml += `</div></div>`;
+      compEl.innerHTML = compHtml;
+    } else {
+      compEl.innerHTML = '';
+    }
+  } else {
+    compEl.innerHTML = '';
+  }
 
   // Platform cards
   const pg = el('ov-plat-grid');
@@ -2630,7 +2815,7 @@ function renderAdminTable(users){
     html += `<tr>
       <td>
         <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>
         <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
@@ -2653,6 +2838,7 @@ function openAdminEdit(userId){
   if (!u) return;
   el('admin-edit-id').value = u.id;
   el('admin-edit-email').value = u.email || '';
+  el('admin-edit-username').value = u.username || '';
   el('admin-edit-name').value = u.name || '';
   el('admin-edit-plan').value = u.plan || 'free';
   el('admin-edit-role').value = u.role || 'user';
@@ -2663,8 +2849,11 @@ function openAdminEdit(userId){
   el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
   el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
   el('admin-edit-limits').textContent = (u.limits?.queries || '?') + ' queries, ' + (u.limits?.runsPerDay || '?') + ' runs/day';
-  // Disable role change for self
+  // Disable role change for self, hide delete for self
   el('admin-edit-role').disabled = (u.id === currentUser.id);
+  el('admin-edit-password').value = '';
+  const delBtn = document.getElementById('admin-edit-delete-btn');
+  if (delBtn) delBtn.style.display = (u.id === currentUser.id) ? 'none' : 'block';
   document.getElementById('admin-edit-modal').classList.add('open');
 }
 
@@ -2679,10 +2868,12 @@ async function saveAdminEdit(){
   if (!u) return;
   const payload = {};
   const newEmail = el('admin-edit-email').value.trim();
+  const newUsername = el('admin-edit-username').value.trim();
   const newName = el('admin-edit-name').value.trim();
   const newPlan = el('admin-edit-plan').value;
   const newRole = el('admin-edit-role').value;
   if (newEmail !== u.email) payload.email = newEmail;
+  if (newUsername !== (u.username || '')) payload.username = newUsername || null;
   if (newName !== (u.name || '')) payload.name = newName;
   if (newPlan !== u.plan) payload.plan = newPlan;
   if (newRole !== (u.role || 'user')) payload.role = newRole;
@@ -2708,6 +2899,85 @@ async function changeUserPlan(userId, newPlan){
     if (idx >= 0) adminUsers[idx].plan = newPlan;
     renderAdminStats(adminUsers);
     toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Admin: Add User ──────────────────────────────────────────────
+function openAdminAddUser(){
+  el('admin-add-email').value = '';
+  el('admin-add-username').value = '';
+  el('admin-add-name').value = '';
+  el('admin-add-password').value = '';
+  el('admin-add-plan').value = 'free';
+  el('admin-add-role').value = 'user';
+  document.getElementById('admin-add-modal').classList.add('open');
+}
+
+function closeAdminAddUser(){
+  document.getElementById('admin-add-modal').classList.remove('open');
+}
+
+function generateRandomPassword(){
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+  let pw = '';
+  for (let i = 0; i < 16; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  el('admin-add-password').value = pw;
+}
+
+async function submitAdminAddUser(){
+  const email = el('admin-add-email').value.trim();
+  const username = el('admin-add-username').value.trim();
+  const name = el('admin-add-name').value.trim();
+  const password = el('admin-add-password').value;
+  const plan = el('admin-add-plan').value;
+  const role = el('admin-add-role').value;
+  if (!email || !password) { toast('Email and password are required', 'err'); return; }
+  if (password.length < 8) { toast('Password must be at least 8 characters', 'err'); return; }
+  try {
+    const data = await api('POST', '/api/admin/users', { email, username: username || undefined, name, password, plan, role });
+    adminUsers.push(data.user);
+    closeAdminAddUser();
+    renderAdminStats(adminUsers);
+    filterAdminUsers();
+    toast('User created: ' + email, 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Admin: Delete User ───────────────────────────────────────────
+async function adminDeleteUser(){
+  const userId = el('admin-edit-id').value;
+  if (!userId) return;
+  const u = adminUsers.find(x => x.id === userId);
+  if (!u) return;
+  if (u.id === currentUser.id) { toast('Cannot delete your own account', 'err'); return; }
+  if (!confirm('Are you sure you want to delete user "' + (u.name || u.email) + '"?\n\nThis will permanently delete their account, all brands, and all data. This action cannot be undone.')) return;
+  try {
+    await api('DELETE', '/api/admin/users/' + userId);
+    adminUsers = adminUsers.filter(x => x.id !== userId);
+    closeAdminEdit();
+    renderAdminStats(adminUsers);
+    filterAdminUsers();
+    toast('User deleted: ' + (u.name || u.email), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Admin: Reset Password ───────────────────────────────────────
+async function adminResetPassword(){
+  const userId = el('admin-edit-id').value;
+  const password = el('admin-edit-password').value;
+  if (!userId) return;
+  if (!password || password.length < 8) { toast('Password must be at least 8 characters', 'err'); return; }
+  if (!confirm('Reset password for this user?')) return;
+  try {
+    await api('PUT', '/api/admin/users/' + userId + '/password', { password });
+    el('admin-edit-password').value = '';
+    toast('Password reset successfully', 'ok');
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
   }

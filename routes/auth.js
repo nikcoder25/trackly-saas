@@ -13,7 +13,7 @@ const { getPlanLimits } = require('../lib/plans');
 const crypto = require('crypto');
 
 router.post('/register', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, username } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (email.length > 254) return res.status(400).json({ error: 'Email too long' });
@@ -21,18 +21,29 @@ router.post('/register', async (req, res) => {
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (password.length > 128) return res.status(400).json({ error: 'Password too long' });
   if (name && (typeof name !== 'string' || name.length > 100)) return res.status(400).json({ error: 'Name must be 100 characters or less' });
+  // Username validation
+  const trimmedUsername = username ? username.trim().toLowerCase() : null;
+  if (trimmedUsername) {
+    if (trimmedUsername.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    if (trimmedUsername.length > 30) return res.status(400).json({ error: 'Username must be 30 characters or less' });
+    if (!/^[a-z0-9_.-]+$/.test(trimmedUsername)) return res.status(400).json({ error: 'Username can only contain letters, numbers, dots, dashes, and underscores' });
+  }
 
   try {
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
+    if (trimmedUsername) {
+      const existingUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
+      if (existingUser.rows.length) return res.status(400).json({ error: 'Username already taken' });
+    }
 
     const hash = await bcrypt.hash(password, 10);
     const id = uid();
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
     await pool.query(
-      'INSERT INTO users (id, email, name, password_hash, plan, verify_token) VALUES ($1, $2, $3, $4, $5, $6)',
-      [id, email.toLowerCase(), userName, hash, 'free', verifyToken]
+      'INSERT INTO users (id, email, username, name, password_hash, plan, verify_token) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
     );
 
     // In production, send verification email. For now, log it.
@@ -44,7 +55,7 @@ router.post('/register', async (req, res) => {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, req.ip);
-    res.json({ token: accessToken, refreshToken, user: { id, email: email.toLowerCase(), name: userName, plan: 'free', emailVerified: false, createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
+    res.json({ token: accessToken, refreshToken, user: { id, email: email.toLowerCase(), username: trimmedUsername, name: userName, plan: 'free', emailVerified: false, createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
   } catch(e) {
     console.error('[Register]', e.message);
     res.status(500).json({ error: 'Registration failed' });
@@ -53,11 +64,15 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  if (!email || !password) return res.status(400).json({ error: 'Email/username and password required' });
   try {
-    const result = await pool.query('SELECT id, email, name, plan, role, password_hash, api_keys, settings, created_at FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    // Allow login with email OR username
+    const isEmail = email.includes('@');
+    const result = isEmail
+      ? await pool.query('SELECT id, email, username, name, plan, role, password_hash, api_keys, settings, created_at FROM users WHERE LOWER(email) = LOWER($1)', [email])
+      : await pool.query('SELECT id, email, username, name, plan, role, password_hash, api_keys, settings, created_at FROM users WHERE LOWER(username) = LOWER($1)', [email]);
     const user = result.rows[0];
-    if (!user) return res.status(400).json({ error: 'Invalid email or password' });
+    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
 
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(400).json({ error: 'Invalid email or password' });
@@ -119,6 +134,25 @@ router.post('/refresh', async (req, res) => {
     res.json({ token: accessToken, refreshToken: newRefreshToken });
   } catch(e) {
     res.status(500).json({ error: 'Token refresh failed' });
+  }
+});
+
+// Update username
+router.put('/username', auth, async (req, res) => {
+  const { username } = req.body;
+  const trimmed = username ? username.trim().toLowerCase() : null;
+  if (trimmed) {
+    if (trimmed.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    if (trimmed.length > 30) return res.status(400).json({ error: 'Username must be 30 characters or less' });
+    if (!/^[a-z0-9_.-]+$/.test(trimmed)) return res.status(400).json({ error: 'Username can only contain letters, numbers, dots, dashes, and underscores' });
+    const dup = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id != $2', [trimmed, req.user.id]);
+    if (dup.rows.length) return res.status(400).json({ error: 'Username already taken' });
+  }
+  try {
+    await pool.query('UPDATE users SET username = $1 WHERE id = $2', [trimmed, req.user.id]);
+    res.json({ username: trimmed, message: 'Username updated' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to update username' });
   }
 });
 
@@ -210,7 +244,7 @@ router.post('/reset-password', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     // SECURITY: Only select needed columns — never fetch password_hash
-    const result = await pool.query('SELECT id, email, name, plan, role, api_keys, settings, created_at FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT id, email, username, name, plan, role, api_keys, settings, created_at FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     // Auto-upgrade admin users to owner plan

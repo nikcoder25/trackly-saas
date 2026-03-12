@@ -4,9 +4,10 @@
 const express = require('express');
 const router  = express.Router();
 
+const bcrypt = require('bcryptjs');
 const { pool, auditLog, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
-const { safeUser, getServerKeys } = require('../lib/helpers');
+const { uid, safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 
@@ -138,10 +139,10 @@ router.get('/admin/users', auth, requireAdmin, async (req, res) => {
   }
 });
 
-// Admin: update user (plan, name, email, role)
+// Admin: update user (plan, name, email, username, role)
 router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
   try {
-    const { plan, name, email, role } = req.body;
+    const { plan, name, email, username, role } = req.body;
     const updates = [];
     const values = [];
     let idx = 1;
@@ -158,11 +159,21 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     if (email !== undefined) {
       const trimmed = email.trim().toLowerCase();
       if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return res.status(400).json({ error: 'Invalid email' });
-      // Check uniqueness
       const dup = await pool.query('SELECT id FROM users WHERE email = $1 AND id != $2', [trimmed, req.params.id]);
       if (dup.rows.length) return res.status(400).json({ error: 'Email already in use' });
       updates.push(`email = $${idx++}`);
       values.push(trimmed);
+    }
+    if (username !== undefined) {
+      const trimmedU = username ? username.trim().toLowerCase() : null;
+      if (trimmedU) {
+        if (trimmedU.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+        if (!/^[a-z0-9_.-]+$/.test(trimmedU)) return res.status(400).json({ error: 'Username can only contain letters, numbers, dots, dashes, and underscores' });
+        const dupU = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id != $2', [trimmedU, req.params.id]);
+        if (dupU.rows.length) return res.status(400).json({ error: 'Username already taken' });
+      }
+      updates.push(`username = $${idx++}`);
+      values.push(trimmedU);
     }
     if (role !== undefined) {
       if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
@@ -183,6 +194,78 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     res.json({ user: { ...safeUser(result.rows[0]), brandCount: bc.rows[0]?.cnt || 0 } });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: create user
+router.post('/admin/users', auth, requireAdmin, async (req, res) => {
+  try {
+    const { email, name, username, password, plan, role } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return res.status(400).json({ error: 'Invalid email format' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (plan && !['free', 'pro', 'agency', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (role && !['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+    const trimmedUsername = username ? username.trim().toLowerCase() : null;
+    if (trimmedUsername) {
+      if (trimmedUsername.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
+      if (!/^[a-z0-9_.-]+$/.test(trimmedUsername)) return res.status(400).json({ error: 'Username can only contain letters, numbers, dots, dashes, and underscores' });
+      const dupUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
+      if (dupUser.rows.length) return res.status(400).json({ error: 'Username already taken' });
+    }
+
+    const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [trimmedEmail]);
+    if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const id = uid();
+    const userName = (name || '').trim() || trimmedEmail.split('@')[0];
+    const userRole = role === 'admin' ? 'admin' : null;
+    const userPlan = plan || 'free';
+
+    await pool.query(
+      'INSERT INTO users (id, email, username, name, password_hash, plan, role, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)',
+      [id, trimmedEmail, trimmedUsername, userName, hash, userPlan, userRole]
+    );
+
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    auditLog(req.user.id, 'admin_create_user', 'user', id, { email: trimmedEmail, username: trimmedUsername, plan: userPlan }, req.ip);
+    res.json({ user: { ...safeUser(result.rows[0]), brandCount: 0 } });
+  } catch(e) {
+    console.error('[Admin Create User]', e.message);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Admin: delete user
+router.delete('/admin/users/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot delete your own account' });
+    const user = await pool.query('SELECT email, role FROM users WHERE id = $1', [req.params.id]);
+    if (!user.rows.length) return res.status(404).json({ error: 'User not found' });
+    // Cascading delete handles brands, notifications, team_members
+    await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    auditLog(req.user.id, 'admin_delete_user', 'user', req.params.id, { email: user.rows[0].email }, req.ip);
+    res.json({ success: true });
+  } catch(e) {
+    console.error('[Admin Delete User]', e.message);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Admin: reset user password
+router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email', [hash, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    auditLog(req.user.id, 'admin_reset_password', 'user', req.params.id, { email: result.rows[0].email }, req.ip);
+    res.json({ success: true, message: 'Password updated' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
