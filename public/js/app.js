@@ -29,11 +29,13 @@ const PLAT_THEME = {
 
 // ─── STATE ────────────────────────────────────────────────────────
 let token = localStorage.getItem('trackly_token') || '';
+let refreshToken = localStorage.getItem('trackly_refresh') || '';
 let currentUser = null;
 let brands = [];
 let currentBrandId = localStorage.getItem('trackly_brand') || '';
 let keyStatus = {};
 let runningQueries = false;
+let currentTheme = localStorage.getItem('trackly_theme') || 'dark';
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
@@ -136,10 +138,35 @@ async function api(method, path, data){
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
   };
   if (data) opts.body = JSON.stringify(data);
-  const res = await fetch(API + path, opts);
+  let res = await fetch(API + path, opts);
+  // Auto-refresh token on 401 (not for auth endpoints themselves)
+  if (res.status === 401 && refreshToken && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
+    try {
+      const refreshRes = await fetch(API + '/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        token = refreshData.token;
+        refreshToken = refreshData.refreshToken;
+        localStorage.setItem('trackly_token', token);
+        localStorage.setItem('trackly_refresh', refreshToken);
+        // Retry original request with new token
+        opts.headers['Authorization'] = 'Bearer ' + token;
+        res = await fetch(API + path, opts);
+      } else {
+        doLogout();
+        throw new Error('Session expired. Please log in again.');
+      }
+    } catch(e) {
+      doLogout();
+      throw new Error('Session expired. Please log in again.');
+    }
+  }
   const json = await res.json();
   if (!res.ok) {
-    // Handle expired/invalid sessions — auto-logout on 401
     if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register') {
       doLogout();
       throw new Error('Session expired. Please log in again.');
@@ -183,8 +210,10 @@ async function doLogin(){
   try {
     const data = await api('POST', '/api/auth/login', { email, password });
     token = data.token;
+    refreshToken = data.refreshToken || '';
     currentUser = data.user;
     localStorage.setItem('trackly_token', token);
+    localStorage.setItem('trackly_refresh', refreshToken);
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -224,8 +253,10 @@ async function doRegister(){
   try {
     const data = await api('POST', '/api/auth/register', { name, email, password });
     token = data.token;
+    refreshToken = data.refreshToken || '';
     currentUser = data.user;
     localStorage.setItem('trackly_token', token);
+    localStorage.setItem('trackly_refresh', refreshToken);
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -291,10 +322,12 @@ async function doResetPassword(){
 
 function doLogout(){
   token = '';
+  refreshToken = '';
   currentUser = null;
   brands = [];
   currentBrandId = '';
   localStorage.removeItem('trackly_token');
+  localStorage.removeItem('trackly_refresh');
   localStorage.removeItem('trackly_brand');
   // Close all open overlays/modals
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
@@ -335,6 +368,9 @@ async function initApp(){
   // Load brands
   const data = await api('GET', '/api/brands');
   brands = data.brands || [];
+
+  // Load notifications
+  initNotifications();
 
   // Load key status
   try {
@@ -448,10 +484,22 @@ function getUserLimits() {
 function renderAccount(){
   if (!currentUser) return;
   el('acct-email').textContent = currentUser.email;
+  // Email verification status
+  const verifyEl = el('acct-email-verify');
+  if (verifyEl) {
+    if (currentUser.emailVerified) {
+      verifyEl.innerHTML = '<span class="badge pos">VERIFIED</span>';
+    } else {
+      verifyEl.innerHTML = '<span class="badge neg">UNVERIFIED</span> <button onclick="resendVerification()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--amber);color:var(--amber);padding:2px 8px;cursor:pointer;">RESEND VERIFICATION</button>';
+    }
+  }
   const planEl = el('acct-plan');
   planEl.textContent = currentUser.plan || 'free';
   planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple,#9b72ff)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  // Theme button
+  const themeBtn = el('theme-toggle-btn');
+  if (themeBtn) themeBtn.textContent = currentTheme === 'dark' ? 'LIGHT MODE' : 'DARK MODE';
 
   // Usage stats
   const limits = getUserLimits();
@@ -613,6 +661,109 @@ async function deleteAccount() {
   } catch(e) { toast(e.message, 'err'); }
 }
 
+// ── Theme Toggle ───────────────────────────────────────
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'light') {
+    root.style.setProperty('--bg', '#f5f5f5');
+    root.style.setProperty('--bg2', '#ffffff');
+    root.style.setProperty('--bg3', '#eaeaea');
+    root.style.setProperty('--bg4', '#ddd');
+    root.style.setProperty('--border', '#d0d0d0');
+    root.style.setProperty('--text', '#1a1a1a');
+    root.style.setProperty('--muted', '#666');
+  } else {
+    root.style.setProperty('--bg', '#0a0a0a');
+    root.style.setProperty('--bg2', '#111');
+    root.style.setProperty('--bg3', '#1a1a1a');
+    root.style.setProperty('--bg4', '#222');
+    root.style.setProperty('--border', '#2a2a2a');
+    root.style.setProperty('--text', '#e8e8e8');
+    root.style.setProperty('--muted', '#666');
+  }
+  currentTheme = theme;
+  localStorage.setItem('trackly_theme', theme);
+}
+function toggleTheme() {
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+  const btn = el('theme-toggle-btn');
+  if (btn) btn.textContent = currentTheme === 'dark' ? 'LIGHT MODE' : 'DARK MODE';
+}
+// Apply saved theme on load
+applyTheme(currentTheme);
+
+// ── Data Export ────────────────────────────────────────
+function exportAllData() {
+  const b = brand();
+  if (!b) { toast('No brand selected', 'err'); return; }
+  window.open(API + '/api/export/brand/' + b.id + '?t=' + token, '_blank');
+}
+function exportAllBrandsData() {
+  window.open(API + '/api/export/all?t=' + token, '_blank');
+}
+function exportBrandCSV() {
+  const b = brand();
+  if (!b) { toast('No brand selected', 'err'); return; }
+  window.open(API + '/api/export/brand/' + b.id + '/csv?t=' + token, '_blank');
+}
+
+// ── Email Verification ────────────────────────────────
+async function resendVerification() {
+  try {
+    const data = await api('POST', '/api/auth/resend-verification');
+    toast(data.message || 'Verification email sent', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── Notifications ─────────────────────────────────────
+let notifOpen = false;
+async function loadNotifications() {
+  try {
+    const data = await api('GET', '/api/notifications');
+    const badge = el('notif-badge');
+    if (data.unread > 0) {
+      badge.textContent = data.unread > 9 ? '9+' : data.unread;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+    return data;
+  } catch(e) { return { notifications: [], unread: 0 }; }
+}
+async function toggleNotifications() {
+  const dd = el('notif-dropdown');
+  notifOpen = !notifOpen;
+  if (!notifOpen) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = '<div style="padding:12px;font-family:var(--mono);font-size:10px;color:var(--muted);">Loading...</div>';
+  const data = await loadNotifications();
+  const notifs = data.notifications || [];
+  if (!notifs.length) {
+    dd.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">No notifications</div>';
+    return;
+  }
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;">NOTIFICATIONS</span><button onclick="markAllRead()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border);color:var(--green);padding:2px 8px;cursor:pointer;">MARK ALL READ</button></div>';
+  notifs.slice(0, 20).forEach(n => {
+    const time = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    html += `<div style="padding:10px 12px;border-bottom:1px solid var(--border);${n.read?'opacity:0.6;':''}">
+      <div style="font-size:12px;font-weight:${n.read?'400':'700'};margin-bottom:2px;">${esc(n.title)}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">${esc(n.message||'')} &middot; ${time}</div>
+    </div>`;
+  });
+  dd.innerHTML = html;
+}
+async function markAllRead() {
+  try {
+    await api('POST', '/api/notifications/read');
+    el('notif-badge').style.display = 'none';
+    toggleNotifications(); // refresh
+    notifOpen = true; // re-open
+    toggleNotifications();
+  } catch(e) {}
+}
+// Load notification count on init
+function initNotifications() { loadNotifications(); }
+
 function usageBar(label, current, max) {
   const pct = max > 0 ? Math.min(100, Math.round((current / max) * 100)) : 0;
   const color = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber,#f59e0b)' : 'var(--green)';
@@ -660,8 +811,16 @@ async function doUpgrade(plan) {
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
     const data = await api('POST', '/api/upgrade', { plan });
+    // Handle payment required response
+    if (data.requiresPayment) {
+      if (data.checkoutUrl) {
+        window.open(data.checkoutUrl + '?price=' + data.priceId, '_blank');
+      } else {
+        toast('Payment integration coming soon. Contact support to upgrade.', 'warn');
+      }
+      return;
+    }
     currentUser = data.user;
-    // Update plan badge
     const pb = el('plan-badge');
     pb.textContent = plan.toUpperCase();
     pb.className = 'plan-badge ' + plan;

@@ -549,9 +549,11 @@
     <button style="padding:6px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--green);font-size:11px;font-family:var(--mono);cursor:pointer;letter-spacing:1px;" onclick="openAddBrand()">+ ADD BRAND</button>
     <div class="topbar-right">
       <span class="user-badge" id="user-email-badge"></span>
+      <button class="notif-bell" id="notif-bell" onclick="toggleNotifications()" title="Notifications" style="position:relative;background:none;border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;padding:4px 8px;line-height:1;">&#128276;<span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:8px;font-family:var(--mono);padding:1px 4px;border-radius:50%;min-width:14px;text-align:center;">0</span></button>
       <span class="plan-badge" id="plan-badge" onclick="showUpgradeModal()">FREE</span>
       <button class="logout-btn" onclick="doLogout()">LOGOUT</button>
     </div>
+    <div id="notif-dropdown" style="display:none;position:absolute;top:52px;right:100px;width:320px;max-height:400px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);z-index:200;"></div>
   </div>
 
   <!-- Sidebar -->
@@ -828,9 +830,16 @@
       <div class="card">
         <div class="card-title">Account Info</div>
         <div style="font-family:var(--mono);font-size:12px;line-height:2;">
-          <div>Email: <strong id="acct-email"></strong></div>
+          <div>Email: <strong id="acct-email"></strong> <span id="acct-email-verify"></span></div>
           <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
           <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Appearance</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Theme:</span>
+          <button class="btn" id="theme-toggle-btn" onclick="toggleTheme()">LIGHT MODE</button>
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
@@ -849,6 +858,17 @@
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Change Plan</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Export Data</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
+          Download your brand data, query results, and SOV history.
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn" onclick="exportAllData()">EXPORT CURRENT BRAND (JSON)</button>
+          <button class="btn" onclick="exportBrandCSV()">EXPORT CURRENT BRAND (CSV)</button>
+          <button class="btn" onclick="exportAllBrandsData()">EXPORT ALL BRANDS (JSON)</button>
+        </div>
       </div>
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Change Password</div>

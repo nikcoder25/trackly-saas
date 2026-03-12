@@ -12,7 +12,7 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB } = require('./config/db');
+const { pool, initDB, notify } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 
 // Route modules
@@ -137,19 +137,26 @@ const { runBrandQueries } = require('./routes/brands');
 
 cron.schedule('0 * * * *', async () => {
   try {
-    const result = await pool.query('SELECT b.* FROM brands b JOIN users u ON b.user_id = u.id');
+    // Only fetch brands that have a schedule configured (avoid full table scan)
+    const result = await pool.query(
+      `SELECT b.* FROM brands b JOIN users u ON b.user_id = u.id
+       WHERE b.data->>'schedule' IS NOT NULL AND (b.data->>'schedule')::int > 0`
+    );
+    if (!result.rows.length) return;
+    console.log(`[Cron] Found ${result.rows.length} brands with active schedules`);
     const now = Date.now();
     for (const row of result.rows) {
       const brand = { id: row.id, userId: row.user_id, ...row.data };
       if (!brand.schedule) continue;
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
-      const intervalMs = brand.schedule * 3600 * 1000; // schedule is in hours
+      const intervalMs = brand.schedule * 3600 * 1000;
       if (now - lastRun >= intervalMs) {
         console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
         try {
           await runBrandQueries(brand);
         } catch(e) {
           console.error(`[Cron] Error for ${brand.name}:`, e.message);
+          notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
         }
       }
     }
