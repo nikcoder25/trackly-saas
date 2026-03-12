@@ -179,7 +179,7 @@ router.get('/health', async (req, res) => {
     await pool.query('SELECT 1');
     res.json({ status: 'ok', time: new Date().toISOString() });
   } catch(e) {
-    res.json({ status: 'error', time: new Date().toISOString() });
+    res.status(503).json({ status: 'error', time: new Date().toISOString() });
   }
 });
 

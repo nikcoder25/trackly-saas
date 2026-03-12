@@ -291,7 +291,8 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   const errorCount = allResults.filter(r => r.error).length;
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 8 - activePlatforms.length, errorCount } });
+  const totalPlatformCount = Object.keys(PLATFORM_KEY_MAP).length;
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount } });
   } catch(e) {
     console.error('[Run]', e.message);
     res.status(500).json({ error: 'Failed to run queries' });
@@ -306,8 +307,10 @@ function isWebhookUrlSafe(urlStr) {
     const hostname = parsed.hostname.toLowerCase();
     // Reject localhost, private IPs, and metadata endpoints
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return false;
+    if (hostname === '0.0.0.0') return false;
     if (hostname === '169.254.169.254') return false; // cloud metadata
     if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false;
+    if (/^(::ffff:)?(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false; // IPv6-mapped
     if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
     return true;
   } catch { return false; }
@@ -350,15 +353,26 @@ async function sendWebhookAlert(brand, run, previousSOV) {
 async function runBrandQueries(brand) {
   const keys = getServerKeys();
   const queries = brand.queries || [];
+
+  // Enforce plan limits for scheduled runs
+  const plan = await getUserPlan(brand.userId);
+  const limits = getPlanLimits(plan);
+  if (!limits.scheduledRuns) return; // plan doesn't allow scheduled runs
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
+  if (todayRuns >= limits.runsPerDay) return; // daily run limit reached
+
   // Load user settings for scheduled runs
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
   const userSettings = userRow.rows[0]?.settings || {};
   const modelPrefs = userSettings.models || {};
   const enabledPlatforms = userSettings.enabledPlatforms || {};
-  const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+  let activePlatforms = Object.entries(PLATFORM_KEY_MAP)
     .filter(([, keyName]) => keys[keyName])
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
+  if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
   if (!activePlatforms.length || !queries.length) return;
 
   const newMentions = [];

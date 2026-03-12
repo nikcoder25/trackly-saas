@@ -765,7 +765,7 @@ function renderMentions(){
   runs.forEach((r,i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    const d = new Date(r.time);
+    const d = new Date(r.time || r.date);
     opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
@@ -1481,7 +1481,7 @@ async function removeAlias(i){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-function autoGenerateAliases(){
+async function autoGenerateAliases(){
   const b = brand(); if (!b) return;
   const name = el('s-name').value.trim() || b.name;
   const website = el('s-website').value.trim() || b.website;
@@ -1491,9 +1491,12 @@ function autoGenerateAliases(){
   generated.forEach(a => {
     if (!existing.has(a.toLowerCase())) { newAliases.push(a); existing.add(a.toLowerCase()); }
   });
-  b.aliases = newAliases;
-  renderAliasTags();
-  toast(generated.length + ' aliases generated', 'ok');
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { aliases: newAliases });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAliasTags();
+    toast(generated.length + ' aliases generated', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function renderAreaTags(){
