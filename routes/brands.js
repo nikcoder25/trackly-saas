@@ -162,7 +162,7 @@ router.post('/:id/run', auth, async (req, res) => {
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
   let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
-    .filter(([, keyName]) => keys[keyName])
+    .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
 
@@ -370,7 +370,7 @@ async function runBrandQueries(brand) {
   const modelPrefs = userSettings.models || {};
   const enabledPlatforms = userSettings.enabledPlatforms || {};
   let activePlatforms = Object.entries(PLATFORM_KEY_MAP)
-    .filter(([, keyName]) => keys[keyName])
+    .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
   if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);

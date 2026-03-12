@@ -14,9 +14,9 @@ const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 router.get('/keys/status', auth, (req, res) => {
   const keys = getServerKeys();
   res.json({
-    openai: !!keys.openai, perplexity: !!keys.perplexity,
-    gemini: !!keys.gemini, claude: !!keys.claude,
-    grok: !!keys.grok, deepseek: !!keys.deepseek, mistral: !!keys.mistral
+    openai: keys.openai.length > 0, perplexity: keys.perplexity.length > 0,
+    gemini: keys.gemini.length > 0, claude: keys.claude.length > 0,
+    grok: keys.grok.length > 0, deepseek: keys.deepseek.length > 0, mistral: keys.mistral.length > 0
   });
 });
 
