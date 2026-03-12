@@ -14,8 +14,12 @@ const { getPlanLimits } = require('../lib/plans');
 router.post('/register', async (req, res) => {
   const { email, password, name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Invalid input' });
+  if (email.length > 254) return res.status(400).json({ error: 'Email too long' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (password.length > 128) return res.status(400).json({ error: 'Password too long' });
+  if (name && (typeof name !== 'string' || name.length > 100)) return res.status(400).json({ error: 'Name must be 100 characters or less' });
 
   try {
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
@@ -93,7 +97,8 @@ router.delete('/account', auth, async (req, res) => {
 
 router.get('/me', auth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    // SECURITY: Only select needed columns — never fetch password_hash
+    const result = await pool.query('SELECT id, email, name, plan, role, api_keys, settings, created_at FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     // Auto-upgrade admin users to owner plan

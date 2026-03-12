@@ -3,9 +3,16 @@
  */
 const { Pool } = require('pg');
 
+// SECURITY: In production, verify SSL certificates by default.
+// Set DB_SSL_REJECT_UNAUTHORIZED=false only if your provider (e.g. Railway)
+// uses self-signed certs and you accept the MITM risk.
+const sslConfig = process.env.NODE_ENV === 'production'
+  ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+  : false;
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: sslConfig
 });
 
 async function initDB() {

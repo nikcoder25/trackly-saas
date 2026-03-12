@@ -25,22 +25,22 @@ router.get('/plans', auth, (req, res) => {
   res.json({ plans: PLAN_LIMITS, current: null });
 });
 
-// Self-service plan change (downgrade to free only; upgrades require payment integration)
+// Self-service plan change (downgrade to free only; upgrades require DodoPayments)
 router.post('/upgrade', auth, async (req, res) => {
   const { plan } = req.body;
-  if (!['free', 'pro', 'agency', 'owner'].includes(plan)) {
+  // SECURITY: Never allow self-service upgrade to 'owner' — only admin-assigned
+  if (!['free', 'pro', 'agency'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
-  // Only allow downgrade to free without payment verification
-  // TODO: Integrate Stripe or payment provider for pro/agency upgrades
-  const currentUser = await pool.query('SELECT plan FROM users WHERE id = $1', [req.user.id]);
-  if (!currentUser.rows.length) return res.status(404).json({ error: 'User not found' });
-  const currentPlan = currentUser.rows[0].plan || 'free';
-  const tiers = { free: 0, pro: 1, agency: 2 };
-  if (tiers[plan] > tiers[currentPlan]) {
-    return res.status(403).json({ error: 'Payment required for plan upgrades. Contact support or use the billing portal.' });
-  }
   try {
+    const currentUser = await pool.query('SELECT plan, role FROM users WHERE id = $1', [req.user.id]);
+    if (!currentUser.rows.length) return res.status(404).json({ error: 'User not found' });
+    const currentPlan = currentUser.rows[0].plan || 'free';
+    const tiers = { free: 0, pro: 1, agency: 2, owner: 3 };
+    // Block any upgrade attempt — upgrades must go through DodoPayments checkout
+    if ((tiers[plan] || 0) > (tiers[currentPlan] || 0)) {
+      return res.status(403).json({ error: 'Payment required for plan upgrades. Use the upgrade button to proceed with payment.' });
+    }
     const result = await pool.query(
       'UPDATE users SET plan = $1 WHERE id = $2 RETURNING *',
       [plan, req.user.id]
@@ -54,13 +54,18 @@ router.post('/upgrade', auth, async (req, res) => {
 
 // Admin middleware
 async function requireAdmin(req, res, next) {
-  const adminCheck = await pool.query('SELECT role, plan FROM users WHERE id = $1', [req.user.id]);
-  if (!adminCheck.rows[0] || adminCheck.rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-  // Auto-upgrade admins to owner plan if they aren't already
-  if (adminCheck.rows[0].plan !== 'owner') {
-    await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['owner', req.user.id]);
+  try {
+    const adminCheck = await pool.query('SELECT role, plan FROM users WHERE id = $1', [req.user.id]);
+    if (!adminCheck.rows[0] || adminCheck.rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    // Auto-upgrade admins to owner plan if they aren't already
+    if (adminCheck.rows[0].plan !== 'owner') {
+      await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['owner', req.user.id]);
+    }
+    next();
+  } catch(e) {
+    console.error('[requireAdmin]', e.message);
+    res.status(500).json({ error: 'Server error' });
   }
-  next();
 }
 
 // Admin: list users with brand counts
@@ -278,7 +283,8 @@ router.post('/nearby-areas', auth, async (req, res) => {
     res.json({ areas, city: city.trim(), platform });
   } catch(e) {
     console.error('[Nearby Areas]', e.message);
-    res.status(500).json({ error: 'Failed to fetch nearby areas: ' + e.message });
+    // SECURITY: Don't expose internal error details to clients
+    res.status(500).json({ error: 'Failed to fetch nearby areas. Please try again.' });
   }
 });
 
