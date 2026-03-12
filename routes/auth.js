@@ -14,6 +14,7 @@ const { getPlanLimits } = require('../lib/plans');
 router.post('/register', async (req, res) => {
   const { email, password, name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
   try {
@@ -25,11 +26,11 @@ router.post('/register', async (req, res) => {
     const userName = name || email.split('@')[0];
     await pool.query(
       'INSERT INTO users (id, email, name, password_hash, plan) VALUES ($1, $2, $3, $4, $5)',
-      [id, email.toLowerCase(), userName, hash, 'agency']
+      [id, email.toLowerCase(), userName, hash, 'free']
     );
 
     const token = jwt.sign({ id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'agency', createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('agency') } });
+    res.json({ token, user: { id, email: email.toLowerCase(), name: userName, plan: 'free', createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
   } catch(e) {
     console.error('[Register]', e.message);
     res.status(500).json({ error: 'Registration failed' });
@@ -38,8 +39,9 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   try {
-    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    const result = await pool.query('SELECT id, email, name, plan, role, password_hash, api_keys, settings, created_at FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     const user = result.rows[0];
     if (!user) return res.status(400).json({ error: 'Invalid email or password' });
 

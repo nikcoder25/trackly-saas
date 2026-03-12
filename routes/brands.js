@@ -108,6 +108,9 @@ router.put('/:id', auth, async (req, res) => {
     if (safeBody.schedule && !limits.scheduledRuns) {
       return res.status(403).json({ error: `Scheduled runs are available on Pro and Agency plans. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
     }
+    if (safeBody.webhookUrl && safeBody.webhookUrl.trim() && !isWebhookUrlSafe(safeBody.webhookUrl.trim())) {
+      return res.status(400).json({ error: 'Webhook URL must be HTTPS and cannot target local/private addresses.' });
+    }
 
     const updated = { ...brand, ...safeBody, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
     await saveBrand(updated);
@@ -131,6 +134,7 @@ router.delete('/:id', auth, async (req, res) => {
 
 // Run queries
 router.post('/:id/run', auth, async (req, res) => {
+  try {
   const brand = await getBrand(req.params.id, req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
@@ -288,13 +292,32 @@ router.post('/:id/run', auth, async (req, res) => {
 
   const errorCount = allResults.filter(r => r.error).length;
   res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 8 - activePlatforms.length, errorCount } });
+  } catch(e) {
+    console.error('[Run]', e.message);
+    res.status(500).json({ error: 'Failed to run queries' });
+  }
 });
+
+// Validate webhook URL is safe (prevent SSRF)
+function isWebhookUrlSafe(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    // Reject localhost, private IPs, and metadata endpoints
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return false;
+    if (hostname === '169.254.169.254') return false; // cloud metadata
+    if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false;
+    if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+    return true;
+  } catch { return false; }
+}
 
 // Webhook alert helper
 async function sendWebhookAlert(brand, run, previousSOV) {
   if (!brand.webhookUrl) return;
   const url = brand.webhookUrl.trim();
-  if (!url.startsWith('http')) return;
+  if (!isWebhookUrlSafe(url)) { console.warn(`[Webhook] Blocked unsafe URL: ${url}`); return; }
 
   const sov = run.sov;
   const change = sov - previousSOV;

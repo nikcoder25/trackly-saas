@@ -28,7 +28,10 @@ initDB().catch(e => {
 });
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+  credentials: true
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -45,13 +48,13 @@ const { runBrandQueries } = require('./routes/brands');
 
 cron.schedule('0 * * * *', async () => {
   try {
-    const result = await pool.query('SELECT b.*, u.api_keys FROM brands b JOIN users u ON b.user_id = u.id');
+    const result = await pool.query('SELECT b.* FROM brands b JOIN users u ON b.user_id = u.id');
     const now = Date.now();
     for (const row of result.rows) {
       const brand = { id: row.id, userId: row.user_id, ...row.data };
       if (!brand.schedule) continue;
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
-      const intervalMs = brand.schedule * 1000;
+      const intervalMs = brand.schedule * 3600 * 1000; // schedule is in hours
       if (now - lastRun >= intervalMs) {
         console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
         try {

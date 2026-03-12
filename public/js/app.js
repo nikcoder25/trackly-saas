@@ -38,6 +38,7 @@ let runningQueries = false;
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
 // Simple markdown to HTML for AI responses
 function mdToHtml(s){
   if (!s) return '';
@@ -83,7 +84,7 @@ function brandHighlightRe(b){
   const escaped = terms.filter(t=>t&&t.length>=2).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
   if (!escaped.length) return null;
   // Sort longest first so longer matches take priority
-  escaped.sort((a,b) => b.length - a.length);
+  escaped.sort((x,y) => y.length - x.length);
   return new RegExp('\\b('+escaped.join('|')+')\\b', 'gi');
 }
 function toast(msg, type='ok'){
@@ -94,8 +95,8 @@ function toast(msg, type='ok'){
 }
 function show(id){ const e=el(id); if(e) e.style.display='block'; }
 function hide(id){ const e=el(id); if(e) e.style.display='none'; }
-function closeModal(id){ el(id).classList.remove('open'); }
-function openModal(id){ el(id).classList.add('open'); }
+function closeModal(id){ const e=el(id); if(e) e.classList.remove('open'); }
+function openModal(id){ const e=el(id); if(e) e.classList.add('open'); }
 function copyResponse(){
   const text = el('resp-modal-text').innerText;
   navigator.clipboard.writeText(text).then(() => {
@@ -104,7 +105,7 @@ function copyResponse(){
     btn.style.color = 'var(--green)';
     btn.style.borderColor = 'var(--green)';
     setTimeout(() => { btn.textContent = 'COPY RESPONSE'; btn.style.color = 'var(--muted)'; btn.style.borderColor = 'var(--border)'; }, 2000);
-  });
+  }).catch(() => toast('Copy failed', 'err'));
 }
 
 function brand(){
@@ -503,7 +504,8 @@ function showUpgradeModal(reason) {
 async function doUpgrade(plan) {
   const current = (currentUser && currentUser.plan) || 'free';
   if (plan === current) return;
-  const action = ['pro','agency'].includes(plan) && current === 'free' ? 'upgrade' : plan === 'free' ? 'downgrade' : 'switch';
+  const tiers = {free:0, pro:1, agency:2};
+  const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
     const data = await api('POST', '/api/upgrade', { plan });
@@ -714,6 +716,14 @@ async function bulkAddQueries(){
   const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
   const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
   if (!unique.length) { toast('All queries already exist', 'err'); return; }
+  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  const currentCount = (b.queries||[]).length;
+  if (currentCount + unique.length > queryLimit) {
+    const allowed = queryLimit - currentCount;
+    if (allowed <= 0) { toast('Query limit reached (' + queryLimit + '). Upgrade your plan.', 'err'); return; }
+    unique.splice(allowed);
+    toast('Only ' + allowed + ' queries added (plan limit: ' + queryLimit + ')', 'warn');
+  }
   const queries = [...(b.queries||[]), ...unique];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
@@ -839,7 +849,7 @@ function openResp(mentionId){
   const cites = m.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
   } else cc.innerHTML = '';
   openModal('resp-modal');
 }
@@ -856,7 +866,7 @@ function openResultFromRun(runId, platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.style.whiteSpace = 'normal';
@@ -868,7 +878,7 @@ function openResultFromRun(runId, platform, encodedQuery){
   const cites = result.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
   } else cc.innerHTML = '';
   openModal('resp-modal');
 }
@@ -885,7 +895,7 @@ function openFullResult(platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.style.whiteSpace = 'normal';
@@ -897,7 +907,7 @@ function openFullResult(platform, encodedQuery){
   const cites = result.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
   } else cc.innerHTML = '';
   openModal('resp-modal');
 }
@@ -1057,18 +1067,19 @@ function exportProofCSV(){
   const b = brand(); if (!b) return;
   const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
   if (!run) return;
-  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response']];
+  function csvField(val){ const s = String(val||'').replace(/"/g,'""').replace(/\n/g,' '); return '"'+s+'"'; }
+  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response'].map(csvField).join(',')];
   const allResults = run.allResults || [];
   if (allResults.length) {
     allResults.forEach(r => {
-      rows.push([r.platform, '"'+r.query.replace(/"/g,"'")+'"', r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', '"'+(r.raw||r.context||'').replace(/"/g,"'").replace(/\n/g,' ')+'"']);
+      rows.push([r.platform, r.query, r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', r.raw||r.context||''].map(csvField).join(','));
     });
   } else {
     (run.mentions||[]).forEach(m => {
-      rows.push([m.platform, '"'+m.query.replace(/"/g,"'")+'"', 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', '"'+(m.raw||m.context||'').replace(/"/g,"'").replace(/\n/g,' ')+'"']);
+      rows.push([m.platform, m.query, 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', m.raw||m.context||''].map(csvField).join(','));
     });
   }
-  const csv = rows.map(r=>r.join(',')).join('\n');
+  const csv = rows.join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv,' + encodeURIComponent(csv);
   a.download = 'trackly-proof-'+run.date+'.csv';
@@ -1381,8 +1392,12 @@ async function loadQuerySuggestions(){
     if (!suggestions.length) { toast('No suggestions available', 'warn'); return; }
     // Show in a modal-like dropdown
     const existing = new Set((b.queries || []).map(q => q.toLowerCase()));
-    const newSuggestions = suggestions.filter(s => !existing.has(s.toLowerCase()));
+    let newSuggestions = suggestions.filter(s => !existing.has(s.toLowerCase()));
     if (!newSuggestions.length) { toast('All suggestions already added!', 'ok'); return; }
+    const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+    const remaining = queryLimit - (b.queries || []).length;
+    if (remaining <= 0) { toast('Query limit reached. Upgrade your plan.', 'err'); return; }
+    if (newSuggestions.length > remaining) newSuggestions = newSuggestions.slice(0, remaining);
     const pick = confirm('Add ' + newSuggestions.length + ' suggested queries?\n\n' + newSuggestions.join('\n'));
     if (!pick) return;
     const queries = [...(b.queries || []), ...newSuggestions];
@@ -1441,22 +1456,29 @@ function renderAliasTags(){
   });
 }
 
-function addAlias(){
+async function addAlias(){
   const b = brand(); if (!b) return;
   const inp = el('alias-input');
   const val = inp.value.trim();
   if (!val) return;
   const aliases = [...(b.aliases||[])];
   if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
-  b.aliases = aliases;
-  inp.value = '';
-  renderAliasTags();
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    inp.value = '';
+    renderAliasTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 async function removeAlias(i){
   const b = brand(); if (!b) return;
-  b.aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
-  renderAliasTags();
+  const aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAliasTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function autoGenerateAliases(){
@@ -1490,21 +1512,29 @@ function renderAreaTags(){
   });
 }
 
-function addArea(){
+async function addArea(){
   const b = brand(); if (!b) return;
   const inp = el('area-input');
   const val = inp.value.trim();
   if (!val) return;
-  if (!b.nearbyAreas) b.nearbyAreas = [];
-  if (!b.nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) b.nearbyAreas.push(val);
-  inp.value = '';
-  renderAreaTags();
+  const nearbyAreas = [...(b.nearbyAreas||[])];
+  if (!nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) nearbyAreas.push(val);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    inp.value = '';
+    renderAreaTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
-function removeArea(i){
+async function removeArea(i){
   const b = brand(); if (!b) return;
-  b.nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
-  renderAreaTags();
+  const nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAreaTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function renderSetup(){
