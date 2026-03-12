@@ -285,3 +285,11 @@ select.finput{appearance:none;}
   .key-grid{grid-template-columns:1fr;}
 }
 .hamburger-btn{display:none;}
+
+/* ── TABLE SCROLL WRAPPER (mobile) ─── */
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.table-scroll .tbl{min-width:600px;}
+
+/* ── LOADING SPINNER ──────────────── */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}

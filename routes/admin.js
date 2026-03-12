@@ -4,7 +4,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool } = require('../config/db');
+const { pool, auditLog, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
@@ -46,10 +46,20 @@ router.post('/upgrade', auth, async (req, res) => {
       [plan, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    auditLog(req.user.id, 'plan_change', 'user', req.user.id, { from: currentPlan, to: plan }, req.ip);
     res.json({ user: safeUser(result.rows[0]), message: `Plan updated to ${plan}` });
   } catch(e) {
     res.status(500).json({ error: 'Failed to update plan' });
   }
+});
+
+// Stripe webhook stub — handle payment confirmation
+router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  // TODO: Verify Stripe signature with STRIPE_WEBHOOK_SECRET
+  // const sig = req.headers['stripe-signature'];
+  // const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  console.log('[Stripe] Webhook received (stub)');
+  res.json({ received: true });
 });
 
 // Admin middleware
@@ -124,6 +134,7 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     // Get brand count
     const bc = await pool.query('SELECT COUNT(*)::int AS cnt FROM brands WHERE user_id = $1', [req.params.id]);
+    auditLog(req.user.id, 'admin_update_user', 'user', req.params.id, { changes: req.body }, req.ip);
     res.json({ user: { ...safeUser(result.rows[0]), brandCount: bc.rows[0]?.cnt || 0 } });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
@@ -286,6 +297,198 @@ router.post('/nearby-areas', auth, async (req, res) => {
     // SECURITY: Don't expose internal error details to clients
     res.status(500).json({ error: 'Failed to fetch nearby areas. Please try again.' });
   }
+});
+
+// Admin: view audit logs
+router.get('/admin/audit-logs', auth, requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const result = await pool.query(
+      `SELECT a.*, u.email AS user_email FROM audit_logs a
+       LEFT JOIN users u ON a.user_id = u.id
+       ORDER BY a.created_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM audit_logs');
+    res.json({ logs: result.rows, total: countResult.rows[0].total });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load audit logs' });
+  }
+});
+
+// Data export — full brand data as JSON
+router.get('/export/brand/:id', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
+    const row = result.rows[0];
+    const brandData = { id: row.id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at };
+    // Include archived runs
+    const archived = await pool.query('SELECT data FROM archived_runs WHERE brand_id = $1 ORDER BY run_date', [req.params.id]);
+    brandData.archivedRuns = archived.rows.map(r => r.data);
+    res.setHeader('Content-Disposition', `attachment; filename="trackly-${brandData.name || 'brand'}-export.json"`);
+    res.json(brandData);
+  } catch(e) {
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+// Data export — all brands as JSON
+router.get('/export/all', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
+    const brands = result.rows.map(row => ({ id: row.id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
+    const userResult = await pool.query('SELECT email, name, plan, created_at FROM users WHERE id = $1', [req.user.id]);
+    const user = userResult.rows[0] || {};
+    res.setHeader('Content-Disposition', 'attachment; filename="trackly-full-export.json"');
+    res.json({ exportDate: new Date().toISOString(), user: { email: user.email, name: user.name, plan: user.plan, createdAt: user.created_at }, brands });
+  } catch(e) {
+    res.status(500).json({ error: 'Export failed' });
+  }
+});
+
+// Data export — brand as CSV
+router.get('/export/brand/:id/csv', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
+    const data = result.rows[0].data;
+    const runs = data.runs || [];
+    const csvField = (val) => '"' + String(val || '').replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+    let rows = ['Date,Platform,Query,Mentioned,Sentiment,Recommended,Model,SOV,Response'];
+    runs.forEach(run => {
+      (run.allResults || run.mentions || []).forEach(r => {
+        rows.push([run.date || '', r.platform || '', r.query || '', r.mentioned ? 'Yes' : 'No', r.sentiment || '', r.recommended ? 'Yes' : 'No', r.model || '', run.sov || 0, r.raw || r.context || ''].map(csvField).join(','));
+      });
+    });
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="trackly-${data.name || 'brand'}-data.csv"`);
+    res.send(rows.join('\n'));
+  } catch(e) {
+    res.status(500).json({ error: 'CSV export failed' });
+  }
+});
+
+// ─── Notifications ────────────────────────────────────
+router.get('/notifications', auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
+      [req.user.id]
+    );
+    const unreadCount = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read = FALSE',
+      [req.user.id]
+    );
+    res.json({ notifications: result.rows, unread: unreadCount.rows[0].count });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+router.post('/notifications/read', auth, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (ids && Array.isArray(ids)) {
+      await pool.query('UPDATE notifications SET read = TRUE WHERE user_id = $1 AND id = ANY($2::int[])', [req.user.id, ids]);
+    } else {
+      await pool.query('UPDATE notifications SET read = TRUE WHERE user_id = $1', [req.user.id]);
+    }
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to mark as read' });
+  }
+});
+
+// ─── Team / Workspace ─────────────────────────────────
+router.get('/team', auth, async (req, res) => {
+  try {
+    const members = await pool.query(
+      `SELECT tm.id, tm.role, tm.created_at, u.id AS user_id, u.email, u.name
+       FROM team_members tm JOIN users u ON tm.member_id = u.id
+       WHERE tm.owner_id = $1 ORDER BY tm.created_at`,
+      [req.user.id]
+    );
+    res.json({ members: members.rows });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load team' });
+  }
+});
+
+router.post('/team/invite', auth, async (req, res) => {
+  const { email, role } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  const plan = await require('../lib/plans').getUserPlan(req.user.id);
+  if (plan !== 'agency' && plan !== 'owner') {
+    return res.status(403).json({ error: 'Team members are available on Agency and Owner plans.' });
+  }
+  try {
+    const userResult = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found. They must register first.' });
+    const memberId = userResult.rows[0].id;
+    if (memberId === req.user.id) return res.status(400).json({ error: 'Cannot add yourself as a team member' });
+    await pool.query(
+      'INSERT INTO team_members (owner_id, member_id, role) VALUES ($1, $2, $3) ON CONFLICT (owner_id, member_id) DO UPDATE SET role = $3',
+      [req.user.id, memberId, role || 'viewer']
+    );
+    await notify(memberId, 'team_invite', 'Team Invitation', `You have been added to a team by ${req.user.email}`, { ownerId: req.user.id });
+    auditLog(req.user.id, 'team_invite', 'user', memberId, { email, role: role || 'viewer' }, req.ip);
+    res.json({ success: true, message: 'Team member added' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to add team member' });
+  }
+});
+
+router.delete('/team/:memberId', auth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM team_members WHERE owner_id = $1 AND member_id = $2', [req.user.id, req.params.memberId]);
+    auditLog(req.user.id, 'team_remove', 'user', req.params.memberId, {}, req.ip);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to remove team member' });
+  }
+});
+
+// ─── API Documentation ───────────────────────────────
+router.get('/docs', (req, res) => {
+  res.json({
+    name: 'Trackly API',
+    version: '1.0',
+    baseUrl: '/api',
+    authentication: 'Bearer token in Authorization header. Obtain via POST /api/auth/login.',
+    endpoints: [
+      { method: 'POST', path: '/api/auth/register', description: 'Register a new account', body: { email: 'string', password: 'string', name: 'string?' } },
+      { method: 'POST', path: '/api/auth/login', description: 'Log in and get tokens', body: { email: 'string', password: 'string' } },
+      { method: 'POST', path: '/api/auth/refresh', description: 'Refresh access token', body: { refreshToken: 'string' } },
+      { method: 'GET', path: '/api/auth/me', description: 'Get current user info', auth: true },
+      { method: 'POST', path: '/api/auth/change-password', description: 'Change password', auth: true, body: { currentPassword: 'string', newPassword: 'string' } },
+      { method: 'POST', path: '/api/auth/forgot-password', description: 'Request password reset', body: { email: 'string' } },
+      { method: 'POST', path: '/api/auth/reset-password', description: 'Reset password with token', body: { token: 'string', newPassword: 'string' } },
+      { method: 'GET', path: '/api/auth/verify-email', description: 'Verify email with token', query: { token: 'string' } },
+      { method: 'GET', path: '/api/brands', description: 'List all brands', auth: true },
+      { method: 'POST', path: '/api/brands', description: 'Create a brand', auth: true, body: { name: 'string', industry: 'string?', website: 'string?', city: 'string?' } },
+      { method: 'GET', path: '/api/brands/:id', description: 'Get a brand', auth: true },
+      { method: 'PUT', path: '/api/brands/:id', description: 'Update a brand', auth: true },
+      { method: 'DELETE', path: '/api/brands/:id', description: 'Delete a brand', auth: true },
+      { method: 'POST', path: '/api/brands/:id/run', description: 'Run AI queries for a brand', auth: true },
+      { method: 'GET', path: '/api/keys/status', description: 'Get API key status', auth: true },
+      { method: 'GET', path: '/api/plans', description: 'Get plan information', auth: true },
+      { method: 'POST', path: '/api/upgrade', description: 'Change plan (downgrade or request upgrade)', auth: true, body: { plan: 'free|pro|agency' } },
+      { method: 'GET', path: '/api/models', description: 'Get available AI models', auth: true },
+      { method: 'GET', path: '/api/settings', description: 'Get user settings', auth: true },
+      { method: 'PUT', path: '/api/settings', description: 'Update user settings', auth: true },
+      { method: 'GET', path: '/api/notifications', description: 'Get notifications', auth: true },
+      { method: 'POST', path: '/api/notifications/read', description: 'Mark notifications as read', auth: true },
+      { method: 'GET', path: '/api/team', description: 'List team members', auth: true },
+      { method: 'POST', path: '/api/team/invite', description: 'Invite team member (Agency+)', auth: true, body: { email: 'string', role: 'viewer|editor?' } },
+      { method: 'GET', path: '/api/export/all', description: 'Export all brands as JSON', auth: true },
+      { method: 'GET', path: '/api/export/brand/:id', description: 'Export brand as JSON', auth: true },
+      { method: 'GET', path: '/api/export/brand/:id/csv', description: 'Export brand as CSV', auth: true },
+      { method: 'GET', path: '/api/health', description: 'Health check' },
+      { method: 'GET', path: '/api/docs', description: 'This API documentation' }
+    ]
+  });
 });
 
 // Health check (no sensitive data exposed)

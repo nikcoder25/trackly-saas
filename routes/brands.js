@@ -4,7 +4,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool } = require('../config/db');
+const { pool, auditLog } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
@@ -292,7 +292,20 @@ router.post('/:id/run', auth, async (req, res) => {
 
   if (!brand.runs) brand.runs = [];
   brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
-  if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
+
+  // Archive old runs to separate table to prevent unbounded JSONB growth
+  if (brand.runs.length > 30) {
+    const toArchive = brand.runs.slice(0, brand.runs.length - 30);
+    for (const run of toArchive) {
+      try {
+        await pool.query(
+          'INSERT INTO archived_runs (id, brand_id, run_date, data) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+          [run.id, brand.id, run.date || run.time?.split('T')[0] || today, JSON.stringify(run)]
+        );
+      } catch(e) { /* ignore archive errors */ }
+    }
+    brand.runs = brand.runs.slice(-30);
+  }
 
   // Rebuild queryStats
   const qsNew = {};
@@ -499,7 +512,20 @@ async function runBrandQueries(brand) {
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   if (!brand.runs) brand.runs = [];
   brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
-  if (brand.runs.length > 50) brand.runs = brand.runs.slice(-50);
+
+  // Archive old runs
+  if (brand.runs.length > 30) {
+    const toArchive = brand.runs.slice(0, brand.runs.length - 30);
+    for (const run of toArchive) {
+      try {
+        await pool.query(
+          'INSERT INTO archived_runs (id, brand_id, run_date, data) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+          [run.id, brand.id, run.date || today, JSON.stringify(run)]
+        );
+      } catch(e) { /* ignore */ }
+    }
+    brand.runs = brand.runs.slice(-30);
+  }
 
   if (!brand.mentions) brand.mentions = [];
   const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
