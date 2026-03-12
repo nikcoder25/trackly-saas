@@ -12,7 +12,7 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB, notify } = require('./config/db');
+const { pool, initDB, notify, cleanupApiLogs } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 
@@ -198,6 +198,10 @@ const server = app.listen(PORT, () => {
     .map(([platform, arr]) => `${platform}: ${arr.length} key(s)`)
     .join(', ');
   console.log(`[API Keys] ${keyInfo}`);
+
+  // Cleanup old API logs daily at startup and every 24h
+  cleanupApiLogs();
+  setInterval(cleanupApiLogs, 24 * 60 * 60 * 1000);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────

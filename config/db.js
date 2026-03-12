@@ -84,10 +84,26 @@ async function initDB() {
       );
       CREATE INDEX IF NOT EXISTS idx_archived_runs_brand_id ON archived_runs(brand_id);
       CREATE INDEX IF NOT EXISTS idx_archived_runs_date ON archived_runs(run_date);
+      CREATE TABLE IF NOT EXISTS api_logs (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        brand_id TEXT,
+        platform TEXT NOT NULL,
+        query TEXT,
+        status TEXT NOT NULL DEFAULT 'ok',
+        error TEXT,
+        key_hint TEXT,
+        model TEXT,
+        response_ms INTEGER,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
       CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
       CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
       CREATE INDEX IF NOT EXISTS idx_team_members_owner ON team_members(owner_id);
       CREATE INDEX IF NOT EXISTS idx_team_members_member ON team_members(member_id);
+      CREATE INDEX IF NOT EXISTS idx_api_logs_user_id ON api_logs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_api_logs_brand_id ON api_logs(brand_id);
     `);
     // Migrations for existing DBs
     await client.query(`
@@ -124,4 +140,29 @@ async function notify(userId, type, title, message, data) {
   }
 }
 
-module.exports = { pool, initDB, auditLog, notify };
+async function logApiCall(entry) {
+  try {
+    await pool.query(
+      `INSERT INTO api_logs (user_id, brand_id, platform, query, status, error, key_hint, model, response_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        entry.userId || null, entry.brandId || null, entry.platform,
+        entry.query || null, entry.status || 'ok', entry.error || null,
+        entry.keyHint || null, entry.model || null, entry.responseMs || null
+      ]
+    );
+  } catch(e) {
+    console.error('[ApiLog]', e.message);
+  }
+}
+
+// Cleanup old api_logs (keep last 7 days) — call periodically
+async function cleanupApiLogs() {
+  try {
+    await pool.query("DELETE FROM api_logs WHERE created_at < NOW() - INTERVAL '7 days'");
+  } catch(e) {
+    console.error('[ApiLog cleanup]', e.message);
+  }
+}
+
+module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs };
