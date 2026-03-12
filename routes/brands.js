@@ -134,6 +134,8 @@ router.delete('/:id', auth, async (req, res) => {
 
 // Run queries
 router.post('/:id/run', auth, async (req, res) => {
+  // Allow up to 5 minutes for large query runs across multiple platforms
+  req.setTimeout(300000);
   try {
   const brand = await getBrand(req.params.id, req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
@@ -207,9 +209,11 @@ router.post('/:id/run', auth, async (req, res) => {
         })
       );
 
-      for (const settled of batchResults) {
+      for (let bi = 0; bi < batchResults.length; bi++) {
+        const settled = batchResults[bi];
+        const q = batch[bi];
         if (settled.status === 'fulfilled') {
-          const { q, result } = settled.value;
+          const { result } = settled.value;
           if (!result) { totalQ++; continue; }
           const { text, citations: extraCites, model: modelUsed } = result;
           const parsed = parseResponse(text, brand, q);
@@ -241,7 +245,6 @@ router.post('/:id/run', auth, async (req, res) => {
             });
           }
         } else {
-          const q = batch[batchResults.indexOf(settled)];
           const errMsg = settled.reason?.message || 'Unknown error';
           console.error(`[${plat}] API error for query "${q}":`, errMsg);
           allResults.push({
@@ -418,9 +421,11 @@ async function runBrandQueries(brand) {
           return { q, result };
         })
       );
-      for (const settled of batchResults) {
+      for (let bi = 0; bi < batchResults.length; bi++) {
+        const settled = batchResults[bi];
+        const q = batch[bi];
         if (settled.status === 'fulfilled') {
-          const { q, result } = settled.value;
+          const { result } = settled.value;
           if (!result) { totalQ++; continue; }
           const { text, citations: extraCites, model: modelUsed } = result;
           const parsed = parseResponse(text, brand, q);
@@ -449,7 +454,6 @@ async function runBrandQueries(brand) {
             });
           }
         } else {
-          const q = batch[batchResults.indexOf(settled)];
           const errMsg = settled.reason?.message || 'Unknown error';
           console.error(`[Cron][${plat}] API error for "${q}":`, errMsg);
           allResults.push({
