@@ -10,14 +10,16 @@ const { safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 
-// API key status
+// API key status (includes key counts for rotation visibility)
 router.get('/keys/status', auth, (req, res) => {
   const keys = getServerKeys();
-  res.json({
-    openai: keys.openai.length > 0, perplexity: keys.perplexity.length > 0,
-    gemini: keys.gemini.length > 0, claude: keys.claude.length > 0,
-    grok: keys.grok.length > 0, deepseek: keys.deepseek.length > 0, mistral: keys.mistral.length > 0
-  });
+  const status = {};
+  const counts = {};
+  for (const [platform, arr] of Object.entries(keys)) {
+    status[platform] = arr.length > 0;
+    counts[platform] = arr.length;
+  }
+  res.json({ ...status, keyCounts: counts });
 });
 
 // Plan info

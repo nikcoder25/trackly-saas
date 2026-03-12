@@ -14,6 +14,7 @@ const path        = require('path');
 
 const { pool, initDB, notify } = require('./config/db');
 const { auth }         = require('./middleware/auth');
+const { getServerKeys } = require('./lib/helpers');
 
 // Route modules
 const authRoutes    = require('./routes/auth');
@@ -191,6 +192,12 @@ const server = app.listen(PORT, () => {
   ║  JWT_SECRET: ${process.env.JWT_SECRET ? 'SET ✓' : 'NOT SET ✗'}                     ║
   ╚══════════════════════════════════════════╝
   `);
+  // Log loaded API key counts for debugging rotation
+  const keys = getServerKeys();
+  const keyInfo = Object.entries(keys)
+    .map(([platform, arr]) => `${platform}: ${arr.length} key(s)`)
+    .join(', ');
+  console.log(`[API Keys] ${keyInfo}`);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────
