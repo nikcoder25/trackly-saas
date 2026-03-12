@@ -1082,6 +1082,54 @@ async function ovRemoveQuery(i){
   } catch(e) { toast(e.message, 'err'); }
 }
 
+async function clearAllQueries(){
+  const b = brand(); if (!b) return;
+  if (!(b.queries||[]).length) { toast('No queries to clear', 'warn'); return; }
+  if (!confirm('Clear all ' + b.queries.length + ' queries? This cannot be undone.')) return;
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries: [] });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderOverview();
+    toast('All queries cleared', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function aiGenerateQueries(){
+  const b = brand(); if (!b) return;
+  if (!b.name) { toast('Set brand name first', 'err'); return; }
+  if (!b.industry) { toast('Set industry in Brand Setup first', 'err'); return; }
+  const btn = el('ai-gen-queries-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'GENERATING...';
+  btn.disabled = true;
+  try {
+    const data = await api('POST', '/api/ai-generate-queries', {
+      brandName: b.name,
+      industry: b.industry,
+      city: b.city || '',
+      existingQueries: b.queries || []
+    });
+    const suggestions = data.queries || [];
+    if (!suggestions.length) { toast('AI could not generate queries. Try again.', 'warn'); return; }
+    // Deduplicate
+    const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+    let newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
+    if (!newQs.length) { toast('All generated queries already exist!', 'ok'); return; }
+    const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+    const remaining = queryLimit - (b.queries||[]).length;
+    if (remaining <= 0) { toast('Query limit reached. Upgrade your plan.', 'err'); return; }
+    if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
+    const pick = confirm('Add ' + newQs.length + ' AI-generated queries?\n\n' + newQs.join('\n'));
+    if (!pick) return;
+    const queries = [...(b.queries||[]), ...newQs];
+    const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    brands[brands.findIndex(x=>x.id===b.id)] = result.brand;
+    renderOverview();
+    toast(newQs.length + ' AI-generated queries added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { btn.textContent = origText; btn.disabled = false; }
+}
+
 // ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
 let mentionsPage = 0;
 const MENTIONS_PER_PAGE = 25;

@@ -255,6 +255,59 @@ router.get('/query-suggestions', auth, (req, res) => {
   res.json({ suggestions });
 });
 
+// AI-powered query generation
+router.post('/ai-generate-queries', auth, async (req, res) => {
+  const { brandName, industry, city, existingQueries } = req.body;
+  if (!brandName || !industry) return res.status(400).json({ error: 'Brand name and industry are required' });
+
+  const keys = getServerKeys();
+  const platformOrder = ['deepseek', 'gemini', 'openai', 'mistral', 'claude', 'perplexity', 'grok'];
+  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', mistral: 'Mistral', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
+  let platform = null;
+  for (const p of platformOrder) {
+    if (keys[p] && keys[p].length > 0) { platform = platformMap[p]; break; }
+  }
+  if (!platform) return res.status(400).json({ error: 'No AI platform API keys configured.' });
+
+  const existingList = (existingQueries || []).length > 0
+    ? `\n\nAlready tracked queries (do NOT repeat these):\n${existingQueries.join('\n')}`
+    : '';
+
+  const prompt = `Generate 10-15 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
+
+These queries will be used to track whether the brand "${brandName}" appears in AI responses.
+
+Requirements:
+- Mix of general queries ("best ${industry} in ${city || 'my area'}") and specific queries ("affordable", "top rated", "most recommended", "near me")
+- Include different question styles: "who is the best...", "recommend a...", "top 5...", "which company..."
+- Include queries with and without location
+- Make them natural — how real people actually ask AI chatbots
+- Return ONLY a JSON array of strings, nothing else${existingList}
+
+Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${industry} company"]`;
+
+  try {
+    const { queryAI } = require('../lib/ai-platforms');
+    const result = await queryAI(prompt, platform, {}, keys, {});
+    if (!result || !result.text) return res.status(500).json({ error: 'AI returned empty response' });
+
+    const text = result.text.trim();
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(500).json({ error: 'Could not parse queries from AI response' });
+
+    const queries = JSON.parse(jsonMatch[0])
+      .filter(q => typeof q === 'string' && q.trim().length > 0)
+      .map(q => q.trim())
+      .slice(0, 15);
+
+    if (!queries.length) return res.status(500).json({ error: 'No queries generated' });
+    res.json({ queries, platform });
+  } catch(e) {
+    console.error('[AI Generate Queries]', e.message);
+    res.status(500).json({ error: 'Failed to generate queries. Please try again.' });
+  }
+});
+
 // Auto-fetch nearby areas for a city using AI
 router.post('/nearby-areas', auth, async (req, res) => {
   const { city } = req.body;
