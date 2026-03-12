@@ -149,12 +149,23 @@ function updatePasswordStrength(pw){
 }
 
 async function api(method, path, data){
+  // Longer timeout for run endpoints (5 min), default 30s for other calls
+  const timeoutMs = path.includes('/run') ? 300000 : 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    signal: controller.signal
   };
   if (data) opts.body = JSON.stringify(data);
-  let res = await fetch(API + path, opts);
+  let res;
+  try { res = await fetch(API + path, opts); } catch(e) {
+    clearTimeout(timeoutId);
+    if (e.name === 'AbortError') throw new Error('Request timed out. Please try again.');
+    throw e;
+  }
+  clearTimeout(timeoutId);
   // Auto-refresh token on 401 (not for auth endpoints themselves)
   if (res.status === 401 && refreshToken && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
     try {
@@ -297,10 +308,6 @@ async function doForgotPassword(){
     msgEl.textContent = data.message || 'Reset link sent. Check your email.';
     msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.background = 'rgba(0,255,136,.05)';
     msgEl.style.display = 'block';
-    // In dev mode, show the token for testing
-    if (data._devToken) {
-      msgEl.innerHTML += '<br><br><span style="font-size:10px;color:var(--amber);">DEV: Reset token: ' + data._devToken + '</span>';
-    }
   } catch(e) {
     msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.background = 'rgba(255,68,85,.05)';
     msgEl.style.display = 'block';
@@ -2561,7 +2568,6 @@ async function runQueries(){
 }
 
 // ─── API LOGS / DIAGNOSTICS ─────────────────────────────────────
-let apiLogsData = null;
 async function renderApiLogs(){
   const container = el('apilogs-content');
   container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading API logs from server...</div>';
