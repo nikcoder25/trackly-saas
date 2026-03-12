@@ -34,6 +34,11 @@ router.post('/', auth, async (req, res) => {
   try {
     const { name, industry, website, city, goal } = req.body;
     if (!name) return res.status(400).json({ error: 'Brand name required' });
+    // Input length validation
+    if (typeof name !== 'string' || name.length > 100) return res.status(400).json({ error: 'Brand name must be 100 characters or less' });
+    if (industry && (typeof industry !== 'string' || industry.length > 100)) return res.status(400).json({ error: 'Industry must be 100 characters or less' });
+    if (website && (typeof website !== 'string' || website.length > 500)) return res.status(400).json({ error: 'Website URL too long' });
+    if (city && (typeof city !== 'string' || city.length > 100)) return res.status(400).json({ error: 'City must be 100 characters or less' });
 
     const countResult = await pool.query('SELECT COUNT(*) FROM brands WHERE user_id = $1', [req.user.id]);
     const plan = await getUserPlan(req.user.id);
@@ -97,6 +102,23 @@ router.put('/:id', auth, async (req, res) => {
     const safeBody = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) safeBody[key] = req.body[key];
+    }
+
+    // Input length validation for string fields
+    const strLimits = { name: 100, industry: 100, website: 500, description: 1000, city: 100, webhookUrl: 500 };
+    for (const [field, maxLen] of Object.entries(strLimits)) {
+      if (safeBody[field] && (typeof safeBody[field] !== 'string' || safeBody[field].length > maxLen)) {
+        return res.status(400).json({ error: `${field} must be ${maxLen} characters or less` });
+      }
+    }
+    // Validate array fields have string items with reasonable lengths
+    const arrLimits = { queries: 300, competitors: 100, aliases: 100, locations: 100, nearbyAreas: 100 };
+    for (const [field, maxItemLen] of Object.entries(arrLimits)) {
+      if (safeBody[field] && Array.isArray(safeBody[field])) {
+        if (safeBody[field].some(item => typeof item !== 'string' || item.length > maxItemLen)) {
+          return res.status(400).json({ error: `Each ${field} item must be a string of ${maxItemLen} characters or less` });
+        }
+      }
     }
 
     if (safeBody.queries && safeBody.queries.length > limits.queries) {

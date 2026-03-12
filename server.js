@@ -16,10 +16,11 @@ const { pool, initDB } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 
 // Route modules
-const authRoutes  = require('./routes/auth');
-const brandRoutes = require('./routes/brands');
-const adminRoutes = require('./routes/admin');
-const seoRoutes   = require('./routes/seo');
+const authRoutes    = require('./routes/auth');
+const brandRoutes   = require('./routes/brands');
+const adminRoutes   = require('./routes/admin');
+const seoRoutes     = require('./routes/seo');
+const paymentRoutes = require('./routes/payments');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -75,16 +76,31 @@ app.use('/api/', apiLimiter);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── API ROUTES ──────────────────────────────────────────────────
-app.use('/api/auth',   authRoutes);
-app.use('/api/brands', brandRoutes);
-app.use('/api',        adminRoutes);
+app.use('/api/auth',     authRoutes);
+app.use('/api/brands',   brandRoutes);
+app.use('/api',          adminRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // ─── Admin panel page (secured with ADMIN_SECRET) ───────────────
 app.get('/admin', (req, res) => {
   const secret = process.env.ADMIN_SECRET;
-  if (!secret || req.query.key !== secret) {
+  if (!secret) return res.status(404).send('Not found');
+  // Accept secret via X-Admin-Key header (preferred) or query param (legacy)
+  const provided = req.headers['x-admin-key'] || req.query.key || '';
+  // Use timing-safe comparison to prevent timing attacks
+  if (typeof provided !== 'string' || provided.length !== secret.length) {
     return res.status(404).send('Not found');
   }
+  try {
+    const crypto = require('crypto');
+    if (!crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(secret))) {
+      return res.status(404).send('Not found');
+    }
+  } catch(e) {
+    return res.status(404).send('Not found');
+  }
+  // Set Cache-Control to prevent caching of admin page with secret in URL
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
