@@ -8,7 +8,7 @@ const { pool } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
-const { queryAI, fetchJSON } = require('../lib/ai-platforms');
+const { queryAI, fetchJSON, resetBatchCount } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors } = require('../lib/parser');
 
 const PLATFORM_KEY_MAP = {
@@ -190,6 +190,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
   for (const plat of activePlatforms) {
     let pm = 0;
+    resetBatchCount(plat);
     for (const q of queries) {
       try {
         // Rate limiting is handled per-platform inside queryAI
@@ -382,6 +383,7 @@ async function runBrandQueries(brand) {
 
   for (const plat of activePlatforms) {
     let pm = 0;
+    resetBatchCount(plat);
     for (const q of queries) {
       try {
         const result = await queryAI(q, plat, brand, keys, modelPrefs);
