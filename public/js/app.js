@@ -62,6 +62,22 @@ function mdToHtml(s){
   h = h.replace(/\n/g, '<br>');
   return h;
 }
+// Persistent error storage (survives page reloads and brand data refreshes)
+function storeRunError(entry) {
+  try {
+    const errors = JSON.parse(localStorage.getItem('trackly_run_errors') || '[]');
+    errors.unshift(entry);
+    // Keep last 20 errors
+    localStorage.setItem('trackly_run_errors', JSON.stringify(errors.slice(0, 20)));
+  } catch(_) {}
+}
+function getStoredRunErrors() {
+  try { return JSON.parse(localStorage.getItem('trackly_run_errors') || '[]'); } catch(_) { return []; }
+}
+function clearStoredRunErrors() {
+  localStorage.removeItem('trackly_run_errors');
+}
+
 // Friendly error message for display
 function friendlyError(msg){
   if (!msg) return 'Unknown error';
@@ -2294,35 +2310,48 @@ async function runQueries(){
     statusParts.push(elapsed);
     statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
 
-    // Show per-platform error details in the progress bar area
-    if (errors > 0 && data.result.platformErrors) {
-      const errDetails = Object.entries(data.result.platformErrors).map(([plat, msgs]) => {
-        const uniqueMsgs = [...new Set(msgs)];
-        return `${plat}: ${uniqueMsgs[0]}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
-      }).join('\n');
-      const errDiv = document.createElement('div');
-      errDiv.style.cssText = 'background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
-      errDiv.textContent = errDetails;
-      prog.appendChild(errDiv);
+    if (errors > 0) {
+      // Store errors persistently so API Logs always has them
+      storeRunError({
+        time: new Date().toISOString(),
+        error: `${errors} API error(s) in run`,
+        type: 'partial',
+        platformErrors: data.result.platformErrors || {}
+      });
+
+      // Show error details inline
+      if (data.result.platformErrors) {
+        const errDetails = Object.entries(data.result.platformErrors).map(([plat, msgs]) => {
+          const uniqueMsgs = [...new Set(msgs)];
+          return `${plat}: ${friendlyError(uniqueMsgs[0])}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
+        }).join('\n');
+        const errDiv = document.createElement('div');
+        errDiv.style.cssText = 'background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
+        errDiv.textContent = errDetails;
+        prog.appendChild(errDiv);
+      }
+
+      // Redirect to API Logs so user can see full error details
+      toast(`Run complete with ${errors} error(s) — redirecting to API Logs`, 'warn');
+      setTimeout(() => {
+        prog.style.display = 'none';
+        prog.querySelectorAll('div[style*="rgba(255,68,68"]').forEach(d => d.remove());
+        fill.style.width = '0%';
+        timerEl.textContent = '';
+        go('apilogs');
+      }, 4000);
+    } else {
+      setTimeout(() => {
+        prog.style.display = 'none';
+        fill.style.width = '0%';
+        timerEl.textContent = '';
+      }, 5000);
+      go('mentions');
+      const toastMsg = data.result.sov === 0
+        ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
+        : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
+      toast(toastMsg, data.result.sov > 0 ? 'ok' : 'warn');
     }
-
-    setTimeout(() => {
-      prog.style.display = 'none';
-      // Remove error detail divs when hiding
-      prog.querySelectorAll('div[style*="rgba(255,68,68"]').forEach(d => d.remove());
-      fill.style.width = '0%';
-      timerEl.textContent = '';
-    }, errors > 0 ? 15000 : 5000);
-
-    // Auto-switch to All Results view so user sees the results immediately
-    go('mentions');
-
-    const toastMsg = errors > 0
-      ? `Run complete — SOV: ${data.result.sov}% (${errors} API error${errors>1?'s':''}) — see details above`
-      : data.result.sov === 0
-      ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
-      : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
-    toast(toastMsg, errors > 0 ? 'warn' : data.result.sov > 0 ? 'ok' : 'warn');
   } catch(e) {
     clearInterval(progInt);
     clearInterval(timerInt);
@@ -2332,36 +2361,33 @@ async function runQueries(){
     fill.style.width = '0%';
     fill.style.background = 'var(--red)';
 
-    // Store the failure so API Logs can display it
-    const b = brand();
-    if (b) {
-      if (!b._lastRunErrors) b._lastRunErrors = [];
-      b._lastRunErrors.unshift({
-        time: new Date().toISOString(),
-        error: e.message,
-        type: 'crash'
-      });
-      if (b._lastRunErrors.length > 10) b._lastRunErrors = b._lastRunErrors.slice(0, 10);
-    }
+    // Store the failure persistently
+    storeRunError({
+      time: new Date().toISOString(),
+      error: e.message,
+      type: 'crash'
+    });
 
     // Reload brand data (emergency save may have stored partial results)
     try {
+      const savedErrors = JSON.parse(localStorage.getItem('trackly_run_errors') || '[]');
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
         brands = freshData.brands;
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
+      // Restore errors after reload (they're in localStorage, not brand object)
     } catch(_) {}
 
-    toast('Run failed — check API Logs for details', 'err');
+    toast('Run failed — opening API Logs', 'err');
 
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
       fill.style.background = '';
       go('apilogs');
-    }, 3000);
+    }, 2000);
   }
 
   runningQueries = false;
@@ -2379,21 +2405,35 @@ function renderApiLogs(){
 
   let html = '';
 
-  // Check for recent client-side failures stored in memory
-  const clientErrors = b._lastRunErrors || [];
+  // Check for recent client-side failures stored in localStorage (persists across reloads)
+  const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
     html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,68,68,.4);background:rgba(255,68,68,.06);">
-      <div class="card-title" style="color:var(--red);">Recent Run Failures</div>`;
+      <div class="card-title" style="color:var(--red);">Recent Run Errors (${clientErrors.length})</div>`;
     clientErrors.forEach(err => {
       const dt = new Date(err.time);
       const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      const isCrash = err.type === 'crash';
       html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);">
-        <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)}</div>
+        <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
         <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>
-        <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:4px;word-break:break-word;">${esc(err.error)}</div>
-      </div>`;
+        <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:4px;word-break:break-word;">${esc(err.error)}</div>`;
+      // Show platform-specific errors if available
+      if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
+        html += `<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,68,68,.15);">`;
+        Object.entries(err.platformErrors).forEach(([plat, msgs]) => {
+          const t = PLAT_THEME[plat] || {};
+          const uniqueMsgs = [...new Set(msgs)];
+          html += `<div style="margin-bottom:4px;">
+            <span style="color:${t.color || 'var(--text)'};font-weight:700;">${esc(plat)}</span>:
+            <span style="color:var(--red);">${esc(friendlyError(uniqueMsgs[0]))}</span>
+            ${uniqueMsgs.length > 1 ? '<span style="color:var(--muted);"> (+' + (uniqueMsgs.length-1) + ' more)</span>' : ''}</div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
     });
-    html += `<button onclick="brand()._lastRunErrors=[];renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS</button>
+    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS ALL</button>
     </div>`;
   }
 
