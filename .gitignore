@@ -3,3 +3,12 @@ data/*.json
 data/.jwt-secret
 !data/.gitkeep
 .env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+.DS_Store
+*.swp
+*.swo
+coverage/
+dist/

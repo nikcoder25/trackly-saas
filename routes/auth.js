@@ -56,6 +56,41 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Change password
+router.post('/change-password', auth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password required' });
+  if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  try {
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    const ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+    if (!ok) return res.status(400).json({ error: 'Current password is incorrect' });
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    res.json({ message: 'Password updated successfully' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Delete account
+router.delete('/account', auth, async (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: 'Password required to delete account' });
+  try {
+    const result = await pool.query('SELECT password_hash, role FROM users WHERE id = $1', [req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    const ok = await bcrypt.compare(password, result.rows[0].password_hash);
+    if (!ok) return res.status(400).json({ error: 'Incorrect password' });
+    // Brands are deleted via CASCADE
+    await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.json({ message: 'Account deleted' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 router.get('/me', auth, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);

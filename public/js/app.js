@@ -475,6 +475,33 @@ async function saveModelSettings() {
   }
 }
 
+async function changePassword() {
+  const cur = el('pw-current').value;
+  const nw = el('pw-new').value;
+  const confirm = el('pw-confirm').value;
+  if (!cur || !nw) { toast('Fill in all password fields', 'err'); return; }
+  if (nw.length < 8) { toast('New password must be at least 8 characters', 'err'); return; }
+  if (nw !== confirm) { toast('New passwords do not match', 'err'); return; }
+  try {
+    await api('POST', '/api/auth/change-password', { currentPassword: cur, newPassword: nw });
+    el('pw-current').value = '';
+    el('pw-new').value = '';
+    el('pw-confirm').value = '';
+    toast('Password updated successfully', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function deleteAccount() {
+  const pw = prompt('Type your password to confirm account deletion:');
+  if (!pw) return;
+  if (!confirm('Are you sure? This will permanently delete your account and all brands. This cannot be undone.')) return;
+  try {
+    await api('DELETE', '/api/auth/account', { password: pw });
+    localStorage.removeItem('trackly_token');
+    location.reload();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
 function usageBar(label, current, max) {
   const pct = max > 0 ? Math.min(100, Math.round((current / max) * 100)) : 0;
   const color = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber,#f59e0b)' : 'var(--green)';

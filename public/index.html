@@ -814,6 +814,22 @@
         <div class="card-title">Change Plan</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
       </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Change Password</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;margin-top:10px;">
+          <input class="finput" id="pw-current" type="password" placeholder="Current password">
+          <input class="finput" id="pw-new" type="password" placeholder="New password (min 8 characters)">
+          <input class="finput" id="pw-confirm" type="password" placeholder="Confirm new password">
+          <button class="btn" onclick="changePassword()">UPDATE PASSWORD</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;border-color:var(--red);">
+        <div class="card-title" style="color:var(--red);">Danger Zone</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
+          Permanently delete your account and all brands. This cannot be undone.
+        </div>
+        <button onclick="deleteAccount()" style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">DELETE MY ACCOUNT</button>
+      </div>
     </div>
 
     <!-- ADMIN PANEL ──────────────────────── -->
