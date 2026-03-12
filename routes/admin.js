@@ -133,6 +133,16 @@ router.put('/admin/users/:id/plan', auth, requireAdmin, async (req, res) => {
   }
 });
 
+// Check if any admin exists
+router.get('/admin/check-admin', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
+    res.json({ hasAdmin: result.rows.length > 0 });
+  } catch(e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Make first user admin (requires authentication)
 router.post('/admin/make-first-admin', auth, async (req, res) => {
   try {

@@ -204,9 +204,24 @@ async function initApp(){
   pb.textContent = (currentUser.plan||'free').toUpperCase();
   pb.className = 'plan-badge ' + (currentUser.plan||'free');
 
-  // Show admin nav if user is admin
+  // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');
-  if (adminNav) adminNav.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+  const becomeAdminNav = el('nav-become-admin');
+  if (currentUser.role === 'admin') {
+    if (adminNav) adminNav.style.display = 'block';
+    if (becomeAdminNav) becomeAdminNav.style.display = 'none';
+  } else {
+    if (adminNav) adminNav.style.display = 'none';
+    // Check if any admin exists — if not, show the "Become Admin" button
+    if (becomeAdminNav) {
+      try {
+        await fetch('/api/admin/check-admin', { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(r => r.json()).then(d => {
+            becomeAdminNav.style.display = d.hasAdmin ? 'none' : 'block';
+          });
+      } catch(e) { becomeAdminNav.style.display = 'none'; }
+    }
+  }
 
   // Load brands
   const data = await api('GET', '/api/brands');
@@ -2007,6 +2022,22 @@ async function changeUserPlan(userId, newPlan){
     if (idx >= 0) adminUsers[idx].plan = newPlan;
     renderAdminStats(adminUsers);
     toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+async function becomeAdmin(){
+  if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
+  try {
+    const data = await api('POST', '/api/admin/make-first-admin');
+    if (data.success) {
+      currentUser.role = 'admin';
+      el('nav-admin').style.display = 'block';
+      el('nav-become-admin').style.display = 'none';
+      toast('You are now an admin!', 'ok');
+      go('admin');
+    }
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
   }
