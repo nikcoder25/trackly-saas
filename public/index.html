@@ -570,6 +570,7 @@
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
+    <button class="nav-item" onclick="go('apilogs')">⚠ API Logs</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
     <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
@@ -718,6 +719,13 @@
         <div class="card-title">Per-Platform SOV Trend</div>
         <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
       </div>
+    </div>
+
+    <!-- API LOGS ─────────────────────────── -->
+    <div id="view-apilogs" class="view">
+      <div class="view-title">API Logs</div>
+      <div class="view-sub">Diagnose API errors and see what happened in each run.</div>
+      <div id="apilogs-content"></div>
     </div>
 
     <!-- ALERTS ─────────────────────────── -->

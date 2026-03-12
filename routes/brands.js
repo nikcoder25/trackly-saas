@@ -158,6 +158,9 @@ router.delete('/:id', auth, async (req, res) => {
 router.post('/:id/run', auth, async (req, res) => {
   // Allow up to 5 minutes for large query runs across multiple platforms
   req.setTimeout(300000);
+  // Declare outside try so catch can access for emergency save
+  let allResults = [];
+  let totalQ = 0, totalM = 0;
   try {
   const brand = await getBrand(req.params.id, req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
@@ -208,9 +211,9 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   const newMentions = [];
-  const allResults = [];
+  allResults = [];
   const platSOV = {};
-  let totalQ = 0, totalM = 0;
+  totalQ = 0; totalM = 0;
 
   // Run all platforms in parallel, and within each platform run queries
   // in parallel batches (batch size = number of API keys for that platform)
@@ -366,6 +369,22 @@ router.post('/:id/run', auth, async (req, res) => {
   res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
   } catch(e) {
     console.error('[Run]', e.message, e.stack);
+    // Emergency save: if API calls were made (money spent), save whatever results we got
+    if (allResults && allResults.length > 0) {
+      try {
+        const brand = await getBrand(req.params.id, req.user.id);
+        if (brand) {
+          if (!brand.runs) brand.runs = [];
+          const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+          brand.runs.push({ id: uid(), date: new Date().toISOString().split('T')[0], time: new Date().toISOString(), allResults, sov: emergSov, totalQ, totalM, queries: brand.queries || [], activePlatforms: [], emergencySave: true });
+          brand.updatedAt = new Date().toISOString();
+          await saveBrand(brand);
+          console.log(`[Run] Emergency save: ${allResults.length} results preserved despite error`);
+        }
+      } catch(saveErr) {
+        console.error('[Run] Emergency save also failed:', saveErr.message);
+      }
+    }
     res.status(500).json({ error: 'Failed to run queries: ' + e.message });
   }
 });
