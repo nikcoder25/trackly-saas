@@ -33,6 +33,18 @@ initDB().catch(e => {
 // ─── MIDDLEWARE ───────────────────────────────────────────────────
 app.set('trust proxy', 1); // Trust first proxy (Railway, Render, etc.)
 
+// HTTPS enforcement in production
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
+      return res.redirect(301, 'https://' + req.headers.host + req.url);
+    }
+    // HSTS header — force HTTPS for 1 year
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    next();
+  });
+}
+
 // Security headers
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP to allow inline scripts/styles in SPA
@@ -42,9 +54,11 @@ app.use(helmet({
 // Gzip compression
 app.use(compression());
 
-// CORS
+// CORS — require explicit whitelist in production
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+  origin: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+    : (process.env.NODE_ENV === 'production' ? false : true),
   credentials: true
 }));
 
@@ -62,13 +76,26 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // Rate limiting — API endpoints (general, excludes long-running run endpoint)
+// Uses user ID when authenticated, falls back to IP
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 120, // 120 requests per minute
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.includes('/run') // Don't rate-limit query runs
+  skip: (req) => req.path.includes('/run'), // Don't rate-limit query runs
+  keyGenerator: (req) => {
+    // Per-user rate limiting for authenticated requests
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+        return 'user:' + decoded.id;
+      } catch(e) { /* fall through to IP */ }
+    }
+    return req.ip;
+  }
 });
 app.use('/api/', apiLimiter);
 
@@ -79,13 +106,27 @@ app.use('/api/auth',   authRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api',        adminRoutes);
 
-// ─── Admin panel page (secured with ADMIN_SECRET) ───────────────
-app.get('/admin', (req, res) => {
+// ─── Admin panel page (secured with JWT-based admin auth) ───────
+app.get('/admin', async (req, res) => {
+  // Support both legacy ADMIN_SECRET and JWT auth via cookie/header
   const secret = process.env.ADMIN_SECRET;
-  if (!secret || req.query.key !== secret) {
-    return res.status(404).send('Not found');
+  if (secret && req.query.key === secret) {
+    return res.sendFile(path.join(__dirname, 'admin.html'));
   }
-  res.sendFile(path.join(__dirname, 'admin.html'));
+  // JWT-based: check Authorization header or trackly_token cookie
+  const jwt = require('jsonwebtoken');
+  const tokenHeader = (req.headers.authorization || '').replace('Bearer ', '');
+  const token = tokenHeader || req.query.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const result = await pool.query('SELECT role FROM users WHERE id = $1', [decoded.id]);
+      if (result.rows[0] && result.rows[0].role === 'admin') {
+        return res.sendFile(path.join(__dirname, 'admin.html'));
+      }
+    } catch(e) { /* invalid token */ }
+  }
+  return res.status(404).send('Not found');
 });
 
 // ─── SEO LANDING PAGES ──────────────────────────────────────────
@@ -115,6 +156,11 @@ cron.schedule('0 * * * *', async () => {
   } catch(e) {
     console.error('[Cron] Error:', e.message);
   }
+});
+
+// ─── Password reset page ─────────────────────────────────────────
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ─── CATCH-ALL: serve app for SPA routing ────────────────────────

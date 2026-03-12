@@ -112,6 +112,24 @@ function brand(){
   return brands.find(b => b.id === currentBrandId) || null;
 }
 
+function updatePasswordStrength(pw){
+  const container = el('pw-strength');
+  if (!pw) { container.style.display = 'none'; return; }
+  container.style.display = 'block';
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const colors = ['var(--red)', 'var(--red)', 'var(--amber)', 'var(--green)', 'var(--green)'];
+  const labels = ['Too weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
+  for (let i = 1; i <= 4; i++) {
+    el('pw-bar-' + i).style.background = i <= score ? colors[score] : 'var(--border)';
+  }
+  el('pw-strength-text').textContent = labels[score];
+  el('pw-strength-text').style.color = colors[score];
+}
+
 async function api(method, path, data){
   const opts = {
     method,
@@ -140,8 +158,9 @@ function authTab(tab){
   document.querySelectorAll('.auth-tab').forEach((t,i) => {
     t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register'));
   });
-  el('panel-login').classList.toggle('active', tab==='login');
-  el('panel-register').classList.toggle('active', tab==='register');
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  const panel = el('panel-' + tab);
+  if (panel) panel.classList.add('active');
   el('auth-err').style.display = 'none';
 }
 
@@ -149,6 +168,18 @@ async function doLogin(){
   const email = el('login-email').value.trim();
   const password = el('login-pass').value;
   el('auth-err').style.display = 'none';
+  const btn = document.querySelector('#panel-login .btn-primary');
+  if (!email || !password) {
+    el('auth-err').textContent = 'Email and password are required.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    el('auth-err').textContent = 'Please enter a valid email address.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'LOGGING IN...';
   try {
     const data = await api('POST', '/api/auth/login', { email, password });
     token = data.token;
@@ -158,6 +189,8 @@ async function doLogin(){
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'LOG IN';
   }
 }
 
@@ -166,6 +199,28 @@ async function doRegister(){
   const email = el('reg-email').value.trim();
   const password = el('reg-pass').value;
   el('auth-err').style.display = 'none';
+  if (!email || !password) {
+    el('auth-err').textContent = 'Email and password are required.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    el('auth-err').textContent = 'Please enter a valid email address.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  if (password.length < 8) {
+    el('auth-err').textContent = 'Password must be at least 8 characters.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    el('auth-err').textContent = 'Password should contain at least one uppercase letter and one number.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  const btn = document.querySelector('#panel-register .btn-primary');
+  btn.disabled = true; btn.textContent = 'CREATING ACCOUNT...';
   try {
     const data = await api('POST', '/api/auth/register', { name, email, password });
     token = data.token;
@@ -175,6 +230,62 @@ async function doRegister(){
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'CREATE ACCOUNT';
+  }
+}
+
+function showForgotPassword(){
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  const fp = el('panel-forgot');
+  if (fp) fp.classList.add('active');
+  el('auth-err').style.display = 'none';
+}
+
+async function doForgotPassword(){
+  const email = el('forgot-email').value.trim();
+  const msgEl = el('forgot-msg');
+  if (!email) { msgEl.textContent = 'Please enter your email.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  const btn = document.querySelector('#panel-forgot .btn-primary');
+  btn.disabled = true; btn.textContent = 'SENDING...';
+  try {
+    const data = await api('POST', '/api/auth/forgot-password', { email });
+    msgEl.textContent = data.message || 'Reset link sent. Check your email.';
+    msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.background = 'rgba(0,255,136,.05)';
+    msgEl.style.display = 'block';
+    // In dev mode, show the token for testing
+    if (data._devToken) {
+      msgEl.innerHTML += '<br><br><span style="font-size:10px;color:var(--amber);">DEV: Reset token: ' + data._devToken + '</span>';
+    }
+  } catch(e) {
+    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.background = 'rgba(255,68,85,.05)';
+    msgEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'SEND RESET LINK';
+  }
+}
+
+async function doResetPassword(){
+  const pw = el('reset-pass').value;
+  const pw2 = el('reset-pass-confirm').value;
+  const msgEl = el('reset-msg');
+  if (!pw || pw.length < 8) { msgEl.textContent = 'Password must be at least 8 characters.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  if (pw !== pw2) { msgEl.textContent = 'Passwords do not match.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if (!token) { msgEl.textContent = 'Invalid reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  const btn = document.querySelector('#panel-reset .btn-primary');
+  btn.disabled = true; btn.textContent = 'RESETTING...';
+  try {
+    const data = await api('POST', '/api/auth/reset-password', { token, newPassword: pw });
+    msgEl.textContent = data.message || 'Password reset! You can now log in.';
+    msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.display = 'block';
+    setTimeout(() => { window.location.href = '/'; }, 2000);
+  } catch(e) {
+    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'RESET PASSWORD';
   }
 }
 
@@ -731,6 +842,7 @@ async function ovAddQuery(){
     brands[idx] = data.brand;
     inp.value = '';
     renderOverview();
+    toast('Query added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
@@ -778,16 +890,22 @@ async function bulkAddQueries(){
 
 async function ovRemoveQuery(i){
   const b = brand();
+  const q = (b.queries||[])[i];
+  if (!confirm('Remove query "' + (q || '') + '"?')) return;
   const queries = (b.queries||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     renderOverview();
+    toast('Query removed', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
 // ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
+let mentionsPage = 0;
+const MENTIONS_PER_PAGE = 25;
+
 function renderMentions(){
   const b = brand();
   if (!b) return;
@@ -816,6 +934,7 @@ function renderMentions(){
   if (!run) { cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
 
   const filter = el('mentions-filter-sel').value;
+  const searchTerm = (el('mentions-search').value || '').trim().toLowerCase();
   const allResults = run.allResults || [];
 
   if (!allResults.length) {
@@ -824,8 +943,12 @@ function renderMentions(){
   }
 
   const filtered = allResults.filter(r => {
-    if (filter === 'mentioned') return r.mentioned;
-    if (filter === 'not-mentioned') return !r.mentioned;
+    if (filter === 'mentioned' && !r.mentioned) return false;
+    if (filter === 'not-mentioned' && r.mentioned) return false;
+    if (searchTerm) {
+      const haystack = ((r.platform||'') + ' ' + (r.query||'') + ' ' + (r.raw||r.context||'') + ' ' + (r.model||'')).toLowerCase();
+      if (!haystack.includes(searchTerm)) return false;
+    }
     return true;
   });
 
@@ -834,10 +957,16 @@ function renderMentions(){
     return;
   }
 
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  const totalPages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
+  if (mentionsPage >= totalPages) mentionsPage = totalPages - 1;
+  if (mentionsPage < 0) mentionsPage = 0;
+  const pageStart = mentionsPage * MENTIONS_PER_PAGE;
+  const pageItems = filtered.slice(pageStart, pageStart + MENTIONS_PER_PAGE);
+
+  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
   const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
   const sentimentTips = {positive:'AI spoke favorably about your brand',negative:'AI expressed concerns about your brand',neutral:'AI mentioned your brand without strong opinion'};
-  filtered.forEach(r => {
+  pageItems.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
     const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 120).replace(/\n/g, ' ');
@@ -857,8 +986,19 @@ function renderMentions(){
       <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
     </tr>`;
   });
-  html += '</tbody></table>';
-  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;">Showing ${filtered.length} of ${allResults.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
+  html += '</tbody></table></div>';
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">`;
+  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
+  if (totalPages > 1) {
+    html += `<div style="display:flex;gap:6px;align-items:center;">`;
+    html += `<button onclick="mentionsPage=0;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage===0?'disabled':''}>«</button>`;
+    html += `<button onclick="mentionsPage--;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage===0?'disabled':''}>‹</button>`;
+    html += `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Page ${mentionsPage+1}/${totalPages}</span>`;
+    html += `<button onclick="mentionsPage++;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage>=totalPages-1?'disabled':''}>›</button>`;
+    html += `<button onclick="mentionsPage=${totalPages-1};renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage>=totalPages-1?'disabled':''}>»</button>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
   cont.innerHTML = html;
 }
 
@@ -1135,7 +1275,7 @@ function renderPlatformStatus(){
     cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
     return;
   }
-  let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Last SOV</th><th>Key Status</th><th>Trend (last 7 runs)</th></tr></thead><tbody>';
+  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Platform</th><th>Last SOV</th><th>Key Status</th><th>Trend (last 7 runs)</th></tr></thead><tbody>';
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
     const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
@@ -1153,7 +1293,7 @@ function renderPlatformStatus(){
       <td style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
     </tr>`;
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   cont.innerHTML = html;
 }
 
@@ -1164,7 +1304,7 @@ function renderQPerf(){
   const queries = b.queries||[];
   const cont = el('qperf-container');
   if (!queries.length) { cont.innerHTML='<div class="empty-state"><p>No queries set.</p></div>'; return; }
-  let html = '<table class="tbl"><thead><tr><th>Query</th><th>Runs</th><th>Mentions</th><th>Mention Rate</th><th>Bar</th></tr></thead><tbody>';
+  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Query</th><th>Runs</th><th>Mentions</th><th>Mention Rate</th><th>Bar</th></tr></thead><tbody>';
   queries.forEach(q => {
     const stat = qs[q]||{runs:0,mentions:0};
     const rate = stat.runs ? Math.round((stat.mentions/stat.runs)*100) : 0;
@@ -1176,7 +1316,7 @@ function renderQPerf(){
       <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${rate}%;background:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}"></div></div></td>
     </tr>`;
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   cont.innerHTML = html;
 }
 
@@ -1257,16 +1397,20 @@ async function addComp(){
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     inp.value = '';
     renderCompetitors();
+    toast('Competitor added', 'ok');
   } catch(e) { toast(e.message,'err'); }
 }
 
 async function removeComp(i){
   const b = brand(); if (!b) return;
+  const c = (b.competitors||[])[i];
+  if (!confirm('Remove competitor "' + (c || '') + '"?')) return;
   const competitors = (b.competitors||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     renderCompetitors();
+    toast('Competitor removed', 'ok');
   } catch(e) { toast(e.message,'err'); }
 }
 
@@ -1631,16 +1775,20 @@ async function addAlias(){
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     inp.value = '';
     renderAliasTags();
+    toast('Alias added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
 async function removeAlias(i){
   const b = brand(); if (!b) return;
+  const a = (b.aliases||[])[i];
+  if (!confirm('Remove alias "' + (a || '') + '"?')) return;
   const aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     renderAliasTags();
+    toast('Alias removed', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
@@ -1690,16 +1838,20 @@ async function addArea(){
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     inp.value = '';
     renderAreaTags();
+    toast('Area added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
 async function removeArea(i){
   const b = brand(); if (!b) return;
+  const a = (b.nearbyAreas||[])[i];
+  if (!confirm('Remove area "' + (a || '') + '"?')) return;
   const nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
     brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
     renderAreaTags();
+    toast('Area removed', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
 
@@ -2129,6 +2281,17 @@ document.addEventListener('keydown', e => {
 
 // ─── AUTO-LOGIN ───────────────────────────────────────────────────
 (async function(){
+  // Check for password reset token in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('token') && window.location.pathname === '/reset-password') {
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
+    document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    el('panel-reset').classList.add('active');
+    return;
+  }
   if (!token) {
     el('landing-page').style.display = 'block';
     el('auth-page').style.display = 'none';

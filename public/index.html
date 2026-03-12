@@ -479,7 +479,33 @@
       <input class="finput" id="login-email" type="email" placeholder="you@example.com" autocomplete="email">
       <label class="flabel" for="login-pass">Password</label>
       <input class="finput" id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
-      <button type="submit" class="btn-primary">LOGIN</button>
+      <button type="submit" class="btn-primary">LOG IN</button>
+      </form>
+      <div style="text-align:center;margin-top:12px;">
+        <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--muted);font-family:var(--font);font-size:12px;cursor:pointer;text-decoration:underline;">Forgot password?</button>
+      </div>
+    </div>
+    <div id="panel-forgot" class="auth-panel">
+      <form onsubmit="event.preventDefault(); doForgotPassword();">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Enter your email address and we'll send you a password reset link.</p>
+      <label class="flabel" for="forgot-email">Email</label>
+      <input class="finput" id="forgot-email" type="email" placeholder="you@example.com" autocomplete="email">
+      <div id="forgot-msg" style="display:none;padding:10px 12px;font-size:12px;font-family:var(--mono);margin-bottom:14px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,136,.05);"></div>
+      <button type="submit" class="btn-primary">SEND RESET LINK</button>
+      </form>
+      <div style="text-align:center;margin-top:12px;">
+        <button onclick="authTab('login')" style="background:none;border:none;color:var(--muted);font-family:var(--font);font-size:12px;cursor:pointer;text-decoration:underline;">Back to login</button>
+      </div>
+    </div>
+    <div id="panel-reset" class="auth-panel">
+      <form onsubmit="event.preventDefault(); doResetPassword();">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Enter your new password below.</p>
+      <label class="flabel" for="reset-pass">New Password (min 8 chars)</label>
+      <input class="finput" id="reset-pass" type="password" placeholder="••••••••" autocomplete="new-password">
+      <label class="flabel" for="reset-pass-confirm">Confirm Password</label>
+      <input class="finput" id="reset-pass-confirm" type="password" placeholder="••••••••" autocomplete="new-password">
+      <div id="reset-msg" style="display:none;padding:10px 12px;font-size:12px;font-family:var(--mono);margin-bottom:14px;"></div>
+      <button type="submit" class="btn-primary">RESET PASSWORD</button>
       </form>
     </div>
     <div id="panel-register" class="auth-panel">
@@ -489,7 +515,16 @@
       <label class="flabel" for="reg-email">Email</label>
       <input class="finput" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email">
       <label class="flabel" for="reg-pass">Password (min 8 chars)</label>
-      <input class="finput" id="reg-pass" type="password" placeholder="••••••••" autocomplete="new-password">
+      <input class="finput" id="reg-pass" type="password" placeholder="••••••••" autocomplete="new-password" oninput="updatePasswordStrength(this.value)">
+      <div id="pw-strength" style="display:none;margin:-10px 0 14px;font-family:var(--mono);font-size:10px;">
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <div id="pw-bar-1" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
+          <div id="pw-bar-2" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
+          <div id="pw-bar-3" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
+          <div id="pw-bar-4" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
+        </div>
+        <span id="pw-strength-text" style="color:var(--muted);"></span>
+      </div>
       <button type="submit" class="btn-primary">CREATE ACCOUNT</button>
       </form>
     </div>
@@ -603,6 +638,7 @@
             <option value="mentioned">Found Only</option>
             <option value="not-mentioned">Not Found Only</option>
           </select>
+          <input class="finput" id="mentions-search" type="text" placeholder="Search results..." style="flex:1;min-width:160px;margin:0;" oninput="renderMentions()">
         </div>
       </div>
       <div id="mentions-container">
