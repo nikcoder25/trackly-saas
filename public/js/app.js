@@ -819,7 +819,6 @@ function renderMentions(){
   if (!run) { cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
 
   const filter = el('mentions-filter-sel').value;
-  const platformFilter = el('mentions-platform-sel').value;
   const sentimentFilter = el('mentions-sentiment-sel').value;
   const allResults = run.allResults || [];
 
@@ -828,23 +827,37 @@ function renderMentions(){
     return;
   }
 
-  // Populate platform filter dropdown from available platforms
-  const platSel = el('mentions-platform-sel');
-  const curPlat = platSel.value;
+  // Build platform filter chips (multi-select)
+  const chipsCont = el('mentions-platform-chips');
   const platforms = [...new Set(allResults.map(r => r.platform).filter(Boolean))].sort();
-  platSel.innerHTML = '<option value="all">All Platforms</option>';
+  if (!window._mentionsPlatSel) window._mentionsPlatSel = new Set();
+  // Remove stale selections not in current run
+  for (const p of window._mentionsPlatSel) { if (!platforms.includes(p)) window._mentionsPlatSel.delete(p); }
+  chipsCont.innerHTML = '';
+  // "All" chip
+  const allChip = document.createElement('span');
+  allChip.className = 'plat-chip' + (window._mentionsPlatSel.size === 0 ? ' active' : '');
+  allChip.textContent = 'All Platforms';
+  allChip.onclick = function(){ window._mentionsPlatSel.clear(); renderMentions(); };
+  chipsCont.appendChild(allChip);
   platforms.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p;
-    opt.textContent = p;
-    platSel.appendChild(opt);
+    const t = PLAT_THEME[p] || {};
+    const chip = document.createElement('span');
+    chip.className = 'plat-chip' + (window._mentionsPlatSel.has(p) ? ' active' : '');
+    chip.textContent = (t.logo || '') + ' ' + p;
+    chip.onclick = function(){
+      if (window._mentionsPlatSel.has(p)) window._mentionsPlatSel.delete(p);
+      else window._mentionsPlatSel.add(p);
+      renderMentions();
+    };
+    chipsCont.appendChild(chip);
   });
-  if (curPlat && [...platSel.options].some(o => o.value === curPlat)) platSel.value = curPlat;
 
+  const selectedPlats = window._mentionsPlatSel;
   const filtered = allResults.filter(r => {
     if (filter === 'mentioned') { if (!r.mentioned) return false; }
     if (filter === 'not-mentioned') { if (r.mentioned) return false; }
-    if (platformFilter !== 'all') { if (r.platform !== platformFilter) return false; }
+    if (selectedPlats.size > 0) { if (!selectedPlats.has(r.platform)) return false; }
     if (sentimentFilter !== 'all') { if ((r.sentiment || 'neutral') !== sentimentFilter) return false; }
     return true;
   });
