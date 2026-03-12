@@ -439,6 +439,9 @@ function go(view){
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const v = el('view-'+view);
   if (v) v.classList.add('active');
+  // Scroll main content to top when switching tabs
+  const mainEl = document.querySelector('.main');
+  if (mainEl) mainEl.scrollTop = 0;
   document.querySelectorAll('.nav-item').forEach(n => {
     if (n.getAttribute('onclick') === "go('"+view+"')") n.classList.add('active');
   });

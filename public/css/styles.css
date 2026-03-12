@@ -121,7 +121,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 /* ── APP LAYOUT ─────────────────────────── */
 #app{display:grid;height:100vh;overflow:hidden;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;}
-.topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);gap:16px;}
+.topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);gap:16px;position:relative;overflow:visible;z-index:10;}
 .topbar-logo{font-size:18px;font-weight:800;letter-spacing:-0.5px;}
 .topbar-logo span{color:var(--green);}
 .topbar-brand-sel{flex:0 0 auto;min-width:160px;max-width:220px;}
