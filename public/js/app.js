@@ -1372,8 +1372,7 @@ function renderProof(){
           ${isError
             ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
-            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>
-               <button class="proof-expand-btn" onclick="toggleProofExpand(this)">SHOW FULL RESPONSE</button>`
+            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
           }
         </div>
@@ -1398,12 +1397,6 @@ function renderProof(){
   cont.innerHTML = html || '<div class="empty-state"><p>No results match your filters.</p></div>';
 }
 
-function toggleProofExpand(btn){
-  const resp = btn.previousElementSibling;
-  if (!resp) return;
-  const isExpanded = resp.classList.toggle('expanded');
-  btn.textContent = isExpanded ? 'COLLAPSE' : 'SHOW FULL RESPONSE';
-}
 
 function exportProofCSV(){
   const b = brand(); if (!b) return;
