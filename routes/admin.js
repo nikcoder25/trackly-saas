@@ -233,6 +233,51 @@ router.get('/query-suggestions', auth, (req, res) => {
   res.json({ suggestions });
 });
 
+// Auto-fetch nearby areas for a city using AI
+router.post('/nearby-areas', auth, async (req, res) => {
+  const { city } = req.body;
+  if (!city || !city.trim()) return res.status(400).json({ error: 'City is required' });
+
+  const keys = getServerKeys();
+  // Pick an available platform (prefer cheaper/faster ones)
+  const platformOrder = ['deepseek', 'gemini', 'openai', 'mistral', 'claude', 'perplexity', 'grok'];
+  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', mistral: 'Mistral', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
+  let platform = null;
+  let apiKey = null;
+  for (const p of platformOrder) {
+    if (keys[p] && keys[p].length > 0) {
+      platform = platformMap[p];
+      apiKey = keys[p][0];
+      break;
+    }
+  }
+  if (!platform) return res.status(400).json({ error: 'No AI platform API keys configured.' });
+
+  const prompt = `List exactly 10-15 nearby cities, towns, suburbs, and service areas within a 30-mile radius of "${city.trim()}". Return ONLY a JSON array of strings, nothing else. Example format: ["City 1", "City 2", "City 3"]. Include the county/region name and state abbreviation. Do not include the original city itself.`;
+
+  try {
+    const { queryAI } = require('../lib/ai-platforms');
+    const result = await queryAI(prompt, platform, {}, keys, {});
+    if (!result || !result.text) return res.status(500).json({ error: 'AI returned empty response' });
+
+    // Parse the JSON array from the response
+    const text = result.text.trim();
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) return res.status(500).json({ error: 'Could not parse nearby areas from AI response' });
+
+    const areas = JSON.parse(jsonMatch[0])
+      .filter(a => typeof a === 'string' && a.trim().length > 0)
+      .map(a => a.trim())
+      .slice(0, 15);
+
+    if (!areas.length) return res.status(500).json({ error: 'No nearby areas found' });
+    res.json({ areas, city: city.trim(), platform });
+  } catch(e) {
+    console.error('[Nearby Areas]', e.message);
+    res.status(500).json({ error: 'Failed to fetch nearby areas: ' + e.message });
+  }
+});
+
 // Health check (no sensitive data exposed)
 router.get('/health', async (req, res) => {
   try {

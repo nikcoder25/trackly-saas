@@ -1676,6 +1676,35 @@ async function removeArea(i){
   } catch(e) { toast(e.message, 'err'); }
 }
 
+async function autoFetchNearbyAreas(){
+  const b = brand(); if (!b) return;
+  const city = (el('s-city').value || b.city || '').trim();
+  if (!city) { toast('Enter a city/location first', 'err'); return; }
+
+  const btn = el('auto-fetch-areas-btn');
+  btn.disabled = true;
+  btn.textContent = 'FETCHING...';
+  btn.style.color = 'var(--amber)';
+
+  try {
+    const data = await api('POST', '/api/nearby-areas', { city });
+    const existing = (b.nearbyAreas || []).map(a => a.toLowerCase());
+    const newAreas = data.areas.filter(a => !existing.includes(a.toLowerCase()));
+    if (!newAreas.length) { toast('No new areas found (all already added)', 'ok'); return; }
+
+    const nearbyAreas = [...(b.nearbyAreas || []), ...newAreas];
+    const saveData = await api('PUT', '/api/brands/' + b.id, { nearbyAreas });
+    brands[brands.findIndex(x => x.id === b.id)] = saveData.brand;
+    renderAreaTags();
+    toast(newAreas.length + ' nearby areas added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = 'AUTO-FETCH';
+    btn.style.color = 'var(--muted)';
+  }
+}
+
 function renderSetup(){
   const b = brand(); if (!b) return;
   el('s-name').value = b.name||'';
