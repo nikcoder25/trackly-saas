@@ -477,6 +477,7 @@ function renderView(view){
   if (view==='competitors') renderCompetitors();
   if (view==='setup')       renderSetup();
   if (view==='alerts')      renderAlerts();
+  if (view==='apilogs')     renderApiLogs();
 }
 
 // ─── ACCOUNT & PLAN ──────────────────────────────────────────────
@@ -2293,6 +2294,157 @@ async function runQueries(){
   runningQueries = false;
   btn.classList.remove('running');
   btn.textContent = '▶ RUN QUERIES';
+}
+
+// ─── API LOGS / DIAGNOSTICS ─────────────────────────────────────
+function renderApiLogs(){
+  const b = brand();
+  const container = el('apilogs-content');
+  if (!b) { container.innerHTML = '<div class="empty-state"><p>Select a brand to view API logs.</p></div>'; return; }
+
+  const runs = (b.runs || []).slice().reverse(); // newest first
+  if (!runs.length) { container.innerHTML = '<div class="empty-state"><p>No runs yet. Run queries to see API logs here.</p></div>'; return; }
+
+  let html = '';
+
+  // Summary card: key counts
+  html += `<div class="card" style="margin-bottom:16px;">
+    <div class="card-title">API Key Status</div>
+    <div id="apilogs-key-status" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
+  </div>`;
+
+  // Run history
+  html += `<div class="card">
+    <div class="card-title">Run History — Last ${Math.min(runs.length, 20)} Runs</div>
+    <div style="overflow-x:auto;">
+    <table class="data-table" style="width:100%;">
+    <thead><tr>
+      <th style="width:140px;">Date / Time</th>
+      <th>Platforms</th>
+      <th>Queries</th>
+      <th>Success</th>
+      <th>Errors</th>
+      <th>SOV</th>
+      <th style="width:50px;"></th>
+    </tr></thead>
+    <tbody>`;
+
+  runs.slice(0, 20).forEach((run, idx) => {
+    const dt = new Date(run.time || run.date);
+    const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    const results = run.allResults || [];
+    const errors = results.filter(r => r.error);
+    const success = results.length - errors.length;
+    const plats = Object.keys(run.platforms || {}).join(', ') || (run.activePlatforms || []).join(', ');
+    const queryCount = (run.queries || []).length || run.totalQ || 0;
+    const sovVal = run.sov || 0;
+    const hasErrors = errors.length > 0;
+
+    html += `<tr style="${hasErrors ? 'background:rgba(255,68,68,.04);' : ''}">
+      <td style="font-family:var(--mono);font-size:11px;">${esc(dateStr)}</td>
+      <td style="font-size:11px;">${esc(plats)}</td>
+      <td style="text-align:center;">${queryCount}</td>
+      <td style="text-align:center;color:var(--green);">${success}</td>
+      <td style="text-align:center;color:${hasErrors ? 'var(--red)' : 'var(--muted)'}; font-weight:${hasErrors?'700':'400'};">${errors.length}</td>
+      <td style="text-align:center;">${sovVal}%</td>
+      <td><button onclick="toggleRunErrors(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:2px 8px;cursor:pointer;font-family:var(--mono);">${hasErrors ? 'DETAILS' : 'VIEW'}</button></td>
+    </tr>`;
+
+    // Collapsible error details row
+    html += `<tr id="run-errors-${idx}" style="display:none;"><td colspan="7" style="padding:0;">
+      <div style="background:var(--bg2);border:1px solid var(--border);padding:12px 14px;margin:4px 0;">`;
+
+    if (hasErrors) {
+      // Group errors by platform
+      const errByPlat = {};
+      errors.forEach(r => {
+        if (!errByPlat[r.platform]) errByPlat[r.platform] = [];
+        errByPlat[r.platform].push({
+          query: r.query,
+          error: (r.errorMessage || r.raw || r.context || '').replace('[API Error] ', ''),
+          friendly: friendlyError((r.errorMessage || r.raw || '').replace('[API Error] ', ''))
+        });
+      });
+
+      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;">${errors.length} ERROR${errors.length>1?'S':''}</div>`;
+      Object.entries(errByPlat).forEach(([plat, errs]) => {
+        const t = PLAT_THEME[plat] || {};
+        html += `<div style="margin-bottom:10px;">
+          <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:${t.color || 'var(--text)'};">${esc(plat)} — ${errs.length} error${errs.length>1?'s':''}</div>`;
+        errs.forEach(e => {
+          html += `<div style="margin:4px 0 4px 12px;font-size:11px;line-height:1.5;">
+            <div style="color:var(--muted);">Query: <span style="color:var(--text);">${esc(e.query)}</span></div>
+            <div style="color:var(--red);">${esc(e.friendly)}</div>
+            <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:2px;">${esc(e.error.substring(0, 200))}</div>
+          </div>`;
+        });
+        html += `</div>`;
+      });
+    }
+
+    // Show successful results summary
+    const successResults = results.filter(r => !r.error);
+    if (successResults.length > 0) {
+      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;${hasErrors?'margin-top:10px;border-top:1px solid var(--border);padding-top:10px;':''}">
+        ${successResults.length} SUCCESSFUL RESPONSE${successResults.length>1?'S':''}</div>`;
+      // Group by platform
+      const successByPlat = {};
+      successResults.forEach(r => {
+        if (!successByPlat[r.platform]) successByPlat[r.platform] = { mentioned: 0, total: 0 };
+        successByPlat[r.platform].total++;
+        if (r.mentioned) successByPlat[r.platform].mentioned++;
+      });
+      html += `<div style="font-size:11px;color:var(--muted);">`;
+      Object.entries(successByPlat).forEach(([plat, s]) => {
+        const t = PLAT_THEME[plat] || {};
+        html += `<span style="margin-right:16px;"><span style="color:${t.color || 'var(--text)'};">${esc(plat)}</span>: ${s.mentioned}/${s.total} mentioned</span>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `</div></td></tr>`;
+  });
+
+  html += `</tbody></table></div></div>`;
+
+  // Common errors guide
+  html += `<div class="card" style="margin-top:16px;">
+    <div class="card-title">Common Errors &amp; Fixes</div>
+    <div style="font-size:12px;line-height:1.8;color:var(--muted);">
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Rate limited</span> — Too many requests sent. Multiple API keys help avoid this. Wait a few minutes and retry.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Invalid API key</span> — Key is wrong, expired, or revoked. Replace it in Railway variables and redeploy.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">No credits / quota exceeded</span> — Billing issue. Add credits to your API account (OpenAI/Anthropic/xAI dashboard).</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Request timed out</span> — API took too long (>45s). Usually temporary — retry later.</div>
+      <div><span style="color:var(--red);font-family:var(--mono);font-size:11px;">0 key(s)</span> — No API keys loaded for this platform. Add keys in Railway as PLATFORM_API_KEY_1, _2, _3.</div>
+    </div>
+  </div>`;
+
+  container.innerHTML = html;
+
+  // Load key status
+  api('GET', '/api/keys/status').then(status => {
+    const ksEl = el('apilogs-key-status');
+    if (!ksEl) return;
+    const counts = status.keyCounts || {};
+    let ksHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+    Object.entries(counts).forEach(([plat, count]) => {
+      const color = count > 0 ? 'var(--green)' : 'var(--red)';
+      ksHtml += `<div style="border:1px solid var(--border);padding:6px 12px;"><span style="color:${color};font-weight:700;">${count}</span> <span style="text-transform:capitalize;">${plat}</span> key${count!==1?'s':''}</div>`;
+    });
+    ksHtml += '</div>';
+    if (Object.values(counts).some(c => c === 0)) {
+      ksHtml += `<div style="margin-top:8px;color:var(--amber);font-size:10px;">Platforms with 0 keys will be skipped. Add keys in Railway variables.</div>`;
+    }
+    if (Object.values(counts).some(c => c >= 2)) {
+      ksHtml += `<div style="margin-top:4px;color:var(--green);font-size:10px;">Multiple keys detected — round-robin rotation active for faster queries.</div>`;
+    }
+    ksEl.innerHTML = ksHtml;
+  }).catch(() => {});
+}
+
+function toggleRunErrors(idx) {
+  const row = el('run-errors-' + idx);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
 }
 
 // ─── ADMIN PANEL ──────────────────────────────────────────────
