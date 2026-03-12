@@ -69,6 +69,11 @@ cron.schedule('0 * * * *', async () => {
   }
 });
 
+// ─── Admin panel route ───────────────────────────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // ─── CATCH-ALL: serve app for SPA routing ────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
