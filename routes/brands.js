@@ -369,23 +369,39 @@ router.post('/:id/run', auth, async (req, res) => {
   res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
   } catch(e) {
     console.error('[Run]', e.message, e.stack);
-    // Emergency save: if API calls were made (money spent), save whatever results we got
-    if (allResults && allResults.length > 0) {
-      try {
-        const brand = await getBrand(req.params.id, req.user.id);
-        if (brand) {
-          if (!brand.runs) brand.runs = [];
-          const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
-          brand.runs.push({ id: uid(), date: new Date().toISOString().split('T')[0], time: new Date().toISOString(), allResults, sov: emergSov, totalQ, totalM, queries: brand.queries || [], activePlatforms: [], emergencySave: true });
-          brand.updatedAt = new Date().toISOString();
-          await saveBrand(brand);
-          console.log(`[Run] Emergency save: ${allResults.length} results preserved despite error`);
-        }
-      } catch(saveErr) {
-        console.error('[Run] Emergency save also failed:', saveErr.message);
+    // Emergency save: preserve whatever results we got + the error itself
+    let savedResults = 0;
+    try {
+      const brand = await getBrand(req.params.id, req.user.id);
+      if (brand) {
+        if (!brand.runs) brand.runs = [];
+        const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+        const errorResults = (allResults || []).filter(r => r.error);
+        brand.runs.push({
+          id: uid(),
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toISOString(),
+          allResults: allResults || [],
+          sov: emergSov,
+          totalQ, totalM,
+          queries: brand.queries || [],
+          activePlatforms: [],
+          emergencySave: true,
+          crashError: e.message
+        });
+        brand.updatedAt = new Date().toISOString();
+        await saveBrand(brand);
+        savedResults = (allResults || []).length;
+        console.log(`[Run] Emergency save: ${savedResults} results preserved, crash: ${e.message}`);
       }
+    } catch(saveErr) {
+      console.error('[Run] Emergency save also failed:', saveErr.message);
     }
-    res.status(500).json({ error: 'Failed to run queries: ' + e.message });
+    res.status(500).json({
+      error: 'Failed to run queries: ' + e.message,
+      savedResults,
+      errorDetails: e.message
+    });
   }
 });
 

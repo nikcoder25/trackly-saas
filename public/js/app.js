@@ -1082,6 +1082,54 @@ async function ovRemoveQuery(i){
   } catch(e) { toast(e.message, 'err'); }
 }
 
+async function clearAllQueries(){
+  const b = brand(); if (!b) return;
+  if (!(b.queries||[]).length) { toast('No queries to clear', 'warn'); return; }
+  if (!confirm('Clear all ' + b.queries.length + ' queries? This cannot be undone.')) return;
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries: [] });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderOverview();
+    toast('All queries cleared', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function aiGenerateQueries(){
+  const b = brand(); if (!b) return;
+  if (!b.name) { toast('Set brand name first', 'err'); return; }
+  if (!b.industry) { toast('Set industry in Brand Setup first', 'err'); return; }
+  const btn = el('ai-gen-queries-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'GENERATING...';
+  btn.disabled = true;
+  try {
+    const data = await api('POST', '/api/ai-generate-queries', {
+      brandName: b.name,
+      industry: b.industry,
+      city: b.city || '',
+      existingQueries: b.queries || []
+    });
+    const suggestions = data.queries || [];
+    if (!suggestions.length) { toast('AI could not generate queries. Try again.', 'warn'); return; }
+    // Deduplicate
+    const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+    let newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
+    if (!newQs.length) { toast('All generated queries already exist!', 'ok'); return; }
+    const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+    const remaining = queryLimit - (b.queries||[]).length;
+    if (remaining <= 0) { toast('Query limit reached. Upgrade your plan.', 'err'); return; }
+    if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
+    const pick = confirm('Add ' + newQs.length + ' AI-generated queries?\n\n' + newQs.join('\n'));
+    if (!pick) return;
+    const queries = [...(b.queries||[]), ...newQs];
+    const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    brands[brands.findIndex(x=>x.id===b.id)] = result.brand;
+    renderOverview();
+    toast(newQs.length + ' AI-generated queries added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { btn.textContent = origText; btn.disabled = false; }
+}
+
 // ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
 let mentionsPage = 0;
 const MENTIONS_PER_PAGE = 25;
@@ -2283,12 +2331,37 @@ async function runQueries(){
     statusTxt.textContent = 'Run failed: ' + e.message;
     fill.style.width = '0%';
     fill.style.background = 'var(--red)';
+
+    // Store the failure so API Logs can display it
+    const b = brand();
+    if (b) {
+      if (!b._lastRunErrors) b._lastRunErrors = [];
+      b._lastRunErrors.unshift({
+        time: new Date().toISOString(),
+        error: e.message,
+        type: 'crash'
+      });
+      if (b._lastRunErrors.length > 10) b._lastRunErrors = b._lastRunErrors.slice(0, 10);
+    }
+
+    // Reload brand data (emergency save may have stored partial results)
+    try {
+      const freshData = await api('GET', '/api/brands');
+      if (freshData.brands) {
+        brands = freshData.brands;
+        renderBrandSelect();
+        if (currentBrandId) el('brand-select').value = currentBrandId;
+      }
+    } catch(_) {}
+
+    toast('Run failed — check API Logs for details', 'err');
+
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
       fill.style.background = '';
-    }, 10000);
-    toast('Run failed: '+e.message, 'err');
+      go('apilogs');
+    }, 3000);
   }
 
   runningQueries = false;
@@ -2303,17 +2376,78 @@ function renderApiLogs(){
   if (!b) { container.innerHTML = '<div class="empty-state"><p>Select a brand to view API logs.</p></div>'; return; }
 
   const runs = (b.runs || []).slice().reverse(); // newest first
-  if (!runs.length) { container.innerHTML = '<div class="empty-state"><p>No runs yet. Run queries to see API logs here.</p></div>'; return; }
 
   let html = '';
 
-  // Summary card: key counts
+  // Check for recent client-side failures stored in memory
+  const clientErrors = b._lastRunErrors || [];
+  if (clientErrors.length > 0) {
+    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,68,68,.4);background:rgba(255,68,68,.06);">
+      <div class="card-title" style="color:var(--red);">Recent Run Failures</div>`;
+    clientErrors.forEach(err => {
+      const dt = new Date(err.time);
+      const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);">
+        <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)}</div>
+        <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>
+        <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:4px;word-break:break-word;">${esc(err.error)}</div>
+      </div>`;
+    });
+    html += `<button onclick="brand()._lastRunErrors=[];renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS</button>
+    </div>`;
+  }
+
+  // Check latest run for crash errors or emergency saves
+  if (runs.length > 0) {
+    const latest = runs[0];
+    const isCrash = latest.emergencySave || latest.crashError;
+    const latestErrors = (latest.allResults || []).filter(r => r.error);
+    if (isCrash || latestErrors.length > 0) {
+      const dt = new Date(latest.time || latest.date);
+      const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,165,0,.4);background:rgba(255,165,0,.06);">
+        <div class="card-title" style="color:var(--amber);">Last Run — ${esc(dateStr)}${isCrash ? ' (CRASHED)' : ' (ERRORS)'}</div>`;
+      if (latest.crashError) {
+        html += `<div style="font-family:var(--mono);font-size:11px;color:var(--red);margin-bottom:8px;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);word-break:break-word;">
+          CRASH: ${esc(latest.crashError)}</div>`;
+      }
+      if (latestErrors.length > 0) {
+        // Group by platform
+        const errByPlat = {};
+        latestErrors.forEach(r => {
+          if (!errByPlat[r.platform]) errByPlat[r.platform] = new Set();
+          errByPlat[r.platform].add(friendlyError((r.errorMessage || r.raw || '').replace('[API Error] ', '')));
+        });
+        Object.entries(errByPlat).forEach(([plat, msgs]) => {
+          const t = PLAT_THEME[plat] || {};
+          html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:6px;">
+            <span style="color:${t.color || 'var(--text)'}; font-weight:700;">${esc(plat)}</span>
+            <span style="color:var(--red);"> — ${[...msgs].join('; ')}</span></div>`;
+        });
+      }
+      const successCount = (latest.allResults || []).length - latestErrors.length;
+      if (successCount > 0) {
+        html += `<div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-top:6px;">${successCount} queries succeeded despite errors</div>`;
+      }
+      html += `</div>`;
+    }
+  }
+
+  // API Key Status card
   html += `<div class="card" style="margin-bottom:16px;">
     <div class="card-title">API Key Status</div>
     <div id="apilogs-key-status" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
   </div>`;
 
-  // Run history
+  if (!runs.length) {
+    html += '<div class="card"><div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No runs recorded yet. Run queries to see history here.</div></div>';
+    html += renderApiLogsGuide();
+    container.innerHTML = html;
+    loadKeyStatus();
+    return;
+  }
+
+  // Run history table
   html += `<div class="card">
     <div class="card-title">Run History — Last ${Math.min(runs.length, 20)} Runs</div>
     <div style="overflow-x:auto;">
@@ -2325,7 +2459,7 @@ function renderApiLogs(){
       <th>Success</th>
       <th>Errors</th>
       <th>SOV</th>
-      <th style="width:50px;"></th>
+      <th style="width:60px;"></th>
     </tr></thead>
     <tbody>`;
 
@@ -2335,27 +2469,33 @@ function renderApiLogs(){
     const results = run.allResults || [];
     const errors = results.filter(r => r.error);
     const success = results.length - errors.length;
-    const plats = Object.keys(run.platforms || {}).join(', ') || (run.activePlatforms || []).join(', ');
+    const plats = Object.keys(run.platforms || {}).join(', ') || (run.activePlatforms || []).join(', ') || '—';
     const queryCount = (run.queries || []).length || run.totalQ || 0;
     const sovVal = run.sov || 0;
-    const hasErrors = errors.length > 0;
+    const hasErrors = errors.length > 0 || run.crashError;
+    const isCrash = run.emergencySave || run.crashError;
 
     html += `<tr style="${hasErrors ? 'background:rgba(255,68,68,.04);' : ''}">
-      <td style="font-family:var(--mono);font-size:11px;">${esc(dateStr)}</td>
+      <td style="font-family:var(--mono);font-size:11px;">${esc(dateStr)}${isCrash ? ' <span style="color:var(--red);font-size:9px;">CRASH</span>' : ''}</td>
       <td style="font-size:11px;">${esc(plats)}</td>
       <td style="text-align:center;">${queryCount}</td>
       <td style="text-align:center;color:var(--green);">${success}</td>
-      <td style="text-align:center;color:${hasErrors ? 'var(--red)' : 'var(--muted)'}; font-weight:${hasErrors?'700':'400'};">${errors.length}</td>
+      <td style="text-align:center;color:${hasErrors ? 'var(--red)' : 'var(--muted)'}; font-weight:${hasErrors?'700':'400'};">${errors.length}${run.crashError ? '+' : ''}</td>
       <td style="text-align:center;">${sovVal}%</td>
-      <td><button onclick="toggleRunErrors(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:2px 8px;cursor:pointer;font-family:var(--mono);">${hasErrors ? 'DETAILS' : 'VIEW'}</button></td>
+      <td><button onclick="toggleRunErrors(${idx})" style="background:none;border:1px solid var(--border);color:${hasErrors?'var(--red)':'var(--muted)'};font-size:10px;padding:2px 8px;cursor:pointer;font-family:var(--mono);">${hasErrors ? 'ERRORS' : 'VIEW'}</button></td>
     </tr>`;
 
-    // Collapsible error details row
-    html += `<tr id="run-errors-${idx}" style="display:none;"><td colspan="7" style="padding:0;">
+    // Expandable details row (auto-open first row if it has errors)
+    html += `<tr id="run-errors-${idx}" style="display:${idx===0 && hasErrors ? '' : 'none'};"><td colspan="7" style="padding:0;">
       <div style="background:var(--bg2);border:1px solid var(--border);padding:12px 14px;margin:4px 0;">`;
 
-    if (hasErrors) {
-      // Group errors by platform
+    // Show crash error first
+    if (run.crashError) {
+      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;padding:8px;background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.2);">
+        RUN CRASHED: ${esc(run.crashError)}</div>`;
+    }
+
+    if (errors.length > 0) {
       const errByPlat = {};
       errors.forEach(r => {
         if (!errByPlat[r.platform]) errByPlat[r.platform] = [];
@@ -2366,28 +2506,31 @@ function renderApiLogs(){
         });
       });
 
-      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;">${errors.length} ERROR${errors.length>1?'S':''}</div>`;
+      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--red);margin-bottom:8px;">${errors.length} API ERROR${errors.length>1?'S':''}</div>`;
       Object.entries(errByPlat).forEach(([plat, errs]) => {
         const t = PLAT_THEME[plat] || {};
         html += `<div style="margin-bottom:10px;">
           <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:${t.color || 'var(--text)'};">${esc(plat)} — ${errs.length} error${errs.length>1?'s':''}</div>`;
         errs.forEach(e => {
           html += `<div style="margin:4px 0 4px 12px;font-size:11px;line-height:1.5;">
-            <div style="color:var(--muted);">Query: <span style="color:var(--text);">${esc(e.query)}</span></div>
+            <div style="color:var(--muted);">Query: <span style="color:var(--text);">${esc(e.query || '(unknown)')}</span></div>
             <div style="color:var(--red);">${esc(e.friendly)}</div>
-            <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:2px;">${esc(e.error.substring(0, 200))}</div>
+            <div style="color:var(--muted);font-size:10px;opacity:.7;margin-top:2px;word-break:break-word;">${esc(e.error.substring(0, 300))}</div>
           </div>`;
         });
         html += `</div>`;
       });
     }
 
-    // Show successful results summary
+    if (!errors.length && !run.crashError) {
+      html += `<div style="font-family:var(--mono);font-size:11px;color:var(--green);margin-bottom:6px;">All queries completed successfully.</div>`;
+    }
+
+    // Success summary
     const successResults = results.filter(r => !r.error);
     if (successResults.length > 0) {
-      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;${hasErrors?'margin-top:10px;border-top:1px solid var(--border);padding-top:10px;':''}">
+      html += `<div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;${errors.length||run.crashError?'margin-top:10px;border-top:1px solid var(--border);padding-top:10px;':''}">
         ${successResults.length} SUCCESSFUL RESPONSE${successResults.length>1?'S':''}</div>`;
-      // Group by platform
       const successByPlat = {};
       successResults.forEach(r => {
         if (!successByPlat[r.platform]) successByPlat[r.platform] = { mentioned: 0, total: 0 };
@@ -2400,6 +2543,8 @@ function renderApiLogs(){
         html += `<span style="margin-right:16px;"><span style="color:${t.color || 'var(--text)'};">${esc(plat)}</span>: ${s.mentioned}/${s.total} mentioned</span>`;
       });
       html += `</div>`;
+    } else if (!run.crashError && results.length === 0) {
+      html += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">No responses recorded for this run.</div>`;
     }
 
     html += `</div></td></tr>`;
@@ -2407,21 +2552,26 @@ function renderApiLogs(){
 
   html += `</tbody></table></div></div>`;
 
-  // Common errors guide
-  html += `<div class="card" style="margin-top:16px;">
+  html += renderApiLogsGuide();
+  container.innerHTML = html;
+  loadKeyStatus();
+}
+
+function renderApiLogsGuide() {
+  return `<div class="card" style="margin-top:16px;">
     <div class="card-title">Common Errors &amp; Fixes</div>
     <div style="font-size:12px;line-height:1.8;color:var(--muted);">
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Rate limited</span> — Too many requests sent. Multiple API keys help avoid this. Wait a few minutes and retry.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Invalid API key</span> — Key is wrong, expired, or revoked. Replace it in Railway variables and redeploy.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">No credits / quota exceeded</span> — Billing issue. Add credits to your API account (OpenAI/Anthropic/xAI dashboard).</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Rate limited / 429</span> — Too many requests. With multiple API keys, this is less likely. Wait a few minutes and retry.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Invalid API key / 401</span> — Key is wrong, expired, or revoked. Replace it in Railway variables and redeploy.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">No credits / quota / insufficient_quota</span> — Billing issue. Add credits in your API provider dashboard.</div>
       <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Request timed out</span> — API took too long (>45s). Usually temporary — retry later.</div>
+      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">CRASH / 500 error</span> — Server-side error during processing. Results may have been partially saved.</div>
       <div><span style="color:var(--red);font-family:var(--mono);font-size:11px;">0 key(s)</span> — No API keys loaded for this platform. Add keys in Railway as PLATFORM_API_KEY_1, _2, _3.</div>
     </div>
   </div>`;
+}
 
-  container.innerHTML = html;
-
-  // Load key status
+function loadKeyStatus() {
   api('GET', '/api/keys/status').then(status => {
     const ksEl = el('apilogs-key-status');
     if (!ksEl) return;
@@ -2439,7 +2589,10 @@ function renderApiLogs(){
       ksHtml += `<div style="margin-top:4px;color:var(--green);font-size:10px;">Multiple keys detected — round-robin rotation active for faster queries.</div>`;
     }
     ksEl.innerHTML = ksHtml;
-  }).catch(() => {});
+  }).catch(() => {
+    const ksEl = el('apilogs-key-status');
+    if (ksEl) ksEl.innerHTML = '<span style="color:var(--red);">Failed to load key status. Check server connection.</span>';
+  });
 }
 
 function toggleRunErrors(idx) {
