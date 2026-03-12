@@ -539,14 +539,16 @@
 
   <!-- Topbar -->
   <div class="topbar">
-    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
-    <div class="topbar-logo">Track<span>ly</span></div>
-    <div class="topbar-brand-sel">
-      <select id="brand-select" onchange="switchBrand(this.value)">
-        <option value="">-- Select brand --</option>
-      </select>
+    <div class="topbar-left">
+      <button class="hamburger-btn" id="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+      <div class="topbar-logo">Track<span>ly</span></div>
+      <div class="topbar-brand-sel">
+        <select id="brand-select" onchange="switchBrand(this.value)">
+          <option value="">-- Select brand --</option>
+        </select>
+      </div>
+      <button class="add-brand-btn" onclick="openAddBrand()">+ ADD BRAND</button>
     </div>
-    <button style="padding:6px 12px;background:var(--bg3);border:1px solid var(--border);color:var(--green);font-size:11px;font-family:var(--mono);cursor:pointer;letter-spacing:1px;" onclick="openAddBrand()">+ ADD BRAND</button>
     <div class="topbar-right">
       <span class="user-badge" id="user-email-badge"></span>
       <button class="notif-bell" id="notif-bell" onclick="toggleNotifications()" title="Notifications" style="position:relative;background:none;border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;padding:4px 8px;line-height:1;">&#128276;<span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:8px;font-family:var(--mono);padding:1px 4px;border-radius:50%;min-width:14px;text-align:center;">0</span></button>
