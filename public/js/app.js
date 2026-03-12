@@ -38,6 +38,44 @@ let runningQueries = false;
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
+// Simple markdown to HTML for AI responses
+function mdToHtml(s){
+  if (!s) return '';
+  let h = esc(s);
+  // Headers: ### Title → <strong>Title</strong> with margin
+  h = h.replace(/^#{1,4}\s+(.+)$/gm, '<div style="font-weight:700;margin:10px 0 4px;">$1</div>');
+  // Bold: **text** or __text__
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  // Italic: *text* or _text_ (but not inside words)
+  h = h.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
+  // Unordered list items: - item or * item
+  h = h.replace(/^[\s]*[-*]\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">• $1</div>');
+  // Numbered list items: 1. item
+  h = h.replace(/^[\s]*(\d+)\.\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">$1. $2</div>');
+  // Paragraphs — convert double newlines
+  h = h.replace(/\n\n/g, '<div style="margin:8px 0;"></div>');
+  // Single newlines
+  h = h.replace(/\n/g, '<br>');
+  return h;
+}
+// Friendly error message for display
+function friendlyError(msg){
+  if (!msg) return 'Unknown error';
+  const m = msg.toLowerCase();
+  if (m.includes('rate limit') || m.includes('rate_limit') || m.includes('too many requests'))
+    return 'Rate limited — too many requests. Retried automatically but limit persists. Try again in a few minutes.';
+  if (m.includes('exceed') && m.includes('rate'))
+    return 'Rate limited — request limit exceeded. Try again in a few minutes.';
+  if (m.includes('credit') || m.includes('billing') || m.includes('quota') || m.includes('insufficient'))
+    return 'No credits / quota exceeded. Check your API billing.';
+  if (m.includes('invalid') && (m.includes('key') || m.includes('auth')))
+    return 'Invalid API key. Check your key in Settings.';
+  if (m.includes('timeout'))
+    return 'Request timed out. The API took too long to respond.';
+  return msg.length > 100 ? msg.substring(0, 100) + '...' : msg;
+}
 function brandHighlightRe(b){
   // Build regex that matches brand name + all aliases with word boundaries
   // Must use \b to avoid highlighting "Pro" inside "Professional" etc.
@@ -46,7 +84,7 @@ function brandHighlightRe(b){
   const escaped = terms.filter(t=>t&&t.length>=2).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
   if (!escaped.length) return null;
   // Sort longest first so longer matches take priority
-  escaped.sort((a,b) => b.length - a.length);
+  escaped.sort((x,y) => y.length - x.length);
   return new RegExp('\\b('+escaped.join('|')+')\\b', 'gi');
 }
 function toast(msg, type='ok'){
@@ -57,8 +95,8 @@ function toast(msg, type='ok'){
 }
 function show(id){ const e=el(id); if(e) e.style.display='block'; }
 function hide(id){ const e=el(id); if(e) e.style.display='none'; }
-function closeModal(id){ el(id).classList.remove('open'); }
-function openModal(id){ el(id).classList.add('open'); }
+function closeModal(id){ const e=el(id); if(e) e.classList.remove('open'); }
+function openModal(id){ const e=el(id); if(e) e.classList.add('open'); }
 function copyResponse(){
   const text = el('resp-modal-text').innerText;
   navigator.clipboard.writeText(text).then(() => {
@@ -67,7 +105,7 @@ function copyResponse(){
     btn.style.color = 'var(--green)';
     btn.style.borderColor = 'var(--green)';
     setTimeout(() => { btn.textContent = 'COPY RESPONSE'; btn.style.color = 'var(--muted)'; btn.style.borderColor = 'var(--border)'; }, 2000);
-  });
+  }).catch(() => toast('Copy failed', 'err'));
 }
 
 function brand(){
@@ -343,6 +381,7 @@ async function loadModelSettings() {
     // Load current user settings
     const settingsResp = await api('GET', '/api/settings');
     const currentModels = (settingsResp.settings && settingsResp.settings.models) || {};
+    const enabledPlatforms = (settingsResp.settings && settingsResp.settings.enabledPlatforms) || {};
 
     const platformIcons = {
       'ChatGPT': '<span style="color:#74aa9c;">&#9675;</span>',
@@ -359,9 +398,15 @@ async function loadModelSettings() {
     for (const [platform, models] of Object.entries(platformModels)) {
       const currentModel = currentModels[platform] || models.find(m => m.default)?.id || models[0]?.id;
       const icon = platformIcons[platform] || '';
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;">
-        <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:100px;">${icon} ${platform}</div>
-        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;">
+      // Default to enabled if not explicitly set
+      const isEnabled = enabledPlatforms[platform] !== false;
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;${isEnabled?'':'opacity:0.5;'}">
+        <label class="toggle-switch" style="flex-shrink:0;">
+          <input type="checkbox" class="platform-toggle" data-platform="${platform}" ${isEnabled?'checked':''} onchange="togglePlatformRow(this)">
+          <span class="toggle-slider"></span>
+        </label>
+        <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:90px;">${icon} ${platform}</div>
+        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;" ${isEnabled?'':'disabled'}>
           ${models.map(m => `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.label}</option>`).join('')}
         </select>
       </div>`;
@@ -373,6 +418,20 @@ async function loadModelSettings() {
   }
 }
 
+function togglePlatformRow(cb) {
+  let rowDiv = cb.parentElement;
+  while (rowDiv && !rowDiv.querySelector('.model-select')) rowDiv = rowDiv.parentElement;
+  if (!rowDiv) return;
+  const sel = rowDiv.querySelector('.model-select');
+  if (cb.checked) {
+    rowDiv.style.opacity = '1';
+    if (sel) sel.disabled = false;
+  } else {
+    rowDiv.style.opacity = '0.5';
+    if (sel) sel.disabled = true;
+  }
+}
+
 async function saveModelSettings() {
   const btn = el('btn-save-models');
   const status = el('model-save-status');
@@ -381,10 +440,14 @@ async function saveModelSettings() {
   status.style.display = 'none';
   try {
     const models = {};
+    const enabledPlatforms = {};
     document.querySelectorAll('.model-select').forEach(sel => {
       models[sel.dataset.platform] = sel.value;
     });
-    await api('PUT', '/api/settings', { settings: { models } });
+    document.querySelectorAll('.platform-toggle').forEach(cb => {
+      enabledPlatforms[cb.dataset.platform] = cb.checked;
+    });
+    await api('PUT', '/api/settings', { settings: { models, enabledPlatforms } });
     status.textContent = 'SAVED';
     status.style.color = 'var(--green)';
     status.style.display = 'inline';
@@ -441,7 +504,8 @@ function showUpgradeModal(reason) {
 async function doUpgrade(plan) {
   const current = (currentUser && currentUser.plan) || 'free';
   if (plan === current) return;
-  const action = ['pro','agency'].includes(plan) && current === 'free' ? 'upgrade' : plan === 'free' ? 'downgrade' : 'switch';
+  const tiers = {free:0, pro:1, agency:2};
+  const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
     const data = await api('POST', '/api/upgrade', { plan });
@@ -652,6 +716,14 @@ async function bulkAddQueries(){
   const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
   const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
   if (!unique.length) { toast('All queries already exist', 'err'); return; }
+  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  const currentCount = (b.queries||[]).length;
+  if (currentCount + unique.length > queryLimit) {
+    const allowed = queryLimit - currentCount;
+    if (allowed <= 0) { toast('Query limit reached (' + queryLimit + '). Upgrade your plan.', 'err'); return; }
+    unique.splice(allowed);
+    toast('Only ' + allowed + ' queries added (plan limit: ' + queryLimit + ')', 'warn');
+  }
   const queries = [...(b.queries||[]), ...unique];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
@@ -693,7 +765,7 @@ function renderMentions(){
   runs.forEach((r,i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    const d = new Date(r.time);
+    const d = new Date(r.time || r.date);
     opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
@@ -723,18 +795,23 @@ function renderMentions(){
   }
 
   let html = '<table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Response Preview</th><th></th></tr></thead><tbody>';
+  const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
+  const sentimentTips = {positive:'AI spoke favorably about your brand',negative:'AI expressed concerns about your brand',neutral:'AI mentioned your brand without strong opinion'};
   filtered.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
-    const preview = isErr ? (r.errorMessage||'API Error') : (r.raw || r.context || '').substring(0, 120).replace(/\n/g, ' ');
+    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 120).replace(/\n/g, ' ');
     const statusBadge = isErr
       ? '<span class="badge" style="background:rgba(255,136,0,.15);color:#ff8800;font-weight:700;">ERROR</span>'
       : `<span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span>`;
+    const sent = r.sentiment || 'neutral';
+    const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
+    const sentTip = isErr ? '' : (sentimentTips[sent] || '');
     html += `<tr${isErr?' style="opacity:0.6"':''}>
       <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
       <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
       <td>${statusBadge}</td>
-      <td><span class="badge ${r.sentiment==='positive'?'pos':r.sentiment==='negative'?'neg':'neu'}">${isErr?'—':r.sentiment||'neutral'}</span></td>
+      <td><span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" title="${sentTip}">${sentLabel}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
       <td style="max-width:250px;font-size:11px;color:${isErr?'#ff8800':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
       <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
@@ -763,15 +840,16 @@ function openResp(mentionId){
   el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
   el('resp-modal-query').innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
   const textEl = el('resp-modal-text');
-  const rawText = (m.raw || m.context || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  textEl.style.whiteSpace = 'normal';
+  const rawHtml = mdToHtml(m.raw || m.context || '');
   const hre = brandHighlightRe(b);
-  textEl.innerHTML = hre ? rawText.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText;
+  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml;
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
   } else cc.innerHTML = '';
   openModal('resp-modal');
 }
@@ -788,18 +866,19 @@ function openResultFromRun(runId, platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
-  const rawText1 = (result.raw || result.context || '[No response text]').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  textEl.style.whiteSpace = 'normal';
+  const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre1 = brandHighlightRe(b);
-  textEl.innerHTML = hre1 ? rawText1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText1;
+  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml1;
   // Show citations if any
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
   } else cc.innerHTML = '';
   openModal('resp-modal');
 }
@@ -816,18 +895,19 @@ function openFullResult(platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + platform + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
-  const rawText2 = (result.raw || result.context || '[No response text]').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  textEl.style.whiteSpace = 'normal';
+  const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre2 = brandHighlightRe(b);
-  textEl.innerHTML = hre2 ? rawText2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawText2;
+  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml2;
   // Show citations
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
   if (cites.length) {
     cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${esc(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
   } else cc.innerHTML = '';
   openModal('resp-modal');
 }
@@ -908,12 +988,12 @@ function renderProof(){
       const responseText = isError
         ? ''
         : (fullResult ? (fullResult.raw || fullResult.context || '') : (m ? (m.raw || m.context || '') : ''));
-      const escapedResp = responseText.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const renderedResp = mdToHtml(responseText);
       const proofHre = brandHighlightRe(b);
       // Highlight brand name in ALL responses (not just mentioned) so user can verify
       const displayResp = proofHre
-        ? escapedResp.replace(proofHre,'<mark>$1</mark>')
-        : escapedResp;
+        ? renderedResp.replace(proofHre,'<mark>$1</mark>')
+        : renderedResp;
       const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
       const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
       const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
@@ -948,7 +1028,7 @@ function renderProof(){
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"</div>
           ${isError
-            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:10px;color:var(--muted);">${esc(fullResult.errorMessage||'Unknown error')}</div><div style="font-size:10px;color:var(--muted);margin-top:8px;">Check that your API key is valid and has sufficient credits.</div></div>`
+            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
             ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>
                <button class="proof-expand-btn" onclick="toggleProofExpand(this)">SHOW FULL RESPONSE</button>`
@@ -956,7 +1036,7 @@ function renderProof(){
           }
         </div>
         <div class="proof-card-footer">
-          <span class="badge ${sentBadge}">${sentiment}</span>
+          <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
           ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
           ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
@@ -987,18 +1067,19 @@ function exportProofCSV(){
   const b = brand(); if (!b) return;
   const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
   if (!run) return;
-  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response']];
+  function csvField(val){ const s = String(val||'').replace(/"/g,'""').replace(/\n/g,' '); return '"'+s+'"'; }
+  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response'].map(csvField).join(',')];
   const allResults = run.allResults || [];
   if (allResults.length) {
     allResults.forEach(r => {
-      rows.push([r.platform, '"'+r.query.replace(/"/g,"'")+'"', r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', '"'+(r.raw||r.context||'').replace(/"/g,"'").replace(/\n/g,' ')+'"']);
+      rows.push([r.platform, r.query, r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', r.raw||r.context||''].map(csvField).join(','));
     });
   } else {
     (run.mentions||[]).forEach(m => {
-      rows.push([m.platform, '"'+m.query.replace(/"/g,"'")+'"', 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', '"'+(m.raw||m.context||'').replace(/"/g,"'").replace(/\n/g,' ')+'"']);
+      rows.push([m.platform, m.query, 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', m.raw||m.context||''].map(csvField).join(','));
     });
   }
-  const csv = rows.map(r=>r.join(',')).join('\n');
+  const csv = rows.join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv,' + encodeURIComponent(csv);
   a.download = 'trackly-proof-'+run.date+'.csv';
@@ -1311,8 +1392,12 @@ async function loadQuerySuggestions(){
     if (!suggestions.length) { toast('No suggestions available', 'warn'); return; }
     // Show in a modal-like dropdown
     const existing = new Set((b.queries || []).map(q => q.toLowerCase()));
-    const newSuggestions = suggestions.filter(s => !existing.has(s.toLowerCase()));
+    let newSuggestions = suggestions.filter(s => !existing.has(s.toLowerCase()));
     if (!newSuggestions.length) { toast('All suggestions already added!', 'ok'); return; }
+    const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+    const remaining = queryLimit - (b.queries || []).length;
+    if (remaining <= 0) { toast('Query limit reached. Upgrade your plan.', 'err'); return; }
+    if (newSuggestions.length > remaining) newSuggestions = newSuggestions.slice(0, remaining);
     const pick = confirm('Add ' + newSuggestions.length + ' suggested queries?\n\n' + newSuggestions.join('\n'));
     if (!pick) return;
     const queries = [...(b.queries || []), ...newSuggestions];
@@ -1371,25 +1456,32 @@ function renderAliasTags(){
   });
 }
 
-function addAlias(){
+async function addAlias(){
   const b = brand(); if (!b) return;
   const inp = el('alias-input');
   const val = inp.value.trim();
   if (!val) return;
   const aliases = [...(b.aliases||[])];
   if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
-  b.aliases = aliases;
-  inp.value = '';
-  renderAliasTags();
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    inp.value = '';
+    renderAliasTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 async function removeAlias(i){
   const b = brand(); if (!b) return;
-  b.aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
-  renderAliasTags();
+  const aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAliasTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
-function autoGenerateAliases(){
+async function autoGenerateAliases(){
   const b = brand(); if (!b) return;
   const name = el('s-name').value.trim() || b.name;
   const website = el('s-website').value.trim() || b.website;
@@ -1399,9 +1491,12 @@ function autoGenerateAliases(){
   generated.forEach(a => {
     if (!existing.has(a.toLowerCase())) { newAliases.push(a); existing.add(a.toLowerCase()); }
   });
-  b.aliases = newAliases;
-  renderAliasTags();
-  toast(generated.length + ' aliases generated', 'ok');
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { aliases: newAliases });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAliasTags();
+    toast(generated.length + ' aliases generated', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function renderAreaTags(){
@@ -1420,21 +1515,29 @@ function renderAreaTags(){
   });
 }
 
-function addArea(){
+async function addArea(){
   const b = brand(); if (!b) return;
   const inp = el('area-input');
   const val = inp.value.trim();
   if (!val) return;
-  if (!b.nearbyAreas) b.nearbyAreas = [];
-  if (!b.nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) b.nearbyAreas.push(val);
-  inp.value = '';
-  renderAreaTags();
+  const nearbyAreas = [...(b.nearbyAreas||[])];
+  if (!nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) nearbyAreas.push(val);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    inp.value = '';
+    renderAreaTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
-function removeArea(i){
+async function removeArea(i){
   const b = brand(); if (!b) return;
-  b.nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
-  renderAreaTags();
+  const nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    renderAreaTags();
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 function renderSetup(){

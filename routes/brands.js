@@ -108,6 +108,9 @@ router.put('/:id', auth, async (req, res) => {
     if (safeBody.schedule && !limits.scheduledRuns) {
       return res.status(403).json({ error: `Scheduled runs are available on Pro and Agency plans. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
     }
+    if (safeBody.webhookUrl && safeBody.webhookUrl.trim() && !isWebhookUrlSafe(safeBody.webhookUrl.trim())) {
+      return res.status(400).json({ error: 'Webhook URL must be HTTPS and cannot target local/private addresses.' });
+    }
 
     const updated = { ...brand, ...safeBody, id: brand.id, userId: req.user.id, updatedAt: new Date().toISOString() };
     await saveBrand(updated);
@@ -131,6 +134,7 @@ router.delete('/:id', auth, async (req, res) => {
 
 // Run queries
 router.post('/:id/run', auth, async (req, res) => {
+  try {
   const brand = await getBrand(req.params.id, req.user.id);
   if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
@@ -149,22 +153,25 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   const keys = getServerKeys();
-  // Load user model preferences
+  // Load user settings (model preferences + enabled platforms)
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
-  const modelPrefs = (userRow.rows[0]?.settings?.models) || {};
+  const userSettings = userRow.rows[0]?.settings || {};
+  const modelPrefs = userSettings.models || {};
+  const enabledPlatforms = userSettings.enabledPlatforms || {};
   const queries = brand.queries || [];
   if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
   let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
     .filter(([, keyName]) => keys[keyName])
-    .map(([plat]) => plat);
+    .map(([plat]) => plat)
+    .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
 
   if (availablePlatforms.length > limits.platforms) {
     availablePlatforms = availablePlatforms.slice(0, limits.platforms);
   }
 
   if (!availablePlatforms.length) {
-    return res.status(400).json({ error: 'No AI platforms configured. Please contact support.' });
+    return res.status(400).json({ error: 'No AI platforms enabled. Enable platforms in Account settings.' });
   }
 
   const requestedPlatforms = req.body.platforms || brand.platforms;
@@ -185,6 +192,7 @@ router.post('/:id/run', auth, async (req, res) => {
     let pm = 0;
     for (const q of queries) {
       try {
+        // Rate limiting is handled per-platform inside queryAI
         const result = await queryAI(q, plat, brand, keys, modelPrefs);
         if (!result) continue;
         const { text, citations: extraCites, model: modelUsed } = result;
@@ -283,14 +291,36 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   const errorCount = allResults.filter(r => r.error).length;
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: 8 - activePlatforms.length, errorCount } });
+  const totalPlatformCount = Object.keys(PLATFORM_KEY_MAP).length;
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount } });
+  } catch(e) {
+    console.error('[Run]', e.message);
+    res.status(500).json({ error: 'Failed to run queries' });
+  }
 });
+
+// Validate webhook URL is safe (prevent SSRF)
+function isWebhookUrlSafe(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'https:') return false;
+    const hostname = parsed.hostname.toLowerCase();
+    // Reject localhost, private IPs, and metadata endpoints
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return false;
+    if (hostname === '0.0.0.0') return false;
+    if (hostname === '169.254.169.254') return false; // cloud metadata
+    if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false;
+    if (/^(::ffff:)?(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false; // IPv6-mapped
+    if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+    return true;
+  } catch { return false; }
+}
 
 // Webhook alert helper
 async function sendWebhookAlert(brand, run, previousSOV) {
   if (!brand.webhookUrl) return;
   const url = brand.webhookUrl.trim();
-  if (!url.startsWith('http')) return;
+  if (!isWebhookUrlSafe(url)) { console.warn(`[Webhook] Blocked unsafe URL: ${url}`); return; }
 
   const sov = run.sov;
   const change = sov - previousSOV;
@@ -323,13 +353,27 @@ async function sendWebhookAlert(brand, run, previousSOV) {
 async function runBrandQueries(brand) {
   const keys = getServerKeys();
   const queries = brand.queries || [];
-  const activePlatforms = Object.entries(PLATFORM_KEY_MAP)
-    .filter(([, keyName]) => keys[keyName])
-    .map(([plat]) => plat);
-  if (!activePlatforms.length || !queries.length) return;
-  // Load user model preferences for scheduled runs
+
+  // Enforce plan limits for scheduled runs
+  const plan = await getUserPlan(brand.userId);
+  const limits = getPlanLimits(plan);
+  if (!limits.scheduledRuns) return; // plan doesn't allow scheduled runs
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
+  if (todayRuns >= limits.runsPerDay) return; // daily run limit reached
+
+  // Load user settings for scheduled runs
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
-  const modelPrefs = (userRow.rows[0]?.settings?.models) || {};
+  const userSettings = userRow.rows[0]?.settings || {};
+  const modelPrefs = userSettings.models || {};
+  const enabledPlatforms = userSettings.enabledPlatforms || {};
+  let activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+    .filter(([, keyName]) => keys[keyName])
+    .map(([plat]) => plat)
+    .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
+  if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
+  if (!activePlatforms.length || !queries.length) return;
 
   const newMentions = [];
   const allResults = [];

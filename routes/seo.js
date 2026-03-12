@@ -82,7 +82,7 @@ ${content}
 </article>
 <section class="seo-cta" aria-label="Call to action">
   <h2>Ready to track your AI visibility?</h2>
-  <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AIO.</p>
+  <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek & Mistral.</p>
   <a class="seo-btn" href="/" style="padding:14px 36px;font-size:15px;">Get Started Free</a>
   <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px;">No credit card required.</p>
 </section>
@@ -121,7 +121,7 @@ router.get('/chatgpt-brand-tracking', (req, res) => {
 <h3>1. Add Your Keywords</h3>
 <p>Enter the questions your customers ask — e.g., "Best HVAC company in Austin TX", "Top rated plumber near me", "Which CRM is best for small business?"</p>
 <h3>2. Run Tracking</h3>
-<p>Trackly sends your queries to ChatGPT (GPT-4o-mini) via the official OpenAI API and captures the full response.</p>
+<p>Trackly sends your queries to ChatGPT via the official OpenAI API and captures the full response.</p>
 <h3>3. See Results</h3>
 <p>Each response is analyzed for brand mentions, sentiment, and recommendations. Results are stored as verifiable proof you can share with clients.</p>
 </div>
@@ -337,9 +337,9 @@ router.get('/geo-optimization', (req, res) => {
 <p>See which competitors AI recommends for your target keywords. Understand what they're doing differently and adapt your strategy.</p>
 
 <h2>Tools for GEO Optimization</h2>
-<p>Trackly is purpose-built for GEO tracking. It queries 6 AI platforms with your custom keywords and shows you exactly what each AI says about your brand. Features include:</p>
+<p>Trackly is purpose-built for GEO tracking. It queries 8 AI platforms with your custom keywords and shows you exactly what each AI says about your brand. Features include:</p>
 <ul>
-<li>Real API responses from ChatGPT, Perplexity, Claude, Gemini, Grok & Google AIO</li>
+<li>Real API responses from ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek & Mistral</li>
 <li>Brand mention detection with alias support</li>
 <li>Share of Voice measurement</li>
 <li>Sentiment and recommendation analysis</li>
@@ -354,7 +354,7 @@ router.get('/geo-optimization', (req, res) => {
 router.get('/vs/semrush', (req, res) => {
   res.send(seoPage({
     title: 'Trackly vs Semrush — AI Visibility Tracking Comparison | Trackly',
-    description: 'Compare Trackly with Semrush for AI visibility tracking. Trackly is purpose-built for GEO with 6 AI platforms, while Semrush focuses on traditional SEO.',
+    description: 'Compare Trackly with Semrush for AI visibility tracking. Trackly is purpose-built for GEO with 8 AI platforms, while Semrush focuses on traditional SEO.',
     keywords: 'Trackly vs Semrush, Semrush alternative, AI visibility tool comparison, Semrush AI tracking, GEO tool comparison',
     h1: 'Trackly vs <span>Semrush</span>',
     subtitle: 'How Trackly compares to Semrush for AI visibility and Generative Engine Optimization tracking.',
@@ -368,7 +368,7 @@ router.get('/vs/semrush', (req, res) => {
 
 <h2>Feature Comparison</h2>
 <div class="highlight">
-<p><strong>AI Platforms Tracked:</strong> Trackly covers 6 AI platforms (ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO). Semrush covers fewer AI platforms.</p>
+<p><strong>AI Platforms Tracked:</strong> Trackly covers 8 AI platforms (ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek, Mistral). Semrush covers fewer AI platforms.</p>
 <p><strong>Real API Responses:</strong> Trackly uses real API calls and saves complete responses as proof. Full response text, model name, and timestamp included.</p>
 <p><strong>Pricing:</strong> Trackly starts free. Semrush starts at $129.95/mo for their base SEO plan, with AI features in higher tiers.</p>
 <p><strong>GEO Focus:</strong> Trackly is 100% focused on AI visibility. Semrush has AI visibility as one feature among hundreds.</p>
@@ -406,7 +406,7 @@ router.get('/vs/ahrefs', (req, res) => {
 <p><strong>Custom vs Pre-set Queries:</strong> Trackly lets you track your own keywords. Ahrefs uses a pre-built dataset.</p>
 <p><strong>Real-time vs Monthly:</strong> Trackly runs queries on-demand with real API calls. Ahrefs updates monthly from historical data.</p>
 <p><strong>Full Response as Proof:</strong> Trackly saves the complete AI response. Ahrefs shows aggregated statistics.</p>
-<p><strong>6 AI Platforms:</strong> Trackly tracks ChatGPT, Perplexity, Claude, Gemini, Grok & Google AIO.</p>
+<p><strong>8 AI Platforms:</strong> Trackly tracks ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek & Mistral.</p>
 </div>
 
 <h2>When to Use Each</h2>
