@@ -4,9 +4,10 @@
 const express = require('express');
 const router  = express.Router();
 
+const bcrypt = require('bcryptjs');
 const { pool, auditLog, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
-const { safeUser, getServerKeys } = require('../lib/helpers');
+const { uid, safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 
@@ -183,6 +184,71 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     res.json({ user: { ...safeUser(result.rows[0]), brandCount: bc.rows[0]?.cnt || 0 } });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Admin: create user
+router.post('/admin/users', auth, requireAdmin, async (req, res) => {
+  try {
+    const { email, name, password, plan, role } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return res.status(400).json({ error: 'Invalid email format' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (plan && !['free', 'pro', 'agency', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (role && !['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+
+    const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [trimmedEmail]);
+    if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const id = uid();
+    const userName = (name || '').trim() || trimmedEmail.split('@')[0];
+    const userRole = role === 'admin' ? 'admin' : null;
+    const userPlan = plan || 'free';
+
+    await pool.query(
+      'INSERT INTO users (id, email, name, password_hash, plan, role, email_verified) VALUES ($1, $2, $3, $4, $5, $6, TRUE)',
+      [id, trimmedEmail, userName, hash, userPlan, userRole]
+    );
+
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    auditLog(req.user.id, 'admin_create_user', 'user', id, { email: trimmedEmail, plan: userPlan }, req.ip);
+    res.json({ user: { ...safeUser(result.rows[0]), brandCount: 0 } });
+  } catch(e) {
+    console.error('[Admin Create User]', e.message);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Admin: delete user
+router.delete('/admin/users/:id', auth, requireAdmin, async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot delete your own account' });
+    const user = await pool.query('SELECT email, role FROM users WHERE id = $1', [req.params.id]);
+    if (!user.rows.length) return res.status(404).json({ error: 'User not found' });
+    // Cascading delete handles brands, notifications, team_members
+    await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    auditLog(req.user.id, 'admin_delete_user', 'user', req.params.id, { email: user.rows[0].email }, req.ip);
+    res.json({ success: true });
+  } catch(e) {
+    console.error('[Admin Delete User]', e.message);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Admin: reset user password
+router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email', [hash, req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    auditLog(req.user.id, 'admin_reset_password', 'user', req.params.id, { email: result.rows[0].email }, req.ip);
+    res.json({ success: true, message: 'Password updated' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

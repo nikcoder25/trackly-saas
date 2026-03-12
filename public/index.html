@@ -912,9 +912,12 @@
 
       <!-- Users Table -->
       <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <div class="card-title" style="margin:0;">All Users</div>
-          <div style="display:flex;gap:10px;align-items:center;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="card-title" style="margin:0;">All Users</div>
+            <button onclick="openAdminAddUser()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:10px;padding:6px 14px;cursor:pointer;font-weight:700;letter-spacing:0.5px;">+ ADD USER</button>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <select class="finput" id="admin-filter-plan" style="width:120px;margin:0;padding:6px 10px;font-size:11px;font-family:var(--mono);" onchange="filterAdminUsers()">
               <option value="">All Plans</option>
               <option value="free">Free</option>
@@ -979,9 +982,67 @@
             </div>
           </div>
 
+          <!-- Reset Password -->
+          <div style="margin-top:8px;padding:14px;background:var(--bg3);border:1px solid var(--border);">
+            <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Reset Password</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input class="finput" id="admin-edit-password" type="text" placeholder="New password (min 8 chars)" style="margin:0;flex:1;font-size:11px;">
+              <button onclick="adminResetPassword()" style="background:var(--amber,#f0a030);border:none;color:#000;font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;font-weight:700;white-space:nowrap;">RESET</button>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;">
+            <button onclick="adminDeleteUser()" id="admin-edit-delete-btn" style="background:rgba(255,68,68,.1);border:1px solid rgba(255,68,68,.3);color:var(--red,#ff4444);font-family:var(--mono);font-size:10px;padding:6px 14px;cursor:pointer;letter-spacing:0.5px;">DELETE USER</button>
+            <div style="display:flex;gap:10px;">
+              <button onclick="closeAdminEdit()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;">CANCEL</button>
+              <button onclick="saveAdminEdit()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;font-weight:700;">SAVE CHANGES</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin Add User Modal -->
+    <div class="overlay" id="admin-add-modal">
+      <div class="modal" style="max-width:480px;">
+        <div class="modal-head">
+          <span>Add New User</span>
+          <button class="modal-close" onclick="closeAdminAddUser()">&times;</button>
+        </div>
+        <div style="padding:20px;">
+          <label class="flabel">Email *</label>
+          <input class="finput" id="admin-add-email" type="email" placeholder="user@example.com">
+
+          <label class="flabel">Name</label>
+          <input class="finput" id="admin-add-name" type="text" placeholder="Full name">
+
+          <label class="flabel">Password *</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input class="finput" id="admin-add-password" type="text" placeholder="Min 8 characters" style="margin:0;flex:1;">
+            <button onclick="generateRandomPassword()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;white-space:nowrap;">GENERATE</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+            <div>
+              <label class="flabel">Plan</label>
+              <select class="finput" id="admin-add-plan">
+                <option value="free">Free</option>
+                <option value="pro">Pro</option>
+                <option value="agency">Agency</option>
+              </select>
+            </div>
+            <div>
+              <label class="flabel">Role</label>
+              <select class="finput" id="admin-add-role">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+
           <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
-            <button onclick="closeAdminEdit()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;">CANCEL</button>
-            <button onclick="saveAdminEdit()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;font-weight:700;">SAVE CHANGES</button>
+            <button onclick="closeAdminAddUser()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;">CANCEL</button>
+            <button onclick="submitAdminAddUser()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;font-weight:700;">CREATE USER</button>
           </div>
         </div>
       </div>

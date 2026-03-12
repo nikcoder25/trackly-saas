@@ -2663,8 +2663,11 @@ function openAdminEdit(userId){
   el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
   el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
   el('admin-edit-limits').textContent = (u.limits?.queries || '?') + ' queries, ' + (u.limits?.runsPerDay || '?') + ' runs/day';
-  // Disable role change for self
+  // Disable role change for self, hide delete for self
   el('admin-edit-role').disabled = (u.id === currentUser.id);
+  el('admin-edit-password').value = '';
+  const delBtn = document.getElementById('admin-edit-delete-btn');
+  if (delBtn) delBtn.style.display = (u.id === currentUser.id) ? 'none' : 'block';
   document.getElementById('admin-edit-modal').classList.add('open');
 }
 
@@ -2708,6 +2711,83 @@ async function changeUserPlan(userId, newPlan){
     if (idx >= 0) adminUsers[idx].plan = newPlan;
     renderAdminStats(adminUsers);
     toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Admin: Add User ──────────────────────────────────────────────
+function openAdminAddUser(){
+  el('admin-add-email').value = '';
+  el('admin-add-name').value = '';
+  el('admin-add-password').value = '';
+  el('admin-add-plan').value = 'free';
+  el('admin-add-role').value = 'user';
+  document.getElementById('admin-add-modal').classList.add('open');
+}
+
+function closeAdminAddUser(){
+  document.getElementById('admin-add-modal').classList.remove('open');
+}
+
+function generateRandomPassword(){
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+  let pw = '';
+  for (let i = 0; i < 16; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  el('admin-add-password').value = pw;
+}
+
+async function submitAdminAddUser(){
+  const email = el('admin-add-email').value.trim();
+  const name = el('admin-add-name').value.trim();
+  const password = el('admin-add-password').value;
+  const plan = el('admin-add-plan').value;
+  const role = el('admin-add-role').value;
+  if (!email || !password) { toast('Email and password are required', 'err'); return; }
+  if (password.length < 8) { toast('Password must be at least 8 characters', 'err'); return; }
+  try {
+    const data = await api('POST', '/api/admin/users', { email, name, password, plan, role });
+    adminUsers.push(data.user);
+    closeAdminAddUser();
+    renderAdminStats(adminUsers);
+    filterAdminUsers();
+    toast('User created: ' + email, 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Admin: Delete User ───────────────────────────────────────────
+async function adminDeleteUser(){
+  const userId = el('admin-edit-id').value;
+  if (!userId) return;
+  const u = adminUsers.find(x => x.id === userId);
+  if (!u) return;
+  if (u.id === currentUser.id) { toast('Cannot delete your own account', 'err'); return; }
+  if (!confirm('Are you sure you want to delete user "' + (u.name || u.email) + '"?\n\nThis will permanently delete their account, all brands, and all data. This action cannot be undone.')) return;
+  try {
+    await api('DELETE', '/api/admin/users/' + userId);
+    adminUsers = adminUsers.filter(x => x.id !== userId);
+    closeAdminEdit();
+    renderAdminStats(adminUsers);
+    filterAdminUsers();
+    toast('User deleted: ' + (u.name || u.email), 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Admin: Reset Password ───────────────────────────────────────
+async function adminResetPassword(){
+  const userId = el('admin-edit-id').value;
+  const password = el('admin-edit-password').value;
+  if (!userId) return;
+  if (!password || password.length < 8) { toast('Password must be at least 8 characters', 'err'); return; }
+  if (!confirm('Reset password for this user?')) return;
+  try {
+    await api('PUT', '/api/admin/users/' + userId + '/password', { password });
+    el('admin-edit-password').value = '';
+    toast('Password reset successfully', 'ok');
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
   }
