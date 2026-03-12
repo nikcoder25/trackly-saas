@@ -61,13 +61,14 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// Rate limiting — API endpoints (general)
+// Rate limiting — API endpoints (general, excludes long-running run endpoint)
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute
+  max: 120, // 120 requests per minute
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => req.path.includes('/run') // Don't rate-limit query runs
 });
 app.use('/api/', apiLimiter);
 

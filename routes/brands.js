@@ -262,7 +262,9 @@ router.post('/:id/run', auth, async (req, res) => {
   }
 
   // Run all platforms simultaneously
+  console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms: ${activePlatforms.join(', ')}`);
   await Promise.all(activePlatforms.map(plat => runPlatform(plat)));
+  console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors`);
 
   const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
 
