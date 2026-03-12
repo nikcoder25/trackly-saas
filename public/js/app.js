@@ -215,11 +215,9 @@ async function initApp(){
     // Check if any admin exists — if not, show the "Become Admin" button
     if (becomeAdminNav) {
       try {
-        await fetch('/api/admin/check-admin', { headers: { 'Authorization': 'Bearer ' + token } })
-          .then(r => r.json()).then(d => {
-            becomeAdminNav.style.display = d.hasAdmin ? 'none' : 'block';
-          });
-      } catch(e) { becomeAdminNav.style.display = 'none'; }
+        const resp = await api('GET', '/api/admin/check-admin');
+        becomeAdminNav.style.display = resp.hasAdmin ? 'none' : 'block';
+      } catch(e) { becomeAdminNav.style.display = 'block'; }
     }
   }
 

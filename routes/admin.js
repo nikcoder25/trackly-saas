@@ -143,16 +143,11 @@ router.get('/admin/check-admin', auth, async (req, res) => {
   }
 });
 
-// Make first user admin (requires authentication)
+// Make current user admin (if no admin exists yet)
 router.post('/admin/make-first-admin', auth, async (req, res) => {
   try {
     const adminCheck = await pool.query('SELECT id FROM users WHERE role = $1', ['admin']);
     if (adminCheck.rows.length) return res.status(400).json({ error: 'Admin already exists' });
-    // Only allow the requesting user to make themselves admin if they are the first user
-    const firstUser = await pool.query('SELECT id FROM users ORDER BY created_at LIMIT 1');
-    if (!firstUser.rows.length || firstUser.rows[0].id !== req.user.id) {
-      return res.status(403).json({ error: 'Only the first registered user can become admin' });
-    }
     await pool.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', req.user.id]);
     res.json({ success: true, email: req.user.email });
   } catch(e) {
