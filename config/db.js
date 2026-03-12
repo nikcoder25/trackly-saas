@@ -3,11 +3,10 @@
  */
 const { Pool } = require('pg');
 
-// SECURITY: In production, verify SSL certificates by default.
-// Set DB_SSL_REJECT_UNAUTHORIZED=false only if your provider (e.g. Railway)
-// uses self-signed certs and you accept the MITM risk.
-const sslConfig = process.env.NODE_ENV === 'production'
-  ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+// Railway (and many PaaS providers) use self-signed certs for managed PostgreSQL.
+// rejectUnauthorized defaults to false unless explicitly set to 'true'.
+const sslConfig = process.env.DATABASE_URL
+  ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true' }
   : false;
 
 const pool = new Pool({

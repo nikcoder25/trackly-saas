@@ -71,7 +71,8 @@ const authLimiter = rateLimit({
   max: 20, // 20 attempts per window
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
 });
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
@@ -84,6 +85,7 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
   skip: (req) => req.path.includes('/run'), // Don't rate-limit query runs
   keyGenerator: (req) => {
     // Per-user rate limiting for authenticated requests
