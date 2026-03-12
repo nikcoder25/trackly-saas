@@ -603,6 +603,17 @@
             <option value="mentioned">Found Only</option>
             <option value="not-mentioned">Not Found Only</option>
           </select>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">PLATFORM:</div>
+          <select class="finput" id="mentions-platform-sel" style="width:150px;margin:0;" onchange="renderMentions()">
+            <option value="all">All Platforms</option>
+          </select>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">SENTIMENT:</div>
+          <select class="finput" id="mentions-sentiment-sel" style="width:140px;margin:0;" onchange="renderMentions()">
+            <option value="all">All Sentiment</option>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+            <option value="neutral">Neutral</option>
+          </select>
         </div>
       </div>
       <div id="mentions-container">

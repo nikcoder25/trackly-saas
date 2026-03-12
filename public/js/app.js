@@ -288,6 +288,9 @@ function go(view){
   }
   currentView = view;
   closeMobileMenu();
+  // Hide run-progress bar when switching tabs to prevent layout issues
+  const runProg = el('run-progress');
+  if (runProg && !runningQueries) runProg.style.display = 'none';
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const v = el('view-'+view);
@@ -816,6 +819,8 @@ function renderMentions(){
   if (!run) { cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
 
   const filter = el('mentions-filter-sel').value;
+  const platformFilter = el('mentions-platform-sel').value;
+  const sentimentFilter = el('mentions-sentiment-sel').value;
   const allResults = run.allResults || [];
 
   if (!allResults.length) {
@@ -823,9 +828,24 @@ function renderMentions(){
     return;
   }
 
+  // Populate platform filter dropdown from available platforms
+  const platSel = el('mentions-platform-sel');
+  const curPlat = platSel.value;
+  const platforms = [...new Set(allResults.map(r => r.platform).filter(Boolean))].sort();
+  platSel.innerHTML = '<option value="all">All Platforms</option>';
+  platforms.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    platSel.appendChild(opt);
+  });
+  if (curPlat && [...platSel.options].some(o => o.value === curPlat)) platSel.value = curPlat;
+
   const filtered = allResults.filter(r => {
-    if (filter === 'mentioned') return r.mentioned;
-    if (filter === 'not-mentioned') return !r.mentioned;
+    if (filter === 'mentioned') { if (!r.mentioned) return false; }
+    if (filter === 'not-mentioned') { if (r.mentioned) return false; }
+    if (platformFilter !== 'all') { if (r.platform !== platformFilter) return false; }
+    if (sentimentFilter !== 'all') { if ((r.sentiment || 'neutral') !== sentimentFilter) return false; }
     return true;
   });
 
@@ -1097,8 +1117,7 @@ function renderProof(){
           ${isError
             ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
-            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>
-               <button class="proof-expand-btn" onclick="toggleProofExpand(this)">SHOW FULL RESPONSE</button>`
+            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
           }
         </div>
