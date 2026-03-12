@@ -352,12 +352,21 @@ router.post('/:id/run', auth, async (req, res) => {
     sendWebhookAlert(brand, brand.runs[brand.runs.length - 1], previousSOV).catch(() => {});
   }
 
-  const errorCount = allResults.filter(r => r.error).length;
+  const errorResults = allResults.filter(r => r.error);
+  const errorCount = errorResults.length;
   const totalPlatformCount = Object.keys(PLATFORM_KEY_MAP).length;
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount } });
+
+  // Build per-platform error summary for client debugging
+  const platformErrors = {};
+  errorResults.forEach(r => {
+    if (!platformErrors[r.platform]) platformErrors[r.platform] = [];
+    platformErrors[r.platform].push(r.errorMessage || 'Unknown error');
+  });
+
+  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
   } catch(e) {
-    console.error('[Run]', e.message);
-    res.status(500).json({ error: 'Failed to run queries' });
+    console.error('[Run]', e.message, e.stack);
+    res.status(500).json({ error: 'Failed to run queries: ' + e.message });
   }
 });
 

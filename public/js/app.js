@@ -888,7 +888,24 @@ function renderOverview(){
     if (errors.length > 0) {
       summaryHtml += `<div style="background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
       summaryHtml += `<span style="color:var(--red,#ff4444);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
-      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check your API keys in Railway environment variables</span></div>`;
+      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check your API keys in Brand Setup or Account settings</span>`;
+      // Group errors by platform and show details
+      const errByPlat = {};
+      errors.forEach(r => {
+        if (!errByPlat[r.platform]) errByPlat[r.platform] = [];
+        const msg = (r.raw || r.context || '').replace('[API Error] ', '');
+        if (msg && !errByPlat[r.platform].includes(msg)) errByPlat[r.platform].push(msg);
+      });
+      const platEntries = Object.entries(errByPlat);
+      if (platEntries.length > 0) {
+        summaryHtml += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,68,68,.15);">`;
+        platEntries.forEach(([plat, msgs]) => {
+          const shortMsg = msgs[0].length > 120 ? msgs[0].substring(0, 120) + '...' : msgs[0];
+          summaryHtml += `<div style="color:var(--muted);margin-bottom:4px;"><span style="color:var(--red);">${esc(plat)}</span>: ${esc(shortMsg)}${msgs.length > 1 ? ' <span style="color:var(--muted);">(+' + (msgs.length - 1) + ' more)</span>' : ''}</div>`;
+        });
+        summaryHtml += `</div>`;
+      }
+      summaryHtml += `</div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses`;
     summaryHtml += ` · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
@@ -2228,17 +2245,31 @@ async function runQueries(){
     statusParts.push(elapsed);
     statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
 
+    // Show per-platform error details in the progress bar area
+    if (errors > 0 && data.result.platformErrors) {
+      const errDetails = Object.entries(data.result.platformErrors).map(([plat, msgs]) => {
+        const uniqueMsgs = [...new Set(msgs)];
+        return `${plat}: ${uniqueMsgs[0]}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
+      }).join('\n');
+      const errDiv = document.createElement('div');
+      errDiv.style.cssText = 'background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
+      errDiv.textContent = errDetails;
+      prog.appendChild(errDiv);
+    }
+
     setTimeout(() => {
       prog.style.display = 'none';
+      // Remove error detail divs when hiding
+      prog.querySelectorAll('div[style*="rgba(255,68,68"]').forEach(d => d.remove());
       fill.style.width = '0%';
       timerEl.textContent = '';
-    }, 5000);
+    }, errors > 0 ? 15000 : 5000);
 
     // Auto-switch to All Results view so user sees the results immediately
     go('mentions');
 
     const toastMsg = errors > 0
-      ? `Run complete — SOV: ${data.result.sov}% (${errors} API error${errors>1?'s':''})`
+      ? `Run complete — SOV: ${data.result.sov}% (${errors} API error${errors>1?'s':''}) — see details above`
       : data.result.sov === 0
       ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
       : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
@@ -2247,7 +2278,15 @@ async function runQueries(){
     clearInterval(progInt);
     clearInterval(timerInt);
     timerEl.textContent = '';
-    prog.style.display = 'none';
+    statusTxt.style.color = 'var(--red)';
+    statusTxt.textContent = 'Run failed: ' + e.message;
+    fill.style.width = '0%';
+    fill.style.background = 'var(--red)';
+    setTimeout(() => {
+      prog.style.display = 'none';
+      statusTxt.style.color = '';
+      fill.style.background = '';
+    }, 10000);
     toast('Run failed: '+e.message, 'err');
   }
 
