@@ -1868,20 +1868,46 @@ async function renderAdmin(){
     return;
   }
   el('admin-users-table').innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading users...</div>';
+  el('admin-stats').innerHTML = '';
   try {
     const data = await api('GET', '/api/admin/users');
     adminUsers = data.users || [];
+    renderAdminStats(adminUsers);
     el('admin-user-count').textContent = adminUsers.length + ' user' + (adminUsers.length !== 1 ? 's' : '');
-    renderAdminTable(adminUsers);
+    filterAdminUsers();
   } catch(e) {
     el('admin-users-table').innerHTML = '<div class="empty-state"><p>Failed to load users: ' + esc(e.message) + '</p></div>';
   }
 }
 
+function renderAdminStats(users){
+  const total = users.length;
+  const free = users.filter(u => u.plan === 'free').length;
+  const pro = users.filter(u => u.plan === 'pro').length;
+  const agency = users.filter(u => u.plan === 'agency').length;
+  const stats = [
+    { label: 'Total Users', value: total, color: 'var(--text)' },
+    { label: 'Free Plan', value: free, color: 'var(--muted)' },
+    { label: 'Pro Plan', value: pro, color: 'var(--green)' },
+    { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
+  ];
+  el('admin-stats').innerHTML = stats.map(s => `
+    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">${s.label}</div>
+      <div style="font-size:28px;font-weight:800;color:${s.color};letter-spacing:-1px;">${s.value}</div>
+    </div>
+  `).join('');
+}
+
 function filterAdminUsers(){
   const q = (el('admin-search').value || '').toLowerCase().trim();
-  if (!q) { renderAdminTable(adminUsers); return; }
-  const filtered = adminUsers.filter(u => u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q));
+  const planFilter = el('admin-filter-plan').value;
+  const roleFilter = el('admin-filter-role').value;
+  let filtered = adminUsers;
+  if (q) filtered = filtered.filter(u => u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q));
+  if (planFilter) filtered = filtered.filter(u => u.plan === planFilter);
+  if (roleFilter) filtered = filtered.filter(u => roleFilter === 'admin' ? u.role === 'admin' : u.role !== 'admin');
+  el('admin-user-count').textContent = filtered.length + ' of ' + adminUsers.length + ' user' + (adminUsers.length !== 1 ? 's' : '');
   renderAdminTable(filtered);
 }
 
@@ -1890,24 +1916,30 @@ function renderAdminTable(users){
     el('admin-users-table').innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
     return;
   }
-  let html = '<table class="tbl"><thead><tr><th>Email</th><th>Name</th><th>Plan</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
+  let html = `<table class="tbl"><thead><tr>
+    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
+  </tr></thead><tbody>`;
   users.forEach(u => {
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+    const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(0,255,136,.1)' : 'rgba(255,255,255,.05)';
+    const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(0,255,136,.3)' : 'var(--border)';
     const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const keyCount = (u.hasKeys||[]).length;
+    const isMe = u.id === currentUser.id;
     html += `<tr>
-      <td style="font-family:var(--mono);font-size:11px;">${esc(u.email)}</td>
-      <td>${esc(u.name || '—')}</td>
       <td>
-        <select class="finput" style="width:110px;margin:0;padding:4px 8px;font-size:11px;font-family:var(--mono);color:${planColor};" onchange="changeUserPlan('${u.id}', this.value)" id="admin-plan-${u.id}">
-          <option value="free" ${u.plan==='free'?'selected':''}>FREE</option>
-          <option value="pro" ${u.plan==='pro'?'selected':''}>PRO</option>
-          <option value="agency" ${u.plan==='agency'?'selected':''}>AGENCY</option>
-        </select>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}</div>
+      </td>
+      <td>
+        <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
       </td>
       <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
+      <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '—'}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:${keyCount ? 'var(--green)' : 'var(--muted)'};">${keyCount ? keyCount + ' configured' : 'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
-      <td>
-        <span id="admin-status-${u.id}" style="font-family:var(--mono);font-size:9px;color:var(--green);display:none;">SAVED</span>
+      <td style="text-align:right;">
+        <button onclick="openAdminEdit('${u.id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:0.5px;">EDIT</button>
       </td>
     </tr>`;
   });
@@ -1915,27 +1947,68 @@ function renderAdminTable(users){
   el('admin-users-table').innerHTML = html;
 }
 
-async function changeUserPlan(userId, newPlan){
-  const statusEl = el('admin-status-' + userId);
+function openAdminEdit(userId){
+  const u = adminUsers.find(x => x.id === userId);
+  if (!u) return;
+  el('admin-edit-id').value = u.id;
+  el('admin-edit-email').value = u.email || '';
+  el('admin-edit-name').value = u.name || '';
+  el('admin-edit-plan').value = u.plan || 'free';
+  el('admin-edit-role').value = u.role || 'user';
+  el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
+  // Read-only info
+  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  el('admin-edit-joined').textContent = joined;
+  el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
+  el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
+  el('admin-edit-limits').textContent = (u.limits?.queries || '?') + ' queries, ' + (u.limits?.runsPerDay || '?') + ' runs/day';
+  // Disable role change for self
+  el('admin-edit-role').disabled = (u.id === currentUser.id);
+  document.getElementById('admin-edit-modal').classList.add('open');
+}
+
+function closeAdminEdit(){
+  document.getElementById('admin-edit-modal').classList.remove('open');
+}
+
+async function saveAdminEdit(){
+  const userId = el('admin-edit-id').value;
+  if (!userId) return;
+  const u = adminUsers.find(x => x.id === userId);
+  if (!u) return;
+  const payload = {};
+  const newEmail = el('admin-edit-email').value.trim();
+  const newName = el('admin-edit-name').value.trim();
+  const newPlan = el('admin-edit-plan').value;
+  const newRole = el('admin-edit-role').value;
+  if (newEmail !== u.email) payload.email = newEmail;
+  if (newName !== (u.name || '')) payload.name = newName;
+  if (newPlan !== u.plan) payload.plan = newPlan;
+  if (newRole !== (u.role || 'user')) payload.role = newRole;
+  if (!Object.keys(payload).length) { closeAdminEdit(); toast('No changes made', 'ok'); return; }
   try {
-    await api('PUT', '/api/admin/users/' + userId + '/plan', { plan: newPlan });
+    const data = await api('PUT', '/api/admin/users/' + userId, payload);
     // Update local cache
+    const idx = adminUsers.findIndex(x => x.id === userId);
+    if (idx >= 0) Object.assign(adminUsers[idx], data.user);
+    closeAdminEdit();
+    renderAdminStats(adminUsers);
+    filterAdminUsers();
+    toast('User updated successfully', 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+async function changeUserPlan(userId, newPlan){
+  try {
+    await api('PUT', '/api/admin/users/' + userId, { plan: newPlan });
     const idx = adminUsers.findIndex(u => u.id === userId);
     if (idx >= 0) adminUsers[idx].plan = newPlan;
-    // Update select color
-    const sel = el('admin-plan-' + userId);
-    if (sel) sel.style.color = newPlan === 'agency' ? 'var(--purple)' : newPlan === 'pro' ? 'var(--green)' : 'var(--muted)';
-    // Show confirmation
-    if (statusEl) { statusEl.style.display = 'inline'; setTimeout(() => { statusEl.style.display = 'none'; }, 2000); }
+    renderAdminStats(adminUsers);
     toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
-    // Revert select
-    const idx = adminUsers.findIndex(u => u.id === userId);
-    if (idx >= 0) {
-      const sel = el('admin-plan-' + userId);
-      if (sel) sel.value = adminUsers[idx].plan;
-    }
   }
 }
 
