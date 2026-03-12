@@ -1413,30 +1413,153 @@ function generateAliasesFromBrand(name, website){
   const aliases = new Set();
   if (!name) return [];
   const n = name.trim();
-  // Original name
+  const lower = n.toLowerCase();
+  const words = n.split(/\s+/);
+  const lowerWords = lower.split(/\s+/);
+
+  // Original name & lowercase
   aliases.add(n);
-  // Lowercase
-  aliases.add(n.toLowerCase());
-  // No spaces (CoolAirPro)
-  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, ''));
-  // Hyphenated (Cool-Air-Pro)
-  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, '-'));
+  aliases.add(lower);
+
+  // No spaces: "C Brooks Paving" → "CBrooksPaving" / "cbrookspaving"
+  if (words.length > 1) {
+    aliases.add(words.join(''));
+    aliases.add(lowerWords.join(''));
+  }
+
+  // Hyphenated: "c-brooks-paving" / "C-Brooks-Paving"
+  if (words.length > 1) {
+    aliases.add(lowerWords.join('-'));
+    aliases.add(words.join('-'));
+  }
+
+  // Underscored: "c_brooks_paving"
+  if (words.length > 1) {
+    aliases.add(lowerWords.join('_'));
+  }
+
+  // Dot-separated: "c.brooks.paving"
+  if (words.length > 1) {
+    aliases.add(lowerWords.join('.'));
+  }
+
   // No punctuation (McDonald's → McDonalds)
   const noPunc = n.replace(/[''`\-.,&!]/g, '');
-  if (noPunc !== n) aliases.add(noPunc);
-  // Lowercase no space
-  if (n.includes(' ')) aliases.add(n.toLowerCase().replace(/\s+/g, ''));
-  // First word only if multi-word and first word is long enough
-  const words = n.split(/\s+/);
-  if (words.length >= 2 && words[0].length >= 4) aliases.add(words[0]);
-  // Website domain
+  if (noPunc !== n) {
+    aliases.add(noPunc);
+    aliases.add(noPunc.toLowerCase());
+  }
+
+  // No punctuation no spaces
+  const noPuncNoSpace = noPunc.replace(/\s+/g, '');
+  if (noPuncNoSpace !== n) {
+    aliases.add(noPuncNoSpace);
+    aliases.add(noPuncNoSpace.toLowerCase());
+  }
+
+  // First word only if multi-word and long enough
+  if (words.length >= 2 && words[0].length >= 3) aliases.add(words[0]);
+  if (words.length >= 2 && words[0].length >= 3) aliases.add(words[0].toLowerCase());
+
+  // Last word only if multi-word and long enough (often the key brand word)
+  const lastWord = words[words.length - 1];
+  if (words.length >= 2 && lastWord.length >= 4) aliases.add(lastWord);
+  if (words.length >= 2 && lastWord.length >= 4) aliases.add(lastWord.toLowerCase());
+
+  // Initials / acronym: "C Brooks Paving" → "CBP" / "cbp"
+  if (words.length >= 2) {
+    const initials = words.map(w => w[0]).join('');
+    if (initials.length >= 2) {
+      aliases.add(initials.toUpperCase());
+      aliases.add(initials.toLowerCase());
+    }
+  }
+
+  // First letter + last word: "CPaving" / "cpaving"
+  if (words.length >= 2) {
+    const combo = words[0][0] + lastWord;
+    aliases.add(combo);
+    aliases.add(combo.toLowerCase());
+  }
+
+  // Camel case: "cBrooksPaving"
+  if (words.length > 1) {
+    const camel = lowerWords[0] + words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
+    aliases.add(camel);
+  }
+
+  // Without common suffixes: LLC, Inc, Co, Corp, Group, Services, Agency, etc.
+  const suffixes = /\s+(llc|inc|co|corp|ltd|group|services|service|agency|company|consulting|solutions|enterprises?|paving|plumbing|roofing|electric|electrical|construction|landscaping|painting|cleaning|hvac|remodeling|repair|restoration|removal|hauling|demolition|contracting|contractors?|builders?|design|studio|media|digital|marketing|tech|labs?)$/i;
+  const withoutSuffix = n.replace(suffixes, '').trim();
+  if (withoutSuffix !== n && withoutSuffix.length >= 2) {
+    aliases.add(withoutSuffix);
+    aliases.add(withoutSuffix.toLowerCase());
+    aliases.add(withoutSuffix.toLowerCase().replace(/\s+/g, ''));
+    aliases.add(withoutSuffix.toLowerCase().replace(/\s+/g, '-'));
+  }
+
+  // Without common prefixes: "The", "A"
+  const prefixRe = /^(the|a)\s+/i;
+  const withoutPrefix = n.replace(prefixRe, '').trim();
+  if (withoutPrefix !== n && withoutPrefix.length >= 2) {
+    aliases.add(withoutPrefix);
+    aliases.add(withoutPrefix.toLowerCase());
+    aliases.add(withoutPrefix.toLowerCase().replace(/\s+/g, ''));
+  }
+
+  // Possessive form: "Brooks'" / "Brooks's"
+  if (words.length >= 1) {
+    const mainWord = words.length >= 2 ? words.slice(0, -1).join(' ') : n;
+    if (!mainWord.endsWith("'s") && !mainWord.endsWith("s'")) {
+      aliases.add(mainWord + "'s");
+      if (mainWord.endsWith('s')) aliases.add(mainWord + "'");
+    }
+  }
+
+  // "& Co" / "and" swap: "Brooks & Sons" ↔ "Brooks and Sons"
+  if (n.includes(' & ')) {
+    aliases.add(n.replace(/ & /g, ' and '));
+    aliases.add(n.replace(/ & /g, ' and ').toLowerCase());
+  }
+  if (/ and /i.test(n)) {
+    aliases.add(n.replace(/ and /gi, ' & '));
+    aliases.add(n.replace(/ and /gi, ' & ').toLowerCase());
+  }
+
+  // Partial multi-word combos: first two words, last two words
+  if (words.length >= 3) {
+    const firstTwo = words.slice(0, 2).join(' ');
+    const lastTwo = words.slice(-2).join(' ');
+    aliases.add(firstTwo);
+    aliases.add(firstTwo.toLowerCase());
+    aliases.add(lastTwo);
+    aliases.add(lastTwo.toLowerCase());
+    aliases.add(words.slice(0, 2).join('').toLowerCase());
+    aliases.add(words.slice(-2).join('').toLowerCase());
+  }
+
+  // Website domain variations
   if (website) {
     const domain = website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
     if (domain) {
-      aliases.add(domain); // coolairpro.com
-      aliases.add(domain.split('.')[0]); // coolairpro
+      aliases.add(domain);                           // coolairpro.com
+      aliases.add(domain.split('.')[0]);             // coolairpro
+      aliases.add('www.' + domain);                  // www.coolairpro.com
+      // Domain with hyphen variations
+      const domainName = domain.split('.')[0];
+      if (domainName.includes('-')) {
+        aliases.add(domainName.replace(/-/g, ''));   // c-brooks → cbrooks
+        aliases.add(domainName.replace(/-/g, ' '));  // c-brooks → c brooks
+      }
+      if (!domainName.includes('-') && words.length > 1) {
+        aliases.add(lowerWords.join('-'));            // cbrookspaving → c-brooks-paving (already added above)
+      }
     }
   }
+
+  // Common misspelling: doubled letters reduced ("brookks" → "brooks")
+  // and single letters doubled — skip this to avoid noise
+
   return [...aliases].filter(a => a.length >= 2);
 }
 
