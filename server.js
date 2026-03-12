@@ -40,6 +40,11 @@ app.use('/api/auth',   authRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api',        adminRoutes);
 
+// ─── Admin panel page ────────────────────────────────────────────
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // ─── SEO LANDING PAGES ──────────────────────────────────────────
 app.use('/', seoRoutes);
 

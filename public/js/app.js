@@ -204,9 +204,22 @@ async function initApp(){
   pb.textContent = (currentUser.plan||'free').toUpperCase();
   pb.className = 'plan-badge ' + (currentUser.plan||'free');
 
-  // Show admin nav if user is admin
+  // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');
-  if (adminNav) adminNav.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+  const becomeAdminNav = el('nav-become-admin');
+  if (currentUser.role === 'admin') {
+    if (adminNav) adminNav.style.display = 'block';
+    if (becomeAdminNav) becomeAdminNav.style.display = 'none';
+  } else {
+    if (adminNav) adminNav.style.display = 'none';
+    // Check if any admin exists — if not, show the "Become Admin" button
+    if (becomeAdminNav) {
+      try {
+        const resp = await api('GET', '/api/admin/check-admin');
+        becomeAdminNav.style.display = resp.hasAdmin ? 'none' : 'block';
+      } catch(e) { becomeAdminNav.style.display = 'block'; }
+    }
+  }
 
   // Load brands
   const data = await api('GET', '/api/brands');
@@ -1413,30 +1426,153 @@ function generateAliasesFromBrand(name, website){
   const aliases = new Set();
   if (!name) return [];
   const n = name.trim();
-  // Original name
+  const lower = n.toLowerCase();
+  const words = n.split(/\s+/);
+  const lowerWords = lower.split(/\s+/);
+
+  // Original name & lowercase
   aliases.add(n);
-  // Lowercase
-  aliases.add(n.toLowerCase());
-  // No spaces (CoolAirPro)
-  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, ''));
-  // Hyphenated (Cool-Air-Pro)
-  if (n.includes(' ')) aliases.add(n.replace(/\s+/g, '-'));
+  aliases.add(lower);
+
+  // No spaces: "C Brooks Paving" → "CBrooksPaving" / "cbrookspaving"
+  if (words.length > 1) {
+    aliases.add(words.join(''));
+    aliases.add(lowerWords.join(''));
+  }
+
+  // Hyphenated: "c-brooks-paving" / "C-Brooks-Paving"
+  if (words.length > 1) {
+    aliases.add(lowerWords.join('-'));
+    aliases.add(words.join('-'));
+  }
+
+  // Underscored: "c_brooks_paving"
+  if (words.length > 1) {
+    aliases.add(lowerWords.join('_'));
+  }
+
+  // Dot-separated: "c.brooks.paving"
+  if (words.length > 1) {
+    aliases.add(lowerWords.join('.'));
+  }
+
   // No punctuation (McDonald's → McDonalds)
   const noPunc = n.replace(/[''`\-.,&!]/g, '');
-  if (noPunc !== n) aliases.add(noPunc);
-  // Lowercase no space
-  if (n.includes(' ')) aliases.add(n.toLowerCase().replace(/\s+/g, ''));
-  // First word only if multi-word and first word is long enough
-  const words = n.split(/\s+/);
-  if (words.length >= 2 && words[0].length >= 4) aliases.add(words[0]);
-  // Website domain
+  if (noPunc !== n) {
+    aliases.add(noPunc);
+    aliases.add(noPunc.toLowerCase());
+  }
+
+  // No punctuation no spaces
+  const noPuncNoSpace = noPunc.replace(/\s+/g, '');
+  if (noPuncNoSpace !== n) {
+    aliases.add(noPuncNoSpace);
+    aliases.add(noPuncNoSpace.toLowerCase());
+  }
+
+  // First word only if multi-word and long enough
+  if (words.length >= 2 && words[0].length >= 3) aliases.add(words[0]);
+  if (words.length >= 2 && words[0].length >= 3) aliases.add(words[0].toLowerCase());
+
+  // Last word only if multi-word and long enough (often the key brand word)
+  const lastWord = words[words.length - 1];
+  if (words.length >= 2 && lastWord.length >= 4) aliases.add(lastWord);
+  if (words.length >= 2 && lastWord.length >= 4) aliases.add(lastWord.toLowerCase());
+
+  // Initials / acronym: "C Brooks Paving" → "CBP" / "cbp"
+  if (words.length >= 2) {
+    const initials = words.map(w => w[0]).join('');
+    if (initials.length >= 2) {
+      aliases.add(initials.toUpperCase());
+      aliases.add(initials.toLowerCase());
+    }
+  }
+
+  // First letter + last word: "CPaving" / "cpaving"
+  if (words.length >= 2) {
+    const combo = words[0][0] + lastWord;
+    aliases.add(combo);
+    aliases.add(combo.toLowerCase());
+  }
+
+  // Camel case: "cBrooksPaving"
+  if (words.length > 1) {
+    const camel = lowerWords[0] + words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
+    aliases.add(camel);
+  }
+
+  // Without common suffixes: LLC, Inc, Co, Corp, Group, Services, Agency, etc.
+  const suffixes = /\s+(llc|inc|co|corp|ltd|group|services|service|agency|company|consulting|solutions|enterprises?|paving|plumbing|roofing|electric|electrical|construction|landscaping|painting|cleaning|hvac|remodeling|repair|restoration|removal|hauling|demolition|contracting|contractors?|builders?|design|studio|media|digital|marketing|tech|labs?)$/i;
+  const withoutSuffix = n.replace(suffixes, '').trim();
+  if (withoutSuffix !== n && withoutSuffix.length >= 2) {
+    aliases.add(withoutSuffix);
+    aliases.add(withoutSuffix.toLowerCase());
+    aliases.add(withoutSuffix.toLowerCase().replace(/\s+/g, ''));
+    aliases.add(withoutSuffix.toLowerCase().replace(/\s+/g, '-'));
+  }
+
+  // Without common prefixes: "The", "A"
+  const prefixRe = /^(the|a)\s+/i;
+  const withoutPrefix = n.replace(prefixRe, '').trim();
+  if (withoutPrefix !== n && withoutPrefix.length >= 2) {
+    aliases.add(withoutPrefix);
+    aliases.add(withoutPrefix.toLowerCase());
+    aliases.add(withoutPrefix.toLowerCase().replace(/\s+/g, ''));
+  }
+
+  // Possessive form: "Brooks'" / "Brooks's"
+  if (words.length >= 1) {
+    const mainWord = words.length >= 2 ? words.slice(0, -1).join(' ') : n;
+    if (!mainWord.endsWith("'s") && !mainWord.endsWith("s'")) {
+      aliases.add(mainWord + "'s");
+      if (mainWord.endsWith('s')) aliases.add(mainWord + "'");
+    }
+  }
+
+  // "& Co" / "and" swap: "Brooks & Sons" ↔ "Brooks and Sons"
+  if (n.includes(' & ')) {
+    aliases.add(n.replace(/ & /g, ' and '));
+    aliases.add(n.replace(/ & /g, ' and ').toLowerCase());
+  }
+  if (/ and /i.test(n)) {
+    aliases.add(n.replace(/ and /gi, ' & '));
+    aliases.add(n.replace(/ and /gi, ' & ').toLowerCase());
+  }
+
+  // Partial multi-word combos: first two words, last two words
+  if (words.length >= 3) {
+    const firstTwo = words.slice(0, 2).join(' ');
+    const lastTwo = words.slice(-2).join(' ');
+    aliases.add(firstTwo);
+    aliases.add(firstTwo.toLowerCase());
+    aliases.add(lastTwo);
+    aliases.add(lastTwo.toLowerCase());
+    aliases.add(words.slice(0, 2).join('').toLowerCase());
+    aliases.add(words.slice(-2).join('').toLowerCase());
+  }
+
+  // Website domain variations
   if (website) {
     const domain = website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
     if (domain) {
-      aliases.add(domain); // coolairpro.com
-      aliases.add(domain.split('.')[0]); // coolairpro
+      aliases.add(domain);                           // coolairpro.com
+      aliases.add(domain.split('.')[0]);             // coolairpro
+      aliases.add('www.' + domain);                  // www.coolairpro.com
+      // Domain with hyphen variations
+      const domainName = domain.split('.')[0];
+      if (domainName.includes('-')) {
+        aliases.add(domainName.replace(/-/g, ''));   // c-brooks → cbrooks
+        aliases.add(domainName.replace(/-/g, ' '));  // c-brooks → c brooks
+      }
+      if (!domainName.includes('-') && words.length > 1) {
+        aliases.add(lowerWords.join('-'));            // cbrookspaving → c-brooks-paving (already added above)
+      }
     }
   }
+
+  // Common misspelling: doubled letters reduced ("brookks" → "brooks")
+  // and single letters doubled — skip this to avoid noise
+
   return [...aliases].filter(a => a.length >= 2);
 }
 
@@ -1745,20 +1881,46 @@ async function renderAdmin(){
     return;
   }
   el('admin-users-table').innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading users...</div>';
+  el('admin-stats').innerHTML = '';
   try {
     const data = await api('GET', '/api/admin/users');
     adminUsers = data.users || [];
+    renderAdminStats(adminUsers);
     el('admin-user-count').textContent = adminUsers.length + ' user' + (adminUsers.length !== 1 ? 's' : '');
-    renderAdminTable(adminUsers);
+    filterAdminUsers();
   } catch(e) {
     el('admin-users-table').innerHTML = '<div class="empty-state"><p>Failed to load users: ' + esc(e.message) + '</p></div>';
   }
 }
 
+function renderAdminStats(users){
+  const total = users.length;
+  const free = users.filter(u => u.plan === 'free').length;
+  const pro = users.filter(u => u.plan === 'pro').length;
+  const agency = users.filter(u => u.plan === 'agency').length;
+  const stats = [
+    { label: 'Total Users', value: total, color: 'var(--text)' },
+    { label: 'Free Plan', value: free, color: 'var(--muted)' },
+    { label: 'Pro Plan', value: pro, color: 'var(--green)' },
+    { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
+  ];
+  el('admin-stats').innerHTML = stats.map(s => `
+    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">${s.label}</div>
+      <div style="font-size:28px;font-weight:800;color:${s.color};letter-spacing:-1px;">${s.value}</div>
+    </div>
+  `).join('');
+}
+
 function filterAdminUsers(){
   const q = (el('admin-search').value || '').toLowerCase().trim();
-  if (!q) { renderAdminTable(adminUsers); return; }
-  const filtered = adminUsers.filter(u => u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q));
+  const planFilter = el('admin-filter-plan').value;
+  const roleFilter = el('admin-filter-role').value;
+  let filtered = adminUsers;
+  if (q) filtered = filtered.filter(u => u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q));
+  if (planFilter) filtered = filtered.filter(u => u.plan === planFilter);
+  if (roleFilter) filtered = filtered.filter(u => roleFilter === 'admin' ? u.role === 'admin' : u.role !== 'admin');
+  el('admin-user-count').textContent = filtered.length + ' of ' + adminUsers.length + ' user' + (adminUsers.length !== 1 ? 's' : '');
   renderAdminTable(filtered);
 }
 
@@ -1767,24 +1929,30 @@ function renderAdminTable(users){
     el('admin-users-table').innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
     return;
   }
-  let html = '<table class="tbl"><thead><tr><th>Email</th><th>Name</th><th>Plan</th><th>Role</th><th>Joined</th><th>Actions</th></tr></thead><tbody>';
+  let html = `<table class="tbl"><thead><tr>
+    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
+  </tr></thead><tbody>`;
   users.forEach(u => {
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+    const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(0,255,136,.1)' : 'rgba(255,255,255,.05)';
+    const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(0,255,136,.3)' : 'var(--border)';
     const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const keyCount = (u.hasKeys||[]).length;
+    const isMe = u.id === currentUser.id;
     html += `<tr>
-      <td style="font-family:var(--mono);font-size:11px;">${esc(u.email)}</td>
-      <td>${esc(u.name || '—')}</td>
       <td>
-        <select class="finput" style="width:110px;margin:0;padding:4px 8px;font-size:11px;font-family:var(--mono);color:${planColor};" onchange="changeUserPlan('${u.id}', this.value)" id="admin-plan-${u.id}">
-          <option value="free" ${u.plan==='free'?'selected':''}>FREE</option>
-          <option value="pro" ${u.plan==='pro'?'selected':''}>PRO</option>
-          <option value="agency" ${u.plan==='agency'?'selected':''}>AGENCY</option>
-        </select>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}</div>
+      </td>
+      <td>
+        <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
       </td>
       <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
+      <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '—'}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:${keyCount ? 'var(--green)' : 'var(--muted)'};">${keyCount ? keyCount + ' configured' : 'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
-      <td>
-        <span id="admin-status-${u.id}" style="font-family:var(--mono);font-size:9px;color:var(--green);display:none;">SAVED</span>
+      <td style="text-align:right;">
+        <button onclick="openAdminEdit('${u.id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:0.5px;">EDIT</button>
       </td>
     </tr>`;
   });
@@ -1792,27 +1960,84 @@ function renderAdminTable(users){
   el('admin-users-table').innerHTML = html;
 }
 
-async function changeUserPlan(userId, newPlan){
-  const statusEl = el('admin-status-' + userId);
+function openAdminEdit(userId){
+  const u = adminUsers.find(x => x.id === userId);
+  if (!u) return;
+  el('admin-edit-id').value = u.id;
+  el('admin-edit-email').value = u.email || '';
+  el('admin-edit-name').value = u.name || '';
+  el('admin-edit-plan').value = u.plan || 'free';
+  el('admin-edit-role').value = u.role || 'user';
+  el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
+  // Read-only info
+  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  el('admin-edit-joined').textContent = joined;
+  el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
+  el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
+  el('admin-edit-limits').textContent = (u.limits?.queries || '?') + ' queries, ' + (u.limits?.runsPerDay || '?') + ' runs/day';
+  // Disable role change for self
+  el('admin-edit-role').disabled = (u.id === currentUser.id);
+  document.getElementById('admin-edit-modal').classList.add('open');
+}
+
+function closeAdminEdit(){
+  document.getElementById('admin-edit-modal').classList.remove('open');
+}
+
+async function saveAdminEdit(){
+  const userId = el('admin-edit-id').value;
+  if (!userId) return;
+  const u = adminUsers.find(x => x.id === userId);
+  if (!u) return;
+  const payload = {};
+  const newEmail = el('admin-edit-email').value.trim();
+  const newName = el('admin-edit-name').value.trim();
+  const newPlan = el('admin-edit-plan').value;
+  const newRole = el('admin-edit-role').value;
+  if (newEmail !== u.email) payload.email = newEmail;
+  if (newName !== (u.name || '')) payload.name = newName;
+  if (newPlan !== u.plan) payload.plan = newPlan;
+  if (newRole !== (u.role || 'user')) payload.role = newRole;
+  if (!Object.keys(payload).length) { closeAdminEdit(); toast('No changes made', 'ok'); return; }
   try {
-    await api('PUT', '/api/admin/users/' + userId + '/plan', { plan: newPlan });
+    const data = await api('PUT', '/api/admin/users/' + userId, payload);
     // Update local cache
+    const idx = adminUsers.findIndex(x => x.id === userId);
+    if (idx >= 0) Object.assign(adminUsers[idx], data.user);
+    closeAdminEdit();
+    renderAdminStats(adminUsers);
+    filterAdminUsers();
+    toast('User updated successfully', 'ok');
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+  }
+}
+
+async function changeUserPlan(userId, newPlan){
+  try {
+    await api('PUT', '/api/admin/users/' + userId, { plan: newPlan });
     const idx = adminUsers.findIndex(u => u.id === userId);
     if (idx >= 0) adminUsers[idx].plan = newPlan;
-    // Update select color
-    const sel = el('admin-plan-' + userId);
-    if (sel) sel.style.color = newPlan === 'agency' ? 'var(--purple)' : newPlan === 'pro' ? 'var(--green)' : 'var(--muted)';
-    // Show confirmation
-    if (statusEl) { statusEl.style.display = 'inline'; setTimeout(() => { statusEl.style.display = 'none'; }, 2000); }
+    renderAdminStats(adminUsers);
     toast('Plan updated to ' + newPlan.toUpperCase(), 'ok');
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
-    // Revert select
-    const idx = adminUsers.findIndex(u => u.id === userId);
-    if (idx >= 0) {
-      const sel = el('admin-plan-' + userId);
-      if (sel) sel.value = adminUsers[idx].plan;
+  }
+}
+
+async function becomeAdmin(){
+  if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
+  try {
+    const data = await api('POST', '/api/admin/make-first-admin');
+    if (data.success) {
+      currentUser.role = 'admin';
+      el('nav-admin').style.display = 'block';
+      el('nav-become-admin').style.display = 'none';
+      toast('You are now an admin!', 'ok');
+      go('admin');
     }
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
   }
 }
 
