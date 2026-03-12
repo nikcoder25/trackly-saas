@@ -28,7 +28,7 @@ router.get('/plans', auth, (req, res) => {
 // Self-service plan change (downgrade to free only; upgrades require payment integration)
 router.post('/upgrade', auth, async (req, res) => {
   const { plan } = req.body;
-  if (!['free', 'pro', 'agency'].includes(plan)) {
+  if (!['free', 'pro', 'agency', 'owner'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
   // Only allow downgrade to free without payment verification
@@ -54,8 +54,12 @@ router.post('/upgrade', auth, async (req, res) => {
 
 // Admin middleware
 async function requireAdmin(req, res, next) {
-  const adminCheck = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+  const adminCheck = await pool.query('SELECT role, plan FROM users WHERE id = $1', [req.user.id]);
   if (!adminCheck.rows[0] || adminCheck.rows[0].role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  // Auto-upgrade admins to owner plan if they aren't already
+  if (adminCheck.rows[0].plan !== 'owner') {
+    await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['owner', req.user.id]);
+  }
   next();
 }
 
@@ -83,7 +87,7 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     let idx = 1;
 
     if (plan !== undefined) {
-      if (!['free', 'pro', 'agency'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+      if (!['free', 'pro', 'agency', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
       updates.push(`plan = $${idx++}`);
       values.push(plan);
     }
@@ -124,7 +128,7 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
 // Admin: update user plan (legacy endpoint)
 router.put('/admin/users/:id/plan', auth, requireAdmin, async (req, res) => {
   try {
-    if (!['free', 'pro', 'agency'].includes(req.body.plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (!['free', 'pro', 'agency', 'owner'].includes(req.body.plan)) return res.status(400).json({ error: 'Invalid plan' });
     const result = await pool.query('UPDATE users SET plan = $1 WHERE id = $2 RETURNING *', [req.body.plan, req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     res.json({ user: safeUser(result.rows[0]) });
@@ -148,7 +152,7 @@ router.post('/admin/make-first-admin', auth, async (req, res) => {
   try {
     const adminCheck = await pool.query('SELECT id FROM users WHERE role = $1', ['admin']);
     if (adminCheck.rows.length) return res.status(400).json({ error: 'Admin already exists' });
-    await pool.query('UPDATE users SET role = $1 WHERE id = $2', ['admin', req.user.id]);
+    await pool.query('UPDATE users SET role = $1, plan = $2 WHERE id = $3', ['admin', 'owner', req.user.id]);
     res.json({ success: true, email: req.user.email });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });

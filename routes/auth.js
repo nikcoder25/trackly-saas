@@ -96,6 +96,11 @@ router.get('/me', auth, async (req, res) => {
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
+    // Auto-upgrade admin users to owner plan
+    if (user.role === 'admin' && user.plan !== 'owner') {
+      await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['owner', user.id]);
+      user.plan = 'owner';
+    }
     res.json({ user: safeUser(user) });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
