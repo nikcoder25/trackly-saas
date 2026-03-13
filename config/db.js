@@ -169,4 +169,13 @@ async function cleanupApiLogs() {
   }
 }
 
-module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs };
+// Cleanup old read notifications (keep last 30 days)
+async function cleanupNotifications() {
+  try {
+    await pool.query("DELETE FROM notifications WHERE read = TRUE AND created_at < NOW() - INTERVAL '30 days'");
+  } catch(e) {
+    console.error('[Notification cleanup]', e.message);
+  }
+}
+
+module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications };

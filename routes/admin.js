@@ -99,12 +99,42 @@ router.post('/upgrade', auth, async (req, res) => {
   }
 });
 
-// Stripe webhook stub — handle payment confirmation
+// Stripe webhook — handle payment confirmation
 router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-  // TODO: Verify Stripe signature with STRIPE_WEBHOOK_SECRET
-  // const sig = req.headers['stripe-signature'];
-  // const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  console.log('[Stripe] Webhook received (stub)');
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.warn('[Stripe] STRIPE_WEBHOOK_SECRET not configured, rejecting webhook');
+    return res.status(503).json({ error: 'Webhook not configured' });
+  }
+  const sig = req.headers['stripe-signature'];
+  if (!sig) {
+    return res.status(400).json({ error: 'Missing stripe-signature header' });
+  }
+  // Verify signature using HMAC (without requiring stripe SDK)
+  try {
+    const crypto = require('crypto');
+    const payload = req.body.toString();
+    const parts = sig.split(',').reduce((acc, part) => {
+      const [key, val] = part.split('=');
+      acc[key] = val;
+      return acc;
+    }, {});
+    const timestamp = parts.t;
+    const signature = parts.v1;
+    if (!timestamp || !signature) return res.status(400).json({ error: 'Invalid signature format' });
+    // Reject old timestamps (5 min tolerance)
+    if (Math.abs(Date.now() / 1000 - parseInt(timestamp)) > 300) {
+      return res.status(400).json({ error: 'Webhook timestamp too old' });
+    }
+    const expected = crypto.createHmac('sha256', webhookSecret)
+      .update(timestamp + '.' + payload)
+      .digest('hex');
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      return res.status(400).json({ error: 'Invalid webhook signature' });
+    }
+  } catch(e) {
+    return res.status(400).json({ error: 'Webhook verification failed' });
+  }
   res.json({ received: true });
 });
 
@@ -536,7 +566,12 @@ router.get('/export/brand/:id/csv', auth, async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
     const data = result.rows[0].data;
     const runs = data.runs || [];
-    const csvField = (val) => '"' + String(val || '').replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+    const csvField = (val) => {
+      let s = String(val || '').replace(/"/g, '""').replace(/\n/g, ' ');
+      // Prevent CSV formula injection: prefix dangerous characters with single quote
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return '"' + s + '"';
+    };
     let rows = ['Date,Platform,Query,Mentioned,Sentiment,Recommended,Model,SOV,Response'];
     runs.forEach(run => {
       (run.allResults || run.mentions || []).forEach(r => {

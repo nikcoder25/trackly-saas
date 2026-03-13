@@ -46,9 +46,8 @@ router.post('/register', async (req, res) => {
       [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
     );
 
-    // In production, send verification email. For now, log it.
-    console.log(`[Auth] Verification token for ${email}: ${verifyToken}`);
-    console.log(`[Auth] Verify link: /api/auth/verify-email?token=${verifyToken}`);
+    // In production, send verification email with verifyToken.
+    // Token is NOT logged to prevent credential leakage.
 
     const accessToken = jwt.sign({ id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
@@ -112,8 +111,8 @@ router.post('/resend-verification', auth, async (req, res) => {
     if (result.rows[0].email_verified) return res.json({ message: 'Email already verified' });
     const verifyToken = crypto.randomBytes(32).toString('hex');
     await pool.query('UPDATE users SET verify_token = $1 WHERE id = $2', [verifyToken, req.user.id]);
-    console.log(`[Auth] Re-verification token for user ${req.user.id}: ${verifyToken}`);
-    res.json({ message: 'Verification email sent.', _devToken: process.env.NODE_ENV !== 'production' ? verifyToken : undefined });
+    // In production, send verification email with verifyToken.
+    res.json({ message: 'Verification email sent.' });
   } catch(e) {
     res.status(500).json({ error: 'Failed to resend verification' });
   }
@@ -210,10 +209,9 @@ router.post('/forgot-password', async (req, res) => {
     for (const [key, val] of resetTokens) {
       if (val.expires < Date.now()) resetTokens.delete(key);
     }
-    // In production, send email with reset link. For now, log it.
-    console.log(`[Auth] Password reset token for ${user.email}: ${token}`);
-    console.log(`[Auth] Reset link: /reset-password?token=${token}`);
-    res.json({ message: 'If an account exists with that email, a reset link has been generated.', _devToken: process.env.NODE_ENV !== 'production' ? token : undefined });
+    // In production, send email with reset link containing token.
+    // Token is NOT logged to prevent credential leakage.
+    res.json({ message: 'If an account exists with that email, a reset link has been generated.' });
   } catch(e) {
     console.error('[Forgot Password]', e.message);
     res.status(500).json({ error: 'Failed to process request' });
