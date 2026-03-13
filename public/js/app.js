@@ -40,7 +40,9 @@ let liveRunTime = null;   // Timestamp of current live run
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escAttr(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function safeBtoa(s){ try { return btoa(s); } catch(e) { return btoa(encodeURIComponent(s).replace(/%[0-9A-F]{2}/g,'')); } }
 function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
 // Simple markdown to HTML for AI responses
 function mdToHtml(s){
@@ -1922,7 +1924,7 @@ function renderMentions(){
   Object.entries(pc).sort((a,b)=>b[1].f-a[1].f).forEach(([p,c])=>{
     const t=PLAT_THEME[p]||{};
     const on=mentionsPlatFilter===p;
-    chips+=`<button class="mt-chip ${on?'mt-chip-active':''}" onclick="mentionsPlatFilter='${p}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()" style="${on?'border-color:'+t.color+';background:'+t.bg+';color:'+t.color+';':''}"><span style="color:${t.color||'#888'}">${t.logo||'?'}</span> ${p} <span class="mt-chip-n">${c.f}/${c.t}</span></button>`;
+    chips+=`<button class="mt-chip ${on?'mt-chip-active':''}" onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()" style="${on?'border-color:'+t.color+';background:'+t.bg+';color:'+t.color+';':''}"><span style="color:${t.color||'#888'}">${t.logo||'?'}</span> ${esc(p)} <span class="mt-chip-n">${c.f}/${c.t}</span></button>`;
   });
   platFilters.innerHTML = chips;
 
@@ -2017,7 +2019,7 @@ function renderMentions(){
             ${r.matchedLocation?`<div class="mt-dc-row"><span>Location</span><strong>${esc(r.matchedLocation)}</strong></div>`:''}
             ${r.cites?`<div class="mt-dc-row"><span>Cited</span><strong style="color:var(--green);">Yes</strong></div>`:''}
           </div>
-          <button onclick="event.stopPropagation();openResultFromRun('${runId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>
+          <button onclick="event.stopPropagation();openResultFromRun('${escAttr(runId)}','${escAttr(r.platform)}','${safeBtoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>
         </div>
       </div>`;
     }
@@ -2039,93 +2041,116 @@ function renderMentions(){
 }
 
 function openResp(mentionId){
-  const b = brand();
-  if (!b) return;
-  let m = null;
-  // Search all runs
-  (b.runs||[]).forEach(r => {
-    (r.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
-  });
-  if (!m) (b.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
-  if (!m) return;
-  const t = PLAT_THEME[m.platform]||{};
-  const modal = el('resp-modal');
-  const head = el('resp-modal-head');
-  head.style.background = t.bg||'var(--bg2)';
-  head.style.borderBottom = '1px solid '+t.color;
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
-  el('resp-modal-query').innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
-  const textEl = el('resp-modal-text');
-  textEl.style.whiteSpace = 'normal';
-  const rawHtml = mdToHtml(m.raw || m.context || '');
-  const hre = brandHighlightRe(b);
-  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
-  // Citations
-  const cc = el('resp-modal-cites');
-  const cites = m.citations||[];
-  if (cites.length) {
-    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-  } else cc.innerHTML = '';
-  openModal('resp-modal');
+  try {
+    const b = brand();
+    if (!b) return;
+    let m = null;
+    // Search all runs
+    (b.runs||[]).forEach(r => {
+      (r.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
+    });
+    if (!m) (b.mentions||[]).forEach(x => { if(x.id===mentionId) m=x; });
+    if (!m) return;
+    const t = PLAT_THEME[m.platform]||{};
+    const head = el('resp-modal-head');
+    const titleEl = el('resp-modal-title');
+    const queryEl = el('resp-modal-query');
+    const textEl = el('resp-modal-text');
+    if (!head || !titleEl || !queryEl || !textEl) return;
+    head.style.background = t.bg||'var(--bg2)';
+    head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
+    queryEl.innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
+    textEl.style.whiteSpace = 'normal';
+    const rawHtml = mdToHtml(m.raw || m.context || '');
+    const hre = brandHighlightRe(b);
+    textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
+    // Citations
+    const cc = el('resp-modal-cites');
+    const cites = m.citations||[];
+    if (cc) {
+      if (cites.length) {
+        cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
+          + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      } else cc.innerHTML = '';
+    }
+    openModal('resp-modal');
+  } catch(e) { console.error('openResp error:', e); }
 }
 
 function openResultFromRun(runId, platform, encodedQuery){
-  const b = brand();
-  if (!b) return;
-  const q = decodeURIComponent(atob(encodedQuery));
-  const run = (b.runs||[]).find(r => r.id === runId);
-  if (!run || !run.allResults) return;
-  const result = run.allResults.find(x => x.platform===platform && x.query===q);
-  if (!result) return;
-  const t = PLAT_THEME[platform]||{};
-  const head = el('resp-modal-head');
-  head.style.background = t.bg||'var(--bg2)';
-  head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-  el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
-  const textEl = el('resp-modal-text');
-  textEl.style.whiteSpace = 'normal';
-  const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
-  const hre1 = brandHighlightRe(b);
-  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml1;
-  // Show citations if any
-  const cc = el('resp-modal-cites');
-  const cites = result.citations||[];
-  if (cites.length) {
-    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-  } else cc.innerHTML = '';
-  openModal('resp-modal');
+  try {
+    const b = brand();
+    if (!b) return;
+    const q = decodeURIComponent(atob(encodedQuery));
+    const run = (b.runs||[]).find(r => r.id === runId);
+    if (!run || !run.allResults) return;
+    const result = run.allResults.find(x => x.platform===platform && x.query===q);
+    if (!result) return;
+    const t = PLAT_THEME[platform]||{};
+    const head = el('resp-modal-head');
+    if (!head) return;
+    head.style.background = t.bg||'var(--bg2)';
+    head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
+    const titleEl = el('resp-modal-title');
+    const queryEl = el('resp-modal-query');
+    const textEl = el('resp-modal-text');
+    if (!titleEl || !queryEl || !textEl) return;
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+    queryEl.innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+    textEl.style.whiteSpace = 'normal';
+    const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
+    const hre1 = brandHighlightRe(b);
+    textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml1;
+    // Show citations if any
+    const cc = el('resp-modal-cites');
+    const cites = result.citations||[];
+    if (cc) {
+      if (cites.length) {
+        cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
+          + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      } else cc.innerHTML = '';
+    }
+    openModal('resp-modal');
+  } catch(e) { console.error('openResultFromRun error:', e); }
 }
 
 function openFullResult(platform, encodedQuery){
-  const b = brand();
-  if (!b) return;
-  const q = decodeURIComponent(atob(encodedQuery));
-  const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
-  if (!run || !run.allResults) return;
-  const result = run.allResults.find(x => x.platform===platform && x.query===q);
-  if (!result) return;
-  const t = PLAT_THEME[platform]||{};
-  const head = el('resp-modal-head');
-  head.style.background = t.bg||'var(--bg2)';
-  head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-  el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
-  const textEl = el('resp-modal-text');
-  textEl.style.whiteSpace = 'normal';
-  const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
-  const hre2 = brandHighlightRe(b);
-  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml2;
-  // Show citations
-  const cc = el('resp-modal-cites');
-  const cites = result.citations||[];
-  if (cites.length) {
-    cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-      + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-  } else cc.innerHTML = '';
-  openModal('resp-modal');
+  try {
+    const b = brand();
+    if (!b) return;
+    const q = decodeURIComponent(atob(encodedQuery));
+    const proofSel = el('proof-run-sel');
+    if (!proofSel) return;
+    const run = (b.runs||[]).find(r => r.id === proofSel.value);
+    if (!run || !run.allResults) return;
+    const result = run.allResults.find(x => x.platform===platform && x.query===q);
+    if (!result) return;
+    const t = PLAT_THEME[platform]||{};
+    const head = el('resp-modal-head');
+    const titleEl = el('resp-modal-title');
+    const queryEl = el('resp-modal-query');
+    const textEl = el('resp-modal-text');
+    if (!head || !titleEl || !queryEl || !textEl) return;
+    head.style.background = t.bg||'var(--bg2)';
+    head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+    queryEl.innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+    textEl.style.whiteSpace = 'normal';
+    const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
+    const hre2 = brandHighlightRe(b);
+    textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml2;
+    // Show citations
+    const cc = el('resp-modal-cites');
+    const cites = result.citations||[];
+    if (cc) {
+      if (cites.length) {
+        cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
+          + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+      } else cc.innerHTML = '';
+    }
+    openModal('resp-modal');
+  } catch(e) { console.error('openFullResult error:', e); }
 }
 
 // ─── EVIDENCE & PROOF ─────────────────────────────────────────────
@@ -2231,7 +2256,7 @@ function renderProof(){
       const mid = m ? m.id : null;
       const viewBtn = mid
         ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
-        : `<button class="proof-view-btn" onclick="openFullResult('${plat}','${btoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
+        : `<button class="proof-view-btn" onclick="openFullResult('${escAttr(plat)}','${safeBtoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
 
       return `<div class="proof-card" style="background:${cardBg};border:1px solid ${cardBorder};">
         <div class="proof-card-header" style="background:${t.bg||'var(--bg)'};border-bottom:1px solid ${cardBorder};">
@@ -2246,7 +2271,7 @@ function renderProof(){
           ${isError
             ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
-            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="color:var(--text);">${displayResp}</div>`
+            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${safeBtoa(encodeURIComponent(q)).substring(0,12)}" style="color:var(--text);">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
           }
         </div>
