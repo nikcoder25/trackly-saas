@@ -516,7 +516,7 @@ function renderAccount(){
     if (currentUser.emailVerified) {
       verifyEl.innerHTML = '<span class="badge pos">VERIFIED</span>';
     } else {
-      verifyEl.innerHTML = '<span class="badge neg">UNVERIFIED</span> <button onclick="resendVerification()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--amber);color:var(--amber);padding:2px 8px;cursor:pointer;">RESEND VERIFICATION</button>';
+      verifyEl.innerHTML = '<span class="badge neg">UNVERIFIED</span> <button onclick="resendVerification()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--amber);color:var(--amber);padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">RESEND VERIFICATION</button>';
     }
   }
   const planEl = el('acct-plan');
@@ -598,7 +598,7 @@ async function loadModelSettings() {
       const icon = platformIcons[platform] || '';
       // Default to enabled if not explicitly set
       const isEnabled = enabledPlatforms[platform] !== false;
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;${isEnabled?'':'opacity:0.5;'}">
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:var(--radius-sm);${isEnabled?'':'opacity:0.5;'}">
         <label class="toggle-switch" style="flex-shrink:0;">
           <input type="checkbox" class="platform-toggle" data-platform="${platform}" ${isEnabled?'checked':''} onchange="togglePlatformRow(this)">
           <span class="toggle-slider"></span>
@@ -784,7 +784,7 @@ async function toggleNotifications() {
     dd.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">No notifications</div>';
     return;
   }
-  let html = '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;">NOTIFICATIONS</span><button onclick="markAllRead()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border);color:var(--green);padding:2px 8px;cursor:pointer;">MARK ALL READ</button></div>';
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;">NOTIFICATIONS</span><button onclick="markAllRead()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border);color:var(--green);padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">MARK ALL READ</button></div>';
   notifs.slice(0, 20).forEach(n => {
     const time = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     html += `<div style="padding:10px 12px;border-bottom:1px solid var(--border);${n.read?'opacity:0.6;':''}">
@@ -1089,14 +1089,14 @@ function renderOverview(){
     const runTime = new Date(lastRun.time || lastRun.date);
     let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Last Run — ${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
     if (errors.length > 0) {
-      summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
+      summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;border-radius:var(--radius-xs);">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
       summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('apilogs');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
       summaryHtml += `</div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
     if (found.length === 0 && lastRun.allResults.length > 0 && errors.length === 0) {
-      summaryHtml += `<div style="background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);padding:12px 14px;margin-top:12px;font-size:12px;line-height:1.6;">
+      summaryHtml += `<div style="background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);padding:12px 14px;margin-top:12px;font-size:12px;line-height:1.6;border-radius:var(--radius-xs);">
         <div style="color:var(--blue);font-weight:700;font-size:10px;font-family:var(--mono);letter-spacing:1px;margin-bottom:6px;">WHY 0% SOV?</div>
         <div style="color:var(--muted);">AI platforms don't yet recommend "${esc(b.name)}" for these queries. This is <strong style="color:var(--text);">normal for newer or local brands</strong>.</div>
         <div style="color:var(--muted);margin-top:6px;"><strong style="color:var(--text);">To improve:</strong> Get more reviews, create authoritative content, earn backlinks, and get listed on industry directories.</div>
@@ -1439,7 +1439,7 @@ function openResp(mentionId){
   textEl.style.whiteSpace = 'normal';
   const rawHtml = mdToHtml(m.raw || m.context || '');
   const hre = brandHighlightRe(b);
-  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml;
+  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
@@ -1468,7 +1468,7 @@ function openResultFromRun(runId, platform, encodedQuery){
   textEl.style.whiteSpace = 'normal';
   const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre1 = brandHighlightRe(b);
-  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml1;
+  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml1;
   // Show citations if any
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1497,7 +1497,7 @@ function openFullResult(platform, encodedQuery){
   textEl.style.whiteSpace = 'normal';
   const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre2 = brandHighlightRe(b);
-  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml2;
+  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml2;
   // Show citations
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1601,10 +1601,10 @@ function renderProof(){
 
       // Status badge — clear FOUND / NOT FOUND / ERROR
       const statusBadge = isError
-        ? `<div class="proof-card-badge" style="color:var(--amber);border:1px solid rgba(245,158,11,.3);font-weight:700;">⚠ API ERROR</div>`
+        ? `<div class="proof-card-badge" style="color:var(--amber);border:1px solid rgba(245,158,11,.3);font-weight:700;border-radius:4px;">⚠ API ERROR</div>`
         : isMentioned
-        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(255,97,84,.3);font-weight:700;">&#x2713; FOUND</div>`
-        : `<div class="proof-card-badge" style="color:var(--red);border:1px solid rgba(239,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
+        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(255,97,84,.3);font-weight:700;border-radius:4px;">&#x2713; FOUND</div>`
+        : `<div class="proof-card-badge" style="color:var(--red);border:1px solid rgba(239,68,68,.3);font-weight:700;border-radius:4px;">&#x2717; NOT FOUND</div>`;
 
       const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
       const cardBorder = isMentioned ? (t.color||'var(--border)')+'33' : 'var(--border)';
@@ -2577,7 +2577,7 @@ async function renderApiLogs(){
   // 1. Client-side errors (localStorage)
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
-    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);">
+    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);border-radius:var(--radius-sm);">
       <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
     clientErrors.forEach(err => {
       const dt = new Date(err.time);
@@ -2796,11 +2796,11 @@ function renderAdminTable(users){
     const isMe = u.id === currentUser.id;
     html += `<tr>
       <td>
-        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:2px 6px;border-radius:4px;margin-left:6px;">YOU</span>' : ''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>
-        <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
+        <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
       </td>
       <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
       <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '—'}</td>
