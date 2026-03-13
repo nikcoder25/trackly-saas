@@ -1303,7 +1303,9 @@ function renderMentions(){
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%';
+    const errCount = (r.allResults||[]).filter(x => x.error).length;
+    const errTag = errCount > 0 ? ` · ${errCount} error${errCount>1?'s':''}` : '';
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%' + errTag;
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -1323,9 +1325,10 @@ function renderMentions(){
 
   const filtered = allResults.filter(r => {
     if (filter === 'mentioned' && !r.mentioned) return false;
-    if (filter === 'not-mentioned' && r.mentioned) return false;
+    if (filter === 'not-mentioned' && (r.mentioned || r.error)) return false;
+    if (filter === 'errors' && !r.error) return false;
     if (searchTerm) {
-      const haystack = ((r.platform||'') + ' ' + (r.query||'') + ' ' + (r.raw||r.context||'') + ' ' + (r.model||'')).toLowerCase();
+      const haystack = ((r.platform||'') + ' ' + (r.query||'') + ' ' + (r.raw||r.context||'') + ' ' + (r.model||'') + ' ' + (r.errorMessage||'')).toLowerCase();
       if (!haystack.includes(searchTerm)) return false;
     }
     return true;
@@ -1345,8 +1348,29 @@ function renderMentions(){
   const runTime = new Date(run.time || run.date);
   const runTimeStr = runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 
+  // Error summary banner if run has errors
+  const errResults = allResults.filter(r => r.error);
+  const okResults = allResults.filter(r => !r.error);
   const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
-  let html = '<div class="mention-cards">';
+  let html = '';
+  if (errResults.length > 0) {
+    const errPlats = {};
+    errResults.forEach(r => { errPlats[r.platform] = (errPlats[r.platform]||0)+1; });
+    const errPlatStr = Object.entries(errPlats).map(([p,c]) => `${p}: ${c}`).join(' · ');
+    html += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div style="font-family:var(--mono);font-size:11px;">
+        <span style="color:var(--green);font-weight:700;">${okResults.length} succeeded</span>
+        <span style="color:var(--muted);margin:0 4px;">·</span>
+        <span style="color:var(--red);font-weight:700;">${errResults.length} failed</span>
+        <span style="color:var(--muted);font-size:10px;margin-left:8px;">${errPlatStr}</span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="el('mentions-filter-sel').value='errors';renderMentions()" class="btn" style="padding:3px 10px;font-size:10px;color:var(--red);border-color:rgba(239,68,68,.3);">Show Errors</button>
+        <button onclick="go('apilogs')" class="btn" style="padding:3px 10px;font-size:10px;color:var(--muted);">API Logs</button>
+      </div>
+    </div>`;
+  }
+  html += '<div class="mention-cards">';
   pageItems.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
@@ -1378,7 +1402,9 @@ function renderMentions(){
   });
   html += '</div>';
   html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">`;
-  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
+  const foundCount = allResults.filter(r=>r.mentioned).length;
+  const errCountBottom = errResults.length;
+  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${foundCount} found${errCountBottom > 0 ? ' · '+errCountBottom+' error'+(errCountBottom>1?'s':'') : ''}</div>`;
   if (totalPages > 1) {
     html += `<div style="display:flex;gap:6px;align-items:center;">`;
     html += `<button onclick="mentionsPage=0;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage===0?'disabled':''}>«</button>`;
@@ -2464,35 +2490,21 @@ async function runQueries(){
         type: 'partial',
         platformErrors: data.result.platformErrors || {}
       });
+    }
 
-      // Show error details inline
-      if (data.result.platformErrors) {
-        const errDetails = Object.entries(data.result.platformErrors).map(([plat, msgs]) => {
-          const uniqueMsgs = [...new Set(msgs)];
-          return `${plat}: ${friendlyError(uniqueMsgs[0])}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
-        }).join('\n');
-        const errDiv = document.createElement('div');
-        errDiv.style.cssText = 'background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
-        errDiv.textContent = errDetails;
-        prog.appendChild(errDiv);
-      }
+    // Always go to Mentions — show results even when some queries failed
+    setTimeout(() => {
+      prog.style.display = 'none';
+      fill.style.width = '0%';
+      timerEl.textContent = '';
+    }, 5000);
+    go('mentions');
 
-      // Redirect to API Logs so user can see full error details
-      toast(`Run complete with ${errors} error(s) — redirecting to API Logs`, 'warn');
-      setTimeout(() => {
-        prog.style.display = 'none';
-        prog.querySelectorAll('div[style*="rgba(255,68,68"]').forEach(d => d.remove());
-        fill.style.width = '0%';
-        timerEl.textContent = '';
-        go('apilogs');
-      }, 4000);
+    if (errors > 0) {
+      const okCount = data.result.totalQ - errors;
+      const errPlats = Object.keys(data.result.platformErrors || {}).join(', ');
+      toast(`Run complete — ${okCount} succeeded, ${errors} failed${errPlats ? ' ('+errPlats+')' : ''}. Filter by "Errors" in Mentions to see details.`, 'warn');
     } else {
-      setTimeout(() => {
-        prog.style.display = 'none';
-        fill.style.width = '0%';
-        timerEl.textContent = '';
-      }, 5000);
-      go('mentions');
       const toastMsg = data.result.sov === 0
         ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
         : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
@@ -2526,13 +2538,13 @@ async function runQueries(){
       // Restore errors after reload (they're in localStorage, not brand object)
     } catch(_) {}
 
-    toast('Run failed — opening API Logs', 'err');
+    toast('Run failed — showing any saved results in Mentions. Check API Logs for details.', 'err');
 
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
       fill.style.background = '';
-      go('apilogs');
+      go('mentions');
     }, 2000);
   }
 
