@@ -11,7 +11,7 @@
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <link rel="canonical" href="https://trackly.so/">
 <meta name="author" content="Trackly">
-<meta name="theme-color" content="#00ff88">
+<meta name="theme-color" content="#FF6154">
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
@@ -151,7 +151,7 @@
   ]
 }
 </script>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="/css/styles.css">
 <!-- styles loaded from /css/styles.css -->
 </head>
@@ -176,12 +176,21 @@
   </header>
 
   <section class="land-hero" aria-label="Hero">
-    <div class="land-hero-badge">AI VISIBILITY TRACKER</div>
+    <div class="land-hero-badge">AI Visibility Tracker</div>
     <h1>Is your brand visible in <span>AI answers?</span></h1>
-    <p>Track how ChatGPT, Perplexity, Claude, Gemini, Grok and Google AI Overview mention your brand. Get real proof, measure share of voice, and optimize your <strong>Generative Engine Optimization (GEO)</strong> strategy.</p>
+    <p>Track how ChatGPT, Perplexity, Claude, Gemini, Grok and Google AI Overview mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.</p>
     <div class="land-hero-cta">
-      <button class="land-btn land-btn-primary" onclick="showAuth('register')">Start Tracking Free</button>
+      <button class="land-btn land-btn-primary" onclick="showAuth('register')">Start Tracking Free &rarr;</button>
       <button class="land-btn land-btn-ghost" onclick="document.getElementById('demo-section').scrollIntoView({behavior:'smooth'})">See Demo</button>
+    </div>
+  </section>
+
+  <section class="land-social-proof" aria-label="Social proof">
+    <div class="land-social-proof-stats">
+      <div class="land-social-proof-stat"><div class="val">500+</div><div class="lbl">Brands tracked</div></div>
+      <div class="land-social-proof-stat"><div class="val">8</div><div class="lbl">AI platforms</div></div>
+      <div class="land-social-proof-stat"><div class="val">50K+</div><div class="lbl">Queries run</div></div>
+      <div class="land-social-proof-stat"><div class="val">4.9/5</div><div class="lbl">User rating</div></div>
     </div>
   </section>
 
@@ -200,7 +209,7 @@
     <div class="land-demo-box">
       <div class="land-demo-header">
         <div class="dot g"></div><div class="dot"></div><div class="dot"></div>
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:12px;">QUERY: "Best HVAC company in Austin TX"</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-muted);margin-left:12px;">QUERY: "Best HVAC company in Austin TX"</span>
       </div>
       <div class="land-demo-body">
         <div class="land-demo-card">
@@ -442,13 +451,13 @@
   </section>
 
   <!-- CTA Section -->
-  <section class="land-section" style="text-align:center;padding:80px 20px;" aria-label="Call to action">
+  <section class="land-cta-section" aria-label="Call to action">
     <h2>Ready to track your AI visibility?</h2>
-    <p class="section-sub">Join brands already monitoring their presence across AI platforms.</p>
-    <div class="land-hero-cta" style="justify-content:center;margin-top:32px;">
-      <button class="land-btn land-btn-primary" style="padding:16px 40px;font-size:16px;" onclick="showAuth('register')">Start Tracking Free</button>
+    <p class="section-sub">Join 500+ brands already monitoring their presence across AI platforms.</p>
+    <div class="land-hero-cta" style="justify-content:center;margin-top:36px;">
+      <button class="land-btn land-btn-primary" style="padding:16px 44px;font-size:16px;" onclick="showAuth('register')">Start Tracking Free &rarr;</button>
     </div>
-    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:16px;">No credit card required. Free forever for 1 brand.</p>
+    <p style="font-size:13px;color:rgba(255,255,255,.5);margin-top:18px;">No credit card required. Free forever for 1 brand.</p>
   </section>
 
   <footer class="land-footer">
@@ -467,7 +476,7 @@
 <div id="auth-page" style="display:none;">
   <div class="auth-box">
     <div class="auth-logo">Track<span>ly</span></div>
-    <div class="auth-sub">AI Visibility Tracker — see where your brand shows up in AI answers<br><a href="#" onclick="showLanding();return false;" style="color:var(--green);font-size:12px;text-decoration:none;">&#x2190; Back to home</a></div>
+    <div class="auth-sub">AI Visibility Tracker — see where your brand shows up in AI answers<br><a href="#" onclick="showLanding();return false;" style="color:var(--primary);font-size:12px;text-decoration:none;">&larr; Back to home</a></div>
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="authTab('login')">LOGIN</button>
       <button class="auth-tab" onclick="authTab('register')">REGISTER</button>
@@ -490,7 +499,7 @@
       <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Enter your email address and we'll send you a password reset link.</p>
       <label class="flabel" for="forgot-email">Email</label>
       <input class="finput" id="forgot-email" type="email" placeholder="you@example.com" autocomplete="email">
-      <div id="forgot-msg" style="display:none;padding:10px 12px;font-size:12px;font-family:var(--mono);margin-bottom:14px;border:1px solid var(--green);color:var(--green);background:rgba(0,255,136,.05);"></div>
+      <div id="forgot-msg" style="display:none;padding:10px 12px;font-size:12px;margin-bottom:14px;border:1px solid var(--success);color:var(--success);background:var(--success-light);border-radius:6px;"></div>
       <button type="submit" class="btn-primary">SEND RESET LINK</button>
       </form>
       <div style="text-align:center;margin-top:12px;">
@@ -518,14 +527,14 @@
       <input class="finput" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email">
       <label class="flabel" for="reg-pass">Password (min 8 chars)</label>
       <input class="finput" id="reg-pass" type="password" placeholder="••••••••" autocomplete="new-password" oninput="updatePasswordStrength(this.value)">
-      <div id="pw-strength" style="display:none;margin:-10px 0 14px;font-family:var(--mono);font-size:10px;">
+      <div id="pw-strength" style="display:none;margin:-10px 0 14px;font-size:11px;">
         <div style="display:flex;gap:4px;margin-bottom:4px;">
-          <div id="pw-bar-1" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
-          <div id="pw-bar-2" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
-          <div id="pw-bar-3" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
-          <div id="pw-bar-4" style="flex:1;height:3px;background:var(--border);transition:background .2s;"></div>
+          <div id="pw-bar-1" style="flex:1;height:3px;background:var(--card-border);transition:background .2s;border-radius:2px;"></div>
+          <div id="pw-bar-2" style="flex:1;height:3px;background:var(--card-border);transition:background .2s;border-radius:2px;"></div>
+          <div id="pw-bar-3" style="flex:1;height:3px;background:var(--card-border);transition:background .2s;border-radius:2px;"></div>
+          <div id="pw-bar-4" style="flex:1;height:3px;background:var(--card-border);transition:background .2s;border-radius:2px;"></div>
         </div>
-        <span id="pw-strength-text" style="color:var(--muted);"></span>
+        <span id="pw-strength-text" style="color:var(--text-muted);"></span>
       </div>
       <button type="submit" class="btn-primary">CREATE ACCOUNT</button>
       </form>
