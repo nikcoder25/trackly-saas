@@ -2492,26 +2492,135 @@ function renderPlatformStatus(){
   cont.innerHTML = html;
 }
 
-// ─── QUERY PERFORMANCE ────────────────────────────────────────────
+// ─── QUERY PERFORMANCE / RANK TRACKER ─────────────────────────────
+let _qperfSelectedQueries = new Set();
+
+function qperfToggleAll() {
+  const b = brand(); if (!b) return;
+  const queries = b.queries || [];
+  if (_qperfSelectedQueries.size === queries.length) _qperfSelectedQueries.clear();
+  else queries.forEach(q => _qperfSelectedQueries.add(q));
+  renderQPerf();
+}
+
+function qperfToggleQuery(q) {
+  if (_qperfSelectedQueries.has(q)) _qperfSelectedQueries.delete(q);
+  else _qperfSelectedQueries.add(q);
+  renderQPerf();
+}
+
+function qperfRunSelected() {
+  if (!_qperfSelectedQueries.size) { toast('Select queries first', 'err'); return; }
+  // Switch to overview and trigger a run (uses all queries - selection is for viewing)
+  go('mentions');
+}
+
 function renderQPerf(){
   const b = brand(); if (!b) return;
-  const qs = b.queryStats||{};
-  const queries = b.queries||[];
+  const qs = b.queryStats || {};
+  const queries = b.queries || [];
   const cont = el('qperf-container');
-  if (!queries.length) { cont.innerHTML='<div class="empty-state"><p>No queries set.</p></div>'; return; }
-  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Query</th><th>Runs</th><th>Mentions</th><th>Mention Rate</th><th>Bar</th></tr></thead><tbody>';
-  queries.forEach(q => {
-    const stat = qs[q]||{runs:0,mentions:0};
-    const rate = stat.runs ? Math.round((stat.mentions/stat.runs)*100) : 0;
-    html += `<tr>
-      <td>${esc(q)}</td>
-      <td style="font-family:var(--mono)">${stat.runs}</td>
-      <td style="font-family:var(--mono)">${stat.mentions}</td>
-      <td style="font-family:var(--mono);color:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}">${rate}%</td>
-      <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${rate}%;background:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}"></div></div></td>
-    </tr>`;
+  if (!queries.length) { cont.innerHTML='<div class="empty-state"><div class="icon">◻</div><p>No queries configured. Add queries in Overview or Brand Setup.</p></div>'; return; }
+
+  const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
+  const allResults = lastRun ? (lastRun.allResults || []) : [];
+
+  // Build lookup: query → platform → result
+  const resultMap = {};
+  allResults.forEach(r => {
+    const key = r.query;
+    if (!resultMap[key]) resultMap[key] = {};
+    resultMap[key][r.platform] = r;
   });
+
+  // Determine active platforms from last run
+  const activePlats = lastRun
+    ? (lastRun.activePlatforms || [...new Set(allResults.map(r => r.platform))])
+    : PLATS.slice(0, 3);
+
+  // Header with actions
+  const allSelected = _qperfSelectedQueries.size === queries.length && queries.length > 0;
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted);">
+        <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:16px;height:16px;">
+        Select All (${queries.length})
+      </label>
+      ${_qperfSelectedQueries.size > 0 ? `<span style="font-size:11px;font-weight:700;color:var(--primary);">${_qperfSelectedQueries.size} selected</span>` : ''}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      ${lastRun ? `<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">Last run: ${new Date(lastRun.time||lastRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${new Date(lastRun.time||lastRun.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+    </div>
+  </div>`;
+
+  // ── Rank Matrix Table ──
+  html += `<div class="table-scroll"><table class="tbl" style="font-size:12px;"><thead><tr>
+    <th style="width:28px;text-align:center;padding:8px 4px;">
+      <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:14px;height:14px;">
+    </th>
+    <th style="min-width:200px;">Keyword</th>
+    <th style="width:70px;text-align:center;">Rate</th>`;
+  activePlats.forEach(p => {
+    const t = PLAT_THEME[p] || {};
+    html += `<th style="text-align:center;width:80px;white-space:nowrap;"><span style="color:${t.color||'var(--muted)'};font-size:13px;">${t.logo||'?'}</span> <span style="font-size:10px;">${p.length>8?p.slice(0,7)+'…':p}</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  queries.forEach((q, idx) => {
+    const stat = qs[q] || { runs: 0, mentions: 0 };
+    const rate = stat.runs ? Math.round((stat.mentions / stat.runs) * 100) : 0;
+    const rateColor = rate > 60 ? 'var(--green)' : rate > 30 ? 'var(--amber)' : 'var(--red)';
+    const isSelected = _qperfSelectedQueries.has(q);
+
+    html += `<tr style="animation:fadeIn .2s ease ${Math.min(idx*0.03,.3)}s both;${isSelected?'background:rgba(255,97,84,.04);':''}">
+      <td style="text-align:center;padding:8px 4px;">
+        <input type="checkbox" ${isSelected?'checked':''} onchange="qperfToggleQuery('${escAttr(q)}')" style="accent-color:var(--primary);width:14px;height:14px;">
+      </td>
+      <td>
+        <div style="font-weight:600;color:var(--text);line-height:1.3;">${esc(q)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;">${stat.runs} runs · ${stat.mentions} mentions</div>
+      </td>
+      <td style="text-align:center;">
+        <div style="font-family:var(--mono);font-weight:800;font-size:14px;color:${rateColor};">${rate}%</div>
+        <div style="width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:4px;"><div style="width:${rate}%;height:100%;background:${rateColor};border-radius:2px;transition:width .4s ease;"></div></div>
+      </td>`;
+
+    // Platform cells — show rank/mention status
+    activePlats.forEach(p => {
+      const r = (resultMap[q] || {})[p];
+      if (!r) {
+        html += `<td style="text-align:center;"><span style="color:var(--muted);font-size:10px;">—</span></td>`;
+      } else if (r.error) {
+        html += `<td style="text-align:center;"><span style="font-size:10px;color:var(--amber);" title="${esc(friendlyError(r.errorMessage))}">⚠</span></td>`;
+      } else if (r.mentioned) {
+        const pos = r.listPosition;
+        const posLabel = pos ? '#' + pos : '✓';
+        const posColor = pos ? (pos <= 3 ? 'var(--green)' : pos <= 5 ? 'var(--amber)' : 'var(--text)') : 'var(--green)';
+        html += `<td style="text-align:center;">
+          <div style="font-family:var(--mono);font-weight:800;font-size:${pos?'14px':'16px'};color:${posColor};line-height:1;" title="${pos?'Ranked #'+pos+' in list':'Mentioned (no numbered list)'}">${posLabel}</div>
+          ${r.recommended ? '<div style="font-size:8px;color:var(--accent);font-weight:700;margin-top:2px;">REC</div>' : ''}
+          ${r.sentiment==='positive' ? '<div style="font-size:8px;color:var(--green);margin-top:1px;">+</div>' : r.sentiment==='negative' ? '<div style="font-size:8px;color:var(--red);margin-top:1px;">−</div>' : ''}
+        </td>`;
+      } else {
+        html += `<td style="text-align:center;"><span style="font-size:14px;color:var(--red);opacity:.6;" title="Not mentioned">✗</span></td>`;
+      }
+    });
+
+    html += `</tr>`;
+  });
+
   html += '</tbody></table></div>';
+
+  // ── Legend ──
+  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:10px;color:var(--muted);">
+    <span><strong style="color:var(--green);font-size:13px;">✓</strong> Mentioned</span>
+    <span><strong style="color:var(--green);font-family:var(--mono);">#3</strong> Rank in list</span>
+    <span><strong style="color:var(--red);font-size:13px;opacity:.6;">✗</strong> Not found</span>
+    <span><strong style="color:var(--amber);">⚠</strong> API error</span>
+    <span><strong style="color:var(--accent);font-size:9px;">REC</strong> Recommended</span>
+    <span><strong style="color:var(--green);font-size:9px;">+</strong> Positive &nbsp; <strong style="color:var(--red);font-size:9px;">−</strong> Negative</span>
+  </div>`;
+
   cont.innerHTML = html;
 }
 

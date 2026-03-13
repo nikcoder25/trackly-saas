@@ -296,7 +296,8 @@ router.post('/:id/run', auth, async (req, res) => {
             citations: parsed.cites, model: modelUsed || plat,
             locationRelevant: parsed.locationRelevant,
             matchedLocation: parsed.matchedLocation || '',
-            competitorMentions: compMentions
+            competitorMentions: compMentions,
+            listPosition: parsed.listPosition || null
           };
           allResults.push(resultObj);
           sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
@@ -504,7 +505,8 @@ router.post('/:id/retry-query', auth, async (req, res) => {
       citations: parsed.cites, model: modelUsed || platform,
       locationRelevant: parsed.locationRelevant,
       matchedLocation: parsed.matchedLocation || '',
-      competitorMentions: compMentions
+      competitorMentions: compMentions,
+      listPosition: parsed.listPosition || null
     };
 
     // Replace the error result in the run
@@ -655,7 +657,8 @@ async function runBrandQueries(brand) {
             sentiment: parsed.sentiment, recommended: parsed.recommended,
             citations: parsed.cites, model: modelUsed || plat,
             locationRelevant: parsed.locationRelevant,
-            matchedLocation: parsed.matchedLocation || ''
+            matchedLocation: parsed.matchedLocation || '',
+            listPosition: parsed.listPosition || null
           });
           if (parsed.mentioned) {
             pm++; totalM++;
@@ -667,6 +670,7 @@ async function runBrandQueries(brand) {
               model: modelUsed || plat,
               locationRelevant: parsed.locationRelevant,
               matchedLocation: parsed.matchedLocation || '',
+              listPosition: parsed.listPosition || null,
               time: new Date().toISOString()
             });
           }
