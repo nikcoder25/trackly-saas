@@ -710,17 +710,38 @@ body:has(#app[style*="display:grid"]){
   padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);
 }
 .mt-detail-aside{padding-top:16px;}
-.mt-detail-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;}
-.mt-dc-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.mt-detail-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px;overflow:hidden;}
+.mt-dc-row{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px;}
 .mt-dc-row:last-child{border-bottom:none;}
-.mt-dc-row span{color:var(--muted);}
-.mt-dc-row strong{color:var(--text);font-family:var(--mono);font-size:10px;}
+.mt-dc-row span{color:var(--muted);font-weight:600;white-space:nowrap;}
+.mt-dc-row strong{color:var(--text);font-family:var(--mono);font-size:10px;text-align:right;word-break:break-all;overflow-wrap:break-word;}
 .mt-btn-view{
   width:100%;padding:10px;font-family:var(--font);font-size:11px;font-weight:700;
   background:var(--primary);color:white;border:none;border-radius:var(--radius-xs);
   cursor:pointer;transition:all .15s;letter-spacing:.2px;
 }
 .mt-btn-view:hover{background:var(--primary-hover);transform:translateY(-1px);}
+
+/* Retry button */
+.mt-retry-btn{
+  font-family:var(--font);font-size:10px;font-weight:700;
+  padding:5px 12px;background:var(--amber);color:#fff;
+  border:none;border-radius:var(--radius-xs);cursor:pointer;
+  transition:all .15s;white-space:nowrap;letter-spacing:.2px;
+}
+.mt-retry-btn:hover:not(:disabled){background:#d97706;transform:translateY(-1px);}
+.mt-retry-btn:disabled{opacity:.6;cursor:wait;}
+.mt-retry-lg{
+  width:100%;padding:10px;font-size:11px;border-radius:var(--radius-xs);
+  margin-top:4px;
+}
+@keyframes retryBtnSpin{to{transform:rotate(360deg);}}
+.mt-retry-spin{
+  display:inline-block;width:12px;height:12px;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:retryBtnSpin .6s linear infinite;
+  vertical-align:middle;margin-right:4px;
+}
 
 /* Pagination */
 .mt-pager{display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
