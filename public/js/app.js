@@ -886,36 +886,23 @@ function setupLiveMentions() {
   const errs = liveResults.filter(r=>r.error).length;
   const ok = liveResults.length - errs;
   const sov = ok > 0 ? Math.round(found / ok * 100) : 0;
-  const pos = liveResults.filter(r=>r.sentiment==='positive').length;
-  const neg = liveResults.filter(r=>r.sentiment==='negative').length;
-  const rec = liveResults.filter(r=>r.recommended).length;
-  const recPct = ok > 0 ? Math.round(rec / ok * 100) : 0;
   const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
 
-  // Update KPI cards with live data
+  // Live KPI bar
   const kpis = el('mentions-kpis');
   if (kpis) {
-    kpis.innerHTML = `<div class="mn-kpis ov-card-updating">
-      <div class="mn-kpi"><div class="mn-kpi-icon" style="background:rgba(16,185,129,.08);color:var(--green);"><div class="ov-live-dot" style="width:8px;height:8px;"></div></div>
-        <div class="mn-kpi-body"><div class="mn-kpi-val">${sov}<span class="mn-kpi-unit">%</span></div><div class="mn-kpi-label">Share of Voice</div><div class="mn-kpi-sub">${found} of ${ok} found · streaming...</div></div></div>
-      <div class="mn-kpi"><div class="mn-kpi-icon" style="background:rgba(99,102,241,.08);color:var(--accent);"><div class="ov-live-dot" style="width:8px;height:8px;"></div></div>
-        <div class="mn-kpi-body"><div class="mn-kpi-val">${recPct}<span class="mn-kpi-unit">%</span></div><div class="mn-kpi-label">Recommendation Rate</div><div class="mn-kpi-sub">${rec} recommended</div></div></div>
-      <div class="mn-kpi"><div class="mn-kpi-icon" style="background:rgba(107,114,128,.08);color:var(--muted);"><div class="ov-live-dot" style="width:8px;height:8px;"></div></div>
-        <div class="mn-kpi-body"><div class="mn-kpi-val">${liveResults.length}</div><div class="mn-kpi-label">Results Received</div><div class="mn-kpi-sub"><span style="color:var(--green);">${pos} pos</span> · <span style="color:var(--red);">${neg} neg</span></div></div></div>
+    kpis.innerHTML = `<div class="mn-kpi-bar ov-card-updating">
+      <div class="ov-live-badge" style="margin-right:8px;"><span class="ov-live-dot"></span>LIVE</div>
+      <div class="mn-kpi-item"><div class="mn-kpi-num">${sov}%</div><div class="mn-kpi-lbl">Visibility</div></div>
+      <div class="mn-kpi-sep"></div>
+      <div class="mn-kpi-item"><div class="mn-kpi-num" style="color:var(--green);">${found}</div><div class="mn-kpi-lbl">Mentioned</div></div>
+      <div class="mn-kpi-item"><div class="mn-kpi-num">${liveResults.length}</div><div class="mn-kpi-lbl">Received</div></div>
     </div>`;
   }
-  // Hide platform perf + filters during live
-  const platPerf = el('mentions-plat-perf');
-  if (platPerf) platPerf.innerHTML = '';
   const platFilters = el('mentions-plat-filters');
   if (platFilters) platFilters.innerHTML = '';
 
-  cont.innerHTML = `<div id="live-stats" style="background:var(--bg2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:12px;">
-    <div class="ov-live-badge"><span class="ov-live-dot"></span>STREAMING</div>
-    <span style="color:var(--green);font-weight:700;">${found} mentioned</span>
-    <span style="color:var(--muted);">·</span>
-    <span style="color:var(--muted);">${liveResults.length} received</span>
-  </div><div id="live-cards" class="mention-cards"></div>`;
+  cont.innerHTML = `<div id="live-cards" class="mention-cards"></div>`;
   const cardsEl = el('live-cards');
   if (cardsEl) {
     liveResults.forEach(r => {
@@ -1818,12 +1805,10 @@ async function aiGenerateQueries(){
 
 // ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
 let mentionsPage = 0;
-const MENTIONS_PER_PAGE = 20;
+const MENTIONS_PER_PAGE = 15;
 
 let mentionsPlatFilter = 'all';
 let mentionsExpandedRow = null;
-let mentionsSortCol = 'platform';
-let mentionsSortDir = 'asc';
 
 function exportMentionsCSV(){
   const b = brand();
@@ -1831,309 +1816,219 @@ function exportMentionsCSV(){
   const sel = el('mentions-run-sel');
   const run = (b.runs||[]).find(r => r.id === sel.value);
   if (!run || !run.allResults) return;
-  const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Location','Response Preview']];
+  const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview']];
   run.allResults.forEach(r => {
     const preview = (r.raw || r.context || '').replace(/[#*_~`\n]/g,' ').substring(0,300);
-    rows.push([r.platform, r.model||'', r.query, r.error?'ERROR':r.mentioned?'Found':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', r.matchedLocation||'', preview]);
+    rows.push([r.platform, r.model||'', r.query, r.error?'ERROR':r.mentioned?'Found':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
   });
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `trackly-visibility-${new Date().toISOString().slice(0,10)}.csv`;
+  a.href = url; a.download = `trackly-mentions-${new Date().toISOString().slice(0,10)}.csv`;
   a.click(); URL.revokeObjectURL(url);
   toast('CSV exported');
 }
 
 function toggleMentionRow(idx){
   mentionsExpandedRow = mentionsExpandedRow === idx ? null : idx;
-  renderMentions(true);
-}
-
-function sortMentions(col){
-  if (mentionsSortCol === col) mentionsSortDir = mentionsSortDir === 'asc' ? 'desc' : 'asc';
-  else { mentionsSortCol = col; mentionsSortDir = 'asc'; }
-  mentionsPage = 0;
   renderMentions();
 }
 
-function renderMentions(keepScroll){
+function renderMentions(){
   const b = brand();
   if (!b) return;
   const cont = el('mentions-container');
   const kpis = el('mentions-kpis');
-  const platPerf = el('mentions-plat-perf');
   const platFilters = el('mentions-plat-filters');
 
-  // Populate run selector
+  // Run selector
   const sel = el('mentions-run-sel');
   const curVal = sel.value;
   sel.innerHTML = '';
   const runs = (b.runs||[]).slice().reverse();
   if (!runs.length) {
-    kpis.innerHTML = ''; platPerf.innerHTML = ''; platFilters.innerHTML = '';
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to see AI responses.</p></div>';
+    kpis.innerHTML = ''; platFilters.innerHTML = '';
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries first.</p></div>';
     return;
   }
-  runs.forEach((r,i) => {
+  runs.forEach(r => {
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date);
-    const errCount = (r.allResults||[]).filter(x => x.error).length;
-    const errTag = errCount > 0 ? ` · ${errCount} err` : '';
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%' + errTag;
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — ' + r.sov + '% SOV';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
 
-  const selectedRunId = sel.value;
-  const run = (b.runs||[]).find(r => r.id === selectedRunId);
-  if (!run) { kpis.innerHTML=''; platPerf.innerHTML=''; platFilters.innerHTML=''; cont.innerHTML = '<div class="empty-state"><p>Select a run.</p></div>'; return; }
-
+  const run = (b.runs||[]).find(r => r.id === sel.value);
+  if (!run) { kpis.innerHTML=''; platFilters.innerHTML=''; cont.innerHTML=''; return; }
   const allResults = run.allResults || [];
   if (!allResults.length) {
-    kpis.innerHTML=''; platPerf.innerHTML=''; platFilters.innerHTML='';
+    kpis.innerHTML=''; platFilters.innerHTML='';
     cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results in this run.</p></div>';
     return;
   }
+  const selectedRunId = sel.value;
 
-  // Compute metrics
-  const okResults = allResults.filter(r => !r.error);
-  const foundAll = allResults.filter(r => r.mentioned);
-  const errResults = allResults.filter(r => r.error);
-  const posResults = foundAll.filter(r => r.sentiment === 'positive');
-  const negResults = foundAll.filter(r => r.sentiment === 'negative');
-  const neuResults = foundAll.filter(r => !r.sentiment || r.sentiment === 'neutral');
-  const recResults = foundAll.filter(r => r.recommended);
-  const sovPct = okResults.length > 0 ? Math.round(foundAll.length / okResults.length * 100) : 0;
-  const recPct = okResults.length > 0 ? Math.round(recResults.length / okResults.length * 100) : 0;
-  const sentScore = foundAll.length > 0 ? Math.round((posResults.length - negResults.length) / foundAll.length * 100) : 0;
-  const sentLabel = sentScore > 20 ? 'Positive' : sentScore < -20 ? 'Negative' : 'Neutral';
-  const sentColor = sentScore > 20 ? 'var(--green)' : sentScore < -20 ? 'var(--red)' : 'var(--muted)';
+  // Metrics
+  const ok = allResults.filter(r => !r.error);
+  const found = allResults.filter(r => r.mentioned);
+  const errs = allResults.filter(r => r.error);
+  const pos = found.filter(r => r.sentiment === 'positive');
+  const neg = found.filter(r => r.sentiment === 'negative');
+  const rec = found.filter(r => r.recommended);
+  const sovPct = ok.length ? Math.round(found.length / ok.length * 100) : 0;
+  const recPct = ok.length ? Math.round(rec.length / ok.length * 100) : 0;
 
-  // ── KPI Cards ──
-  const sovRingPct = Math.min(sovPct, 100);
-  const recRingPct = Math.min(recPct, 100);
-  kpis.innerHTML = `<div class="mn-kpis" style="animation:fadeInUp .35s ease;">
-    <div class="mn-kpi">
-      <div class="mn-kpi-icon" style="background:rgba(16,185,129,.08);color:var(--green);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
-      </div>
-      <div class="mn-kpi-body">
-        <div class="mn-kpi-val">${sovPct}<span class="mn-kpi-unit">%</span></div>
-        <div class="mn-kpi-label">Share of Voice</div>
-        <div class="mn-kpi-sub">${foundAll.length} of ${okResults.length} queries mention your brand</div>
-      </div>
-      <div class="mn-kpi-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="2.5"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-dasharray="${sovRingPct} ${100-sovRingPct}" stroke-dashoffset="25" stroke-linecap="round"/></svg><span class="mn-ring-val">${sovPct}%</span></div>
+  // ── Compact KPI bar ──
+  kpis.innerHTML = `<div class="mn-kpi-bar">
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num" style="color:var(--text);">${sovPct}%</div>
+      <div class="mn-kpi-lbl">Visibility</div>
     </div>
-    <div class="mn-kpi">
-      <div class="mn-kpi-icon" style="background:rgba(99,102,241,.08);color:var(--accent);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-6 0v4"/><rect x="4" y="9" width="16" height="11" rx="2"/></svg>
-      </div>
-      <div class="mn-kpi-body">
-        <div class="mn-kpi-val">${recPct}<span class="mn-kpi-unit">%</span></div>
-        <div class="mn-kpi-label">Recommendation Rate</div>
-        <div class="mn-kpi-sub">${recResults.length} of ${okResults.length} responses recommend you</div>
-      </div>
-      <div class="mn-kpi-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="2.5"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="${recRingPct} ${100-recRingPct}" stroke-dashoffset="25" stroke-linecap="round"/></svg><span class="mn-ring-val">${recPct}%</span></div>
+    <div class="mn-kpi-sep"></div>
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num" style="color:var(--green);">${found.length}</div>
+      <div class="mn-kpi-lbl">Mentioned</div>
     </div>
-    <div class="mn-kpi">
-      <div class="mn-kpi-icon" style="background:${sentScore>20?'rgba(16,185,129,.08)':sentScore<-20?'rgba(239,68,68,.08)':'rgba(107,114,128,.08)'};color:${sentColor};">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="${sentScore>=0?'M8 14s1.5 2 4 2 4-2 4-2':'M8 16s1.5-2 4-2 4 2 4 2'}"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
-      </div>
-      <div class="mn-kpi-body">
-        <div class="mn-kpi-val" style="color:${sentColor};">${sentLabel}</div>
-        <div class="mn-kpi-label">Sentiment</div>
-        <div class="mn-kpi-sub"><span style="color:var(--green);">${posResults.length} positive</span> · <span style="color:var(--red);">${negResults.length} negative</span> · ${neuResults.length} neutral</div>
-      </div>
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num" style="color:var(--red);">${ok.length - found.length}</div>
+      <div class="mn-kpi-lbl">Not Found</div>
     </div>
-    <div class="mn-kpi">
-      <div class="mn-kpi-icon" style="background:rgba(59,130,246,.08);color:var(--blue);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      </div>
-      <div class="mn-kpi-body">
-        <div class="mn-kpi-val">${allResults.length}<span class="mn-kpi-unit" style="font-size:12px;"> queries</span></div>
-        <div class="mn-kpi-label">Total Analyzed</div>
-        <div class="mn-kpi-sub">${okResults.length} OK${errResults.length ? ' · <span style="color:var(--red);">'+errResults.length+' errors</span>' : ''}</div>
-      </div>
+    ${errs.length ? `<div class="mn-kpi-item"><div class="mn-kpi-num" style="color:var(--amber);">${errs.length}</div><div class="mn-kpi-lbl">Errors</div></div>` : ''}
+    <div class="mn-kpi-sep"></div>
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num" style="color:var(--green);">${pos.length}</div>
+      <div class="mn-kpi-lbl">Positive</div>
+    </div>
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num" style="color:var(--red);">${neg.length}</div>
+      <div class="mn-kpi-lbl">Negative</div>
+    </div>
+    <div class="mn-kpi-sep"></div>
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num" style="color:var(--accent);">${recPct}%</div>
+      <div class="mn-kpi-lbl">Recommended</div>
+    </div>
+    <div class="mn-kpi-item">
+      <div class="mn-kpi-num">${allResults.length}</div>
+      <div class="mn-kpi-lbl">Total</div>
     </div>
   </div>`;
 
-  // ── Platform Performance Bars ──
+  // ── Platform chips ──
   const platCounts = {};
   allResults.forEach(r => {
-    if (!platCounts[r.platform]) platCounts[r.platform] = { total: 0, found: 0, rec: 0, pos: 0, neg: 0, err: 0 };
-    const pc = platCounts[r.platform];
-    pc.total++;
-    if (r.mentioned) { pc.found++; if (r.recommended) pc.rec++; }
-    if (r.sentiment==='positive') pc.pos++;
-    if (r.sentiment==='negative') pc.neg++;
-    if (r.error) pc.err++;
+    if (!platCounts[r.platform]) platCounts[r.platform] = { total: 0, found: 0 };
+    platCounts[r.platform].total++;
+    if (r.mentioned) platCounts[r.platform].found++;
   });
-  const sortedPlats = Object.entries(platCounts).sort((a,b) => {
-    const aRate = a[1].total > 0 ? a[1].found/a[1].total : 0;
-    const bRate = b[1].total > 0 ? b[1].found/b[1].total : 0;
-    return bRate - aRate;
-  });
-  let perfHtml = `<div class="mn-plat-perf" style="animation:fadeInUp .4s ease .05s both;">
-    <div class="mn-perf-title">Platform Performance</div>
-    <div class="mn-perf-grid">`;
-  sortedPlats.forEach(([p, c]) => {
+  let chipHtml = `<button class="mn-chip ${mentionsPlatFilter==='all'?'mn-chip-on':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All</button>`;
+  Object.entries(platCounts).sort((a,b) => b[1].found - a[1].found).forEach(([p, c]) => {
     const t = PLAT_THEME[p]||{};
-    const ok = c.total - c.err;
-    const rate = ok > 0 ? Math.round(c.found / ok * 100) : 0;
-    const recRate = ok > 0 ? Math.round(c.rec / ok * 100) : 0;
-    perfHtml += `<div class="mn-perf-row" onclick="mentionsPlatFilter='${p}';mentionsPage=0;renderMentions()">
-      <div class="mn-perf-plat"><span style="color:${t.color||'var(--muted)'};font-size:16px;">${t.logo||'?'}</span><span class="mn-perf-name">${esc(p)}</span></div>
-      <div class="mn-perf-bar-wrap">
-        <div class="mn-perf-bar" style="width:${rate}%;background:${t.color||'var(--green)'};"></div>
-      </div>
-      <div class="mn-perf-stats">
-        <span class="mn-perf-rate" style="color:${t.color||'var(--text)'};">${rate}%</span>
-        <span class="mn-perf-detail">${c.found}/${ok}${c.rec?' · '+recRate+'% rec':''}</span>
-      </div>
-    </div>`;
+    const on = mentionsPlatFilter===p;
+    chipHtml += `<button class="mn-chip ${on?'mn-chip-on':''}" onclick="mentionsPlatFilter='${p}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()" style="${on?'border-color:'+t.color+';color:'+t.color+';':''}"><span style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span> ${p} <span class="mn-chip-ct">${c.found}/${c.total}</span></button>`;
   });
-  perfHtml += `</div></div>`;
-  platPerf.innerHTML = perfHtml;
+  platFilters.innerHTML = chipHtml;
 
-  // ── Platform filter chips ──
-  let pfHtml = `<button class="mn-chip ${mentionsPlatFilter==='all'?'active':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;renderMentions()">All <span class="mn-chip-count">${allResults.length}</span></button>`;
-  sortedPlats.forEach(([p, c]) => {
-    const t = PLAT_THEME[p]||{};
-    const isActive = mentionsPlatFilter===p;
-    pfHtml += `<button class="mn-chip ${isActive?'active':''}" onclick="mentionsPlatFilter='${p}';mentionsPage=0;renderMentions()" style="${isActive?'border-color:'+t.color+';color:'+t.color+';background:'+t.bg+';':''}"><span style="color:${t.color||'var(--muted)'};margin-right:3px;">${t.logo||'?'}</span>${p}<span class="mn-chip-count">${c.found}/${c.total}</span></button>`;
-  });
-  platFilters.innerHTML = pfHtml;
-
-  // ── Apply filters + sorting ──
+  // ── Filter ──
   const filter = el('mentions-filter-sel').value;
-  const searchTerm = (el('mentions-search').value || '').trim().toLowerCase();
-
-  let filtered = allResults.filter(r => {
+  const search = (el('mentions-search').value || '').trim().toLowerCase();
+  const filtered = allResults.filter(r => {
     if (mentionsPlatFilter !== 'all' && r.platform !== mentionsPlatFilter) return false;
     if (filter === 'mentioned' && !r.mentioned) return false;
     if (filter === 'not-mentioned' && (r.mentioned || r.error)) return false;
     if (filter === 'recommended' && !r.recommended) return false;
-    if (filter === 'positive' && r.sentiment !== 'positive') return false;
-    if (filter === 'negative' && r.sentiment !== 'negative') return false;
     if (filter === 'errors' && !r.error) return false;
-    if (searchTerm) {
-      const haystack = ((r.platform||'') + ' ' + (r.query||'') + ' ' + (r.raw||r.context||'') + ' ' + (r.model||'') + ' ' + (r.errorMessage||'')).toLowerCase();
-      if (!haystack.includes(searchTerm)) return false;
+    if (search) {
+      const hay = ((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')+' '+(r.model||'')).toLowerCase();
+      if (!hay.includes(search)) return false;
     }
     return true;
   });
 
-  // Sort
-  filtered = filtered.slice().sort((a,b) => {
-    let va, vb;
-    if (mentionsSortCol === 'platform') { va = a.platform||''; vb = b.platform||''; }
-    else if (mentionsSortCol === 'query') { va = a.query||''; vb = b.query||''; }
-    else if (mentionsSortCol === 'status') { va = a.error?2:a.mentioned?0:1; vb = b.error?2:b.mentioned?0:1; }
-    else if (mentionsSortCol === 'sentiment') { va = a.sentiment||'neutral'; vb = b.sentiment||'neutral'; }
-    else { va = a.platform||''; vb = b.platform||''; }
-    if (typeof va === 'string') { const c = va.localeCompare(vb); return mentionsSortDir==='asc'?c:-c; }
-    return mentionsSortDir==='asc'?va-vb:vb-va;
-  });
-
   if (!filtered.length) {
-    cont.innerHTML = '<div class="empty-state" style="margin-top:16px;"><p>No results match your filters.</p></div>';
+    cont.innerHTML = '<div class="empty-state" style="padding:40px;"><p>No results match your filters.</p></div>';
     return;
   }
 
   const totalPages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
   if (mentionsPage >= totalPages) mentionsPage = totalPages - 1;
   if (mentionsPage < 0) mentionsPage = 0;
-  const pageStart = mentionsPage * MENTIONS_PER_PAGE;
-  const pageItems = filtered.slice(pageStart, pageStart + MENTIONS_PER_PAGE);
+  const start = mentionsPage * MENTIONS_PER_PAGE;
+  const page = filtered.slice(start, start + MENTIONS_PER_PAGE);
 
-  // Sort indicator
-  const sortIcon = (col) => {
-    if (mentionsSortCol !== col) return '<span class="mn-sort-icon">⇅</span>';
-    return mentionsSortDir === 'asc' ? '<span class="mn-sort-icon active">↑</span>' : '<span class="mn-sort-icon active">↓</span>';
-  };
-
-  // ── Results table ──
-  let html = `<div class="mn-table" style="animation:fadeInUp .35s ease .1s both;">
-    <div class="mn-thead">
-      <div class="mn-th mn-th-plat" onclick="sortMentions('platform')">Platform ${sortIcon('platform')}</div>
-      <div class="mn-th mn-th-query" onclick="sortMentions('query')">Query ${sortIcon('query')}</div>
-      <div class="mn-th mn-th-status" onclick="sortMentions('status')">Status ${sortIcon('status')}</div>
-      <div class="mn-th mn-th-sent" onclick="sortMentions('sentiment')">Sentiment ${sortIcon('sentiment')}</div>
-      <div class="mn-th mn-th-detail">Details</div>
-    </div>`;
-
-  pageItems.forEach((r, i) => {
+  // ── Build result cards ──
+  let html = '<div class="mn-list">';
+  page.forEach((r, i) => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
-    const globalIdx = pageStart + i;
-    const isExpanded = mentionsExpandedRow === globalIdx;
-    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 160).replace(/\n/g, ' ');
+    const gi = start + i;
+    const expanded = mentionsExpandedRow === gi;
     const sent = r.sentiment || 'neutral';
-    const statusDot = isErr ? '◆' : r.mentioned ? '●' : '○';
-    const statusText = isErr ? 'Error' : r.mentioned ? 'Mentioned' : 'Not Found';
-    const statusColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
-    const rowBorder = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'transparent';
+    const statusTxt = isErr ? 'Error' : r.mentioned ? 'Mentioned' : 'Not Found';
+    const statusCls = isErr ? 'mn-s-err' : r.mentioned ? 'mn-s-found' : 'mn-s-notfound';
+    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0,200);
 
-    html += `<div class="mn-row${isExpanded?' mn-row-expanded':''}" style="border-left:3px solid ${rowBorder};animation:fadeIn .2s ease ${Math.min(i*0.025,0.25)}s both;" onclick="toggleMentionRow(${globalIdx})">
-      <div class="mn-td mn-td-plat">
-        <span class="mn-plat-dot" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
-        <div><div class="mn-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</div><div class="mn-plat-model">${esc(r.model||'')}</div></div>
+    html += `<div class="mn-card ${expanded?'mn-card-open':''}" onclick="toggleMentionRow(${gi})" style="animation:fadeIn .2s ease ${Math.min(i*0.03,0.3)}s both;">
+      <div class="mn-card-row">
+        <div class="mn-card-plat" style="color:${t.color||'var(--muted)'}">
+          <span class="mn-card-logo">${t.logo||'?'}</span>
+          <span class="mn-card-pname">${esc(r.platform)}</span>
+        </div>
+        <div class="mn-card-query">${esc(r.query)}</div>
+        <div class="mn-card-badges">
+          <span class="mn-badge ${statusCls}">${statusTxt}</span>
+          ${!isErr ? `<span class="mn-badge mn-b-${sent}">${sent==='positive'?'Positive':sent==='negative'?'Negative':'Neutral'}</span>` : ''}
+          ${r.recommended ? '<span class="mn-badge mn-b-rec">Recommended</span>' : ''}
+        </div>
+        <span class="mn-card-arrow">${expanded?'▾':'▸'}</span>
       </div>
-      <div class="mn-td mn-td-query">${esc(r.query)}</div>
-      <div class="mn-td mn-td-status"><span class="mn-status" style="color:${statusColor};"><span class="mn-status-dot">${statusDot}</span> ${statusText}</span></div>
-      <div class="mn-td mn-td-sent">${isErr ? '<span style="color:var(--muted);">—</span>' : `<span class="mn-sent-badge mn-sent-${sent}">${sent==='positive'?'↑ Positive':sent==='negative'?'↓ Negative':'→ Neutral'}</span>${r.recommended?'<span class="mn-rec-tag">REC</span>':''}`}</div>
-      <div class="mn-td mn-td-detail"><div class="mn-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=160?'…':''}</div><span class="mn-expand-icon">${isExpanded?'▾':'▸'}</span></div>
+      ${!expanded ? `<div class="mn-card-preview">${esc(preview)}${preview.length>=200?'…':''}</div>` : ''}
     </div>`;
 
-    // Expanded detail panel
-    if (isExpanded) {
-      const fullText = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '');
+    if (expanded) {
+      const full = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '');
       const hre = brandHighlightRe(b);
-      const highlighted = hre ? mdToHtml(fullText).replace(hre, '<mark style="background:rgba(255,97,84,.15);color:var(--green);border-radius:3px;padding:1px 3px;">$1</mark>') : mdToHtml(fullText);
-      html += `<div class="mn-detail-panel" style="animation:fadeIn .15s ease;">
-        <div class="mn-detail-grid">
-          <div class="mn-detail-main">
-            <div class="mn-detail-label">AI Response</div>
-            <div class="mn-detail-response">${highlighted}</div>
+      const highlighted = hre ? mdToHtml(full).replace(hre, '<mark style="background:rgba(255,97,84,.12);color:var(--green);border-radius:3px;padding:1px 3px;">$1</mark>') : mdToHtml(full);
+      html += `<div class="mn-expand" style="animation:fadeIn .15s ease;">
+        <div class="mn-expand-body">
+          <div class="mn-expand-resp">${highlighted}</div>
+        </div>
+        <div class="mn-expand-side">
+          <div class="mn-expand-info">
+            <div class="mn-info-r"><span class="mn-info-k">Platform</span><span class="mn-info-v" style="color:${t.color||'var(--text)'};">${t.logo||''} ${esc(r.platform)}</span></div>
+            <div class="mn-info-r"><span class="mn-info-k">Model</span><span class="mn-info-v">${esc(r.model||'—')}</span></div>
+            <div class="mn-info-r"><span class="mn-info-k">Status</span><span class="mn-info-v" style="color:${isErr?'var(--amber)':r.mentioned?'var(--green)':'var(--red)'};">${statusTxt}</span></div>
+            <div class="mn-info-r"><span class="mn-info-k">Sentiment</span><span class="mn-info-v">${isErr?'—':sent}</span></div>
+            <div class="mn-info-r"><span class="mn-info-k">Recommended</span><span class="mn-info-v">${r.recommended?'<span style="color:var(--green);">Yes</span>':'No'}</span></div>
+            ${r.matchedLocation?`<div class="mn-info-r"><span class="mn-info-k">Location</span><span class="mn-info-v">${esc(r.matchedLocation)}</span></div>`:''}
+            ${r.cites?`<div class="mn-info-r"><span class="mn-info-k">Cited</span><span class="mn-info-v" style="color:var(--green);">Yes</span></div>`:''}
           </div>
-          <div class="mn-detail-sidebar">
-            <div class="mn-detail-meta">
-              <div class="mn-meta-row"><span class="mn-meta-key">Platform</span><span class="mn-meta-val" style="color:${t.color||'var(--text)'}">${t.logo||''} ${esc(r.platform)}</span></div>
-              <div class="mn-meta-row"><span class="mn-meta-key">Model</span><span class="mn-meta-val">${esc(r.model||'Unknown')}</span></div>
-              <div class="mn-meta-row"><span class="mn-meta-key">Status</span><span class="mn-meta-val" style="color:${statusColor}">${statusText}</span></div>
-              <div class="mn-meta-row"><span class="mn-meta-key">Sentiment</span><span class="mn-meta-val">${esc(sent)}</span></div>
-              <div class="mn-meta-row"><span class="mn-meta-key">Recommended</span><span class="mn-meta-val">${r.recommended?'<span style="color:var(--green);">Yes</span>':'No'}</span></div>
-              ${r.matchedLocation?`<div class="mn-meta-row"><span class="mn-meta-key">Location</span><span class="mn-meta-val">${esc(r.matchedLocation)}</span></div>`:''}
-              ${r.cites?`<div class="mn-meta-row"><span class="mn-meta-key">Cited</span><span class="mn-meta-val" style="color:var(--green);">Yes</span></div>`:''}
-            </div>
-            <button onclick="event.stopPropagation();openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mn-view-full-btn">View Full Response →</button>
-          </div>
+          <button onclick="event.stopPropagation();openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mn-full-btn">View Full Response</button>
         </div>
       </div>`;
     }
   });
-  html += `</div>`;
+  html += '</div>';
 
-  // ── Pagination ──
-  html += `<div class="mn-pagination">
-    <div class="mn-page-info">Showing <strong>${pageStart+1}–${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)}</strong> of <strong>${filtered.length}</strong> results</div>`;
+  // Pagination
   if (totalPages > 1) {
-    html += `<div class="mn-page-btns">
-      <button onclick="mentionsPage=0;renderMentions()" class="mn-page-btn" ${mentionsPage===0?'disabled':''}>«</button>
-      <button onclick="mentionsPage--;renderMentions()" class="mn-page-btn" ${mentionsPage===0?'disabled':''}>‹ Prev</button>`;
-    // Page numbers
-    const startPage = Math.max(0, mentionsPage - 2);
-    const endPage = Math.min(totalPages - 1, startPage + 4);
-    for (let p = startPage; p <= endPage; p++) {
-      html += `<button onclick="mentionsPage=${p};renderMentions()" class="mn-page-btn ${p===mentionsPage?'mn-page-active':''}">${p+1}</button>`;
+    html += `<div class="mn-pager">
+      <span class="mn-pager-info">${start+1}–${Math.min(start+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length}</span>
+      <div class="mn-pager-btns">
+        <button onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()" class="mn-pg-btn" ${mentionsPage===0?'disabled':''}>← Prev</button>`;
+    const ps = Math.max(0, mentionsPage - 2);
+    const pe = Math.min(totalPages - 1, ps + 4);
+    for (let p = ps; p <= pe; p++) {
+      html += `<button onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()" class="mn-pg-btn ${p===mentionsPage?'mn-pg-on':''}">${p+1}</button>`;
     }
-    html += `<button onclick="mentionsPage++;renderMentions()" class="mn-page-btn" ${mentionsPage>=totalPages-1?'disabled':''}>Next ›</button>
-      <button onclick="mentionsPage=${totalPages-1};renderMentions()" class="mn-page-btn" ${mentionsPage>=totalPages-1?'disabled':''}>»</button>
+    html += `<button onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()" class="mn-pg-btn" ${mentionsPage>=totalPages-1?'disabled':''}>Next →</button>
+      </div>
     </div>`;
   }
-  html += `</div>`;
+
   cont.innerHTML = html;
 }
 
