@@ -121,6 +121,17 @@ router.put('/:id', auth, async (req, res) => {
       }
     }
 
+    // Server-side deduplication (case-insensitive)
+    if (safeBody.queries && Array.isArray(safeBody.queries)) {
+      const seen = new Set();
+      safeBody.queries = safeBody.queries.filter(q => {
+        const lower = q.toLowerCase().trim();
+        if (seen.has(lower)) return false;
+        seen.add(lower);
+        return true;
+      });
+    }
+
     if (safeBody.queries && safeBody.queries.length > limits.queries) {
       return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries. Upgrade for more.`, planLimit: true, limit: 'queries', max: limits.queries });
     }
