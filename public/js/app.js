@@ -521,7 +521,7 @@ function renderAccount(){
   }
   const planEl = el('acct-plan');
   planEl.textContent = currentUser.plan || 'free';
-  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple,#9b72ff)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
   // Theme button
   const themeBtn = el('theme-toggle-btn');
@@ -556,7 +556,7 @@ function renderAccount(){
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
     <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple,#9b72ff);':''}">${p.name}</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
       <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${p.price}</div>
       <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">${p.features}</div>
       <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
@@ -715,13 +715,13 @@ function applyTheme(theme) {
     root.style.setProperty('--text', '#1a1a1a');
     root.style.setProperty('--muted', '#666');
   } else {
-    root.style.setProperty('--bg', '#0a0a0a');
-    root.style.setProperty('--bg2', '#111');
-    root.style.setProperty('--bg3', '#1a1a1a');
-    root.style.setProperty('--bg4', '#222');
-    root.style.setProperty('--border', '#2a2a2a');
-    root.style.setProperty('--text', '#e8e8e8');
-    root.style.setProperty('--muted', '#666');
+    root.style.setProperty('--bg', '#0b0d0f');
+    root.style.setProperty('--bg2', '#12151a');
+    root.style.setProperty('--bg3', '#1a1e25');
+    root.style.setProperty('--bg4', '#242830');
+    root.style.setProperty('--border', '#2a2e38');
+    root.style.setProperty('--text', '#e8eaed');
+    root.style.setProperty('--muted', '#7a8194');
   }
   currentTheme = theme;
   localStorage.setItem('trackly_theme', theme);
@@ -1089,7 +1089,7 @@ function renderOverview(){
     const runTime = new Date(lastRun.time || lastRun.date);
     let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Last Run — ${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
     if (errors.length > 0) {
-      summaryHtml += `<div style="background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
+      summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
       summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('apilogs');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
       summaryHtml += `</div>`;
@@ -1120,7 +1120,7 @@ function renderOverview(){
   if (qCountEl) {
     const atLimit = queryCount >= queryLimit;
     qCountEl.textContent = queryCount + ' / ' + queryLimit + ' queries';
-    qCountEl.style.color = atLimit ? '#f0a030' : 'var(--muted)';
+    qCountEl.style.color = atLimit ? 'var(--amber)' : 'var(--muted)';
   }
   const limitMsg = el('ov-query-limit-msg');
   if (limitMsg) {
@@ -1177,8 +1177,8 @@ function renderOverview(){
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: '#666', font: { size: 9 } }, grid: { color: '#1a1a1a' } },
-          y: { min: 0, max: 100, ticks: { color: '#666', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+          x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
+          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
         }
       }
     });
@@ -1386,7 +1386,7 @@ function renderMentions(){
     const isErr = r.error;
     const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 120).replace(/\n/g, ' ');
     const statusBadge = isErr
-      ? '<span class="badge" style="background:rgba(255,136,0,.15);color:#ff8800;font-weight:700;">ERROR</span>'
+      ? '<span class="badge" style="background:rgba(245,158,11,.12);color:var(--amber);font-weight:700;">ERROR</span>'
       : `<span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span>`;
     const sent = r.sentiment || 'neutral';
     const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
@@ -1398,8 +1398,8 @@ function renderMentions(){
       <td><span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" title="${sentTip}">${sentLabel}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">${esc(runTimeStr)}</td>
-      <td style="max-width:250px;font-size:11px;color:${isErr?'#ff8800':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
-      <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
+      <td style="max-width:250px;font-size:11px;color:${isErr?'var(--amber)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
+      <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);">VIEW</button>'}</td>
     </tr>`;
   });
   html += '</tbody></table></div>';
@@ -1462,7 +1462,7 @@ function openResultFromRun(runId, platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.style.whiteSpace = 'normal';
@@ -1491,7 +1491,7 @@ function openFullResult(platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.style.whiteSpace = 'normal';
@@ -1553,11 +1553,11 @@ function renderProof(){
   const foundCount = allResults.filter(r => r.mentioned).length;
   const errorCount = allResults.filter(r => r.error).length;
   const runDate = new Date(run.time || run.date);
-  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);font-family:var(--mono);font-size:11px;">
+  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--mono);font-size:11px;">
     <span style="color:var(--muted);">RUN: ${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
     <span style="color:var(--text);font-weight:700;">${totalResults} results</span>
     <span style="color:var(--green);font-weight:700;">${foundCount} found</span>
-    <span style="color:${errorCount?'#ff8800':'var(--muted)'}">${errorCount} errors</span>
+    <span style="color:${errorCount?'var(--amber)':'var(--muted)'}">${errorCount} errors</span>
     <span style="color:var(--muted);">${queries.length} queries × ${(run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size} platforms</span>
     <span style="color:var(--text);font-weight:700;">SOV: ${run.sov}%</span>
   </div>`;
@@ -1601,10 +1601,10 @@ function renderProof(){
 
       // Status badge — clear FOUND / NOT FOUND / ERROR
       const statusBadge = isError
-        ? `<div class="proof-card-badge" style="color:#ff8800;border:1px solid rgba(255,136,0,.3);font-weight:700;">⚠ API ERROR</div>`
+        ? `<div class="proof-card-badge" style="color:var(--amber);border:1px solid rgba(245,158,11,.3);font-weight:700;">⚠ API ERROR</div>`
         : isMentioned
         ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(255,97,84,.3);font-weight:700;">&#x2713; FOUND</div>`
-        : `<div class="proof-card-badge" style="color:var(--red,#ff4444);border:1px solid rgba(255,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
+        : `<div class="proof-card-badge" style="color:var(--red);border:1px solid rgba(239,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
 
       const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
       const cardBorder = isMentioned ? (t.color||'var(--border)')+'33' : 'var(--border)';
@@ -1624,7 +1624,7 @@ function renderProof(){
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"</div>
           ${isError
-            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
+            ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
             ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
@@ -1633,9 +1633,9 @@ function renderProof(){
         <div class="proof-card-footer">
           <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
           ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-          ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
+          ${matchedLoc?`<span style="font-family:var(--mono);font-size:9px;color:var(--blue);background:rgba(59,130,246,.1);padding:3px 8px;border:1px solid rgba(59,130,246,.2);border-radius:100px;">${esc(matchedLoc)}</span>`:''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
-          ${compMentions.length?`<span style="font-family:var(--mono);font-size:8px;color:var(--red);background:rgba(255,68,68,.08);padding:2px 6px;border:1px solid rgba(255,68,68,.2);" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
+          ${compMentions.length?`<span style="font-family:var(--mono);font-size:9px;color:var(--red);background:rgba(239,68,68,.08);padding:3px 8px;border:1px solid rgba(239,68,68,.2);border-radius:100px;" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
           ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
           ${viewBtn}
         </div>
@@ -1885,10 +1885,10 @@ function renderTrends(){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#888', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
+      plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
       scales: {
-        x: { ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
-        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1e25' } },
+        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
       }
     }
   });
@@ -1917,10 +1917,10 @@ function renderTrends(){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#888', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
+      plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
       scales: {
-        x: { ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
-        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1e25' } },
+        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
       }
     }
   });
@@ -2498,7 +2498,7 @@ async function runQueries(){
           return `${plat}: ${friendlyError(uniqueMsgs[0])}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
         }).join('\n');
         const errDiv = document.createElement('div');
-        errDiv.style.cssText = 'background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
+        errDiv.style.cssText = 'background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
         errDiv.textContent = errDetails;
         prog.appendChild(errDiv);
       }
@@ -2577,13 +2577,13 @@ async function renderApiLogs(){
   // 1. Client-side errors (localStorage)
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
-    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,68,68,.4);background:rgba(255,68,68,.06);">
+    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);">
       <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
     clientErrors.forEach(err => {
       const dt = new Date(err.time);
       const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isCrash = err.type === 'crash';
-      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);">
+      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);">
         <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
         <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>`;
       if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
@@ -2610,7 +2610,7 @@ async function renderApiLogs(){
       <div class="card-title" style="margin-bottom:0;">API Call Log</div>
       <div style="display:flex;gap:8px;">
         <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">REFRESH</button>
-        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(255,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">CLEAR LOGS</button>
+        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">CLEAR LOGS</button>
       </div>
     </div>
     <div id="apilogs-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:8px 0;"></div>
@@ -2675,7 +2675,7 @@ async function renderApiLogs(){
       const queryShort = (log.query || '').length > 50 ? log.query.substring(0, 50) + '...' : (log.query || '—');
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
 
-      tbl += `<tr style="${isErr ? 'background:rgba(255,68,68,.06);' : ''}">
+      tbl += `<tr style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
         <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;">${esc(timeStr)}</td>
         <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
         <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
