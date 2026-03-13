@@ -35,6 +35,8 @@ let brands = [];
 let currentBrandId = localStorage.getItem('trackly_brand') || '';
 let keyStatus = {};
 let runningQueries = false;
+let liveResults = [];     // Accumulates results during streaming
+let liveRunTime = null;   // Timestamp of current live run
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
@@ -487,8 +489,14 @@ function renderView(view){
   // Remove no-brand messages when brand is available
   document.querySelectorAll('.no-brand-msg').forEach(m => m.remove());
   if (view==='overview')    renderOverview();
-  if (view==='mentions')    renderMentions();
-  if (view==='proof')       renderProof();
+  if (view==='mentions') {
+    if (runningQueries) setupLiveMentions();
+    else renderMentions();
+  }
+  if (view==='proof') {
+    if (runningQueries) setupLiveProof();
+    else renderProof();
+  }
   if (view==='platforms')   renderPlatformStatus();
   if (view==='qperf')       renderQPerf();
   if (view==='trends')      renderTrends();
@@ -845,6 +853,275 @@ function renderAll(){
   renderView(currentView);
 }
 
+// ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
+// Called on every new result during streaming — updates whichever view is active
+function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
+  liveResults.push(result);
+
+  // Update overview if visible (recalculate all stats from liveResults)
+  if (currentView === 'overview') {
+    renderOverviewLive(received, totalExpected, liveFound, liveErrors);
+  }
+
+  // Append card to mentions if visible
+  if (currentView === 'mentions') {
+    const cardsEl = el('live-cards');
+    if (cardsEl) {
+      const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+      cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(result, runTimeStr).replace('class="mention-card ','class="mention-card mention-card-live '));
+    }
+  }
+
+  // Append card to proof if visible
+  if (currentView === 'proof') {
+    appendLiveProofCard(result);
+  }
+}
+
+// Set up live mentions view with backfilled results
+function setupLiveMentions() {
+  const cont = el('mentions-container');
+  if (!cont) return;
+  const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+  cont.innerHTML = `<div id="live-stats" style="background:var(--bg2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:12px;">
+    <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+    <span style="color:var(--green);font-weight:700;">${liveResults.filter(r=>r.mentioned).length} found</span>
+    <span style="color:var(--muted);">·</span>
+    <span style="color:var(--muted);">${liveResults.length} results</span>
+  </div><div id="live-cards" class="mention-cards"></div>`;
+  const cardsEl = el('live-cards');
+  if (cardsEl) {
+    liveResults.forEach(r => {
+      cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(r, runTimeStr));
+    });
+  }
+}
+
+// Set up live proof view with backfilled results
+function setupLiveProof() {
+  const cont = el('proof-container');
+  if (!cont) return;
+  cont.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
+    <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+    <span style="color:var(--green);font-weight:700;">${liveResults.filter(r=>r.mentioned).length} found</span>
+    <span style="color:var(--muted);">·</span>
+    <span style="color:var(--muted);">${liveResults.length} results streaming</span>
+  </div><div id="live-proof-cards" class="proof-grid"></div>`;
+  const cardsEl = el('live-proof-cards');
+  if (cardsEl) {
+    liveResults.forEach(r => appendLiveProofCard(r));
+  }
+}
+
+// Live overview — recalculate everything from accumulated liveResults
+function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
+  const b = brand();
+  if (!b) return;
+
+  const validResults = liveResults.filter(r => !r.error);
+  const totalResults = liveResults.length;
+  const mentions = liveResults.filter(r => r.mentioned).length;
+  const sov = validResults.length > 0 ? Math.round(mentions / validResults.length * 100) : 0;
+
+  // Live progress badge in header
+  const actionsEl = el('ov-header-actions');
+  if (actionsEl) {
+    const pct = totalExpected > 0 ? Math.round(received / totalExpected * 100) : 0;
+    actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE ${pct}%</div>`;
+  }
+
+  // Update SOV ring
+  const sovColor = sov >= 70 ? 'var(--green)' : sov >= 40 ? 'var(--amber)' : sov > 0 ? 'var(--red)' : 'var(--muted)';
+  const circumference = 2 * Math.PI * 52;
+  const offset = circumference - (sov / 100) * circumference;
+  const circle = document.getElementById('ov-sov-circle');
+  if (circle) {
+    circle.style.stroke = sovColor;
+    circle.style.strokeDashoffset = offset;
+  }
+  const sovEl = el('ov-sov');
+  if (sovEl) { sovEl.textContent = sov + '%'; sovEl.style.color = sovColor; }
+
+  // Update hero stats
+  const mEl = el('ov-mentions');
+  if (mEl) mEl.textContent = mentions + ' / ' + totalResults;
+  const activePlats = new Set(liveResults.map(r => r.platform)).size;
+  const pEl = el('ov-platforms');
+  if (pEl) pEl.textContent = activePlats + ' / ' + PLATS.length;
+  const lrEl = el('ov-last-run-age');
+  if (lrEl) { lrEl.textContent = 'NOW'; lrEl.style.color = 'var(--green)'; }
+
+  // Update GEO scores row
+  const scoresRow = el('ov-scores-row');
+  if (scoresRow && validResults.length > 0) {
+    const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
+    const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
+    const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
+    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : (b.city ? 0 : 1);
+    const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
+    const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
+    const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
+
+    const mentionedResults = validResults.filter(r => r.mentioned);
+    const posCount = mentionedResults.filter(r => r.sentiment === 'positive').length;
+    const negCount = mentionedResults.filter(r => r.sentiment === 'negative').length;
+    const neuCount = mentionedResults.filter(r => r.sentiment === 'neutral').length;
+    const sentimentScore = mentionedResults.length > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedResults.length)) : 0;
+    const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
+
+    const recPct = validResults.length > 0 ? Math.round(recommendRate * 100) : 0;
+    const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
+
+    scoresRow.innerHTML = `
+      <div class="ov-score-card ov-card-updating">
+        <div class="ov-score-icon" style="color:${geoColor};">◎</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">GEO Score</div>
+          <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
+        </div>
+      </div>
+      <div class="ov-score-card ov-card-updating">
+        <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">AI Sentiment</div>
+          <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
+        </div>
+      </div>
+      <div class="ov-score-card ov-card-updating">
+        <div class="ov-score-icon" style="color:${recColor};">★</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">Recommended</div>
+          <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
+          <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Update platform cards — highlight ones that have new results
+  const pg = el('ov-plat-grid');
+  if (pg) {
+    const platSOV = {};
+    const platCounts = {};
+    liveResults.forEach(r => {
+      if (r.error) return;
+      const p = r.platform;
+      if (!platCounts[p]) platCounts[p] = { total: 0, found: 0 };
+      platCounts[p].total++;
+      if (r.mentioned) platCounts[p].found++;
+    });
+    Object.entries(platCounts).forEach(([p, c]) => { platSOV[p] = Math.round(c.found / c.total * 100); });
+
+    pg.innerHTML = '';
+    PLATS.forEach(plat => {
+      const t = PLAT_THEME[plat]||{};
+      const pSov = platSOV[plat]||0;
+      const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini');
+      const active = keyStatus[keyId];
+      const hasResults = !!platCounts[plat];
+      const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
+      const div = document.createElement('div');
+      div.className = 'ov-plat-card' + (hasResults ? ' ov-plat-card-flash' : '');
+      div.innerHTML = `<div class="ov-plat-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
+        <div class="ov-plat-info">
+          <div class="ov-plat-name">${plat}</div>
+          <div class="ov-plat-status" style="color:${hasResults ? 'var(--green)' : active ? 'var(--green)' : 'var(--muted)'}">${hasResults ? '● STREAMING' : active ? '● ACTIVE' : '○ INACTIVE'}</div>
+          <div class="ov-plat-bar"><div class="ov-plat-bar-fill" style="width:${pSov}%;background:${barColor};"></div></div>
+        </div>
+        <div class="ov-plat-sov" style="color:${pSov > 0 ? t.color || 'var(--green)' : 'var(--muted)'}">${pSov}%</div>`;
+      pg.appendChild(div);
+    });
+  }
+
+  // Update API health banner
+  const healthEl = el('ov-api-health');
+  if (healthEl && liveResults.length > 0) {
+    const errs = liveResults.filter(r => r.error).length;
+    const okCount = validResults.length;
+    const healthyPlats = new Set(validResults.map(r => r.platform)).size;
+    const totalPlats = new Set(liveResults.map(r => r.platform)).size;
+    const dotColor = errs === 0 ? 'var(--green)' : errs <= 3 ? 'var(--amber)' : 'var(--red)';
+    healthEl.innerHTML = `<div class="ov-health ov-card-updating">
+      <div class="ov-health-dot" style="background:${dotColor};"></div>
+      <div class="ov-health-text"><strong>${healthyPlats}/${totalPlats}</strong> platforms healthy · <strong>${okCount}</strong> ok · <span style="color:${errs > 0 ? 'var(--red)' : 'inherit'}">${errs} error${errs !== 1 ? 's' : ''}</span></div>
+      <div class="ov-live-badge"><span class="ov-live-dot"></span>${received}/${totalExpected}</div>
+    </div>`;
+  }
+
+  // Category SOV
+  const catRow = el('ov-category-row');
+  if (catRow && validResults.length > 0) {
+    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral'];
+    const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
+    const chatR = validResults.filter(r => chatAI.includes(r.platform));
+    const searchR = validResults.filter(r => searchAI.includes(r.platform));
+    const chatSOV = chatR.length > 0 ? Math.round(chatR.filter(r => r.mentioned).length / chatR.length * 100) : null;
+    const searchSOV = searchR.length > 0 ? Math.round(searchR.filter(r => r.mentioned).length / searchR.length * 100) : null;
+    function cc(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
+    let ch = '';
+    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek · Mistral</div></div>`;
+    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(searchSOV)};"><div class="ov-cat-label">Search AI</div><div class="ov-cat-val" style="color:${cc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
+    catRow.innerHTML = ch;
+    catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
+  }
+}
+
+// Append a live proof card during streaming
+function appendLiveProofCard(result) {
+  const b = brand();
+  if (!b) return;
+  let cont = el('live-proof-cards');
+  if (!cont) {
+    // Set up live proof container if not exists
+    const proofCont = el('proof-container');
+    if (!proofCont) return;
+    proofCont.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
+      <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+      <span style="color:var(--muted);">Results appear as they arrive</span>
+    </div><div id="live-proof-cards" class="proof-grid"></div>`;
+    cont = el('live-proof-cards');
+  }
+  if (!cont) return;
+
+  const t = PLAT_THEME[result.platform]||{};
+  const isError = result.error;
+  const isMentioned = result.mentioned;
+  const preview = isError ? friendlyError(result.errorMessage) : (result.context || '').replace(/[#*_~`]/g,'').substring(0, 300);
+  const proofHre = brandHighlightRe(b);
+  const displayResp = proofHre && preview ? preview.replace(proofHre,'<mark>$1</mark>') : preview;
+  const statusBadge = isError
+    ? `<div class="proof-card-badge" style="color:var(--amber);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);font-weight:700;border-radius:var(--radius-full);">⚠ ERROR</div>`
+    : isMentioned
+    ? `<div class="proof-card-badge" style="color:var(--green);background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);font-weight:700;border-radius:var(--radius-full);">&#x2713; FOUND</div>`
+    : `<div class="proof-card-badge" style="color:var(--red);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);font-weight:700;border-radius:var(--radius-full);">&#x2717; NOT FOUND</div>`;
+  const sentiment = result.sentiment || 'neutral';
+  const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
+  const cardBorder = isMentioned ? (t.color||'var(--border)')+'40' : 'var(--border)';
+
+  const card = `<div class="proof-card proof-card-live" style="background:var(--bg2);border:1px solid ${cardBorder};">
+    <div class="proof-card-header" style="background:${t.bg||'var(--bg)'};border-bottom:1px solid ${cardBorder};">
+      <div class="proof-card-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</div>
+      <div class="proof-card-name">${result.platform}</div>
+      <div class="proof-card-badges">${statusBadge}</div>
+    </div>
+    <div class="proof-card-body">
+      <div class="proof-card-query">"${esc(result.query)}"</div>
+      ${isError
+        ? `<div class="proof-not-found" style="color:var(--amber);">${esc(friendlyError(result.errorMessage))}</div>`
+        : `<div class="proof-card-resp" style="color:var(--text);max-height:200px;overflow:hidden;">${displayResp}${preview.length >= 300 ? '...' : ''}</div>`
+      }
+    </div>
+    <div class="proof-card-footer">
+      <span class="badge ${sentBadge}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
+      ${result.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
+      ${result.model?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(result.model)}</span>`:''}
+    </div>
+  </div>`;
+  cont.insertAdjacentHTML('beforeend', card);
+}
+
 // ─── OVERVIEW ─────────────────────────────────────────────────────
 function renderOverview(){
   const b = brand();
@@ -875,8 +1152,12 @@ function renderOverview(){
     else { runAgeText = Math.floor(ageMins / 1440) + 'd ago'; ageDotClass = parseInt(runAgeText) > 3 ? 'bad' : 'warn'; }
   }
   const actionsEl = el('ov-header-actions');
-  actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '') +
-    `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
+  if (runningQueries) {
+    actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
+  } else {
+    actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '') +
+      `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
+  }
 
   // ─── SOV Hero ────────────────────────────────────────────────
   const sovColor = sov >= 70 ? 'var(--green)' : sov >= 40 ? 'var(--amber)' : sov > 0 ? 'var(--red)' : 'var(--muted)';
@@ -1016,6 +1297,7 @@ function renderOverview(){
       </div>`;
     }
     catRow.innerHTML = catHtml;
+    catRow.classList.add('ov-animate-stagger');
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null, !!best].filter(Boolean).length}, 1fr)`;
   } else {
     catRow.innerHTML = '';
@@ -1147,6 +1429,7 @@ function renderOverview(){
   // ─── Platform Cards ──────────────────────────────────────────
   const pg = el('ov-plat-grid');
   pg.innerHTML = '';
+  pg.classList.add('ov-animate-stagger');
   const platSOV = lastRun ? (lastRun.platforms||{}) : {};
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
@@ -2687,6 +2970,9 @@ async function runQueries(){
   if (!selectedPlats.length) { toast('Select platforms in Brand Setup first','err'); return; }
 
   runningQueries = true;
+  liveResults = [];
+  liveRunTime = new Date();
+
   const btn = el('run-btn');
   const prog = el('run-progress');
   const fill = el('run-progress-fill');
@@ -2712,32 +2998,27 @@ async function runQueries(){
     timerEl.textContent = fmtTime(Date.now()-startTime);
   }, 1000);
 
-  // Switch to mentions view immediately so user sees results appear
-  go('mentions');
-  const cont = el('mentions-container');
-  const now = new Date();
-  const runTimeStr = now.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  // Stay on current view — render live state
+  if (currentView === 'overview') renderOverview();
+  if (currentView === 'mentions') setupLiveMentions();
+  if (currentView === 'proof') setupLiveProof();
 
   // Live results tracking
   let totalExpected = 0;
   let received = 0;
-  let liveFound = 0;
-  let liveErrors = 0;
-
-  // Set up the live container
-  cont.innerHTML = `<div id="live-stats" style="background:var(--bg2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-family:var(--mono);font-size:11px;">
-    <span style="color:var(--muted);">Waiting for results...</span>
-  </div><div id="live-cards" class="mention-cards"></div>`;
+  let liveFoundCount = 0;
+  let liveErrorCount = 0;
 
   function updateLiveStats() {
     const statsEl = el('live-stats');
     if (!statsEl) return;
     const pct = totalExpected > 0 ? Math.round((received / totalExpected) * 100) : 0;
     fill.style.width = pct + '%';
-    statsEl.innerHTML = `<span style="color:var(--green);font-weight:700;">${liveFound} found</span>` +
+    statsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>` +
+      `<span style="color:var(--green);font-weight:700;">${liveFoundCount} found</span>` +
       `<span style="color:var(--muted);margin:0 4px;">·</span>` +
-      `<span style="color:var(--muted);">${received - liveFound - liveErrors} not found</span>` +
-      (liveErrors > 0 ? `<span style="color:var(--muted);margin:0 4px;">·</span><span style="color:var(--red);font-weight:700;">${liveErrors} error${liveErrors>1?'s':''}</span>` : '') +
+      `<span style="color:var(--muted);">${received - liveFoundCount - liveErrorCount} not found</span>` +
+      (liveErrorCount > 0 ? `<span style="color:var(--muted);margin:0 4px;">·</span><span style="color:var(--red);font-weight:700;">${liveErrorCount} error${liveErrorCount>1?'s':''}</span>` : '') +
       `<span style="color:var(--muted);margin:0 4px;">·</span>` +
       `<span style="color:var(--muted);">${received}/${totalExpected} (${pct}%)</span>`;
   }
@@ -2779,14 +3060,13 @@ async function runQueries(){
         } else if (evt.type === 'result') {
           received++;
           const r = evt.result;
-          if (r.error) liveErrors++;
-          else if (r.mentioned) liveFound++;
-          // Append card to live container
-          const cardsEl = el('live-cards');
-          if (cardsEl) {
-            cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(r, runTimeStr));
-          }
-          statusTxt.textContent = `${received}/${totalExpected} — ${liveFound} found · ${fmtTime(Date.now()-startTime)}`;
+          if (r.error) liveErrorCount++;
+          else if (r.mentioned) liveFoundCount++;
+
+          // Feed result to all live views
+          onLiveResult(r, received, totalExpected, liveFoundCount, liveErrorCount);
+
+          statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
           updateLiveStats();
         } else if (evt.type === 'done') {
           finalData = evt;
@@ -2801,19 +3081,24 @@ async function runQueries(){
 
     // Update brand data from final response
     if (finalData && finalData.brand) {
-      brands[brands.findIndex(x=>x.id===b.id)] = finalData.brand;
-    } else {
-      // Fallback: reload brand data
-      try {
-        const freshData = await api('GET', '/api/brands');
-        if (freshData.brands) { brands = freshData.brands; }
-      } catch(_) {}
+      const idx = brands.findIndex(x=>x.id===b.id);
+      if (idx >= 0) brands[idx] = finalData.brand;
     }
+    // Always reload fresh brand data to ensure we have complete results
+    // (the done event may be too large and get truncated)
+    try {
+      const freshData = await api('GET', '/api/brands');
+      if (freshData.brands) {
+        brands = freshData.brands;
+        renderBrandSelect();
+        if (currentBrandId) el('brand-select').value = currentBrandId;
+      }
+    } catch(_) {}
 
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
-    const result = finalData?.result || { totalQ: received, totalM: liveFound, sov: received > 0 ? Math.round((liveFound/received)*100) : 0, newMentions: liveFound, errorCount: liveErrors };
-    const errors = result.errorCount || liveErrors;
+    const result = finalData?.result || { totalQ: received, totalM: liveFoundCount, sov: received > 0 ? Math.round((liveFoundCount/received)*100) : 0, newMentions: liveFoundCount, errorCount: liveErrorCount };
+    const errors = result.errorCount || liveErrorCount;
 
     statusTxt.textContent = `Done! Brand found in ${result.newMentions} of ${result.totalQ} responses · ${elapsed}`;
 
@@ -2832,8 +3117,11 @@ async function runQueries(){
       timerEl.textContent = '';
     }, 5000);
 
-    // Re-render mentions with full data (enables filters, pagination, VIEW FULL buttons)
-    renderMentions();
+    // Re-render current view with final data (enables filters, pagination, VIEW FULL buttons)
+    liveResults = [];
+    liveRunTime = null;
+    runningQueries = false;
+    renderView(currentView);
 
     if (errors > 0) {
       const okCount = result.totalQ - errors;
@@ -2863,13 +3151,19 @@ async function runQueries(){
       }
     } catch(_) {}
 
+    liveResults = [];
+    liveRunTime = null;
+    runningQueries = false;
+    btn.classList.remove('running');
+    btn.textContent = '▶ RUN QUERIES';
     toast('Run failed — check API Logs for details.', 'err');
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
       fill.style.background = '';
-      renderMentions();
+      renderView(currentView);
     }, 2000);
+    return;
   }
 
   runningQueries = false;
