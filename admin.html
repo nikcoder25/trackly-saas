@@ -10,7 +10,7 @@
 :root{
   --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;
   --border:#2a2a2a;--text:#e8e8e8;--muted:#666;
-  --green:#00ff88;--red:#ff4455;--amber:#f59e0b;--blue:#3b82f6;
+  --green:#FF6154;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;
   --purple:#9b72ff;--font:'Inter',system-ui,-apple-system,sans-serif;--mono:'JetBrains Mono',monospace;
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
@@ -46,9 +46,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .tbl tr:hover td{background:var(--bg3);}
 .badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:2px;font-weight:700;}
 .badge-free{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
-.badge-pro{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.badge-pro{background:rgba(255,97,84,.1);color:var(--green);border:1px solid rgba(255,97,84,.3);}
 .badge-agency{background:rgba(155,114,255,.1);color:var(--purple);border:1px solid rgba(155,114,255,.3);}
-.badge-admin{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.badge-admin{background:rgba(255,97,84,.1);color:var(--green);border:1px solid rgba(255,97,84,.3);}
 .badge-user{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
 
 /* Buttons */
@@ -80,7 +80,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 /* Toast */
 .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;font-family:var(--mono);font-size:12px;border:1px solid var(--border);background:var(--bg2);z-index:200;transform:translateY(80px);opacity:0;transition:all .3s;}
 .toast.show{transform:translateY(0);opacity:1;}
-.toast.ok{border-color:rgba(0,255,136,.4);color:var(--green);}
+.toast.ok{border-color:rgba(255,97,84,.4);color:var(--green);}
 .toast.err{border-color:rgba(255,68,85,.4);color:var(--red);}
 
 /* Login screen */
@@ -382,7 +382,7 @@ function renderTable(users){
     const isMe=currentAdmin&&u.id===currentAdmin.id;
     html+=`<tr>
       <td>
-        <div style="font-weight:600;font-size:13px;">${esc(u.name||'—')}${isMe?' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:4px;">YOU</span>':''}</div>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name||'—')}${isMe?' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:1px 5px;border-radius:2px;margin-left:4px;">YOU</span>':''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}</div>
       </td>
       <td><span class="badge badge-${u.plan}">${(u.plan||'free').toUpperCase()}</span></td>

@@ -35,8 +35,8 @@
   /* App (dark theme — kept for dashboard) */
   --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;
   --border:#2a2a2a;--text:#e8e8e8;--muted:#666;
-  --green:#00ff88;--red:#ff4455;--amber:#f59e0b;--blue:#3b82f6;
-  --purple:#9b72ff;
+  --green:#FF6154;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;
+  --purple:#8b5cf6;
 
   /* Typography */
   --font:'Inter',system-ui,-apple-system,sans-serif;
@@ -552,11 +552,11 @@ body:has(#app[style*="display:grid"]){
   font-size:10px;font-weight:700;padding:3px 10px;
   border-radius:100px;
 }
-.badge.pos{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
-.badge.neg{background:rgba(255,68,85,.1);color:var(--red);border:1px solid rgba(255,68,85,.3);}
+.badge.pos{background:rgba(255,97,84,.1);color:var(--green);border:1px solid rgba(255,97,84,.3);}
+.badge.neg{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3);}
 .badge.neu{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
 .badge.sim{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.3);}
-.badge.real{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.badge.real{background:rgba(255,97,84,.1);color:var(--green);border:1px solid rgba(255,97,84,.3);}
 
 /* ── PLATFORM GRID ──────────────────────── */
 .plat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
@@ -591,7 +591,7 @@ body:has(#app[style*="display:grid"]){
   overflow:hidden;position:relative;
 }
 .proof-card-resp::after{content:'';position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,var(--proof-card-bg,var(--bg2)));pointer-events:none;}
-.proof-card-resp mark{background:rgba(0,255,136,.2);color:var(--green);border-radius:3px;padding:0 3px;}
+.proof-card-resp mark{background:rgba(255,97,84,.15);color:var(--green);border-radius:3px;padding:0 3px;}
 .proof-card-footer{
   padding:12px 18px;display:flex;gap:8px;align-items:center;
   border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap;

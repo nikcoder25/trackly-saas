@@ -306,7 +306,7 @@ async function doForgotPassword(){
   try {
     const data = await api('POST', '/api/auth/forgot-password', { email });
     msgEl.textContent = data.message || 'Reset link sent. Check your email.';
-    msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.background = 'var(--success-light,rgba(0,255,136,.05))';
+    msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.background = 'var(--success-light,rgba(255,97,84,.05))';
     msgEl.style.display = 'block';
   } catch(e) {
     msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--danger,var(--red))'; msgEl.style.color = 'var(--danger,var(--red))'; msgEl.style.background = 'var(--danger-light,rgba(255,68,85,.05))';
@@ -1439,7 +1439,7 @@ function openResp(mentionId){
   textEl.style.whiteSpace = 'normal';
   const rawHtml = mdToHtml(m.raw || m.context || '');
   const hre = brandHighlightRe(b);
-  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml;
+  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml;
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
@@ -1468,7 +1468,7 @@ function openResultFromRun(runId, platform, encodedQuery){
   textEl.style.whiteSpace = 'normal';
   const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre1 = brandHighlightRe(b);
-  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml1;
+  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml1;
   // Show citations if any
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1497,7 +1497,7 @@ function openFullResult(platform, encodedQuery){
   textEl.style.whiteSpace = 'normal';
   const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre2 = brandHighlightRe(b);
-  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml2;
+  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml2;
   // Show citations
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1603,7 +1603,7 @@ function renderProof(){
       const statusBadge = isError
         ? `<div class="proof-card-badge" style="color:#ff8800;border:1px solid rgba(255,136,0,.3);font-weight:700;">⚠ API ERROR</div>`
         : isMentioned
-        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);font-weight:700;">&#x2713; FOUND</div>`
+        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(255,97,84,.3);font-weight:700;">&#x2713; FOUND</div>`
         : `<div class="proof-card-badge" style="color:var(--red,#ff4444);border:1px solid rgba(255,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
 
       const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
@@ -1771,7 +1771,7 @@ function renderCompetitors(){
   // Your brand row
   const total = allResults.length;
   const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
-  html += `<tr style="background:rgba(0,255,136,.05);">
+  html += `<tr style="background:rgba(255,97,84,.05);">
     <td><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
     <td style="font-family:var(--mono)">${brandMentions}/${total}</td>
     <td style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
@@ -2789,14 +2789,14 @@ function renderAdminTable(users){
   </tr></thead><tbody>`;
   users.forEach(u => {
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
-    const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(0,255,136,.1)' : 'rgba(255,255,255,.05)';
-    const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(0,255,136,.3)' : 'var(--border)';
+    const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(255,97,84,.1)' : 'rgba(255,255,255,.05)';
+    const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(255,97,84,.3)' : 'var(--border)';
     const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     const keyCount = (u.hasKeys||[]).length;
     const isMe = u.id === currentUser.id;
     html += `<tr>
       <td>
-        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>

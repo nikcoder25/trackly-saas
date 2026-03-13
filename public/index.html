@@ -618,7 +618,7 @@
           <div class="ov-hero-sov-ring" id="ov-sov-ring">
             <svg viewBox="0 0 120 120" class="ov-ring-svg">
               <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" stroke-width="8"/>
-              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="8" stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round" transform="rotate(-90 60 60)" id="ov-sov-circle"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--primary,var(--green))" stroke-width="8" stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round" transform="rotate(-90 60 60)" id="ov-sov-circle"/>
             </svg>
             <div class="ov-ring-label">
               <span class="ov-ring-pct" id="ov-sov">0%</span>
@@ -811,7 +811,7 @@
         </div>
         <div class="add-query-row">
           <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;">
-          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--green);color:#000;border:none;font-family:var(--mono);font-weight:700;cursor:pointer;letter-spacing:.5px;">SAVE</button>
+          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--primary);color:#fff;border:none;font-family:var(--font);font-weight:700;cursor:pointer;border-radius:6px;">SAVE</button>
         </div>
         <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
       </div>
@@ -904,7 +904,7 @@
         <div class="card-title">Account Info</div>
         <div style="font-family:var(--mono);font-size:12px;line-height:2;">
           <div>Email: <strong id="acct-email"></strong> <span id="acct-email-verify"></span></div>
-          <div style="display:flex;align-items:center;gap:8px;">Username: <strong id="acct-username" style="color:var(--green);">—</strong>
+          <div style="display:flex;align-items:center;gap:8px;">Username: <strong id="acct-username" style="color:var(--primary);">—</strong>
             <button onclick="promptSetUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:2px 8px;cursor:pointer;">SET</button>
           </div>
           <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
@@ -928,7 +928,7 @@
         <div id="model-settings"></div>
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
           <button class="btn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
-          <span id="model-save-status" style="font-family:var(--mono);font-size:10px;color:var(--green);display:none;">SAVED</span>
+          <span id="model-save-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
@@ -977,7 +977,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
           <div style="display:flex;align-items:center;gap:12px;">
             <div class="card-title" style="margin:0;">All Users</div>
-            <button onclick="openAdminAddUser()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:10px;padding:6px 14px;cursor:pointer;font-weight:700;letter-spacing:0.5px;">+ ADD USER</button>
+            <button onclick="openAdminAddUser()" style="background:var(--primary);border:none;color:#fff;font-family:var(--font);font-size:11px;padding:7px 14px;cursor:pointer;font-weight:700;border-radius:6px;">+ ADD USER</button>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <select class="finput" id="admin-filter-plan" style="width:120px;margin:0;padding:6px 10px;font-size:11px;font-family:var(--mono);" onchange="filterAdminUsers()">
@@ -1060,7 +1060,7 @@
             <button onclick="adminDeleteUser()" id="admin-edit-delete-btn" style="background:rgba(255,68,68,.1);border:1px solid rgba(255,68,68,.3);color:var(--red,#ff4444);font-family:var(--mono);font-size:10px;padding:6px 14px;cursor:pointer;letter-spacing:0.5px;">DELETE USER</button>
             <div style="display:flex;gap:10px;">
               <button onclick="closeAdminEdit()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;">CANCEL</button>
-              <button onclick="saveAdminEdit()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;font-weight:700;">SAVE CHANGES</button>
+              <button onclick="saveAdminEdit()" style="background:var(--primary);border:none;color:#fff;font-family:var(--font);font-size:12px;padding:8px 18px;cursor:pointer;font-weight:700;border-radius:6px;">SAVE CHANGES</button>
             </div>
           </div>
         </div>
@@ -1110,7 +1110,7 @@
 
           <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
             <button onclick="closeAdminAddUser()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;">CANCEL</button>
-            <button onclick="submitAdminAddUser()" style="background:var(--green);border:none;color:#000;font-family:var(--mono);font-size:11px;padding:8px 18px;cursor:pointer;font-weight:700;">CREATE USER</button>
+            <button onclick="submitAdminAddUser()" style="background:var(--primary);border:none;color:#fff;font-family:var(--font);font-size:12px;padding:8px 18px;cursor:pointer;font-weight:700;border-radius:6px;">CREATE USER</button>
           </div>
         </div>
       </div>
@@ -1128,7 +1128,7 @@
     </div>
     <div class="modal-body">
       <div id="resp-modal-query" style="font-style:italic;color:var(--muted);font-size:12px;margin-bottom:14px;padding:8px 12px;background:var(--bg3);border-left:2px solid var(--border);"></div>
-      <div style="text-align:right;margin-bottom:8px;"><button id="copy-resp-btn" onclick="copyResponse()" style="font-family:var(--mono);font-size:10px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:.5px;" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">COPY RESPONSE</button></div>
+      <div style="text-align:right;margin-bottom:8px;"><button id="copy-resp-btn" onclick="copyResponse()" style="font-family:var(--mono);font-size:10px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;letter-spacing:.5px;" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">COPY RESPONSE</button></div>
       <div id="resp-modal-text" style="font-size:13px;line-height:1.8;"></div>
       <div id="resp-modal-cites" style="margin-top:14px;"></div>
     </div>
@@ -1154,7 +1154,7 @@
           <button class="btn-upgrade" onclick="doUpgrade('free')">CURRENT</button>
         </div>
         <div class="upgrade-plan-card featured" data-plan="pro">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--green);">Pro</div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--primary);">Pro</div>
           <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$29<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
             5 brands<br>All 8 platforms<br>25 queries<br>10 runs/day<br>Competitors &amp; webhooks<br>Scheduled runs
