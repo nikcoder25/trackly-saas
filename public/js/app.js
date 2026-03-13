@@ -2583,7 +2583,7 @@ async function renderApiLogs(){
       const dt = new Date(err.time);
       const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isCrash = err.type === 'crash';
-      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);">
+      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius-xs);">
         <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
         <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>`;
       if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
@@ -2595,7 +2595,7 @@ async function renderApiLogs(){
       }
       html += `</div>`;
     });
-    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS ALL</button></div>`;
+    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS ALL</button></div>`;
   }
 
   // 2. API Key Status
@@ -2609,8 +2609,8 @@ async function renderApiLogs(){
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div class="card-title" style="margin-bottom:0;">API Call Log</div>
       <div style="display:flex;gap:8px;">
-        <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">REFRESH</button>
-        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">CLEAR LOGS</button>
+        <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">REFRESH</button>
+        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">CLEAR LOGS</button>
       </div>
     </div>
     <div id="apilogs-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:8px 0;"></div>
@@ -2714,7 +2714,7 @@ function loadKeyStatus() {
     let ksHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
     Object.entries(counts).forEach(([plat, count]) => {
       const color = count > 0 ? 'var(--green)' : 'var(--red)';
-      ksHtml += `<div style="border:1px solid var(--border);padding:6px 12px;"><span style="color:${color};font-weight:700;">${count}</span> <span style="text-transform:capitalize;">${plat}</span> key${count!==1?'s':''}</div>`;
+      ksHtml += `<div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);"><span style="color:${color};font-weight:700;">${count}</span> <span style="text-transform:capitalize;">${plat}</span> key${count!==1?'s':''}</div>`;
     });
     ksHtml += '</div>';
     if (Object.values(counts).some(c => c === 0)) {
@@ -2760,7 +2760,7 @@ function renderAdminStats(users){
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];
   el('admin-stats').innerHTML = stats.map(s => `
-    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;">
+    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;border-radius:var(--radius-sm);">
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">${s.label}</div>
       <div style="font-size:28px;font-weight:800;color:${s.color};letter-spacing:-1px;">${s.value}</div>
     </div>
@@ -2807,7 +2807,7 @@ function renderAdminTable(users){
       <td style="font-family:var(--mono);font-size:11px;color:${keyCount ? 'var(--green)' : 'var(--muted)'};">${keyCount ? keyCount + ' configured' : 'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
       <td style="text-align:right;">
-        <button onclick="openAdminEdit('${u.id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:0.5px;">EDIT</button>
+        <button onclick="openAdminEdit('${u.id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:0.5px;border-radius:var(--radius-xs);">EDIT</button>
       </td>
     </tr>`;
   });
