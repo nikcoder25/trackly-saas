@@ -923,6 +923,61 @@ function renderOverview(){
     healthEl.innerHTML = '';
   }
 
+  // ─── GEO & Sentiment Scores ──────────────────────────────────
+  const scoresRow = el('ov-scores-row');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const validResults = lastRun.allResults.filter(r => !r.error);
+    // GEO Score: weighted combination of mention rate, recommendation rate, and location relevance
+    const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
+    const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
+    const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
+    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : (b.city ? 0 : 1);
+    const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
+    const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
+    const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
+
+    // Sentiment breakdown
+    const mentionedResults = validResults.filter(r => r.mentioned);
+    const posCount = mentionedResults.filter(r => r.sentiment === 'positive').length;
+    const negCount = mentionedResults.filter(r => r.sentiment === 'negative').length;
+    const neuCount = mentionedResults.filter(r => r.sentiment === 'neutral').length;
+    const sentimentScore = mentionedResults.length > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedResults.length)) : 0;
+    const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
+
+    // Recommendation rate
+    const recPct = validResults.length > 0 ? Math.round(recommendRate * 100) : 0;
+    const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
+
+    scoresRow.innerHTML = `
+      <div class="ov-score-card">
+        <div class="ov-score-icon" style="color:${geoColor};">◎</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">GEO Score</div>
+          <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
+        </div>
+      </div>
+      <div class="ov-score-card">
+        <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">AI Sentiment</div>
+          <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
+        </div>
+      </div>
+      <div class="ov-score-card">
+        <div class="ov-score-icon" style="color:${recColor};">★</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">Recommended</div>
+          <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
+          <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    scoresRow.innerHTML = '';
+  }
+
   // ─── Category SOV + Best/Worst Row ───────────────────────────
   const catRow = el('ov-category-row');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
@@ -964,6 +1019,129 @@ function renderOverview(){
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null, !!best].filter(Boolean).length}, 1fr)`;
   } else {
     catRow.innerHTML = '';
+  }
+
+  // ─── Location Visibility ────────────────────────────────────
+  const locViz = el('ov-location-viz');
+  if (lastRun && lastRun.allResults && b.city) {
+    const validResults = lastRun.allResults.filter(r => !r.error && r.mentioned);
+    const withLoc = validResults.filter(r => r.locationRelevant !== undefined);
+    const locRelevant = withLoc.filter(r => r.locationRelevant);
+    const locRate = withLoc.length > 0 ? Math.round(locRelevant.length / withLoc.length * 100) : 0;
+
+    // Count matched locations
+    const locationCounts = {};
+    validResults.forEach(r => {
+      if (r.matchedLocation) {
+        const loc = r.matchedLocation.charAt(0).toUpperCase() + r.matchedLocation.slice(1);
+        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+      }
+    });
+    const topLocs = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const nearbyAreas = b.nearbyAreas || [];
+
+    let locHtml = `<div class="ov-card ov-loc-card">
+      <div class="ov-card-head">
+        <div class="ov-card-title">📍 Location Visibility</div>
+        <div class="ov-card-sub">${esc(b.city)}${nearbyAreas.length ? ' + ' + nearbyAreas.length + ' nearby areas' : ''}</div>
+      </div>
+      <div class="ov-loc-grid">
+        <div class="ov-loc-stat">
+          <div class="ov-loc-stat-val" style="color:${locRate >= 50 ? 'var(--green)' : locRate > 0 ? 'var(--amber)' : 'var(--red)'};">${locRate}%</div>
+          <div class="ov-loc-stat-lbl">City Match Rate</div>
+          <div class="ov-loc-stat-sub">AI mentions your location</div>
+        </div>
+        <div class="ov-loc-areas">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">AREAS WHERE AI FINDS YOU</div>`;
+    if (topLocs.length > 0) {
+      topLocs.forEach(([loc, count]) => {
+        locHtml += `<div class="ov-loc-area-tag"><span>${esc(loc)}</span><span class="ov-loc-area-count">${count}×</span></div>`;
+      });
+    } else {
+      locHtml += `<div style="font-size:11px;color:var(--muted);">No location matches found yet. Run more queries with location-specific terms.</div>`;
+    }
+    locHtml += `</div></div>`;
+    if (locRate < 50 && locRate >= 0) {
+      locHtml += `<div class="ov-loc-tip">💡 <strong>Tip:</strong> Include "${esc(b.city)}" in your queries (e.g., "best ${esc(b.industry || 'company')} in ${esc(b.city)}") to test local AI visibility.</div>`;
+    }
+    locHtml += `</div>`;
+    locViz.innerHTML = locHtml;
+    locViz.style.display = 'block';
+  } else {
+    locViz.style.display = 'none';
+  }
+
+  // ─── Actionable Insights ──────────────────────────────────────
+  const insightsEl = el('ov-insights');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const validResults = lastRun.allResults.filter(r => !r.error);
+    const tips = [];
+
+    // Analyze platform gaps
+    const platMentions = {};
+    PLATS.forEach(p => { platMentions[p] = { total: 0, found: 0 }; });
+    validResults.forEach(r => {
+      if (platMentions[r.platform]) {
+        platMentions[r.platform].total++;
+        if (r.mentioned) platMentions[r.platform].found++;
+      }
+    });
+
+    const strongPlats = [];
+    const weakPlats = [];
+    const missingPlats = [];
+    Object.entries(platMentions).forEach(([p, s]) => {
+      if (s.total === 0) return;
+      const rate = s.found / s.total;
+      if (rate >= 0.5) strongPlats.push(p);
+      else if (rate > 0) weakPlats.push(p);
+      else missingPlats.push(p);
+    });
+
+    if (strongPlats.length > 0 && missingPlats.length > 0) {
+      tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources — diversify your online presence.`, color: 'var(--amber)' });
+    }
+
+    if (sov === 0 && validResults.length > 0) {
+      tips.push({ type: 'zero', icon: '🎯', title: 'Getting Started with GEO', text: `AI platforms haven't picked up your brand yet. Focus on: <strong>structured data</strong> on your website, <strong>review profiles</strong> (Google, Yelp), and <strong>authoritative backlinks</strong>. These are what AI models reference.`, color: 'var(--blue)' });
+    } else if (sov > 0 && sov < 30) {
+      tips.push({ type: 'grow', icon: '📈', title: 'Growing Your AI Presence', text: `You're appearing in ${sov}% of queries. To boost this: create <strong>FAQ-style content</strong> that directly answers common questions, and ensure your <strong>Google Business Profile</strong> is fully optimized.`, color: 'var(--green)' });
+    }
+
+    // Sentiment insight
+    const mentionedResults = validResults.filter(r => r.mentioned);
+    const negResults = mentionedResults.filter(r => r.sentiment === 'negative');
+    if (negResults.length > 0) {
+      tips.push({ type: 'sentiment', icon: '⚠', title: 'Negative Sentiment Detected', text: `${negResults.length} AI response${negResults.length > 1 ? 's' : ''} show negative sentiment about your brand. Check <a href="#" onclick="go('mentions');return false;" style="color:var(--red);">All Results</a> to see what AI is saying and address underlying issues.`, color: 'var(--red)' });
+    }
+
+    // Recommendation tip
+    const recRate = mentionedResults.length > 0 ? mentionedResults.filter(r => r.recommended).length / mentionedResults.length : 0;
+    if (mentionedResults.length > 0 && recRate < 0.3) {
+      tips.push({ type: 'rec', icon: '★', title: 'Low Recommendation Rate', text: `AI mentions you but rarely <strong>recommends</strong> you. Earn more positive reviews, add customer testimonials to your site, and build authority with case studies and awards.`, color: 'var(--amber)' });
+    }
+
+    // Location tip
+    if (b.city && !b.nearbyAreas?.length) {
+      tips.push({ type: 'nearby', icon: '📍', title: 'Add Nearby Areas', text: `You've set ${esc(b.city)} as your location but haven't added nearby areas. Go to <a href="#" onclick="go('setup');return false;" style="color:var(--green);">Brand Setup</a> and auto-fetch nearby cities to expand local tracking.`, color: 'var(--blue)' });
+    }
+
+    if (tips.length > 0) {
+      let insHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Actionable Insights</div><div class="ov-card-sub">${tips.length} tip${tips.length !== 1 ? 's' : ''}</div></div>`;
+      tips.forEach(t => {
+        insHtml += `<div class="ov-insight" style="border-left-color:${t.color};">
+          <div class="ov-insight-head"><span class="ov-insight-icon">${t.icon}</span><strong>${t.title}</strong></div>
+          <div class="ov-insight-text">${t.text}</div>
+        </div>`;
+      });
+      insHtml += `</div>`;
+      insightsEl.innerHTML = insHtml;
+      insightsEl.style.display = 'block';
+    } else {
+      insightsEl.style.display = 'none';
+    }
+  } else {
+    insightsEl.style.display = 'none';
   }
 
   // ─── Platform Cards ──────────────────────────────────────────
@@ -1047,6 +1225,53 @@ function renderOverview(){
       compEl.innerHTML = compHtml;
     } else { compEl.innerHTML = ''; }
   } else { compEl.innerHTML = ''; }
+
+  // ─── Citation Sources ─────────────────────────────────────────
+  const citEl = el('ov-citations');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const allCites = [];
+    lastRun.allResults.forEach(r => {
+      if (r.cites && r.cites.length) {
+        r.cites.forEach(url => allCites.push(url));
+      }
+    });
+    if (allCites.length > 0) {
+      // Group by domain
+      const domainCounts = {};
+      allCites.forEach(url => {
+        try {
+          const domain = new URL(url).hostname.replace(/^www\./, '');
+          domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+        } catch(e) {}
+      });
+      const topDomains = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const brandDomain = b.website ? b.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase() : '';
+
+      let citHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Citation Sources</div><div class="ov-card-sub">Where AI pulls information from</div></div>`;
+      citHtml += `<div class="ov-cit-list">`;
+      topDomains.forEach(([domain, count]) => {
+        const isOwn = brandDomain && domain.includes(brandDomain);
+        citHtml += `<div class="ov-cit-item${isOwn ? ' ov-cit-own' : ''}">
+          <span class="ov-cit-domain">${isOwn ? '★ ' : ''}${esc(domain)}</span>
+          <span class="ov-cit-bar"><span class="ov-cit-bar-fill" style="width:${Math.round(count / topDomains[0][1] * 100)}%;"></span></span>
+          <span class="ov-cit-count">${count}×</span>
+        </div>`;
+      });
+      citHtml += `</div>`;
+      if (!brandDomain) {
+        citHtml += `<div class="ov-cit-tip">💡 Add your website in <a href="#" onclick="go('setup');return false;" style="color:var(--green);">Brand Setup</a> to see if AI cites your own site.</div>`;
+      } else if (!topDomains.some(([d]) => d.includes(brandDomain))) {
+        citHtml += `<div class="ov-cit-tip">⚠ Your website <strong>${esc(brandDomain)}</strong> is not being cited by AI. Focus on building authoritative, AI-crawlable content.</div>`;
+      }
+      citHtml += `</div>`;
+      citEl.innerHTML = citHtml;
+      citEl.style.display = 'block';
+    } else {
+      citEl.style.display = 'none';
+    }
+  } else {
+    citEl.style.display = 'none';
+  }
 
   // ─── Last Run Summary ────────────────────────────────────────
   const lrs = el('ov-last-run-summary');
