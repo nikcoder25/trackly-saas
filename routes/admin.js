@@ -33,7 +33,10 @@ router.get('/api-logs', auth, async (req, res) => {
          COUNT(*) FILTER (WHERE status = 'ok')::int AS success,
          COUNT(*) FILTER (WHERE status = 'error')::int AS errors,
          COUNT(DISTINCT platform) AS platforms_used,
-         AVG(response_ms)::int AS avg_ms
+         AVG(response_ms)::int AS avg_ms,
+         COALESCE(SUM(cost), 0)::float AS total_cost,
+         COALESCE(SUM(tokens_in), 0)::int AS total_tokens_in,
+         COALESCE(SUM(tokens_out), 0)::int AS total_tokens_out
        FROM api_logs WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'`,
       [req.user.id]
     );

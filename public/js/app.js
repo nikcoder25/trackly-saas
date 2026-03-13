@@ -2625,7 +2625,9 @@ async function renderApiLogs(){
     // Stats summary
     const statsEl = el('apilogs-stats');
     if (statsEl) {
-      statsEl.innerHTML = `Last 24h: <span style="color:var(--green);">${stats.success || 0} ok</span> · <span style="color:var(--red);">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms`;
+      const totalCost24h = stats.total_cost ? '$' + stats.total_cost.toFixed(4) : '$0.00';
+      const totalTokens24h = ((stats.total_tokens_in || 0) + (stats.total_tokens_out || 0)).toLocaleString();
+      statsEl.innerHTML = `Last 24h: <span style="color:var(--green);">${stats.success || 0} ok</span> · <span style="color:var(--red);">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms · <span style="color:var(--amber);font-weight:700;">${totalCost24h}</span> cost · ${totalTokens24h} tokens`;
     }
 
     // Render logs table
@@ -2635,34 +2637,56 @@ async function renderApiLogs(){
       return;
     }
 
+    // Calculate running total cost
+    let runningCostTotal = 0;
+    // Logs are newest-first; reverse to accumulate oldest-first, then map back
+    const logsWithRunning = logs.slice().reverse().map(log => {
+      runningCostTotal += parseFloat(log.cost) || 0;
+      return { ...log, runningCost: runningCostTotal };
+    }).reverse();
+
     let tbl = `<div style="overflow-x:auto;max-height:600px;overflow-y:auto;">
       <table class="tbl" style="width:100%;font-size:11px;">
       <thead style="position:sticky;top:0;background:var(--bg2);z-index:1;"><tr>
         <th style="width:130px;">Time</th>
         <th style="width:80px;">Platform</th>
+        <th style="width:120px;">Model</th>
         <th>Query</th>
         <th style="width:60px;">Status</th>
-        <th style="width:60px;">Key</th>
+        <th style="width:80px;">Tokens</th>
+        <th style="width:60px;">Cost</th>
+        <th style="width:70px;">Running</th>
         <th style="width:50px;">Time</th>
+        <th style="width:60px;">Key</th>
         <th>Error</th>
       </tr></thead><tbody>`;
 
-    logs.forEach(log => {
+    logsWithRunning.forEach(log => {
       const dt = new Date(log.created_at);
       const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const isErr = log.status === 'error';
       const t = PLAT_THEME[log.platform] || {};
       const queryShort = (log.query || '').length > 50 ? log.query.substring(0, 50) + '...' : (log.query || '—');
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
+      const totalTokens = (log.tokens_in || 0) + (log.tokens_out || 0);
+      const tokenStr = totalTokens > 0 ? totalTokens.toLocaleString() : '—';
+      const costVal = parseFloat(log.cost) || 0;
+      const costStr = costVal > 0 ? '$' + costVal.toFixed(4) : '—';
+      const runCostStr = log.runningCost > 0 ? '$' + log.runningCost.toFixed(4) : '—';
+      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-|mistral-)/, '').substring(0, 18);
 
       tbl += `<tr style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
         <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;">${esc(timeStr)}</td>
         <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.model || '')}">${esc(modelShort || '—')}</td>
         <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
         <td style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${isErr ? 'FAIL' : 'OK'}</span></td>
-        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;" title="In: ${(log.tokens_in||0).toLocaleString()} / Out: ${(log.tokens_out||0).toLocaleString()}">${tokenStr}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:600;">${costStr}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--text);text-align:right;font-weight:700;">${runCostStr}</td>
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${respTime}</td>
-        <td style="font-size:10px;color:var(--red);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
+        <td style="font-size:10px;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
       </tr>`;
     });
 
