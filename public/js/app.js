@@ -3048,28 +3048,40 @@ async function deleteBrand(){
 function buildMentionCard(r, runTimeStr) {
   const t = PLAT_THEME[r.platform]||{};
   const isErr = r.error;
-  const preview = isErr ? friendlyError(r.errorMessage) : (r.context || '').replace(/[#*_~`]/g, '').substring(0, 180).replace(/\n/g, ' ');
+  const preview = isErr ? friendlyError(r.errorMessage) : (r.context || '').replace(/[#*_~`]/g, '').substring(0, 160).replace(/\n/g, ' ');
   const sent = r.sentiment || 'neutral';
-  const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
-  const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
-  const statusClass = isErr ? 'mention-error' : r.mentioned ? 'mention-found' : 'mention-notfound';
-  const statusText = isErr ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
-  const statusColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
-  return `<div class="mention-card ${statusClass}" style="animation:fadeIn .3s ease;">
-    <div class="mention-card-top">
-      <div class="mention-plat" style="background:${t.bg||'var(--bg3)'};border-color:${t.color||'var(--border)'}30;">
-        <span class="mention-plat-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
-        <span class="mention-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</span>
+  const borderClr = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
+
+  // Status tag
+  let statusTag;
+  if (isErr) statusTag = '<span class="mt-tag mt-tag-err">Error</span>';
+  else if (r.mentioned) statusTag = '<span class="mt-tag mt-tag-yes">Mentioned</span>';
+  else statusTag = '<span class="mt-tag mt-tag-no">Not Found</span>';
+
+  // Sentiment + rec tags
+  let metaTags = '';
+  if (!isErr) {
+    if (sent === 'positive') metaTags += '<span class="mt-tag mt-tag-pos">Positive</span>';
+    else if (sent === 'negative') metaTags += '<span class="mt-tag mt-tag-neg">Negative</span>';
+    if (r.recommended) metaTags += '<span class="mt-tag mt-tag-rec">Recommended</span>';
+  }
+
+  return `<div class="mt-live-card" style="--accent-clr:${borderClr};animation:fadeInUp .35s ease;">
+    <div class="mt-live-top">
+      <div class="mt-item-plat" style="background:${t.bg||'var(--bg3)'};border-color:${(t.color||'var(--border)')}25;">
+        <span style="color:${t.color||'#888'};font-size:15px;">${t.logo||'?'}</span>
       </div>
-      <span class="mention-status" style="color:${statusColor};border-color:${statusColor}30;background:${statusColor}08;">${statusText}</span>
+      <div class="mt-live-info">
+        <div class="mt-item-query">${esc(r.query)}</div>
+        <div class="mt-item-meta">
+          <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
+          <span class="mt-item-model">${esc(r.model||'')}</span>
+          ${runTimeStr ? `<span class="mt-item-model">${esc(runTimeStr)}</span>` : ''}
+        </div>
+      </div>
     </div>
-    <div class="mention-query">${esc(r.query)}</div>
-    <div class="mention-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=180?'...':''}</div>
-    <div class="mention-card-footer">
-      <span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" style="font-size:9px;">${sentLabel}</span>
-      <span class="mention-model">${esc(r.model||'—')}</span>
-      <span class="mention-time">${esc(runTimeStr)}</span>
-    </div>
+    <div class="mt-live-tags">${statusTag}${metaTags}</div>
+    <div class="mt-live-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=160?'...':''}</div>
   </div>`;
 }
 

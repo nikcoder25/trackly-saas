@@ -598,35 +598,20 @@ body:has(#app[style*="display:grid"]){
 .badge.sim{background:var(--warning-light);color:var(--amber);border:1px solid rgba(245,158,11,.2);}
 .badge.real{background:rgba(16,185,129,.08);color:var(--green);border:1px solid rgba(16,185,129,.2);}
 
-/* ── MENTION CARDS (legacy for live streaming) ── */
-.mention-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
-.mention-card{
+/* ── LIVE MENTION CARDS (streaming) ── */
+.mention-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;}
+.mt-live-card{
   background:var(--bg2);border:1px solid var(--border);
   border-radius:var(--radius);padding:18px;
+  border-left:3px solid var(--accent-clr, var(--border));
   box-shadow:var(--app-shadow);transition:all .2s;
-  display:flex;flex-direction:column;gap:10px;
+  display:flex;flex-direction:column;gap:12px;
 }
-.mention-card:hover{box-shadow:var(--app-shadow-lg);transform:translateY(-1px);}
-.mention-card.mention-found{border-left:3px solid var(--green);}
-.mention-card.mention-notfound{border-left:3px solid var(--border);}
-.mention-card.mention-error{border-left:3px solid var(--amber);opacity:.7;}
-.mention-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.mention-plat{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:var(--radius-full);border:1px solid;background:var(--bg);}
-.mention-plat-logo{font-size:16px;}
-.mention-plat-name{font-size:12px;font-weight:700;}
-.mention-status{font-size:10px;font-weight:700;letter-spacing:.5px;padding:4px 10px;border-radius:var(--radius-full);border:1px solid;}
-.mention-query{font-size:13px;font-weight:600;color:var(--text);line-height:1.5;}
-.mention-preview{font-size:12px;color:var(--muted);line-height:1.6;max-height:54px;overflow:hidden;}
-.mention-card-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border);}
-.mention-model{font-family:var(--mono);font-size:9px;color:var(--muted);}
-.mention-time{font-family:var(--mono);font-size:9px;color:var(--muted);}
-.mention-view-btn{
-  font-family:var(--font);font-size:10px;font-weight:600;
-  padding:5px 12px;background:var(--bg);border:1px solid var(--border);
-  color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);transition:all .15s;
-  white-space:nowrap;
-}
-.mention-view-btn:hover{border-color:var(--primary);color:var(--primary);}
+.mt-live-card:hover{box-shadow:var(--app-shadow-lg);transform:translateY(-1px);border-color:var(--text-secondary);border-left-color:var(--accent-clr,var(--border));}
+.mt-live-top{display:flex;align-items:flex-start;gap:12px;}
+.mt-live-info{flex:1;min-width:0;}
+.mt-live-tags{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
+.mt-live-preview{font-size:12px;color:var(--muted);line-height:1.6;max-height:48px;overflow:hidden;}
 
 /* ── MENTIONS PAGE ─────────────────────── */
 
@@ -1244,8 +1229,7 @@ select.finput{appearance:none;}
 .ov-card-updating{animation:borderPulse 1.5s ease infinite;}
 .ov-plat-card-flash{animation:fadeInScale .3s ease,pulseGlow .6s ease;}
 
-/* Mention card live entrance */
-.mention-card-live{animation:fadeInUp .35s ease;}
+/* Live card entrance */
 .proof-card-live{animation:fadeInScale .35s ease;}
 
 /* Shimmer loading state */
