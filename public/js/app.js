@@ -1837,6 +1837,30 @@ function toggleMentionRow(idx){
   renderMentions();
 }
 
+async function retryQuery(runId, platform, query, btnEl){
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="mt-retry-spin"></span> Retrying...'; }
+  try {
+    const b = brand();
+    if (!b) throw new Error('No brand selected');
+    const resp = await fetch(`/api/brands/${b.id}/retry-query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ runId, platform, query })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Retry failed');
+    // Update local brand data from server response
+    const idx = brands.findIndex(x => x.id === b.id);
+    if (idx !== -1 && data.brand) brands[idx] = data.brand;
+    toast('Query retried successfully');
+    mentionsExpandedRow = null;
+    renderMentions();
+  } catch(e) {
+    toast(e.message, 'err');
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '↻ Retry'; }
+  }
+}
+
 function renderMentions(){
   const b = brand();
   if (!b) return;
@@ -1992,6 +2016,7 @@ function renderMentions(){
         </div>
         <div class="mt-item-right">
           <div class="mt-item-tags">${statusHtml}${metaHtml}</div>
+          ${isErr ? `<button class="mt-retry-btn" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" title="Retry this query">↻ Retry</button>` : ''}
           <span class="mt-item-chevron">${open?'▾':'▸'}</span>
         </div>
       </div>
@@ -2019,7 +2044,10 @@ function renderMentions(){
             ${r.matchedLocation?`<div class="mt-dc-row"><span>Location</span><strong>${esc(r.matchedLocation)}</strong></div>`:''}
             ${r.cites?`<div class="mt-dc-row"><span>Cited</span><strong style="color:var(--green);">Yes</strong></div>`:''}
           </div>
-          <button onclick="event.stopPropagation();openResultFromRun('${escAttr(runId)}','${escAttr(r.platform)}','${safeBtoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>
+          ${isErr
+            ? `<button class="mt-retry-btn mt-retry-lg" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)">↻ Retry This Query</button>`
+            : `<button onclick="event.stopPropagation();openResultFromRun('${escAttr(runId)}','${escAttr(r.platform)}','${safeBtoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>`
+          }
         </div>
       </div>`;
     }
