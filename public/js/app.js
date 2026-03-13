@@ -617,10 +617,23 @@ async function loadModelSettings() {
       </div>`;
     }
     html += '</div>';
+    html += '<div id="gemini-aio-warning" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:var(--radius);font-size:11px;font-family:var(--mono);color:#eab308;">Note: Gemini and Google AIO use the same API — enabling both doubles your Gemini API costs.</div>';
     container.innerHTML = html;
+    checkGeminiAioOverlap();
   } catch(e) {
     container.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">Failed to load model settings</div>';
   }
+}
+
+function checkGeminiAioOverlap() {
+  const toggles = document.querySelectorAll('.platform-toggle');
+  let geminiOn = false, aioOn = false;
+  toggles.forEach(t => {
+    if (t.dataset.platform === 'Gemini' && t.checked) geminiOn = true;
+    if (t.dataset.platform === 'Google AIO' && t.checked) aioOn = true;
+  });
+  const warning = document.getElementById('gemini-aio-warning');
+  if (warning) warning.style.display = (geminiOn && aioOn) ? 'block' : 'none';
 }
 
 function togglePlatformRow(cb) {
@@ -635,6 +648,7 @@ function togglePlatformRow(cb) {
     rowDiv.style.opacity = '0.5';
     if (sel) sel.disabled = true;
   }
+  checkGeminiAioOverlap();
 }
 
 async function saveModelSettings() {
@@ -1691,6 +1705,12 @@ async function ovAddQuery(){
   if ((b.queries||[]).length >= queryLimit) {
     toast('Query limit reached (' + queryLimit + '). Upgrade your plan to add more.', 'err');
     showUpgradeModal('Your plan allows up to ' + queryLimit + ' queries. Upgrade for more.');
+    return;
+  }
+  // Duplicate check (case-insensitive)
+  const existing = new Set((b.queries||[]).map(x => x.toLowerCase()));
+  if (existing.has(q.toLowerCase())) {
+    toast('Query already exists', 'err');
     return;
   }
   const queries = [...(b.queries||[]), q];
