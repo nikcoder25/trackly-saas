@@ -965,11 +965,81 @@ select.finput{appearance:none;}
 .ov-qp-track{flex:0 0 80px;height:4px;background:var(--bg3);overflow:hidden;border-radius:2px;}
 .ov-qp-fill{height:100%;border-radius:2px;}
 
+/* ─── GEO & Sentiment Scores Row ─── */
+.ov-scores-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+.ov-score-card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:18px 20px;display:flex;align-items:center;gap:16px;
+  border-radius:var(--radius);box-shadow:var(--app-shadow);
+  transition:transform .2s,box-shadow .2s;
+}
+.ov-score-card:hover{transform:translateY(-2px);box-shadow:var(--app-shadow-lg);}
+.ov-score-icon{font-size:28px;flex-shrink:0;line-height:1;}
+.ov-score-body{flex:1;min-width:0;}
+.ov-score-label{font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:4px;}
+.ov-score-val{font-family:var(--mono);font-size:28px;font-weight:800;line-height:1;}
+.ov-score-unit{font-size:14px;font-weight:600;opacity:.5;margin-left:2px;}
+.ov-score-tag{font-family:var(--mono);font-size:10px;margin-top:4px;letter-spacing:.3px;}
+.ov-score-breakdown{font-family:var(--mono);font-size:10px;margin-top:4px;display:flex;gap:8px;}
+
+/* ─── Location Visibility ─── */
+.ov-loc-card{margin-bottom:14px;}
+.ov-loc-grid{display:grid;grid-template-columns:180px 1fr;gap:20px;align-items:start;}
+.ov-loc-stat{text-align:center;padding:16px 0;}
+.ov-loc-stat-val{font-family:var(--mono);font-size:32px;font-weight:800;line-height:1;}
+.ov-loc-stat-lbl{font-family:var(--font);font-size:11px;font-weight:700;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.5px;}
+.ov-loc-stat-sub{font-size:10px;color:var(--muted);margin-top:4px;}
+.ov-loc-areas{padding:8px 0;}
+.ov-loc-area-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--bg3);border:1px solid var(--border);
+  padding:5px 12px;margin:0 4px 4px 0;font-size:11px;
+  border-radius:var(--radius-xs);
+}
+.ov-loc-area-count{color:var(--muted);font-family:var(--mono);font-size:10px;}
+.ov-loc-tip{
+  background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);
+  padding:10px 14px;margin-top:12px;font-size:11px;line-height:1.5;
+  color:var(--muted);border-radius:var(--radius-xs);
+}
+.ov-loc-tip strong{color:var(--text);}
+
+/* ─── Actionable Insights ─── */
+.ov-insight{
+  border-left:3px solid var(--border);
+  padding:12px 16px;margin-bottom:10px;
+  background:rgba(255,255,255,.02);border-radius:0 var(--radius-xs) var(--radius-xs) 0;
+}
+.ov-insight:last-child{margin-bottom:0;}
+.ov-insight-head{font-size:12px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.ov-insight-icon{font-size:14px;}
+.ov-insight-text{font-size:11px;color:var(--muted);line-height:1.6;}
+.ov-insight-text strong{color:var(--text);}
+.ov-insight-text a{text-decoration:none;font-weight:600;}
+
+/* ─── Citation Sources ─── */
+.ov-cit-list{display:flex;flex-direction:column;gap:6px;}
+.ov-cit-item{display:flex;align-items:center;gap:10px;padding:4px 0;}
+.ov-cit-item.ov-cit-own{background:rgba(16,185,129,.04);padding:6px 10px;margin:0 -10px;border-radius:var(--radius-xs);}
+.ov-cit-domain{font-family:var(--mono);font-size:11px;width:200px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ov-cit-own .ov-cit-domain{color:var(--green);font-weight:600;}
+.ov-cit-bar{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.ov-cit-bar-fill{height:100%;background:var(--primary,var(--green));border-radius:2px;transition:width .4s ease;}
+.ov-cit-count{font-family:var(--mono);font-size:10px;color:var(--muted);width:30px;text-align:right;flex-shrink:0;}
+.ov-cit-tip{
+  background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);
+  padding:10px 14px;margin-top:12px;font-size:11px;line-height:1.5;
+  color:var(--muted);border-radius:var(--radius-xs);
+}
+.ov-cit-tip strong{color:var(--text);}
+
 @media(max-width:768px){
   .ov-hero{flex-direction:column;gap:16px;padding:18px;}
   .ov-hero-stats{grid-template-columns:repeat(2,1fr);gap:12px;}
-  .ov-grid-2,.ov-grid-3{grid-template-columns:1fr;}
+  .ov-grid-2,.ov-grid-3,.ov-scores-row{grid-template-columns:1fr;}
   .ov-plat-grid{grid-template-columns:repeat(2,1fr);}
+  .ov-loc-grid{grid-template-columns:1fr;}
+  .ov-cit-domain{width:140px;}
 }
 
 .hamburger-btn{display:none;}
@@ -981,3 +1051,6 @@ select.finput{appearance:none;}
 /* ── LOADING SPINNER ──────────────── */
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── LIVE RESULT FADE-IN ───────── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}

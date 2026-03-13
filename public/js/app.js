@@ -923,6 +923,61 @@ function renderOverview(){
     healthEl.innerHTML = '';
   }
 
+  // ─── GEO & Sentiment Scores ──────────────────────────────────
+  const scoresRow = el('ov-scores-row');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const validResults = lastRun.allResults.filter(r => !r.error);
+    // GEO Score: weighted combination of mention rate, recommendation rate, and location relevance
+    const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
+    const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
+    const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
+    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : (b.city ? 0 : 1);
+    const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
+    const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
+    const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
+
+    // Sentiment breakdown
+    const mentionedResults = validResults.filter(r => r.mentioned);
+    const posCount = mentionedResults.filter(r => r.sentiment === 'positive').length;
+    const negCount = mentionedResults.filter(r => r.sentiment === 'negative').length;
+    const neuCount = mentionedResults.filter(r => r.sentiment === 'neutral').length;
+    const sentimentScore = mentionedResults.length > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedResults.length)) : 0;
+    const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
+
+    // Recommendation rate
+    const recPct = validResults.length > 0 ? Math.round(recommendRate * 100) : 0;
+    const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
+
+    scoresRow.innerHTML = `
+      <div class="ov-score-card">
+        <div class="ov-score-icon" style="color:${geoColor};">◎</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">GEO Score</div>
+          <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
+        </div>
+      </div>
+      <div class="ov-score-card">
+        <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">AI Sentiment</div>
+          <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
+        </div>
+      </div>
+      <div class="ov-score-card">
+        <div class="ov-score-icon" style="color:${recColor};">★</div>
+        <div class="ov-score-body">
+          <div class="ov-score-label">Recommended</div>
+          <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
+          <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    scoresRow.innerHTML = '';
+  }
+
   // ─── Category SOV + Best/Worst Row ───────────────────────────
   const catRow = el('ov-category-row');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
@@ -964,6 +1019,129 @@ function renderOverview(){
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null, !!best].filter(Boolean).length}, 1fr)`;
   } else {
     catRow.innerHTML = '';
+  }
+
+  // ─── Location Visibility ────────────────────────────────────
+  const locViz = el('ov-location-viz');
+  if (lastRun && lastRun.allResults && b.city) {
+    const validResults = lastRun.allResults.filter(r => !r.error && r.mentioned);
+    const withLoc = validResults.filter(r => r.locationRelevant !== undefined);
+    const locRelevant = withLoc.filter(r => r.locationRelevant);
+    const locRate = withLoc.length > 0 ? Math.round(locRelevant.length / withLoc.length * 100) : 0;
+
+    // Count matched locations
+    const locationCounts = {};
+    validResults.forEach(r => {
+      if (r.matchedLocation) {
+        const loc = r.matchedLocation.charAt(0).toUpperCase() + r.matchedLocation.slice(1);
+        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+      }
+    });
+    const topLocs = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const nearbyAreas = b.nearbyAreas || [];
+
+    let locHtml = `<div class="ov-card ov-loc-card">
+      <div class="ov-card-head">
+        <div class="ov-card-title">📍 Location Visibility</div>
+        <div class="ov-card-sub">${esc(b.city)}${nearbyAreas.length ? ' + ' + nearbyAreas.length + ' nearby areas' : ''}</div>
+      </div>
+      <div class="ov-loc-grid">
+        <div class="ov-loc-stat">
+          <div class="ov-loc-stat-val" style="color:${locRate >= 50 ? 'var(--green)' : locRate > 0 ? 'var(--amber)' : 'var(--red)'};">${locRate}%</div>
+          <div class="ov-loc-stat-lbl">City Match Rate</div>
+          <div class="ov-loc-stat-sub">AI mentions your location</div>
+        </div>
+        <div class="ov-loc-areas">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">AREAS WHERE AI FINDS YOU</div>`;
+    if (topLocs.length > 0) {
+      topLocs.forEach(([loc, count]) => {
+        locHtml += `<div class="ov-loc-area-tag"><span>${esc(loc)}</span><span class="ov-loc-area-count">${count}×</span></div>`;
+      });
+    } else {
+      locHtml += `<div style="font-size:11px;color:var(--muted);">No location matches found yet. Run more queries with location-specific terms.</div>`;
+    }
+    locHtml += `</div></div>`;
+    if (locRate < 50 && locRate >= 0) {
+      locHtml += `<div class="ov-loc-tip">💡 <strong>Tip:</strong> Include "${esc(b.city)}" in your queries (e.g., "best ${esc(b.industry || 'company')} in ${esc(b.city)}") to test local AI visibility.</div>`;
+    }
+    locHtml += `</div>`;
+    locViz.innerHTML = locHtml;
+    locViz.style.display = 'block';
+  } else {
+    locViz.style.display = 'none';
+  }
+
+  // ─── Actionable Insights ──────────────────────────────────────
+  const insightsEl = el('ov-insights');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const validResults = lastRun.allResults.filter(r => !r.error);
+    const tips = [];
+
+    // Analyze platform gaps
+    const platMentions = {};
+    PLATS.forEach(p => { platMentions[p] = { total: 0, found: 0 }; });
+    validResults.forEach(r => {
+      if (platMentions[r.platform]) {
+        platMentions[r.platform].total++;
+        if (r.mentioned) platMentions[r.platform].found++;
+      }
+    });
+
+    const strongPlats = [];
+    const weakPlats = [];
+    const missingPlats = [];
+    Object.entries(platMentions).forEach(([p, s]) => {
+      if (s.total === 0) return;
+      const rate = s.found / s.total;
+      if (rate >= 0.5) strongPlats.push(p);
+      else if (rate > 0) weakPlats.push(p);
+      else missingPlats.push(p);
+    });
+
+    if (strongPlats.length > 0 && missingPlats.length > 0) {
+      tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources — diversify your online presence.`, color: 'var(--amber)' });
+    }
+
+    if (sov === 0 && validResults.length > 0) {
+      tips.push({ type: 'zero', icon: '🎯', title: 'Getting Started with GEO', text: `AI platforms haven't picked up your brand yet. Focus on: <strong>structured data</strong> on your website, <strong>review profiles</strong> (Google, Yelp), and <strong>authoritative backlinks</strong>. These are what AI models reference.`, color: 'var(--blue)' });
+    } else if (sov > 0 && sov < 30) {
+      tips.push({ type: 'grow', icon: '📈', title: 'Growing Your AI Presence', text: `You're appearing in ${sov}% of queries. To boost this: create <strong>FAQ-style content</strong> that directly answers common questions, and ensure your <strong>Google Business Profile</strong> is fully optimized.`, color: 'var(--green)' });
+    }
+
+    // Sentiment insight
+    const mentionedResults = validResults.filter(r => r.mentioned);
+    const negResults = mentionedResults.filter(r => r.sentiment === 'negative');
+    if (negResults.length > 0) {
+      tips.push({ type: 'sentiment', icon: '⚠', title: 'Negative Sentiment Detected', text: `${negResults.length} AI response${negResults.length > 1 ? 's' : ''} show negative sentiment about your brand. Check <a href="#" onclick="go('mentions');return false;" style="color:var(--red);">All Results</a> to see what AI is saying and address underlying issues.`, color: 'var(--red)' });
+    }
+
+    // Recommendation tip
+    const recRate = mentionedResults.length > 0 ? mentionedResults.filter(r => r.recommended).length / mentionedResults.length : 0;
+    if (mentionedResults.length > 0 && recRate < 0.3) {
+      tips.push({ type: 'rec', icon: '★', title: 'Low Recommendation Rate', text: `AI mentions you but rarely <strong>recommends</strong> you. Earn more positive reviews, add customer testimonials to your site, and build authority with case studies and awards.`, color: 'var(--amber)' });
+    }
+
+    // Location tip
+    if (b.city && !b.nearbyAreas?.length) {
+      tips.push({ type: 'nearby', icon: '📍', title: 'Add Nearby Areas', text: `You've set ${esc(b.city)} as your location but haven't added nearby areas. Go to <a href="#" onclick="go('setup');return false;" style="color:var(--green);">Brand Setup</a> and auto-fetch nearby cities to expand local tracking.`, color: 'var(--blue)' });
+    }
+
+    if (tips.length > 0) {
+      let insHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Actionable Insights</div><div class="ov-card-sub">${tips.length} tip${tips.length !== 1 ? 's' : ''}</div></div>`;
+      tips.forEach(t => {
+        insHtml += `<div class="ov-insight" style="border-left-color:${t.color};">
+          <div class="ov-insight-head"><span class="ov-insight-icon">${t.icon}</span><strong>${t.title}</strong></div>
+          <div class="ov-insight-text">${t.text}</div>
+        </div>`;
+      });
+      insHtml += `</div>`;
+      insightsEl.innerHTML = insHtml;
+      insightsEl.style.display = 'block';
+    } else {
+      insightsEl.style.display = 'none';
+    }
+  } else {
+    insightsEl.style.display = 'none';
   }
 
   // ─── Platform Cards ──────────────────────────────────────────
@@ -1047,6 +1225,53 @@ function renderOverview(){
       compEl.innerHTML = compHtml;
     } else { compEl.innerHTML = ''; }
   } else { compEl.innerHTML = ''; }
+
+  // ─── Citation Sources ─────────────────────────────────────────
+  const citEl = el('ov-citations');
+  if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
+    const allCites = [];
+    lastRun.allResults.forEach(r => {
+      if (r.cites && r.cites.length) {
+        r.cites.forEach(url => allCites.push(url));
+      }
+    });
+    if (allCites.length > 0) {
+      // Group by domain
+      const domainCounts = {};
+      allCites.forEach(url => {
+        try {
+          const domain = new URL(url).hostname.replace(/^www\./, '');
+          domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+        } catch(e) {}
+      });
+      const topDomains = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const brandDomain = b.website ? b.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase() : '';
+
+      let citHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Citation Sources</div><div class="ov-card-sub">Where AI pulls information from</div></div>`;
+      citHtml += `<div class="ov-cit-list">`;
+      topDomains.forEach(([domain, count]) => {
+        const isOwn = brandDomain && domain.includes(brandDomain);
+        citHtml += `<div class="ov-cit-item${isOwn ? ' ov-cit-own' : ''}">
+          <span class="ov-cit-domain">${isOwn ? '★ ' : ''}${esc(domain)}</span>
+          <span class="ov-cit-bar"><span class="ov-cit-bar-fill" style="width:${Math.round(count / topDomains[0][1] * 100)}%;"></span></span>
+          <span class="ov-cit-count">${count}×</span>
+        </div>`;
+      });
+      citHtml += `</div>`;
+      if (!brandDomain) {
+        citHtml += `<div class="ov-cit-tip">💡 Add your website in <a href="#" onclick="go('setup');return false;" style="color:var(--green);">Brand Setup</a> to see if AI cites your own site.</div>`;
+      } else if (!topDomains.some(([d]) => d.includes(brandDomain))) {
+        citHtml += `<div class="ov-cit-tip">⚠ Your website <strong>${esc(brandDomain)}</strong> is not being cited by AI. Focus on building authoritative, AI-crawlable content.</div>`;
+      }
+      citHtml += `</div>`;
+      citEl.innerHTML = citHtml;
+      citEl.style.display = 'block';
+    } else {
+      citEl.style.display = 'none';
+    }
+  } else {
+    citEl.style.display = 'none';
+  }
 
   // ─── Last Run Summary ────────────────────────────────────────
   const lrs = el('ov-last-run-summary');
@@ -1303,7 +1528,9 @@ function renderMentions(){
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%';
+    const errCount = (r.allResults||[]).filter(x => x.error).length;
+    const errTag = errCount > 0 ? ` · ${errCount} error${errCount>1?'s':''}` : '';
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%' + errTag;
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -1323,9 +1550,10 @@ function renderMentions(){
 
   const filtered = allResults.filter(r => {
     if (filter === 'mentioned' && !r.mentioned) return false;
-    if (filter === 'not-mentioned' && r.mentioned) return false;
+    if (filter === 'not-mentioned' && (r.mentioned || r.error)) return false;
+    if (filter === 'errors' && !r.error) return false;
     if (searchTerm) {
-      const haystack = ((r.platform||'') + ' ' + (r.query||'') + ' ' + (r.raw||r.context||'') + ' ' + (r.model||'')).toLowerCase();
+      const haystack = ((r.platform||'') + ' ' + (r.query||'') + ' ' + (r.raw||r.context||'') + ' ' + (r.model||'') + ' ' + (r.errorMessage||'')).toLowerCase();
       if (!haystack.includes(searchTerm)) return false;
     }
     return true;
@@ -1345,8 +1573,29 @@ function renderMentions(){
   const runTime = new Date(run.time || run.date);
   const runTimeStr = runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 
+  // Error summary banner if run has errors
+  const errResults = allResults.filter(r => r.error);
+  const okResults = allResults.filter(r => !r.error);
   const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
-  let html = '<div class="mention-cards">';
+  let html = '';
+  if (errResults.length > 0) {
+    const errPlats = {};
+    errResults.forEach(r => { errPlats[r.platform] = (errPlats[r.platform]||0)+1; });
+    const errPlatStr = Object.entries(errPlats).map(([p,c]) => `${p}: ${c}`).join(' · ');
+    html += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div style="font-family:var(--mono);font-size:11px;">
+        <span style="color:var(--green);font-weight:700;">${okResults.length} succeeded</span>
+        <span style="color:var(--muted);margin:0 4px;">·</span>
+        <span style="color:var(--red);font-weight:700;">${errResults.length} failed</span>
+        <span style="color:var(--muted);font-size:10px;margin-left:8px;">${errPlatStr}</span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="el('mentions-filter-sel').value='errors';renderMentions()" class="btn" style="padding:3px 10px;font-size:10px;color:var(--red);border-color:rgba(239,68,68,.3);">Show Errors</button>
+        <button onclick="go('apilogs')" class="btn" style="padding:3px 10px;font-size:10px;color:var(--muted);">API Logs</button>
+      </div>
+    </div>`;
+  }
+  html += '<div class="mention-cards">';
   pageItems.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
@@ -1378,7 +1627,9 @@ function renderMentions(){
   });
   html += '</div>';
   html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">`;
-  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
+  const foundCount = allResults.filter(r=>r.mentioned).length;
+  const errCountBottom = errResults.length;
+  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${foundCount} found${errCountBottom > 0 ? ' · '+errCountBottom+' error'+(errCountBottom>1?'s':'') : ''}</div>`;
   if (totalPages > 1) {
     html += `<div style="display:flex;gap:6px;align-items:center;">`;
     html += `<button onclick="mentionsPage=0;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage===0?'disabled':''}>«</button>`;
@@ -2398,7 +2649,35 @@ async function deleteBrand(){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// ─── RUN QUERIES ──────────────────────────────────────────────────
+// ─── RUN QUERIES (streaming — results appear live) ───────────────
+function buildMentionCard(r, runTimeStr) {
+  const t = PLAT_THEME[r.platform]||{};
+  const isErr = r.error;
+  const preview = isErr ? friendlyError(r.errorMessage) : (r.context || '').replace(/[#*_~`]/g, '').substring(0, 180).replace(/\n/g, ' ');
+  const sent = r.sentiment || 'neutral';
+  const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
+  const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
+  const statusClass = isErr ? 'mention-error' : r.mentioned ? 'mention-found' : 'mention-notfound';
+  const statusText = isErr ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
+  const statusColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
+  return `<div class="mention-card ${statusClass}" style="animation:fadeIn .3s ease;">
+    <div class="mention-card-top">
+      <div class="mention-plat" style="background:${t.bg||'var(--bg3)'};border-color:${t.color||'var(--border)'}30;">
+        <span class="mention-plat-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
+        <span class="mention-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</span>
+      </div>
+      <span class="mention-status" style="color:${statusColor};border-color:${statusColor}30;background:${statusColor}08;">${statusText}</span>
+    </div>
+    <div class="mention-query">${esc(r.query)}</div>
+    <div class="mention-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=180?'...':''}</div>
+    <div class="mention-card-footer">
+      <span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" style="font-size:9px;">${sentLabel}</span>
+      <span class="mention-model">${esc(r.model||'—')}</span>
+      <span class="mention-time">${esc(runTimeStr)}</span>
+    </div>
+  </div>`;
+}
+
 async function runQueries(){
   if (runningQueries) return;
   const b = brand();
@@ -2418,7 +2697,7 @@ async function runQueries(){
   btn.textContent = '⏳ RUNNING...';
   prog.style.display = 'block';
   fill.style.width = '0%';
-  statusTxt.textContent = 'Sending queries to AI platforms...';
+  statusTxt.textContent = 'Connecting to AI platforms...';
 
   // Live timer
   const startTime = Date.now();
@@ -2433,106 +2712,163 @@ async function runQueries(){
     timerEl.textContent = fmtTime(Date.now()-startTime);
   }, 1000);
 
-  // Animate progress bar
-  let progress = 0;
-  const progInt = setInterval(() => {
-    progress = Math.min(progress+2, 90);
-    fill.style.width = progress+'%';
-  }, 400);
+  // Switch to mentions view immediately so user sees results appear
+  go('mentions');
+  const cont = el('mentions-container');
+  const now = new Date();
+  const runTimeStr = now.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+  // Live results tracking
+  let totalExpected = 0;
+  let received = 0;
+  let liveFound = 0;
+  let liveErrors = 0;
+
+  // Set up the live container
+  cont.innerHTML = `<div id="live-stats" style="background:var(--bg2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-family:var(--mono);font-size:11px;">
+    <span style="color:var(--muted);">Waiting for results...</span>
+  </div><div id="live-cards" class="mention-cards"></div>`;
+
+  function updateLiveStats() {
+    const statsEl = el('live-stats');
+    if (!statsEl) return;
+    const pct = totalExpected > 0 ? Math.round((received / totalExpected) * 100) : 0;
+    fill.style.width = pct + '%';
+    statsEl.innerHTML = `<span style="color:var(--green);font-weight:700;">${liveFound} found</span>` +
+      `<span style="color:var(--muted);margin:0 4px;">·</span>` +
+      `<span style="color:var(--muted);">${received - liveFound - liveErrors} not found</span>` +
+      (liveErrors > 0 ? `<span style="color:var(--muted);margin:0 4px;">·</span><span style="color:var(--red);font-weight:700;">${liveErrors} error${liveErrors>1?'s':''}</span>` : '') +
+      `<span style="color:var(--muted);margin:0 4px;">·</span>` +
+      `<span style="color:var(--muted);">${received}/${totalExpected} (${pct}%)</span>`;
+  }
 
   try {
-    const data = await api('POST', '/api/brands/'+b.id+'/run', { platforms: selectedPlats });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    const response = await fetch(API + '/api/brands/'+b.id+'/run?stream=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ platforms: selectedPlats })
+    });
 
-    clearInterval(progInt);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(errData.error || 'Request failed');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalData = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6)); } catch(_) { continue; }
+
+        if (evt.type === 'start') {
+          totalExpected = evt.totalExpected || 0;
+          statusTxt.textContent = `Running ${evt.queries?.length || 0} queries on ${evt.platforms?.length || 0} platforms...`;
+          updateLiveStats();
+        } else if (evt.type === 'result') {
+          received++;
+          const r = evt.result;
+          if (r.error) liveErrors++;
+          else if (r.mentioned) liveFound++;
+          // Append card to live container
+          const cardsEl = el('live-cards');
+          if (cardsEl) {
+            cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(r, runTimeStr));
+          }
+          statusTxt.textContent = `${received}/${totalExpected} — ${liveFound} found · ${fmtTime(Date.now()-startTime)}`;
+          updateLiveStats();
+        } else if (evt.type === 'done') {
+          finalData = evt;
+        } else if (evt.type === 'error') {
+          throw new Error(evt.error || 'Server error');
+        }
+      }
+    }
+
     clearInterval(timerInt);
     fill.style.width = '100%';
 
+    // Update brand data from final response
+    if (finalData && finalData.brand) {
+      brands[brands.findIndex(x=>x.id===b.id)] = finalData.brand;
+    } else {
+      // Fallback: reload brand data
+      try {
+        const freshData = await api('GET', '/api/brands');
+        if (freshData.brands) { brands = freshData.brands; }
+      } catch(_) {}
+    }
+
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
-    const errors = data.result.errorCount || 0;
-    const statusParts = [`Brand found in ${data.result.newMentions} of ${data.result.totalQ} responses`];
-    if (errors > 0) statusParts.push(`${errors} API error${errors>1?'s':''}`);
-    statusParts.push(elapsed);
-    statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
+    const result = finalData?.result || { totalQ: received, totalM: liveFound, sov: received > 0 ? Math.round((liveFound/received)*100) : 0, newMentions: liveFound, errorCount: liveErrors };
+    const errors = result.errorCount || liveErrors;
+
+    statusTxt.textContent = `Done! Brand found in ${result.newMentions} of ${result.totalQ} responses · ${elapsed}`;
 
     if (errors > 0) {
-      // Store errors persistently so API Logs always has them
       storeRunError({
         time: new Date().toISOString(),
         error: `${errors} API error(s) in run`,
         type: 'partial',
-        platformErrors: data.result.platformErrors || {}
+        platformErrors: result.platformErrors || {}
       });
+    }
 
-      // Show error details inline
-      if (data.result.platformErrors) {
-        const errDetails = Object.entries(data.result.platformErrors).map(([plat, msgs]) => {
-          const uniqueMsgs = [...new Set(msgs)];
-          return `${plat}: ${friendlyError(uniqueMsgs[0])}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
-        }).join('\n');
-        const errDiv = document.createElement('div');
-        errDiv.style.cssText = 'background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
-        errDiv.textContent = errDetails;
-        prog.appendChild(errDiv);
-      }
+    setTimeout(() => {
+      prog.style.display = 'none';
+      fill.style.width = '0%';
+      timerEl.textContent = '';
+    }, 5000);
 
-      // Redirect to API Logs so user can see full error details
-      toast(`Run complete with ${errors} error(s) — redirecting to API Logs`, 'warn');
-      setTimeout(() => {
-        prog.style.display = 'none';
-        prog.querySelectorAll('div[style*="rgba(255,68,68"]').forEach(d => d.remove());
-        fill.style.width = '0%';
-        timerEl.textContent = '';
-        go('apilogs');
-      }, 4000);
+    // Re-render mentions with full data (enables filters, pagination, VIEW FULL buttons)
+    renderMentions();
+
+    if (errors > 0) {
+      const okCount = result.totalQ - errors;
+      toast(`Run complete — ${okCount} succeeded, ${errors} failed. Filter by "Errors" in Mentions.`, 'warn');
     } else {
-      setTimeout(() => {
-        prog.style.display = 'none';
-        fill.style.width = '0%';
-        timerEl.textContent = '';
-      }, 5000);
-      go('mentions');
-      const toastMsg = data.result.sov === 0
-        ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
-        : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
-      toast(toastMsg, data.result.sov > 0 ? 'ok' : 'warn');
+      const toastMsg = result.sov === 0
+        ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
+        : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`;
+      toast(toastMsg, result.sov > 0 ? 'ok' : 'warn');
     }
   } catch(e) {
-    clearInterval(progInt);
     clearInterval(timerInt);
-    timerEl.textContent = '';
     statusTxt.style.color = 'var(--red)';
     statusTxt.textContent = 'Run failed: ' + e.message;
     fill.style.width = '0%';
     fill.style.background = 'var(--red)';
 
-    // Store the failure persistently
-    storeRunError({
-      time: new Date().toISOString(),
-      error: e.message,
-      type: 'crash'
-    });
+    storeRunError({ time: new Date().toISOString(), error: e.message, type: 'crash' });
 
     // Reload brand data (emergency save may have stored partial results)
     try {
-      const savedErrors = JSON.parse(localStorage.getItem('trackly_run_errors') || '[]');
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
         brands = freshData.brands;
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-      // Restore errors after reload (they're in localStorage, not brand object)
     } catch(_) {}
 
-    toast('Run failed — opening API Logs', 'err');
-
+    toast('Run failed — check API Logs for details.', 'err');
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
       fill.style.background = '';
-      go('apilogs');
+      renderMentions();
     }, 2000);
   }
 
@@ -2625,7 +2961,9 @@ async function renderApiLogs(){
     // Stats summary
     const statsEl = el('apilogs-stats');
     if (statsEl) {
-      statsEl.innerHTML = `Last 24h: <span style="color:var(--green);">${stats.success || 0} ok</span> · <span style="color:var(--red);">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms`;
+      const totalCost24h = stats.total_cost ? '$' + stats.total_cost.toFixed(4) : '$0.00';
+      const totalTokens24h = ((stats.total_tokens_in || 0) + (stats.total_tokens_out || 0)).toLocaleString();
+      statsEl.innerHTML = `Last 24h: <span style="color:var(--green);">${stats.success || 0} ok</span> · <span style="color:var(--red);">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms · <span style="color:var(--amber);font-weight:700;">${totalCost24h}</span> cost · ${totalTokens24h} tokens`;
     }
 
     // Render logs table
@@ -2635,34 +2973,56 @@ async function renderApiLogs(){
       return;
     }
 
+    // Calculate running total cost
+    let runningCostTotal = 0;
+    // Logs are newest-first; reverse to accumulate oldest-first, then map back
+    const logsWithRunning = logs.slice().reverse().map(log => {
+      runningCostTotal += parseFloat(log.cost) || 0;
+      return { ...log, runningCost: runningCostTotal };
+    }).reverse();
+
     let tbl = `<div style="overflow-x:auto;max-height:600px;overflow-y:auto;">
       <table class="tbl" style="width:100%;font-size:11px;">
       <thead style="position:sticky;top:0;background:var(--bg2);z-index:1;"><tr>
         <th style="width:130px;">Time</th>
         <th style="width:80px;">Platform</th>
+        <th style="width:120px;">Model</th>
         <th>Query</th>
         <th style="width:60px;">Status</th>
-        <th style="width:60px;">Key</th>
+        <th style="width:80px;">Tokens</th>
+        <th style="width:60px;">Cost</th>
+        <th style="width:70px;">Running</th>
         <th style="width:50px;">Time</th>
+        <th style="width:60px;">Key</th>
         <th>Error</th>
       </tr></thead><tbody>`;
 
-    logs.forEach(log => {
+    logsWithRunning.forEach(log => {
       const dt = new Date(log.created_at);
       const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const isErr = log.status === 'error';
       const t = PLAT_THEME[log.platform] || {};
       const queryShort = (log.query || '').length > 50 ? log.query.substring(0, 50) + '...' : (log.query || '—');
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
+      const totalTokens = (log.tokens_in || 0) + (log.tokens_out || 0);
+      const tokenStr = totalTokens > 0 ? totalTokens.toLocaleString() : '—';
+      const costVal = parseFloat(log.cost) || 0;
+      const costStr = costVal > 0 ? '$' + costVal.toFixed(4) : '—';
+      const runCostStr = log.runningCost > 0 ? '$' + log.runningCost.toFixed(4) : '—';
+      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-|mistral-)/, '').substring(0, 18);
 
       tbl += `<tr style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
         <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;">${esc(timeStr)}</td>
         <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.model || '')}">${esc(modelShort || '—')}</td>
         <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
         <td style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${isErr ? 'FAIL' : 'OK'}</span></td>
-        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;" title="In: ${(log.tokens_in||0).toLocaleString()} / Out: ${(log.tokens_out||0).toLocaleString()}">${tokenStr}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:600;">${costStr}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--text);text-align:right;font-weight:700;">${runCostStr}</td>
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${respTime}</td>
-        <td style="font-size:10px;color:var(--red);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
+        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
+        <td style="font-size:10px;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
       </tr>`;
     });
 

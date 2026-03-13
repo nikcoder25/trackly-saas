@@ -705,8 +705,17 @@
       <!-- API Health Banner -->
       <div id="ov-api-health"></div>
 
+      <!-- GEO & Sentiment Scores Row -->
+      <div class="ov-scores-row" id="ov-scores-row"></div>
+
       <!-- Category SOV + Best/Worst Row -->
       <div class="ov-grid-3" id="ov-category-row"></div>
+
+      <!-- Location Visibility -->
+      <div id="ov-location-viz" style="display:none;"></div>
+
+      <!-- Actionable Insights -->
+      <div id="ov-insights" style="display:none;"></div>
 
       <!-- Platform Cards -->
       <div id="ov-plat-grid" class="ov-plat-grid"></div>
@@ -725,6 +734,9 @@
         <div id="ov-query-perf"></div>
         <div id="ov-competitors"></div>
       </div>
+
+      <!-- Citation Sources -->
+      <div id="ov-citations" style="display:none;"></div>
 
       <!-- Last Run Summary -->
       <div id="ov-last-run-summary" style="display:none;"></div>
@@ -772,6 +784,7 @@
             <option value="all">All Results</option>
             <option value="mentioned">Found Only</option>
             <option value="not-mentioned">Not Found Only</option>
+            <option value="errors">Errors Only</option>
           </select>
           <input class="finput" id="mentions-search" type="text" placeholder="Search results..." style="flex:1;min-width:160px;margin:0;" oninput="renderMentions()">
         </div>
