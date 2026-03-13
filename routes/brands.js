@@ -240,8 +240,11 @@ router.post('/:id/run', auth, async (req, res) => {
   const platSOV = {};
   totalQ = 0; totalM = 0;
 
+  // Generate run ID early so it can be attached to every API log entry
+  const runId = uid();
+
   // Log context for tracking every API call in the database
-  const logCtx = { userId: req.user.id, brandId: brand.id, logFn: logApiCall };
+  const logCtx = { userId: req.user.id, brandId: brand.id, runId, logFn: logApiCall };
 
   // Run all platforms in parallel, and within each platform run queries
   // in parallel batches (batch size = number of API keys for that platform)
@@ -326,7 +329,7 @@ router.post('/:id/run', auth, async (req, res) => {
   const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
 
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  brand.runs.push({ id: runId, date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
 
   // Archive old runs to separate table to prevent unbounded JSONB growth
   if (brand.runs.length > 30) {

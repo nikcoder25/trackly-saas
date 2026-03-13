@@ -116,6 +116,7 @@ async function initDB() {
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS tokens_in INTEGER DEFAULT 0;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS tokens_out INTEGER DEFAULT 0;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cost NUMERIC(12,8);
+      ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS run_id TEXT;
     `);
     // Add unique index on username (only for non-null values)
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;`);
@@ -150,13 +151,14 @@ async function notify(userId, type, title, message, data) {
 async function logApiCall(entry) {
   try {
     await pool.query(
-      `INSERT INTO api_logs (user_id, brand_id, platform, query, status, error, key_hint, model, response_ms, tokens_in, tokens_out, cost)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      `INSERT INTO api_logs (user_id, brand_id, platform, query, status, error, key_hint, model, response_ms, tokens_in, tokens_out, cost, run_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         entry.userId || null, entry.brandId || null, entry.platform,
         entry.query || null, entry.status || 'ok', entry.error || null,
         entry.keyHint || null, entry.model || null, entry.responseMs || null,
-        entry.tokensIn || 0, entry.tokensOut || 0, entry.cost || null
+        entry.tokensIn || 0, entry.tokensOut || 0, entry.cost || null,
+        entry.runId || null
       ]
     );
   } catch(e) {

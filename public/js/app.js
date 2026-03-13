@@ -882,10 +882,33 @@ function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
 function setupLiveMentions() {
   const cont = el('mentions-container');
   if (!cont) return;
+  const found = liveResults.filter(r=>r.mentioned).length;
+  const errs = liveResults.filter(r=>r.error).length;
   const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+
+  // Update stats bar with live data
+  const statsBar = el('mentions-stats-bar');
+  if (statsBar) {
+    const ok = liveResults.length - errs;
+    const sov = ok > 0 ? Math.round(found / ok * 100) : 0;
+    statsBar.innerHTML = `<div class="m-stats-bar ov-card-updating">
+      <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+      <div class="m-stat"><div class="m-stat-val">${sov}%</div><div class="m-stat-lbl">SOV</div></div>
+      <div class="m-stat-sep"></div>
+      <div class="m-stat"><div class="m-stat-val" style="color:var(--green);">${found}</div><div class="m-stat-lbl">Found</div></div>
+      <div class="m-stat"><div class="m-stat-val">${ok - found}</div><div class="m-stat-lbl">Not Found</div></div>
+      ${errs ? `<div class="m-stat"><div class="m-stat-val" style="color:var(--red);">${errs}</div><div class="m-stat-lbl">Errors</div></div>` : ''}
+      <div class="m-stat-sep"></div>
+      <div class="m-stat"><div class="m-stat-val">${liveResults.length}</div><div class="m-stat-lbl">Total</div></div>
+    </div>`;
+  }
+  // Hide platform filters during live
+  const platFilters = el('mentions-plat-filters');
+  if (platFilters) platFilters.innerHTML = '';
+
   cont.innerHTML = `<div id="live-stats" style="background:var(--bg2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:12px;">
-    <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
-    <span style="color:var(--green);font-weight:700;">${liveResults.filter(r=>r.mentioned).length} found</span>
+    <div class="ov-live-badge"><span class="ov-live-dot"></span>STREAMING</div>
+    <span style="color:var(--green);font-weight:700;">${found} found</span>
     <span style="color:var(--muted);">·</span>
     <span style="color:var(--muted);">${liveResults.length} results</span>
   </div><div id="live-cards" class="mention-cards"></div>`;
@@ -1793,10 +1816,14 @@ async function aiGenerateQueries(){
 let mentionsPage = 0;
 const MENTIONS_PER_PAGE = 25;
 
+let mentionsPlatFilter = 'all';
+
 function renderMentions(){
   const b = brand();
   if (!b) return;
   const cont = el('mentions-container');
+  const statsBar = el('mentions-stats-bar');
+  const platFilters = el('mentions-plat-filters');
 
   // Populate run selector
   const sel = el('mentions-run-sel');
@@ -1804,7 +1831,9 @@ function renderMentions(){
   sel.innerHTML = '';
   const runs = (b.runs||[]).slice().reverse();
   if (!runs.length) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to collect data.</p></div>';
+    statsBar.innerHTML = '';
+    platFilters.innerHTML = '';
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to see AI responses.</p></div>';
     return;
   }
   runs.forEach((r,i) => {
@@ -1812,26 +1841,65 @@ function renderMentions(){
     opt.value = r.id;
     const d = new Date(r.time || r.date);
     const errCount = (r.allResults||[]).filter(x => x.error).length;
-    const errTag = errCount > 0 ? ` · ${errCount} error${errCount>1?'s':''}` : '';
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%' + errTag;
+    const errTag = errCount > 0 ? ` · ${errCount} err` : '';
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — SOV '+r.sov+'%' + errTag;
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
 
   const selectedRunId = sel.value;
   const run = (b.runs||[]).find(r => r.id === selectedRunId);
-  if (!run) { cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
+  if (!run) { statsBar.innerHTML=''; platFilters.innerHTML=''; cont.innerHTML = '<div class="empty-state"><p>Select a run to see results.</p></div>'; return; }
 
-  const filter = el('mentions-filter-sel').value;
-  const searchTerm = (el('mentions-search').value || '').trim().toLowerCase();
   const allResults = run.allResults || [];
-
   if (!allResults.length) {
+    statsBar.innerHTML=''; platFilters.innerHTML='';
     cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results in this run.</p></div>';
     return;
   }
 
+  // Stats summary bar
+  const okResults = allResults.filter(r => !r.error);
+  const foundAll = allResults.filter(r => r.mentioned);
+  const errResults = allResults.filter(r => r.error);
+  const posResults = foundAll.filter(r => r.sentiment === 'positive');
+  const negResults = foundAll.filter(r => r.sentiment === 'negative');
+  const recResults = foundAll.filter(r => r.recommended);
+
+  statsBar.innerHTML = `<div class="m-stats-bar" style="animation:fadeInUp .3s ease;">
+    <div class="m-stat"><div class="m-stat-val">${run.sov}%</div><div class="m-stat-lbl">SOV</div></div>
+    <div class="m-stat-sep"></div>
+    <div class="m-stat"><div class="m-stat-val" style="color:var(--green);">${foundAll.length}</div><div class="m-stat-lbl">Found</div></div>
+    <div class="m-stat"><div class="m-stat-val">${okResults.length - foundAll.length}</div><div class="m-stat-lbl">Not Found</div></div>
+    ${errResults.length ? `<div class="m-stat"><div class="m-stat-val" style="color:var(--red);">${errResults.length}</div><div class="m-stat-lbl">Errors</div></div>` : ''}
+    <div class="m-stat-sep"></div>
+    <div class="m-stat"><div class="m-stat-val" style="color:var(--green);">${posResults.length}</div><div class="m-stat-lbl">Positive</div></div>
+    <div class="m-stat"><div class="m-stat-val" style="color:var(--red);">${negResults.length}</div><div class="m-stat-lbl">Negative</div></div>
+    <div class="m-stat"><div class="m-stat-val" style="color:var(--blue);">${recResults.length}</div><div class="m-stat-lbl">Recommended</div></div>
+    <div class="m-stat-sep"></div>
+    <div class="m-stat"><div class="m-stat-val">${allResults.length}</div><div class="m-stat-lbl">Total</div></div>
+  </div>`;
+
+  // Platform filter chips
+  const platCounts = {};
+  allResults.forEach(r => {
+    if (!platCounts[r.platform]) platCounts[r.platform] = { total: 0, found: 0 };
+    platCounts[r.platform].total++;
+    if (r.mentioned) platCounts[r.platform].found++;
+  });
+  let pfHtml = `<button class="m-plat-chip ${mentionsPlatFilter==='all'?'active':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;renderMentions()">All</button>`;
+  Object.entries(platCounts).forEach(([p, c]) => {
+    const t = PLAT_THEME[p]||{};
+    pfHtml += `<button class="m-plat-chip ${mentionsPlatFilter===p?'active':''}" onclick="mentionsPlatFilter='${p}';mentionsPage=0;renderMentions()" style="${mentionsPlatFilter===p?'border-color:'+t.color+';color:'+t.color+';':''}"><span style="color:${t.color||'var(--muted)'};margin-right:4px;">${t.logo||'?'}</span>${p} <span class="m-plat-count">${c.found}/${c.total}</span></button>`;
+  });
+  platFilters.innerHTML = pfHtml;
+
+  // Apply filters
+  const filter = el('mentions-filter-sel').value;
+  const searchTerm = (el('mentions-search').value || '').trim().toLowerCase();
+
   const filtered = allResults.filter(r => {
+    if (mentionsPlatFilter !== 'all' && r.platform !== mentionsPlatFilter) return false;
     if (filter === 'mentioned' && !r.mentioned) return false;
     if (filter === 'not-mentioned' && (r.mentioned || r.error)) return false;
     if (filter === 'errors' && !r.error) return false;
@@ -1843,7 +1911,7 @@ function renderMentions(){
   });
 
   if (!filtered.length) {
-    cont.innerHTML = '<div class="empty-state"><p>No results match your filter.</p></div>';
+    cont.innerHTML = '<div class="empty-state"><p>No results match your filters.</p></div>';
     return;
   }
 
@@ -1856,70 +1924,56 @@ function renderMentions(){
   const runTime = new Date(run.time || run.date);
   const runTimeStr = runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 
-  // Error summary banner if run has errors
-  const errResults = allResults.filter(r => r.error);
-  const okResults = allResults.filter(r => !r.error);
-  const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
-  let html = '';
-  if (errResults.length > 0) {
-    const errPlats = {};
-    errResults.forEach(r => { errPlats[r.platform] = (errPlats[r.platform]||0)+1; });
-    const errPlatStr = Object.entries(errPlats).map(([p,c]) => `${p}: ${c}`).join(' · ');
-    html += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div style="font-family:var(--mono);font-size:11px;">
-        <span style="color:var(--green);font-weight:700;">${okResults.length} succeeded</span>
-        <span style="color:var(--muted);margin:0 4px;">·</span>
-        <span style="color:var(--red);font-weight:700;">${errResults.length} failed</span>
-        <span style="color:var(--muted);font-size:10px;margin-left:8px;">${errPlatStr}</span>
-      </div>
-      <div style="display:flex;gap:6px;">
-        <button onclick="el('mentions-filter-sel').value='errors';renderMentions()" class="btn" style="padding:3px 10px;font-size:10px;color:var(--red);border-color:rgba(239,68,68,.3);">Show Errors</button>
-        <button onclick="go('apilogs')" class="btn" style="padding:3px 10px;font-size:10px;color:var(--muted);">API Logs</button>
-      </div>
+  // Render results as a clean table
+  let html = `<div class="m-results-table">
+    <div class="m-results-header">
+      <div class="m-rh-plat">Platform</div>
+      <div class="m-rh-query">Query</div>
+      <div class="m-rh-status">Status</div>
+      <div class="m-rh-sentiment">Sentiment</div>
+      <div class="m-rh-preview">Response Preview</div>
+      <div class="m-rh-actions"></div>
     </div>`;
-  }
-  html += '<div class="mention-cards">';
-  pageItems.forEach(r => {
+
+  pageItems.forEach((r, i) => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
-    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 180).replace(/\n/g, ' ');
+    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 220).replace(/\n/g, ' ');
     const sent = r.sentiment || 'neutral';
-    const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
-    const statusClass = isErr ? 'mention-error' : r.mentioned ? 'mention-found' : 'mention-notfound';
     const statusText = isErr ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
     const statusColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
-    const viewBtn = isErr ? '' : `<button onclick="openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mention-view-btn">VIEW FULL &#x2197;</button>`;
+    const borderColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'transparent';
+    const viewBtn = isErr ? '' : `<button onclick="openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mention-view-btn">VIEW &#x2197;</button>`;
 
-    html += `<div class="mention-card ${statusClass}">
-      <div class="mention-card-top">
-        <div class="mention-plat" style="background:${t.bg||'var(--bg3)'};border-color:${t.color||'var(--border)'}30;">
-          <span class="mention-plat-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
-          <span class="mention-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</span>
+    html += `<div class="m-result-row" style="border-left:3px solid ${borderColor};animation:fadeIn .25s ease ${Math.min(i*0.03, 0.3)}s both;">
+      <div class="m-r-plat">
+        <span class="m-r-plat-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
+        <div>
+          <div class="m-r-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</div>
+          <div class="m-r-model">${esc(r.model||'—')}</div>
         </div>
-        <span class="mention-status" style="color:${statusColor};border-color:${statusColor}30;background:${statusColor}08;">${statusText}</span>
       </div>
-      <div class="mention-query">${esc(r.query)}</div>
-      <div class="mention-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=180?'...':''}</div>
-      <div class="mention-card-footer">
-        <span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" style="font-size:9px;">${sentLabel}</span>
-        <span class="mention-model">${esc(r.model||'—')}</span>
-        <span class="mention-time">${esc(runTimeStr)}</span>
-        ${viewBtn}
+      <div class="m-r-query">${esc(r.query)}</div>
+      <div class="m-r-status"><span class="m-status-badge" style="color:${statusColor};border-color:${statusColor}30;background:${statusColor}08;">${statusText}</span></div>
+      <div class="m-r-sentiment">
+        ${isErr ? '<span style="color:var(--muted);">—</span>' : `<span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" style="font-size:9px;">${sent==='positive'?'Positive':sent==='negative'?'Negative':'Neutral'}</span>${r.recommended?'<span class="badge pos" style="font-size:8px;margin-left:4px;">REC</span>':''}`}
       </div>
+      <div class="m-r-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=220?'...':''}</div>
+      <div class="m-r-actions">${viewBtn}</div>
     </div>`;
   });
-  html += '</div>';
-  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">`;
-  const foundCount = allResults.filter(r=>r.mentioned).length;
-  const errCountBottom = errResults.length;
-  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${foundCount} found${errCountBottom > 0 ? ' · '+errCountBottom+' error'+(errCountBottom>1?'s':'') : ''}</div>`;
+  html += `</div>`;
+
+  // Pagination
+  html += `<div class="m-pagination">`;
+  html += `<div class="m-page-info">${pageStart+1}–${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length}</div>`;
   if (totalPages > 1) {
-    html += `<div style="display:flex;gap:6px;align-items:center;">`;
-    html += `<button onclick="mentionsPage=0;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage===0?'disabled':''}>«</button>`;
-    html += `<button onclick="mentionsPage--;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage===0?'disabled':''}>‹</button>`;
-    html += `<span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Page ${mentionsPage+1}/${totalPages}</span>`;
-    html += `<button onclick="mentionsPage++;renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage>=totalPages-1?'disabled':''}>›</button>`;
-    html += `<button onclick="mentionsPage=${totalPages-1};renderMentions()" class="btn" style="padding:4px 8px;font-size:10px;" ${mentionsPage>=totalPages-1?'disabled':''}>»</button>`;
+    html += `<div class="m-page-btns">`;
+    html += `<button onclick="mentionsPage=0;renderMentions()" class="m-page-btn" ${mentionsPage===0?'disabled':''}>«</button>`;
+    html += `<button onclick="mentionsPage--;renderMentions()" class="m-page-btn" ${mentionsPage===0?'disabled':''}>‹</button>`;
+    html += `<span class="m-page-num">${mentionsPage+1} / ${totalPages}</span>`;
+    html += `<button onclick="mentionsPage++;renderMentions()" class="m-page-btn" ${mentionsPage>=totalPages-1?'disabled':''}>›</button>`;
+    html += `<button onclick="mentionsPage=${totalPages-1};renderMentions()" class="m-page-btn" ${mentionsPage>=totalPages-1?'disabled':''}>»</button>`;
     html += `</div>`;
   }
   html += `</div>`;
@@ -3267,15 +3321,41 @@ async function renderApiLogs(){
       return;
     }
 
-    // Calculate running total cost
-    let runningCostTotal = 0;
-    // Logs are newest-first; reverse to accumulate oldest-first, then map back
-    const logsWithRunning = logs.slice().reverse().map(log => {
-      runningCostTotal += parseFloat(log.cost) || 0;
-      return { ...log, runningCost: runningCostTotal };
-    }).reverse();
+    // Group logs by run_id
+    const runGroups = [];
+    const runMap = {};
+    const ungrouped = [];
+    logs.forEach(log => {
+      if (log.run_id) {
+        if (!runMap[log.run_id]) {
+          runMap[log.run_id] = { id: log.run_id, logs: [], totalCost: 0, totalTokens: 0, totalMs: 0, ok: 0, errors: 0, platforms: new Set(), startTime: null, endTime: null };
+          runGroups.push(runMap[log.run_id]);
+        }
+        const g = runMap[log.run_id];
+        g.logs.push(log);
+        g.totalCost += parseFloat(log.cost) || 0;
+        g.totalTokens += (log.tokens_in || 0) + (log.tokens_out || 0);
+        g.totalMs += log.response_ms || 0;
+        if (log.status === 'error') g.errors++; else g.ok++;
+        g.platforms.add(log.platform);
+        const t = new Date(log.created_at).getTime();
+        if (!g.startTime || t < g.startTime) g.startTime = t;
+        if (!g.endTime || t > g.endTime) g.endTime = t;
+      } else {
+        ungrouped.push(log);
+      }
+    });
 
-    let tbl = `<div style="overflow-x:auto;max-height:600px;overflow-y:auto;">
+    // Calculate running total across all logs
+    let runningCostTotal = 0;
+    const logsReversed = logs.slice().reverse();
+    const runningMap = {};
+    logsReversed.forEach(log => {
+      runningCostTotal += parseFloat(log.cost) || 0;
+      runningMap[log.id] = runningCostTotal;
+    });
+
+    let tbl = `<div style="overflow-x:auto;max-height:700px;overflow-y:auto;">
       <table class="tbl" style="width:100%;font-size:11px;">
       <thead style="position:sticky;top:0;background:var(--bg2);z-index:1;"><tr>
         <th style="width:130px;">Time</th>
@@ -3291,7 +3371,45 @@ async function renderApiLogs(){
         <th>Error</th>
       </tr></thead><tbody>`;
 
-    logsWithRunning.forEach(log => {
+    // Render grouped runs + ungrouped logs in chronological order (newest first)
+    // Build a flat render list with run summaries interleaved
+    const renderItems = [];
+    const processedRunIds = new Set();
+    logs.forEach(log => {
+      if (log.run_id && !processedRunIds.has(log.run_id)) {
+        processedRunIds.add(log.run_id);
+        const g = runMap[log.run_id];
+        renderItems.push({ type: 'run-summary', group: g });
+        g.logs.forEach(l => renderItems.push({ type: 'log', log: l, runId: log.run_id }));
+      } else if (!log.run_id) {
+        renderItems.push({ type: 'log', log, runId: null });
+      }
+    });
+
+    renderItems.forEach(item => {
+      if (item.type === 'run-summary') {
+        const g = item.group;
+        const startDt = new Date(g.startTime);
+        const timeStr = startDt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + startDt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+        const durationSec = g.endTime && g.startTime ? Math.round((g.endTime - g.startTime) / 1000) : 0;
+        const durStr = durationSec >= 60 ? Math.floor(durationSec/60) + 'm ' + (durationSec%60) + 's' : durationSec + 's';
+        const costStr = g.totalCost > 0 ? '$' + g.totalCost.toFixed(4) : '$0.00';
+        const platList = [...g.platforms].join(', ');
+        tbl += `<tr style="background:rgba(59,130,246,.06);border-top:2px solid rgba(59,130,246,.3);cursor:pointer;" onclick="this.classList.toggle('run-collapsed');let s=this.nextElementSibling;while(s&&s.dataset.runid==='${g.id}'){s.style.display=s.style.display==='none'?'':'none';s=s.nextElementSibling;}">
+          <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;color:var(--blue);font-weight:700;">▶ ${esc(timeStr)}</td>
+          <td colspan="2" style="font-size:10px;font-weight:700;color:var(--text);">${g.ok + g.errors} calls · ${[...g.platforms].length} platforms</td>
+          <td style="font-size:10px;color:var(--muted);">${esc(platList)}</td>
+          <td style="text-align:center;"><span style="color:var(--green);font-weight:700;font-size:10px;">${g.ok}</span>${g.errors ? ` <span style="color:var(--red);font-weight:700;font-size:10px;">${g.errors}</span>` : ''}</td>
+          <td style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;">${g.totalTokens.toLocaleString()}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--amber);text-align:right;font-weight:800;">${costStr}</td>
+          <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:700;">RUN TOTAL</td>
+          <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${durStr}</td>
+          <td colspan="2" style="font-family:var(--mono);font-size:9px;color:var(--blue);">▾ click to toggle</td>
+        </tr>`;
+        return;
+      }
+
+      const log = item.log;
       const dt = new Date(log.created_at);
       const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
       const isErr = log.status === 'error';
@@ -3302,11 +3420,13 @@ async function renderApiLogs(){
       const tokenStr = totalTokens > 0 ? totalTokens.toLocaleString() : '—';
       const costVal = parseFloat(log.cost) || 0;
       const costStr = costVal > 0 ? '$' + costVal.toFixed(4) : '—';
-      const runCostStr = log.runningCost > 0 ? '$' + log.runningCost.toFixed(4) : '—';
+      const runCost = runningMap[log.id] || 0;
+      const runCostStr = runCost > 0 ? '$' + runCost.toFixed(4) : '—';
       const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-|mistral-)/, '').substring(0, 18);
+      const dataAttr = item.runId ? ` data-runid="${item.runId}"` : '';
 
-      tbl += `<tr style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
-        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;">${esc(timeStr)}</td>
+      tbl += `<tr${dataAttr} style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
+        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
         <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
         <td style="font-family:var(--mono);font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.model || '')}">${esc(modelShort || '—')}</td>
         <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>

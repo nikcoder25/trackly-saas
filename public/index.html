@@ -773,20 +773,28 @@
 
     <!-- MENTIONS ─────────────────────────── -->
     <div id="view-mentions" class="view">
-      <div class="view-title">All Results</div>
-      <div class="view-sub">Every AI response from your queries — see exactly what each platform said.</div>
-      <div class="card" style="padding:12px 16px;margin-bottom:16px;">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RUN:</div>
-          <select class="finput" id="mentions-run-sel" style="width:220px;margin:0;" onchange="renderMentions()"></select>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FILTER:</div>
-          <select class="finput" id="mentions-filter-sel" style="width:150px;margin:0;" onchange="renderMentions()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div class="view-title" style="margin-bottom:2px;">AI Results</div>
+          <div class="view-sub" style="margin-bottom:0;">Every response from AI platforms — see exactly what was said about your brand.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="finput" id="mentions-run-sel" style="width:220px;margin:0;font-size:11px;" onchange="mentionsPage=0;renderMentions()"></select>
+        </div>
+      </div>
+      <!-- Run stats summary -->
+      <div id="mentions-stats-bar"></div>
+      <!-- Filters -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <div id="mentions-plat-filters" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <select class="finput" id="mentions-filter-sel" style="width:140px;margin:0;font-size:11px;" onchange="mentionsPage=0;renderMentions()">
             <option value="all">All Results</option>
             <option value="mentioned">Found Only</option>
             <option value="not-mentioned">Not Found Only</option>
             <option value="errors">Errors Only</option>
           </select>
-          <input class="finput" id="mentions-search" type="text" placeholder="Search results..." style="flex:1;min-width:160px;margin:0;" oninput="renderMentions()">
+          <input class="finput" id="mentions-search" type="text" placeholder="Search..." style="width:150px;margin:0;font-size:11px;" oninput="mentionsPage=0;renderMentions()">
         </div>
       </div>
       <div id="mentions-container">
