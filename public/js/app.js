@@ -888,15 +888,18 @@ function setupLiveMentions() {
   const sov = ok > 0 ? Math.round(found / ok * 100) : 0;
   const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
 
-  // Live KPI bar
+  // Live score cards
   const kpis = el('mentions-kpis');
   if (kpis) {
-    kpis.innerHTML = `<div class="mn-kpi-bar ov-card-updating">
-      <div class="ov-live-badge" style="margin-right:8px;"><span class="ov-live-dot"></span>LIVE</div>
-      <div class="mn-kpi-item"><div class="mn-kpi-num">${sov}%</div><div class="mn-kpi-lbl">Visibility</div></div>
-      <div class="mn-kpi-sep"></div>
-      <div class="mn-kpi-item"><div class="mn-kpi-num" style="color:var(--green);">${found}</div><div class="mn-kpi-lbl">Mentioned</div></div>
-      <div class="mn-kpi-item"><div class="mn-kpi-num">${liveResults.length}</div><div class="mn-kpi-lbl">Received</div></div>
+    kpis.innerHTML = `<div class="mt-scores ov-card-updating">
+      <div class="mt-score">
+        <div class="mt-score-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--green)" stroke-width="3" stroke-dasharray="${sov} ${100-sov}" stroke-dashoffset="25" stroke-linecap="round"/></svg><span class="mt-score-pct">${sov}%</span></div>
+        <div><div class="mt-score-title">Share of Voice</div><div class="mt-score-detail"><span style="color:var(--green);font-weight:700;">${found}</span> of ${ok} · streaming...</div></div>
+      </div>
+      <div class="mt-score">
+        <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+        <div><div class="mt-score-title">Results Received</div><div class="mt-score-detail" style="font-size:20px;font-weight:800;color:var(--text);">${liveResults.length}</div></div>
+      </div>
     </div>`;
   }
   const platFilters = el('mentions-plat-filters');
@@ -1813,21 +1816,18 @@ let mentionsExpandedRow = null;
 function exportMentionsCSV(){
   const b = brand();
   if (!b) return;
-  const sel = el('mentions-run-sel');
-  const run = (b.runs||[]).find(r => r.id === sel.value);
+  const run = (b.runs||[]).find(r => r.id === el('mentions-run-sel').value);
   if (!run || !run.allResults) return;
   const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview']];
   run.allResults.forEach(r => {
     const preview = (r.raw || r.context || '').replace(/[#*_~`\n]/g,' ').substring(0,300);
-    rows.push([r.platform, r.model||'', r.query, r.error?'ERROR':r.mentioned?'Found':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
+    rows.push([r.platform, r.model||'', r.query, r.error?'ERROR':r.mentioned?'Mentioned':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
   });
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `trackly-mentions-${new Date().toISOString().slice(0,10)}.csv`;
-  a.click(); URL.revokeObjectURL(url);
-  toast('CSV exported');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `trackly-mentions-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); toast('CSV exported');
 }
 
 function toggleMentionRow(idx){
@@ -1849,184 +1849,190 @@ function renderMentions(){
   const runs = (b.runs||[]).slice().reverse();
   if (!runs.length) {
     kpis.innerHTML = ''; platFilters.innerHTML = '';
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries first.</p></div>';
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet — run queries to start tracking.</p></div>';
     return;
   }
   runs.forEach(r => {
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — ' + r.sov + '% SOV';
+    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + '  ·  SOV ' + r.sov + '%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
 
   const run = (b.runs||[]).find(r => r.id === sel.value);
   if (!run) { kpis.innerHTML=''; platFilters.innerHTML=''; cont.innerHTML=''; return; }
-  const allResults = run.allResults || [];
-  if (!allResults.length) {
+  const all = run.allResults || [];
+  if (!all.length) {
     kpis.innerHTML=''; platFilters.innerHTML='';
     cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results in this run.</p></div>';
     return;
   }
-  const selectedRunId = sel.value;
+  const runId = sel.value;
 
-  // Metrics
-  const ok = allResults.filter(r => !r.error);
-  const found = allResults.filter(r => r.mentioned);
-  const errs = allResults.filter(r => r.error);
+  // ── Metrics ──
+  const ok = all.filter(r => !r.error);
+  const found = all.filter(r => r.mentioned);
+  const notfound = ok.filter(r => !r.mentioned);
+  const errs = all.filter(r => r.error);
   const pos = found.filter(r => r.sentiment === 'positive');
   const neg = found.filter(r => r.sentiment === 'negative');
   const rec = found.filter(r => r.recommended);
   const sovPct = ok.length ? Math.round(found.length / ok.length * 100) : 0;
   const recPct = ok.length ? Math.round(rec.length / ok.length * 100) : 0;
 
-  // ── Compact KPI bar ──
-  kpis.innerHTML = `<div class="mn-kpi-bar">
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num" style="color:var(--text);">${sovPct}%</div>
-      <div class="mn-kpi-lbl">Visibility</div>
+  // ── Score cards (3 cards) ──
+  kpis.innerHTML = `<div class="mt-scores">
+    <div class="mt-score">
+      <div class="mt-score-ring">
+        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--green)" stroke-width="3" stroke-dasharray="${sovPct} ${100-sovPct}" stroke-dashoffset="25" stroke-linecap="round" style="transition:stroke-dasharray .6s ease;"/></svg>
+        <span class="mt-score-pct">${sovPct}%</span>
+      </div>
+      <div>
+        <div class="mt-score-title">Share of Voice</div>
+        <div class="mt-score-detail"><span style="color:var(--green);font-weight:700;">${found.length}</span> mentioned out of ${ok.length} queries</div>
+      </div>
     </div>
-    <div class="mn-kpi-sep"></div>
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num" style="color:var(--green);">${found.length}</div>
-      <div class="mn-kpi-lbl">Mentioned</div>
+    <div class="mt-score">
+      <div class="mt-score-ring">
+        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="${recPct} ${100-recPct}" stroke-dashoffset="25" stroke-linecap="round" style="transition:stroke-dasharray .6s ease;"/></svg>
+        <span class="mt-score-pct">${recPct}%</span>
+      </div>
+      <div>
+        <div class="mt-score-title">Recommendation Rate</div>
+        <div class="mt-score-detail"><span style="color:var(--accent);font-weight:700;">${rec.length}</span> of ${ok.length} recommend your brand</div>
+      </div>
     </div>
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num" style="color:var(--red);">${ok.length - found.length}</div>
-      <div class="mn-kpi-lbl">Not Found</div>
-    </div>
-    ${errs.length ? `<div class="mn-kpi-item"><div class="mn-kpi-num" style="color:var(--amber);">${errs.length}</div><div class="mn-kpi-lbl">Errors</div></div>` : ''}
-    <div class="mn-kpi-sep"></div>
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num" style="color:var(--green);">${pos.length}</div>
-      <div class="mn-kpi-lbl">Positive</div>
-    </div>
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num" style="color:var(--red);">${neg.length}</div>
-      <div class="mn-kpi-lbl">Negative</div>
-    </div>
-    <div class="mn-kpi-sep"></div>
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num" style="color:var(--accent);">${recPct}%</div>
-      <div class="mn-kpi-lbl">Recommended</div>
-    </div>
-    <div class="mn-kpi-item">
-      <div class="mn-kpi-num">${allResults.length}</div>
-      <div class="mn-kpi-lbl">Total</div>
+    <div class="mt-score mt-score-breakdown">
+      <div class="mt-score-title" style="margin-bottom:8px;">Breakdown</div>
+      <div class="mt-breakdown-grid">
+        <div class="mt-bd"><span class="mt-bd-dot" style="background:var(--green);"></span>Positive <strong>${pos.length}</strong></div>
+        <div class="mt-bd"><span class="mt-bd-dot" style="background:var(--red);"></span>Negative <strong>${neg.length}</strong></div>
+        <div class="mt-bd"><span class="mt-bd-dot" style="background:var(--muted);"></span>Neutral <strong>${found.length - pos.length - neg.length}</strong></div>
+        ${errs.length ? `<div class="mt-bd"><span class="mt-bd-dot" style="background:var(--amber);"></span>Errors <strong>${errs.length}</strong></div>` : ''}
+      </div>
     </div>
   </div>`;
 
   // ── Platform chips ──
-  const platCounts = {};
-  allResults.forEach(r => {
-    if (!platCounts[r.platform]) platCounts[r.platform] = { total: 0, found: 0 };
-    platCounts[r.platform].total++;
-    if (r.mentioned) platCounts[r.platform].found++;
+  const pc = {};
+  all.forEach(r => { if (!pc[r.platform]) pc[r.platform]={t:0,f:0}; pc[r.platform].t++; if(r.mentioned)pc[r.platform].f++; });
+  let chips = `<button class="mt-chip ${mentionsPlatFilter==='all'?'mt-chip-active':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All <span class="mt-chip-n">${all.length}</span></button>`;
+  Object.entries(pc).sort((a,b)=>b[1].f-a[1].f).forEach(([p,c])=>{
+    const t=PLAT_THEME[p]||{};
+    const on=mentionsPlatFilter===p;
+    chips+=`<button class="mt-chip ${on?'mt-chip-active':''}" onclick="mentionsPlatFilter='${p}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()" style="${on?'border-color:'+t.color+';background:'+t.bg+';color:'+t.color+';':''}"><span style="color:${t.color||'#888'}">${t.logo||'?'}</span> ${p} <span class="mt-chip-n">${c.f}/${c.t}</span></button>`;
   });
-  let chipHtml = `<button class="mn-chip ${mentionsPlatFilter==='all'?'mn-chip-on':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All</button>`;
-  Object.entries(platCounts).sort((a,b) => b[1].found - a[1].found).forEach(([p, c]) => {
-    const t = PLAT_THEME[p]||{};
-    const on = mentionsPlatFilter===p;
-    chipHtml += `<button class="mn-chip ${on?'mn-chip-on':''}" onclick="mentionsPlatFilter='${p}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()" style="${on?'border-color:'+t.color+';color:'+t.color+';':''}"><span style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span> ${p} <span class="mn-chip-ct">${c.found}/${c.total}</span></button>`;
-  });
-  platFilters.innerHTML = chipHtml;
+  platFilters.innerHTML = chips;
 
-  // ── Filter ──
-  const filter = el('mentions-filter-sel').value;
-  const search = (el('mentions-search').value || '').trim().toLowerCase();
-  const filtered = allResults.filter(r => {
-    if (mentionsPlatFilter !== 'all' && r.platform !== mentionsPlatFilter) return false;
-    if (filter === 'mentioned' && !r.mentioned) return false;
-    if (filter === 'not-mentioned' && (r.mentioned || r.error)) return false;
-    if (filter === 'recommended' && !r.recommended) return false;
-    if (filter === 'errors' && !r.error) return false;
-    if (search) {
-      const hay = ((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')+' '+(r.model||'')).toLowerCase();
-      if (!hay.includes(search)) return false;
-    }
+  // ── Filter + search ──
+  const fv = el('mentions-filter-sel').value;
+  const sq = (el('mentions-search').value||'').trim().toLowerCase();
+  const filtered = all.filter(r => {
+    if (mentionsPlatFilter!=='all' && r.platform!==mentionsPlatFilter) return false;
+    if (fv==='mentioned' && !r.mentioned) return false;
+    if (fv==='not-mentioned' && (r.mentioned||r.error)) return false;
+    if (fv==='recommended' && !r.recommended) return false;
+    if (fv==='errors' && !r.error) return false;
+    if (sq && !((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')+' '+(r.model||'')).toLowerCase().includes(sq)) return false;
     return true;
   });
 
   if (!filtered.length) {
-    cont.innerHTML = '<div class="empty-state" style="padding:40px;"><p>No results match your filters.</p></div>';
+    cont.innerHTML = '<div class="empty-state" style="padding:48px 0;"><p>No results match your filters.</p></div>';
     return;
   }
 
-  const totalPages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
-  if (mentionsPage >= totalPages) mentionsPage = totalPages - 1;
+  const pages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
+  if (mentionsPage >= pages) mentionsPage = pages - 1;
   if (mentionsPage < 0) mentionsPage = 0;
-  const start = mentionsPage * MENTIONS_PER_PAGE;
-  const page = filtered.slice(start, start + MENTIONS_PER_PAGE);
+  const from = mentionsPage * MENTIONS_PER_PAGE;
+  const slice = filtered.slice(from, from + MENTIONS_PER_PAGE);
 
-  // ── Build result cards ──
-  let html = '<div class="mn-list">';
-  page.forEach((r, i) => {
+  // ── Result list ──
+  let html = '';
+  slice.forEach((r, i) => {
     const t = PLAT_THEME[r.platform]||{};
+    const gi = from + i;
+    const open = mentionsExpandedRow === gi;
     const isErr = r.error;
-    const gi = start + i;
-    const expanded = mentionsExpandedRow === gi;
-    const sent = r.sentiment || 'neutral';
-    const statusTxt = isErr ? 'Error' : r.mentioned ? 'Mentioned' : 'Not Found';
-    const statusCls = isErr ? 'mn-s-err' : r.mentioned ? 'mn-s-found' : 'mn-s-notfound';
-    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0,200);
+    const sent = r.sentiment||'neutral';
+    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw||r.context||'').replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0,180);
 
-    html += `<div class="mn-card ${expanded?'mn-card-open':''}" onclick="toggleMentionRow(${gi})" style="animation:fadeIn .2s ease ${Math.min(i*0.03,0.3)}s both;">
-      <div class="mn-card-row">
-        <div class="mn-card-plat" style="color:${t.color||'var(--muted)'}">
-          <span class="mn-card-logo">${t.logo||'?'}</span>
-          <span class="mn-card-pname">${esc(r.platform)}</span>
+    // Status
+    let statusHtml, borderClr;
+    if (isErr) { statusHtml = '<span class="mt-tag mt-tag-err">Error</span>'; borderClr = 'var(--amber)'; }
+    else if (r.mentioned) { statusHtml = '<span class="mt-tag mt-tag-yes">Mentioned</span>'; borderClr = 'var(--green)'; }
+    else { statusHtml = '<span class="mt-tag mt-tag-no">Not Found</span>'; borderClr = 'var(--red)'; }
+
+    // Sentiment + rec
+    let metaHtml = '';
+    if (!isErr) {
+      if (sent==='positive') metaHtml += '<span class="mt-tag mt-tag-pos">Positive</span>';
+      else if (sent==='negative') metaHtml += '<span class="mt-tag mt-tag-neg">Negative</span>';
+      if (r.recommended) metaHtml += '<span class="mt-tag mt-tag-rec">Recommended</span>';
+    }
+
+    html += `<div class="mt-item ${open?'mt-item-open':''}" style="--accent-clr:${borderClr};animation:fadeIn .2s ease ${Math.min(i*0.03,.25)}s both;">
+      <div class="mt-item-main" onclick="toggleMentionRow(${gi})">
+        <div class="mt-item-left">
+          <div class="mt-item-plat" style="background:${t.bg||'var(--bg3)'};border-color:${(t.color||'var(--border)')}25;">
+            <span style="color:${t.color||'#888'};font-size:15px;">${t.logo||'?'}</span>
+          </div>
+          <div class="mt-item-text">
+            <div class="mt-item-query">${esc(r.query)}</div>
+            <div class="mt-item-meta">
+              <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
+              <span class="mt-item-model">${esc(r.model||'')}</span>
+            </div>
+          </div>
         </div>
-        <div class="mn-card-query">${esc(r.query)}</div>
-        <div class="mn-card-badges">
-          <span class="mn-badge ${statusCls}">${statusTxt}</span>
-          ${!isErr ? `<span class="mn-badge mn-b-${sent}">${sent==='positive'?'Positive':sent==='negative'?'Negative':'Neutral'}</span>` : ''}
-          ${r.recommended ? '<span class="mn-badge mn-b-rec">Recommended</span>' : ''}
+        <div class="mt-item-right">
+          <div class="mt-item-tags">${statusHtml}${metaHtml}</div>
+          <span class="mt-item-chevron">${open?'▾':'▸'}</span>
         </div>
-        <span class="mn-card-arrow">${expanded?'▾':'▸'}</span>
       </div>
-      ${!expanded ? `<div class="mn-card-preview">${esc(preview)}${preview.length>=200?'…':''}</div>` : ''}
+      ${!open ? `<div class="mt-item-preview">${esc(preview)}${preview.length>=180?'…':''}</div>` : ''}
     </div>`;
 
-    if (expanded) {
-      const full = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '');
+    // ── Expanded detail ──
+    if (open) {
+      const full = isErr ? friendlyError(r.errorMessage) : (r.raw||r.context||'');
       const hre = brandHighlightRe(b);
-      const highlighted = hre ? mdToHtml(full).replace(hre, '<mark style="background:rgba(255,97,84,.12);color:var(--green);border-radius:3px;padding:1px 3px;">$1</mark>') : mdToHtml(full);
-      html += `<div class="mn-expand" style="animation:fadeIn .15s ease;">
-        <div class="mn-expand-body">
-          <div class="mn-expand-resp">${highlighted}</div>
+      const hlHtml = hre ? mdToHtml(full).replace(hre,'<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>') : mdToHtml(full);
+
+      html += `<div class="mt-detail" style="animation:slideDown .2s ease;">
+        <div class="mt-detail-body">
+          <div class="mt-detail-label">AI Response</div>
+          <div class="mt-detail-text">${hlHtml}</div>
         </div>
-        <div class="mn-expand-side">
-          <div class="mn-expand-info">
-            <div class="mn-info-r"><span class="mn-info-k">Platform</span><span class="mn-info-v" style="color:${t.color||'var(--text)'};">${t.logo||''} ${esc(r.platform)}</span></div>
-            <div class="mn-info-r"><span class="mn-info-k">Model</span><span class="mn-info-v">${esc(r.model||'—')}</span></div>
-            <div class="mn-info-r"><span class="mn-info-k">Status</span><span class="mn-info-v" style="color:${isErr?'var(--amber)':r.mentioned?'var(--green)':'var(--red)'};">${statusTxt}</span></div>
-            <div class="mn-info-r"><span class="mn-info-k">Sentiment</span><span class="mn-info-v">${isErr?'—':sent}</span></div>
-            <div class="mn-info-r"><span class="mn-info-k">Recommended</span><span class="mn-info-v">${r.recommended?'<span style="color:var(--green);">Yes</span>':'No'}</span></div>
-            ${r.matchedLocation?`<div class="mn-info-r"><span class="mn-info-k">Location</span><span class="mn-info-v">${esc(r.matchedLocation)}</span></div>`:''}
-            ${r.cites?`<div class="mn-info-r"><span class="mn-info-k">Cited</span><span class="mn-info-v" style="color:var(--green);">Yes</span></div>`:''}
+        <div class="mt-detail-aside">
+          <div class="mt-detail-card">
+            <div class="mt-dc-row"><span>Platform</span><strong style="color:${t.color||'var(--text)'};">${t.logo||''} ${esc(r.platform)}</strong></div>
+            <div class="mt-dc-row"><span>Model</span><strong>${esc(r.model||'—')}</strong></div>
+            <div class="mt-dc-row"><span>Status</span><strong style="color:${borderClr};">${isErr?'Error':r.mentioned?'Mentioned':'Not Found'}</strong></div>
+            ${!isErr?`<div class="mt-dc-row"><span>Sentiment</span><strong>${sent}</strong></div>`:''}
+            <div class="mt-dc-row"><span>Recommended</span><strong>${r.recommended?'<span style="color:var(--green);">Yes</span>':'No'}</strong></div>
+            ${r.matchedLocation?`<div class="mt-dc-row"><span>Location</span><strong>${esc(r.matchedLocation)}</strong></div>`:''}
+            ${r.cites?`<div class="mt-dc-row"><span>Cited</span><strong style="color:var(--green);">Yes</strong></div>`:''}
           </div>
-          <button onclick="event.stopPropagation();openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mn-full-btn">View Full Response</button>
+          <button onclick="event.stopPropagation();openResultFromRun('${runId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>
         </div>
       </div>`;
     }
   });
-  html += '</div>';
 
-  // Pagination
-  if (totalPages > 1) {
-    html += `<div class="mn-pager">
-      <span class="mn-pager-info">${start+1}–${Math.min(start+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length}</span>
-      <div class="mn-pager-btns">
-        <button onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()" class="mn-pg-btn" ${mentionsPage===0?'disabled':''}>← Prev</button>`;
-    const ps = Math.max(0, mentionsPage - 2);
-    const pe = Math.min(totalPages - 1, ps + 4);
-    for (let p = ps; p <= pe; p++) {
-      html += `<button onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()" class="mn-pg-btn ${p===mentionsPage?'mn-pg-on':''}">${p+1}</button>`;
-    }
-    html += `<button onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()" class="mn-pg-btn" ${mentionsPage>=totalPages-1?'disabled':''}>Next →</button>
-      </div>
-    </div>`;
+  // ── Pagination ──
+  if (pages > 1) {
+    html += `<div class="mt-pager">
+      <span class="mt-pager-info">${from+1}–${Math.min(from+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length}</span>
+      <div class="mt-pager-btns">`;
+    if (mentionsPage > 0) html += `<button class="mt-pg" onclick="mentionsPage=0;mentionsExpandedRow=null;renderMentions()">«</button><button class="mt-pg" onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()">‹</button>`;
+    const ps = Math.max(0,mentionsPage-2), pe = Math.min(pages-1,ps+4);
+    for (let p=ps;p<=pe;p++) html += `<button class="mt-pg ${p===mentionsPage?'mt-pg-cur':''}" onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()">${p+1}</button>`;
+    if (mentionsPage < pages-1) html += `<button class="mt-pg" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()">›</button><button class="mt-pg" onclick="mentionsPage=${pages-1};mentionsExpandedRow=null;renderMentions()">»</button>`;
+    html += `</div></div>`;
   }
 
   cont.innerHTML = html;

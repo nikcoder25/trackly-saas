@@ -773,30 +773,34 @@
 
     <!-- MENTIONS ─────────────────────────── -->
     <div id="view-mentions" class="view">
-      <div class="mn-top">
-        <div>
-          <div class="view-title" style="margin-bottom:2px;">AI Mentions</div>
-          <div class="view-sub" style="margin-bottom:0;">See where and how AI platforms talk about your brand.</div>
+      <!-- Header row -->
+      <div class="mt-header">
+        <div class="mt-header-left">
+          <h2 class="mt-title">AI Mentions</h2>
+          <p class="mt-subtitle">Track how AI platforms mention your brand across all queries</p>
         </div>
-        <div class="mn-top-actions">
-          <select class="finput" id="mentions-run-sel" style="width:200px;margin:0;font-size:11px;" onchange="mentionsPage=0;mentionsExpandedRow=null;renderMentions()"></select>
-          <button class="mn-export-btn" onclick="exportMentionsCSV()" title="Export CSV">Export CSV</button>
+        <div class="mt-header-right">
+          <select class="finput mt-run-sel" id="mentions-run-sel" onchange="mentionsPage=0;mentionsExpandedRow=null;renderMentions()"></select>
+          <button class="mt-btn-export" onclick="exportMentionsCSV()">↓ Export</button>
         </div>
       </div>
+      <!-- Score cards -->
       <div id="mentions-kpis"></div>
-      <div class="mn-filters">
-        <div id="mentions-plat-filters" class="mn-chips"></div>
-        <div class="mn-filters-right">
-          <select class="finput mn-filter-sel" id="mentions-filter-sel" onchange="mentionsPage=0;renderMentions()">
-            <option value="all">All</option>
-            <option value="mentioned">Mentioned</option>
+      <!-- Filter bar -->
+      <div class="mt-filterbar">
+        <div id="mentions-plat-filters" class="mt-platforms"></div>
+        <div class="mt-filter-controls">
+          <select class="finput mt-sel" id="mentions-filter-sel" onchange="mentionsPage=0;renderMentions()">
+            <option value="all">All Results</option>
+            <option value="mentioned">Mentioned Only</option>
             <option value="not-mentioned">Not Mentioned</option>
             <option value="recommended">Recommended</option>
-            <option value="errors">Errors</option>
+            <option value="errors">Errors Only</option>
           </select>
-          <input class="finput mn-search" id="mentions-search" type="text" placeholder="Search..." oninput="mentionsPage=0;renderMentions()">
+          <input class="finput mt-search" id="mentions-search" type="text" placeholder="Filter by keyword..." oninput="mentionsPage=0;renderMentions()">
         </div>
       </div>
+      <!-- Results -->
       <div id="mentions-container"></div>
     </div>
 
