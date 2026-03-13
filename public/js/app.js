@@ -2553,7 +2553,31 @@ function renderQPerf(){
     </div>
   </div>`;
 
+  // ── Query Performance Summary Table ──
+  html += `<h4 style="margin:0 0 10px;font-size:13px;font-weight:700;color:var(--text);">Query Performance</h4>`;
+  html += `<div class="table-scroll" style="margin-bottom:24px;"><table class="tbl" style="font-size:12px;"><thead><tr>
+    <th style="min-width:200px;">Query</th>
+    <th style="width:60px;text-align:center;">Runs</th>
+    <th style="width:80px;text-align:center;">Mentions</th>
+    <th style="width:100px;text-align:center;">Mention Rate</th>
+    <th style="width:120px;"></th>
+  </tr></thead><tbody>`;
+  queries.forEach((q, idx) => {
+    const stat = qs[q] || { runs: 0, mentions: 0 };
+    const rate = stat.runs ? Math.round((stat.mentions / stat.runs) * 100) : 0;
+    const rateColor = rate > 60 ? 'var(--green)' : rate > 30 ? 'var(--amber)' : 'var(--red)';
+    html += `<tr style="animation:fadeIn .2s ease ${Math.min(idx*0.03,.3)}s both;">
+      <td style="font-weight:600;">${esc(q)}</td>
+      <td style="text-align:center;font-family:var(--mono);">${stat.runs}</td>
+      <td style="text-align:center;font-family:var(--mono);">${stat.mentions}</td>
+      <td style="text-align:center;font-family:var(--mono);font-weight:700;color:${rateColor};">${rate}%</td>
+      <td><div style="width:100%;height:6px;background:var(--border);border-radius:3px;"><div style="width:${rate}%;height:100%;background:${rateColor};border-radius:3px;transition:width .4s ease;"></div></div></td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+
   // ── Rank Matrix Table ──
+  html += `<h4 style="margin:0 0 10px;font-size:13px;font-weight:700;color:var(--text);">Platform Rank Matrix</h4>`;
   html += `<div class="table-scroll"><table class="tbl" style="font-size:12px;"><thead><tr>
     <th style="width:28px;text-align:center;padding:8px 4px;">
       <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:14px;height:14px;">
