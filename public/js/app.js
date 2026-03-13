@@ -1156,6 +1156,48 @@ function appendLiveProofCard(result) {
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────
+
+// Live countdown helpers for "last run" age display
+let _runAgeTimer = null;
+function _fmtRunAge(lastRun) {
+  if (!lastRun) return { text: 'Never', dot: '' };
+  const runTime = new Date(lastRun.time || lastRun.date);
+  const ageSec = Math.floor((Date.now() - runTime.getTime()) / 1000);
+  if (ageSec < 60) return { text: ageSec + 's ago', dot: 'ok' };
+  if (ageSec < 3600) {
+    const m = Math.floor(ageSec / 60);
+    const s = ageSec % 60;
+    return { text: m + 'm ' + s + 's ago', dot: 'ok' };
+  }
+  const ageMins = Math.floor(ageSec / 60);
+  if (ageMins < 1440) {
+    const h = Math.floor(ageMins / 60);
+    const m = ageMins % 60;
+    return { text: h + 'h ' + m + 'm ago', dot: ageMins > 720 ? 'warn' : 'ok' };
+  }
+  const d = Math.floor(ageMins / 1440);
+  return { text: d + 'd ago', dot: d > 3 ? 'bad' : 'warn' };
+}
+function _startRunAgeCountdown(lastRun) {
+  if (_runAgeTimer) clearInterval(_runAgeTimer);
+  if (!lastRun) return;
+  const ageSec = Math.floor((Date.now() - new Date(lastRun.time || lastRun.date).getTime()) / 1000);
+  // Tick every second for < 1 hour, every 30s for < 1 day, every 60s otherwise
+  const interval = ageSec < 3600 ? 1000 : ageSec < 86400 ? 30000 : 60000;
+  _runAgeTimer = setInterval(() => {
+    const { text, dot } = _fmtRunAge(lastRun);
+    // Update header age badge
+    const ageEl = document.querySelector('.ov-run-age');
+    if (ageEl) ageEl.innerHTML = `<span class="dot ${dot}"></span>${text}`;
+    // Update stat card age
+    const statEl = el('ov-last-run-age');
+    if (statEl) {
+      statEl.textContent = text;
+      statEl.style.color = dot === 'bad' ? 'var(--red)' : dot === 'warn' ? 'var(--amber)' : '';
+    }
+  }, interval);
+}
+
 function renderOverview(){
   const b = brand();
   if (!b) return;
@@ -1174,16 +1216,8 @@ function renderOverview(){
   el('ov-brand-title').textContent = b.name || 'Overview';
   el('ov-sub').textContent = [b.industry, b.city].filter(Boolean).join(' · ') || 'Select a brand and run queries to see results.';
 
-  // Header actions: Run button + last run age
-  let runAgeText = 'Never';
-  let ageDotClass = '';
-  if (lastRun) {
-    const runTime = new Date(lastRun.time || lastRun.date);
-    const ageMins = Math.floor((Date.now() - runTime.getTime()) / 60000);
-    if (ageMins < 60) { runAgeText = ageMins + 'm ago'; ageDotClass = 'ok'; }
-    else if (ageMins < 1440) { runAgeText = Math.floor(ageMins / 60) + 'h ago'; ageDotClass = ageMins > 720 ? 'warn' : 'ok'; }
-    else { runAgeText = Math.floor(ageMins / 1440) + 'd ago'; ageDotClass = parseInt(runAgeText) > 3 ? 'bad' : 'warn'; }
-  }
+  // Header actions: Run button + last run age (live countdown)
+  const { text: runAgeText, dot: ageDotClass } = _fmtRunAge(lastRun);
   const actionsEl = el('ov-header-actions');
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
@@ -1191,6 +1225,8 @@ function renderOverview(){
     actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '') +
       `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
   }
+  // Start live countdown ticker for the age displays
+  _startRunAgeCountdown(lastRun);
 
   // ─── SOV Hero ────────────────────────────────────────────────
   const sovColor = sov >= 70 ? 'var(--green)' : sov >= 40 ? 'var(--amber)' : sov > 0 ? 'var(--red)' : 'var(--muted)';
