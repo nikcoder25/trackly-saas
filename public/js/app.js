@@ -3081,14 +3081,19 @@ async function runQueries(){
 
     // Update brand data from final response
     if (finalData && finalData.brand) {
-      brands[brands.findIndex(x=>x.id===b.id)] = finalData.brand;
-    } else {
-      // Fallback: reload brand data
-      try {
-        const freshData = await api('GET', '/api/brands');
-        if (freshData.brands) { brands = freshData.brands; }
-      } catch(_) {}
+      const idx = brands.findIndex(x=>x.id===b.id);
+      if (idx >= 0) brands[idx] = finalData.brand;
     }
+    // Always reload fresh brand data to ensure we have complete results
+    // (the done event may be too large and get truncated)
+    try {
+      const freshData = await api('GET', '/api/brands');
+      if (freshData.brands) {
+        brands = freshData.brands;
+        renderBrandSelect();
+        if (currentBrandId) el('brand-select').value = currentBrandId;
+      }
+    } catch(_) {}
 
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
@@ -3115,6 +3120,7 @@ async function runQueries(){
     // Re-render current view with final data (enables filters, pagination, VIEW FULL buttons)
     liveResults = [];
     liveRunTime = null;
+    runningQueries = false;
     renderView(currentView);
 
     if (errors > 0) {
@@ -3147,6 +3153,9 @@ async function runQueries(){
 
     liveResults = [];
     liveRunTime = null;
+    runningQueries = false;
+    btn.classList.remove('running');
+    btn.textContent = '▶ RUN QUERIES';
     toast('Run failed — check API Logs for details.', 'err');
     setTimeout(() => {
       prog.style.display = 'none';
@@ -3154,6 +3163,7 @@ async function runQueries(){
       fill.style.background = '';
       renderView(currentView);
     }, 2000);
+    return;
   }
 
   runningQueries = false;
