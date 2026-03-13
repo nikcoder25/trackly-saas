@@ -869,10 +869,67 @@ function renderAll(){
   renderView(currentView);
 }
 
+// ─── LIVE RESULT NOTIFICATIONS ────────────────────────────────────
+const _NOTIF_MAX = 5;       // max visible at once
+const _NOTIF_DURATION = 3500; // ms before auto-dismiss
+function showLiveNotif(result) {
+  const cont = el('live-notifs');
+  if (!cont) return;
+  const t = PLAT_THEME[result.platform] || {};
+  const isErr = result.error;
+  const isMentioned = result.mentioned;
+
+  // Status label
+  let statusCls, statusText;
+  if (isErr) { statusCls = 'error'; statusText = 'Error'; }
+  else if (isMentioned) { statusCls = 'found'; statusText = 'Found'; }
+  else { statusCls = 'notfound'; statusText = 'Not Found'; }
+
+  const queryShort = (result.query || '').length > 45 ? result.query.substring(0, 45) + '...' : (result.query || '');
+
+  const notif = document.createElement('div');
+  notif.className = 'live-notif';
+  notif.innerHTML = `
+    <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
+    <div class="live-notif-body">
+      <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
+      <div class="live-notif-sub">${esc(queryShort)}</div>
+    </div>
+    <div class="live-notif-status ${statusCls}">${statusText}</div>`;
+
+  // Click to go to mentions view
+  notif.onclick = () => { notif.remove(); if (currentView !== 'mentions') switchView('mentions'); };
+
+  cont.appendChild(notif);
+
+  // Cap visible notifications
+  while (cont.children.length > _NOTIF_MAX) {
+    const oldest = cont.children[0];
+    oldest.classList.add('notif-exit');
+    setTimeout(() => oldest.remove(), 300);
+  }
+
+  // Auto-dismiss
+  setTimeout(() => {
+    if (notif.parentNode) {
+      notif.classList.add('notif-exit');
+      setTimeout(() => notif.remove(), 300);
+    }
+  }, _NOTIF_DURATION);
+}
+
+function clearLiveNotifs() {
+  const cont = el('live-notifs');
+  if (cont) cont.innerHTML = '';
+}
+
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
 // Called on every new result during streaming — updates whichever view is active
 function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
+
+  // Show bottom-right notification popup
+  showLiveNotif(result);
 
   // Update overview if visible (recalculate all stats from liveResults)
   if (currentView === 'overview') {
@@ -3354,6 +3411,7 @@ async function runQueries(){
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
+    clearLiveNotifs();
     renderView(currentView);
 
     if (errors > 0) {
@@ -3387,6 +3445,7 @@ async function runQueries(){
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
+    clearLiveNotifs();
     btn.classList.remove('running');
     btn.textContent = '▶ RUN QUERIES';
     toast('Run failed — check API Logs for details.', 'err');
