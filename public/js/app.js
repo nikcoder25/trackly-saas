@@ -139,7 +139,7 @@ function updatePasswordStrength(pw){
   if (/[A-Z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  const colors = ['var(--red)', 'var(--red)', 'var(--amber)', 'var(--green)', 'var(--green)'];
+  const colors = ['var(--danger,var(--red))', 'var(--danger,var(--red))', 'var(--warning,var(--amber))', 'var(--success,var(--green))', 'var(--success,var(--green))'];
   const labels = ['Too weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
   for (let i = 1; i <= 4; i++) {
     el('pw-bar-' + i).style.background = i <= score ? colors[score] : 'var(--border)';
@@ -306,10 +306,10 @@ async function doForgotPassword(){
   try {
     const data = await api('POST', '/api/auth/forgot-password', { email });
     msgEl.textContent = data.message || 'Reset link sent. Check your email.';
-    msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.background = 'rgba(0,255,136,.05)';
+    msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.background = 'var(--success-light,rgba(0,255,136,.05))';
     msgEl.style.display = 'block';
   } catch(e) {
-    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.background = 'rgba(255,68,85,.05)';
+    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--danger,var(--red))'; msgEl.style.color = 'var(--danger,var(--red))'; msgEl.style.background = 'var(--danger-light,rgba(255,68,85,.05))';
     msgEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'SEND RESET LINK';
@@ -330,10 +330,10 @@ async function doResetPassword(){
   try {
     const data = await api('POST', '/api/auth/reset-password', { token, newPassword: pw });
     msgEl.textContent = data.message || 'Password reset! You can now log in.';
-    msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.display = 'block';
+    msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.display = 'block';
     setTimeout(() => { window.location.href = '/'; }, 2000);
   } catch(e) {
-    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block';
+    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--danger,var(--red))'; msgEl.style.color = 'var(--danger,var(--red))'; msgEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'RESET PASSWORD';
   }
@@ -1164,12 +1164,12 @@ function renderOverview(){
         datasets: [{
           label: 'SOV %',
           data: miniData,
-          borderColor: '#00ff88',
-          backgroundColor: 'rgba(0,255,136,0.08)',
+          borderColor: '#FF6154',
+          backgroundColor: 'rgba(255,97,84,0.08)',
           fill: true,
           tension: 0.3,
           pointRadius: 3,
-          pointBackgroundColor: '#00ff88'
+          pointBackgroundColor: '#FF6154'
         }]
       },
       options: {
@@ -1873,11 +1873,11 @@ function renderTrends(){
       datasets: [{
         label: 'Overall SOV %',
         data: sovData,
-        borderColor: '#00ff88',
-        backgroundColor: 'rgba(0,255,136,0.1)',
+        borderColor: '#FF6154',
+        backgroundColor: 'rgba(255,97,84,0.1)',
         fill: true,
         tension: 0.3,
-        pointBackgroundColor: '#00ff88',
+        pointBackgroundColor: '#FF6154',
         pointRadius: 4,
         pointHoverRadius: 6
       }]
@@ -1885,10 +1885,10 @@ function renderTrends(){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#888', font: { family: "'Space Mono', monospace", size: 11 } } } },
+      plugins: { legend: { labels: { color: '#888', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
       scales: {
-        x: { ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
-        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        x: { ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
+        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
       }
     }
   });
@@ -1917,10 +1917,10 @@ function renderTrends(){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#888', font: { family: "'Space Mono', monospace", size: 10 } } } },
+      plugins: { legend: { labels: { color: '#888', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
       scales: {
-        x: { ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
-        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        x: { ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
+        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
       }
     }
   });

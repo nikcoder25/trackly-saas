@@ -23,37 +23,38 @@ function seoPage({ title, description, keywords, h1, subtitle, content, canonica
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${description}">
-<meta name="theme-color" content="#00ff88">
+<meta name="theme-color" content="#FF6154">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-:root{--bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--border:#2a2a2a;--text:#e8e8e8;--muted:#666;--green:#00ff88;--red:#ff4455;--blue:#3b82f6;--font:'Syne',sans-serif;--mono:'Space Mono',monospace;}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
-a{color:var(--green);text-decoration:none;}a:hover{text-decoration:underline;}
-.seo-nav{display:flex;align-items:center;padding:16px 40px;border-bottom:1px solid var(--border);background:rgba(10,10,10,.95);position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);}
-.seo-nav-logo{font-size:22px;font-weight:800;letter-spacing:-1px;color:var(--text);text-decoration:none;}.seo-nav-logo span{color:var(--green);}
-.seo-nav-links{display:flex;gap:24px;margin-left:40px;}.seo-nav-links a{color:var(--muted);font-size:13px;font-weight:600;}
-.seo-nav-right{margin-left:auto;}.seo-btn{padding:8px 20px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;border:none;background:var(--green);color:#000;text-decoration:none;display:inline-block;}
+:root{--bg:#ffffff;--bg2:#f5f3f0;--bg3:#fafafa;--border:#e8e5e1;--text:#1a1a2e;--muted:#64748b;--primary:#FF6154;--accent:#6366f1;--success:#10b981;--font:'Inter',system-ui,-apple-system,sans-serif;--mono:'JetBrains Mono',monospace;--radius:12px;--radius-sm:8px;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+a{color:var(--primary);text-decoration:none;}a:hover{text-decoration:underline;}
+.seo-nav{display:flex;align-items:center;padding:16px 48px;border-bottom:1px solid rgba(0,0,0,.06);background:rgba(255,255,255,.92);position:sticky;top:0;z-index:50;backdrop-filter:blur(20px);}
+.seo-nav-logo{font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--text);text-decoration:none;}.seo-nav-logo span{color:var(--primary);}
+.seo-nav-links{display:flex;gap:28px;margin-left:40px;}.seo-nav-links a{color:var(--muted);font-size:14px;font-weight:500;}
+.seo-nav-right{margin-left:auto;}.seo-btn{padding:10px 24px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--primary);color:#fff;text-decoration:none;display:inline-block;border-radius:var(--radius-sm);transition:all .2s;box-shadow:0 1px 2px rgba(255,97,84,.3);}
+.seo-btn:hover{background:#e8503f;transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,97,84,.3);text-decoration:none;}
 .seo-hero{text-align:center;padding:80px 20px 60px;max-width:800px;margin:0 auto;}
-.seo-hero h1{font-size:clamp(28px,5vw,48px);font-weight:800;letter-spacing:-2px;line-height:1.15;margin-bottom:20px;}
-.seo-hero h1 span{color:var(--green);}
-.seo-hero p{color:var(--muted);font-size:16px;line-height:1.7;margin-bottom:32px;}
+.seo-hero h1{font-size:clamp(28px,5vw,48px);font-weight:800;letter-spacing:-2px;line-height:1.15;margin-bottom:20px;color:var(--text);}
+.seo-hero h1 span{background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.seo-hero p{color:var(--muted);font-size:17px;line-height:1.7;margin-bottom:32px;}
 .seo-content{max-width:800px;margin:0 auto;padding:0 20px 60px;}
-.seo-content h2{font-size:24px;font-weight:700;margin:40px 0 16px;letter-spacing:-0.5px;}
-.seo-content h3{font-size:18px;font-weight:700;margin:28px 0 12px;}
-.seo-content p{color:var(--muted);font-size:14px;line-height:1.8;margin-bottom:16px;}
-.seo-content ul{list-style:none;margin-bottom:20px;}.seo-content ul li{font-size:14px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--border);}
-.seo-content ul li::before{content:'\\2713 ';color:var(--green);}
-.seo-content .highlight{background:var(--bg2);border:1px solid var(--border);padding:20px;margin:20px 0;}
-.seo-cta{text-align:center;padding:60px 20px;border-top:1px solid var(--border);}
-.seo-cta h2{font-size:28px;font-weight:800;margin-bottom:12px;}
-.seo-cta p{color:var(--muted);font-size:14px;margin-bottom:24px;}
-.seo-footer{border-top:1px solid var(--border);padding:24px 40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
-.seo-footer-text{font-size:12px;color:var(--muted);}
-.seo-footer-links{display:flex;gap:16px;flex-wrap:wrap;}.seo-footer-links a{color:var(--muted);font-size:12px;}
-@media(max-width:768px){.seo-nav{padding:12px 16px;}.seo-nav-links{display:none;}.seo-footer{flex-direction:column;text-align:center;}}
+.seo-content h2{font-size:24px;font-weight:700;margin:40px 0 16px;letter-spacing:-0.5px;color:var(--text);}
+.seo-content h3{font-size:18px;font-weight:700;margin:28px 0 12px;color:var(--text);}
+.seo-content p{color:var(--muted);font-size:15px;line-height:1.8;margin-bottom:16px;}
+.seo-content ul{list-style:none;margin-bottom:20px;}.seo-content ul li{font-size:14px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);}
+.seo-content ul li::before{content:'\\2713 ';color:var(--success);font-weight:700;}
+.seo-content .highlight{background:var(--bg2);border:1px solid var(--border);padding:24px;margin:20px 0;border-radius:var(--radius);}
+.seo-cta{text-align:center;padding:60px 20px;background:var(--bg2);border-top:1px solid var(--border);}
+.seo-cta h2{font-size:28px;font-weight:800;margin-bottom:12px;color:var(--text);}
+.seo-cta p{color:var(--muted);font-size:15px;margin-bottom:24px;}
+.seo-footer{border-top:1px solid var(--border);padding:28px 48px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;background:var(--bg2);}
+.seo-footer-text{font-size:13px;color:var(--muted);}
+.seo-footer-links{display:flex;gap:20px;flex-wrap:wrap;}.seo-footer-links a{color:var(--muted);font-size:13px;font-weight:500;}
+@media(max-width:768px){.seo-nav{padding:14px 20px;}.seo-nav-links{display:none;}.seo-footer{flex-direction:column;text-align:center;padding:24px 20px;}}
 </style>
 </head>
 <body>
@@ -84,7 +85,7 @@ ${content}
   <h2>Ready to track your AI visibility?</h2>
   <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek & Mistral.</p>
   <a class="seo-btn" href="/" style="padding:14px 36px;font-size:15px;">Get Started Free</a>
-  <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:12px;">No credit card required.</p>
+  <p style="font-size:13px;color:var(--muted);margin-top:12px;">No credit card required.</p>
 </section>
 </main>
 <footer class="seo-footer">
