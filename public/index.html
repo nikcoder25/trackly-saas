@@ -773,44 +773,31 @@
 
     <!-- MENTIONS ─────────────────────────── -->
     <div id="view-mentions" class="view">
-      <!-- Header -->
-      <div class="mn-header">
-        <div class="mn-header-left">
-          <div class="view-title" style="margin-bottom:2px;">AI Visibility Report</div>
-          <div class="view-sub" style="margin-bottom:0;">Analyze how AI platforms mention and recommend your brand across all queries.</div>
+      <div class="mn-top">
+        <div>
+          <div class="view-title" style="margin-bottom:2px;">AI Mentions</div>
+          <div class="view-sub" style="margin-bottom:0;">See where and how AI platforms talk about your brand.</div>
         </div>
-        <div class="mn-header-right">
-          <select class="finput" id="mentions-run-sel" style="width:220px;margin:0;font-size:11px;" onchange="mentionsPage=0;renderMentions()"></select>
-          <button class="mn-export-btn" onclick="exportMentionsCSV()" title="Export CSV">⬇ Export</button>
+        <div class="mn-top-actions">
+          <select class="finput" id="mentions-run-sel" style="width:200px;margin:0;font-size:11px;" onchange="mentionsPage=0;mentionsExpandedRow=null;renderMentions()"></select>
+          <button class="mn-export-btn" onclick="exportMentionsCSV()" title="Export CSV">Export CSV</button>
         </div>
       </div>
-      <!-- KPI Cards -->
       <div id="mentions-kpis"></div>
-      <!-- Platform Performance -->
-      <div id="mentions-plat-perf"></div>
-      <!-- Toolbar: filters + search -->
-      <div class="mn-toolbar">
-        <div id="mentions-plat-filters" class="mn-chips-wrap"></div>
-        <div class="mn-toolbar-right">
-          <select class="finput" id="mentions-filter-sel" style="width:140px;margin:0;font-size:11px;" onchange="mentionsPage=0;renderMentions()">
-            <option value="all">All Results</option>
+      <div class="mn-filters">
+        <div id="mentions-plat-filters" class="mn-chips"></div>
+        <div class="mn-filters-right">
+          <select class="finput mn-filter-sel" id="mentions-filter-sel" onchange="mentionsPage=0;renderMentions()">
+            <option value="all">All</option>
             <option value="mentioned">Mentioned</option>
             <option value="not-mentioned">Not Mentioned</option>
             <option value="recommended">Recommended</option>
-            <option value="positive">Positive Sentiment</option>
-            <option value="negative">Negative Sentiment</option>
             <option value="errors">Errors</option>
           </select>
-          <div class="mn-search-wrap">
-            <span class="mn-search-icon">⌕</span>
-            <input class="finput" id="mentions-search" type="text" placeholder="Search queries, platforms..." style="width:200px;margin:0;font-size:11px;padding-left:28px;" oninput="mentionsPage=0;renderMentions()">
-          </div>
+          <input class="finput mn-search" id="mentions-search" type="text" placeholder="Search..." oninput="mentionsPage=0;renderMentions()">
         </div>
       </div>
-      <!-- Results Table -->
-      <div id="mentions-container">
-        <div class="empty-state"><div class="icon">◎</div><p>No results yet. Run queries to collect data.</p></div>
-      </div>
+      <div id="mentions-container"></div>
     </div>
 
     <!-- EVIDENCE & PROOF ─────────────────── -->
