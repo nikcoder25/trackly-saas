@@ -981,3 +981,6 @@ select.finput{appearance:none;}
 /* ── LOADING SPINNER ──────────────── */
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── LIVE RESULT FADE-IN ───────── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}

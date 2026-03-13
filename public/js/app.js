@@ -2424,7 +2424,35 @@ async function deleteBrand(){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// ─── RUN QUERIES ──────────────────────────────────────────────────
+// ─── RUN QUERIES (streaming — results appear live) ───────────────
+function buildMentionCard(r, runTimeStr) {
+  const t = PLAT_THEME[r.platform]||{};
+  const isErr = r.error;
+  const preview = isErr ? friendlyError(r.errorMessage) : (r.context || '').replace(/[#*_~`]/g, '').substring(0, 180).replace(/\n/g, ' ');
+  const sent = r.sentiment || 'neutral';
+  const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
+  const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
+  const statusClass = isErr ? 'mention-error' : r.mentioned ? 'mention-found' : 'mention-notfound';
+  const statusText = isErr ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
+  const statusColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
+  return `<div class="mention-card ${statusClass}" style="animation:fadeIn .3s ease;">
+    <div class="mention-card-top">
+      <div class="mention-plat" style="background:${t.bg||'var(--bg3)'};border-color:${t.color||'var(--border)'}30;">
+        <span class="mention-plat-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
+        <span class="mention-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</span>
+      </div>
+      <span class="mention-status" style="color:${statusColor};border-color:${statusColor}30;background:${statusColor}08;">${statusText}</span>
+    </div>
+    <div class="mention-query">${esc(r.query)}</div>
+    <div class="mention-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=180?'...':''}</div>
+    <div class="mention-card-footer">
+      <span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" style="font-size:9px;">${sentLabel}</span>
+      <span class="mention-model">${esc(r.model||'—')}</span>
+      <span class="mention-time">${esc(runTimeStr)}</span>
+    </div>
+  </div>`;
+}
+
 async function runQueries(){
   if (runningQueries) return;
   const b = brand();
@@ -2444,7 +2472,7 @@ async function runQueries(){
   btn.textContent = '⏳ RUNNING...';
   prog.style.display = 'block';
   fill.style.width = '0%';
-  statusTxt.textContent = 'Sending queries to AI platforms...';
+  statusTxt.textContent = 'Connecting to AI platforms...';
 
   // Live timer
   const startTime = Date.now();
@@ -2459,92 +2487,163 @@ async function runQueries(){
     timerEl.textContent = fmtTime(Date.now()-startTime);
   }, 1000);
 
-  // Animate progress bar
-  let progress = 0;
-  const progInt = setInterval(() => {
-    progress = Math.min(progress+2, 90);
-    fill.style.width = progress+'%';
-  }, 400);
+  // Switch to mentions view immediately so user sees results appear
+  go('mentions');
+  const cont = el('mentions-container');
+  const now = new Date();
+  const runTimeStr = now.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+  // Live results tracking
+  let totalExpected = 0;
+  let received = 0;
+  let liveFound = 0;
+  let liveErrors = 0;
+
+  // Set up the live container
+  cont.innerHTML = `<div id="live-stats" style="background:var(--bg2);border:1px solid var(--border);padding:10px 14px;border-radius:var(--radius);margin-bottom:12px;font-family:var(--mono);font-size:11px;">
+    <span style="color:var(--muted);">Waiting for results...</span>
+  </div><div id="live-cards" class="mention-cards"></div>`;
+
+  function updateLiveStats() {
+    const statsEl = el('live-stats');
+    if (!statsEl) return;
+    const pct = totalExpected > 0 ? Math.round((received / totalExpected) * 100) : 0;
+    fill.style.width = pct + '%';
+    statsEl.innerHTML = `<span style="color:var(--green);font-weight:700;">${liveFound} found</span>` +
+      `<span style="color:var(--muted);margin:0 4px;">·</span>` +
+      `<span style="color:var(--muted);">${received - liveFound - liveErrors} not found</span>` +
+      (liveErrors > 0 ? `<span style="color:var(--muted);margin:0 4px;">·</span><span style="color:var(--red);font-weight:700;">${liveErrors} error${liveErrors>1?'s':''}</span>` : '') +
+      `<span style="color:var(--muted);margin:0 4px;">·</span>` +
+      `<span style="color:var(--muted);">${received}/${totalExpected} (${pct}%)</span>`;
+  }
 
   try {
-    const data = await api('POST', '/api/brands/'+b.id+'/run', { platforms: selectedPlats });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    const response = await fetch(API + '/api/brands/'+b.id+'/run?stream=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ platforms: selectedPlats })
+    });
 
-    clearInterval(progInt);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(errData.error || 'Request failed');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalData = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // Parse SSE events from buffer
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let evt;
+        try { evt = JSON.parse(line.slice(6)); } catch(_) { continue; }
+
+        if (evt.type === 'start') {
+          totalExpected = evt.totalExpected || 0;
+          statusTxt.textContent = `Running ${evt.queries?.length || 0} queries on ${evt.platforms?.length || 0} platforms...`;
+          updateLiveStats();
+        } else if (evt.type === 'result') {
+          received++;
+          const r = evt.result;
+          if (r.error) liveErrors++;
+          else if (r.mentioned) liveFound++;
+          // Append card to live container
+          const cardsEl = el('live-cards');
+          if (cardsEl) {
+            cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(r, runTimeStr));
+          }
+          statusTxt.textContent = `${received}/${totalExpected} — ${liveFound} found · ${fmtTime(Date.now()-startTime)}`;
+          updateLiveStats();
+        } else if (evt.type === 'done') {
+          finalData = evt;
+        } else if (evt.type === 'error') {
+          throw new Error(evt.error || 'Server error');
+        }
+      }
+    }
+
     clearInterval(timerInt);
     fill.style.width = '100%';
 
+    // Update brand data from final response
+    if (finalData && finalData.brand) {
+      brands[brands.findIndex(x=>x.id===b.id)] = finalData.brand;
+    } else {
+      // Fallback: reload brand data
+      try {
+        const freshData = await api('GET', '/api/brands');
+        if (freshData.brands) { brands = freshData.brands; }
+      } catch(_) {}
+    }
+
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
-    const errors = data.result.errorCount || 0;
-    const statusParts = [`Brand found in ${data.result.newMentions} of ${data.result.totalQ} responses`];
-    if (errors > 0) statusParts.push(`${errors} API error${errors>1?'s':''}`);
-    statusParts.push(elapsed);
-    statusTxt.textContent = 'Done! ' + statusParts.join(' · ');
+    const result = finalData?.result || { totalQ: received, totalM: liveFound, sov: received > 0 ? Math.round((liveFound/received)*100) : 0, newMentions: liveFound, errorCount: liveErrors };
+    const errors = result.errorCount || liveErrors;
+
+    statusTxt.textContent = `Done! Brand found in ${result.newMentions} of ${result.totalQ} responses · ${elapsed}`;
 
     if (errors > 0) {
-      // Store errors persistently so API Logs always has them
       storeRunError({
         time: new Date().toISOString(),
         error: `${errors} API error(s) in run`,
         type: 'partial',
-        platformErrors: data.result.platformErrors || {}
+        platformErrors: result.platformErrors || {}
       });
     }
 
-    // Always go to Mentions — show results even when some queries failed
     setTimeout(() => {
       prog.style.display = 'none';
       fill.style.width = '0%';
       timerEl.textContent = '';
     }, 5000);
-    go('mentions');
+
+    // Re-render mentions with full data (enables filters, pagination, VIEW FULL buttons)
+    renderMentions();
 
     if (errors > 0) {
-      const okCount = data.result.totalQ - errors;
-      const errPlats = Object.keys(data.result.platformErrors || {}).join(', ');
-      toast(`Run complete — ${okCount} succeeded, ${errors} failed${errPlats ? ' ('+errPlats+')' : ''}. Filter by "Errors" in Mentions to see details.`, 'warn');
+      const okCount = result.totalQ - errors;
+      toast(`Run complete — ${okCount} succeeded, ${errors} failed. Filter by "Errors" in Mentions.`, 'warn');
     } else {
-      const toastMsg = data.result.sov === 0
-        ? `Run complete — SOV: 0%. AI didn't mention your brand yet. Check Evidence & Proof to see what AI recommends instead.`
-        : `Run complete — SOV: ${data.result.sov}%! Your brand was found in ${data.result.newMentions} response${data.result.newMentions>1?'s':''}`;
-      toast(toastMsg, data.result.sov > 0 ? 'ok' : 'warn');
+      const toastMsg = result.sov === 0
+        ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
+        : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`;
+      toast(toastMsg, result.sov > 0 ? 'ok' : 'warn');
     }
   } catch(e) {
-    clearInterval(progInt);
     clearInterval(timerInt);
-    timerEl.textContent = '';
     statusTxt.style.color = 'var(--red)';
     statusTxt.textContent = 'Run failed: ' + e.message;
     fill.style.width = '0%';
     fill.style.background = 'var(--red)';
 
-    // Store the failure persistently
-    storeRunError({
-      time: new Date().toISOString(),
-      error: e.message,
-      type: 'crash'
-    });
+    storeRunError({ time: new Date().toISOString(), error: e.message, type: 'crash' });
 
     // Reload brand data (emergency save may have stored partial results)
     try {
-      const savedErrors = JSON.parse(localStorage.getItem('trackly_run_errors') || '[]');
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
         brands = freshData.brands;
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-      // Restore errors after reload (they're in localStorage, not brand object)
     } catch(_) {}
 
-    toast('Run failed — showing any saved results in Mentions. Check API Logs for details.', 'err');
-
+    toast('Run failed — check API Logs for details.', 'err');
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
       fill.style.background = '';
-      go('mentions');
+      renderMentions();
     }, 2000);
   }
 

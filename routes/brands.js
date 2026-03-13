@@ -158,25 +158,45 @@ router.delete('/:id', auth, async (req, res) => {
 router.post('/:id/run', auth, async (req, res) => {
   // Allow up to 5 minutes for large query runs across multiple platforms
   req.setTimeout(300000);
+  const streaming = req.query.stream === '1';
+  if (streaming) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+  }
+  function sendEvent(type, data) {
+    if (!streaming) return;
+    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(_) {}
+  }
   // Declare outside try so catch can access for emergency save
   let allResults = [];
   let totalQ = 0, totalM = 0;
   try {
   const brand = await getBrand(req.params.id, req.user.id);
-  if (!brand) return res.status(404).json({ error: 'Brand not found' });
+  if (!brand) {
+    if (streaming) { sendEvent('error', { error: 'Brand not found' }); return res.end(); }
+    return res.status(404).json({ error: 'Brand not found' });
+  }
 
   const plan = await getUserPlan(req.user.id);
   const limits = getPlanLimits(plan);
 
   const queryCount = (brand.queries || []).length;
   if (queryCount > limits.queries) {
-    return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`, planLimit: true, limit: 'queries' });
+    const errMsg = `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`;
+    if (streaming) { sendEvent('error', { error: errMsg }); return res.end(); }
+    return res.status(403).json({ error: errMsg, planLimit: true, limit: 'queries' });
   }
 
   const today = new Date().toISOString().split('T')[0];
   const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
   if (todayRuns >= limits.runsPerDay) {
-    return res.status(403).json({ error: `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`, planLimit: true, limit: 'runsPerDay' });
+    const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
+    if (streaming) { sendEvent('error', { error: errMsg }); return res.end(); }
+    return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
   }
 
   const keys = getServerKeys();
@@ -207,8 +227,13 @@ router.post('/:id/run', auth, async (req, res) => {
     : availablePlatforms;
 
   if (!activePlatforms.length) {
+    if (streaming) { sendEvent('error', { error: 'No valid platforms selected.' }); return res.end(); }
     return res.status(400).json({ error: 'No valid platforms selected.' });
   }
+
+  // Stream: send initial metadata so frontend knows total expected
+  const totalExpected = (brand.queries || []).length * activePlatforms.length;
+  sendEvent('start', { totalExpected, platforms: activePlatforms, queries: brand.queries || [] });
 
   const newMentions = [];
   allResults = [];
@@ -249,7 +274,7 @@ router.post('/:id/run', auth, async (req, res) => {
           if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,10);
           totalQ++;
           const compMentions = detectCompetitors(text, brand.competitors || []);
-          allResults.push({
+          const resultObj = {
             platform: plat, query: q,
             context: text.substring(0, 300), raw: text,
             simulated: false, mentioned: parsed.mentioned,
@@ -258,7 +283,9 @@ router.post('/:id/run', auth, async (req, res) => {
             locationRelevant: parsed.locationRelevant,
             matchedLocation: parsed.matchedLocation || '',
             competitorMentions: compMentions
-          });
+          };
+          allResults.push(resultObj);
+          sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
           if (parsed.mentioned) {
             pm++; totalM++;
             newMentions.push({
@@ -275,14 +302,16 @@ router.post('/:id/run', auth, async (req, res) => {
         } else {
           const errMsg = settled.reason?.message || 'Unknown error';
           console.error(`[${plat}] API error for query "${q}":`, errMsg);
-          allResults.push({
+          const errObj = {
             platform: plat, query: q,
             context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
             simulated: false, mentioned: false,
             sentiment: 'neutral', recommended: false,
             citations: [], error: true, errorMessage: errMsg
-          });
+          };
+          allResults.push(errObj);
           totalQ++;
+          sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
         }
       }
     }
@@ -369,6 +398,10 @@ router.post('/:id/run', auth, async (req, res) => {
     platformErrors[r.platform].push(r.errorMessage || 'Unknown error');
   });
 
+  if (streaming) {
+    sendEvent('done', { brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
+    return res.end();
+  }
   res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
   } catch(e) {
     console.error('[Run]', e.message, e.stack);
@@ -399,6 +432,10 @@ router.post('/:id/run', auth, async (req, res) => {
       }
     } catch(saveErr) {
       console.error('[Run] Emergency save also failed:', saveErr.message);
+    }
+    if (streaming) {
+      sendEvent('error', { error: 'Failed to run queries: ' + e.message, savedResults });
+      return res.end();
     }
     res.status(500).json({
       error: 'Failed to run queries: ' + e.message,
