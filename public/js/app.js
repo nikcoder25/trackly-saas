@@ -139,7 +139,7 @@ function updatePasswordStrength(pw){
   if (/[A-Z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
-  const colors = ['var(--red)', 'var(--red)', 'var(--amber)', 'var(--green)', 'var(--green)'];
+  const colors = ['var(--danger,var(--red))', 'var(--danger,var(--red))', 'var(--warning,var(--amber))', 'var(--success,var(--green))', 'var(--success,var(--green))'];
   const labels = ['Too weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
   for (let i = 1; i <= 4; i++) {
     el('pw-bar-' + i).style.background = i <= score ? colors[score] : 'var(--border)';
@@ -306,10 +306,10 @@ async function doForgotPassword(){
   try {
     const data = await api('POST', '/api/auth/forgot-password', { email });
     msgEl.textContent = data.message || 'Reset link sent. Check your email.';
-    msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.background = 'rgba(0,255,136,.05)';
+    msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.background = 'var(--success-light,rgba(255,97,84,.05))';
     msgEl.style.display = 'block';
   } catch(e) {
-    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.background = 'rgba(255,68,85,.05)';
+    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--danger,var(--red))'; msgEl.style.color = 'var(--danger,var(--red))'; msgEl.style.background = 'var(--danger-light,rgba(255,68,85,.05))';
     msgEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'SEND RESET LINK';
@@ -330,10 +330,10 @@ async function doResetPassword(){
   try {
     const data = await api('POST', '/api/auth/reset-password', { token, newPassword: pw });
     msgEl.textContent = data.message || 'Password reset! You can now log in.';
-    msgEl.style.borderColor = 'var(--green)'; msgEl.style.color = 'var(--green)'; msgEl.style.display = 'block';
+    msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.display = 'block';
     setTimeout(() => { window.location.href = '/'; }, 2000);
   } catch(e) {
-    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block';
+    msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--danger,var(--red))'; msgEl.style.color = 'var(--danger,var(--red))'; msgEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'RESET PASSWORD';
   }
@@ -516,12 +516,12 @@ function renderAccount(){
     if (currentUser.emailVerified) {
       verifyEl.innerHTML = '<span class="badge pos">VERIFIED</span>';
     } else {
-      verifyEl.innerHTML = '<span class="badge neg">UNVERIFIED</span> <button onclick="resendVerification()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--amber);color:var(--amber);padding:2px 8px;cursor:pointer;">RESEND VERIFICATION</button>';
+      verifyEl.innerHTML = '<span class="badge neg">UNVERIFIED</span> <button onclick="resendVerification()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--amber);color:var(--amber);padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">RESEND VERIFICATION</button>';
     }
   }
   const planEl = el('acct-plan');
   planEl.textContent = currentUser.plan || 'free';
-  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple,#9b72ff)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
   // Theme button
   const themeBtn = el('theme-toggle-btn');
@@ -556,7 +556,7 @@ function renderAccount(){
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
     <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple,#9b72ff);':''}">${p.name}</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
       <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${p.price}</div>
       <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">${p.features}</div>
       <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
@@ -598,7 +598,7 @@ async function loadModelSettings() {
       const icon = platformIcons[platform] || '';
       // Default to enabled if not explicitly set
       const isEnabled = enabledPlatforms[platform] !== false;
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:6px;${isEnabled?'':'opacity:0.5;'}">
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:var(--radius-sm);${isEnabled?'':'opacity:0.5;'}">
         <label class="toggle-switch" style="flex-shrink:0;">
           <input type="checkbox" class="platform-toggle" data-platform="${platform}" ${isEnabled?'checked':''} onchange="togglePlatformRow(this)">
           <span class="toggle-slider"></span>
@@ -715,13 +715,13 @@ function applyTheme(theme) {
     root.style.setProperty('--text', '#1a1a1a');
     root.style.setProperty('--muted', '#666');
   } else {
-    root.style.setProperty('--bg', '#0a0a0a');
-    root.style.setProperty('--bg2', '#111');
-    root.style.setProperty('--bg3', '#1a1a1a');
-    root.style.setProperty('--bg4', '#222');
-    root.style.setProperty('--border', '#2a2a2a');
-    root.style.setProperty('--text', '#e8e8e8');
-    root.style.setProperty('--muted', '#666');
+    root.style.setProperty('--bg', '#0b0d0f');
+    root.style.setProperty('--bg2', '#12151a');
+    root.style.setProperty('--bg3', '#1a1e25');
+    root.style.setProperty('--bg4', '#242830');
+    root.style.setProperty('--border', '#2a2e38');
+    root.style.setProperty('--text', '#e8eaed');
+    root.style.setProperty('--muted', '#7a8194');
   }
   currentTheme = theme;
   localStorage.setItem('trackly_theme', theme);
@@ -784,7 +784,7 @@ async function toggleNotifications() {
     dd.innerHTML = '<div style="padding:20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted);">No notifications</div>';
     return;
   }
-  let html = '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;">NOTIFICATIONS</span><button onclick="markAllRead()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border);color:var(--green);padding:2px 8px;cursor:pointer;">MARK ALL READ</button></div>';
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);"><span style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;">NOTIFICATIONS</span><button onclick="markAllRead()" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--border);color:var(--green);padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">MARK ALL READ</button></div>';
   notifs.slice(0, 20).forEach(n => {
     const time = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     html += `<div style="padding:10px 12px;border-bottom:1px solid var(--border);${n.read?'opacity:0.6;':''}">
@@ -1089,14 +1089,14 @@ function renderOverview(){
     const runTime = new Date(lastRun.time || lastRun.date);
     let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Last Run — ${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
     if (errors.length > 0) {
-      summaryHtml += `<div style="background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;">`;
+      summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;border-radius:var(--radius-xs);">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
       summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('apilogs');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
       summaryHtml += `</div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
     if (found.length === 0 && lastRun.allResults.length > 0 && errors.length === 0) {
-      summaryHtml += `<div style="background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);padding:12px 14px;margin-top:12px;font-size:12px;line-height:1.6;">
+      summaryHtml += `<div style="background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.15);padding:12px 14px;margin-top:12px;font-size:12px;line-height:1.6;border-radius:var(--radius-xs);">
         <div style="color:var(--blue);font-weight:700;font-size:10px;font-family:var(--mono);letter-spacing:1px;margin-bottom:6px;">WHY 0% SOV?</div>
         <div style="color:var(--muted);">AI platforms don't yet recommend "${esc(b.name)}" for these queries. This is <strong style="color:var(--text);">normal for newer or local brands</strong>.</div>
         <div style="color:var(--muted);margin-top:6px;"><strong style="color:var(--text);">To improve:</strong> Get more reviews, create authoritative content, earn backlinks, and get listed on industry directories.</div>
@@ -1120,7 +1120,7 @@ function renderOverview(){
   if (qCountEl) {
     const atLimit = queryCount >= queryLimit;
     qCountEl.textContent = queryCount + ' / ' + queryLimit + ' queries';
-    qCountEl.style.color = atLimit ? '#f0a030' : 'var(--muted)';
+    qCountEl.style.color = atLimit ? 'var(--amber)' : 'var(--muted)';
   }
   const limitMsg = el('ov-query-limit-msg');
   if (limitMsg) {
@@ -1164,12 +1164,12 @@ function renderOverview(){
         datasets: [{
           label: 'SOV %',
           data: miniData,
-          borderColor: '#00ff88',
-          backgroundColor: 'rgba(0,255,136,0.08)',
+          borderColor: '#FF6154',
+          backgroundColor: 'rgba(255,97,84,0.08)',
           fill: true,
           tension: 0.3,
           pointRadius: 3,
-          pointBackgroundColor: '#00ff88'
+          pointBackgroundColor: '#FF6154'
         }]
       },
       options: {
@@ -1177,8 +1177,8 @@ function renderOverview(){
         maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: '#666', font: { size: 9 } }, grid: { color: '#1a1a1a' } },
-          y: { min: 0, max: 100, ticks: { color: '#666', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+          x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
+          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
         }
       }
     });
@@ -1386,7 +1386,7 @@ function renderMentions(){
     const isErr = r.error;
     const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 120).replace(/\n/g, ' ');
     const statusBadge = isErr
-      ? '<span class="badge" style="background:rgba(255,136,0,.15);color:#ff8800;font-weight:700;">ERROR</span>'
+      ? '<span class="badge" style="background:rgba(245,158,11,.12);color:var(--amber);font-weight:700;">ERROR</span>'
       : `<span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span>`;
     const sent = r.sentiment || 'neutral';
     const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
@@ -1398,8 +1398,8 @@ function renderMentions(){
       <td><span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" title="${sentTip}">${sentLabel}</span></td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
       <td style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">${esc(runTimeStr)}</td>
-      <td style="max-width:250px;font-size:11px;color:${isErr?'#ff8800':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
-      <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:3px 8px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;">VIEW</button>'}</td>
+      <td style="max-width:250px;font-size:11px;color:${isErr?'var(--amber)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
+      <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);">VIEW</button>'}</td>
     </tr>`;
   });
   html += '</tbody></table></div>';
@@ -1439,7 +1439,7 @@ function openResp(mentionId){
   textEl.style.whiteSpace = 'normal';
   const rawHtml = mdToHtml(m.raw || m.context || '');
   const hre = brandHighlightRe(b);
-  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml;
+  textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
   // Citations
   const cc = el('resp-modal-cites');
   const cites = m.citations||[];
@@ -1462,13 +1462,13 @@ function openResultFromRun(runId, platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.style.whiteSpace = 'normal';
   const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre1 = brandHighlightRe(b);
-  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml1;
+  textEl.innerHTML = hre1 ? rawHtml1.replace(hre1, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml1;
   // Show citations if any
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1491,13 +1491,13 @@ function openFullResult(platform, encodedQuery){
   const head = el('resp-modal-head');
   head.style.background = t.bg||'var(--bg2)';
   head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red,#ff4444);font-size:11px;">— NOT FOUND</span>');
+  el('resp-modal-title').innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
   el('resp-modal-query').innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
   const textEl = el('resp-modal-text');
   textEl.style.whiteSpace = 'normal';
   const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
   const hre2 = brandHighlightRe(b);
-  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(0,255,136,.2);color:var(--green);border-radius:2px;padding:0 2px;">$1</mark>') : rawHtml2;
+  textEl.innerHTML = hre2 ? rawHtml2.replace(hre2, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml2;
   // Show citations
   const cc = el('resp-modal-cites');
   const cites = result.citations||[];
@@ -1553,11 +1553,11 @@ function renderProof(){
   const foundCount = allResults.filter(r => r.mentioned).length;
   const errorCount = allResults.filter(r => r.error).length;
   const runDate = new Date(run.time || run.date);
-  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px 16px;margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);font-family:var(--mono);font-size:11px;">
+  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--mono);font-size:11px;">
     <span style="color:var(--muted);">RUN: ${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
     <span style="color:var(--text);font-weight:700;">${totalResults} results</span>
     <span style="color:var(--green);font-weight:700;">${foundCount} found</span>
-    <span style="color:${errorCount?'#ff8800':'var(--muted)'}">${errorCount} errors</span>
+    <span style="color:${errorCount?'var(--amber)':'var(--muted)'}">${errorCount} errors</span>
     <span style="color:var(--muted);">${queries.length} queries × ${(run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size} platforms</span>
     <span style="color:var(--text);font-weight:700;">SOV: ${run.sov}%</span>
   </div>`;
@@ -1601,10 +1601,10 @@ function renderProof(){
 
       // Status badge — clear FOUND / NOT FOUND / ERROR
       const statusBadge = isError
-        ? `<div class="proof-card-badge" style="color:#ff8800;border:1px solid rgba(255,136,0,.3);font-weight:700;">⚠ API ERROR</div>`
+        ? `<div class="proof-card-badge" style="color:var(--amber);border:1px solid rgba(245,158,11,.3);font-weight:700;border-radius:4px;">⚠ API ERROR</div>`
         : isMentioned
-        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(0,255,136,.3);font-weight:700;">&#x2713; FOUND</div>`
-        : `<div class="proof-card-badge" style="color:var(--red,#ff4444);border:1px solid rgba(255,68,68,.3);font-weight:700;">&#x2717; NOT FOUND</div>`;
+        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(255,97,84,.3);font-weight:700;border-radius:4px;">&#x2713; FOUND</div>`
+        : `<div class="proof-card-badge" style="color:var(--red);border:1px solid rgba(239,68,68,.3);font-weight:700;border-radius:4px;">&#x2717; NOT FOUND</div>`;
 
       const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
       const cardBorder = isMentioned ? (t.color||'var(--border)')+'33' : 'var(--border)';
@@ -1624,7 +1624,7 @@ function renderProof(){
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"</div>
           ${isError
-            ? `<div class="proof-not-found" style="color:#ff8800;"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
+            ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
             ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
@@ -1633,9 +1633,9 @@ function renderProof(){
         <div class="proof-card-footer">
           <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
           ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-          ${matchedLoc?`<span style="font-family:var(--mono);font-size:8px;color:var(--blue);background:rgba(59,130,246,.1);padding:2px 6px;border:1px solid rgba(59,130,246,.2);">${esc(matchedLoc)}</span>`:''}
+          ${matchedLoc?`<span style="font-family:var(--mono);font-size:9px;color:var(--blue);background:rgba(59,130,246,.1);padding:3px 8px;border:1px solid rgba(59,130,246,.2);border-radius:100px;">${esc(matchedLoc)}</span>`:''}
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
-          ${compMentions.length?`<span style="font-family:var(--mono);font-size:8px;color:var(--red);background:rgba(255,68,68,.08);padding:2px 6px;border:1px solid rgba(255,68,68,.2);" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
+          ${compMentions.length?`<span style="font-family:var(--mono);font-size:9px;color:var(--red);background:rgba(239,68,68,.08);padding:3px 8px;border:1px solid rgba(239,68,68,.2);border-radius:100px;" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
           ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
           ${viewBtn}
         </div>
@@ -1771,7 +1771,7 @@ function renderCompetitors(){
   // Your brand row
   const total = allResults.length;
   const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
-  html += `<tr style="background:rgba(0,255,136,.05);">
+  html += `<tr style="background:rgba(255,97,84,.05);">
     <td><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
     <td style="font-family:var(--mono)">${brandMentions}/${total}</td>
     <td style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
@@ -1873,11 +1873,11 @@ function renderTrends(){
       datasets: [{
         label: 'Overall SOV %',
         data: sovData,
-        borderColor: '#00ff88',
-        backgroundColor: 'rgba(0,255,136,0.1)',
+        borderColor: '#FF6154',
+        backgroundColor: 'rgba(255,97,84,0.1)',
         fill: true,
         tension: 0.3,
-        pointBackgroundColor: '#00ff88',
+        pointBackgroundColor: '#FF6154',
         pointRadius: 4,
         pointHoverRadius: 6
       }]
@@ -1885,10 +1885,10 @@ function renderTrends(){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#888', font: { family: "'Space Mono', monospace", size: 11 } } } },
+      plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
       scales: {
-        x: { ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
-        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1e25' } },
+        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
       }
     }
   });
@@ -1917,10 +1917,10 @@ function renderTrends(){
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#888', font: { family: "'Space Mono', monospace", size: 10 } } } },
+      plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
       scales: {
-        x: { ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 } }, grid: { color: '#1a1a1a' } },
-        y: { min: 0, max: 100, ticks: { color: '#666', font: { family: "'Space Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1a1a' } }
+        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1e25' } },
+        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
       }
     }
   });
@@ -2498,7 +2498,7 @@ async function runQueries(){
           return `${plat}: ${friendlyError(uniqueMsgs[0])}${uniqueMsgs.length>1?' (+' +(uniqueMsgs.length-1)+' more)':''}`;
         }).join('\n');
         const errDiv = document.createElement('div');
-        errDiv.style.cssText = 'background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
+        errDiv.style.cssText = 'background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);padding:10px 14px;margin-top:8px;font-family:var(--mono);font-size:10px;line-height:1.7;white-space:pre-wrap;color:var(--red);max-height:120px;overflow-y:auto;';
         errDiv.textContent = errDetails;
         prog.appendChild(errDiv);
       }
@@ -2577,13 +2577,13 @@ async function renderApiLogs(){
   // 1. Client-side errors (localStorage)
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
-    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(255,68,68,.4);background:rgba(255,68,68,.06);">
+    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);border-radius:var(--radius-sm);">
       <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
     clientErrors.forEach(err => {
       const dt = new Date(err.time);
       const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isCrash = err.type === 'crash';
-      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(255,68,68,.04);border:1px solid rgba(255,68,68,.15);">
+      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius-xs);">
         <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
         <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>`;
       if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
@@ -2595,7 +2595,7 @@ async function renderApiLogs(){
       }
       html += `</div>`;
     });
-    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);">DISMISS ALL</button></div>`;
+    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS ALL</button></div>`;
   }
 
   // 2. API Key Status
@@ -2609,8 +2609,8 @@ async function renderApiLogs(){
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div class="card-title" style="margin-bottom:0;">API Call Log</div>
       <div style="display:flex;gap:8px;">
-        <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">REFRESH</button>
-        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(255,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);">CLEAR LOGS</button>
+        <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">REFRESH</button>
+        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">CLEAR LOGS</button>
       </div>
     </div>
     <div id="apilogs-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:8px 0;"></div>
@@ -2675,7 +2675,7 @@ async function renderApiLogs(){
       const queryShort = (log.query || '').length > 50 ? log.query.substring(0, 50) + '...' : (log.query || '—');
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
 
-      tbl += `<tr style="${isErr ? 'background:rgba(255,68,68,.06);' : ''}">
+      tbl += `<tr style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
         <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;">${esc(timeStr)}</td>
         <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
         <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
@@ -2714,7 +2714,7 @@ function loadKeyStatus() {
     let ksHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
     Object.entries(counts).forEach(([plat, count]) => {
       const color = count > 0 ? 'var(--green)' : 'var(--red)';
-      ksHtml += `<div style="border:1px solid var(--border);padding:6px 12px;"><span style="color:${color};font-weight:700;">${count}</span> <span style="text-transform:capitalize;">${plat}</span> key${count!==1?'s':''}</div>`;
+      ksHtml += `<div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);"><span style="color:${color};font-weight:700;">${count}</span> <span style="text-transform:capitalize;">${plat}</span> key${count!==1?'s':''}</div>`;
     });
     ksHtml += '</div>';
     if (Object.values(counts).some(c => c === 0)) {
@@ -2760,7 +2760,7 @@ function renderAdminStats(users){
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];
   el('admin-stats').innerHTML = stats.map(s => `
-    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;">
+    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;border-radius:var(--radius-sm);">
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">${s.label}</div>
       <div style="font-size:28px;font-weight:800;color:${s.color};letter-spacing:-1px;">${s.value}</div>
     </div>
@@ -2789,25 +2789,25 @@ function renderAdminTable(users){
   </tr></thead><tbody>`;
   users.forEach(u => {
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
-    const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(0,255,136,.1)' : 'rgba(255,255,255,.05)';
-    const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(0,255,136,.3)' : 'var(--border)';
+    const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(255,97,84,.1)' : 'rgba(255,255,255,.05)';
+    const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(255,97,84,.3)' : 'var(--border)';
     const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
     const keyCount = (u.hasKeys||[]).length;
     const isMe = u.id === currentUser.id;
     html += `<tr>
       <td>
-        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(0,255,136,.3);padding:1px 5px;border-radius:2px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:2px 6px;border-radius:4px;margin-left:6px;">YOU</span>' : ''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>
-        <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:2px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
+        <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
       </td>
       <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
       <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '—'}</td>
       <td style="font-family:var(--mono);font-size:11px;color:${keyCount ? 'var(--green)' : 'var(--muted)'};">${keyCount ? keyCount + ' configured' : 'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
       <td style="text-align:right;">
-        <button onclick="openAdminEdit('${u.id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:0.5px;">EDIT</button>
+        <button onclick="openAdminEdit('${u.id}')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:0.5px;border-radius:var(--radius-xs);">EDIT</button>
       </td>
     </tr>`;
   });
