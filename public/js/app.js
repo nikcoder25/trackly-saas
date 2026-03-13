@@ -869,10 +869,67 @@ function renderAll(){
   renderView(currentView);
 }
 
+// ─── LIVE RESULT NOTIFICATIONS ────────────────────────────────────
+const _NOTIF_MAX = 5;       // max visible at once
+const _NOTIF_DURATION = 3500; // ms before auto-dismiss
+function showLiveNotif(result) {
+  const cont = el('live-notifs');
+  if (!cont) return;
+  const t = PLAT_THEME[result.platform] || {};
+  const isErr = result.error;
+  const isMentioned = result.mentioned;
+
+  // Status label
+  let statusCls, statusText;
+  if (isErr) { statusCls = 'error'; statusText = 'Error'; }
+  else if (isMentioned) { statusCls = 'found'; statusText = 'Found'; }
+  else { statusCls = 'notfound'; statusText = 'Not Found'; }
+
+  const queryShort = (result.query || '').length > 45 ? result.query.substring(0, 45) + '...' : (result.query || '');
+
+  const notif = document.createElement('div');
+  notif.className = 'live-notif';
+  notif.innerHTML = `
+    <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
+    <div class="live-notif-body">
+      <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
+      <div class="live-notif-sub">${esc(queryShort)}</div>
+    </div>
+    <div class="live-notif-status ${statusCls}">${statusText}</div>`;
+
+  // Click to go to mentions view
+  notif.onclick = () => { notif.remove(); if (currentView !== 'mentions') switchView('mentions'); };
+
+  cont.appendChild(notif);
+
+  // Cap visible notifications
+  while (cont.children.length > _NOTIF_MAX) {
+    const oldest = cont.children[0];
+    oldest.classList.add('notif-exit');
+    setTimeout(() => oldest.remove(), 300);
+  }
+
+  // Auto-dismiss
+  setTimeout(() => {
+    if (notif.parentNode) {
+      notif.classList.add('notif-exit');
+      setTimeout(() => notif.remove(), 300);
+    }
+  }, _NOTIF_DURATION);
+}
+
+function clearLiveNotifs() {
+  const cont = el('live-notifs');
+  if (cont) cont.innerHTML = '';
+}
+
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
 // Called on every new result during streaming — updates whichever view is active
 function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
+
+  // Show bottom-right notification popup
+  showLiveNotif(result);
 
   // Update overview if visible (recalculate all stats from liveResults)
   if (currentView === 'overview') {
@@ -1156,6 +1213,48 @@ function appendLiveProofCard(result) {
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────
+
+// Live countdown helpers for "last run" age display
+let _runAgeTimer = null;
+function _fmtRunAge(lastRun) {
+  if (!lastRun) return { text: 'Never', dot: '' };
+  const runTime = new Date(lastRun.time || lastRun.date);
+  const ageSec = Math.floor((Date.now() - runTime.getTime()) / 1000);
+  if (ageSec < 60) return { text: ageSec + 's ago', dot: 'ok' };
+  if (ageSec < 3600) {
+    const m = Math.floor(ageSec / 60);
+    const s = ageSec % 60;
+    return { text: m + 'm ' + s + 's ago', dot: 'ok' };
+  }
+  const ageMins = Math.floor(ageSec / 60);
+  if (ageMins < 1440) {
+    const h = Math.floor(ageMins / 60);
+    const m = ageMins % 60;
+    return { text: h + 'h ' + m + 'm ago', dot: ageMins > 720 ? 'warn' : 'ok' };
+  }
+  const d = Math.floor(ageMins / 1440);
+  return { text: d + 'd ago', dot: d > 3 ? 'bad' : 'warn' };
+}
+function _startRunAgeCountdown(lastRun) {
+  if (_runAgeTimer) clearInterval(_runAgeTimer);
+  if (!lastRun) return;
+  const ageSec = Math.floor((Date.now() - new Date(lastRun.time || lastRun.date).getTime()) / 1000);
+  // Tick every second for < 1 hour, every 30s for < 1 day, every 60s otherwise
+  const interval = ageSec < 3600 ? 1000 : ageSec < 86400 ? 30000 : 60000;
+  _runAgeTimer = setInterval(() => {
+    const { text, dot } = _fmtRunAge(lastRun);
+    // Update header age badge
+    const ageEl = document.querySelector('.ov-run-age');
+    if (ageEl) ageEl.innerHTML = `<span class="dot ${dot}"></span>${text}`;
+    // Update stat card age
+    const statEl = el('ov-last-run-age');
+    if (statEl) {
+      statEl.textContent = text;
+      statEl.style.color = dot === 'bad' ? 'var(--red)' : dot === 'warn' ? 'var(--amber)' : '';
+    }
+  }, interval);
+}
+
 function renderOverview(){
   const b = brand();
   if (!b) return;
@@ -1174,16 +1273,8 @@ function renderOverview(){
   el('ov-brand-title').textContent = b.name || 'Overview';
   el('ov-sub').textContent = [b.industry, b.city].filter(Boolean).join(' · ') || 'Select a brand and run queries to see results.';
 
-  // Header actions: Run button + last run age
-  let runAgeText = 'Never';
-  let ageDotClass = '';
-  if (lastRun) {
-    const runTime = new Date(lastRun.time || lastRun.date);
-    const ageMins = Math.floor((Date.now() - runTime.getTime()) / 60000);
-    if (ageMins < 60) { runAgeText = ageMins + 'm ago'; ageDotClass = 'ok'; }
-    else if (ageMins < 1440) { runAgeText = Math.floor(ageMins / 60) + 'h ago'; ageDotClass = ageMins > 720 ? 'warn' : 'ok'; }
-    else { runAgeText = Math.floor(ageMins / 1440) + 'd ago'; ageDotClass = parseInt(runAgeText) > 3 ? 'bad' : 'warn'; }
-  }
+  // Header actions: Run button + last run age (live countdown)
+  const { text: runAgeText, dot: ageDotClass } = _fmtRunAge(lastRun);
   const actionsEl = el('ov-header-actions');
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
@@ -1191,6 +1282,8 @@ function renderOverview(){
     actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '') +
       `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
   }
+  // Start live countdown ticker for the age displays
+  _startRunAgeCountdown(lastRun);
 
   // ─── SOV Hero ────────────────────────────────────────────────
   const sovColor = sov >= 70 ? 'var(--green)' : sov >= 40 ? 'var(--amber)' : sov > 0 ? 'var(--red)' : 'var(--muted)';
@@ -2399,26 +2492,135 @@ function renderPlatformStatus(){
   cont.innerHTML = html;
 }
 
-// ─── QUERY PERFORMANCE ────────────────────────────────────────────
+// ─── QUERY PERFORMANCE / RANK TRACKER ─────────────────────────────
+let _qperfSelectedQueries = new Set();
+
+function qperfToggleAll() {
+  const b = brand(); if (!b) return;
+  const queries = b.queries || [];
+  if (_qperfSelectedQueries.size === queries.length) _qperfSelectedQueries.clear();
+  else queries.forEach(q => _qperfSelectedQueries.add(q));
+  renderQPerf();
+}
+
+function qperfToggleQuery(q) {
+  if (_qperfSelectedQueries.has(q)) _qperfSelectedQueries.delete(q);
+  else _qperfSelectedQueries.add(q);
+  renderQPerf();
+}
+
+function qperfRunSelected() {
+  if (!_qperfSelectedQueries.size) { toast('Select queries first', 'err'); return; }
+  // Switch to overview and trigger a run (uses all queries - selection is for viewing)
+  go('mentions');
+}
+
 function renderQPerf(){
   const b = brand(); if (!b) return;
-  const qs = b.queryStats||{};
-  const queries = b.queries||[];
+  const qs = b.queryStats || {};
+  const queries = b.queries || [];
   const cont = el('qperf-container');
-  if (!queries.length) { cont.innerHTML='<div class="empty-state"><p>No queries set.</p></div>'; return; }
-  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Query</th><th>Runs</th><th>Mentions</th><th>Mention Rate</th><th>Bar</th></tr></thead><tbody>';
-  queries.forEach(q => {
-    const stat = qs[q]||{runs:0,mentions:0};
-    const rate = stat.runs ? Math.round((stat.mentions/stat.runs)*100) : 0;
-    html += `<tr>
-      <td>${esc(q)}</td>
-      <td style="font-family:var(--mono)">${stat.runs}</td>
-      <td style="font-family:var(--mono)">${stat.mentions}</td>
-      <td style="font-family:var(--mono);color:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}">${rate}%</td>
-      <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${rate}%;background:${rate>60?'var(--green)':rate>30?'var(--amber)':'var(--red)'}"></div></div></td>
-    </tr>`;
+  if (!queries.length) { cont.innerHTML='<div class="empty-state"><div class="icon">◻</div><p>No queries configured. Add queries in Overview or Brand Setup.</p></div>'; return; }
+
+  const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
+  const allResults = lastRun ? (lastRun.allResults || []) : [];
+
+  // Build lookup: query → platform → result
+  const resultMap = {};
+  allResults.forEach(r => {
+    const key = r.query;
+    if (!resultMap[key]) resultMap[key] = {};
+    resultMap[key][r.platform] = r;
   });
+
+  // Determine active platforms from last run
+  const activePlats = lastRun
+    ? (lastRun.activePlatforms || [...new Set(allResults.map(r => r.platform))])
+    : PLATS.slice(0, 3);
+
+  // Header with actions
+  const allSelected = _qperfSelectedQueries.size === queries.length && queries.length > 0;
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted);">
+        <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:16px;height:16px;">
+        Select All (${queries.length})
+      </label>
+      ${_qperfSelectedQueries.size > 0 ? `<span style="font-size:11px;font-weight:700;color:var(--primary);">${_qperfSelectedQueries.size} selected</span>` : ''}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      ${lastRun ? `<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">Last run: ${new Date(lastRun.time||lastRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${new Date(lastRun.time||lastRun.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+    </div>
+  </div>`;
+
+  // ── Rank Matrix Table ──
+  html += `<div class="table-scroll"><table class="tbl" style="font-size:12px;"><thead><tr>
+    <th style="width:28px;text-align:center;padding:8px 4px;">
+      <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:14px;height:14px;">
+    </th>
+    <th style="min-width:200px;">Keyword</th>
+    <th style="width:70px;text-align:center;">Rate</th>`;
+  activePlats.forEach(p => {
+    const t = PLAT_THEME[p] || {};
+    html += `<th style="text-align:center;width:80px;white-space:nowrap;"><span style="color:${t.color||'var(--muted)'};font-size:13px;">${t.logo||'?'}</span> <span style="font-size:10px;">${p.length>8?p.slice(0,7)+'…':p}</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  queries.forEach((q, idx) => {
+    const stat = qs[q] || { runs: 0, mentions: 0 };
+    const rate = stat.runs ? Math.round((stat.mentions / stat.runs) * 100) : 0;
+    const rateColor = rate > 60 ? 'var(--green)' : rate > 30 ? 'var(--amber)' : 'var(--red)';
+    const isSelected = _qperfSelectedQueries.has(q);
+
+    html += `<tr style="animation:fadeIn .2s ease ${Math.min(idx*0.03,.3)}s both;${isSelected?'background:rgba(255,97,84,.04);':''}">
+      <td style="text-align:center;padding:8px 4px;">
+        <input type="checkbox" ${isSelected?'checked':''} onchange="qperfToggleQuery('${escAttr(q)}')" style="accent-color:var(--primary);width:14px;height:14px;">
+      </td>
+      <td>
+        <div style="font-weight:600;color:var(--text);line-height:1.3;">${esc(q)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;">${stat.runs} runs · ${stat.mentions} mentions</div>
+      </td>
+      <td style="text-align:center;">
+        <div style="font-family:var(--mono);font-weight:800;font-size:14px;color:${rateColor};">${rate}%</div>
+        <div style="width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:4px;"><div style="width:${rate}%;height:100%;background:${rateColor};border-radius:2px;transition:width .4s ease;"></div></div>
+      </td>`;
+
+    // Platform cells — show rank/mention status
+    activePlats.forEach(p => {
+      const r = (resultMap[q] || {})[p];
+      if (!r) {
+        html += `<td style="text-align:center;"><span style="color:var(--muted);font-size:10px;">—</span></td>`;
+      } else if (r.error) {
+        html += `<td style="text-align:center;"><span style="font-size:10px;color:var(--amber);" title="${esc(friendlyError(r.errorMessage))}">⚠</span></td>`;
+      } else if (r.mentioned) {
+        const pos = r.listPosition;
+        const posLabel = pos ? '#' + pos : '✓';
+        const posColor = pos ? (pos <= 3 ? 'var(--green)' : pos <= 5 ? 'var(--amber)' : 'var(--text)') : 'var(--green)';
+        html += `<td style="text-align:center;">
+          <div style="font-family:var(--mono);font-weight:800;font-size:${pos?'14px':'16px'};color:${posColor};line-height:1;" title="${pos?'Ranked #'+pos+' in list':'Mentioned (no numbered list)'}">${posLabel}</div>
+          ${r.recommended ? '<div style="font-size:8px;color:var(--accent);font-weight:700;margin-top:2px;">REC</div>' : ''}
+          ${r.sentiment==='positive' ? '<div style="font-size:8px;color:var(--green);margin-top:1px;">+</div>' : r.sentiment==='negative' ? '<div style="font-size:8px;color:var(--red);margin-top:1px;">−</div>' : ''}
+        </td>`;
+      } else {
+        html += `<td style="text-align:center;"><span style="font-size:14px;color:var(--red);opacity:.6;" title="Not mentioned">✗</span></td>`;
+      }
+    });
+
+    html += `</tr>`;
+  });
+
   html += '</tbody></table></div>';
+
+  // ── Legend ──
+  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:10px;color:var(--muted);">
+    <span><strong style="color:var(--green);font-size:13px;">✓</strong> Mentioned</span>
+    <span><strong style="color:var(--green);font-family:var(--mono);">#3</strong> Rank in list</span>
+    <span><strong style="color:var(--red);font-size:13px;opacity:.6;">✗</strong> Not found</span>
+    <span><strong style="color:var(--amber);">⚠</strong> API error</span>
+    <span><strong style="color:var(--accent);font-size:9px;">REC</strong> Recommended</span>
+    <span><strong style="color:var(--green);font-size:9px;">+</strong> Positive &nbsp; <strong style="color:var(--red);font-size:9px;">−</strong> Negative</span>
+  </div>`;
+
   cont.innerHTML = html;
 }
 
@@ -3318,6 +3520,7 @@ async function runQueries(){
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
+    clearLiveNotifs();
     renderView(currentView);
 
     if (errors > 0) {
@@ -3351,6 +3554,7 @@ async function runQueries(){
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
+    clearLiveNotifs();
     btn.classList.remove('running');
     btn.textContent = '▶ RUN QUERIES';
     toast('Run failed — check API Logs for details.', 'err');
