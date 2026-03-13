@@ -54,6 +54,23 @@ router.delete('/api-logs', auth, async (req, res) => {
   }
 });
 
+// ─── ACTIVITY LOG (audit trail) ──────────────────────────────────
+router.get('/activity-logs', auth, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const result = await pool.query(
+      `SELECT al.*, u.email AS user_email FROM audit_logs al
+       LEFT JOIN users u ON u.id = al.user_id
+       ORDER BY al.created_at DESC LIMIT $1`,
+      [limit]
+    );
+    res.json({ logs: result.rows });
+  } catch(e) {
+    console.error('[Activity Logs]', e.message);
+    res.status(500).json({ error: 'Failed to load activity logs' });
+  }
+});
+
 // API key status (includes key counts for rotation visibility)
 router.get('/keys/status', auth, (req, res) => {
   const keys = getServerKeys();

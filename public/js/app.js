@@ -17,14 +17,14 @@ function showLanding(){
 const API = '';  // relative URLs - same server
 const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO','DeepSeek','Mistral'];
 const PLAT_THEME = {
-  'ChatGPT':    {bg:'#212121',color:'#19c37d',logo:'⬡'},
-  'Perplexity': {bg:'#1b1b2e',color:'#9b72ff',logo:'◎'},
-  'Claude':     {bg:'#1a1612',color:'#d97706',logo:'◈'},
-  'Gemini':     {bg:'#0d1117',color:'#4285f4',logo:'✦'},
-  'Grok':       {bg:'#0c0c0c',color:'#1d9bf0',logo:'⚡'},
-  'Google AIO': {bg:'#0d1117',color:'#34a853',logo:'⬤'},
-  'DeepSeek':   {bg:'#0d1a2e',color:'#4a9eff',logo:'◇'},
-  'Mistral':    {bg:'#1a0d1e',color:'#ff7000',logo:'▣'},
+  'ChatGPT':    {bg:'rgba(25,195,125,.06)',color:'#19c37d',logo:'⬡'},
+  'Perplexity': {bg:'rgba(155,114,255,.06)',color:'#9b72ff',logo:'◎'},
+  'Claude':     {bg:'rgba(217,119,6,.06)',color:'#d97706',logo:'◈'},
+  'Gemini':     {bg:'rgba(66,133,244,.06)',color:'#4285f4',logo:'✦'},
+  'Grok':       {bg:'rgba(29,155,240,.06)',color:'#1d9bf0',logo:'⚡'},
+  'Google AIO': {bg:'rgba(52,168,83,.06)',color:'#34a853',logo:'⬤'},
+  'DeepSeek':   {bg:'rgba(74,158,255,.06)',color:'#4a9eff',logo:'◇'},
+  'Mistral':    {bg:'rgba(255,112,0,.06)',color:'#ff7000',logo:'▣'},
 };
 
 // ─── STATE ────────────────────────────────────────────────────────
@@ -35,7 +35,6 @@ let brands = [];
 let currentBrandId = localStorage.getItem('trackly_brand') || '';
 let keyStatus = {};
 let runningQueries = false;
-let currentTheme = localStorage.getItem('trackly_theme') || 'light';
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
@@ -523,9 +522,7 @@ function renderAccount(){
   planEl.textContent = currentUser.plan || 'free';
   planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
-  // Theme button
-  const themeBtn = el('theme-toggle-btn');
-  if (themeBtn) themeBtn.textContent = currentTheme === 'light' ? 'DARK MODE' : 'LIGHT MODE';
+
 
   // Usage stats
   const limits = getUserLimits();
@@ -598,7 +595,7 @@ async function loadModelSettings() {
       const icon = platformIcons[platform] || '';
       // Default to enabled if not explicitly set
       const isEnabled = enabledPlatforms[platform] !== false;
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:var(--radius-sm);${isEnabled?'':'opacity:0.5;'}">
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--card-bg,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:var(--radius);${isEnabled?'':'opacity:0.5;'}">
         <label class="toggle-switch" style="flex-shrink:0;">
           <input type="checkbox" class="platform-toggle" data-platform="${platform}" ${isEnabled?'checked':''} onchange="togglePlatformRow(this)">
           <span class="toggle-slider"></span>
@@ -703,40 +700,6 @@ async function deleteAccount() {
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// ── Theme Toggle ───────────────────────────────────────
-function applyTheme(theme) {
-  const root = document.documentElement;
-  if (theme === 'light') {
-    root.style.setProperty('--bg', '#f8f9fb');
-    root.style.setProperty('--bg2', '#ffffff');
-    root.style.setProperty('--bg3', '#f1f3f5');
-    root.style.setProperty('--bg4', '#e9ecef');
-    root.style.setProperty('--border', '#e2e5ea');
-    root.style.setProperty('--text', '#1a1a2e');
-    root.style.setProperty('--muted', '#6b7280');
-    root.style.setProperty('--app-shadow', '0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02)');
-    root.style.setProperty('--app-shadow-lg', '0 4px 16px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.03)');
-  } else {
-    root.style.setProperty('--bg', '#0f1117');
-    root.style.setProperty('--bg2', '#1a1d27');
-    root.style.setProperty('--bg3', '#242836');
-    root.style.setProperty('--bg4', '#2e3345');
-    root.style.setProperty('--border', '#343849');
-    root.style.setProperty('--text', '#e8eaed');
-    root.style.setProperty('--muted', '#7a8194');
-    root.style.setProperty('--app-shadow', '0 2px 8px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2)');
-    root.style.setProperty('--app-shadow-lg', '0 8px 24px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2)');
-  }
-  currentTheme = theme;
-  localStorage.setItem('trackly_theme', theme);
-}
-function toggleTheme() {
-  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
-  const btn = el('theme-toggle-btn');
-  if (btn) btn.textContent = currentTheme === 'light' ? 'DARK MODE' : 'LIGHT MODE';
-}
-// Apply saved theme on load
-applyTheme(currentTheme);
 
 // ── Data Export ────────────────────────────────────────
 function exportAllData() {
@@ -1382,31 +1345,38 @@ function renderMentions(){
   const runTime = new Date(run.time || run.date);
   const runTimeStr = runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 
-  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Platform</th><th>Query</th><th>Status</th><th>Sentiment</th><th>Model</th><th>Timestamp</th><th>Response Preview</th><th></th></tr></thead><tbody>';
   const sentimentLabels = {positive:'Positive',negative:'Negative',neutral:'Neutral'};
-  const sentimentTips = {positive:'AI spoke favorably about your brand',negative:'AI expressed concerns about your brand',neutral:'AI mentioned your brand without strong opinion'};
+  let html = '<div class="mention-cards">';
   pageItems.forEach(r => {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
-    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 120).replace(/\n/g, ' ');
-    const statusBadge = isErr
-      ? '<span class="badge" style="background:rgba(245,158,11,.12);color:var(--amber);font-weight:700;">ERROR</span>'
-      : `<span class="badge ${r.mentioned?'pos':'neg'}" style="font-weight:700">${r.mentioned?'FOUND':'NOT FOUND'}</span>`;
+    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw || r.context || '').replace(/[#*_~`]/g, '').substring(0, 180).replace(/\n/g, ' ');
     const sent = r.sentiment || 'neutral';
     const sentLabel = isErr ? '—' : (sentimentLabels[sent] || 'Neutral');
-    const sentTip = isErr ? '' : (sentimentTips[sent] || '');
-    html += `<tr${isErr?' style="opacity:0.6"':''}>
-      <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(r.platform)}</td>
-      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(r.query)}">${esc(r.query)}</td>
-      <td>${statusBadge}</td>
-      <td><span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" title="${sentTip}">${sentLabel}</span></td>
-      <td style="font-family:var(--mono);font-size:9px;color:var(--muted)">${esc(r.model||'—')}</td>
-      <td style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">${esc(runTimeStr)}</td>
-      <td style="max-width:250px;font-size:11px;color:${isErr?'var(--amber)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(preview)}">${esc(preview)}${!isErr&&preview.length>=120?'...':''}</td>
-      <td>${isErr?'':'<button onclick="openResultFromRun(\''+selectedRunId+"','"+r.platform+"','"+btoa(encodeURIComponent(r.query))+'\')" style="font-family:var(--mono);font-size:9px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);">VIEW</button>'}</td>
-    </tr>`;
+    const statusClass = isErr ? 'mention-error' : r.mentioned ? 'mention-found' : 'mention-notfound';
+    const statusText = isErr ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
+    const statusColor = isErr ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
+    const viewBtn = isErr ? '' : `<button onclick="openResultFromRun('${selectedRunId}','${r.platform}','${btoa(encodeURIComponent(r.query))}')" class="mention-view-btn">VIEW FULL &#x2197;</button>`;
+
+    html += `<div class="mention-card ${statusClass}">
+      <div class="mention-card-top">
+        <div class="mention-plat" style="background:${t.bg||'var(--bg3)'};border-color:${t.color||'var(--border)'}30;">
+          <span class="mention-plat-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</span>
+          <span class="mention-plat-name" style="color:${t.color||'var(--text)'}">${esc(r.platform)}</span>
+        </div>
+        <span class="mention-status" style="color:${statusColor};border-color:${statusColor}30;background:${statusColor}08;">${statusText}</span>
+      </div>
+      <div class="mention-query">${esc(r.query)}</div>
+      <div class="mention-preview" style="${isErr?'color:var(--amber);':''}">${esc(preview)}${!isErr&&preview.length>=180?'...':''}</div>
+      <div class="mention-card-footer">
+        <span class="badge ${sent==='positive'?'pos':sent==='negative'?'neg':'neu'}" style="font-size:9px;">${sentLabel}</span>
+        <span class="mention-model">${esc(r.model||'—')}</span>
+        <span class="mention-time">${esc(runTimeStr)}</span>
+        ${viewBtn}
+      </div>
+    </div>`;
   });
-  html += '</tbody></table></div>';
+  html += '</div>';
   html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">`;
   html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${pageStart+1}-${Math.min(pageStart+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results — ${allResults.filter(r=>r.mentioned).length} found</div>`;
   if (totalPages > 1) {
@@ -1557,7 +1527,7 @@ function renderProof(){
   const foundCount = allResults.filter(r => r.mentioned).length;
   const errorCount = allResults.filter(r => r.error).length;
   const runDate = new Date(run.time || run.date);
-  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:var(--mono);font-size:11px;">
+  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
     <span style="color:var(--muted);">RUN: ${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
     <span style="color:var(--text);font-weight:700;">${totalResults} results</span>
     <span style="color:var(--green);font-weight:700;">${foundCount} found</span>
@@ -1605,22 +1575,22 @@ function renderProof(){
 
       // Status badge — clear FOUND / NOT FOUND / ERROR
       const statusBadge = isError
-        ? `<div class="proof-card-badge" style="color:var(--amber);border:1px solid rgba(245,158,11,.3);font-weight:700;border-radius:4px;">⚠ API ERROR</div>`
+        ? `<div class="proof-card-badge" style="color:var(--amber);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);font-weight:700;border-radius:var(--radius-full);">⚠ ERROR</div>`
         : isMentioned
-        ? `<div class="proof-card-badge" style="color:var(--green);border:1px solid rgba(255,97,84,.3);font-weight:700;border-radius:4px;">&#x2713; FOUND</div>`
-        : `<div class="proof-card-badge" style="color:var(--red);border:1px solid rgba(239,68,68,.3);font-weight:700;border-radius:4px;">&#x2717; NOT FOUND</div>`;
+        ? `<div class="proof-card-badge" style="color:var(--green);background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);font-weight:700;border-radius:var(--radius-full);">&#x2713; FOUND</div>`
+        : `<div class="proof-card-badge" style="color:var(--red);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);font-weight:700;border-radius:var(--radius-full);">&#x2717; NOT FOUND</div>`;
 
-      const cardBg = isMentioned ? (t.bg||'var(--bg2)') : 'var(--bg2)';
-      const cardBorder = isMentioned ? (t.color||'var(--border)')+'33' : 'var(--border)';
+      const cardBg = 'var(--bg2)';
+      const cardBorder = isMentioned ? (t.color||'var(--border)')+'40' : 'var(--border)';
       const mid = m ? m.id : null;
       const viewBtn = mid
         ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
         : `<button class="proof-view-btn" onclick="openFullResult('${plat}','${btoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
 
-      return `<div class="proof-card" style="background:${cardBg};--proof-card-bg:${cardBg};border:1px solid ${cardBorder};">
-        <div class="proof-card-header" style="background:${t.bg||'var(--bg3)'};border-bottom:1px solid ${cardBorder};">
-          <div class="proof-card-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-          <div class="proof-card-name" style="color:${isMentioned?(t.color||'var(--text)'):'var(--text)'}">${plat}</div>
+      return `<div class="proof-card" style="background:${cardBg};border:1px solid ${cardBorder};">
+        <div class="proof-card-header" style="background:${t.bg||'var(--bg)'};border-bottom:1px solid ${cardBorder};">
+          <div class="proof-card-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</div>
+          <div class="proof-card-name">${plat}</div>
           <div class="proof-card-badges">
             ${statusBadge}
           </div>
@@ -1630,7 +1600,7 @@ function renderProof(){
           ${isError
             ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
-            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="${isMentioned?'':'color:var(--muted);'}">${displayResp}</div>`
+            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${btoa(encodeURIComponent(q)).substring(0,12)}" style="color:var(--text);">${displayResp}</div>`
             : `<div class="proof-not-found">No response received from this platform.</div>`
           }
         </div>
@@ -2581,7 +2551,7 @@ async function renderApiLogs(){
   // 1. Client-side errors (localStorage)
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
-    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);border-radius:var(--radius-sm);">
+    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);border-radius:var(--radius);">
       <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
     clientErrors.forEach(err => {
       const dt = new Date(err.time);
@@ -2621,7 +2591,13 @@ async function renderApiLogs(){
     <div id="apilogs-server-logs">Loading...</div>
   </div>`;
 
-  // 4. Guide
+  // 4. Activity / Audit Log
+  html += `<div class="card" style="margin-bottom:16px;">
+    <div class="card-title">User Activity Log</div>
+    <div id="apilogs-activity">Loading activity...</div>
+  </div>`;
+
+  // 5. Guide
   html += `<div class="card" style="margin-top:16px;">
     <div class="card-title">Common Errors &amp; Fixes</div>
     <div style="font-size:12px;line-height:1.8;color:var(--muted);">
@@ -2660,8 +2636,8 @@ async function renderApiLogs(){
     }
 
     let tbl = `<div style="overflow-x:auto;max-height:600px;overflow-y:auto;">
-      <table class="data-table" style="width:100%;font-size:11px;">
-      <thead style="position:sticky;top:0;background:var(--bg1);z-index:1;"><tr>
+      <table class="tbl" style="width:100%;font-size:11px;">
+      <thead style="position:sticky;top:0;background:var(--bg2);z-index:1;"><tr>
         <th style="width:130px;">Time</th>
         <th style="width:80px;">Platform</th>
         <th>Query</th>
@@ -2697,6 +2673,46 @@ async function renderApiLogs(){
   } catch(e) {
     const logsEl = el('apilogs-server-logs');
     if (logsEl) logsEl.innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:11px;">Failed to load logs: ${esc(e.message)}</div>`;
+  }
+
+  // Load activity logs
+  try {
+    const actData = await api('GET', '/api/activity-logs?limit=50');
+    const actEl = el('apilogs-activity');
+    const actLogs = actData.logs || [];
+    if (!actLogs.length) {
+      actEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">No activity logged yet.</div>';
+    } else {
+      const actionIcons = {login:'&#x1F511;',register:'&#x1F4DD;',create_brand:'&#x2795;',delete_brand:'&#x1F5D1;',run_queries:'&#x25B6;',update_brand:'&#x270F;',change_plan:'&#x2B50;',export_data:'&#x1F4E5;',change_password:'&#x1F512;',admin_edit_user:'&#x1F6E0;'};
+      let actHtml = '<div style="max-height:400px;overflow-y:auto;">';
+      actLogs.forEach(log => {
+        const dt = new Date(log.created_at);
+        const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+        const icon = actionIcons[log.action] || '&#x25CF;';
+        const email = log.user_email || 'Unknown';
+        const details = log.details || {};
+        let detailStr = '';
+        if (details.brand) detailStr = ' — ' + esc(details.brand);
+        if (details.plan) detailStr = ' — plan: ' + esc(details.plan);
+        if (details.email) detailStr = ' — ' + esc(details.email);
+        actHtml += `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span style="font-size:14px;flex-shrink:0;width:20px;text-align:center;">${icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-weight:600;color:var(--text);">${esc(email)}</span>
+              <span style="color:var(--muted);font-size:11px;">${esc(log.action.replace(/_/g,' '))}</span>
+              <span style="color:var(--muted);font-family:var(--mono);font-size:9px;">${esc(timeStr)}</span>
+            </div>
+            ${detailStr ? `<div style="color:var(--muted);font-size:11px;margin-top:2px;">${detailStr}</div>` : ''}
+          </div>
+        </div>`;
+      });
+      actHtml += '</div>';
+      actEl.innerHTML = actHtml;
+    }
+  } catch(e) {
+    const actEl = el('apilogs-activity');
+    if (actEl) actEl.innerHTML = `<div style="color:var(--muted);font-family:var(--mono);font-size:11px;">Activity logs unavailable.</div>`;
   }
 }
 
@@ -2764,7 +2780,7 @@ function renderAdminStats(users){
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];
   el('admin-stats').innerHTML = stats.map(s => `
-    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;border-radius:var(--radius-sm);">
+    <div style="background:var(--bg2);border:1px solid var(--border);padding:16px;border-radius:var(--radius);">
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">${s.label}</div>
       <div style="font-size:28px;font-weight:800;color:${s.color};letter-spacing:-1px;">${s.value}</div>
     </div>
