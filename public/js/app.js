@@ -35,7 +35,7 @@ let brands = [];
 let currentBrandId = localStorage.getItem('trackly_brand') || '';
 let keyStatus = {};
 let runningQueries = false;
-let currentTheme = localStorage.getItem('trackly_theme') || 'dark';
+let currentTheme = localStorage.getItem('trackly_theme') || 'light';
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
@@ -525,7 +525,7 @@ function renderAccount(){
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
   // Theme button
   const themeBtn = el('theme-toggle-btn');
-  if (themeBtn) themeBtn.textContent = currentTheme === 'dark' ? 'LIGHT MODE' : 'DARK MODE';
+  if (themeBtn) themeBtn.textContent = currentTheme === 'light' ? 'DARK MODE' : 'LIGHT MODE';
 
   // Usage stats
   const limits = getUserLimits();
@@ -707,21 +707,25 @@ async function deleteAccount() {
 function applyTheme(theme) {
   const root = document.documentElement;
   if (theme === 'light') {
-    root.style.setProperty('--bg', '#f5f5f5');
+    root.style.setProperty('--bg', '#f8f9fb');
     root.style.setProperty('--bg2', '#ffffff');
-    root.style.setProperty('--bg3', '#eaeaea');
-    root.style.setProperty('--bg4', '#ddd');
-    root.style.setProperty('--border', '#d0d0d0');
-    root.style.setProperty('--text', '#1a1a1a');
-    root.style.setProperty('--muted', '#666');
+    root.style.setProperty('--bg3', '#f1f3f5');
+    root.style.setProperty('--bg4', '#e9ecef');
+    root.style.setProperty('--border', '#e2e5ea');
+    root.style.setProperty('--text', '#1a1a2e');
+    root.style.setProperty('--muted', '#6b7280');
+    root.style.setProperty('--app-shadow', '0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02)');
+    root.style.setProperty('--app-shadow-lg', '0 4px 16px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.03)');
   } else {
-    root.style.setProperty('--bg', '#0b0d0f');
-    root.style.setProperty('--bg2', '#12151a');
-    root.style.setProperty('--bg3', '#1a1e25');
-    root.style.setProperty('--bg4', '#242830');
-    root.style.setProperty('--border', '#2a2e38');
+    root.style.setProperty('--bg', '#0f1117');
+    root.style.setProperty('--bg2', '#1a1d27');
+    root.style.setProperty('--bg3', '#242836');
+    root.style.setProperty('--bg4', '#2e3345');
+    root.style.setProperty('--border', '#343849');
     root.style.setProperty('--text', '#e8eaed');
     root.style.setProperty('--muted', '#7a8194');
+    root.style.setProperty('--app-shadow', '0 2px 8px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2)');
+    root.style.setProperty('--app-shadow-lg', '0 8px 24px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2)');
   }
   currentTheme = theme;
   localStorage.setItem('trackly_theme', theme);
@@ -729,7 +733,7 @@ function applyTheme(theme) {
 function toggleTheme() {
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
   const btn = el('theme-toggle-btn');
-  if (btn) btn.textContent = currentTheme === 'dark' ? 'LIGHT MODE' : 'DARK MODE';
+  if (btn) btn.textContent = currentTheme === 'light' ? 'DARK MODE' : 'LIGHT MODE';
 }
 // Apply saved theme on load
 applyTheme(currentTheme);
