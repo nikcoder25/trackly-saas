@@ -17,6 +17,19 @@ const PLATFORM_KEY_MAP = {
   'DeepSeek': 'deepseek', 'Mistral': 'mistral'
 };
 
+// Cheapest platforms first — used to prioritize when plan limits truncate the list
+// Based on default model cost per query (input+output)
+const PLATFORM_COST_ORDER = [
+  'Gemini',      // gemini-2.0-flash: $0.10/$0.40
+  'Google AIO',  // gemini-2.0-flash + search: $0.10/$0.40
+  'DeepSeek',    // deepseek-chat: $0.27/$1.10
+  'Grok',        // grok-3-mini: $0.30/$0.50
+  'Perplexity',  // sonar: $1.00/$1.00
+  'Claude',      // claude-haiku: $0.80/$4.00
+  'Mistral',     // mistral-large: $2.00/$6.00
+  'ChatGPT'      // gpt-5-search: $2.50/$10.00
+];
+
 // List brands
 router.get('/', auth, async (req, res) => {
   try {
@@ -223,6 +236,9 @@ router.post('/:id/run', auth, async (req, res) => {
     .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
+
+  // Sort by cost (cheapest first) so plan limits pick the most cost-effective platforms
+  availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
 
   if (availablePlatforms.length > limits.platforms) {
     availablePlatforms = availablePlatforms.slice(0, limits.platforms);
@@ -542,6 +558,153 @@ router.post('/:id/retry-query', auth, async (req, res) => {
   }
 });
 
+// ─── RECHECK SINGLE QUERY (any result, not just errors) ─────────
+// Re-run one query on one platform and replace the existing result
+router.post('/:id/recheck-query', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const { runId, platform, query } = req.body;
+    if (!runId || !platform || !query) return res.status(400).json({ error: 'Missing runId, platform, or query' });
+
+    const run = (brand.runs || []).find(r => r.id === runId);
+    if (!run || !run.allResults) return res.status(404).json({ error: 'Run not found' });
+
+    // Find the result to recheck (any result, not just errors)
+    const idx = run.allResults.findIndex(r => r.platform === platform && r.query === query);
+    if (idx === -1) return res.status(400).json({ error: 'No result found for this query/platform combination' });
+
+    const keys = getServerKeys();
+    const keyName = PLATFORM_KEY_MAP[platform];
+    if (!keyName || !keys[keyName] || !keys[keyName].length) {
+      return res.status(400).json({ error: `No API key available for ${platform}` });
+    }
+
+    const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+    const userSettings = userRow.rows[0]?.settings || {};
+    const modelPrefs = userSettings.models || {};
+    const logCtx = { userId: req.user.id, brandId: brand.id, runId, logFn: logApiCall };
+
+    const result = await queryAI(query, platform, brand, keys, modelPrefs, logCtx);
+    if (!result) return res.status(500).json({ error: 'No response from AI platform' });
+
+    const { text, citations: extraCites, model: modelUsed } = result;
+    const parsed = parseResponse(text, brand, query);
+    parsed.simulated = false;
+    if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+    const compMentions = detectCompetitors(text, brand.competitors || []);
+
+    const oldResult = run.allResults[idx];
+    const newResult = {
+      platform, query,
+      context: text.substring(0, 300), raw: text,
+      simulated: false, mentioned: parsed.mentioned,
+      sentiment: parsed.sentiment, recommended: parsed.recommended,
+      citations: parsed.cites, model: modelUsed || platform,
+      locationRelevant: parsed.locationRelevant,
+      matchedLocation: parsed.matchedLocation || '',
+      competitorMentions: compMentions,
+      listPosition: parsed.listPosition || null,
+      recheckedAt: new Date().toISOString(),
+      previousMentioned: oldResult.mentioned || false
+    };
+
+    // Replace the result in the run
+    run.allResults[idx] = newResult;
+
+    // Update mentions list: remove old mention for this query/platform if it existed
+    if (run.mentions) {
+      run.mentions = run.mentions.filter(m => !(m.platform === platform && m.query === query));
+    }
+
+    // If now mentioned, add to mentions list
+    if (parsed.mentioned) {
+      if (!run.mentions) run.mentions = [];
+      run.mentions.push({
+        id: uid(), platform, query,
+        context: text.substring(0, 300), raw: text,
+        sentiment: parsed.sentiment, recommended: parsed.recommended,
+        citations: parsed.cites, simulated: false,
+        model: modelUsed || platform,
+        locationRelevant: parsed.locationRelevant,
+        matchedLocation: parsed.matchedLocation || '',
+        time: new Date().toISOString()
+      });
+    }
+
+    // Recalculate run SOV
+    const okResults = run.allResults.filter(r => !r.error);
+    const mentionedResults = run.allResults.filter(r => r.mentioned);
+    run.totalM = mentionedResults.length;
+    run.sov = okResults.length > 0 ? Math.round((mentionedResults.length / okResults.length) * 100) : 0;
+
+    // Recalculate platform SOV
+    if (run.platforms) {
+      const queries = brand.queries || [];
+      const platMentions = {};
+      run.allResults.forEach(r => {
+        if (!platMentions[r.platform]) platMentions[r.platform] = { m: 0, t: 0 };
+        platMentions[r.platform].t++;
+        if (r.mentioned) platMentions[r.platform].m++;
+      });
+      Object.entries(platMentions).forEach(([p, c]) => {
+        run.platforms[p] = c.t > 0 ? Math.round((c.m / c.t) * 100) : 0;
+      });
+    }
+
+    // Update all-time mentions
+    if (brand.mentions) {
+      const today = new Date().toISOString().split('T')[0];
+      brand.mentions = brand.mentions.filter(m => !(m.platform === platform && m.query === query && (m.time || '').startsWith(today)));
+      if (parsed.mentioned) {
+        brand.mentions.unshift({
+          id: uid(), platform, query,
+          context: text.substring(0, 300), raw: text,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: parsed.cites, simulated: false,
+          model: modelUsed || platform,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || '',
+          time: new Date().toISOString()
+        });
+        brand.mentions = brand.mentions.slice(0, 500);
+      }
+    }
+
+    // Rebuild queryStats
+    const allQueries = brand.queries || [];
+    const qsNew = {};
+    allQueries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+    (brand.runs || []).forEach(r => {
+      allQueries.forEach(q => {
+        if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+        qsNew[q].runs++;
+        if ((r.mentions || []).some(m => m.query === q)) qsNew[q].mentions++;
+      });
+    });
+    brand.queryStats = qsNew;
+
+    brand.updatedAt = new Date().toISOString();
+    await saveBrand(brand);
+
+    const statusChange = oldResult.mentioned !== parsed.mentioned
+      ? (parsed.mentioned ? 'now_mentioned' : 'no_longer_mentioned')
+      : 'unchanged';
+
+    console.log(`[Recheck] ${platform} query "${query}" → ${parsed.mentioned ? 'MENTIONED' : 'not mentioned'} (was: ${oldResult.mentioned ? 'mentioned' : 'not mentioned'})`);
+    res.json({
+      success: true,
+      result: { ...newResult, raw: undefined },
+      statusChange,
+      brand
+    });
+  } catch (e) {
+    console.error('[Recheck] Error:', e.message);
+    res.status(500).json({ error: 'Recheck failed: ' + e.message });
+  }
+});
+
 // Validate webhook URL is safe (prevent SSRF)
 function isWebhookUrlSafe(urlStr) {
   try {
@@ -615,6 +778,8 @@ async function runBrandQueries(brand) {
     .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
+  // Sort by cost (cheapest first) so plan limits pick the most cost-effective platforms
+  activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
   if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
   if (!activePlatforms.length || !queries.length) return;
 

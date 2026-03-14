@@ -1974,6 +1974,32 @@ async function retryQuery(runId, platform, query, btnEl){
   }
 }
 
+async function recheckQuery(runId, platform, query, btnEl){
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="mt-retry-spin"></span> Rechecking...'; }
+  try {
+    const b = brand();
+    if (!b) throw new Error('No brand selected');
+    const resp = await fetch(`/api/brands/${b.id}/recheck-query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ runId, platform, query })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Recheck failed');
+    const idx = brands.findIndex(x => x.id === b.id);
+    if (idx !== -1 && data.brand) brands[idx] = data.brand;
+    const msg = data.statusChange === 'now_mentioned' ? 'Recheck complete — now mentioned!'
+      : data.statusChange === 'no_longer_mentioned' ? 'Recheck complete — no longer mentioned'
+      : 'Recheck complete — status unchanged';
+    toast(msg);
+    mentionsExpandedRow = null;
+    renderMentions();
+  } catch(e) {
+    toast(e.message, 'err');
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '⟳ Recheck'; }
+  }
+}
+
 function renderMentions(){
   const b = brand();
   if (!b) return;
@@ -2129,7 +2155,7 @@ function renderMentions(){
         </div>
         <div class="mt-item-right">
           <div class="mt-item-tags">${statusHtml}${metaHtml}</div>
-          ${isErr ? `<button class="mt-retry-btn" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" title="Retry this query">↻ Retry</button>` : ''}
+          ${isErr ? `<button class="mt-retry-btn" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" title="Retry this query">↻ Retry</button>` : `<button class="mt-retry-btn" onclick="event.stopPropagation();recheckQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" title="Recheck this query for mention changes">⟳ Recheck</button>`}
           <span class="mt-item-chevron">${open?'▾':'▸'}</span>
         </div>
       </div>
@@ -2159,7 +2185,8 @@ function renderMentions(){
           </div>
           ${isErr
             ? `<button class="mt-retry-btn mt-retry-lg" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)">↻ Retry This Query</button>`
-            : `<button onclick="event.stopPropagation();openResultFromRun('${escAttr(runId)}','${escAttr(r.platform)}','${safeBtoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>`
+            : `<button class="mt-retry-btn mt-retry-lg" onclick="event.stopPropagation();recheckQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" style="margin-bottom:6px;">⟳ Recheck Mention</button>
+               <button onclick="event.stopPropagation();openResultFromRun('${escAttr(runId)}','${escAttr(r.platform)}','${safeBtoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>`
           }
         </div>
       </div>`;

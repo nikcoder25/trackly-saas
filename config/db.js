@@ -11,7 +11,14 @@ const sslConfig = process.env.DATABASE_URL
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: sslConfig
+  ssl: sslConfig,
+  // Scale pool for concurrent users — default pg Pool is 10 which can bottleneck
+  // at 100+ concurrent requests (runs, rechecks, cron jobs all need connections).
+  max: parseInt(process.env.PG_POOL_MAX, 10) || 25,
+  // Return idle connections after 30s (default 10s) to reduce churn
+  idleTimeoutMillis: 30000,
+  // Don't wait more than 10s for a connection from the pool
+  connectionTimeoutMillis: 10000
 });
 
 async function initDB() {
