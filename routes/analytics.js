@@ -709,7 +709,7 @@ router.post('/brands/:id/alerts', auth, async (req, res) => {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
-    const { name, condition_type, condition_params, action_type, action_params } = req.body;
+    const { name, condition_type, condition_params, action_type, action_params, cooldown_hours } = req.body;
     if (!name || !condition_type) return res.status(400).json({ error: 'Name and condition type are required' });
 
     const validConditions = ['visibility_drop', 'brand_disappeared', 'negative_sentiment', 'new_competitor', 'sov_below'];
@@ -718,12 +718,13 @@ router.post('/brands/:id/alerts', auth, async (req, res) => {
     const validActions = ['email', 'in_app', 'webhook'];
     if (action_type && !validActions.includes(action_type)) return res.status(400).json({ error: 'Invalid action type' });
 
+    const cooldown = Math.max(1, Math.min(168, parseInt(cooldown_hours) || 24)); // 1h to 7d
     const id = uid();
     await pool.query(
-      `INSERT INTO alert_rules (id, brand_id, user_id, name, condition_type, condition_params, action_type, action_params)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO alert_rules (id, brand_id, user_id, name, condition_type, condition_params, action_type, action_params, cooldown_hours)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [id, req.params.id, req.user.id, name, condition_type,
-       JSON.stringify(condition_params || {}), action_type || 'in_app', JSON.stringify(action_params || {})]
+       JSON.stringify(condition_params || {}), action_type || 'in_app', JSON.stringify(action_params || {}), cooldown]
     );
 
     const result = await pool.query('SELECT * FROM alert_rules WHERE id = $1', [id]);
@@ -736,7 +737,7 @@ router.post('/brands/:id/alerts', auth, async (req, res) => {
 // PUT /api/alerts/:id — update alert rule
 router.put('/alerts/:id', auth, async (req, res) => {
   try {
-    const { name, condition_params, action_type, action_params, enabled } = req.body;
+    const { name, condition_params, action_type, action_params, enabled, cooldown_hours } = req.body;
     const updates = [];
     const values = [];
     let idx = 1;
@@ -746,6 +747,7 @@ router.put('/alerts/:id', auth, async (req, res) => {
     if (action_type) { updates.push(`action_type = $${idx++}`); values.push(action_type); }
     if (action_params) { updates.push(`action_params = $${idx++}`); values.push(JSON.stringify(action_params)); }
     if (enabled !== undefined) { updates.push(`enabled = $${idx++}`); values.push(enabled); }
+    if (cooldown_hours !== undefined) { updates.push(`cooldown_hours = $${idx++}`); values.push(Math.max(1, Math.min(168, parseInt(cooldown_hours) || 24))); }
 
     if (!updates.length) return res.status(400).json({ error: 'No updates provided' });
 
@@ -1127,43 +1129,80 @@ function generateCopilotAnswer(question, ctx) {
 
   if (q.includes('sov') || q.includes('share of voice') || q.includes('visibility')) {
     const trend = ctx.sovTrend > 0 ? `up ${ctx.sovTrend}%` : ctx.sovTrend < 0 ? `down ${Math.abs(ctx.sovTrend)}%` : 'stable';
-    return `${ctx.brandName}'s current share of voice is ${ctx.currentSov}%, trending ${trend} compared to the previous measurement. This is based on ${ctx.totalRuns} total runs across ${ctx.platforms.length} platforms.`;
+    let advice = '';
+    if (ctx.currentSov < 10) advice = ' This is quite low — focus on establishing brand presence through authoritative content and reviews.';
+    else if (ctx.currentSov < 30) advice = ' There\'s room to grow. Check the Recommendations tab for specific improvements.';
+    else if (ctx.currentSov >= 60) advice = ' This is a strong position. Focus on maintaining and defending against competitors.';
+    return `${ctx.brandName}'s current share of voice is ${ctx.currentSov}%, trending ${trend} compared to the previous measurement. This is based on ${ctx.totalRuns} total runs across ${ctx.platforms.length} platforms.${advice}`;
   }
 
   if (q.includes('competitor') || q.includes('competition')) {
-    if (ctx.competitors.length === 0) return 'No competitors are currently configured for tracking. Add competitors in your brand settings.';
-    return `You're tracking ${ctx.competitors.length} competitors: ${ctx.competitors.join(', ')}. Check the Competitor Analysis section for detailed co-occurrence data.`;
+    if (ctx.competitors.length === 0) return 'No competitors are currently configured for tracking. Add competitors in Brand Setup to see how you compare.';
+    const compData = {};
+    ctx.recentData.forEach(r => { if (r.mentioned) compData[r.platform] = (compData[r.platform] || 0) + r.count; });
+    return `You're tracking ${ctx.competitors.length} competitors: ${ctx.competitors.join(', ')}. Your brand appears in ${Object.keys(compData).length} platforms in the last 7 days. Visit the Competitors tab for detailed co-occurrence and per-platform breakdown.`;
   }
 
-  if (q.includes('platform') || q.includes('chatgpt') || q.includes('perplexity') || q.includes('claude') || q.includes('gemini')) {
-    return `${ctx.brandName} is tracked across ${ctx.platforms.length} platforms: ${ctx.platforms.join(', ')}. Visit the Prompt Details page to see per-platform metrics.`;
+  if (q.includes('platform') || q.includes('chatgpt') || q.includes('perplexity') || q.includes('claude') || q.includes('gemini') || q.includes('grok')) {
+    const platData = {};
+    ctx.recentData.forEach(r => {
+      if (!platData[r.platform]) platData[r.platform] = { total: 0, mentioned: 0 };
+      platData[r.platform].total += r.count;
+      if (r.mentioned) platData[r.platform].mentioned += r.count;
+    });
+    const summary = Object.entries(platData).map(([p, d]) => {
+      const rate = d.total > 0 ? Math.round(d.mentioned / d.total * 100) : 0;
+      return `${p}: ${rate}% mention rate (${d.mentioned}/${d.total})`;
+    }).join(', ');
+    return summary
+      ? `Platform breakdown (last 7 days): ${summary}. Visit Platform Status for API health details.`
+      : `${ctx.brandName} is tracked across ${ctx.platforms.length} platforms: ${ctx.platforms.join(', ')}. Run queries to see per-platform data.`;
   }
 
-  if (q.includes('improve') || q.includes('recommendation') || q.includes('suggest') || q.includes('how to')) {
-    if (ctx.currentSov < 20) {
-      return `With a SOV of ${ctx.currentSov}%, the key focus should be: 1) Strengthen your website content with clear brand descriptions, 2) Build reviews on authoritative platforms, 3) Create comparison content against competitors. Check the Recommendations tab for specific action items.`;
-    }
-    return `Your SOV is ${ctx.currentSov}%. To improve further, focus on the prompts where you're not appearing and check the Recommendations tab for tailored suggestions.`;
+  if (q.includes('improve') || q.includes('recommendation') || q.includes('suggest') || q.includes('how to') || q.includes('increase') || q.includes('boost')) {
+    const tips = [];
+    if (ctx.currentSov < 20) tips.push('Strengthen your website with clear, factual brand descriptions');
+    if (ctx.currentSov < 40) tips.push('Build reviews on authoritative platforms (G2, Trustpilot, etc.)');
+    if (ctx.competitors.length > 0) tips.push('Create comparison content vs ' + ctx.competitors.slice(0, 2).join(' and '));
+    tips.push('Ensure consistent NAP (Name, Address, Phone) across the web');
+    if (ctx.queries.length < 5) tips.push('Add more tracking queries to discover visibility gaps');
+    tips.push('Check the Recommendations tab for AI-generated, data-driven action items');
+    return `Here are suggestions to improve ${ctx.brandName}'s visibility (current SOV: ${ctx.currentSov}%):\n\n` +
+      tips.map((t, i) => `${i + 1}. ${t}`).join('\n');
   }
 
   if (q.includes('sentiment')) {
     const sentData = {};
     ctx.recentData.forEach(r => {
-      if (r.mentioned) {
-        sentData[r.sentiment] = (sentData[r.sentiment] || 0) + r.count;
-      }
+      if (r.mentioned) sentData[r.sentiment] = (sentData[r.sentiment] || 0) + r.count;
     });
-    const parts = Object.entries(sentData).map(([k, v]) => `${k}: ${v}`);
-    return parts.length > 0
-      ? `Recent sentiment breakdown for ${ctx.brandName}: ${parts.join(', ')}.`
-      : `No recent sentiment data available. Run more queries to build sentiment history.`;
+    const total = Object.values(sentData).reduce((s, v) => s + v, 0);
+    if (total === 0) return 'No recent sentiment data available. Run more queries to build sentiment history.';
+    const parts = Object.entries(sentData).map(([k, v]) => `${k}: ${v} (${Math.round(v/total*100)}%)`);
+    const negPct = sentData.negative ? Math.round(sentData.negative / total * 100) : 0;
+    let advice = '';
+    if (negPct > 30) advice = '\n\n⚠ High negative sentiment detected. Review the specific responses in Prompt Details to understand the concerns.';
+    return `Recent sentiment for ${ctx.brandName} (last 7 days, ${total} mentions): ${parts.join(', ')}.${advice}`;
   }
 
-  if (q.includes('query') || q.includes('prompt')) {
-    return `${ctx.brandName} is tracking ${ctx.queries.length} queries. Your top queries can be viewed in the Prompt Details section with per-query metrics.`;
+  if (q.includes('query') || q.includes('prompt') || q.includes('keyword')) {
+    return `${ctx.brandName} is tracking ${ctx.queries.length} queries: "${ctx.queries.slice(0, 5).join('", "')}${ctx.queries.length > 5 ? '"...' : '"'}. Visit Prompt Details for per-query visibility, sentiment, and trend data.`;
   }
 
-  return `Based on your data: ${ctx.brandName} has a ${ctx.currentSov}% share of voice across ${ctx.platforms.length} AI platforms with ${ctx.totalRuns} total runs. Use the dashboard tabs (Diagnostics, Recommendations, Competitor Analysis) for deeper insights. Ask me specific questions about SOV, competitors, sentiment, or platforms.`;
+  if (q.includes('trend') || q.includes('history') || q.includes('change') || q.includes('over time')) {
+    const trend = ctx.sovTrend > 0 ? `increasing (+${ctx.sovTrend}%)` : ctx.sovTrend < 0 ? `decreasing (${ctx.sovTrend}%)` : 'stable';
+    return `${ctx.brandName}'s SOV trend is ${trend}. You have ${ctx.totalRuns} historical runs. Visit SOV Trends for detailed charts, or Prompt Details for per-query time series.`;
+  }
+
+  if (q.includes('alert') || q.includes('notify') || q.includes('notification')) {
+    return 'Configure alerts in the Alerts tab. You can set up notifications for: visibility drops, SOV falling below a threshold, brand disappearing from responses, negative sentiment spikes, and new competitor detections. Alerts can trigger in-app notifications, emails, or webhooks.';
+  }
+
+  if (q.includes('export') || q.includes('report') || q.includes('download')) {
+    return 'You can export data in several ways: 1) Overview → Export CSV for mentions, 2) Prompt Details → Export CSV for prompt-level stats, 3) Recommendations → Export CSV, 4) Account → Export All (JSON). All exports are available from their respective view headers.';
+  }
+
+  return `Based on your data: ${ctx.brandName} has a ${ctx.currentSov}% share of voice across ${ctx.platforms.length} AI platforms with ${ctx.totalRuns} total runs. Ask me about:\n• SOV / visibility metrics\n• Competitor analysis\n• Platform breakdown\n• Sentiment analysis\n• How to improve\n• Trends over time\n• Alerts & notifications\n• Exporting data`;
 }
 
 // ═══════════════════════════════════════════════════════════

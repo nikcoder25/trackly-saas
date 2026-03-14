@@ -936,13 +936,14 @@
             <option value="new_competitor">New Competitor Detected</option>
           </select></div>
         </div>
-        <div id="alert-params-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div id="alert-params-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
           <div><label class="flabel">Threshold (%)</label><input class="finput" id="alert-threshold" type="number" value="10" min="1" max="100" style="margin:0;"></div>
           <div><label class="flabel">Action</label><select class="finput" id="alert-action" style="margin:0;">
             <option value="in_app">In-App Notification</option>
             <option value="email">Email</option>
             <option value="webhook">Webhook</option>
           </select></div>
+          <div><label class="flabel">Cooldown (hours)</label><input class="finput" id="alert-cooldown" type="number" value="24" min="1" max="168" style="margin:0;"></div>
         </div>
         <div style="display:flex;gap:8px;">
           <button class="btn-primary" onclick="saveAlertRule()" style="font-size:12px;padding:8px 16px;">Save Alert</button>
@@ -1073,6 +1074,8 @@
           <button class="btn" onclick="exportAllData()">EXPORT CURRENT BRAND (JSON)</button>
           <button class="btn" onclick="exportBrandCSV()">EXPORT CURRENT BRAND (CSV)</button>
           <button class="btn" onclick="exportAllBrandsData()">EXPORT ALL BRANDS (JSON)</button>
+          <button class="btn" onclick="el('import-brand-file').click()" style="background:var(--bg3);border-color:var(--primary-border);color:var(--primary);">IMPORT BRAND (JSON)</button>
+          <input type="file" id="import-brand-file" accept=".json" style="display:none;" onchange="importBrandConfig(this)">
         </div>
       </div>
       <div class="card" style="margin-top:16px;">

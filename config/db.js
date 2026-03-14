@@ -261,6 +261,7 @@ async function initDB() {
         action_type TEXT DEFAULT 'email',
         action_params JSONB DEFAULT '{}',
         enabled BOOLEAN DEFAULT TRUE,
+        cooldown_hours INT DEFAULT 24,
         last_triggered_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );

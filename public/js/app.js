@@ -797,6 +797,39 @@ function exportBrandCSV() {
   _downloadViaFetch(API + '/api/export/brand/' + b.id + '/csv', `trackly-${b.name || 'brand'}-data.csv`);
 }
 
+// ── Brand Import ──────────────────────────────────────
+async function importBrandConfig(fileInput){
+  const file = fileInput.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    // Support both single brand export and full export format
+    const brandData = data.brand || data;
+    if (!brandData.name) { toast('Invalid brand file — missing name', 'err'); return; }
+    const payload = {
+      name: brandData.name,
+      industry: brandData.industry || '',
+      website: brandData.website || '',
+      city: brandData.city || '',
+      competitors: brandData.competitors || [],
+      queries: brandData.queries || [],
+      aliases: brandData.aliases || []
+    };
+    const result = await api('POST', '/api/brands', payload);
+    brands.push(result.brand);
+    currentBrandId = result.brand.id;
+    localStorage.setItem('trackly_brand', currentBrandId);
+    renderBrandSelect();
+    el('brand-select').value = currentBrandId;
+    renderAll();
+    toast('Brand "' + payload.name + '" imported successfully', 'ok');
+  } catch(e) {
+    toast('Import failed: ' + e.message, 'err');
+  }
+  fileInput.value = '';
+}
+
 // ── Email Verification ────────────────────────────────
 async function resendVerification() {
   try {
@@ -3073,17 +3106,22 @@ async function renderAlerts(){
       rulesEl.innerHTML = '<div class="empty-state"><p>No alert rules configured. Click "+ Add Alert" to create one.</p></div>';
     } else {
       const condLabels = { visibility_drop:'Visibility Drop', sov_below:'SOV Below', brand_disappeared:'Brand Disappeared', negative_sentiment:'Negative Sentiment', new_competitor:'New Competitor' };
-      rulesEl.innerHTML = '<table class="tbl"><thead><tr><th>Name</th><th>Condition</th><th>Threshold</th><th>Action</th><th>Status</th><th></th></tr></thead><tbody>' +
-        rules.map(r => `<tr>
+      rulesEl.innerHTML = '<table class="tbl"><thead><tr><th>Name</th><th>Condition</th><th>Threshold</th><th>Action</th><th>Cooldown</th><th>Status</th><th></th></tr></thead><tbody>' +
+        rules.map(r => {
+          const params = r.condition_params || {};
+          const thresh = r.condition_type==='brand_disappeared'||r.condition_type==='new_competitor' ? '—' : (params.threshold||0)+'%';
+          return `<tr>
           <td style="font-weight:600;">${esc(r.name)}</td>
           <td style="font-family:var(--mono);font-size:11px;">${condLabels[r.condition_type]||r.condition_type}</td>
-          <td style="font-family:var(--mono);">${r.condition_type==='brand_disappeared'||r.condition_type==='new_competitor'?'—':r.threshold+'%'}</td>
+          <td style="font-family:var(--mono);">${thresh}</td>
           <td><span class="badge ${r.action_type==='webhook'?'real':'sim'}">${r.action_type.toUpperCase()}</span></td>
+          <td style="font-family:var(--mono);font-size:11px;">${r.cooldown_hours||24}h</td>
           <td><button class="pill-btn" onclick="toggleAlertRule('${r.id}',${r.enabled})" style="${r.enabled?'color:var(--green);border-color:var(--green);':''}">
             ${r.enabled?'Enabled':'Disabled'}
           </button></td>
           <td><button onclick="deleteAlertRule('${r.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">&#x2715;</button></td>
-        </tr>`).join('') +
+        </tr>`;
+        }).join('') +
         '</tbody></table>';
     }
   } catch(e) {
@@ -5372,7 +5410,8 @@ async function saveAlertRule(){
     name,
     condition_type: condType,
     condition_params: { threshold },
-    action_type: el('alert-action').value
+    action_type: el('alert-action').value,
+    cooldown_hours: parseInt(el('alert-cooldown').value) || 24
   };
   try {
     await api('POST', '/api/brands/'+b.id+'/alerts', rule);
