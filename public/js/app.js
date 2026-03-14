@@ -2119,6 +2119,9 @@ function renderMentions(){
   const slice = filtered.slice(from, from + MENTIONS_PER_PAGE);
 
   // ── Result list ──
+  const runTimeObj = new Date(run.time || run.date);
+  const runDateTimeStr = runTimeObj.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + runTimeObj.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
   let html = '';
   slice.forEach((r, i) => {
     const t = PLAT_THEME[r.platform]||{};
@@ -2153,6 +2156,7 @@ function renderMentions(){
             <div class="mt-item-meta">
               <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
               <span class="mt-item-model">${esc(r.model||'')}</span>
+              <span class="mt-item-time" style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:4px;">${runDateTimeStr}</span>
             </div>
           </div>
         </div>
@@ -2185,6 +2189,7 @@ function renderMentions(){
             <div class="mt-dc-row"><span>Recommended</span><strong>${r.recommended?'<span style="color:var(--green);">Yes</span>':'No'}</strong></div>
             ${r.matchedLocation?`<div class="mt-dc-row"><span>Location</span><strong>${esc(r.matchedLocation)}</strong></div>`:''}
             ${r.cites?`<div class="mt-dc-row"><span>Cited</span><strong style="color:var(--green);">Yes</strong></div>`:''}
+            <div class="mt-dc-row"><span>Captured</span><strong style="font-size:10px;">${runDateTimeStr}</strong></div>
           </div>
           ${isErr
             ? `<button class="mt-retry-btn mt-retry-lg" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)">↻ Retry This Query</button>`
@@ -2453,6 +2458,7 @@ function renderProof(){
           ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
           ${compMentions.length?`<span style="font-family:var(--mono);font-size:9px;color:var(--red);background:rgba(239,68,68,.08);padding:3px 8px;border:1px solid rgba(239,68,68,.2);border-radius:100px;" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
           ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
+          <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
           ${viewBtn}
         </div>
       </div>`;
