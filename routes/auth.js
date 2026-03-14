@@ -103,7 +103,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
   try {
     // Allow login with email OR username
     const isEmail = email.includes('@');
-    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, email_verified, created_at';
+    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, email_verified, created_at, google_id, avatar_url';
     const result = isEmail
       ? await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(email) = LOWER($1)`, [email])
       : await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(username) = LOWER($1)`, [email]);
@@ -338,7 +338,7 @@ router.post('/reset-password', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     // SECURITY: Only select needed columns — never fetch password_hash
-    const result = await pool.query('SELECT id, email, username, name, plan, role, api_keys, settings, created_at FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT id, email, username, name, plan, role, api_keys, settings, created_at, google_id, avatar_url FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     // Auto-upgrade admin users to owner plan
@@ -445,6 +445,91 @@ router.get('/2fa/status', auth, async (req, res) => {
     res.json({ enabled, backupCodesRemaining });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── Google Sign-In ─────────────────────────────────────
+router.post('/google', async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) return res.status(400).json({ error: 'Google credential required' });
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(400).json({ error: 'Google Sign-In is not configured' });
+
+  try {
+    // Verify Google ID token via Google's tokeninfo API
+    const https = require('https');
+    const googlePayload = await new Promise((resolve, reject) => {
+      const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
+      https.get(url, (resp) => {
+        let data = '';
+        resp.on('data', chunk => data += chunk);
+        resp.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (resp.statusCode !== 200) return reject(new Error(parsed.error_description || 'Invalid token'));
+            resolve(parsed);
+          } catch(e) { reject(new Error('Failed to parse Google response')); }
+        });
+      }).on('error', reject);
+    });
+
+    // Verify audience matches our client ID
+    if (googlePayload.aud !== clientId) {
+      return res.status(400).json({ error: 'Token audience mismatch' });
+    }
+
+    const googleId = googlePayload.sub;
+    const email = googlePayload.email?.toLowerCase();
+    const name = googlePayload.name || email?.split('@')[0];
+    const avatarUrl = googlePayload.picture || null;
+
+    if (!email) return res.status(400).json({ error: 'Google account has no email' });
+
+    // Case 1: Existing user with this google_id
+    let user = (await pool.query(
+      'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE google_id = $1',
+      [googleId]
+    )).rows[0];
+
+    if (!user) {
+      // Case 2: Existing account with same email — link Google
+      user = (await pool.query(
+        'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE LOWER(email) = $1',
+        [email]
+      )).rows[0];
+
+      if (user) {
+        await pool.query('UPDATE users SET google_id = $1, avatar_url = COALESCE(avatar_url, $2), email_verified = TRUE WHERE id = $3', [googleId, avatarUrl, user.id]);
+        user.google_id = googleId;
+        user.avatar_url = user.avatar_url || avatarUrl;
+        user.email_verified = true;
+      } else {
+        // Case 3: Brand new user
+        const id = uid();
+        const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+        await pool.query(
+          `INSERT INTO users (id, email, name, password_hash, plan, google_id, avatar_url, email_verified)
+           VALUES ($1, $2, $3, $4, 'free', $5, $6, TRUE)`,
+          [id, email, name, dummyHash, googleId, avatarUrl]
+        );
+        user = (await pool.query(
+          'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE id = $1',
+          [id]
+        )).rows[0];
+        auditLog(id, 'register', 'user', id, { email, method: 'google' }, req.ip);
+      }
+    }
+
+    // Issue tokens
+    const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    const newRefreshToken = crypto.randomBytes(40).toString('hex');
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
+
+    auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, req.ip);
+    res.json({ token: accessToken, refreshToken: newRefreshToken, user: safeUser(user) });
+  } catch(e) {
+    console.error('[Google Auth]', e.message);
+    res.status(400).json({ error: 'Google authentication failed' });
   }
 });
 

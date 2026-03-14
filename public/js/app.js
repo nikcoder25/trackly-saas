@@ -30,6 +30,8 @@ function showAuth(tab){
   el('auth-page').style.display = 'flex';
   el('app').style.display = 'none';
   authTab(tab || 'login');
+  // Lazily load Google Sign-In when auth page is shown
+  if (!googleClientId) initGoogleSignIn();
 }
 function showLanding(){
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
@@ -286,6 +288,81 @@ async function api(method, path, data){
     throw new Error(json.error || 'Request failed');
   }
   return json;
+}
+
+// ─── PASSWORD VISIBILITY TOGGLE ──────────────────────────────────
+function togglePasswordVisibility(inputId, btn) {
+  const input = el(inputId);
+  if (!input) return;
+  const isPassword = input.type === 'password';
+  input.type = isPassword ? 'text' : 'password';
+  const open = btn.querySelector('.pw-eye-open');
+  const closed = btn.querySelector('.pw-eye-closed');
+  if (open) open.style.display = isPassword ? 'none' : 'block';
+  if (closed) closed.style.display = isPassword ? 'block' : 'none';
+}
+
+// ─── GOOGLE SIGN-IN ──────────────────────────────────────────────
+let googleClientId = null;
+
+async function initGoogleSignIn() {
+  try {
+    const config = await fetch('/api/config').then(r => r.json());
+    if (!config.googleClientId) return;
+    googleClientId = config.googleClientId;
+
+    // Load Google Identity Services script lazily
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => renderGoogleButtons();
+    document.head.appendChild(script);
+  } catch(e) {
+    // Google Sign-In not available — silently skip
+  }
+}
+
+function renderGoogleButtons() {
+  if (!window.google || !googleClientId) return;
+
+  // Show dividers and button containers
+  ['login', 'register'].forEach(panel => {
+    const divider = el('google-divider-' + panel);
+    const btnContainer = el('google-btn-' + panel);
+    if (divider) divider.style.display = 'flex';
+    if (btnContainer) {
+      btnContainer.style.display = 'block';
+      btnContainer.innerHTML = '<button type="button" class="google-signin-btn" onclick="triggerGoogleSignIn()"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>';
+    }
+  });
+}
+
+async function triggerGoogleSignIn() {
+  if (!window.google || !googleClientId) return;
+
+  google.accounts.id.initialize({
+    client_id: googleClientId,
+    callback: handleGoogleCredential
+  });
+  google.accounts.id.prompt();
+}
+
+async function handleGoogleCredential(response) {
+  if (!response.credential) return;
+  el('auth-err').style.display = 'none';
+  try {
+    const data = await api('POST', '/api/auth/google', { credential: response.credential });
+    token = data.token;
+    refreshToken = data.refreshToken || '';
+    currentUser = data.user;
+    localStorage.setItem('trackly_token', token);
+    localStorage.setItem('trackly_refresh', refreshToken);
+    await initApp();
+  } catch(e) {
+    el('auth-err').textContent = e.message;
+    el('auth-err').style.display = 'block';
+  }
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────

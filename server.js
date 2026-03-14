@@ -168,6 +168,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// ─── CONFIG ENDPOINT (public — serves non-secret configuration) ──
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null
+  });
+});
+
 // ─── API ROUTES ──────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);
 app.use('/api/brands',   brandRoutes);
