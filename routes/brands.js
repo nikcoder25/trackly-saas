@@ -783,11 +783,12 @@ router.post('/:id/retry-query', auth, async (req, res) => {
     const result = await queryAI(query, platform, brand, keys, modelPrefs, logCtx);
     if (!result) return res.status(500).json({ error: 'No response from AI platform' });
 
+    const matcher = buildBrandMatcher(brand);
     const { text, citations: extraCites, model: modelUsed } = result;
-    const parsed = parseResponse(text, brand, query);
+    const parsed = parseResponse(text, brand, query, matcher);
     parsed.simulated = false;
     if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-    const compMentions = detectCompetitors(text, brand.competitors || []);
+    const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
 
     const newResult = {
       platform, query,
@@ -865,11 +866,12 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
     const result = await queryAI(query, platform, brand, keys, modelPrefs, logCtx);
     if (!result) return res.status(500).json({ error: 'No response from AI platform' });
 
+    const matcher = buildBrandMatcher(brand);
     const { text, citations: extraCites, model: modelUsed } = result;
-    const parsed = parseResponse(text, brand, query);
+    const parsed = parseResponse(text, brand, query, matcher);
     parsed.simulated = false;
     if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-    const compMentions = detectCompetitors(text, brand.competitors || []);
+    const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
 
     const oldResult = run.allResults[idx];
     const newResult = {
