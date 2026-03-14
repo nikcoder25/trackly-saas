@@ -3842,13 +3842,8 @@ async function runQueries(){
     clearInterval(timerInt);
     fill.style.width = '100%';
 
-    // Update brand data from final response
-    if (finalData && finalData.brand) {
-      const idx = brands.findIndex(x=>x.id===b.id);
-      if (idx >= 0) brands[idx] = finalData.brand;
-    }
-    // Always reload fresh brand data to ensure we have complete results
-    // (the done event may be too large and get truncated)
+    // Reload fresh brand data from API (the done event only contains result summary
+    // to avoid sending massive payloads that freeze the browser)
     try {
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
