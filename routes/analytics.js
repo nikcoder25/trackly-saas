@@ -517,6 +517,28 @@ router.put('/recommendations/:id', auth, async (req, res) => {
     const validStatuses = ['open', 'in_progress', 'done', 'ignored'];
     if (status && !validStatuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
+    // Validate status transitions
+    if (status) {
+      const current = await pool.query(
+        `SELECT r.status FROM recommendations r
+         JOIN brands b ON r.brand_id = b.id
+         WHERE r.id = $1 AND b.user_id = $2`,
+        [req.params.id, req.user.id]
+      );
+      if (current.rows.length) {
+        const validTransitions = {
+          open: ['in_progress', 'done', 'ignored'],
+          in_progress: ['done', 'open', 'ignored'],
+          done: ['open'],         // can reopen
+          ignored: ['open']       // can reopen
+        };
+        const allowed = validTransitions[current.rows[0].status] || [];
+        if (!allowed.includes(status)) {
+          return res.status(400).json({ error: `Cannot transition from "${current.rows[0].status}" to "${status}"` });
+        }
+      }
+    }
+
     const updates = [];
     const values = [];
     let idx = 1;

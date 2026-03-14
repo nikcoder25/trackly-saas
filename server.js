@@ -25,7 +25,7 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
+const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 const { createLogger }  = require('./lib/logger');
@@ -246,8 +246,10 @@ cron.schedule('0 * * * *', async () => {
           log.info(`Running scheduled queries for brand: ${brand.name}`);
           try {
             await runBrandQueries(brand);
+            auditLog(brand.userId, 'scheduled_run', 'brand', brand.id, { brandName: brand.name, schedule: brand.schedule }, null);
           } catch(e) {
             log.error(`Scheduled run failed for ${brand.name}`, { error: e.message });
+            auditLog(brand.userId, 'scheduled_run_failed', 'brand', brand.id, { brandName: brand.name, error: e.message }, null);
             notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
           }
         })

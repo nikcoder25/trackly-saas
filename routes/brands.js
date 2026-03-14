@@ -991,15 +991,26 @@ async function sendWebhookAlert(brand, run, previousSOV) {
     summary: `${brand.name} SOV ${direction}: ${previousSOV}% → ${sov}% (${change > 0 ? '+' : ''}${change}%)`
   };
 
-  try {
-    await fetchJSON(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    console.log(`[Webhook] Alert sent for ${brand.name} to ${url}`);
-  } catch(e) {
-    console.error(`[Webhook] Failed for ${brand.name}:`, e.message);
+  const MAX_RETRIES = 3;
+  const bodyStr = JSON.stringify(payload);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await fetchJSON(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyStr
+      });
+      console.log(`[Webhook] Alert sent for ${brand.name} to ${url}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
+      return;
+    } catch(e) {
+      if (attempt < MAX_RETRIES) {
+        const delayMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.warn(`[Webhook] Attempt ${attempt + 1} failed for ${brand.name}: ${e.message}, retrying in ${delayMs}ms`);
+        await new Promise(r => setTimeout(r, delayMs));
+      } else {
+        console.error(`[Webhook] All ${MAX_RETRIES + 1} attempts failed for ${brand.name}:`, e.message);
+      }
+    }
   }
 }
 
