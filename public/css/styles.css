@@ -679,6 +679,9 @@ body:has(#app[style*="display:grid"]){
 }
 .mt-item-text{min-width:0;flex:1;}
 .mt-item-query{font-size:13px;font-weight:600;color:var(--text);line-height:1.4;}
+.copy-query-btn{display:inline-flex;align-items:center;justify-content:center;background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;width:22px;height:22px;border-radius:var(--radius-sm);cursor:pointer;margin-left:6px;vertical-align:middle;padding:0;transition:all .15s ease;opacity:0;pointer-events:none;}
+.mt-item:hover .copy-query-btn,.mt-live-card:hover .copy-query-btn,.proof-card:hover .copy-query-btn,.mt-item-main:hover .copy-query-btn{opacity:1;pointer-events:auto;}
+.copy-query-btn:hover{background:var(--bg3);color:var(--text);border-color:var(--primary);}
 .mt-item-meta{display:flex;align-items:center;gap:8px;margin-top:3px;}
 .mt-item-pname{font-size:11px;font-weight:700;}
 .mt-item-model{font-family:var(--mono);font-size:9px;color:var(--muted);}
@@ -948,7 +951,7 @@ body:has(#app[style*="display:grid"]){
   pointer-events:none;max-height:50vh;overflow:hidden;
 }
 .live-notif{
-  pointer-events:auto;
+  pointer-events:auto;cursor:pointer;
   display:flex;align-items:center;gap:12px;
   padding:12px 16px;min-width:320px;max-width:400px;
   background:var(--bg2);border:1px solid var(--border);
