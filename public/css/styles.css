@@ -1382,5 +1382,201 @@ select.finput{appearance:none;}
 /* Progress bar animated */
 #run-progress-fill{transition:width .3s ease;}
 
+/* ── PRESET-SPECIFIC OVERVIEW THEMES ─────────────────── */
+
+/* Preset Banner (shown below header for each view) */
+.ov-preset-banner{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 22px;margin-bottom:16px;
+  border-radius:var(--radius);
+  animation:fadeInUp .35s ease;
+}
+.ov-preset-banner-icon{
+  width:44px;height:44px;border-radius:var(--radius-sm);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.ov-preset-banner-text{flex:1;min-width:0;}
+.ov-preset-banner-title{font-family:var(--font);font-size:14px;font-weight:700;margin-bottom:2px;}
+.ov-preset-banner-desc{font-family:var(--font);font-size:11px;color:var(--muted);line-height:1.4;}
+
+/* ─── FOUNDER VIEW ─────────────────────────────────── */
+.preset-founder .ov-preset-banner{
+  background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.06));
+  border:1px solid rgba(99,102,241,.18);
+}
+.preset-founder .ov-preset-banner-icon{
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;
+}
+.preset-founder .ov-preset-banner-title{color:#818cf8;}
+
+/* Founder: Large hero with gradient border */
+.preset-founder .ov-hero{
+  background:linear-gradient(135deg,var(--bg2),rgba(99,102,241,.03));
+  border:1px solid rgba(99,102,241,.15);
+  padding:32px;
+}
+.preset-founder .ov-hero-sov-ring{width:140px;height:140px;}
+.preset-founder .ov-ring-pct{font-size:34px;}
+.preset-founder .ov-hero-stat-val{font-size:26px;}
+
+/* Founder: Scores as large spotlight cards */
+.preset-founder .ov-scores-row{grid-template-columns:repeat(3,1fr);gap:16px;}
+.preset-founder .ov-score-card{
+  padding:24px;flex-direction:column;align-items:center;text-align:center;
+  background:linear-gradient(180deg,var(--bg2),rgba(99,102,241,.02));
+  border:1px solid rgba(99,102,241,.1);
+}
+.preset-founder .ov-score-icon{font-size:32px;margin-bottom:8px;}
+.preset-founder .ov-score-val{font-size:36px;}
+.preset-founder .ov-score-label{margin-bottom:8px;}
+
+/* Founder: Trend chart full-width with highlight */
+.preset-founder #ov-mini-trend{
+  border:1px solid rgba(99,102,241,.12);
+  background:linear-gradient(180deg,var(--bg2),rgba(99,102,241,.02));
+}
+.preset-founder #ov-mini-trend .ov-card-title{color:#818cf8;}
+
+/* Founder: Insights as highlighted action cards */
+.preset-founder .ov-insight{
+  background:rgba(99,102,241,.03);
+  border-left:3px solid #818cf8;
+  padding:16px 20px;margin-bottom:12px;
+  border-radius:var(--radius-xs);
+}
+
+/* Founder: Competitor chips styled */
+.preset-founder .ov-comp-chip{
+  border-color:rgba(99,102,241,.15);background:rgba(99,102,241,.04);
+}
+
+/* ─── SEO MANAGER VIEW ─────────────────────────────── */
+.preset-seo_manager .ov-preset-banner{
+  background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(14,165,233,.05));
+  border:1px solid rgba(59,130,246,.18);
+}
+.preset-seo_manager .ov-preset-banner-icon{
+  background:linear-gradient(135deg,#3b82f6,#0ea5e9);color:#fff;
+}
+.preset-seo_manager .ov-preset-banner-title{color:#60a5fa;}
+
+/* SEO: Compact hero — data density matters */
+.preset-seo_manager .ov-hero{
+  padding:20px 24px;gap:24px;
+  border-left:3px solid #3b82f6;
+}
+.preset-seo_manager .ov-hero-sov-ring{width:90px;height:90px;}
+.preset-seo_manager .ov-ring-pct{font-size:22px;}
+.preset-seo_manager .ov-hero-stat-val{font-size:18px;}
+.preset-seo_manager .ov-hero-stat{padding:8px 0;}
+
+/* SEO: Scores row compact & inline */
+.preset-seo_manager .ov-scores-row{gap:10px;}
+.preset-seo_manager .ov-score-card{padding:14px 16px;}
+.preset-seo_manager .ov-score-icon{font-size:22px;}
+.preset-seo_manager .ov-score-val{font-size:24px;}
+
+/* SEO: Platform grid — dense 4-column view */
+.preset-seo_manager .ov-plat-grid{
+  grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;
+}
+.preset-seo_manager .ov-plat-card{
+  padding:10px 14px;gap:10px;
+  border-left:3px solid transparent;
+}
+.preset-seo_manager .ov-plat-card:hover{border-left-color:#3b82f6;}
+.preset-seo_manager .ov-plat-sov{font-size:14px;}
+
+/* SEO: Query performance with wider bars */
+.preset-seo_manager .ov-qp-track{flex:0 0 120px;}
+.preset-seo_manager .ov-qp-bar{padding:4px 0;border-bottom:1px solid var(--bg3);}
+.preset-seo_manager .ov-qp-bar:last-child{border-bottom:none;}
+
+/* SEO: Citations prominent */
+.preset-seo_manager .ov-cit-item{padding:6px 0;}
+.preset-seo_manager .ov-cit-bar{height:6px;}
+.preset-seo_manager .ov-cit-domain{width:220px;font-size:12px;}
+
+/* SEO: Health banner accent */
+.preset-seo_manager .ov-health{
+  border-left:3px solid #3b82f6;
+  background:linear-gradient(90deg,rgba(59,130,246,.04),var(--bg2));
+}
+
+/* SEO: Category cards with data labels */
+.preset-seo_manager .ov-cat-card{
+  border-left:3px solid transparent;
+  border-top:none;
+}
+.preset-seo_manager .ov-cat-card:hover{border-left-color:#3b82f6;}
+
+/* ─── AGENCY MANAGER VIEW ──────────────────────────── */
+.preset-agency_manager .ov-preset-banner{
+  background:linear-gradient(135deg,rgba(20,184,166,.08),rgba(6,182,212,.05));
+  border:1px solid rgba(20,184,166,.18);
+}
+.preset-agency_manager .ov-preset-banner-icon{
+  background:linear-gradient(135deg,#14b8a6,#06b6d4);color:#fff;
+}
+.preset-agency_manager .ov-preset-banner-title{color:#2dd4bf;}
+
+/* Agency: Status-card hero */
+.preset-agency_manager .ov-hero{
+  background:linear-gradient(135deg,var(--bg2),rgba(20,184,166,.03));
+  border:1px solid rgba(20,184,166,.12);
+  padding:24px 28px;
+}
+.preset-agency_manager .ov-hero-sov-ring{width:100px;height:100px;}
+.preset-agency_manager .ov-ring-pct{font-size:24px;}
+.preset-agency_manager .ov-hero-stat-val{font-size:20px;}
+
+/* Agency: Health banner as status strip */
+.preset-agency_manager .ov-health{
+  border-left:3px solid #14b8a6;
+  background:linear-gradient(90deg,rgba(20,184,166,.04),var(--bg2));
+}
+
+/* Agency: Platform grid as report cards with teal accents */
+.preset-agency_manager .ov-plat-grid{
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;
+}
+.preset-agency_manager .ov-plat-card{
+  border-top:2px solid transparent;
+  transition:border-color .2s,transform .2s,box-shadow .2s;
+}
+.preset-agency_manager .ov-plat-card:hover{
+  border-top-color:#14b8a6;
+}
+
+/* Agency: Category cards prominent */
+.preset-agency_manager .ov-cat-card{
+  border-top:2px solid #14b8a6;
+  padding:22px;
+}
+.preset-agency_manager .ov-cat-val{font-size:30px;}
+
+/* Agency: Competitor section as comparison table */
+.preset-agency_manager .ov-comp-chip{
+  border-color:rgba(20,184,166,.15);
+  background:rgba(20,184,166,.04);
+  padding:8px 16px;
+}
+
+/* Agency: Last run summary as status report */
+.preset-agency_manager #ov-last-run-summary .ov-card{
+  border-left:3px solid #14b8a6;
+}
+
+/* ─── RESPONSIVE OVERRIDES FOR PRESETS ──────────────── */
+@media(max-width:768px){
+  .preset-founder .ov-hero-sov-ring{width:110px;height:110px;}
+  .preset-founder .ov-scores-row{grid-template-columns:1fr;}
+  .preset-founder .ov-score-card{flex-direction:row;text-align:left;}
+  .preset-seo_manager .ov-plat-grid{grid-template-columns:repeat(2,1fr);}
+  .preset-seo_manager .ov-qp-track{flex:0 0 60px;}
+  .ov-preset-banner{flex-direction:column;align-items:flex-start;gap:10px;}
+}
+
 /* Pause all animations/transitions when browser tab is hidden (saves CPU/GPU) */
 .tab-hidden *,.tab-hidden *::before,.tab-hidden *::after{animation-play-state:paused !important;transition:none !important;}
