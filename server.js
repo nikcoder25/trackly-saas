@@ -170,7 +170,7 @@ const apiLimiter = rateLimit({
   handler: rateLimitHandler(API_WINDOW),
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false, xForwardedForHeader: false },
+  validate: { trustProxy: false, xForwardedForHeader: false, keyGeneratorIpFallback: false },
   skip: (req) => /\/brands\/[^/]+\/run$/.test(req.path), // Only skip the exact run endpoint (has its own limiter)
   keyGenerator: userOrIpKey('user:')
 });
@@ -184,7 +184,7 @@ const runLimiter = rateLimit({
   handler: rateLimitHandler(RUN_WINDOW),
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { trustProxy: false, xForwardedForHeader: false },
+  validate: { trustProxy: false, xForwardedForHeader: false, keyGeneratorIpFallback: false },
   keyGenerator: userOrIpKey('run:')
 });
 app.use('/api/brands/:id/run', runLimiter);

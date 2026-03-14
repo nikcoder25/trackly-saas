@@ -273,7 +273,7 @@ async function api(method, path, data){
   try { res = await fetch(API + path, opts); } catch(e) {
     clearTimeout(timeoutId);
     if (e.name === 'AbortError') throw new Error('Request timed out. Please try again.');
-    throw e;
+    throw new Error('Unable to connect to the server. Please check your connection and try again.');
   }
   clearTimeout(timeoutId);
   // Auto-refresh token on 401 (not for auth endpoints themselves)
@@ -413,10 +413,12 @@ function authTab(tab){
   el('auth-err').style.display = 'none';
   // Show Google button only on login/register panels
   const showGoogle = (tab === 'login' || tab === 'register');
-  const gw = document.getElementById('google-signin-wrap');
-  const gd = document.querySelector('.auth-divider');
-  if (gw) gw.style.display = showGoogle ? '' : 'none';
-  if (gd) gd.style.display = showGoogle ? '' : 'none';
+  ['login', 'register'].forEach(panel => {
+    const divider = el('google-divider-' + panel);
+    const btn = el('google-btn-' + panel);
+    if (divider) divider.style.display = (showGoogle && googleClientId) ? '' : 'none';
+    if (btn) btn.style.display = (showGoogle && googleClientId) ? '' : 'none';
+  });
 }
 
 async function doLogin(){
@@ -6181,14 +6183,16 @@ document.addEventListener('keydown', e => {
     if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
   } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
   // Show/hide Google buttons based on config
-  if (!window.__GOOGLE_CLIENT_ID) {
-    const gw = document.getElementById('google-signin-wrap');
-    const gd = document.querySelector('.auth-divider');
-    if (gw) gw.style.display = 'none';
-    if (gd) gd.style.display = 'none';
-  } else {
+  if (window.__GOOGLE_CLIENT_ID) {
     const lg = document.getElementById('land-google-signin');
     if (lg) lg.style.display = '';
+    // Show Google buttons in auth panels
+    ['login', 'register'].forEach(function(panel) {
+      var d = document.getElementById('google-divider-' + panel);
+      var b = document.getElementById('google-btn-' + panel);
+      if (d) d.style.display = '';
+      if (b) b.style.display = '';
+    });
   }
   // Check for password reset token in URL
   const urlParams = new URLSearchParams(window.location.search);
