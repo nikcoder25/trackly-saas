@@ -3771,6 +3771,11 @@ async function pollRunStatus(brandId, runId, opts) {
             liveRunTime = null;
             runningQueries = false;
             clearLiveNotifs();
+            // Reset run selectors so mentions/proof auto-select the latest (newest) run
+            const mSel = el('mentions-run-sel');
+            if (mSel) mSel.value = '';
+            const pSel = el('proof-run-sel');
+            if (pSel) pSel.value = '';
             renderView(currentView);
 
             if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
@@ -3840,6 +3845,9 @@ async function checkActiveRun() {
       toast('Resuming active query run...', 'ok');
       liveResults = [];
       liveRunTime = new Date(runInfo.startedAt);
+      // Set running state BEFORE rendering so live views get initialized
+      runningQueries = true;
+      renderView(currentView); // Sets up live mentions/proof containers
       await pollRunStatus(runInfo.brandId, runInfo.runId, {
         startTime: runInfo.startedAt,
         received: data.received || 0,
@@ -3856,7 +3864,16 @@ async function checkActiveRun() {
         if (freshData.brands) {
           brands = freshData.brands;
           renderBrandSelect();
+          // Switch to the brand whose run completed
+          if (currentBrandId !== runInfo.brandId) {
+            currentBrandId = runInfo.brandId;
+          }
           if (currentBrandId) el('brand-select').value = currentBrandId;
+          // Force mentions/proof to show latest run by resetting selector state
+          const mentionsSel = el('mentions-run-sel');
+          if (mentionsSel) mentionsSel.value = '';
+          const proofSel = el('proof-run-sel');
+          if (proofSel) proofSel.value = '';
           renderView(currentView);
         }
       } catch(_) {}
