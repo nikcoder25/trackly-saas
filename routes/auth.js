@@ -16,6 +16,25 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email'
 const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = require('../lib/totp');
 const crypto = require('crypto');
 
+// ─── Cookie helper — sets httpOnly tokens alongside JSON response ──
+const isProduction = process.env.NODE_ENV === 'production';
+function setTokenCookies(res, accessToken, refreshToken) {
+  const cookieOpts = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    path: '/'
+  };
+  res.cookie('trackly_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 }); // 15 min
+  res.cookie('trackly_refresh', refreshToken, { ...cookieOpts, maxAge: 30 * 24 * 60 * 60 * 1000 }); // 30 days
+}
+
+function clearTokenCookies(res) {
+  const cookieOpts = { httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/' };
+  res.clearCookie('trackly_token', cookieOpts);
+  res.clearCookie('trackly_refresh', cookieOpts);
+}
+
 // Per-account brute force protection — 10 failed attempts per 15 min per email/username
 // Prevents distributed attacks targeting a single account from many IPs
 const loginAccountLimiter = rateLimit({
@@ -90,6 +109,7 @@ router.post('/register', async (req, res) => {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, req.ip);
+    setTokenCookies(res, accessToken, refreshToken);
     res.json({ token: accessToken, refreshToken, user: { id, email: email.toLowerCase(), username: trimmedUsername, name: userName, plan: 'free', emailVerified: false, createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
   } catch(e) {
     console.error('[Register]', e.message);
@@ -103,7 +123,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
   try {
     // Allow login with email OR username
     const isEmail = email.includes('@');
-    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, email_verified, created_at';
+    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, email_verified, created_at, google_id, avatar_url';
     const result = isEmail
       ? await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(email) = LOWER($1)`, [email])
       : await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(username) = LOWER($1)`, [email]);
@@ -162,6 +182,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, {}, req.ip);
+    setTokenCookies(res, accessToken, refreshToken);
     res.json({ token: accessToken, refreshToken, user: safeUser(user) });
   } catch(e) {
     console.error('[Login]', e.message);
@@ -184,8 +205,16 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-// Resend verification email
-router.post('/resend-verification', auth, async (req, res) => {
+// Resend verification email (rate limited to prevent email spam)
+const resendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: 'Too many verification requests. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT email_verified FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -206,7 +235,8 @@ router.post('/resend-verification', auth, async (req, res) => {
 
 // Refresh token — exchange refresh token for new access token
 router.post('/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
+  // Accept refresh token from request body or httpOnly cookie
+  const refreshToken = req.body.refreshToken || req.cookies?.trackly_refresh;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
     // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent
@@ -219,6 +249,7 @@ router.post('/refresh', async (req, res) => {
     if (!result.rows.length) return res.status(401).json({ error: 'Invalid refresh token' });
     const user = result.rows[0];
     const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    setTokenCookies(res, accessToken, newRefreshToken);
     res.json({ token: accessToken, refreshToken: newRefreshToken });
   } catch(e) {
     res.status(500).json({ error: 'Token refresh failed' });
@@ -248,7 +279,9 @@ router.put('/username', auth, async (req, res) => {
 router.post('/change-password', auth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password required' });
+  if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -313,7 +346,9 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+  if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
     const result = await pool.query(
       'SELECT user_id, email FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
@@ -338,7 +373,7 @@ router.post('/reset-password', async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     // SECURITY: Only select needed columns — never fetch password_hash
-    const result = await pool.query('SELECT id, email, username, name, plan, role, api_keys, settings, created_at FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT id, email, username, name, plan, role, api_keys, settings, created_at, google_id, avatar_url FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     // Auto-upgrade admin users to owner plan
@@ -448,100 +483,100 @@ router.get('/2fa/status', auth, async (req, res) => {
   }
 });
 
-// ─── Google Sign-In ──────────────────────────────────────
-// Accepts a Google credential (ID token) from the frontend Google Identity Services flow.
-// Verifies the token with Google, then either logs in the existing user or creates a new one.
+// ─── Google Sign-In ─────────────────────────────────────
 router.post('/google', async (req, res) => {
   const { credential } = req.body;
   if (!credential) return res.status(400).json({ error: 'Google credential required' });
-
-  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Google Sign-In not configured' });
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(400).json({ error: 'Google Sign-In is not configured' });
 
   try {
-    // Verify the ID token with Google's tokeninfo endpoint (no SDK needed)
+    // Verify Google ID token via Google's tokeninfo API
     const https = require('https');
     const googlePayload = await new Promise((resolve, reject) => {
       const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
-      https.get(url, { timeout: 10000 }, (apiRes) => {
+      https.get(url, (resp) => {
         let data = '';
-        apiRes.on('data', chunk => { data += chunk; });
-        apiRes.on('end', () => {
+        resp.on('data', chunk => data += chunk);
+        resp.on('end', () => {
           try {
             const parsed = JSON.parse(data);
-            if (apiRes.statusCode !== 200) reject(new Error(parsed.error_description || 'Token verification failed'));
-            else resolve(parsed);
-          } catch(e) { reject(new Error('Invalid Google response')); }
+            if (resp.statusCode !== 200) return reject(new Error(parsed.error_description || 'Invalid token'));
+            resolve(parsed);
+          } catch(e) { reject(new Error('Failed to parse Google response')); }
         });
-      }).on('error', reject).on('timeout', function() { this.destroy(); reject(new Error('Google verification timeout')); });
+      }).on('error', reject);
     });
 
-    // Validate audience matches our client ID
-    if (googlePayload.aud !== GOOGLE_CLIENT_ID) {
-      return res.status(400).json({ error: 'Invalid Google token audience' });
-    }
-    if (!googlePayload.email || googlePayload.email_verified !== 'true') {
-      return res.status(400).json({ error: 'Google account email not verified' });
+    // Verify audience matches our client ID
+    if (googlePayload.aud !== clientId) {
+      return res.status(400).json({ error: 'Token audience mismatch' });
     }
 
     const googleId = googlePayload.sub;
-    const email = googlePayload.email.toLowerCase();
-    const name = googlePayload.name || email.split('@')[0];
+    const email = googlePayload.email?.toLowerCase();
+    const name = googlePayload.name || email?.split('@')[0];
     const avatarUrl = googlePayload.picture || null;
 
-    // Check if user already exists by google_id or email
-    let user;
-    const byGoogleId = await pool.query(
-      'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, avatar_url FROM users WHERE google_id = $1',
+    if (!email) return res.status(400).json({ error: 'Google account has no email' });
+
+    // Case 1: Existing user with this google_id
+    let user = (await pool.query(
+      'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE google_id = $1',
       [googleId]
-    );
+    )).rows[0];
 
-    if (byGoogleId.rows.length) {
-      user = byGoogleId.rows[0];
-      // Update avatar if changed
-      if (avatarUrl && avatarUrl !== user.avatar_url) {
-        await pool.query('UPDATE users SET avatar_url = $1 WHERE id = $2', [avatarUrl, user.id]);
-        user.avatar_url = avatarUrl;
-      }
-    } else {
-      // Check by email — link Google account to existing user
-      const byEmail = await pool.query(
-        'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, avatar_url FROM users WHERE LOWER(email) = LOWER($1)',
+    if (!user) {
+      // Case 2: Existing account with same email — link Google
+      user = (await pool.query(
+        'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE LOWER(email) = $1',
         [email]
-      );
+      )).rows[0];
 
-      if (byEmail.rows.length) {
-        user = byEmail.rows[0];
-        // Link Google ID to existing account and mark email verified
-        await pool.query('UPDATE users SET google_id = $1, email_verified = TRUE, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3', [googleId, avatarUrl, user.id]);
+      if (user) {
+        await pool.query('UPDATE users SET google_id = $1, avatar_url = COALESCE(avatar_url, $2), email_verified = TRUE WHERE id = $3', [googleId, avatarUrl, user.id]);
+        user.google_id = googleId;
         user.avatar_url = user.avatar_url || avatarUrl;
+        user.email_verified = true;
       } else {
-        // Create new user
+        // Case 3: Brand new user
         const id = uid();
+        const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
         await pool.query(
-          `INSERT INTO users (id, email, name, password_hash, plan, google_id, email_verified, avatar_url)
-           VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7)`,
-          [id, email, name, 'google_oauth_no_password', 'free', googleId, avatarUrl]
+          `INSERT INTO users (id, email, name, password_hash, plan, google_id, avatar_url, email_verified)
+           VALUES ($1, $2, $3, $4, 'free', $5, $6, TRUE)`,
+          [id, email, name, dummyHash, googleId, avatarUrl]
         );
-        const newUser = await pool.query(
-          'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, avatar_url FROM users WHERE id = $1',
+        user = (await pool.query(
+          'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE id = $1',
           [id]
-        );
-        user = newUser.rows[0];
-        auditLog(id, 'register_google', 'user', id, { email, googleId }, req.ip);
+        )).rows[0];
+        auditLog(id, 'register', 'user', id, { email, method: 'google' }, req.ip);
       }
     }
 
+    // Issue tokens
     const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshTok = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshTok, user.id]);
+    const newRefreshToken = crypto.randomBytes(40).toString('hex');
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
 
-    auditLog(user.id, 'login_google', 'user', user.id, {}, req.ip);
-    res.json({ token: accessToken, refreshToken: refreshTok, user: safeUser(user) });
+    auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, req.ip);
+    setTokenCookies(res, accessToken, newRefreshToken);
+    res.json({ token: accessToken, refreshToken: newRefreshToken, user: safeUser(user) });
   } catch(e) {
     console.error('[Google Auth]', e.message);
-    res.status(400).json({ error: 'Google sign-in failed: ' + e.message });
+    res.status(400).json({ error: 'Google authentication failed' });
   }
 });
+
+// Logout — clear httpOnly cookies and invalidate refresh token
+router.post('/logout', auth, async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET refresh_token = NULL WHERE id = $1', [req.user.id]);
+  } catch(e) { /* best-effort */ }
+  clearTokenCookies(res);
+  res.json({ message: 'Logged out' });
+});
+
 
 module.exports = router;
