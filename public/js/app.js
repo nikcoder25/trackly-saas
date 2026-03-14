@@ -135,11 +135,31 @@ function copyResponse(){
 }
 
 function copyQuery(query, btnEl){
-  navigator.clipboard.writeText(query).then(() => {
+  function onSuccess() {
     btnEl.innerHTML = '&#10003;';
     btnEl.style.color = 'var(--green)';
     setTimeout(() => { btnEl.innerHTML = '&#x2398;'; btnEl.style.color = ''; }, 1500);
-  }).catch(() => toast('Copy failed', 'err'));
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(query).then(onSuccess).catch(() => {
+      // Fallback for non-secure contexts (HTTP)
+      copyFallback(query) ? onSuccess() : toast('Copy failed', 'err');
+    });
+  } else {
+    copyFallback(query) ? onSuccess() : toast('Copy failed', 'err');
+  }
+}
+function copyFallback(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch(_) { return false; }
 }
 
 function brand(){
@@ -966,9 +986,14 @@ function renderAll(){
 // ─── LIVE RESULT NOTIFICATIONS ────────────────────────────────────
 const _NOTIF_MAX = 5;       // max visible at once
 const _NOTIF_DURATION = 3500; // ms before auto-dismiss
+const _notifSeen = new Set();
 function showLiveNotif(result) {
   const cont = el('live-notifs');
   if (!cont) return;
+  // Dedup — don't show same platform+query combo twice in one run
+  const dedupKey = (result.platform || '') + '||' + (result.query || '');
+  if (_notifSeen.has(dedupKey)) return;
+  _notifSeen.add(dedupKey);
   const t = PLAT_THEME[result.platform] || {};
   const isErr = result.error;
   const isMentioned = result.mentioned;
@@ -1044,6 +1069,7 @@ function showLiveNotif(result) {
 function clearLiveNotifs() {
   const cont = el('live-notifs');
   if (cont) cont.innerHTML = '';
+  _notifSeen.clear();
 }
 
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
@@ -3686,6 +3712,8 @@ async function runQueries(){
   btn.textContent = '⏳ RUNNING...';
   prog.style.display = 'block';
   fill.style.width = '0%';
+  fill.style.background = '';
+  statusTxt.style.color = '';
   statusTxt.textContent = 'Connecting to AI platforms...';
 
   // Live timer
@@ -3864,7 +3892,7 @@ async function runQueries(){
       console.log('[Run] SSE connection lost, switching to polling for runId:', activeRunId);
       statusTxt.textContent = 'Reconnecting — queries still running on server...';
       try {
-        await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, timerInt: setInterval(() => { timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000) });
+        await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, lastResultCount: received, timerInt: setInterval(() => { timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000) });
         return; // pollRunStatus handles cleanup
       } catch(pollErr) {
         console.error('[Run] Polling also failed:', pollErr.message);
@@ -3981,7 +4009,8 @@ async function pollRunStatus(brandId, runId, opts) {
           localStorage.removeItem('trackly_active_run');
 
           if (data.status === 'done') {
-            if (fill) fill.style.width = '100%';
+            if (fill) { fill.style.width = '100%'; fill.style.background = ''; }
+            if (statusTxt) statusTxt.style.color = '';
 
             // Reload fresh brand data
             try {
