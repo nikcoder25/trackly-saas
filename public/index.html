@@ -683,7 +683,15 @@
           <div class="view-title" id="ov-brand-title">Overview</div>
           <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and run queries to see results.</div>
         </div>
-        <div class="ov-header-actions" id="ov-header-actions"></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select class="finput" id="ov-preset-select" style="width:160px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
+            <option value="">Custom View</option>
+            <option value="founder">Founder View</option>
+            <option value="seo_manager">SEO Manager</option>
+            <option value="agency_manager">Agency View</option>
+          </select>
+          <div class="ov-header-actions" id="ov-header-actions"></div>
+        </div>
       </div>
 
       <!-- SOV Hero Card -->
@@ -1087,8 +1095,13 @@
 
     <!-- PROMPT DETAILS ──────────────────── -->
     <div id="view-promptdetails" class="view">
-      <div class="view-title">Prompt Details</div>
-      <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
+      <div style="display:flex;justify-content:space-between;align-items:start;">
+        <div>
+          <div class="view-title">Prompt Details</div>
+          <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
+        </div>
+        <button class="btn-secondary" onclick="exportPromptData()" style="font-size:11px;white-space:nowrap;">Export CSV</button>
+      </div>
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
         <select class="finput" id="pd-prompt-select" style="flex:1;min-width:300px;margin:0;" onchange="renderPromptDetail()"></select>
         <select class="finput" id="pd-platform-filter" style="width:160px;margin:0;" onchange="renderPromptDetail()">
@@ -1124,8 +1137,13 @@
 
     <!-- RECOMMENDATIONS ──────────────────── -->
     <div id="view-recommendations" class="view">
-      <div class="view-title">Recommendations &amp; Action Center</div>
-      <div class="view-sub">AI-powered suggestions to improve your brand visibility across platforms.</div>
+      <div style="display:flex;justify-content:space-between;align-items:start;">
+        <div>
+          <div class="view-title">Recommendations &amp; Action Center</div>
+          <div class="view-sub">AI-powered suggestions to improve your brand visibility across platforms.</div>
+        </div>
+        <button class="btn-secondary" onclick="exportRecommendations()" style="font-size:11px;white-space:nowrap;">Export CSV</button>
+      </div>
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
         <button class="btn-primary" onclick="generateRecommendations()" style="font-size:12px;padding:8px 16px;">Generate Recommendations</button>
         <select class="finput" id="rec-filter-status" style="width:140px;margin:0;" onchange="renderRecommendations()">

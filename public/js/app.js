@@ -4724,6 +4724,7 @@ let _pdVisChart = null, _pdCompChart = null;
 async function renderPromptDetails() {
   const b = brand();
   if (!b) return;
+  showViewLoading('pd-metrics');
 
   // Populate prompt selector
   const sel = el('pd-prompt-select');
@@ -4956,6 +4957,7 @@ async function viewPromptRun(brandId, runId) {
 async function renderRecommendations() {
   const b = brand();
   if (!b) return;
+  showViewLoading('rec-list');
   const status = el('rec-filter-status')?.value || '';
   const severity = el('rec-filter-severity')?.value || '';
   try {
@@ -5047,6 +5049,7 @@ async function viewPlaybook(playbookId) {
 async function renderAccuracyMonitor() {
   const b = brand();
   if (!b) return;
+  showViewLoading('facts-list');
   try {
     const data = await api('GET', `/api/brands/${b.id}/facts`);
     const facts = data.facts || [];
@@ -5116,6 +5119,7 @@ async function checkAccuracy() {
 // CITATION ANALYSIS VIEW (Epic 8.2)
 // ═══════════════════════════════════════════════════════════════════
 async function renderCitationAnalysis() {
+  showViewLoading('citation-domains');
   const b = brand();
   if (!b) return;
   try {
@@ -5270,6 +5274,60 @@ async function renderBilling() {
       </tbody>
     </table>`;
   } catch(e) { toast('Failed to load billing', 'err'); }
+}
+
+// ─── ADVANCED EXPORTS ─────────────────────────────────────────────
+async function exportPromptData(){
+  const b = brand(); if (!b) return;
+  try {
+    const res = await fetch(API + `/api/export/prompts?brandId=${b.id}&format=csv`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const csv = await res.text();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${b.name}_prompts.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast('Downloaded prompt data', 'ok');
+  } catch(e) { toast('Export failed: ' + e.message, 'err'); }
+}
+
+async function exportRecommendations(){
+  const b = brand(); if (!b) return;
+  try {
+    const res = await fetch(API + `/api/export/recommendations?brandId=${b.id}&format=csv`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const csv = await res.text();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${b.name}_recommendations.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast('Downloaded recommendations', 'ok');
+  } catch(e) { toast('Export failed: ' + e.message, 'err'); }
+}
+
+// ─── DASHBOARD PRESETS ────────────────────────────────────────────
+function applyDashboardPreset(preset){
+  if (!preset) return; // custom view — no changes
+  const viewMap = {
+    founder: ['overview','trends','recommendations','competitors'],
+    seo_manager: ['promptdetails','citations','competitors','platforms'],
+    agency_manager: ['overview','billing','recommendations']
+  };
+  const views = viewMap[preset];
+  if (views && views.length) {
+    go(views[0]);
+    toast('Switched to ' + el('ov-preset-select').selectedOptions[0]?.text, 'ok');
+  }
+}
+
+// ─── LOADING STATE HELPER ─────────────────────────────────────────
+function showViewLoading(containerId){
+  const cont = el(containerId);
+  if (cont) cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);"><div style="font-size:20px;margin-bottom:8px;">⟳</div>Loading...</div>';
 }
 
 // ─── ALERTS CRUD ──────────────────────────────────────────────────

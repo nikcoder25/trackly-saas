@@ -635,12 +635,32 @@ router.get('/export/visibility', auth, async (req, res) => {
 // GET /api/export/recommendations — export recommendations
 router.get('/export/recommendations', auth, async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT r.* FROM recommendations r
-      JOIN brands b ON r.brand_id = b.id
-      WHERE b.user_id = $1
-      ORDER BY r.created_at DESC
-    `, [req.user.id]);
+    const { brandId, format = 'json' } = req.query;
+    let query = `SELECT r.* FROM recommendations r JOIN brands b ON r.brand_id = b.id WHERE b.user_id = $1`;
+    const params = [req.user.id];
+    if (brandId) {
+      query += ' AND r.brand_id = $2';
+      params.push(brandId);
+    }
+    query += ' ORDER BY r.created_at DESC';
+    const result = await pool.query(query, params);
+
+    if (format === 'csv') {
+      const csvField = (val) => {
+        let s = String(val || '').replace(/"/g, '""').replace(/\n/g, ' ');
+        if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+        return '"' + s + '"';
+      };
+      const rows = ['Title,Type,Severity,Status,Description,Playbook,Created'];
+      result.rows.forEach(r => {
+        rows.push([r.title, r.type, r.severity, r.status, r.description || '',
+          r.playbook_id || '', r.created_at].map(csvField).join(','));
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="trackly-recommendations.csv"');
+      return res.send(rows.join('\n'));
+    }
+
     res.json({ recommendations: result.rows });
   } catch(e) {
     res.status(500).json({ error: 'Export failed' });
