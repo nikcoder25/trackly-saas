@@ -345,9 +345,14 @@ let googleClientId = null;
 
 async function initGoogleSignIn() {
   try {
-    const config = await fetch('/api/config').then(r => r.json());
-    if (!config.googleClientId) return;
-    googleClientId = config.googleClientId;
+    // Use already-fetched config if available
+    if (window.__GOOGLE_CLIENT_ID) {
+      googleClientId = window.__GOOGLE_CLIENT_ID;
+    } else {
+      const config = await fetch('/api/config').then(r => r.json());
+      if (!config.googleClientId) return;
+      googleClientId = config.googleClientId;
+    }
 
     // Load Google Identity Services script lazily
     const script = document.createElement('script');
@@ -416,8 +421,9 @@ function authTab(tab){
   ['login', 'register'].forEach(panel => {
     const divider = el('google-divider-' + panel);
     const btn = el('google-btn-' + panel);
-    if (divider) divider.style.display = (showGoogle && googleClientId) ? '' : 'none';
-    if (btn) btn.style.display = (showGoogle && googleClientId) ? '' : 'none';
+    var hasGoogle = googleClientId || window.__GOOGLE_CLIENT_ID;
+    if (divider) divider.style.display = (showGoogle && hasGoogle) ? '' : 'none';
+    if (btn) btn.style.display = (showGoogle && hasGoogle) ? '' : 'none';
   });
 }
 
