@@ -2602,20 +2602,22 @@ async function renderPlatformStatus(){
   const healthDiv = el('plat-health-cards');
   try {
     const hData = await api('GET', '/api/meta/platforms');
-    const platforms = hData.platforms || [];
-    if (platforms.length) {
-      healthDiv.innerHTML = platforms.map(p => {
-        const t = PLAT_THEME[p.name]||{};
-        const statusClr = p.status === 'healthy' ? 'var(--green)' : p.status === 'degraded' ? 'var(--amber,#f59e0b)' : 'var(--red)';
+    const platformsObj = hData.platforms || {};
+    const platformEntries = Object.entries(platformsObj);
+    if (platformEntries.length) {
+      healthDiv.innerHTML = platformEntries.map(([name, p]) => {
+        const t = PLAT_THEME[name]||{};
+        const statusClr = p.status === 'green' ? 'var(--green)' : p.status === 'amber' ? 'var(--amber,#f59e0b)' : p.status === 'red' ? 'var(--red)' : 'var(--muted)';
+        const statusLabel = p.status === 'green' ? 'HEALTHY' : p.status === 'amber' ? 'DEGRADED' : p.status === 'red' ? 'DOWN' : 'NO DATA';
         return `<div class="card" style="padding:12px;border-left:3px solid ${t.color||'var(--border)'};">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:13px;">${t.logo||''} ${esc(p.name)}</span>
-            <span class="badge" style="background:${statusClr};color:#fff;font-size:9px;padding:2px 6px;">${(p.status||'unknown').toUpperCase()}</span>
+            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:13px;">${t.logo||''} ${esc(name)}</span>
+            <span class="badge" style="background:${statusClr};color:#fff;font-size:9px;padding:2px 6px;">${statusLabel}</span>
           </div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            Avg latency: ${p.avgLatency ? p.avgLatency+'ms' : '—'}<br>
-            Success rate: ${p.successRate != null ? p.successRate+'%' : '—'}<br>
-            Last 24h calls: ${p.callCount || 0}
+            Avg latency: ${p.avg_latency_ms ? p.avg_latency_ms+'ms' : '—'}<br>
+            Success rate: ${p.success_rate != null ? p.success_rate+'%' : '—'}<br>
+            Last 24h calls: ${p.total_calls_24h || 0}
           </div>
         </div>`;
       }).join('');
@@ -2880,16 +2882,15 @@ async function renderCompetitors(){
   const platBreakDiv = el('comp-platform-breakdown');
   try {
     const coData = await api('GET', '/api/brands/'+b.id+'/competitor-analysis');
-    const cooccurrence = coData.cooccurrence || [];
-    if (cooccurrence.length) {
-      let coHtml = '<table class="tbl"><thead><tr><th>Competitor</th><th>Co-mentions</th><th>Total Runs</th><th>Rate</th></tr></thead><tbody>';
-      cooccurrence.forEach(c => {
-        const rate = c.total > 0 ? Math.round(c.count / c.total * 100) : 0;
+    const topComps = coData.topCompetitors || [];
+    if (topComps.length) {
+      let coHtml = '<table class="tbl"><thead><tr><th>Competitor</th><th>Appearances</th><th>Prompts</th><th>Platforms</th></tr></thead><tbody>';
+      topComps.forEach(c => {
         coHtml += `<tr>
-          <td style="font-weight:600;">${esc(c.name)}</td>
-          <td style="font-family:var(--mono);">${c.count}</td>
-          <td style="font-family:var(--mono);">${c.total}</td>
-          <td style="font-family:var(--mono);color:${rate>50?'var(--red)':'var(--muted)'};">${rate}%</td>
+          <td style="font-weight:600;">${esc(c.competitor)}</td>
+          <td style="font-family:var(--mono);">${c.total_appearances}</td>
+          <td style="font-family:var(--mono);">${c.prompt_count}</td>
+          <td style="font-family:var(--mono);">${c.platform_count}</td>
         </tr>`;
       });
       coHtml += '</tbody></table>';
@@ -2899,15 +2900,16 @@ async function renderCompetitors(){
     }
 
     // Platform breakdown
-    const platBreak = coData.platformBreakdown || [];
-    if (platBreak.length) {
-      let pbHtml = '<table class="tbl"><thead><tr><th>Platform</th><th>Competitor</th><th>Appearances</th></tr></thead><tbody>';
-      platBreak.forEach(p => {
+    const byPlat = coData.byPlatform || [];
+    if (byPlat.length) {
+      let pbHtml = '<table class="tbl"><thead><tr><th>Platform</th><th>Competitor</th><th>Appearances</th><th>Co-mentioned</th></tr></thead><tbody>';
+      byPlat.forEach(p => {
         const t = PLAT_THEME[p.platform]||{};
         pbHtml += `<tr>
           <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(p.platform)}</td>
-          <td>${esc(p.name)}</td>
-          <td style="font-family:var(--mono);">${p.count}</td>
+          <td>${esc(p.competitor)}</td>
+          <td style="font-family:var(--mono);">${p.appearances}</td>
+          <td style="font-family:var(--mono);">${p.co_mentioned_with_brand}</td>
         </tr>`;
       });
       pbHtml += '</tbody></table>';
@@ -3066,7 +3068,7 @@ async function renderAlerts(){
   const rulesEl = el('alert-rules-list');
   try {
     const data = await api('GET', '/api/brands/'+b.id+'/alerts');
-    const rules = data.rules || [];
+    const rules = data.alerts || [];
     if (!rules.length) {
       rulesEl.innerHTML = '<div class="empty-state"><p>No alert rules configured. Click "+ Add Alert" to create one.</p></div>';
     } else {
@@ -5306,11 +5308,13 @@ async function saveAlertRule(){
   const b = brand(); if (!b) return;
   const name = el('alert-name').value.trim();
   if (!name) { toast('Alert name is required','err'); return; }
+  const condType = el('alert-condition').value;
+  const threshold = parseFloat(el('alert-threshold').value) || 0;
   const rule = {
     name,
-    conditionType: el('alert-condition').value,
-    threshold: parseFloat(el('alert-threshold').value) || 0,
-    actionType: el('alert-action').value
+    condition_type: condType,
+    condition_params: { threshold },
+    action_type: el('alert-action').value
   };
   try {
     await api('POST', '/api/brands/'+b.id+'/alerts', rule);
@@ -5322,18 +5326,16 @@ async function saveAlertRule(){
 
 async function deleteAlertRule(ruleId){
   if (!confirm('Delete this alert rule?')) return;
-  const b = brand(); if (!b) return;
   try {
-    await api('DELETE', '/api/brands/'+b.id+'/alerts/'+ruleId);
+    await api('DELETE', '/api/alerts/'+ruleId);
     toast('Alert rule deleted','ok');
     renderAlerts();
   } catch(e) { toast(e.message,'err'); }
 }
 
 async function toggleAlertRule(ruleId, enabled){
-  const b = brand(); if (!b) return;
   try {
-    await api('PUT', '/api/brands/'+b.id+'/alerts/'+ruleId, { enabled: !enabled });
+    await api('PUT', '/api/alerts/'+ruleId, { enabled: !enabled });
     renderAlerts();
   } catch(e) { toast(e.message,'err'); }
 }
@@ -5452,6 +5454,7 @@ async function doAddBrandWizard(){
       competitors: _wizardComps,
       queries: _wizardQueries
     };
+    const queryCount = _wizardQueries.length;
     const data = await api('POST', '/api/brands', payload);
     brands.push(data.brand);
     currentBrandId = data.brand.id;
@@ -5462,7 +5465,7 @@ async function doAddBrandWizard(){
     _wizardComps = [];
     _wizardQueries = [];
     renderAll();
-    toast('Brand "'+name+'" created with '+_wizardQueries.length+' queries','ok');
+    toast('Brand "'+name+'" created with '+queryCount+' queries','ok');
   } catch(e) {
     el('add-brand-err').textContent = e.message;
     el('add-brand-err').style.display = 'block';
