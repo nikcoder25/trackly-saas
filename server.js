@@ -4,6 +4,19 @@
  */
 
 require('dotenv').config();
+
+// ─── ENV VAR VALIDATION ─────────────────────────────────────────
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
+  console.error('  Set them in your .env file or environment.');
+  process.exit(1);
+}
+if (process.env.NODE_ENV === 'production' && !process.env.ALLOWED_ORIGINS) {
+  console.warn('[WARN] ALLOWED_ORIGINS not set in production. CORS will reject all cross-origin requests.');
+}
+
 const express     = require('express');
 const cors        = require('cors');
 const helmet      = require('helmet');
@@ -12,9 +25,11 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications } = require('./config/db');
+const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
+const { createLogger }  = require('./lib/logger');
+const log = createLogger('Server');
 
 // Route modules
 const authRoutes    = require('./routes/auth');
@@ -28,7 +43,7 @@ const PORT = process.env.PORT || 3000;
 
 // ─── INITIALIZE DATABASE ─────────────────────────────────────────
 initDB().catch(e => {
-  console.error('[DB] Failed to initialize PostgreSQL:', e.message);
+  log.error('Failed to initialize PostgreSQL', { error: e.message });
   process.exit(1);
 });
 
@@ -56,7 +71,7 @@ app.use(helmet({
 // Gzip compression
 app.use(compression());
 
-// CORS — require explicit whitelist in production
+// CORS — require explicit ALLOWED_ORIGINS in all environments
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
@@ -87,7 +102,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false },
-  skip: (req) => req.path.includes('/run'), // Don't rate-limit query runs
+  skip: (req) => req.path.includes('/run'), // Runs have their own rate limiter below
   keyGenerator: (req) => {
     // Per-user rate limiting for authenticated requests
     const authHeader = req.headers.authorization || '';
@@ -102,6 +117,28 @@ const apiLimiter = rateLimit({
   }
 });
 app.use('/api/', apiLimiter);
+
+// Rate limiting — run endpoint (prevent abuse of expensive AI queries)
+const runLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 runs per minute per user
+  message: { error: 'Too many runs. Please wait before running again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
+  keyGenerator: (req) => {
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+        return 'run:' + decoded.id;
+      } catch(e) { /* fall through to IP */ }
+    }
+    return 'run:' + req.ip;
+  }
+});
+app.use('/api/brands/:id/run', runLimiter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -143,9 +180,32 @@ const { runBrandQueries } = require('./routes/brands');
 
 // Cron concurrency — process up to 5 brands simultaneously to avoid
 // sequential bottleneck at scale (300+ users with scheduled brands).
-const CRON_BATCH_SIZE = 5;
+const CRON_BATCH_SIZE = parseInt(process.env.CRON_BATCH_SIZE, 10) || 5;
+
+// Helper: try to acquire PostgreSQL advisory lock (non-blocking, session-level)
+// Used to prevent duplicate cron jobs when running multiple server instances
+async function withCronLock(lockId, fn) {
+  const client = await pool.connect();
+  try {
+    const lockResult = await client.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockId]);
+    if (!lockResult.rows[0]?.acquired) {
+      return; // Another instance holds this lock
+    }
+    try {
+      await fn();
+    } finally {
+      await client.query('SELECT pg_advisory_unlock($1)', [lockId]).catch(() => {});
+    }
+  } catch(e) {
+    // If advisory lock fails, proceed anyway (single-instance fallback)
+    await fn();
+  } finally {
+    client.release();
+  }
+}
 
 cron.schedule('0 * * * *', async () => {
+  await withCronLock(1001, async () => {
   try {
     // Only fetch brands that have a schedule configured (avoid full table scan)
     const result = await pool.query(
@@ -153,7 +213,7 @@ cron.schedule('0 * * * *', async () => {
        WHERE b.data->>'schedule' IS NOT NULL AND (b.data->>'schedule')::int > 0`
     );
     if (!result.rows.length) return;
-    console.log(`[Cron] Found ${result.rows.length} brands with active schedules`);
+    log.info(`Found ${result.rows.length} brands with active schedules`);
     const now = Date.now();
 
     // Filter to brands that are due for a run
@@ -169,28 +229,109 @@ cron.schedule('0 * * * *', async () => {
     }
 
     if (!dueBrands.length) return;
-    console.log(`[Cron] ${dueBrands.length} brands due for scheduled run (batch size: ${CRON_BATCH_SIZE})`);
+    log.info(`${dueBrands.length} brands due for scheduled run`, { batchSize: CRON_BATCH_SIZE });
 
     // Process in parallel batches of CRON_BATCH_SIZE
     for (let i = 0; i < dueBrands.length; i += CRON_BATCH_SIZE) {
       const batch = dueBrands.slice(i, i + CRON_BATCH_SIZE);
       await Promise.allSettled(
         batch.map(async (brand) => {
-          console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
+          log.info(`Running scheduled queries for brand: ${brand.name}`);
           try {
             await runBrandQueries(brand);
           } catch(e) {
-            console.error(`[Cron] Error for ${brand.name}:`, e.message);
+            log.error(`Scheduled run failed for ${brand.name}`, { error: e.message });
             notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
           }
         })
       );
     }
-    console.log(`[Cron] Scheduled runs complete: ${dueBrands.length} brands processed`);
+    log.info(`Scheduled runs complete: ${dueBrands.length} brands processed`);
   } catch(e) {
-    console.error('[Cron] Error:', e.message);
+    log.error('Cron job error', { error: e.message });
   }
+  }); // end withCronLock
 });
+
+// ─── SCHEDULED REPORTS (cron — every Monday 8am and 1st of month 8am) ──
+const { sendReportEmail, isEmailConfigured } = require('./lib/email');
+
+cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly'));  // Monday 8am
+cron.schedule('0 8 1 * *', () => sendScheduledReports('monthly')); // 1st of month 8am
+
+async function sendScheduledReports(frequency) {
+  if (!isEmailConfigured()) return;
+  try {
+    // Find users with this report frequency configured
+    const users = await pool.query(
+      `SELECT id, email, settings FROM users WHERE settings->'reportSchedule'->>'frequency' = $1`,
+      [frequency]
+    );
+    if (!users.rows.length) return;
+    log.info(`Sending ${frequency} reports to ${users.rows.length} users`);
+
+    for (const user of users.rows) {
+      const reportSettings = user.settings?.reportSchedule || {};
+      const brandFilter = reportSettings.brandIds || [];
+
+      // Get user's brands (or specific ones if configured)
+      let brandsQuery;
+      if (brandFilter.length) {
+        brandsQuery = await pool.query(
+          'SELECT * FROM brands WHERE user_id = $1 AND id = ANY($2::text[])',
+          [user.id, brandFilter]
+        );
+      } else {
+        brandsQuery = await pool.query('SELECT * FROM brands WHERE user_id = $1', [user.id]);
+      }
+
+      for (const row of brandsQuery.rows) {
+        const data = row.data;
+        const runs = data.runs || [];
+        if (!runs.length) continue;
+
+        const lastRun = runs[runs.length - 1];
+        const totalMentions = runs.reduce((sum, r) => sum + (r.allResults || []).filter(m => m.mentioned).length, 0);
+        const avgSov = runs.length ? runs.reduce((sum, r) => sum + (r.sov || 0), 0) / runs.length : 0;
+        const sovTrend = runs.length >= 2 ? (runs[runs.length - 1].sov || 0) - (runs[runs.length - 2].sov || 0) : 0;
+
+        const platformStats = {};
+        if (lastRun.allResults) {
+          for (const r of lastRun.allResults) {
+            if (!platformStats[r.platform]) platformStats[r.platform] = { total: 0, mentioned: 0 };
+            platformStats[r.platform].total++;
+            if (r.mentioned) platformStats[r.platform].mentioned++;
+          }
+        }
+
+        const report = {
+          totalRuns: runs.length,
+          totalMentions,
+          averageSov: parseFloat(avgSov.toFixed(1)),
+          sovTrend,
+          lastRunSov: lastRun.sov || 0,
+          platformStats,
+          period: { from: runs[0]?.date || null, to: lastRun.date || null }
+        };
+
+        try {
+          await sendReportEmail(user.email, data.name, report);
+        } catch(e) {
+          log.error(`Failed to send report for brand ${data.name}`, { userId: user.id, error: e.message });
+        }
+      }
+
+      // Update lastSent timestamp
+      await pool.query(
+        `UPDATE users SET settings = jsonb_set(settings, '{reportSchedule,lastSent}', $1::jsonb) WHERE id = $2`,
+        [JSON.stringify(new Date().toISOString()), user.id]
+      );
+    }
+    log.info(`${frequency} reports sent`);
+  } catch(e) {
+    log.error('Report cron error', { error: e.message });
+  }
+}
 
 // ─── Password reset page ─────────────────────────────────────────
 app.get('/reset-password', (req, res) => {
@@ -200,6 +341,23 @@ app.get('/reset-password', (req, res) => {
 // ─── CATCH-ALL: serve app for SPA routing ────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── ERROR TRACKING MIDDLEWARE ───────────────────────────────────
+// Must be AFTER all routes to catch unhandled errors
+app.use((err, req, res, next) => {
+  const errorInfo = {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    userId: req.user?.id || null,
+    error: err.message,
+    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    statusCode: err.statusCode || 500
+  };
+  log.error('Unhandled route error', errorInfo);
+  if (res.headersSent) return next(err);
+  res.status(errorInfo.statusCode).json({ error: 'Internal server error' });
 });
 
 // ─── START ────────────────────────────────────────────────────────
@@ -218,21 +376,25 @@ const server = app.listen(PORT, () => {
   const keyInfo = Object.entries(keys)
     .map(([platform, arr]) => `${platform}: ${arr.length} key(s)`)
     .join(', ');
-  console.log(`[API Keys] ${keyInfo}`);
+  log.info(`API Keys: ${keyInfo}`);
 
-  // Cleanup old API logs and read notifications daily at startup and every 24h
+  // Cleanup old data at startup and every 24h
   cleanupApiLogs();
   cleanupNotifications();
+  cleanupResetTokens();
+  cleanupWebhookEvents();
   setInterval(cleanupApiLogs, 24 * 60 * 60 * 1000);
   setInterval(cleanupNotifications, 24 * 60 * 60 * 1000);
+  setInterval(cleanupResetTokens, 24 * 60 * 60 * 1000);
+  setInterval(cleanupWebhookEvents, 24 * 60 * 60 * 1000);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────
 function shutdown(signal) {
-  console.log(`[Server] ${signal} received. Shutting down gracefully...`);
+  log.info(`${signal} received. Shutting down gracefully...`);
   server.close(() => {
     pool.end().then(() => {
-      console.log('[Server] Database connections closed.');
+      log.info('Database connections closed.');
       process.exit(0);
     });
   });

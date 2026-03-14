@@ -17,6 +17,30 @@ const PLATFORM_KEY_MAP = {
   'DeepSeek': 'deepseek', 'Mistral': 'mistral'
 };
 
+// ─── BACKGROUND RUN TRACKING ────────────────────────────────────
+// Tracks in-progress and recently completed runs so execution survives
+// client disconnects (tab close) and frontend can poll for status.
+const activeRuns = new Map(); // runId → { status, received, totalExpected, results, ... }
+
+// Per-brand lock to prevent concurrent runs corrupting the same brand's data
+const brandRunLocks = new Set(); // brandId → active if set
+
+// Clean up completed runs after 10 minutes to avoid memory leaks
+setInterval(() => {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [id, run] of activeRuns) {
+    if (run.completedAt && run.completedAt < cutoff) {
+      activeRuns.delete(id);
+      brandRunLocks.delete(run.brandId);
+    }
+  }
+  // Safety: clear stale brand locks (in case a run crashed without releasing)
+  for (const brandId of brandRunLocks) {
+    const hasActive = [...activeRuns.values()].some(r => r.brandId === brandId && r.status === 'running');
+    if (!hasActive) brandRunLocks.delete(brandId);
+  }
+}, 60 * 1000);
+
 // Cheapest platforms first — used to prioritize when plan limits truncate the list
 // Based on default model cost per query (input+output)
 const PLATFORM_COST_ORDER = [
@@ -30,12 +54,29 @@ const PLATFORM_COST_ORDER = [
   'ChatGPT'      // gpt-5-search: $2.50/$10.00
 ];
 
-// List brands
+// List brands (includes team-shared brands)
 router.get('/', auth, async (req, res) => {
   try {
+    // Own brands
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
     const brands = result.rows.map(row => ({ id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
-    res.json({ brands });
+    // Team-shared brands (where user is a member)
+    const teamResult = await pool.query(
+      `SELECT b.*, tm.role AS team_role, u.name AS owner_name, u.email AS owner_email
+       FROM brands b
+       JOIN team_members tm ON b.user_id = tm.owner_id
+       JOIN users u ON u.id = tm.owner_id
+       WHERE tm.member_id = $1
+       ORDER BY b.created_at`,
+      [req.user.id]
+    );
+    const sharedBrands = teamResult.rows.map(row => ({
+      id: row.id, userId: row.user_id, ...row.data,
+      createdAt: row.created_at, updatedAt: row.updated_at,
+      shared: true, teamRole: row.team_role,
+      ownerName: row.owner_name, ownerEmail: row.owner_email
+    }));
+    res.json({ brands, sharedBrands });
   } catch(e) {
     console.error('[Brands GET]', e.message);
     res.status(500).json({ error: 'Failed to load brands' });
@@ -91,10 +132,23 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Get single brand
+// Get single brand (includes team access)
 router.get('/:id', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
+    let brand = await getBrand(req.params.id, req.user.id);
+    // If not own brand, check team membership
+    if (!brand) {
+      const teamCheck = await pool.query(
+        `SELECT b.*, tm.role AS team_role FROM brands b
+         JOIN team_members tm ON b.user_id = tm.owner_id
+         WHERE b.id = $1 AND tm.member_id = $2`,
+        [req.params.id, req.user.id]
+      );
+      if (teamCheck.rows.length) {
+        const row = teamCheck.rows[0];
+        brand = { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at, shared: true, teamRole: row.team_role };
+      }
+    }
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
     res.json({ brand });
   } catch(e) {
@@ -178,11 +232,120 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Run queries
+// Run queries — execution is decoupled from the HTTP response so that
+// closing the browser tab does NOT stop the run.  The server fires off
+// the work in the background and the frontend can reconnect via the
+// GET /:id/run-status/:runId polling endpoint.
 router.post('/:id/run', auth, async (req, res) => {
-  // Allow up to 5 minutes for large query runs across multiple platforms
   req.setTimeout(300000);
   const streaming = req.query.stream === '1';
+
+  // ── Validation (synchronous with request) ──────────────────────
+  let brand, plan, limits, keys, queries, activePlatforms, totalExpected, runId;
+  let userSettings, modelPrefs;
+  try {
+    brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return streaming ? sseError(res, 'Brand not found') : res.status(404).json({ error: 'Brand not found' });
+
+    plan = await getUserPlan(req.user.id);
+    limits = getPlanLimits(plan);
+
+    const queryCount = (brand.queries || []).length;
+    if (queryCount > limits.queries) {
+      const errMsg = `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`;
+      if (streaming) return sseError(res, errMsg);
+      return res.status(403).json({ error: errMsg, planLimit: true, limit: 'queries' });
+    }
+
+    // Atomic run limit check — use transaction + SELECT FOR UPDATE to prevent TOCTOU race
+    const today = new Date().toISOString().split('T')[0];
+    const limitClient = await pool.connect();
+    try {
+      await limitClient.query('BEGIN');
+      const freshBrand = await limitClient.query('SELECT data FROM brands WHERE id = $1 FOR UPDATE', [brand.id]);
+      const freshRuns = freshBrand.rows[0]?.data?.runs || [];
+      const todayRuns = freshRuns.filter(r => (r.date || '').startsWith(today)).length;
+      await limitClient.query('COMMIT');
+      if (todayRuns >= limits.runsPerDay) {
+        const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
+        if (streaming) return sseError(res, errMsg);
+        return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
+      }
+    } catch(txErr) {
+      await limitClient.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      limitClient.release();
+    }
+
+    keys = getServerKeys();
+    const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+    userSettings = userRow.rows[0]?.settings || {};
+    modelPrefs = userSettings.models || {};
+    const enabledPlatforms = userSettings.enabledPlatforms || {};
+    queries = brand.queries || [];
+    if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
+
+    let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
+      .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
+      .map(([plat]) => plat)
+      .filter(plat => enabledPlatforms[plat] !== false);
+
+    availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+    if (availablePlatforms.length > limits.platforms) availablePlatforms = availablePlatforms.slice(0, limits.platforms);
+
+    if (!availablePlatforms.length) {
+      return res.status(400).json({ error: 'No AI platforms enabled. Enable platforms in Account settings.' });
+    }
+
+    const requestedPlatforms = req.body.platforms || brand.platforms;
+    activePlatforms = (requestedPlatforms && Array.isArray(requestedPlatforms) && requestedPlatforms.length)
+      ? availablePlatforms.filter(p => requestedPlatforms.includes(p))
+      : availablePlatforms;
+
+    if (!activePlatforms.length) {
+      if (streaming) return sseError(res, 'No valid platforms selected.');
+      return res.status(400).json({ error: 'No valid platforms selected.' });
+    }
+
+    totalExpected = queries.length * activePlatforms.length;
+    runId = uid();
+
+    // Prevent concurrent runs on the same brand
+    if (brandRunLocks.has(brand.id)) {
+      const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
+      if (streaming) return sseError(res, errMsg);
+      return res.status(409).json({ error: errMsg });
+    }
+    brandRunLocks.add(brand.id);
+  } catch(e) {
+    console.error('[Run] Validation error:', e.message);
+    if (streaming) return sseError(res, 'Failed to start run: ' + e.message);
+    return res.status(500).json({ error: 'Failed to start run: ' + e.message });
+  }
+
+  // ── Register background run ────────────────────────────────────
+  const runState = {
+    status: 'running',
+    brandId: brand.id,
+    userId: req.user.id,
+    runId,
+    totalExpected,
+    received: 0,
+    foundCount: 0,
+    errorCount: 0,
+    platforms: activePlatforms,
+    queries: [...queries],
+    results: [],       // streamed result snapshots (without raw)
+    finalData: null,
+    error: null,
+    startedAt: Date.now(),
+    completedAt: null
+  };
+  activeRuns.set(runId, runState);
+
+  // ── SSE setup (streams while client is connected) ──────────────
+  let clientConnected = true;
   if (streaming) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -190,84 +353,23 @@ router.post('/:id/run', auth, async (req, res) => {
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no'
     });
+    // When the client disconnects, stop writing but do NOT stop execution
+    req.on('close', () => { clientConnected = false; });
   }
   function sendEvent(type, data) {
-    if (!streaming) return;
-    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(_) {}
-  }
-  // Declare outside try so catch can access for emergency save
-  let allResults = [];
-  let totalQ = 0, totalM = 0;
-  try {
-  const brand = await getBrand(req.params.id, req.user.id);
-  if (!brand) {
-    if (streaming) { sendEvent('error', { error: 'Brand not found' }); return res.end(); }
-    return res.status(404).json({ error: 'Brand not found' });
+    if (!streaming || !clientConnected) return;
+    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(_) { clientConnected = false; }
   }
 
-  const plan = await getUserPlan(req.user.id);
-  const limits = getPlanLimits(plan);
+  // Send start event immediately (includes runId so frontend can poll)
+  sendEvent('start', { runId, totalExpected, platforms: activePlatforms, queries: brand.queries || [] });
 
-  const queryCount = (brand.queries || []).length;
-  if (queryCount > limits.queries) {
-    const errMsg = `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`;
-    if (streaming) { sendEvent('error', { error: errMsg }); return res.end(); }
-    return res.status(403).json({ error: errMsg, planLimit: true, limit: 'queries' });
-  }
-
-  const today = new Date().toISOString().split('T')[0];
-  const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
-  if (todayRuns >= limits.runsPerDay) {
-    const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
-    if (streaming) { sendEvent('error', { error: errMsg }); return res.end(); }
-    return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
-  }
-
-  const keys = getServerKeys();
-  // Load user settings (model preferences + enabled platforms)
-  const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
-  const userSettings = userRow.rows[0]?.settings || {};
-  const modelPrefs = userSettings.models || {};
-  const enabledPlatforms = userSettings.enabledPlatforms || {};
-  const queries = brand.queries || [];
-  if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
-
-  let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
-    .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
-    .map(([plat]) => plat)
-    .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
-
-  // Sort by cost (cheapest first) so plan limits pick the most cost-effective platforms
-  availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
-
-  if (availablePlatforms.length > limits.platforms) {
-    availablePlatforms = availablePlatforms.slice(0, limits.platforms);
-  }
-
-  if (!availablePlatforms.length) {
-    return res.status(400).json({ error: 'No AI platforms enabled. Enable platforms in Account settings.' });
-  }
-
-  const requestedPlatforms = req.body.platforms || brand.platforms;
-  const activePlatforms = (requestedPlatforms && Array.isArray(requestedPlatforms) && requestedPlatforms.length)
-    ? availablePlatforms.filter(p => requestedPlatforms.includes(p))
-    : availablePlatforms;
-
-  if (!activePlatforms.length) {
-    if (streaming) { sendEvent('error', { error: 'No valid platforms selected.' }); return res.end(); }
-    return res.status(400).json({ error: 'No valid platforms selected.' });
-  }
-
-  const newMentions = [];
-  allResults = [];
-  const platSOV = {};
-  totalQ = 0; totalM = 0;
-
-  // Generate run ID early so it can be attached to every API log entry
-  const runId = uid();
-
-  // Log context for tracking every API call in the database
+  // ── Background execution (runs independently of response) ──────
   const logCtx = { userId: req.user.id, brandId: brand.id, runId, logFn: logApiCall };
+  const allResults = [];
+  const newMentions = [];
+  const platSOV = {};
+  let totalQ = 0, totalM = 0;
 
   // Pre-compile brand regex patterns once — reused for all 80+ parse calls
   const matcher = buildBrandMatcher(brand);
@@ -277,7 +379,6 @@ router.post('/:id/run', auth, async (req, res) => {
   const FAIL_THRESHOLD = 3; // Skip remaining queries after 3 consecutive failures
 
   // Build flat list of all (platform, query) pairs for true parallel dispatch
-  // Rate limiting per-key handles the spacing — we just fire them all at once
   const tasks = [];
   for (const plat of activePlatforms) {
     resetBatchCount(plat);
@@ -287,211 +388,296 @@ router.post('/:id/run', auth, async (req, res) => {
     }
   }
 
-  console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls): ${activePlatforms.join(', ')}`);
-  sendEvent('start', { totalExpected: tasks.length, platforms: activePlatforms, queries: brand.queries || [] });
-
-  // Fire all tasks in parallel — rateLimitWait() serializes per-key automatically
-  const settled = await Promise.allSettled(
-    tasks.map(async ({ plat, q }) => {
-      // Early-abort: skip if this platform has failed too many times
-      if (platFailCount[plat] >= FAIL_THRESHOLD) {
-        throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
-      }
-      const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
-      // Reset fail count on success
-      platFailCount[plat] = 0;
-      return { plat, q, result };
-    })
-  );
-
-  // Process all results
-  const platMentionCount = {};
-  for (let i = 0; i < settled.length; i++) {
-    const { plat, q } = tasks[i];
-    const s = settled[i];
-
-    if (s.status === 'fulfilled') {
-      const { result } = s.value;
-      if (!result) { totalQ++; continue; }
-      const { text, citations: extraCites, model: modelUsed } = result;
-      const parsed = parseResponse(text, brand, q, matcher);
-      parsed.simulated = false;
-      if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-      totalQ++;
-      const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
-      const resultObj = {
-        platform: plat, query: q,
-        context: text.substring(0, 300), raw: text,
-        simulated: false, mentioned: parsed.mentioned,
-        sentiment: parsed.sentiment, recommended: parsed.recommended,
-        citations: parsed.cites, model: modelUsed || plat,
-        locationRelevant: parsed.locationRelevant,
-        matchedLocation: parsed.matchedLocation || '',
-        competitorMentions: compMentions,
-        listPosition: parsed.listPosition || null
-      };
-      allResults.push(resultObj);
-      sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
-      if (parsed.mentioned) {
-        totalM++;
-        if (!platMentionCount[plat]) platMentionCount[plat] = 0;
-        platMentionCount[plat]++;
-        newMentions.push({
-          id: uid(), platform: plat, query: q,
-          context: text.substring(0, 300), raw: text,
-          sentiment: parsed.sentiment, recommended: parsed.recommended,
-          citations: parsed.cites, simulated: false,
-          model: modelUsed || plat,
-          locationRelevant: parsed.locationRelevant,
-          matchedLocation: parsed.matchedLocation || '',
-          time: new Date().toISOString()
-        });
-      }
-    } else {
-      const errMsg = s.reason?.message || 'Unknown error';
-      // Increment consecutive failure count for early-abort
-      platFailCount[plat] = (platFailCount[plat] || 0) + 1;
-      if (platFailCount[plat] <= FAIL_THRESHOLD) {
-        console.error(`[${plat}] API error for query "${q}":`, errMsg);
-      }
-      const errObj = {
-        platform: plat, query: q,
-        context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
-        simulated: false, mentioned: false,
-        sentiment: 'neutral', recommended: false,
-        citations: [], error: true, errorMessage: errMsg
-      };
-      allResults.push(errObj);
-      totalQ++;
-      sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
-    }
-  }
-  // Calculate per-platform SOV
-  for (const plat of activePlatforms) {
-    platSOV[plat] = queries.length > 0 ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;
-  }
-  console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors`);
-
-  const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
-
-  if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: runId, date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
-
-  // Archive old runs to separate table to prevent unbounded JSONB growth
-  if (brand.runs.length > 30) {
-    const toArchive = brand.runs.slice(0, brand.runs.length - 30);
-    for (const run of toArchive) {
-      try {
-        await pool.query(
-          'INSERT INTO archived_runs (id, brand_id, run_date, data) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
-          [run.id, brand.id, run.date || run.time?.split('T')[0] || today, JSON.stringify(run)]
-        );
-      } catch(e) { /* ignore archive errors */ }
-    }
-    brand.runs = brand.runs.slice(-30);
-  }
-
-  // Rebuild queryStats
-  const qsNew = {};
-  queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
-  brand.runs.forEach(run => {
-    queries.forEach(q => {
-      if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
-      qsNew[q].runs++;
-      if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
-    });
-  });
-  brand.queryStats = qsNew;
-
-  // Rebuild citations
-  const citMap = {};
-  brand.runs.forEach(r => {
-    (r.mentions||[]).forEach(m => {
-      (m.citations||[]).forEach(url => {
-        if (!citMap[url]) citMap[url] = { url, count: 0 };
-        citMap[url].count++;
-      });
-    });
-  });
-  brand.citations = citMap;
-
-  // Update all-time mentions
-  if (!brand.mentions) brand.mentions = [];
-  const keys2 = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
-  const deduped = newMentions.filter(m => !keys2.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
-  brand.mentions = [...deduped, ...brand.mentions].slice(0, 500);
-
-  // SOV history
-  if (!brand.sovHistory) brand.sovHistory = [];
-  brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
-  brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
-  if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
-
-  brand.updatedAt = new Date().toISOString();
-  await saveBrand(brand);
-
-  // Send webhook alert if configured and SOV changed
-  const previousSOV = brand.sovHistory.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2].overall : 0;
-  if (brand.webhookUrl && sov !== previousSOV) {
-    sendWebhookAlert(brand, brand.runs[brand.runs.length - 1], previousSOV).catch(() => {});
-  }
-
-  const errorResults = allResults.filter(r => r.error);
-  const errorCount = errorResults.length;
-  const totalPlatformCount = Object.keys(PLATFORM_KEY_MAP).length;
-
-  // Build per-platform error summary for client debugging
-  const platformErrors = {};
-  errorResults.forEach(r => {
-    if (!platformErrors[r.platform]) platformErrors[r.platform] = [];
-    platformErrors[r.platform].push(r.errorMessage || 'Unknown error');
-  });
-
-  if (streaming) {
-    sendEvent('done', { brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
-    return res.end();
-  }
-  res.json({ brand, result: { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors } });
-  } catch(e) {
-    console.error('[Run]', e.message, e.stack);
-    // Emergency save: preserve whatever results we got + the error itself
-    let savedResults = 0;
+  // Fire-and-forget: execution continues even if response ends
+  const executionPromise = (async () => {
     try {
-      const brand = await getBrand(req.params.id, req.user.id);
-      if (brand) {
-        if (!brand.runs) brand.runs = [];
-        const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
-        const errorResults = (allResults || []).filter(r => r.error);
-        brand.runs.push({
-          id: uid(),
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toISOString(),
-          allResults: allResults || [],
-          sov: emergSov,
-          totalQ, totalM,
-          queries: brand.queries || [],
-          activePlatforms: [],
-          emergencySave: true,
-          crashError: e.message
-        });
-        brand.updatedAt = new Date().toISOString();
-        await saveBrand(brand);
-        savedResults = (allResults || []).length;
-        console.log(`[Run] Emergency save: ${savedResults} results preserved, crash: ${e.message}`);
+      console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls): ${activePlatforms.join(', ')} (runId: ${runId})`);
+
+      // Fire all tasks in parallel — rateLimitWait() serializes per-key automatically
+      const settled = await Promise.allSettled(
+        tasks.map(async ({ plat, q }) => {
+          // Early-abort: skip if this platform has failed too many times
+          if (platFailCount[plat] >= FAIL_THRESHOLD) {
+            throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+          }
+          const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
+          // Reset fail count on success
+          platFailCount[plat] = 0;
+          return { plat, q, result };
+        })
+      );
+
+      // Process all results
+      const platMentionCount = {};
+      for (let i = 0; i < settled.length; i++) {
+        const { plat, q } = tasks[i];
+        const s = settled[i];
+
+        if (s.status === 'fulfilled') {
+          const { result } = s.value;
+          if (!result) { totalQ++; runState.received++; continue; }
+          const { text, citations: extraCites, model: modelUsed } = result;
+          const parsed = parseResponse(text, brand, q, matcher);
+          parsed.simulated = false;
+          if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+          totalQ++;
+          const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+          const resultObj = {
+            platform: plat, query: q,
+            context: text.substring(0, 300), raw: text,
+            simulated: false, mentioned: parsed.mentioned,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            competitorMentions: compMentions,
+            listPosition: parsed.listPosition || null
+          };
+          allResults.push(resultObj);
+          // Update run state for polling
+          runState.received++;
+          if (parsed.mentioned) { runState.foundCount++; }
+          runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
+          sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+          if (parsed.mentioned) {
+            totalM++;
+            if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+            platMentionCount[plat]++;
+            newMentions.push({
+              id: uid(), platform: plat, query: q,
+              context: text.substring(0, 300), raw: text,
+              sentiment: parsed.sentiment, recommended: parsed.recommended,
+              citations: parsed.cites, simulated: false,
+              model: modelUsed || plat,
+              locationRelevant: parsed.locationRelevant,
+              matchedLocation: parsed.matchedLocation || '',
+              time: new Date().toISOString()
+            });
+          }
+        } else {
+          const errMsg = s.reason?.message || 'Unknown error';
+          // Increment consecutive failure count for early-abort
+          platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+          if (platFailCount[plat] <= FAIL_THRESHOLD) {
+            console.error(`[${plat}] API error for query "${q}":`, errMsg);
+          }
+          const errObj = {
+            platform: plat, query: q,
+            context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
+            simulated: false, mentioned: false,
+            sentiment: 'neutral', recommended: false,
+            citations: [], error: true, errorMessage: errMsg
+          };
+          allResults.push(errObj);
+          totalQ++;
+          runState.received++;
+          runState.errorCount++;
+          runState.results.push({ ...errObj, raw: undefined });
+          sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
+        }
       }
-    } catch(saveErr) {
-      console.error('[Run] Emergency save also failed:', saveErr.message);
+      // Calculate per-platform SOV
+      for (const plat of activePlatforms) {
+        platSOV[plat] = queries.length > 0 ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;
+      }
+      const durationMs = Date.now() - runState.startedAt;
+      console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors, ${Math.round(durationMs/1000)}s (runId: ${runId})`);
+
+      const today = new Date().toISOString().split('T')[0];
+      const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+
+      // Re-fetch brand to avoid stale data
+      const freshBrand = await getBrand(brand.id, req.user.id);
+      const saveBrandObj = freshBrand || brand;
+
+      if (!saveBrandObj.runs) saveBrandObj.runs = [];
+      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), durationMs, mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+
+      // Archive old runs
+      if (saveBrandObj.runs.length > 30) {
+        const toArchive = saveBrandObj.runs.slice(0, saveBrandObj.runs.length - 30);
+        for (const run of toArchive) {
+          try {
+            await pool.query(
+              'INSERT INTO archived_runs (id, brand_id, run_date, data) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING',
+              [run.id, saveBrandObj.id, run.date || run.time?.split('T')[0] || today, JSON.stringify(run)]
+            );
+          } catch(e) { /* ignore archive errors */ }
+        }
+        saveBrandObj.runs = saveBrandObj.runs.slice(-30);
+      }
+
+      // Rebuild queryStats — single pass over runs (O(runs × mentions) instead of O(runs × queries))
+      const qsNew = {};
+      queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+      const citMap = {};
+      saveBrandObj.runs.forEach(run => {
+        // Count runs per query — use a Set of mentioned queries for O(1) lookup
+        const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
+        for (const q of queries) {
+          if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+          qsNew[q].runs++;
+          if (mentionedQueries.has(q)) qsNew[q].mentions++;
+        }
+        // Build citations map in same pass
+        (run.mentions||[]).forEach(m => {
+          (m.citations||[]).forEach(url => {
+            if (!citMap[url]) citMap[url] = { url, count: 0 };
+            citMap[url].count++;
+          });
+        });
+      });
+      saveBrandObj.queryStats = qsNew;
+      saveBrandObj.citations = citMap;
+
+      // Update all-time mentions
+      if (!saveBrandObj.mentions) saveBrandObj.mentions = [];
+      const keys2 = new Set(saveBrandObj.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
+      const deduped = newMentions.filter(m => !keys2.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
+      saveBrandObj.mentions = [...deduped, ...saveBrandObj.mentions].slice(0, 500);
+
+      // SOV history
+      if (!saveBrandObj.sovHistory) saveBrandObj.sovHistory = [];
+      saveBrandObj.sovHistory = saveBrandObj.sovHistory.filter(h => h.date !== today);
+      saveBrandObj.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
+      if (saveBrandObj.sovHistory.length > 90) saveBrandObj.sovHistory = saveBrandObj.sovHistory.slice(-90);
+
+      saveBrandObj.updatedAt = new Date().toISOString();
+      await saveBrand(saveBrandObj);
+
+      // Webhook alert
+      const previousSOV = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
+      if (saveBrandObj.webhookUrl && sov !== previousSOV) {
+        sendWebhookAlert(saveBrandObj, saveBrandObj.runs[saveBrandObj.runs.length - 1], previousSOV).catch(() => {});
+      }
+
+      const errorResults = allResults.filter(r => r.error);
+      const errorCount = errorResults.length;
+      const totalPlatformCount = Object.keys(PLATFORM_KEY_MAP).length;
+      const platformErrors = {};
+      errorResults.forEach(r => {
+        if (!platformErrors[r.platform]) platformErrors[r.platform] = [];
+        platformErrors[r.platform].push(r.errorMessage || 'Unknown error');
+      });
+
+      const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors };
+
+      // Update run state for polling
+      runState.status = 'done';
+      runState.finalData = { brand: saveBrandObj, result: finalResult };
+      runState.completedAt = Date.now();
+      brandRunLocks.delete(brand.id);
+
+      // Stream final event if client is still connected
+      sendEvent('done', { brand: saveBrandObj, result: finalResult });
+      if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
+
+    } catch(e) {
+      brandRunLocks.delete(brand.id);
+      console.error('[Run]', e.message, e.stack);
+      // Emergency save
+      try {
+        const eBrand = await getBrand(brand.id, req.user.id);
+        if (eBrand) {
+          if (!eBrand.runs) eBrand.runs = [];
+          const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+          eBrand.runs.push({
+            id: runId,
+            date: new Date().toISOString().split('T')[0],
+            time: new Date().toISOString(),
+            allResults: allResults || [],
+            sov: emergSov,
+            totalQ, totalM,
+            queries: brand.queries || [],
+            activePlatforms: [],
+            emergencySave: true,
+            crashError: e.message
+          });
+          eBrand.updatedAt = new Date().toISOString();
+          await saveBrand(eBrand);
+          console.log(`[Run] Emergency save: ${(allResults || []).length} results preserved, crash: ${e.message}`);
+        }
+      } catch(saveErr) {
+        console.error('[Run] Emergency save also failed:', saveErr.message);
+      }
+
+      runState.status = 'error';
+      runState.error = e.message;
+      runState.completedAt = Date.now();
+
+      sendEvent('error', { error: 'Failed to run queries: ' + e.message, savedResults: (allResults || []).length });
+      if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
     }
-    if (streaming) {
-      sendEvent('error', { error: 'Failed to run queries: ' + e.message, savedResults });
-      return res.end();
+  })().catch(e => {
+    // Safety net: prevent unhandled rejection from crashing the process
+    brandRunLocks.delete(brand.id);
+    console.error('[Run] Unhandled execution error:', e.message);
+    runState.status = 'error';
+    runState.error = e.message;
+    runState.completedAt = Date.now();
+  });
+
+  // If NOT streaming, wait for completion and return JSON
+  if (!streaming) {
+    await executionPromise;
+    if (runState.status === 'done') {
+      res.json(runState.finalData);
+    } else {
+      res.status(500).json({ error: runState.error || 'Run failed', savedResults: (allResults || []).length });
     }
-    res.status(500).json({
-      error: 'Failed to run queries: ' + e.message,
-      savedResults,
-      errorDetails: e.message
-    });
   }
+  // If streaming, response is already being written by sendEvent / res.end above
+  // The executionPromise continues in the background even if the client disconnects
+});
+
+// SSE error helper
+function sseError(res, msg) {
+  res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+  res.write('data: ' + JSON.stringify({ type: 'error', error: msg }) + '\n\n');
+  return res.end();
+}
+
+// ─── RUN STATUS (polling endpoint for background runs) ──────────
+router.get('/:id/run-status/:runId', auth, async (req, res) => {
+  const runState = activeRuns.get(req.params.runId);
+  if (!runState) {
+    // Run not in memory — check if it completed and was saved to DB
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (brand) {
+      const run = (brand.runs || []).find(r => r.id === req.params.runId);
+      if (run) {
+        return res.json({
+          status: 'done',
+          received: run.totalQ || 0,
+          totalExpected: run.totalQ || 0,
+          foundCount: run.totalM || 0,
+          errorCount: (run.allResults || []).filter(r => r.error).length,
+          finalData: { brand, result: { totalQ: run.totalQ, totalM: run.totalM, sov: run.sov, newMentions: (run.mentions || []).length, errorCount: (run.allResults || []).filter(r => r.error).length } }
+        });
+      }
+    }
+    return res.status(404).json({ error: 'Run not found' });
+  }
+  // Verify ownership
+  if (runState.userId !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+  const resp = {
+    status: runState.status,
+    runId: runState.runId,
+    received: runState.received,
+    totalExpected: runState.totalExpected,
+    foundCount: runState.foundCount,
+    errorCount: runState.errorCount,
+    platforms: runState.platforms,
+    results: runState.results,
+    startedAt: runState.startedAt
+  };
+  if (runState.status === 'done') {
+    resp.finalData = runState.finalData;
+  } else if (runState.status === 'error') {
+    resp.error = runState.error;
+  }
+  res.json(resp);
 });
 
 // ─── RETRY SINGLE QUERY ──────────────────────────────────────────
@@ -690,16 +876,17 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
       }
     }
 
-    // Rebuild queryStats
+    // Rebuild queryStats — single pass
     const allQueries = brand.queries || [];
     const qsNew = {};
     allQueries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
     (brand.runs || []).forEach(r => {
-      allQueries.forEach(q => {
+      const mentionedQueries = new Set((r.mentions || []).map(m => m.query));
+      for (const q of allQueries) {
         if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
         qsNew[q].runs++;
-        if ((r.mentions || []).some(m => m.query === q)) qsNew[q].mentions++;
-      });
+        if (mentionedQueries.has(q)) qsNew[q].mentions++;
+      }
     });
     brand.queryStats = qsNew;
 
@@ -801,6 +988,7 @@ async function runBrandQueries(brand) {
   if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
   if (!activePlatforms.length || !queries.length) return;
 
+  const cronStartTime = Date.now();
   const newMentions = [];
   const allResults = [];
   const platSOV = {};
@@ -886,7 +1074,7 @@ async function runBrandQueries(brand) {
 
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), durationMs: Date.now() - cronStartTime, mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
 
   // Archive old runs
   if (brand.runs.length > 30) {
@@ -908,24 +1096,22 @@ async function runBrandQueries(brand) {
 
   const qsNew = {};
   queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+  const citMap = {};
   brand.runs.forEach(run => {
-    queries.forEach(q => {
+    const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
+    for (const q of queries) {
       if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
       qsNew[q].runs++;
-      if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
-    });
-  });
-  brand.queryStats = qsNew;
-
-  const citMap = {};
-  brand.runs.forEach(r => {
-    (r.mentions||[]).forEach(m => {
+      if (mentionedQueries.has(q)) qsNew[q].mentions++;
+    }
+    (run.mentions||[]).forEach(m => {
       (m.citations||[]).forEach(url => {
         if (!citMap[url]) citMap[url] = { url, count: 0 };
         citMap[url].count++;
       });
     });
   });
+  brand.queryStats = qsNew;
   brand.citations = citMap;
 
   if (!brand.sovHistory) brand.sovHistory = [];

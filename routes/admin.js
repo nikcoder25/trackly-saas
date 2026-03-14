@@ -57,15 +57,16 @@ router.delete('/api-logs', auth, async (req, res) => {
   }
 });
 
-// ─── ACTIVITY LOG (audit trail) ──────────────────────────────────
+// ─── ACTIVITY LOG (audit trail — scoped to current user) ────────
 router.get('/activity-logs', auth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const result = await pool.query(
       `SELECT al.*, u.email AS user_email FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
-       ORDER BY al.created_at DESC LIMIT $1`,
-      [limit]
+       WHERE al.user_id = $1
+       ORDER BY al.created_at DESC LIMIT $2`,
+      [req.user.id, limit]
     );
     res.json({ logs: result.rows });
   } catch(e) {
@@ -174,16 +175,20 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-// Admin: list users with brand counts
+// Admin: list users with brand counts (paginated)
 router.get('/admin/users', auth, requireAdmin, async (req, res) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
     const result = await pool.query(`
       SELECT u.*, COUNT(b.id)::int AS brand_count
       FROM users u LEFT JOIN brands b ON b.user_id = u.id
       GROUP BY u.id ORDER BY u.created_at
-    `);
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+    const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM users');
     const users = result.rows.map(row => ({ ...safeUser(row), brandCount: row.brand_count || 0 }));
-    res.json({ users, total: users.length });
+    res.json({ users, total: countResult.rows[0].total });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -268,7 +273,7 @@ router.post('/admin/users', auth, requireAdmin, async (req, res) => {
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [trimmedEmail]);
     if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const id = uid();
     const userName = (name || '').trim() || trimmedEmail.split('@')[0];
     const userRole = role === 'admin' ? 'admin' : null;
@@ -309,7 +314,7 @@ router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => 
   try {
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email', [hash, req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     auditLog(req.user.id, 'admin_reset_password', 'user', req.params.id, { email: result.rows[0].email }, req.ip);
@@ -606,6 +611,80 @@ router.get('/export/brand/:id/csv', auth, async (req, res) => {
   }
 });
 
+// ─── Scheduled Report Settings ────────────────────────
+// Users can configure weekly/monthly email reports
+router.get('/report-settings', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
+    const reportSettings = result.rows[0].settings?.reportSchedule || null;
+    res.json({ reportSchedule: reportSettings });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load report settings' });
+  }
+});
+
+router.put('/report-settings', auth, async (req, res) => {
+  const { frequency, brandIds } = req.body;
+  if (frequency && !['weekly', 'monthly', 'off'].includes(frequency)) {
+    return res.status(400).json({ error: 'Frequency must be weekly, monthly, or off' });
+  }
+  try {
+    const reportSchedule = frequency === 'off' ? null : {
+      frequency: frequency || 'weekly',
+      brandIds: brandIds || [],
+      lastSent: null
+    };
+    await pool.query(
+      `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
+      [JSON.stringify({ reportSchedule }), req.user.id]
+    );
+    res.json({ reportSchedule, message: 'Report schedule saved' });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to save report settings' });
+  }
+});
+
+// Generate a report summary for a brand (on-demand)
+router.get('/report/brand/:id', auth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
+    const data = result.rows[0].data;
+    const runs = data.runs || [];
+    const lastRun = runs.length ? runs[runs.length - 1] : null;
+
+    // Calculate summary stats
+    const totalMentions = runs.reduce((sum, r) => sum + (r.allResults || []).filter(m => m.mentioned).length, 0);
+    const avgSov = runs.length ? (runs.reduce((sum, r) => sum + (r.sov || 0), 0) / runs.length).toFixed(1) : 0;
+    const sovTrend = runs.length >= 2 ? (runs[runs.length - 1].sov || 0) - (runs[runs.length - 2].sov || 0) : 0;
+
+    // Platform breakdown from last run
+    const platformStats = {};
+    if (lastRun && lastRun.allResults) {
+      for (const r of lastRun.allResults) {
+        if (!platformStats[r.platform]) platformStats[r.platform] = { total: 0, mentioned: 0 };
+        platformStats[r.platform].total++;
+        if (r.mentioned) platformStats[r.platform].mentioned++;
+      }
+    }
+
+    res.json({
+      brandName: data.name,
+      totalRuns: runs.length,
+      totalMentions,
+      averageSov: parseFloat(avgSov),
+      sovTrend,
+      lastRunDate: lastRun?.date || null,
+      lastRunSov: lastRun?.sov || 0,
+      platformStats,
+      period: { from: runs.length ? runs[0].date : null, to: lastRun?.date || null }
+    });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to generate report' });
+  }
+});
+
 // ─── Notifications ────────────────────────────────────
 router.get('/notifications', auth, async (req, res) => {
   try {
@@ -673,6 +752,24 @@ router.post('/team/invite', auth, async (req, res) => {
     res.json({ success: true, message: 'Team member added' });
   } catch(e) {
     res.status(500).json({ error: 'Failed to add team member' });
+  }
+});
+
+router.put('/team/:memberId', auth, async (req, res) => {
+  const { role } = req.body;
+  if (!role || !['viewer', 'editor'].includes(role)) {
+    return res.status(400).json({ error: 'Role must be "viewer" or "editor"' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE team_members SET role = $1 WHERE owner_id = $2 AND member_id = $3 RETURNING *',
+      [role, req.user.id, req.params.memberId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Team member not found' });
+    auditLog(req.user.id, 'team_role_update', 'user', req.params.memberId, { role }, req.ip);
+    res.json({ success: true, role });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to update team member role' });
   }
 });
 
