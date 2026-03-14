@@ -230,6 +230,10 @@ async function api(method, path, data){
     if (json.planLimit) {
       showUpgradeModal(json.error);
     }
+    // Rate limit — include retry info in error message
+    if (res.status === 429 && json.retryAfter) {
+      throw new Error(`Rate limited — please wait ${json.retryAfter} seconds before retrying.`);
+    }
     throw new Error(json.error || 'Request failed');
   }
   return json;
