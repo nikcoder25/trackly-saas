@@ -26,7 +26,7 @@ async function markWebhookProcessed(eventId, eventType) {
       'INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING',
       [eventId, eventType]
     );
-  } catch(e) { log.error('[Webhook dedup]', e.message); }
+  } catch(e) { log.error('Webhook dedup failed', { error: e.message }); }
 }
 
 // ─── CONFIGURATION ──────────────────────────────────────────────
