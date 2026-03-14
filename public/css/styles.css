@@ -72,6 +72,8 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 }
 .land-nav-logo{font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--text-primary);}
 .land-nav-logo span{color:var(--primary);}
+.land-hamburger{display:none;background:none;border:1px solid var(--card-border);cursor:pointer;padding:8px 10px;flex-direction:column;gap:4px;border-radius:var(--radius-xs);}
+.land-hamburger span{display:block;width:18px;height:2px;background:var(--text-primary);transition:all .2s;}
 .land-nav-links{display:flex;gap:32px;margin-left:48px;margin-right:auto;}
 .land-nav-links a{color:var(--text-secondary);font-size:14px;text-decoration:none;font-weight:500;transition:color .2s;}
 .land-nav-links a:hover{color:var(--text-primary);}
@@ -111,7 +113,7 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   background-clip:text;
 }
 .land-hero p{color:var(--text-secondary);font-size:18px;max-width:580px;line-height:1.7;margin-bottom:40px;font-weight:400;}
-.land-hero-cta{display:flex;gap:14px;align-items:center;}
+.land-hero-cta{display:flex;gap:14px;align-items:center;justify-content:center;}
 .land-hero-cta .land-btn{padding:14px 36px;font-size:16px;font-weight:700;}
 .land-hero-cta .land-btn-ghost{font-size:15px;padding:14px 28px;}
 
@@ -346,13 +348,23 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 .land-footer-social a:hover{color:var(--primary);border-color:var(--primary-border);}
 
 @media(max-width:768px){
-  .land-nav{padding:14px 20px;}
-  .land-nav-links{display:none;}
+  .land-nav{padding:14px 20px;flex-wrap:wrap;}
+  .land-hamburger{display:flex;}
+  .land-nav-links{
+    display:none;order:3;width:100%;flex-direction:column;gap:0;
+    margin:12px 0 0;padding:12px 0 0;border-top:1px solid var(--card-border);
+    margin-left:0;
+  }
+  .land-nav-links.open{display:flex;}
+  .land-nav-links a{padding:10px 0;font-size:15px;}
+  .land-nav-right{order:2;margin-left:auto;gap:8px;}
+  .land-nav-right .land-btn{padding:8px 14px;font-size:12px;}
+  .land-nav-right .land-btn-ghost{display:none;}
   .land-hero{padding:48px 20px 40px;}
   .land-hero h1{font-size:32px;letter-spacing:-1px;}
   .land-hero p{font-size:16px;}
   .land-hero-cta{flex-direction:column;width:100%;max-width:320px;}
-  .land-hero-cta .land-btn{width:100%;text-align:center;}
+  .land-hero-cta .land-btn{width:100%;text-align:center;justify-content:center;}
   .land-demo-body{grid-template-columns:1fr;}
   .land-features{grid-template-columns:1fr;}
   .land-how{grid-template-columns:1fr;gap:16px;}

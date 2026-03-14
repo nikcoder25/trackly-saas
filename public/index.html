@@ -154,21 +154,22 @@
 
 <!-- ── LANDING PAGE ───────────────────────────────────────── -->
 <div id="landing-page" role="main">
-  <header>
   <nav class="land-nav" aria-label="Main navigation">
     <div class="land-nav-logo">Track<span>ly</span></div>
-    <div class="land-nav-links">
-      <a href="#features">Features</a>
-      <a href="#how-it-works">How it Works</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#faq">FAQ</a>
+    <button class="land-hamburger" id="land-hamburger" onclick="toggleLandingMenu()" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="land-nav-links" id="land-nav-menu">
+      <a href="#features" onclick="closeLandingMenu()">Features</a>
+      <a href="#how-it-works" onclick="closeLandingMenu()">How it Works</a>
+      <a href="#pricing" onclick="closeLandingMenu()">Pricing</a>
+      <a href="#faq" onclick="closeLandingMenu()">FAQ</a>
     </div>
     <div class="land-nav-right">
       <button class="land-btn land-btn-ghost" onclick="showAuth('login')">Login</button>
       <button class="land-btn land-btn-primary" onclick="showAuth('register')">Get Started Free</button>
     </div>
   </nav>
-  </header>
 
   <section class="land-hero" aria-label="Hero">
     <div class="land-hero-badge">AI Visibility Tracker</div>
