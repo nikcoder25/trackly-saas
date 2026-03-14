@@ -302,13 +302,18 @@ router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
       ORDER BY appearances DESC
     `, [req.params.id]);
 
-    // Also get overall competitor frequency
+    // Overall competitor frequency with sentiment context
     const overall = await pool.query(`
       SELECT
         jsonb_array_elements_text(competitor_mentions) AS competitor,
         COUNT(*)::int AS total_appearances,
         COUNT(DISTINCT prompt)::int AS prompt_count,
-        COUNT(DISTINCT platform)::int AS platform_count
+        COUNT(DISTINCT platform)::int AS platform_count,
+        COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS brand_also_mentioned,
+        COUNT(*) FILTER (WHERE sentiment = 'positive')::int AS positive_context,
+        COUNT(*) FILTER (WHERE sentiment = 'negative')::int AS negative_context,
+        COUNT(*) FILTER (WHERE sentiment = 'neutral')::int AS neutral_context,
+        AVG(list_position) FILTER (WHERE list_position IS NOT NULL) AS avg_position
       FROM prompt_runs
       WHERE brand_id = $1 AND success = TRUE AND competitor_mentions != '[]'::jsonb
         AND created_at > NOW() - INTERVAL '30 days'
@@ -317,9 +322,30 @@ router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
       LIMIT 20
     `, [req.params.id]);
 
+    // Competitor co-occurrence pairs (which competitors appear together)
+    const pairsResult = await pool.query(`
+      WITH comp_per_run AS (
+        SELECT id, jsonb_array_elements_text(competitor_mentions) AS comp
+        FROM prompt_runs
+        WHERE brand_id = $1 AND success = TRUE AND competitor_mentions != '[]'::jsonb
+          AND created_at > NOW() - INTERVAL '30 days'
+      )
+      SELECT a.comp AS comp1, b.comp AS comp2, COUNT(*)::int AS co_count
+      FROM comp_per_run a
+      JOIN comp_per_run b ON a.id = b.id AND a.comp < b.comp
+      GROUP BY a.comp, b.comp
+      ORDER BY co_count DESC
+      LIMIT 15
+    `, [req.params.id]);
+
     res.json({
       byPlatform: result.rows,
-      topCompetitors: overall.rows
+      topCompetitors: overall.rows.map(r => ({
+        ...r,
+        avg_position: r.avg_position ? parseFloat(r.avg_position) : null,
+        sentimentBreakdown: { positive: r.positive_context, neutral: r.neutral_context, negative: r.negative_context }
+      })),
+      coOccurrencePairs: pairsResult.rows
     });
   } catch(e) {
     res.status(500).json({ error: 'Failed to load competitor analysis' });
