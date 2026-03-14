@@ -43,12 +43,29 @@ const PLATFORM_COST_ORDER = [
   'ChatGPT'      // gpt-5-search: $2.50/$10.00
 ];
 
-// List brands
+// List brands (includes team-shared brands)
 router.get('/', auth, async (req, res) => {
   try {
+    // Own brands
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
     const brands = result.rows.map(row => ({ id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
-    res.json({ brands });
+    // Team-shared brands (where user is a member)
+    const teamResult = await pool.query(
+      `SELECT b.*, tm.role AS team_role, u.name AS owner_name, u.email AS owner_email
+       FROM brands b
+       JOIN team_members tm ON b.user_id = tm.owner_id
+       JOIN users u ON u.id = tm.owner_id
+       WHERE tm.member_id = $1
+       ORDER BY b.created_at`,
+      [req.user.id]
+    );
+    const sharedBrands = teamResult.rows.map(row => ({
+      id: row.id, userId: row.user_id, ...row.data,
+      createdAt: row.created_at, updatedAt: row.updated_at,
+      shared: true, teamRole: row.team_role,
+      ownerName: row.owner_name, ownerEmail: row.owner_email
+    }));
+    res.json({ brands, sharedBrands });
   } catch(e) {
     console.error('[Brands GET]', e.message);
     res.status(500).json({ error: 'Failed to load brands' });
@@ -104,10 +121,23 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Get single brand
+// Get single brand (includes team access)
 router.get('/:id', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
+    let brand = await getBrand(req.params.id, req.user.id);
+    // If not own brand, check team membership
+    if (!brand) {
+      const teamCheck = await pool.query(
+        `SELECT b.*, tm.role AS team_role FROM brands b
+         JOIN team_members tm ON b.user_id = tm.owner_id
+         WHERE b.id = $1 AND tm.member_id = $2`,
+        [req.params.id, req.user.id]
+      );
+      if (teamCheck.rows.length) {
+        const row = teamCheck.rows[0];
+        brand = { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at, shared: true, teamRole: row.team_role };
+      }
+    }
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
     res.json({ brand });
   } catch(e) {
@@ -216,8 +246,11 @@ router.post('/:id/run', auth, async (req, res) => {
       return res.status(403).json({ error: errMsg, planLimit: true, limit: 'queries' });
     }
 
+    // Atomic run limit check — re-read brand from DB to prevent TOCTOU race
     const today = new Date().toISOString().split('T')[0];
-    const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
+    const freshBrand = await pool.query('SELECT data FROM brands WHERE id = $1 FOR UPDATE', [brand.id]);
+    const freshRuns = freshBrand.rows[0]?.data?.runs || [];
+    const todayRuns = freshRuns.filter(r => (r.date || '').startsWith(today)).length;
     if (todayRuns >= limits.runsPerDay) {
       const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
       if (streaming) return sseError(res, errMsg);

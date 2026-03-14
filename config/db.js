@@ -112,6 +112,22 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_api_logs_user_id ON api_logs(user_id);
       CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at);
       CREATE INDEX IF NOT EXISTS idx_api_logs_brand_id ON api_logs(brand_id);
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        email TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS webhook_events (
+        event_id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        processed_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_webhook_events_processed ON webhook_events(processed_at);
+      CREATE INDEX IF NOT EXISTS idx_users_plan ON users(plan);
+      CREATE INDEX IF NOT EXISTS idx_brands_data_schedule ON brands((data->>'schedule')) WHERE data->>'schedule' IS NOT NULL;
     `);
     // Migrations for existing DBs
     await client.query(`
@@ -122,7 +138,7 @@ async function initDB() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS tokens_in INTEGER DEFAULT 0;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS tokens_out INTEGER DEFAULT 0;
-      ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cost NUMERIC(12,8);
+      ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cost NUMERIC(12,8) DEFAULT 0;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS run_id TEXT;
     `);
     // Add unique index on username (only for non-null values)
@@ -191,4 +207,22 @@ async function cleanupNotifications() {
   }
 }
 
-module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications };
+// Cleanup expired password reset tokens
+async function cleanupResetTokens() {
+  try {
+    await pool.query("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
+  } catch(e) {
+    console.error('[ResetToken cleanup]', e.message);
+  }
+}
+
+// Cleanup old webhook events (keep 30 days for dedup window)
+async function cleanupWebhookEvents() {
+  try {
+    await pool.query("DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '30 days'");
+  } catch(e) {
+    console.error('[WebhookEvent cleanup]', e.message);
+  }
+}
+
+module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents };

@@ -4,6 +4,19 @@
  */
 
 require('dotenv').config();
+
+// ─── ENV VAR VALIDATION ─────────────────────────────────────────
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
+  console.error('  Set them in your .env file or environment.');
+  process.exit(1);
+}
+if (process.env.NODE_ENV === 'production' && !process.env.ALLOWED_ORIGINS) {
+  console.warn('[WARN] ALLOWED_ORIGINS not set in production. CORS will reject all cross-origin requests.');
+}
+
 const express     = require('express');
 const cors        = require('cors');
 const helmet      = require('helmet');
@@ -12,7 +25,7 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications } = require('./config/db');
+const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 
@@ -56,7 +69,7 @@ app.use(helmet({
 // Gzip compression
 app.use(compression());
 
-// CORS — require explicit whitelist in production
+// CORS — require explicit ALLOWED_ORIGINS in all environments
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
@@ -105,6 +118,23 @@ app.use('/api/', apiLimiter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ─── ERROR TRACKING MIDDLEWARE ───────────────────────────────────
+// Capture unhandled errors in routes and log structured details
+app.use((err, req, res, next) => {
+  const errorInfo = {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    userId: req.user?.id || null,
+    error: err.message,
+    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    statusCode: err.statusCode || 500
+  };
+  console.error('[ErrorMiddleware]', JSON.stringify(errorInfo));
+  if (res.headersSent) return next(err);
+  res.status(errorInfo.statusCode).json({ error: 'Internal server error' });
+});
+
 // ─── API ROUTES ──────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);
 app.use('/api/brands',   brandRoutes);
@@ -143,7 +173,7 @@ const { runBrandQueries } = require('./routes/brands');
 
 // Cron concurrency — process up to 5 brands simultaneously to avoid
 // sequential bottleneck at scale (300+ users with scheduled brands).
-const CRON_BATCH_SIZE = 5;
+const CRON_BATCH_SIZE = parseInt(process.env.CRON_BATCH_SIZE, 10) || 5;
 
 cron.schedule('0 * * * *', async () => {
   try {
@@ -220,11 +250,15 @@ const server = app.listen(PORT, () => {
     .join(', ');
   console.log(`[API Keys] ${keyInfo}`);
 
-  // Cleanup old API logs and read notifications daily at startup and every 24h
+  // Cleanup old data at startup and every 24h
   cleanupApiLogs();
   cleanupNotifications();
+  cleanupResetTokens();
+  cleanupWebhookEvents();
   setInterval(cleanupApiLogs, 24 * 60 * 60 * 1000);
   setInterval(cleanupNotifications, 24 * 60 * 60 * 1000);
+  setInterval(cleanupResetTokens, 24 * 60 * 60 * 1000);
+  setInterval(cleanupWebhookEvents, 24 * 60 * 60 * 1000);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────

@@ -9,6 +9,24 @@ const { pool } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { safeUser } = require('../lib/helpers');
 
+// Webhook idempotency — prevent duplicate event processing
+async function isWebhookProcessed(eventId) {
+  if (!eventId) return false;
+  try {
+    const result = await pool.query('SELECT event_id FROM webhook_events WHERE event_id = $1', [eventId]);
+    return result.rows.length > 0;
+  } catch(e) { return false; }
+}
+async function markWebhookProcessed(eventId, eventType) {
+  if (!eventId) return;
+  try {
+    await pool.query(
+      'INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING',
+      [eventId, eventType]
+    );
+  } catch(e) { console.error('[Webhook dedup]', e.message); }
+}
+
 // ─── CONFIGURATION ──────────────────────────────────────────────
 const DODO_API_KEY        = process.env.DODO_PAYMENTS_API_KEY || '';
 const DODO_WEBHOOK_KEY    = process.env.DODO_PAYMENTS_WEBHOOK_KEY || '';
@@ -135,6 +153,8 @@ if (DODO_WEBHOOK_KEY) {
       onPaymentSucceeded: async (payload) => {
         try {
           const data = payload.data || payload;
+          const eventId = data.payment_id || data.id || payload.id;
+          if (await isWebhookProcessed(eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           const plan = metadata.plan;
@@ -156,6 +176,7 @@ if (DODO_WEBHOOK_KEY) {
           );
           if (result.rows.length) {
             console.log(`[DodoPayments] Upgraded user ${result.rows[0].email} to ${plan} plan`);
+            await markWebhookProcessed(eventId, 'payment.succeeded');
           } else {
             console.warn(`[DodoPayments] User not found for upgrade: ${userId}`);
           }
@@ -176,6 +197,8 @@ if (DODO_WEBHOOK_KEY) {
       onSubscriptionActive: async (payload) => {
         try {
           const data = payload.data || payload;
+          const eventId = data.subscription_id || data.id || payload.id;
+          if (await isWebhookProcessed('sub_active_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           const productId = data.product_id;
@@ -195,6 +218,7 @@ if (DODO_WEBHOOK_KEY) {
             [plan, JSON.stringify({ dodo_subscription_id: subscriptionId }), userId]
           );
           console.log(`[DodoPayments] Subscription activated for user ${userId}: ${plan}`);
+          await markWebhookProcessed('sub_active_' + eventId, 'subscription.active');
         } catch(e) {
           console.error('[DodoPayments Webhook] subscription.active error:', e.message);
         }
@@ -218,6 +242,8 @@ if (DODO_WEBHOOK_KEY) {
       onSubscriptionCancelled: async (payload) => {
         try {
           const data = payload.data || payload;
+          const eventId = data.subscription_id || data.id || payload.id;
+          if (await isWebhookProcessed('sub_cancel_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           if (!userId) {
@@ -237,6 +263,7 @@ if (DODO_WEBHOOK_KEY) {
           }
           await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
           console.log(`[DodoPayments] Subscription cancelled, downgraded user ${userId} to free`);
+          await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
         } catch(e) {
           console.error('[DodoPayments Webhook] subscription.cancelled error:', e.message);
         }
@@ -267,11 +294,14 @@ if (DODO_WEBHOOK_KEY) {
       onRefundSucceeded: async (payload) => {
         try {
           const data = payload.data || payload;
+          const eventId = data.refund_id || data.payment_id || data.id || payload.id;
+          if (await isWebhookProcessed('refund_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           if (!userId) return;
           await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
           console.log(`[DodoPayments] Refund processed, downgraded user ${userId} to free`);
+          await markWebhookProcessed('refund_' + eventId, 'refund.succeeded');
         } catch(e) {
           console.error('[DodoPayments Webhook] refund.succeeded error:', e.message);
         }
