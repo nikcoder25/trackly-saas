@@ -987,89 +987,110 @@ function renderAll(){
 const _NOTIF_MAX = 5;       // max visible at once
 const _NOTIF_DURATION = 3500; // ms before auto-dismiss
 const _notifSeen = new Set();
+// Notification queue — batch DOM writes to reduce layout thrashing
+let _notifQueue = [];
+let _notifFlushTimer = null;
+
 function showLiveNotif(result) {
-  const cont = el('live-notifs');
-  if (!cont) return;
   // Dedup — don't show same platform+query combo twice in one run
   const dedupKey = (result.platform || '') + '||' + (result.query || '');
   if (_notifSeen.has(dedupKey)) return;
   _notifSeen.add(dedupKey);
-  const t = PLAT_THEME[result.platform] || {};
-  const isErr = result.error;
-  const isMentioned = result.mentioned;
 
-  // Status label
-  let statusCls, statusText;
-  if (isErr) { statusCls = 'error'; statusText = 'Error'; }
-  else if (isMentioned) { statusCls = 'found'; statusText = 'Found'; }
-  else { statusCls = 'notfound'; statusText = 'Not Found'; }
+  // Queue the notification and flush in batches (max every 200ms)
+  _notifQueue.push(result);
+  if (!_notifFlushTimer) {
+    _notifFlushTimer = setTimeout(_flushNotifQueue, 200);
+  }
+}
 
-  const queryShort = (result.query || '').length > 45 ? result.query.substring(0, 45) + '...' : (result.query || '');
+function _flushNotifQueue() {
+  _notifFlushTimer = null;
+  const cont = el('live-notifs');
+  if (!cont || !_notifQueue.length) { _notifQueue = []; return; }
 
-  const notif = document.createElement('div');
-  notif.className = 'live-notif';
-  notif.innerHTML = `
-    <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
-    <div class="live-notif-body">
-      <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
-      <div class="live-notif-sub">${esc(queryShort)}</div>
-    </div>
-    <div class="live-notif-status ${statusCls}">${statusText}</div>`;
+  // Only show the last _NOTIF_MAX notifications from the queue
+  const batch = _notifQueue.slice(-_NOTIF_MAX);
+  _notifQueue = [];
 
-  // Click to open the full result in modal
-  notif.onclick = () => {
-    notif.remove();
-    try {
-      const b = brand();
-      const t2 = PLAT_THEME[result.platform]||{};
-      const head = el('resp-modal-head');
-      const titleEl = el('resp-modal-title');
-      const queryEl = el('resp-modal-query');
-      const textEl = el('resp-modal-text');
-      if (!head || !titleEl || !queryEl || !textEl) return;
-      head.style.background = t2.bg||'var(--bg2)';
-      head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
-      titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-      queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
-      textEl.style.whiteSpace = 'normal';
-      const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
-      const rawHtml = mdToHtml(raw);
-      const hre = b ? brandHighlightRe(b) : null;
-      textEl.innerHTML = hre ? rawHtml.replace(hre, (m) => '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">'+esc(m)+'</mark>') : rawHtml;
-      const cc = el('resp-modal-cites');
-      const cites = result.citations||[];
-      if (cc) {
-        if (cites.length) {
-          cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-            + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-        } else cc.innerHTML = '';
+  // Build all notification elements in a document fragment (single reflow)
+  const frag = document.createDocumentFragment();
+  for (const result of batch) {
+    const t = PLAT_THEME[result.platform] || {};
+    const isErr = result.error;
+    const isMentioned = result.mentioned;
+    let statusCls, statusText;
+    if (isErr) { statusCls = 'error'; statusText = 'Error'; }
+    else if (isMentioned) { statusCls = 'found'; statusText = 'Found'; }
+    else { statusCls = 'notfound'; statusText = 'Not Found'; }
+    const queryShort = (result.query || '').length > 45 ? result.query.substring(0, 45) + '...' : (result.query || '');
+
+    const notif = document.createElement('div');
+    notif.className = 'live-notif';
+    notif.innerHTML = `
+      <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
+      <div class="live-notif-body">
+        <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
+        <div class="live-notif-sub">${esc(queryShort)}</div>
+      </div>
+      <div class="live-notif-status ${statusCls}">${statusText}</div>`;
+
+    notif.onclick = () => {
+      notif.remove();
+      try {
+        const b = brand();
+        const t2 = PLAT_THEME[result.platform]||{};
+        const head = el('resp-modal-head');
+        const titleEl = el('resp-modal-title');
+        const queryEl = el('resp-modal-query');
+        const textEl = el('resp-modal-text');
+        if (!head || !titleEl || !queryEl || !textEl) return;
+        head.style.background = t2.bg||'var(--bg2)';
+        head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
+        titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+        queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+        textEl.style.whiteSpace = 'normal';
+        const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
+        const rawHtml = mdToHtml(raw);
+        const hre = b ? brandHighlightRe(b) : null;
+        textEl.innerHTML = hre ? rawHtml.replace(hre, (m) => '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">'+esc(m)+'</mark>') : rawHtml;
+        const cc = el('resp-modal-cites');
+        const cites = result.citations||[];
+        if (cc) {
+          if (cites.length) {
+            cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
+              + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+          } else cc.innerHTML = '';
+        }
+        openModal('resp-modal');
+      } catch(e) { console.error('live notif click error:', e); }
+    };
+    frag.appendChild(notif);
+
+    // Auto-dismiss with single timer per notification
+    setTimeout(() => {
+      if (notif.parentNode) {
+        notif.classList.add('notif-exit');
+        setTimeout(() => notif.remove(), 300);
       }
-      openModal('resp-modal');
-    } catch(e) { console.error('live notif click error:', e); }
-  };
-
-  cont.appendChild(notif);
-
-  // Cap visible notifications
-  while (cont.children.length > _NOTIF_MAX) {
-    const oldest = cont.children[0];
-    oldest.classList.add('notif-exit');
-    setTimeout(() => oldest.remove(), 300);
+    }, _NOTIF_DURATION);
   }
 
-  // Auto-dismiss
-  setTimeout(() => {
-    if (notif.parentNode) {
-      notif.classList.add('notif-exit');
-      setTimeout(() => notif.remove(), 300);
-    }
-  }, _NOTIF_DURATION);
+  // Single DOM write: append all at once
+  cont.appendChild(frag);
+
+  // Cap visible notifications — remove oldest in one pass
+  while (cont.children.length > _NOTIF_MAX) {
+    cont.removeChild(cont.children[0]);
+  }
 }
 
 function clearLiveNotifs() {
   const cont = el('live-notifs');
   if (cont) cont.innerHTML = '';
   _notifSeen.clear();
+  _notifQueue = [];
+  if (_notifFlushTimer) { clearTimeout(_notifFlushTimer); _notifFlushTimer = null; }
 }
 
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
@@ -1078,8 +1099,55 @@ function clearLiveNotifs() {
 let _liveUpdateTimer = null;
 let _liveUpdatePending = null;
 
+// Incremental counters updated O(1) per result — avoids re-filtering liveResults array
+let _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() };
+function _resetLiveCounters() { _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() }; }
+function _updateLiveCounters(r) {
+  const p = r.platform;
+  _liveCounters.activePlats.add(p);
+  if (!r.error) {
+    if (!_liveCounters.platCounts[p]) _liveCounters.platCounts[p] = 0;
+    _liveCounters.platCounts[p]++;
+    if (r.mentioned) {
+      if (!_liveCounters.platMentions[p]) _liveCounters.platMentions[p] = 0;
+      _liveCounters.platMentions[p]++;
+      if (r.sentiment === 'positive') _liveCounters.posCount++;
+      else if (r.sentiment === 'negative') _liveCounters.negCount++;
+      else _liveCounters.neuCount++;
+      if (r.locationRelevant !== undefined) { _liveCounters.locTotal++; if (r.locationRelevant) _liveCounters.locRelevant++; }
+    }
+    if (r.recommended) _liveCounters.recCount++;
+  }
+}
+
+// Queue for batching live card DOM appends via requestAnimationFrame
+let _liveCardQueue = [];
+let _liveCardRaf = null;
+function _flushLiveCards() {
+  _liveCardRaf = null;
+  if (!_liveCardQueue.length) return;
+  const batch = _liveCardQueue;
+  _liveCardQueue = [];
+
+  if (currentView === 'mentions') {
+    const cardsEl = el('live-cards');
+    if (cardsEl) {
+      const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+      let html = '';
+      for (const r of batch) {
+        html += buildMentionCard(r, runTimeStr).replace('class="mention-card ','class="mention-card mention-card-live ');
+      }
+      cardsEl.insertAdjacentHTML('beforeend', html);
+    }
+  }
+  if (currentView === 'proof') {
+    for (const r of batch) appendLiveProofCard(r);
+  }
+}
+
 function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
+  _updateLiveCounters(result);
 
   // Show bottom-right notification popup (lightweight — no throttle needed)
   showLiveNotif(result);
@@ -1096,16 +1164,10 @@ function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
     }, 500);
   }
 
-  // Always append individual cards immediately for mentions/proof (lightweight append)
-  if (currentView === 'mentions') {
-    const cardsEl = el('live-cards');
-    if (cardsEl) {
-      const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
-      cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(result, runTimeStr).replace('class="mention-card ','class="mention-card mention-card-live '));
-    }
-  }
-  if (currentView === 'proof') {
-    appendLiveProofCard(result);
+  // Queue card appends and flush via requestAnimationFrame to avoid blocking the main thread
+  _liveCardQueue.push(result);
+  if (!_liveCardRaf) {
+    _liveCardRaf = requestAnimationFrame(_flushLiveCards);
   }
 }
 
@@ -1198,37 +1260,35 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const sovEl = el('ov-sov');
   if (sovEl) { sovEl.textContent = sov + '%'; sovEl.style.color = sovColor; }
 
-  // Update hero stats
+  // Update hero stats using incremental counters (O(1) instead of O(n))
   const mEl = el('ov-mentions');
   if (mEl) mEl.textContent = mentions + ' / ' + totalResults;
-  const activePlats = new Set(liveResults.map(r => r.platform)).size;
   const pEl = el('ov-platforms');
-  if (pEl) pEl.textContent = activePlats + ' / ' + PLATS.length;
+  if (pEl) pEl.textContent = _liveCounters.activePlats.size + ' / ' + PLATS.length;
   const lrEl = el('ov-last-run-age');
   if (lrEl) { lrEl.textContent = 'NOW'; lrEl.style.color = 'var(--green)'; }
 
-  // Compute validResults once — used by scores row, health banner, and category SOV
-  const validResults = liveResults.filter(r => !r.error);
+  // Use incremental counters instead of re-filtering liveResults array
+  const c = _liveCounters;
 
-  // Update GEO scores row (only every 5 results to avoid O(n) filtering on each result)
+  // Update GEO scores row (only every 5 results to reduce DOM writes)
   const scoresRow = el('ov-scores-row');
   if (scoresRow && validCount > 0 && (received % 5 === 0 || received >= totalExpected)) {
-    const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
-    const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
-    const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
-    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : 0;
+    const mentionRate = validCount > 0 ? mentions / validCount : 0;
+    const recommendRate = validCount > 0 ? c.recCount / validCount : 0;
+    const locationRate = c.locTotal > 0 ? c.locRelevant / c.locTotal : 0;
     const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
     const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
     const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
 
-    const mentionedResults = validResults.filter(r => r.mentioned);
-    const posCount = mentionedResults.filter(r => r.sentiment === 'positive').length;
-    const negCount = mentionedResults.filter(r => r.sentiment === 'negative').length;
-    const neuCount = mentionedResults.filter(r => r.sentiment === 'neutral').length;
-    const sentimentScore = mentionedResults.length > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedResults.length)) : 0;
+    const mentionedTotal = c.posCount + c.negCount + c.neuCount;
+    const posCount = c.posCount;
+    const negCount = c.negCount;
+    const neuCount = c.neuCount;
+    const sentimentScore = mentionedTotal > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedTotal)) : 0;
     const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
 
-    const recPct = validResults.length > 0 ? Math.round(recommendRate * 100) : 0;
+    const recPct = validCount > 0 ? Math.round(recommendRate * 100) : 0;
     const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
 
     scoresRow.innerHTML = `
@@ -1259,19 +1319,15 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     `;
   }
 
-  // Update platform cards — highlight ones that have new results
+  // Update platform cards — use incremental counters instead of re-iterating liveResults
   const pg = el('ov-plat-grid');
   if (pg) {
     const platSOV = {};
     const platCounts = {};
-    liveResults.forEach(r => {
-      if (r.error) return;
-      const p = r.platform;
-      if (!platCounts[p]) platCounts[p] = { total: 0, found: 0 };
-      platCounts[p].total++;
-      if (r.mentioned) platCounts[p].found++;
-    });
-    Object.entries(platCounts).forEach(([p, c]) => { platSOV[p] = Math.round(c.found / c.total * 100); });
+    for (const p of Object.keys(c.platCounts)) {
+      platCounts[p] = { total: c.platCounts[p], found: c.platMentions[p] || 0 };
+      platSOV[p] = c.platCounts[p] > 0 ? Math.round((c.platMentions[p] || 0) / c.platCounts[p] * 100) : 0;
+    }
 
     pg.innerHTML = '';
     PLATS.forEach(plat => {
@@ -1294,13 +1350,13 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     });
   }
 
-  // Update API health banner
+  // Update API health banner using counters
   const healthEl = el('ov-api-health');
-  if (healthEl && liveResults.length > 0) {
-    const errs = liveResults.filter(r => r.error).length;
-    const okCount = validResults.length;
-    const healthyPlats = new Set(validResults.map(r => r.platform)).size;
-    const totalPlats = new Set(liveResults.map(r => r.platform)).size;
+  if (healthEl && received > 0) {
+    const errs = liveErrors;
+    const okCount = validCount;
+    const healthyPlats = Object.keys(c.platCounts).length;
+    const totalPlats = c.activePlats.size;
     const dotColor = errs === 0 ? 'var(--green)' : errs <= 3 ? 'var(--amber)' : 'var(--red)';
     healthEl.innerHTML = `<div class="ov-health ov-card-updating">
       <div class="ov-health-dot" style="background:${dotColor};"></div>
@@ -1309,15 +1365,16 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     </div>`;
   }
 
-  // Category SOV
+  // Category SOV — computed from incremental counters
   const catRow = el('ov-category-row');
-  if (catRow && validResults.length > 0) {
+  if (catRow && validCount > 0) {
     const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral'];
     const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
-    const chatR = validResults.filter(r => chatAI.includes(r.platform));
-    const searchR = validResults.filter(r => searchAI.includes(r.platform));
-    const chatSOV = chatR.length > 0 ? Math.round(chatR.filter(r => r.mentioned).length / chatR.length * 100) : null;
-    const searchSOV = searchR.length > 0 ? Math.round(searchR.filter(r => r.mentioned).length / searchR.length * 100) : null;
+    let chatTotal = 0, chatFound = 0, searchTotal = 0, searchFound = 0;
+    for (const p of chatAI) { chatTotal += c.platCounts[p] || 0; chatFound += c.platMentions[p] || 0; }
+    for (const p of searchAI) { searchTotal += c.platCounts[p] || 0; searchFound += c.platMentions[p] || 0; }
+    const chatSOV = chatTotal > 0 ? Math.round(chatFound / chatTotal * 100) : null;
+    const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
     function cc(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
     let ch = '';
     if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek · Mistral</div></div>`;
@@ -1327,13 +1384,24 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   }
 }
 
+// Cache the brand highlight regex for the duration of a run — avoids recompiling 80+ times
+let _cachedHighlightRe = null;
+let _cachedHighlightBrandId = null;
+
+function _getCachedHighlightRe(b) {
+  if (_cachedHighlightBrandId === b.id && _cachedHighlightRe !== null) return _cachedHighlightRe;
+  _cachedHighlightRe = brandHighlightRe(b);
+  _cachedHighlightBrandId = b.id;
+  return _cachedHighlightRe;
+}
+
 // Append a live proof card during streaming
 function appendLiveProofCard(result) {
   const b = brand();
   if (!b) return;
   let cont = el('live-proof-cards');
   if (!cont) {
-    // Set up live proof container if not exists
+    // Set up live proof container if not exists (only runs once per view switch)
     const proofCont = el('proof-container');
     if (!proofCont) return;
     proofCont.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
@@ -1348,7 +1416,7 @@ function appendLiveProofCard(result) {
   const isError = result.error;
   const isMentioned = result.mentioned;
   const preview = isError ? friendlyError(result.errorMessage) : (result.context || '').replace(/[#*_~`]/g,'').substring(0, 300);
-  const proofHre = brandHighlightRe(b);
+  const proofHre = _getCachedHighlightRe(b);
   const displayResp = proofHre && preview ? preview.replace(proofHre, (m) => '<mark>'+esc(m)+'</mark>') : preview;
   const statusBadge = isError
     ? `<div class="proof-card-badge" style="color:var(--amber);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);font-weight:700;border-radius:var(--radius-full);">⚠ ERROR</div>`
@@ -3718,6 +3786,11 @@ async function runQueries(){
 
   runningQueries = true;
   liveResults = [];
+  _resetLiveCounters();
+  _liveCardQueue = [];
+  if (_liveCardRaf) { cancelAnimationFrame(_liveCardRaf); _liveCardRaf = null; }
+  if (_liveUpdateTimer) { clearTimeout(_liveUpdateTimer); _liveUpdateTimer = null; }
+  _liveUpdatePending = null;
   liveRunTime = new Date();
 
   const btn = el('run-btn');
