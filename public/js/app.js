@@ -730,8 +730,8 @@ function renderAccount(){
   // Plan cards
   const planData = [
     { id: 'free', name: 'Free', price: '$0', features: '1 brand, 3 platforms, 5 queries, 2 runs/day' },
-    { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 8 platforms, 25 queries, 10 runs/day, competitors, scheduled runs' },
-    { id: 'agency', name: 'Agency', price: '$79/mo', features: '20 brands, 8 platforms, 50 queries, 50 runs/day, 20 competitors, scheduled runs' }
+    { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 8 platforms, 25 queries, 10 runs/day, competitors, scheduled runs' },
+    { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 8 platforms, 50 queries, 50 runs/day, 20 competitors, scheduled runs' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
