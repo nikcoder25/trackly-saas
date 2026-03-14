@@ -11,12 +11,17 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = process.env.JWT_SECRET;
 
 function auth(req, res, next) {
-  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  // Case-insensitive Bearer extraction with flexible whitespace
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
+    // Explicitly specify allowed algorithms to prevent algorithm confusion attacks
+    req.user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     next();
   } catch(e) {
+    if (e.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
+    }
     res.status(401).json({ error: 'Invalid token' });
   }
 }
