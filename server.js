@@ -207,6 +207,86 @@ cron.schedule('0 * * * *', async () => {
   }
 });
 
+// ─── SCHEDULED REPORTS (cron — every Monday 8am and 1st of month 8am) ──
+const { sendReportEmail, isEmailConfigured } = require('./lib/email');
+
+cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly'));  // Monday 8am
+cron.schedule('0 8 1 * *', () => sendScheduledReports('monthly')); // 1st of month 8am
+
+async function sendScheduledReports(frequency) {
+  if (!isEmailConfigured()) return;
+  try {
+    // Find users with this report frequency configured
+    const users = await pool.query(
+      `SELECT id, email, settings FROM users WHERE settings->'reportSchedule'->>'frequency' = $1`,
+      [frequency]
+    );
+    if (!users.rows.length) return;
+    log.info(`Sending ${frequency} reports to ${users.rows.length} users`);
+
+    for (const user of users.rows) {
+      const reportSettings = user.settings?.reportSchedule || {};
+      const brandFilter = reportSettings.brandIds || [];
+
+      // Get user's brands (or specific ones if configured)
+      let brandsQuery;
+      if (brandFilter.length) {
+        brandsQuery = await pool.query(
+          'SELECT * FROM brands WHERE user_id = $1 AND id = ANY($2::text[])',
+          [user.id, brandFilter]
+        );
+      } else {
+        brandsQuery = await pool.query('SELECT * FROM brands WHERE user_id = $1', [user.id]);
+      }
+
+      for (const row of brandsQuery.rows) {
+        const data = row.data;
+        const runs = data.runs || [];
+        if (!runs.length) continue;
+
+        const lastRun = runs[runs.length - 1];
+        const totalMentions = runs.reduce((sum, r) => sum + (r.allResults || []).filter(m => m.mentioned).length, 0);
+        const avgSov = runs.length ? runs.reduce((sum, r) => sum + (r.sov || 0), 0) / runs.length : 0;
+        const sovTrend = runs.length >= 2 ? (runs[runs.length - 1].sov || 0) - (runs[runs.length - 2].sov || 0) : 0;
+
+        const platformStats = {};
+        if (lastRun.allResults) {
+          for (const r of lastRun.allResults) {
+            if (!platformStats[r.platform]) platformStats[r.platform] = { total: 0, mentioned: 0 };
+            platformStats[r.platform].total++;
+            if (r.mentioned) platformStats[r.platform].mentioned++;
+          }
+        }
+
+        const report = {
+          totalRuns: runs.length,
+          totalMentions,
+          averageSov: parseFloat(avgSov.toFixed(1)),
+          sovTrend,
+          lastRunSov: lastRun.sov || 0,
+          platformStats,
+          period: { from: runs[0]?.date || null, to: lastRun.date || null }
+        };
+
+        try {
+          await sendReportEmail(user.email, data.name, report);
+        } catch(e) {
+          log.error(`Failed to send report for brand ${data.name}`, { userId: user.id, error: e.message });
+        }
+      }
+
+      // Update lastSent timestamp
+      await pool.query(
+        `UPDATE users SET settings = jsonb_set(settings, '{reportSchedule,lastSent}', $1::jsonb) WHERE id = $2`,
+        [JSON.stringify(new Date().toISOString()), user.id]
+      );
+    }
+    log.info(`${frequency} reports sent`);
+  } catch(e) {
+    log.error('Report cron error', { error: e.message });
+  }
+}
+
 // ─── Password reset page ─────────────────────────────────────────
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
