@@ -26,9 +26,8 @@ router.get('/api-logs', auth, async (req, res) => {
     params.push(limit);
     const result = await pool.query(query, params);
 
-    // Also get summary stats
-    const statsResult = await pool.query(
-      `SELECT
+    // Also get summary stats (apply same brandId filter if provided)
+    let statsQuery = `SELECT
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE status = 'ok')::int AS success,
          COUNT(*) FILTER (WHERE status = 'error')::int AS errors,
@@ -37,9 +36,13 @@ router.get('/api-logs', auth, async (req, res) => {
          COALESCE(SUM(cost), 0)::float AS total_cost,
          COALESCE(SUM(tokens_in), 0)::int AS total_tokens_in,
          COALESCE(SUM(tokens_out), 0)::int AS total_tokens_out
-       FROM api_logs WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'`,
-      [req.user.id]
-    );
+       FROM api_logs WHERE user_id = $1 AND created_at > NOW() - INTERVAL '24 hours'`;
+    const statsParams = [req.user.id];
+    if (brandId) {
+      statsQuery += ' AND brand_id = $2';
+      statsParams.push(brandId);
+    }
+    const statsResult = await pool.query(statsQuery, statsParams);
 
     res.json({ logs: result.rows, stats: statsResult.rows[0] || {} });
   } catch(e) {
@@ -491,10 +494,15 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return res.status(500).json({ error: 'Could not parse queries from AI response' });
 
-    const queries = JSON.parse(jsonMatch[0])
-      .filter(q => typeof q === 'string' && q.trim().length > 0)
-      .map(q => q.trim())
-      .slice(0, 15);
+    let queries;
+    try {
+      queries = JSON.parse(jsonMatch[0])
+        .filter(q => typeof q === 'string' && q.trim().length > 0)
+        .map(q => q.trim())
+        .slice(0, 15);
+    } catch(_) {
+      return res.status(500).json({ error: 'AI returned malformed JSON. Please try again.' });
+    }
 
     if (!queries.length) return res.status(500).json({ error: 'No queries generated' });
     res.json({ queries, platform });
@@ -536,10 +544,15 @@ router.post('/nearby-areas', auth, async (req, res) => {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return res.status(500).json({ error: 'Could not parse nearby areas from AI response' });
 
-    const areas = JSON.parse(jsonMatch[0])
-      .filter(a => typeof a === 'string' && a.trim().length > 0)
-      .map(a => a.trim())
-      .slice(0, 15);
+    let areas;
+    try {
+      areas = JSON.parse(jsonMatch[0])
+        .filter(a => typeof a === 'string' && a.trim().length > 0)
+        .map(a => a.trim())
+        .slice(0, 15);
+    } catch(_) {
+      return res.status(500).json({ error: 'AI returned malformed JSON. Please try again.' });
+    }
 
     if (!areas.length) return res.status(500).json({ error: 'No nearby areas found' });
     res.json({ areas, city: city.trim(), platform });

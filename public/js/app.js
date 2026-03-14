@@ -1936,7 +1936,7 @@ function renderOverview(){
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     });
     const miniData = history.slice(-14).map(h => h.overall);
-    if (window._ovMiniChart) window._ovMiniChart.destroy();
+    if (window._ovMiniChart) { window._ovMiniChart.destroy(); window._ovMiniChart = null; }
     const mCtx = el('ov-mini-chart').getContext('2d');
     window._ovMiniChart = new Chart(mCtx, {
       type: 'line',
@@ -4001,9 +4001,12 @@ async function pollRunStatus(brandId, runId, opts) {
   }, 1000);
 
   return new Promise((resolve, reject) => {
+    let pollErrors = 0;
+    const MAX_POLL_ERRORS = 15; // Stop after 15 consecutive errors (~30s)
     const pollInterval = setInterval(async () => {
       try {
         const data = await api('GET', `/api/brands/${brandId}/run-status/${runId}`);
+        pollErrors = 0; // Reset on success
 
         // Update progress
         received = data.received || 0;
@@ -4100,8 +4103,18 @@ async function pollRunStatus(brandId, runId, opts) {
           }
         }
       } catch(pollErr) {
-        console.error('[Poll] Error polling run status:', pollErr.message);
-        // Keep polling — server might be temporarily unreachable
+        pollErrors++;
+        console.error(`[Poll] Error polling run status (${pollErrors}/${MAX_POLL_ERRORS}):`, pollErr.message);
+        if (pollErrors >= MAX_POLL_ERRORS) {
+          clearInterval(pollInterval);
+          clearInterval(timerInt);
+          localStorage.removeItem('trackly_active_run');
+          liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
+          if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
+          if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
+          toast('Lost connection — refresh page to check run status.', 'err');
+          resolve();
+        }
       }
     }, 2000); // Poll every 2 seconds
   });
