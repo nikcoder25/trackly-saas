@@ -246,15 +246,25 @@ router.post('/:id/run', auth, async (req, res) => {
       return res.status(403).json({ error: errMsg, planLimit: true, limit: 'queries' });
     }
 
-    // Atomic run limit check — re-read brand from DB to prevent TOCTOU race
+    // Atomic run limit check — use transaction + SELECT FOR UPDATE to prevent TOCTOU race
     const today = new Date().toISOString().split('T')[0];
-    const freshBrand = await pool.query('SELECT data FROM brands WHERE id = $1 FOR UPDATE', [brand.id]);
-    const freshRuns = freshBrand.rows[0]?.data?.runs || [];
-    const todayRuns = freshRuns.filter(r => (r.date || '').startsWith(today)).length;
-    if (todayRuns >= limits.runsPerDay) {
-      const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
-      if (streaming) return sseError(res, errMsg);
-      return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
+    const limitClient = await pool.connect();
+    try {
+      await limitClient.query('BEGIN');
+      const freshBrand = await limitClient.query('SELECT data FROM brands WHERE id = $1 FOR UPDATE', [brand.id]);
+      const freshRuns = freshBrand.rows[0]?.data?.runs || [];
+      const todayRuns = freshRuns.filter(r => (r.date || '').startsWith(today)).length;
+      await limitClient.query('COMMIT');
+      if (todayRuns >= limits.runsPerDay) {
+        const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
+        if (streaming) return sseError(res, errMsg);
+        return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
+      }
+    } catch(txErr) {
+      await limitClient.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      limitClient.release();
     }
 
     keys = getServerKeys();

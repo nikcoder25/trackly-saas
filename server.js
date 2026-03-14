@@ -28,6 +28,8 @@ const path        = require('path');
 const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
+const { createLogger }  = require('./lib/logger');
+const log = createLogger('Server');
 
 // Route modules
 const authRoutes    = require('./routes/auth');
@@ -41,7 +43,7 @@ const PORT = process.env.PORT || 3000;
 
 // ─── INITIALIZE DATABASE ─────────────────────────────────────────
 initDB().catch(e => {
-  console.error('[DB] Failed to initialize PostgreSQL:', e.message);
+  log.error('Failed to initialize PostgreSQL', { error: e.message });
   process.exit(1);
 });
 
@@ -118,23 +120,6 @@ app.use('/api/', apiLimiter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── ERROR TRACKING MIDDLEWARE ───────────────────────────────────
-// Capture unhandled errors in routes and log structured details
-app.use((err, req, res, next) => {
-  const errorInfo = {
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    path: req.path,
-    userId: req.user?.id || null,
-    error: err.message,
-    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
-    statusCode: err.statusCode || 500
-  };
-  console.error('[ErrorMiddleware]', JSON.stringify(errorInfo));
-  if (res.headersSent) return next(err);
-  res.status(errorInfo.statusCode).json({ error: 'Internal server error' });
-});
-
 // ─── API ROUTES ──────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);
 app.use('/api/brands',   brandRoutes);
@@ -183,7 +168,7 @@ cron.schedule('0 * * * *', async () => {
        WHERE b.data->>'schedule' IS NOT NULL AND (b.data->>'schedule')::int > 0`
     );
     if (!result.rows.length) return;
-    console.log(`[Cron] Found ${result.rows.length} brands with active schedules`);
+    log.info(`Found ${result.rows.length} brands with active schedules`);
     const now = Date.now();
 
     // Filter to brands that are due for a run
@@ -199,26 +184,26 @@ cron.schedule('0 * * * *', async () => {
     }
 
     if (!dueBrands.length) return;
-    console.log(`[Cron] ${dueBrands.length} brands due for scheduled run (batch size: ${CRON_BATCH_SIZE})`);
+    log.info(`${dueBrands.length} brands due for scheduled run`, { batchSize: CRON_BATCH_SIZE });
 
     // Process in parallel batches of CRON_BATCH_SIZE
     for (let i = 0; i < dueBrands.length; i += CRON_BATCH_SIZE) {
       const batch = dueBrands.slice(i, i + CRON_BATCH_SIZE);
       await Promise.allSettled(
         batch.map(async (brand) => {
-          console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
+          log.info(`Running scheduled queries for brand: ${brand.name}`);
           try {
             await runBrandQueries(brand);
           } catch(e) {
-            console.error(`[Cron] Error for ${brand.name}:`, e.message);
+            log.error(`Scheduled run failed for ${brand.name}`, { error: e.message });
             notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
           }
         })
       );
     }
-    console.log(`[Cron] Scheduled runs complete: ${dueBrands.length} brands processed`);
+    log.info(`Scheduled runs complete: ${dueBrands.length} brands processed`);
   } catch(e) {
-    console.error('[Cron] Error:', e.message);
+    log.error('Cron job error', { error: e.message });
   }
 });
 
@@ -230,6 +215,23 @@ app.get('/reset-password', (req, res) => {
 // ─── CATCH-ALL: serve app for SPA routing ────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── ERROR TRACKING MIDDLEWARE ───────────────────────────────────
+// Must be AFTER all routes to catch unhandled errors
+app.use((err, req, res, next) => {
+  const errorInfo = {
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    userId: req.user?.id || null,
+    error: err.message,
+    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+    statusCode: err.statusCode || 500
+  };
+  log.error('Unhandled route error', errorInfo);
+  if (res.headersSent) return next(err);
+  res.status(errorInfo.statusCode).json({ error: 'Internal server error' });
 });
 
 // ─── START ────────────────────────────────────────────────────────
@@ -248,7 +250,7 @@ const server = app.listen(PORT, () => {
   const keyInfo = Object.entries(keys)
     .map(([platform, arr]) => `${platform}: ${arr.length} key(s)`)
     .join(', ');
-  console.log(`[API Keys] ${keyInfo}`);
+  log.info(`API Keys: ${keyInfo}`);
 
   // Cleanup old data at startup and every 24h
   cleanupApiLogs();
@@ -263,10 +265,10 @@ const server = app.listen(PORT, () => {
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────
 function shutdown(signal) {
-  console.log(`[Server] ${signal} received. Shutting down gracefully...`);
+  log.info(`${signal} received. Shutting down gracefully...`);
   server.close(() => {
     pool.end().then(() => {
-      console.log('[Server] Database connections closed.');
+      log.info('Database connections closed.');
       process.exit(0);
     });
   });

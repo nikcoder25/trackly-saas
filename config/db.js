@@ -2,6 +2,8 @@
  * Database configuration and initialization
  */
 const { Pool } = require('pg');
+const { createLogger } = require('../lib/logger');
+const log = createLogger('DB');
 
 // Railway (and many PaaS providers) use self-signed certs for managed PostgreSQL.
 // rejectUnauthorized defaults to false unless explicitly set to 'true'.
@@ -143,7 +145,7 @@ async function initDB() {
     `);
     // Add unique index on username (only for non-null values)
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;`);
-    console.log('[DB] PostgreSQL tables ready');
+    log.info('PostgreSQL tables ready');
   } finally {
     client.release();
   }
@@ -156,7 +158,7 @@ async function auditLog(userId, action, targetType, targetId, details, ip) {
       [userId, action, targetType || null, targetId || null, JSON.stringify(details || {}), ip || null]
     );
   } catch(e) {
-    console.error('[Audit]', e.message);
+    log.error('Audit log failed', { error: e.message });
   }
 }
 
@@ -167,7 +169,7 @@ async function notify(userId, type, title, message, data) {
       [userId, type, title, message || '', JSON.stringify(data || {})]
     );
   } catch(e) {
-    console.error('[Notify]', e.message);
+    log.error('Notification failed', { error: e.message });
   }
 }
 
@@ -185,7 +187,7 @@ async function logApiCall(entry) {
       ]
     );
   } catch(e) {
-    console.error('[ApiLog]', e.message);
+    log.error('API log insert failed', { error: e.message });
   }
 }
 
@@ -194,7 +196,7 @@ async function cleanupApiLogs() {
   try {
     await pool.query("DELETE FROM api_logs WHERE created_at < NOW() - INTERVAL '7 days'");
   } catch(e) {
-    console.error('[ApiLog cleanup]', e.message);
+    log.error('API log cleanup failed', { error: e.message });
   }
 }
 
@@ -203,7 +205,7 @@ async function cleanupNotifications() {
   try {
     await pool.query("DELETE FROM notifications WHERE read = TRUE AND created_at < NOW() - INTERVAL '30 days'");
   } catch(e) {
-    console.error('[Notification cleanup]', e.message);
+    log.error('Notification cleanup failed', { error: e.message });
   }
 }
 
@@ -212,7 +214,7 @@ async function cleanupResetTokens() {
   try {
     await pool.query("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
   } catch(e) {
-    console.error('[ResetToken cleanup]', e.message);
+    log.error('Reset token cleanup failed', { error: e.message });
   }
 }
 
@@ -221,7 +223,7 @@ async function cleanupWebhookEvents() {
   try {
     await pool.query("DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '30 days'");
   } catch(e) {
-    console.error('[WebhookEvent cleanup]', e.message);
+    log.error('Webhook event cleanup failed', { error: e.message });
   }
 }
 
