@@ -446,11 +446,84 @@ router.post('/:id/run', auth, async (req, res) => {
     try {
       console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls): ${activePlatforms.join(', ')} (runId: ${runId})`);
 
-      // Run tasks with bounded concurrency to prevent overwhelming the server
-      // and consuming excessive memory with 80+ simultaneous API calls.
+      // Run tasks with bounded concurrency. Each worker processes and streams
+      // results immediately as they arrive (real-time SSE to the frontend).
       const CONCURRENCY = 6;
-      const settled = new Array(tasks.length);
+      const platMentionCount = {};
       let nextIdx = 0;
+
+      // Process a single result inline (called from workers for real-time streaming)
+      function processResult(plat, q, result) {
+        try {
+          if (!result) { totalQ++; runState.received++; return; }
+          const { text, citations: extraCites, model: modelUsed } = result;
+          if (!text || typeof text !== 'string') { totalQ++; runState.received++; return; }
+          const parsed = parseResponse(text, brand, q, matcher);
+          parsed.simulated = false;
+          if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+          totalQ++;
+          const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+          const ctxLen = parsed.mentioned ? 300 : 150;
+          const resultObj = {
+            platform: plat, query: q,
+            context: text.substring(0, ctxLen), raw: text,
+            simulated: false, mentioned: parsed.mentioned,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            competitorMentions: compMentions,
+            listPosition: parsed.listPosition || null
+          };
+          allResults.push(resultObj);
+          runState.received++;
+          if (parsed.mentioned) { runState.foundCount++; }
+          runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, ctxLen) });
+          sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, ctxLen) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+          if (parsed.mentioned) {
+            totalM++;
+            if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+            platMentionCount[plat]++;
+            newMentions.push({
+              id: uid(), platform: plat, query: q,
+              context: text.substring(0, 300), raw: text,
+              sentiment: parsed.sentiment, recommended: parsed.recommended,
+              citations: parsed.cites, simulated: false,
+              model: modelUsed || plat,
+              locationRelevant: parsed.locationRelevant,
+              matchedLocation: parsed.matchedLocation || '',
+              time: new Date().toISOString()
+            });
+          }
+        } catch(parseErr) {
+          console.error(`[${plat}] Result processing error for query "${q}":`, parseErr.message);
+          allResults.push({ platform: plat, query: q, context: '[Processing Error]', raw: '', simulated: false, mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: parseErr.message });
+          totalQ++;
+          runState.received++;
+          runState.errorCount++;
+        }
+      }
+
+      function processError(plat, q, err) {
+        const errMsg = err?.message || 'Unknown error';
+        platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+        if (platFailCount[plat] <= FAIL_THRESHOLD) {
+          console.error(`[${plat}] API error for query "${q}":`, errMsg);
+        }
+        const errObj = {
+          platform: plat, query: q,
+          context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
+          simulated: false, mentioned: false,
+          sentiment: 'neutral', recommended: false,
+          citations: [], error: true, errorMessage: errMsg
+        };
+        allResults.push(errObj);
+        totalQ++;
+        runState.received++;
+        runState.errorCount++;
+        runState.results.push({ ...errObj, raw: undefined });
+        sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
+      }
 
       async function runWorker() {
         while (nextIdx < tasks.length) {
@@ -462,95 +535,15 @@ router.post('/:id/run', auth, async (req, res) => {
             }
             const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
             platFailCount[plat] = 0;
-            settled[idx] = { status: 'fulfilled', value: { plat, q, result } };
+            // Process and stream result immediately
+            processResult(plat, q, result);
           } catch (err) {
-            settled[idx] = { status: 'rejected', reason: err };
+            processError(plat, q, err);
           }
         }
       }
 
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => runWorker()));
-
-      // Process all results
-      const platMentionCount = {};
-      for (let i = 0; i < settled.length; i++) {
-        const { plat, q } = tasks[i];
-        const s = settled[i];
-
-        if (s.status === 'fulfilled') {
-          try {
-            const { result } = s.value;
-            if (!result) { totalQ++; runState.received++; continue; }
-            const { text, citations: extraCites, model: modelUsed } = result;
-            if (!text || typeof text !== 'string') { totalQ++; runState.received++; continue; }
-            const parsed = parseResponse(text, brand, q, matcher);
-            parsed.simulated = false;
-            if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-            totalQ++;
-            const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
-            // Use shorter context for not-found results (150 chars vs 300 for mentioned)
-            const ctxLen = parsed.mentioned ? 300 : 150;
-            const resultObj = {
-              platform: plat, query: q,
-              context: text.substring(0, ctxLen), raw: text,
-              simulated: false, mentioned: parsed.mentioned,
-              sentiment: parsed.sentiment, recommended: parsed.recommended,
-              citations: parsed.cites, model: modelUsed || plat,
-              locationRelevant: parsed.locationRelevant,
-              matchedLocation: parsed.matchedLocation || '',
-              competitorMentions: compMentions,
-              listPosition: parsed.listPosition || null
-            };
-            allResults.push(resultObj);
-            // Update run state for polling
-            runState.received++;
-            if (parsed.mentioned) { runState.foundCount++; }
-            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, ctxLen) });
-            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, ctxLen) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
-            if (parsed.mentioned) {
-              totalM++;
-              if (!platMentionCount[plat]) platMentionCount[plat] = 0;
-              platMentionCount[plat]++;
-              newMentions.push({
-                id: uid(), platform: plat, query: q,
-                context: text.substring(0, 300), raw: text,
-                sentiment: parsed.sentiment, recommended: parsed.recommended,
-                citations: parsed.cites, simulated: false,
-                model: modelUsed || plat,
-                locationRelevant: parsed.locationRelevant,
-                matchedLocation: parsed.matchedLocation || '',
-                time: new Date().toISOString()
-              });
-            }
-          } catch(parseErr) {
-            console.error(`[${plat}] Result processing error for query "${q}":`, parseErr.message);
-            allResults.push({ platform: plat, query: q, context: '[Processing Error]', raw: '', simulated: false, mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: parseErr.message });
-            totalQ++;
-            runState.received++;
-            runState.errorCount++;
-          }
-        } else {
-          const errMsg = s.reason?.message || 'Unknown error';
-          // Increment consecutive failure count for early-abort
-          platFailCount[plat] = (platFailCount[plat] || 0) + 1;
-          if (platFailCount[plat] <= FAIL_THRESHOLD) {
-            console.error(`[${plat}] API error for query "${q}":`, errMsg);
-          }
-          const errObj = {
-            platform: plat, query: q,
-            context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
-            simulated: false, mentioned: false,
-            sentiment: 'neutral', recommended: false,
-            citations: [], error: true, errorMessage: errMsg
-          };
-          allResults.push(errObj);
-          totalQ++;
-          runState.received++;
-          runState.errorCount++;
-          runState.results.push({ ...errObj, raw: undefined });
-          sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
-        }
-      }
       // Calculate per-platform SOV
       for (const plat of activePlatforms) {
         platSOV[plat] = queries.length > 0 ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;

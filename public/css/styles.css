@@ -67,6 +67,9 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   backdrop-filter:blur(20px);
   -webkit-backdrop-filter:blur(20px);
 }
+@supports not (backdrop-filter:blur(1px)){
+  .land-nav{background:rgba(255,255,255,.98);}
+}
 .land-nav-logo{font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--text-primary);}
 .land-nav-logo span{color:var(--primary);}
 .land-nav-links{display:flex;gap:32px;margin-left:48px;margin-right:auto;}
@@ -925,9 +928,12 @@ body:has(#app[style*="display:grid"]){
 
 /* ── MODAL ──────────────────────────────── */
 .overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.3);
+  position:fixed;inset:0;background:rgba(0,0,0,.6);
   z-index:100;display:none;align-items:center;justify-content:center;
   backdrop-filter:blur(8px);
+}
+@supports (backdrop-filter:blur(1px)){
+  .overlay{background:rgba(0,0,0,.3);}
 }
 .overlay.open{display:flex;}
 .modal{

@@ -52,7 +52,7 @@
       "name": "Free",
       "price": "0",
       "priceCurrency": "USD",
-      "description": "1 brand, 3 AI platforms, 5 queries, SOV tracking"
+      "description": "1 brand, 2 AI platforms, 10 queries, SOV tracking"
     },
     {
       "@type": "Offer",
@@ -77,12 +77,7 @@
       "description": "20 brands, 8 AI platforms, 50 queries, scheduled runs"
     }
   ],
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.9",
-    "reviewCount": "50",
-    "bestRating": "5"
-  }
+  "featureList": "AI brand monitoring, Share of Voice tracking, 8 AI platforms, Evidence export, Competitor tracking"
 }
 </script>
 <script type="application/ld+json">
@@ -92,7 +87,7 @@
   "name": "Trackly",
   "url": "https://trackly.so",
   "description": "AI Visibility Tracker for brands and agencies",
-  "sameAs": []
+  "contactPoint": { "@type": "ContactPoint", "contactType": "support", "email": "hello@trackly.so" }
 }
 </script>
 <script type="application/ld+json">
@@ -190,7 +185,7 @@
       <div class="land-social-proof-stat"><div class="val">500+</div><div class="lbl">Brands tracked</div></div>
       <div class="land-social-proof-stat"><div class="val">8</div><div class="lbl">AI platforms</div></div>
       <div class="land-social-proof-stat"><div class="val">50K+</div><div class="lbl">Queries run</div></div>
-      <div class="land-social-proof-stat"><div class="val">4.9/5</div><div class="lbl">User rating</div></div>
+      <div class="land-social-proof-stat"><div class="val">Real-time</div><div class="lbl">Live results</div></div>
     </div>
   </section>
 
@@ -318,8 +313,8 @@
         <div class="price-sub">Perfect for getting started</div>
         <ul>
           <li>1 brand</li>
-          <li>3 AI platforms</li>
-          <li>5 queries per brand</li>
+          <li>2 AI platforms</li>
+          <li>10 queries per brand</li>
           <li>2 runs per day</li>
           <li>SOV tracking &amp; evidence export</li>
         </ul>
@@ -523,17 +518,15 @@
       </div>
       <div class="land-footer-col">
         <div class="land-footer-col-title">Legal</div>
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-        <a href="#">Cookie Policy</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+        <a href="/cookies">Cookie Policy</a>
       </div>
     </div>
     <div class="land-footer-bottom">
       <div class="land-footer-text">&copy; 2026 Trackly. All rights reserved.</div>
       <div class="land-footer-social">
-        <a href="#" aria-label="Twitter/X">&#120143;</a>
-        <a href="#" aria-label="LinkedIn">in</a>
-        <a href="#" aria-label="GitHub">&#9672;</a>
+        <a href="mailto:hello@trackly.so" aria-label="Email">&#9993;</a>
       </div>
     </div>
   </footer>
@@ -1338,7 +1331,7 @@
     </div>
 
     <!-- Admin Edit User Modal -->
-    <div class="overlay" id="admin-edit-modal">
+    <div class="overlay" id="admin-edit-modal" role="dialog" aria-modal="true" aria-labelledby="admin-edit-title">
       <div class="modal" style="max-width:480px;">
         <div class="modal-head">
           <span id="admin-edit-title">Edit User</span>
@@ -1406,7 +1399,7 @@
     </div>
 
     <!-- Admin Add User Modal -->
-    <div class="overlay" id="admin-add-modal">
+    <div class="overlay" id="admin-add-modal" role="dialog" aria-modal="true" aria-label="Add New User">
       <div class="modal" style="max-width:480px;">
         <div class="modal-head">
           <span>Add New User</span>
@@ -1458,7 +1451,7 @@
 </div><!-- /app -->
 
 <!-- Full Response Modal -->
-<div class="overlay" id="resp-modal">
+<div class="overlay" id="resp-modal" role="dialog" aria-modal="true" aria-labelledby="resp-modal-title">
   <div class="modal" id="resp-modal-inner">
     <div class="modal-head" id="resp-modal-head">
       <div class="modal-title" id="resp-modal-title">Response</div>
@@ -1474,7 +1467,7 @@
 </div>
 
 <!-- Upgrade Modal -->
-<div class="overlay" id="upgrade-modal">
+<div class="overlay" id="upgrade-modal" role="dialog" aria-modal="true" aria-label="Upgrade Your Plan">
   <div class="modal" style="max-width:700px;">
     <div class="modal-head">
       <div class="modal-title">Upgrade Your Plan</div>
@@ -1513,7 +1506,7 @@
 </div>
 
 <!-- Add Brand Modal -->
-<div class="overlay" id="add-brand-modal">
+<div class="overlay" id="add-brand-modal" role="dialog" aria-modal="true" aria-label="Add New Brand">
   <div class="add-brand-box" style="max-width:560px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <div class="add-brand-title" style="margin-bottom:0;">Add New Brand</div>

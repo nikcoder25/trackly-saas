@@ -16,6 +16,25 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email'
 const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = require('../lib/totp');
 const crypto = require('crypto');
 
+// ─── Cookie helper — sets httpOnly tokens alongside JSON response ──
+const isProduction = process.env.NODE_ENV === 'production';
+function setTokenCookies(res, accessToken, refreshToken) {
+  const cookieOpts = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    path: '/'
+  };
+  res.cookie('trackly_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 }); // 15 min
+  res.cookie('trackly_refresh', refreshToken, { ...cookieOpts, maxAge: 30 * 24 * 60 * 60 * 1000 }); // 30 days
+}
+
+function clearTokenCookies(res) {
+  const cookieOpts = { httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/' };
+  res.clearCookie('trackly_token', cookieOpts);
+  res.clearCookie('trackly_refresh', cookieOpts);
+}
+
 // Per-account brute force protection — 10 failed attempts per 15 min per email/username
 // Prevents distributed attacks targeting a single account from many IPs
 const loginAccountLimiter = rateLimit({
@@ -90,6 +109,7 @@ router.post('/register', async (req, res) => {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, req.ip);
+    setTokenCookies(res, accessToken, refreshToken);
     res.json({ token: accessToken, refreshToken, user: { id, email: email.toLowerCase(), username: trimmedUsername, name: userName, plan: 'free', emailVerified: false, createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
   } catch(e) {
     console.error('[Register]', e.message);
@@ -162,6 +182,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, {}, req.ip);
+    setTokenCookies(res, accessToken, refreshToken);
     res.json({ token: accessToken, refreshToken, user: safeUser(user) });
   } catch(e) {
     console.error('[Login]', e.message);
@@ -184,8 +205,16 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-// Resend verification email
-router.post('/resend-verification', auth, async (req, res) => {
+// Resend verification email (rate limited to prevent email spam)
+const resendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: 'Too many verification requests. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT email_verified FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -206,7 +235,8 @@ router.post('/resend-verification', auth, async (req, res) => {
 
 // Refresh token — exchange refresh token for new access token
 router.post('/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
+  // Accept refresh token from request body or httpOnly cookie
+  const refreshToken = req.body.refreshToken || req.cookies?.trackly_refresh;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
     // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent
@@ -219,6 +249,7 @@ router.post('/refresh', async (req, res) => {
     if (!result.rows.length) return res.status(401).json({ error: 'Invalid refresh token' });
     const user = result.rows[0];
     const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    setTokenCookies(res, accessToken, newRefreshToken);
     res.json({ token: accessToken, refreshToken: newRefreshToken });
   } catch(e) {
     res.status(500).json({ error: 'Token refresh failed' });
@@ -248,7 +279,9 @@ router.put('/username', auth, async (req, res) => {
 router.post('/change-password', auth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password required' });
+  if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -313,7 +346,9 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+  if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
     const result = await pool.query(
       'SELECT user_id, email FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
@@ -526,11 +561,21 @@ router.post('/google', async (req, res) => {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, req.ip);
+    setTokenCookies(res, accessToken, newRefreshToken);
     res.json({ token: accessToken, refreshToken: newRefreshToken, user: safeUser(user) });
   } catch(e) {
     console.error('[Google Auth]', e.message);
     res.status(400).json({ error: 'Google authentication failed' });
   }
+});
+
+// Logout — clear httpOnly cookies and invalidate refresh token
+router.post('/logout', auth, async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET refresh_token = NULL WHERE id = $1', [req.user.id]);
+  } catch(e) { /* best-effort */ }
+  clearTokenCookies(res);
+  res.json({ message: 'Logged out' });
 });
 
 module.exports = router;

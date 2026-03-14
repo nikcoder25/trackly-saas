@@ -17,13 +17,14 @@ if (process.env.NODE_ENV === 'production' && !process.env.ALLOWED_ORIGINS) {
   console.warn('[WARN] ALLOWED_ORIGINS not set in production. CORS will reject all cross-origin requests.');
 }
 
-const express     = require('express');
-const cors        = require('cors');
-const helmet      = require('helmet');
-const compression = require('compression');
-const rateLimit   = require('express-rate-limit');
-const cron        = require('node-cron');
-const path        = require('path');
+const express      = require('express');
+const cors         = require('cors');
+const helmet       = require('helmet');
+const compression  = require('compression');
+const cookieParser = require('cookie-parser');
+const rateLimit    = require('express-rate-limit');
+const cron         = require('node-cron');
+const path         = require('path');
 
 const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
 const { auth }         = require('./middleware/auth');
@@ -72,8 +73,23 @@ if (process.env.NODE_ENV === 'production') {
 
 // Security headers
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP to allow inline scripts/styles in SPA
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://accounts.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://accounts.google.com"],
+      frameSrc: ["https://accounts.google.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: []
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } // needed for Google Sign-In popup
 }));
 
 // Gzip compression
@@ -88,6 +104,23 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '2mb' }));
+app.use(cookieParser());
+
+// ─── CSRF PROTECTION ─────────────────────────────────────────────
+// Validate Origin header on state-changing requests to prevent cross-site
+// form submissions. Safe because browsers always send Origin on POST/PUT/DELETE.
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  const origin = req.headers.origin;
+  if (!origin) return next(); // Server-to-server or same-origin (older browsers omit Origin)
+  const allowed = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+    : null;
+  // In dev mode (no ALLOWED_ORIGINS), allow all origins
+  if (!allowed) return next();
+  if (allowed.includes(origin)) return next();
+  return res.status(403).json({ error: 'Forbidden — origin not allowed' });
+});
 
 // Rate limit handler — includes retryAfter in response body
 function rateLimitHandler(windowMs) {
@@ -187,8 +220,8 @@ app.get('/admin', async (req, res) => {
   // Support both legacy ADMIN_SECRET and JWT auth via cookie/header
   const secret = process.env.ADMIN_SECRET;
   if (!secret) return res.status(404).send('Not found');
-  // Accept secret via X-Admin-Key header (preferred) or query param (legacy)
-  const provided = req.headers['x-admin-key'] || req.query.key || '';
+  // Accept secret via X-Admin-Key header only (query param removed for security — secrets in URLs leak via logs, referrer headers, and browser history)
+  const provided = req.headers['x-admin-key'] || '';
   // Use timing-safe comparison to prevent timing attacks
   if (typeof provided !== 'string') {
     return res.status(404).send('Not found');
@@ -386,6 +419,13 @@ async function sendScheduledReports(frequency) {
 // ─── Password reset page ─────────────────────────────────────────
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── LEGAL PAGES ─────────────────────────────────────────────────
+['privacy', 'terms', 'cookies'].forEach(page => {
+  app.get(`/${page}`, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', `${page}.html`));
+  });
 });
 
 // ─── CATCH-ALL: serve app for SPA routing ────────────────────────

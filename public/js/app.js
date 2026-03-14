@@ -55,11 +55,14 @@ const PLAT_THEME = {
 };
 
 // ─── STATE ────────────────────────────────────────────────────────
-let token = localStorage.getItem('trackly_token') || '';
-let refreshToken = localStorage.getItem('trackly_refresh') || '';
+// Tokens are kept in-memory only; httpOnly cookies handle persistence across reloads
+let token = '';
+let refreshToken = '';
 let currentUser = null;
 let brands = [];
 let currentBrandId = localStorage.getItem('trackly_brand') || '';
+// Session flag indicates we might be logged in (actual auth is via httpOnly cookie)
+const _hasSession = localStorage.getItem('trackly_session') === '1';
 let keyStatus = {};
 let runningQueries = false;
 let liveResults = [];     // Accumulates results during streaming
@@ -152,8 +155,45 @@ function toast(msg, type='ok'){
 }
 function show(id){ const e=el(id); if(e) e.style.display='block'; }
 function hide(id){ const e=el(id); if(e) e.style.display='none'; }
-function closeModal(id){ const e=el(id); if(e) e.classList.remove('open'); }
-function openModal(id){ const e=el(id); if(e) e.classList.add('open'); }
+// ─── MODAL FOCUS TRAP ─────────────────────────────────────────────
+let _prevFocus = null;
+const _focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function closeModal(id){
+  const e = el(id);
+  if(e) e.classList.remove('open');
+  if(_prevFocus) { _prevFocus.focus(); _prevFocus = null; }
+}
+
+function openModal(id){
+  const e = el(id);
+  if(!e) return;
+  _prevFocus = document.activeElement;
+  e.classList.add('open');
+  // Focus first focusable element inside the modal
+  const inner = e.querySelector('.modal, .add-brand-box');
+  if(inner) {
+    const first = inner.querySelector(_focusableSelector);
+    if(first) requestAnimationFrame(() => first.focus());
+  }
+}
+
+// Trap Tab key inside open modals
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Tab') return;
+  const openOverlay = document.querySelector('.overlay.open');
+  if(!openOverlay) return;
+  const inner = openOverlay.querySelector('.modal, .add-brand-box');
+  if(!inner) return;
+  const focusable = [...inner.querySelectorAll(_focusableSelector)].filter(f => f.offsetParent !== null);
+  if(!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if(e.shiftKey) {
+    if(document.activeElement === first) { e.preventDefault(); last.focus(); }
+  } else {
+    if(document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
 function copyResponse(){
   const text = el('resp-modal-text').innerText;
   navigator.clipboard.writeText(text).then(() => {
@@ -250,8 +290,6 @@ async function api(method, path, data){
             const refreshData = await refreshRes.json();
             token = refreshData.token;
             refreshToken = refreshData.refreshToken;
-            localStorage.setItem('trackly_token', token);
-            localStorage.setItem('trackly_refresh', refreshToken);
             return true;
           }
           return false;
@@ -356,8 +394,7 @@ async function handleGoogleCredential(response) {
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('trackly_token', token);
-    localStorage.setItem('trackly_refresh', refreshToken);
+    localStorage.setItem('trackly_session', '1');
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -392,8 +429,7 @@ async function doLogin(){
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('trackly_token', token);
-    localStorage.setItem('trackly_refresh', refreshToken);
+    localStorage.setItem('trackly_session', '1');
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -436,8 +472,7 @@ async function doRegister(){
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('trackly_token', token);
-    localStorage.setItem('trackly_refresh', refreshToken);
+    localStorage.setItem('trackly_session', '1');
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -498,13 +533,16 @@ async function doResetPassword(){
 }
 
 function doLogout(){
+  // Clear httpOnly cookies via server endpoint (best-effort)
+  if (token || _hasSession) {
+    fetch(API + '/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).catch(() => {});
+  }
   token = '';
   refreshToken = '';
   currentUser = null;
   brands = [];
   currentBrandId = '';
-  localStorage.removeItem('trackly_token');
-  localStorage.removeItem('trackly_refresh');
+  localStorage.removeItem('trackly_session');
   localStorage.removeItem('trackly_brand');
   // Close all open overlays/modals
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
@@ -892,7 +930,7 @@ async function deleteAccount() {
   if (!confirm('Are you sure? This will permanently delete your account and all brands. This cannot be undone.')) return;
   try {
     await api('DELETE', '/api/auth/account', { password: pw });
-    localStorage.removeItem('trackly_token');
+    localStorage.removeItem('trackly_session');
     location.reload();
   } catch(e) { toast(e.message, 'err'); }
 }
@@ -5872,21 +5910,21 @@ document.addEventListener('keydown', e => {
     el('panel-reset').classList.add('active');
     return;
   }
-  if (!token) {
+  if (!_hasSession) {
     el('landing-page').style.display = 'block';
     el('auth-page').style.display = 'none';
     el('app').style.display = 'none';
     return;
   }
-  // Try auto-login with saved token
+  // Try auto-login via httpOnly cookie
   el('landing-page').style.display = 'none';
   try {
     const data = await api('GET', '/api/auth/me');
     currentUser = data.user;
     await initApp();
   } catch(e) {
-    // Token invalid or expired — show login page directly (not landing)
-    localStorage.removeItem('trackly_token');
+    // Cookie invalid or expired — show login page directly (not landing)
+    localStorage.removeItem('trackly_session');
     token = '';
     el('landing-page').style.display = 'none';
     el('app').style.display = 'none';

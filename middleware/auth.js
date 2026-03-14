@@ -11,8 +11,9 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = process.env.JWT_SECRET;
 
 function auth(req, res, next) {
-  // Case-insensitive Bearer extraction with flexible whitespace
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+  // Check Authorization header first, fall back to httpOnly cookie
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim()
+    || req.cookies?.trackly_token || '';
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
     // Explicitly specify allowed algorithms to prevent algorithm confusion attacks
