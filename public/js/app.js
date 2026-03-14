@@ -3588,6 +3588,9 @@ async function runQueries(){
         time: new Date().toISOString(),
         error: `${errors} API error(s) in run`,
         type: 'partial',
+        brand: b.name || b.id, brandId: b.id,
+        queries: (b.queries || []).length, platforms: selectedPlats.join(', '),
+        received, totalExpected, foundCount: liveFoundCount, errorCount: liveErrorCount,
         platformErrors: result.platformErrors || {}
       });
     }
@@ -3636,7 +3639,15 @@ async function runQueries(){
     fill.style.width = '0%';
     fill.style.background = 'var(--red)';
 
-    storeRunError({ time: new Date().toISOString(), error: e.message, type: 'crash' });
+    storeRunError({
+      time: new Date().toISOString(), error: e.message, type: 'crash',
+      brand: b.name || b.id, brandId: b.id,
+      queries: (b.queries || []).length, platforms: selectedPlats.join(', '),
+      endpoint: API + '/api/brands/' + b.id + '/run?stream=1',
+      received, totalExpected, foundCount: liveFoundCount, errorCount: liveErrorCount,
+      stack: e.stack || null,
+      userAgent: navigator.userAgent
+    });
 
     // Reload brand data (emergency save may have stored partial results)
     try {
@@ -3871,21 +3882,42 @@ async function renderApiLogs(){
   if (clientErrors.length > 0) {
     html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);border-radius:var(--radius);">
       <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
-    clientErrors.forEach(err => {
+    clientErrors.forEach((err, errIdx) => {
       const dt = new Date(err.time);
       const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isCrash = err.type === 'crash';
-      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:8px;line-height:1.6;padding:8px 10px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius-xs);">
-        <div style="color:var(--muted);margin-bottom:4px;">${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
-        <div style="color:var(--red);word-break:break-word;">${esc(friendlyError(err.error))}</div>`;
+
+      // Build structured detail lines
+      let details = '';
+      if (err.brand) details += `<div><span style="color:var(--muted);">Brand:</span> <strong>${esc(err.brand)}</strong></div>`;
+      if (err.platforms) details += `<div><span style="color:var(--muted);">Platforms:</span> ${esc(err.platforms)}</div>`;
+      if (err.queries) details += `<div><span style="color:var(--muted);">Queries:</span> ${err.queries}</div>`;
+      if (err.totalExpected) details += `<div><span style="color:var(--muted);">Progress:</span> ${err.received || 0}/${err.totalExpected} completed (${err.foundCount || 0} found, ${err.errorCount || 0} errors)</div>`;
+      if (err.endpoint) details += `<div><span style="color:var(--muted);">Endpoint:</span> ${esc(err.endpoint)}</div>`;
+
+      // Platform-specific errors
+      let platDetails = '';
       if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
         Object.entries(err.platformErrors).forEach(([plat, msgs]) => {
           const t = PLAT_THEME[plat] || {};
           const uniqueMsgs = [...new Set(msgs)];
-          html += `<div style="margin-top:4px;"><span style="color:${t.color||'var(--text)'};font-weight:700;">${esc(plat)}</span>: <span style="color:var(--red);">${esc(friendlyError(uniqueMsgs[0]))}</span></div>`;
+          platDetails += `<div style="margin-top:4px;"><span style="color:${t.color||'var(--text)'};font-weight:700;">${esc(plat)}</span>: <span style="color:var(--red);">${uniqueMsgs.map(m => esc(m)).join('; ')}</span></div>`;
         });
       }
-      html += `</div>`;
+
+      // Build the plain-text version for clipboard
+      const copyId = 'err-copy-' + errIdx;
+
+      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:10px;line-height:1.7;padding:10px 12px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius-xs);position:relative;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+          <div>${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
+          <button onclick="copyErrorLog(${errIdx})" style="background:var(--bg);border:1px solid var(--border);color:var(--muted);font-size:9px;padding:3px 8px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0;" title="Copy full error details to clipboard">&#x1F4CB; Copy</button>
+        </div>
+        <div style="color:var(--red);font-weight:700;word-break:break-word;margin-bottom:6px;">${esc(err.error)}</div>
+        ${details ? `<div style="font-size:10px;line-height:1.8;color:var(--text);margin-bottom:4px;">${details}</div>` : ''}
+        ${platDetails}
+        ${err.stack ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--muted);font-size:9px;user-select:none;">Stack trace</summary><pre style="margin:4px 0 0;font-size:9px;color:var(--muted);white-space:pre-wrap;word-break:break-all;max-height:120px;overflow:auto;">${esc(err.stack)}</pre></details>` : ''}
+      </div>`;
     });
     html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS ALL</button></div>`;
   }
@@ -3955,6 +3987,9 @@ async function renderApiLogs(){
       return;
     }
 
+    // Store logs for copy-to-clipboard access
+    window._apiLogs = logs;
+
     // Group logs by run_id
     const runGroups = [];
     const runMap = {};
@@ -4003,20 +4038,23 @@ async function renderApiLogs(){
         <th style="width:50px;">Time</th>
         <th style="width:60px;">Key</th>
         <th>Error</th>
+        <th style="width:36px;"></th>
       </tr></thead><tbody>`;
 
     // Render grouped runs + ungrouped logs in chronological order (newest first)
     // Build a flat render list with run summaries interleaved
     const renderItems = [];
     const processedRunIds = new Set();
+    const logIndexMap = new Map();
+    logs.forEach((log, idx) => { logIndexMap.set(log, idx); });
     logs.forEach(log => {
       if (log.run_id && !processedRunIds.has(log.run_id)) {
         processedRunIds.add(log.run_id);
         const g = runMap[log.run_id];
         renderItems.push({ type: 'run-summary', group: g });
-        g.logs.forEach(l => renderItems.push({ type: 'log', log: l, runId: log.run_id }));
+        g.logs.forEach(l => renderItems.push({ type: 'log', log: l, runId: log.run_id, logIdx: logIndexMap.get(l) }));
       } else if (!log.run_id) {
-        renderItems.push({ type: 'log', log, runId: null });
+        renderItems.push({ type: 'log', log, runId: null, logIdx: logIndexMap.get(log) });
       }
     });
 
@@ -4038,7 +4076,7 @@ async function renderApiLogs(){
           <td style="font-family:var(--mono);font-size:11px;color:var(--amber);text-align:right;font-weight:800;">${costStr}</td>
           <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:700;">RUN TOTAL</td>
           <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${durStr}</td>
-          <td colspan="2" style="font-family:var(--mono);font-size:9px;color:var(--blue);">▾ click to toggle</td>
+          <td colspan="3" style="font-family:var(--mono);font-size:9px;color:var(--blue);">▾ click to toggle</td>
         </tr>`;
         return;
       }
@@ -4071,6 +4109,7 @@ async function renderApiLogs(){
         <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${respTime}</td>
         <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
         <td style="font-size:10px;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
+        <td style="text-align:center;"><button onclick="copyApiLogRow(window._apiLogs[${item.logIdx}])" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:8px;padding:2px 5px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);" title="Copy log entry">&#x1F4CB;</button></td>
       </tr>`;
     });
 
@@ -4122,6 +4161,61 @@ async function renderApiLogs(){
     const actEl = el('apilogs-activity');
     if (actEl) actEl.innerHTML = `<div style="color:var(--muted);font-family:var(--mono);font-size:11px;">Activity logs unavailable.</div>`;
   }
+}
+
+// Copy full error detail to clipboard for sharing with developers
+function copyErrorLog(errIdx) {
+  const errors = getStoredRunErrors();
+  const err = errors[errIdx];
+  if (!err) return;
+  const dt = new Date(err.time);
+  const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  let text = `--- Trackly Error Report ---\n`;
+  text += `Time: ${dateStr}\n`;
+  text += `Type: ${err.type === 'crash' ? 'CRASH' : 'PARTIAL ERRORS'}\n`;
+  text += `Error: ${err.error}\n`;
+  if (err.brand) text += `Brand: ${err.brand}\n`;
+  if (err.brandId) text += `Brand ID: ${err.brandId}\n`;
+  if (err.platforms) text += `Platforms: ${err.platforms}\n`;
+  if (err.queries) text += `Queries: ${err.queries}\n`;
+  if (err.totalExpected) text += `Progress: ${err.received || 0}/${err.totalExpected} (${err.foundCount || 0} found, ${err.errorCount || 0} errors)\n`;
+  if (err.endpoint) text += `Endpoint: ${err.endpoint}\n`;
+  if (err.userAgent) text += `Browser: ${err.userAgent}\n`;
+  if (err.platformErrors && Object.keys(err.platformErrors).length) {
+    text += `\nPlatform Errors:\n`;
+    Object.entries(err.platformErrors).forEach(([plat, msgs]) => {
+      const uniqueMsgs = [...new Set(msgs)];
+      text += `  ${plat}: ${uniqueMsgs.join('; ')}\n`;
+    });
+  }
+  if (err.stack) text += `\nStack Trace:\n${err.stack}\n`;
+  text += `---`;
+  navigator.clipboard.writeText(text).then(() => toast('Error details copied to clipboard', 'ok')).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('Error details copied to clipboard', 'ok');
+  });
+}
+
+// Copy a single API log row detail for debugging
+function copyApiLogRow(logData) {
+  let text = `--- Trackly API Log ---\n`;
+  text += `Time: ${logData.time}\n`;
+  text += `Platform: ${logData.platform}\n`;
+  text += `Model: ${logData.model || '—'}\n`;
+  text += `Query: ${logData.query || '—'}\n`;
+  text += `Status: ${logData.status}\n`;
+  if (logData.error) text += `Error: ${logData.error}\n`;
+  text += `Response Time: ${logData.response_ms ? logData.response_ms + 'ms' : '—'}\n`;
+  text += `Tokens: In ${logData.tokens_in || 0} / Out ${logData.tokens_out || 0}\n`;
+  text += `Cost: $${(parseFloat(logData.cost) || 0).toFixed(4)}\n`;
+  text += `Key: ...${logData.key_hint || '?'}\n`;
+  if (logData.run_id) text += `Run ID: ${logData.run_id}\n`;
+  text += `---`;
+  navigator.clipboard.writeText(text).then(() => toast('Log entry copied to clipboard', 'ok')).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('Log entry copied to clipboard', 'ok');
+  });
 }
 
 async function clearApiLogs() {
