@@ -1132,6 +1132,27 @@ function categorizeDomain(domain) {
   return 'other';
 }
 
+/**
+ * Estimate domain authority score (0-100) based on domain type and known sites.
+ * This is a heuristic approximation — not real DA from Moz/Ahrefs.
+ */
+function estimateDomainAuthority(domain) {
+  // Tier 1: Very high authority (80-95)
+  const tier1 = ['wikipedia.org', 'nytimes.com', 'bbc.com', 'reuters.com', 'forbes.com', 'bloomberg.com', 'washingtonpost.com', 'theguardian.com', 'cnn.com', 'github.com'];
+  // Tier 2: High authority (60-80)
+  const tier2 = ['techcrunch.com', 'wired.com', 'theverge.com', 'arstechnica.com', 'g2.com', 'trustpilot.com', 'yelp.com', 'capterra.com', 'reddit.com', 'youtube.com', 'linkedin.com', 'medium.com', 'tripadvisor.com', 'bbb.org'];
+  // Tier 3: Moderate authority (40-60)
+  const tier3 = ['twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'glassdoor.com', 'crunchbase.com', 'producthunt.com', 'quora.com'];
+
+  if (tier1.some(s => domain.includes(s))) return 90;
+  if (tier2.some(s => domain.includes(s))) return 70;
+  if (tier3.some(s => domain.includes(s))) return 50;
+  if (domain.endsWith('.gov')) return 85;
+  if (domain.endsWith('.edu')) return 80;
+  if (domain.endsWith('.org')) return 45;
+  return 30; // Unknown domains get baseline score
+}
+
 // ═══════════════════════════════════════════════════════════
 // Epic 8.3: Copilot — natural language queries on Trackly data
 // ═══════════════════════════════════════════════════════════

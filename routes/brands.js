@@ -585,6 +585,26 @@ router.post('/:id/run', auth, async (req, res) => {
         } catch(prErr) { /* ignore individual insert errors */ }
       }
 
+      // Persist citations with domain authority scores
+      for (const r of allResults) {
+        if (!r.citations || !r.citations.length || r.error) continue;
+        for (let ci = 0; ci < r.citations.length; ci++) {
+          try {
+            const citUrl = r.citations[ci];
+            const parsedUrl = new URL(citUrl);
+            const domain = parsedUrl.hostname.replace(/^www\./, '');
+            const daScore = scoreDomainAuthority(domain);
+            const domainType = classifyDomain(domain);
+            const isBrand = brand.website ? domain.includes(new URL(brand.website.startsWith('http') ? brand.website : 'https://' + brand.website).hostname.replace(/^www\./, '')) : false;
+            await pool.query(
+              `INSERT INTO citations (prompt_run_id, brand_id, url, domain, domain_type, domain_authority_score, position, is_brand)
+               VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+              [brand.id, citUrl, domain, domainType, daScore, ci + 1, isBrand]
+            );
+          } catch(_) { /* skip invalid URLs or insert errors */ }
+        }
+      }
+
       // Refresh prompt_run_stats materialized data (Epic 1.1)
       refreshPromptRunStats(brand.id).catch(() => {});
 
@@ -1214,6 +1234,33 @@ async function runBrandQueries(brand) {
 
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
+}
+
+// ── Citation domain scoring helpers ──────────────────────
+function scoreDomainAuthority(domain) {
+  const tier1 = ['wikipedia.org', 'nytimes.com', 'bbc.com', 'reuters.com', 'forbes.com', 'bloomberg.com', 'washingtonpost.com', 'theguardian.com', 'cnn.com', 'github.com'];
+  const tier2 = ['techcrunch.com', 'wired.com', 'theverge.com', 'arstechnica.com', 'g2.com', 'trustpilot.com', 'yelp.com', 'capterra.com', 'reddit.com', 'youtube.com', 'linkedin.com', 'medium.com', 'tripadvisor.com', 'bbb.org'];
+  const tier3 = ['twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'glassdoor.com', 'crunchbase.com', 'producthunt.com', 'quora.com'];
+  if (tier1.some(s => domain.includes(s))) return 90;
+  if (tier2.some(s => domain.includes(s))) return 70;
+  if (tier3.some(s => domain.includes(s))) return 50;
+  if (domain.endsWith('.gov')) return 85;
+  if (domain.endsWith('.edu')) return 80;
+  if (domain.endsWith('.org')) return 45;
+  return 30;
+}
+
+function classifyDomain(domain) {
+  const reviewSites = ['g2.com', 'capterra.com', 'trustpilot.com', 'yelp.com', 'tripadvisor.com', 'bbb.org', 'glassdoor.com'];
+  const newsSites = ['nytimes.com', 'reuters.com', 'bbc.com', 'forbes.com', 'bloomberg.com', 'techcrunch.com', 'theverge.com', 'wired.com'];
+  const socialSites = ['reddit.com', 'twitter.com', 'x.com', 'linkedin.com', 'facebook.com', 'youtube.com'];
+  if (reviewSites.some(s => domain.includes(s))) return 'review_site';
+  if (newsSites.some(s => domain.includes(s))) return 'news';
+  if (socialSites.some(s => domain.includes(s))) return 'social';
+  if (domain.includes('wikipedia.org')) return 'encyclopedia';
+  if (domain.endsWith('.gov')) return 'government';
+  if (domain.endsWith('.edu')) return 'academic';
+  return 'other';
 }
 
 module.exports = router;
