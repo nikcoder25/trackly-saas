@@ -296,6 +296,8 @@ router.post('/admin/users', auth, requireAdmin, async (req, res) => {
 // Admin: delete user
 router.delete('/admin/users/:id', auth, requireAdmin, async (req, res) => {
   try {
+    const { confirm } = req.body || {};
+    if (confirm !== true) return res.status(400).json({ error: 'Confirmation required. Send { "confirm": true } to proceed.', requiresConfirm: true });
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot delete your own account' });
     const user = await pool.query('SELECT email, role FROM users WHERE id = $1', [req.params.id]);
     if (!user.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -312,7 +314,8 @@ router.delete('/admin/users/:id', auth, requireAdmin, async (req, res) => {
 // Admin: reset user password
 router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => {
   try {
-    const { password } = req.body;
+    const { password, confirm } = req.body;
+    if (confirm !== true) return res.status(400).json({ error: 'Confirmation required. Send { "confirm": true } to proceed.', requiresConfirm: true });
     if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
     const hash = await bcrypt.hash(password, 12);
     const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email', [hash, req.params.id]);
@@ -388,12 +391,24 @@ router.put('/settings', auth, async (req, res) => {
         return res.status(400).json({ error: `Invalid model "${modelId}" for ${platform}` });
       }
     }
+    // Validate Gemini/AIO overlap — both use the same API key
+    const enabledPlatforms = settings.enabledPlatforms || {};
+    let geminiAioWarning = null;
+    if (enabledPlatforms['Gemini'] !== false && enabledPlatforms['Google AIO'] !== false) {
+      const keys = getServerKeys();
+      if (keys.gemini && keys.gemini.length > 0) {
+        geminiAioWarning = 'Gemini and Google AIO both use the same API key. Enabling both will double your Gemini API usage.';
+      }
+    }
+
     const result = await pool.query(
       'UPDATE users SET settings = settings || $1::jsonb WHERE id = $2 RETURNING *',
       [JSON.stringify(settings), req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
-    res.json({ settings: result.rows[0].settings || {}, message: 'Settings saved' });
+    const response = { settings: result.rows[0].settings || {}, message: 'Settings saved' };
+    if (geminiAioWarning) response.warning = geminiAioWarning;
+    res.json(response);
   } catch(e) {
     res.status(500).json({ error: 'Failed to save settings' });
   }

@@ -25,7 +25,7 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents } = require('./config/db');
+const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 const { createLogger }  = require('./lib/logger');
@@ -36,7 +36,8 @@ const authRoutes    = require('./routes/auth');
 const brandRoutes   = require('./routes/brands');
 const adminRoutes   = require('./routes/admin');
 const seoRoutes     = require('./routes/seo');
-const paymentRoutes = require('./routes/payments');
+const paymentRoutes  = require('./routes/payments');
+const analyticsRoutes = require('./routes/analytics');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -81,11 +82,39 @@ app.use(cors({
 
 app.use(express.json({ limit: '2mb' }));
 
+// Rate limit handler — includes retryAfter in response body
+function rateLimitHandler(windowMs) {
+  return (req, res) => {
+    const retryAfterSec = Math.ceil(windowMs / 1000);
+    res.setHeader('Retry-After', retryAfterSec);
+    res.status(429).json({
+      error: `Too many requests. Please retry after ${retryAfterSec} seconds.`,
+      retryAfter: retryAfterSec
+    });
+  };
+}
+
+// Shared key generator — per-user when authenticated, per-IP otherwise
+function userOrIpKey(prefix) {
+  return (req) => {
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+        return prefix + decoded.id;
+      } catch(e) { /* fall through to IP */ }
+    }
+    return prefix + req.ip;
+  };
+}
+
 // Rate limiting — auth endpoints (prevent brute force)
+const AUTH_WINDOW = 15 * 60 * 1000;
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: AUTH_WINDOW, // 15 minutes
   max: 20, // 20 attempts per window
-  message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+  handler: rateLimitHandler(AUTH_WINDOW),
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false }
@@ -94,49 +123,29 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // Rate limiting — API endpoints (general, excludes long-running run endpoint)
-// Uses user ID when authenticated, falls back to IP
+const API_WINDOW = 60 * 1000;
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: API_WINDOW, // 1 minute
   max: 120, // 120 requests per minute
-  message: { error: 'Too many requests. Please slow down.' },
+  handler: rateLimitHandler(API_WINDOW),
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false },
   skip: (req) => req.path.includes('/run'), // Runs have their own rate limiter below
-  keyGenerator: (req) => {
-    // Per-user rate limiting for authenticated requests
-    const authHeader = req.headers.authorization || '';
-    if (authHeader.startsWith('Bearer ')) {
-      try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
-        return 'user:' + decoded.id;
-      } catch(e) { /* fall through to IP */ }
-    }
-    return req.ip;
-  }
+  keyGenerator: userOrIpKey('user:')
 });
 app.use('/api/', apiLimiter);
 
 // Rate limiting — run endpoint (prevent abuse of expensive AI queries)
+const RUN_WINDOW = 60 * 1000;
 const runLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: RUN_WINDOW, // 1 minute
   max: 5, // 5 runs per minute per user
-  message: { error: 'Too many runs. Please wait before running again.' },
+  handler: rateLimitHandler(RUN_WINDOW),
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false },
-  keyGenerator: (req) => {
-    const authHeader = req.headers.authorization || '';
-    if (authHeader.startsWith('Bearer ')) {
-      try {
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
-        return 'run:' + decoded.id;
-      } catch(e) { /* fall through to IP */ }
-    }
-    return 'run:' + req.ip;
-  }
+  keyGenerator: userOrIpKey('run:')
 });
 app.use('/api/brands/:id/run', runLimiter);
 
@@ -147,6 +156,7 @@ app.use('/api/auth',     authRoutes);
 app.use('/api/brands',   brandRoutes);
 app.use('/api',          adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api',          analyticsRoutes);
 
 // ─── Admin panel page (secured with JWT-based admin auth) ───────
 app.get('/admin', async (req, res) => {
@@ -170,6 +180,11 @@ app.get('/admin', async (req, res) => {
   // Set Cache-Control to prevent caching of admin page with secret in URL
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// ─── METHODOLOGY PAGE (public, SEO-friendly) ───────────────────
+app.get('/methodology', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ─── SEO LANDING PAGES ──────────────────────────────────────────
@@ -239,8 +254,10 @@ cron.schedule('0 * * * *', async () => {
           log.info(`Running scheduled queries for brand: ${brand.name}`);
           try {
             await runBrandQueries(brand);
+            auditLog(brand.userId, 'scheduled_run', 'brand', brand.id, { brandName: brand.name, schedule: brand.schedule }, null);
           } catch(e) {
             log.error(`Scheduled run failed for ${brand.name}`, { error: e.message });
+            auditLog(brand.userId, 'scheduled_run_failed', 'brand', brand.id, { brandName: brand.name, error: e.message }, null);
             notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
           }
         })
@@ -383,10 +400,12 @@ const server = app.listen(PORT, () => {
   cleanupNotifications();
   cleanupResetTokens();
   cleanupWebhookEvents();
+  cleanupPromptRuns();
   setInterval(cleanupApiLogs, 24 * 60 * 60 * 1000);
   setInterval(cleanupNotifications, 24 * 60 * 60 * 1000);
   setInterval(cleanupResetTokens, 24 * 60 * 60 * 1000);
   setInterval(cleanupWebhookEvents, 24 * 60 * 60 * 1000);
+  setInterval(cleanupPromptRuns, 24 * 60 * 60 * 1000);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────

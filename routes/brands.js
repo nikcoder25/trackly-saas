@@ -4,12 +4,13 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool, auditLog, logApiCall } = require('../config/db');
+const { pool, auditLog, logApiCall, refreshPromptRunStats } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
+const { evaluateAlerts } = require('../lib/alerts');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -271,6 +272,17 @@ router.post('/:id/run', auth, async (req, res) => {
         if (streaming) return sseError(res, errMsg);
         return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
       }
+      // Soft overage warning — approaching limit
+      const runUsagePct = limits.runsPerDay > 0 ? todayRuns / limits.runsPerDay : 0;
+      const _overageWarnings = [];
+      if (runUsagePct >= 0.8 && todayRuns < limits.runsPerDay) {
+        _overageWarnings.push(`You've used ${todayRuns}/${limits.runsPerDay} daily runs (${Math.round(runUsagePct*100)}%). Consider upgrading for more capacity.`);
+      }
+      const queryUsagePct = limits.queries > 0 ? (brand.queries||[]).length / limits.queries : 0;
+      if (queryUsagePct >= 0.8) {
+        _overageWarnings.push(`You're using ${(brand.queries||[]).length}/${limits.queries} queries (${Math.round(queryUsagePct*100)}%). Upgrade for more query slots.`);
+      }
+      req._overageWarnings = _overageWarnings;
     } catch(txErr) {
       await limitClient.query('ROLLBACK').catch(() => {});
       throw txErr;
@@ -414,45 +426,54 @@ router.post('/:id/run', auth, async (req, res) => {
         const s = settled[i];
 
         if (s.status === 'fulfilled') {
-          const { result } = s.value;
-          if (!result) { totalQ++; runState.received++; continue; }
-          const { text, citations: extraCites, model: modelUsed } = result;
-          const parsed = parseResponse(text, brand, q, matcher);
-          parsed.simulated = false;
-          if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-          totalQ++;
-          const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
-          const resultObj = {
-            platform: plat, query: q,
-            context: text.substring(0, 300), raw: text,
-            simulated: false, mentioned: parsed.mentioned,
-            sentiment: parsed.sentiment, recommended: parsed.recommended,
-            citations: parsed.cites, model: modelUsed || plat,
-            locationRelevant: parsed.locationRelevant,
-            matchedLocation: parsed.matchedLocation || '',
-            competitorMentions: compMentions,
-            listPosition: parsed.listPosition || null
-          };
-          allResults.push(resultObj);
-          // Update run state for polling
-          runState.received++;
-          if (parsed.mentioned) { runState.foundCount++; }
-          runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
-          sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
-          if (parsed.mentioned) {
-            totalM++;
-            if (!platMentionCount[plat]) platMentionCount[plat] = 0;
-            platMentionCount[plat]++;
-            newMentions.push({
-              id: uid(), platform: plat, query: q,
+          try {
+            const { result } = s.value;
+            if (!result) { totalQ++; runState.received++; continue; }
+            const { text, citations: extraCites, model: modelUsed } = result;
+            if (!text || typeof text !== 'string') { totalQ++; runState.received++; continue; }
+            const parsed = parseResponse(text, brand, q, matcher);
+            parsed.simulated = false;
+            if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+            totalQ++;
+            const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+            const resultObj = {
+              platform: plat, query: q,
               context: text.substring(0, 300), raw: text,
+              simulated: false, mentioned: parsed.mentioned,
               sentiment: parsed.sentiment, recommended: parsed.recommended,
-              citations: parsed.cites, simulated: false,
-              model: modelUsed || plat,
+              citations: parsed.cites, model: modelUsed || plat,
               locationRelevant: parsed.locationRelevant,
               matchedLocation: parsed.matchedLocation || '',
-              time: new Date().toISOString()
-            });
+              competitorMentions: compMentions,
+              listPosition: parsed.listPosition || null
+            };
+            allResults.push(resultObj);
+            // Update run state for polling
+            runState.received++;
+            if (parsed.mentioned) { runState.foundCount++; }
+            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
+            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+            if (parsed.mentioned) {
+              totalM++;
+              if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+              platMentionCount[plat]++;
+              newMentions.push({
+                id: uid(), platform: plat, query: q,
+                context: text.substring(0, 300), raw: text,
+                sentiment: parsed.sentiment, recommended: parsed.recommended,
+                citations: parsed.cites, simulated: false,
+                model: modelUsed || plat,
+                locationRelevant: parsed.locationRelevant,
+                matchedLocation: parsed.matchedLocation || '',
+                time: new Date().toISOString()
+              });
+            }
+          } catch(parseErr) {
+            console.error(`[${plat}] Result processing error for query "${q}":`, parseErr.message);
+            allResults.push({ platform: plat, query: q, context: '[Processing Error]', raw: '', simulated: false, mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: parseErr.message });
+            totalQ++;
+            runState.received++;
+            runState.errorCount++;
           }
         } else {
           const errMsg = s.reason?.message || 'Unknown error';
@@ -545,6 +566,57 @@ router.post('/:id/run', auth, async (req, res) => {
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);
 
+      // Persist individual prompt runs to prompt_runs table (Epic 1.1)
+      const batchId = runId;
+      for (const r of allResults) {
+        try {
+          await pool.query(
+            `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, run_index, response_raw, response_parsed,
+             mentioned, sentiment, recommended, list_position, citations, competitor_mentions, latency_ms, success,
+             error_message, meta, batch_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+            [uid(), brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
+             JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
+             r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+             r.listPosition || null, JSON.stringify(r.citations || []),
+             JSON.stringify(r.competitorMentions || []), null, !r.error,
+             r.errorMessage || null, JSON.stringify({}), batchId]
+          );
+        } catch(prErr) { /* ignore individual insert errors */ }
+      }
+
+      // Persist citations with domain authority scores
+      for (const r of allResults) {
+        if (!r.citations || !r.citations.length || r.error) continue;
+        for (let ci = 0; ci < r.citations.length; ci++) {
+          try {
+            const citUrl = r.citations[ci];
+            const parsedUrl = new URL(citUrl);
+            const domain = parsedUrl.hostname.replace(/^www\./, '');
+            const daScore = scoreDomainAuthority(domain);
+            const domainType = classifyDomain(domain);
+            const isBrand = brand.website ? domain.includes(new URL(brand.website.startsWith('http') ? brand.website : 'https://' + brand.website).hostname.replace(/^www\./, '')) : false;
+            await pool.query(
+              `INSERT INTO citations (prompt_run_id, brand_id, url, domain, domain_type, domain_authority_score, position, is_brand)
+               VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+              [brand.id, citUrl, domain, domainType, daScore, ci + 1, isBrand]
+            );
+          } catch(_) { /* skip invalid URLs or insert errors */ }
+        }
+      }
+
+      // Refresh prompt_run_stats materialized data (Epic 1.1)
+      refreshPromptRunStats(brand.id).catch(() => {});
+
+      // Evaluate alert rules (Epic 6.2)
+      const previousSOVForAlerts = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
+      evaluateAlerts(brand.id, {
+        sov,
+        previousSov: previousSOVForAlerts,
+        allResults,
+        platforms: platSOV
+      }).catch(() => {});
+
       // Webhook alert
       const previousSOV = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
       if (saveBrandObj.webhookUrl && sov !== previousSOV) {
@@ -569,7 +641,7 @@ router.post('/:id/run', auth, async (req, res) => {
       brandRunLocks.delete(brand.id);
 
       // Stream final event if client is still connected
-      sendEvent('done', { brand: saveBrandObj, result: finalResult });
+      sendEvent('done', { brand: saveBrandObj, result: finalResult, warnings: req._overageWarnings || [] });
       if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
 
     } catch(e) {
@@ -948,15 +1020,26 @@ async function sendWebhookAlert(brand, run, previousSOV) {
     summary: `${brand.name} SOV ${direction}: ${previousSOV}% → ${sov}% (${change > 0 ? '+' : ''}${change}%)`
   };
 
-  try {
-    await fetchJSON(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    console.log(`[Webhook] Alert sent for ${brand.name} to ${url}`);
-  } catch(e) {
-    console.error(`[Webhook] Failed for ${brand.name}:`, e.message);
+  const MAX_RETRIES = 3;
+  const bodyStr = JSON.stringify(payload);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await fetchJSON(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyStr
+      });
+      console.log(`[Webhook] Alert sent for ${brand.name} to ${url}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
+      return;
+    } catch(e) {
+      if (attempt < MAX_RETRIES) {
+        const delayMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.warn(`[Webhook] Attempt ${attempt + 1} failed for ${brand.name}: ${e.message}, retrying in ${delayMs}ms`);
+        await new Promise(r => setTimeout(r, delayMs));
+      } else {
+        console.error(`[Webhook] All ${MAX_RETRIES + 1} attempts failed for ${brand.name}:`, e.message);
+      }
+    }
   }
 }
 
@@ -1022,37 +1105,44 @@ async function runBrandQueries(brand) {
     const { plat, q } = tasks[i];
     const s = settled[i];
     if (s.status === 'fulfilled') {
-      const { result } = s.value;
-      if (!result) { totalQ++; continue; }
-      const { text, citations: extraCites, model: modelUsed } = result;
-      const parsed = parseResponse(text, brand, q, matcher);
-      if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-      totalQ++;
-      allResults.push({
-        platform: plat, query: q,
-        context: text.substring(0, 300), raw: text,
-        simulated: false, mentioned: parsed.mentioned,
-        sentiment: parsed.sentiment, recommended: parsed.recommended,
-        citations: parsed.cites, model: modelUsed || plat,
-        locationRelevant: parsed.locationRelevant,
-        matchedLocation: parsed.matchedLocation || '',
-        listPosition: parsed.listPosition || null
-      });
-      if (parsed.mentioned) {
-        totalM++;
-        if (!platMentionCount[plat]) platMentionCount[plat] = 0;
-        platMentionCount[plat]++;
-        newMentions.push({
-          id: uid(), platform: plat, query: q,
+      try {
+        const { result } = s.value;
+        if (!result) { totalQ++; continue; }
+        const { text, citations: extraCites, model: modelUsed } = result;
+        if (!text || typeof text !== 'string') { totalQ++; continue; }
+        const parsed = parseResponse(text, brand, q, matcher);
+        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+        totalQ++;
+        allResults.push({
+          platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
+          simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
-          citations: parsed.cites, simulated: false,
-          model: modelUsed || plat,
+          citations: parsed.cites, model: modelUsed || plat,
           locationRelevant: parsed.locationRelevant,
           matchedLocation: parsed.matchedLocation || '',
-          listPosition: parsed.listPosition || null,
-          time: new Date().toISOString()
+          listPosition: parsed.listPosition || null
         });
+        if (parsed.mentioned) {
+          totalM++;
+          if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+          platMentionCount[plat]++;
+          newMentions.push({
+            id: uid(), platform: plat, query: q,
+            context: text.substring(0, 300), raw: text,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, simulated: false,
+            model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            listPosition: parsed.listPosition || null,
+            time: new Date().toISOString()
+          });
+        }
+      } catch(parseErr) {
+        console.error(`[Cron][${plat}] Result processing error for "${q}":`, parseErr.message);
+        allResults.push({ platform: plat, query: q, context: '[Processing Error]', raw: '', mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: parseErr.message });
+        totalQ++;
       }
     } else {
       platFailCount[plat] = (platFailCount[plat] || 0) + 1;
@@ -1119,8 +1209,58 @@ async function runBrandQueries(brand) {
   brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
   if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
 
+  // Persist individual prompt runs (Epic 1.1)
+  const cronBatchId = brand.runs[brand.runs.length - 1]?.id || uid();
+  for (const r of allResults) {
+    try {
+      await pool.query(
+        `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, run_index, response_raw, response_parsed,
+         mentioned, sentiment, recommended, list_position, citations, competitor_mentions, latency_ms, success,
+         error_message, meta, batch_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+        [uid(), brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
+         JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
+         r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+         r.listPosition || null, JSON.stringify(r.citations || []),
+         JSON.stringify(r.competitorMentions || []), null, !r.error,
+         r.errorMessage || null, JSON.stringify({}), cronBatchId]
+      );
+    } catch(prErr) { /* ignore */ }
+  }
+
+  // Refresh stats + evaluate alerts
+  refreshPromptRunStats(brand.id).catch(() => {});
+  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV }).catch(() => {});
+
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
+}
+
+// ── Citation domain scoring helpers ──────────────────────
+function scoreDomainAuthority(domain) {
+  const tier1 = ['wikipedia.org', 'nytimes.com', 'bbc.com', 'reuters.com', 'forbes.com', 'bloomberg.com', 'washingtonpost.com', 'theguardian.com', 'cnn.com', 'github.com'];
+  const tier2 = ['techcrunch.com', 'wired.com', 'theverge.com', 'arstechnica.com', 'g2.com', 'trustpilot.com', 'yelp.com', 'capterra.com', 'reddit.com', 'youtube.com', 'linkedin.com', 'medium.com', 'tripadvisor.com', 'bbb.org'];
+  const tier3 = ['twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'glassdoor.com', 'crunchbase.com', 'producthunt.com', 'quora.com'];
+  if (tier1.some(s => domain.includes(s))) return 90;
+  if (tier2.some(s => domain.includes(s))) return 70;
+  if (tier3.some(s => domain.includes(s))) return 50;
+  if (domain.endsWith('.gov')) return 85;
+  if (domain.endsWith('.edu')) return 80;
+  if (domain.endsWith('.org')) return 45;
+  return 30;
+}
+
+function classifyDomain(domain) {
+  const reviewSites = ['g2.com', 'capterra.com', 'trustpilot.com', 'yelp.com', 'tripadvisor.com', 'bbb.org', 'glassdoor.com'];
+  const newsSites = ['nytimes.com', 'reuters.com', 'bbc.com', 'forbes.com', 'bloomberg.com', 'techcrunch.com', 'theverge.com', 'wired.com'];
+  const socialSites = ['reddit.com', 'twitter.com', 'x.com', 'linkedin.com', 'facebook.com', 'youtube.com'];
+  if (reviewSites.some(s => domain.includes(s))) return 'review_site';
+  if (newsSites.some(s => domain.includes(s))) return 'news';
+  if (socialSites.some(s => domain.includes(s))) return 'social';
+  if (domain.includes('wikipedia.org')) return 'encyclopedia';
+  if (domain.endsWith('.gov')) return 'government';
+  if (domain.endsWith('.edu')) return 'academic';
+  return 'other';
 }
 
 module.exports = router;
