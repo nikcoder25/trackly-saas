@@ -187,8 +187,8 @@ app.get('/admin', async (req, res) => {
   // Support both legacy ADMIN_SECRET and JWT auth via cookie/header
   const secret = process.env.ADMIN_SECRET;
   if (!secret) return res.status(404).send('Not found');
-  // Accept secret via X-Admin-Key header (preferred) or query param (legacy)
-  const provided = req.headers['x-admin-key'] || req.query.key || '';
+  // Accept secret via X-Admin-Key header only (query param removed for security — secrets in URLs leak via logs, referrer headers, and browser history)
+  const provided = req.headers['x-admin-key'] || '';
   // Use timing-safe comparison to prevent timing attacks
   if (typeof provided !== 'string') {
     return res.status(404).send('Not found');

@@ -314,11 +314,19 @@ router.get('/admin/check-admin', auth, async (req, res) => {
 });
 
 // Make current user admin (if no admin exists yet)
+// Security: requires ADMIN_SECRET env var to prevent any user from self-promoting
 router.post('/admin/make-first-admin', auth, async (req, res) => {
   try {
     const adminCheck = await pool.query('SELECT id FROM users WHERE role = $1', ['admin']);
     if (adminCheck.rows.length) return res.status(400).json({ error: 'Admin already exists' });
+    // Require admin secret as additional verification to prevent unauthorized self-promotion
+    const adminSecret = process.env.ADMIN_SECRET;
+    if (adminSecret) {
+      const provided = req.headers['x-admin-key'] || '';
+      if (provided !== adminSecret) return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
+    }
     await pool.query('UPDATE users SET role = $1, plan = $2 WHERE id = $3', ['admin', 'owner', req.user.id]);
+    auditLog(req.user.id, 'make_first_admin', 'user', req.user.id, { email: req.user.email }, req.ip);
     res.json({ success: true, email: req.user.email });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });

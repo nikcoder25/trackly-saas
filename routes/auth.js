@@ -184,8 +184,16 @@ router.get('/verify-email', async (req, res) => {
   }
 });
 
-// Resend verification email
-router.post('/resend-verification', auth, async (req, res) => {
+// Resend verification email (rate limited to prevent email spam)
+const resendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: 'Too many verification requests. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT email_verified FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -248,7 +256,9 @@ router.put('/username', auth, async (req, res) => {
 router.post('/change-password', auth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Current and new password required' });
+  if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -313,7 +323,9 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
+  if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
     const result = await pool.query(
       'SELECT user_id, email FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
