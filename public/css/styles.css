@@ -948,7 +948,7 @@ body:has(#app[style*="display:grid"]){
   pointer-events:none;max-height:50vh;overflow:hidden;
 }
 .live-notif{
-  pointer-events:auto;
+  pointer-events:auto;cursor:pointer;
   display:flex;align-items:center;gap:12px;
   padding:12px 16px;min-width:320px;max-width:400px;
   background:var(--bg2);border:1px solid var(--border);

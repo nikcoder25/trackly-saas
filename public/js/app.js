@@ -940,8 +940,37 @@ function showLiveNotif(result) {
     </div>
     <div class="live-notif-status ${statusCls}">${statusText}</div>`;
 
-  // Click to go to mentions view
-  notif.onclick = () => { notif.remove(); if (currentView !== 'mentions') switchView('mentions'); };
+  // Click to open the full result in modal
+  notif.onclick = () => {
+    notif.remove();
+    try {
+      const b = brand();
+      const t2 = PLAT_THEME[result.platform]||{};
+      const head = el('resp-modal-head');
+      const titleEl = el('resp-modal-title');
+      const queryEl = el('resp-modal-query');
+      const textEl = el('resp-modal-text');
+      if (!head || !titleEl || !queryEl || !textEl) return;
+      head.style.background = t2.bg||'var(--bg2)';
+      head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
+      titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+      queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+      textEl.style.whiteSpace = 'normal';
+      const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
+      const rawHtml = mdToHtml(raw);
+      const hre = b ? brandHighlightRe(b) : null;
+      textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
+      const cc = el('resp-modal-cites');
+      const cites = result.citations||[];
+      if (cc) {
+        if (cites.length) {
+          cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
+            + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+        } else cc.innerHTML = '';
+      }
+      openModal('resp-modal');
+    } catch(e) { console.error('live notif click error:', e); }
+  };
 
   cont.appendChild(notif);
 
