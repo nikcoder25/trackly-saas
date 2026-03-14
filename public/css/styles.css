@@ -488,6 +488,18 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 .pill-btn{background:var(--bg3);color:var(--muted);border:1px solid var(--border);padding:4px 12px;border-radius:16px;font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font);}
 .pill-btn:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary-border);}
 
+/* Landing Google button */
+.land-google-wrap{margin-top:16px;text-align:center;}
+.btn-google-land{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:12px 28px;background:rgba(255,255,255,.1);color:#fff;
+  border:1px solid rgba(255,255,255,.2);border-radius:var(--radius-sm);
+  font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;
+  backdrop-filter:blur(4px);transition:all .2s;
+}
+.btn-google-land:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.35);transform:translateY(-1px);}
+.btn-google-land svg{flex-shrink:0;}
+
 /* Auth footer */
 .auth-footer{
   margin-top:20px;text-align:center;

@@ -297,6 +297,12 @@ function authTab(tab){
   const panel = el('panel-' + tab);
   if (panel) panel.classList.add('active');
   el('auth-err').style.display = 'none';
+  // Show Google button only on login/register panels
+  const showGoogle = (tab === 'login' || tab === 'register');
+  const gw = document.getElementById('google-signin-wrap');
+  const gd = document.querySelector('.auth-divider');
+  if (gw) gw.style.display = showGoogle ? '' : 'none';
+  if (gd) gd.style.display = showGoogle ? '' : 'none';
 }
 
 async function doLogin(){
@@ -371,11 +377,7 @@ async function doRegister(){
 }
 
 function showForgotPassword(){
-  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  const fp = el('panel-forgot');
-  if (fp) fp.classList.add('active');
-  el('auth-err').style.display = 'none';
+  authTab('forgot');
 }
 
 async function doForgotPassword(){
@@ -5874,12 +5876,15 @@ document.addEventListener('keydown', e => {
     const cfg = await fetch('/api/config').then(r => r.json());
     if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
   } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
-  // Hide Google button if not configured
+  // Show/hide Google buttons based on config
   if (!window.__GOOGLE_CLIENT_ID) {
     const gw = document.getElementById('google-signin-wrap');
     const gd = document.querySelector('.auth-divider');
     if (gw) gw.style.display = 'none';
     if (gd) gd.style.display = 'none';
+  } else {
+    const lg = document.getElementById('land-google-signin');
+    if (lg) lg.style.display = '';
   }
   // Check for password reset token in URL
   const urlParams = new URLSearchParams(window.location.search);
