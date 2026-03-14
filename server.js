@@ -102,7 +102,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false },
-  skip: (req) => req.path.includes('/run'), // Don't rate-limit query runs
+  skip: (req) => req.path.includes('/run'), // Runs have their own rate limiter below
   keyGenerator: (req) => {
     // Per-user rate limiting for authenticated requests
     const authHeader = req.headers.authorization || '';
@@ -117,6 +117,28 @@ const apiLimiter = rateLimit({
   }
 });
 app.use('/api/', apiLimiter);
+
+// Rate limiting — run endpoint (prevent abuse of expensive AI queries)
+const runLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 runs per minute per user
+  message: { error: 'Too many runs. Please wait before running again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
+  keyGenerator: (req) => {
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+        return 'run:' + decoded.id;
+      } catch(e) { /* fall through to IP */ }
+    }
+    return 'run:' + req.ip;
+  }
+});
+app.use('/api/brands/:id/run', runLimiter);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -160,7 +182,30 @@ const { runBrandQueries } = require('./routes/brands');
 // sequential bottleneck at scale (300+ users with scheduled brands).
 const CRON_BATCH_SIZE = parseInt(process.env.CRON_BATCH_SIZE, 10) || 5;
 
+// Helper: try to acquire PostgreSQL advisory lock (non-blocking, session-level)
+// Used to prevent duplicate cron jobs when running multiple server instances
+async function withCronLock(lockId, fn) {
+  const client = await pool.connect();
+  try {
+    const lockResult = await client.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockId]);
+    if (!lockResult.rows[0]?.acquired) {
+      return; // Another instance holds this lock
+    }
+    try {
+      await fn();
+    } finally {
+      await client.query('SELECT pg_advisory_unlock($1)', [lockId]).catch(() => {});
+    }
+  } catch(e) {
+    // If advisory lock fails, proceed anyway (single-instance fallback)
+    await fn();
+  } finally {
+    client.release();
+  }
+}
+
 cron.schedule('0 * * * *', async () => {
+  await withCronLock(1001, async () => {
   try {
     // Only fetch brands that have a schedule configured (avoid full table scan)
     const result = await pool.query(
@@ -205,6 +250,7 @@ cron.schedule('0 * * * *', async () => {
   } catch(e) {
     log.error('Cron job error', { error: e.message });
   }
+  }); // end withCronLock
 });
 
 // ─── SCHEDULED REPORTS (cron — every Monday 8am and 1st of month 8am) ──

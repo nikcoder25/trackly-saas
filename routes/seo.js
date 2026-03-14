@@ -4,25 +4,35 @@
 const express = require('express');
 const router  = express.Router();
 
+// Escape HTML attribute values to prevent injection
+function escAttr(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function seoPage({ title, description, keywords, h1, subtitle, content, canonical }) {
+  // Escape attribute-context values (title, description, keywords, canonical)
+  const safeTitle = escAttr(title);
+  const safeDesc = escAttr(description);
+  const safeKeywords = escAttr(keywords);
+  const safeCanonical = escAttr(canonical);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title}</title>
-<meta name="description" content="${description}">
-<meta name="keywords" content="${keywords}">
+<title>${safeTitle}</title>
+<meta name="description" content="${safeDesc}">
+<meta name="keywords" content="${safeKeywords}">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://trackly.so${canonical}">
+<link rel="canonical" href="https://trackly.so${safeCanonical}">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://trackly.so${canonical}">
-<meta property="og:title" content="${title}">
-<meta property="og:description" content="${description}">
+<meta property="og:url" content="https://trackly.so${safeCanonical}">
+<meta property="og:title" content="${safeTitle}">
+<meta property="og:description" content="${safeDesc}">
 <meta property="og:site_name" content="Trackly">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${title}">
-<meta name="twitter:description" content="${description}">
+<meta name="twitter:title" content="${safeTitle}">
+<meta name="twitter:description" content="${safeDesc}">
 <meta name="theme-color" content="#FF6154">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

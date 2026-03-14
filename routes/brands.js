@@ -22,11 +22,22 @@ const PLATFORM_KEY_MAP = {
 // client disconnects (tab close) and frontend can poll for status.
 const activeRuns = new Map(); // runId → { status, received, totalExpected, results, ... }
 
+// Per-brand lock to prevent concurrent runs corrupting the same brand's data
+const brandRunLocks = new Set(); // brandId → active if set
+
 // Clean up completed runs after 10 minutes to avoid memory leaks
 setInterval(() => {
   const cutoff = Date.now() - 10 * 60 * 1000;
   for (const [id, run] of activeRuns) {
-    if (run.completedAt && run.completedAt < cutoff) activeRuns.delete(id);
+    if (run.completedAt && run.completedAt < cutoff) {
+      activeRuns.delete(id);
+      brandRunLocks.delete(run.brandId);
+    }
+  }
+  // Safety: clear stale brand locks (in case a run crashed without releasing)
+  for (const brandId of brandRunLocks) {
+    const hasActive = [...activeRuns.values()].some(r => r.brandId === brandId && r.status === 'running');
+    if (!hasActive) brandRunLocks.delete(brandId);
   }
 }, 60 * 1000);
 
@@ -299,6 +310,14 @@ router.post('/:id/run', auth, async (req, res) => {
 
     totalExpected = queries.length * activePlatforms.length;
     runId = uid();
+
+    // Prevent concurrent runs on the same brand
+    if (brandRunLocks.has(brand.id)) {
+      const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
+      if (streaming) return sseError(res, errMsg);
+      return res.status(409).json({ error: errMsg });
+    }
+    brandRunLocks.add(brand.id);
   } catch(e) {
     console.error('[Run] Validation error:', e.message);
     if (streaming) return sseError(res, 'Failed to start run: ' + e.message);
@@ -464,28 +483,27 @@ router.post('/:id/run', auth, async (req, res) => {
         saveBrandObj.runs = saveBrandObj.runs.slice(-30);
       }
 
-      // Rebuild queryStats
+      // Rebuild queryStats — single pass over runs (O(runs × mentions) instead of O(runs × queries))
       const qsNew = {};
       queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+      const citMap = {};
       saveBrandObj.runs.forEach(run => {
-        queries.forEach(q => {
+        // Count runs per query — use a Set of mentioned queries for O(1) lookup
+        const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
+        for (const q of queries) {
           if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
           qsNew[q].runs++;
-          if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
-        });
-      });
-      saveBrandObj.queryStats = qsNew;
-
-      // Rebuild citations
-      const citMap = {};
-      saveBrandObj.runs.forEach(r => {
-        (r.mentions||[]).forEach(m => {
+          if (mentionedQueries.has(q)) qsNew[q].mentions++;
+        }
+        // Build citations map in same pass
+        (run.mentions||[]).forEach(m => {
           (m.citations||[]).forEach(url => {
             if (!citMap[url]) citMap[url] = { url, count: 0 };
             citMap[url].count++;
           });
         });
       });
+      saveBrandObj.queryStats = qsNew;
       saveBrandObj.citations = citMap;
 
       // Update all-time mentions
@@ -524,12 +542,14 @@ router.post('/:id/run', auth, async (req, res) => {
       runState.status = 'done';
       runState.finalData = { brand: saveBrandObj, result: finalResult };
       runState.completedAt = Date.now();
+      brandRunLocks.delete(brand.id);
 
       // Stream final event if client is still connected
       sendEvent('done', { brand: saveBrandObj, result: finalResult });
       if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
 
     } catch(e) {
+      brandRunLocks.delete(brand.id);
       console.error('[Run]', e.message, e.stack);
       // Emergency save
       try {
@@ -564,7 +584,14 @@ router.post('/:id/run', auth, async (req, res) => {
       sendEvent('error', { error: 'Failed to run queries: ' + e.message, savedResults: (allResults || []).length });
       if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
     }
-  })();
+  })().catch(e => {
+    // Safety net: prevent unhandled rejection from crashing the process
+    brandRunLocks.delete(brand.id);
+    console.error('[Run] Unhandled execution error:', e.message);
+    runState.status = 'error';
+    runState.error = e.message;
+    runState.completedAt = Date.now();
+  });
 
   // If NOT streaming, wait for completion and return JSON
   if (!streaming) {
@@ -825,16 +852,17 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
       }
     }
 
-    // Rebuild queryStats
+    // Rebuild queryStats — single pass
     const allQueries = brand.queries || [];
     const qsNew = {};
     allQueries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
     (brand.runs || []).forEach(r => {
-      allQueries.forEach(q => {
+      const mentionedQueries = new Set((r.mentions || []).map(m => m.query));
+      for (const q of allQueries) {
         if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
         qsNew[q].runs++;
-        if ((r.mentions || []).some(m => m.query === q)) qsNew[q].mentions++;
-      });
+        if (mentionedQueries.has(q)) qsNew[q].mentions++;
+      }
     });
     brand.queryStats = qsNew;
 
@@ -1036,24 +1064,22 @@ async function runBrandQueries(brand) {
 
   const qsNew = {};
   queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
+  const citMap = {};
   brand.runs.forEach(run => {
-    queries.forEach(q => {
+    const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
+    for (const q of queries) {
       if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
       qsNew[q].runs++;
-      if ((run.mentions||[]).some(m => m.query === q)) qsNew[q].mentions++;
-    });
-  });
-  brand.queryStats = qsNew;
-
-  const citMap = {};
-  brand.runs.forEach(r => {
-    (r.mentions||[]).forEach(m => {
+      if (mentionedQueries.has(q)) qsNew[q].mentions++;
+    }
+    (run.mentions||[]).forEach(m => {
       (m.citations||[]).forEach(url => {
         if (!citMap[url]) citMap[url] = { url, count: 0 };
         citMap[url].count++;
       });
     });
   });
+  brand.queryStats = qsNew;
   brand.citations = citMap;
 
   if (!brand.sovHistory) brand.sovHistory = [];

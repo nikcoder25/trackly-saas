@@ -6,6 +6,8 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const router  = express.Router();
 
+const rateLimit = require('express-rate-limit');
+
 const { pool, auditLog } = require('../config/db');
 const { auth, JWT_SECRET } = require('../middleware/auth');
 const { uid, safeUser } = require('../lib/helpers');
@@ -13,6 +15,18 @@ const { getPlanLimits } = require('../lib/plans');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email');
 const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = require('../lib/totp');
 const crypto = require('crypto');
+
+// Stricter rate limit for 2FA attempts — 5 attempts per 15 minutes per IP
+const twoFALimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many 2FA attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
+  // Only apply when the request includes a totpCode (2FA attempt)
+  skip: (req) => !req.body?.totpCode
+});
 
 router.post('/register', async (req, res) => {
   const { email, password, name, username } = req.body;
@@ -39,7 +53,7 @@ router.post('/register', async (req, res) => {
       if (existingUser.rows.length) return res.status(400).json({ error: 'Username already taken' });
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const id = uid();
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
@@ -65,7 +79,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', twoFALimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email/username and password required' });
   try {
@@ -95,14 +109,32 @@ router.post('/login', async (req, res) => {
       if (!isValidTotp && backupIndex === -1) {
         return res.status(400).json({ error: 'Invalid 2FA code' });
       }
-      // Consume backup code if used
+      // Consume backup code atomically — use a transaction to prevent race condition
+      // where two simultaneous logins both use the same backup code
       if (backupIndex !== -1) {
-        const updatedCodes = [...backupCodes];
-        updatedCodes.splice(backupIndex, 1);
-        await pool.query(
-          `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
-          [JSON.stringify({ totp_backup_codes: updatedCodes }), user.id]
-        );
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          const freshUser = await client.query('SELECT settings FROM users WHERE id = $1 FOR UPDATE', [user.id]);
+          const freshCodes = freshUser.rows[0]?.settings?.totp_backup_codes || [];
+          const freshIndex = freshCodes.indexOf(totpCode);
+          if (freshIndex === -1) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Backup code already used' });
+          }
+          const updatedCodes = [...freshCodes];
+          updatedCodes.splice(freshIndex, 1);
+          await client.query(
+            `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
+            [JSON.stringify({ totp_backup_codes: updatedCodes }), user.id]
+          );
+          await client.query('COMMIT');
+        } catch(txErr) {
+          await client.query('ROLLBACK').catch(() => {});
+          throw txErr;
+        } finally {
+          client.release();
+        }
       }
     }
 
@@ -200,7 +232,7 @@ router.post('/change-password', auth, async (req, res) => {
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     const ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!ok) return res.status(400).json({ error: 'Current password is incorrect' });
-    const hash = await bcrypt.hash(newPassword, 10);
+    const hash = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
     auditLog(req.user.id, 'change_password', 'user', req.user.id, {}, req.ip);
     res.json({ message: 'Password updated successfully' });
@@ -271,7 +303,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
     const entry = result.rows[0];
-    const hash = await bcrypt.hash(newPassword, 10);
+    const hash = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, entry.user_id]);
     await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
     res.json({ message: 'Password reset successfully. You can now log in.' });

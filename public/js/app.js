@@ -41,6 +41,11 @@ let liveRunTime = null;   // Timestamp of current live run
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Safe brand update — avoids brands[-1] corruption when findIndex returns -1
+function updateBrandInList(updatedBrand) {
+  const idx = brands.findIndex(x => x.id === updatedBrand.id);
+  if (idx !== -1) brands[idx] = updatedBrand;
+}
 function escAttr(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
 function safeBtoa(s){ try { return btoa(s); } catch(e) { return btoa(encodeURIComponent(s).replace(/%[0-9A-F]{2}/g,'')); } }
 function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
@@ -72,7 +77,7 @@ function storeRunError(entry) {
     errors.unshift(entry);
     // Keep last 20 errors
     localStorage.setItem('trackly_run_errors', JSON.stringify(errors.slice(0, 20)));
-  } catch(_) {}
+  } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 }
 function getStoredRunErrors() {
   try { return JSON.parse(localStorage.getItem('trackly_run_errors') || '[]'); } catch(_) { return []; }
@@ -151,6 +156,9 @@ function updatePasswordStrength(pw){
   el('pw-strength-text').style.color = colors[score];
 }
 
+// Token refresh lock — prevents multiple simultaneous refresh attempts
+let _refreshPromise = null;
+
 async function api(method, path, data){
   // Longer timeout for run endpoints (5 min), default 30s for other calls
   const timeoutMs = path.includes('/run') ? 300000 : 30000;
@@ -172,17 +180,26 @@ async function api(method, path, data){
   // Auto-refresh token on 401 (not for auth endpoints themselves)
   if (res.status === 401 && refreshToken && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
     try {
-      const refreshRes = await fetch(API + '/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken })
-      });
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json();
-        token = refreshData.token;
-        refreshToken = refreshData.refreshToken;
-        localStorage.setItem('trackly_token', token);
-        localStorage.setItem('trackly_refresh', refreshToken);
+      // Use shared promise to prevent concurrent refresh attempts
+      if (!_refreshPromise) {
+        _refreshPromise = fetch(API + '/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        }).then(async (refreshRes) => {
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json();
+            token = refreshData.token;
+            refreshToken = refreshData.refreshToken;
+            localStorage.setItem('trackly_token', token);
+            localStorage.setItem('trackly_refresh', refreshToken);
+            return true;
+          }
+          return false;
+        }).finally(() => { _refreshPromise = null; });
+      }
+      const refreshOk = await _refreshPromise;
+      if (refreshOk) {
         // Retry original request with new token
         opts.headers['Authorization'] = 'Bearer ' + token;
         res = await fetch(API + path, opts);
@@ -433,6 +450,10 @@ function renderBrandSelect(){
 function switchBrand(id){
   currentBrandId = id;
   localStorage.setItem('trackly_brand', id);
+  // Clear live results to prevent mixing data from different brands
+  if (!runningQueries) {
+    liveResults = [];
+  }
   const b = brand();
   if (b) renderAll();
 }
@@ -457,6 +478,11 @@ function go(view){
   }
   if (currentView === 'overview' && window._ovMiniChart) {
     window._ovMiniChart.destroy(); window._ovMiniChart = null;
+  }
+  // Clear run age timer when leaving overview to prevent memory leak
+  if (currentView === 'overview' && _runAgeTimer) {
+    clearInterval(_runAgeTimer);
+    _runAgeTimer = null;
   }
   currentView = view;
   closeMobileMenu();
@@ -729,18 +755,32 @@ async function deleteAccount() {
 
 
 // ── Data Export ────────────────────────────────────────
+async function _downloadViaFetch(url, filename) {
+  try {
+    const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!resp.ok) throw new Error('Download failed');
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch(e) {
+    toast('Export failed: ' + e.message, 'err');
+  }
+}
 function exportAllData() {
   const b = brand();
   if (!b) { toast('No brand selected', 'err'); return; }
-  window.open(API + '/api/export/brand/' + b.id + '?t=' + token, '_blank');
+  _downloadViaFetch(API + '/api/export/brand/' + b.id, `trackly-${b.name || 'brand'}-export.json`);
 }
 function exportAllBrandsData() {
-  window.open(API + '/api/export/all?t=' + token, '_blank');
+  _downloadViaFetch(API + '/api/export/all', 'trackly-full-export.json');
 }
 function exportBrandCSV() {
   const b = brand();
   if (!b) { toast('No brand selected', 'err'); return; }
-  window.open(API + '/api/export/brand/' + b.id + '/csv?t=' + token, '_blank');
+  _downloadViaFetch(API + '/api/export/brand/' + b.id + '/csv', `trackly-${b.name || 'brand'}-data.csv`);
 }
 
 // ── Email Verification ────────────────────────────────
@@ -1011,10 +1051,11 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const b = brand();
   if (!b) return;
 
-  const validResults = liveResults.filter(r => !r.error);
-  const totalResults = liveResults.length;
-  const mentions = liveResults.filter(r => r.mentioned).length;
-  const sov = validResults.length > 0 ? Math.round(mentions / validResults.length * 100) : 0;
+  // Use pre-computed counters instead of filtering liveResults (O(1) vs O(n))
+  const totalResults = received;
+  const validCount = received - liveErrors;
+  const mentions = liveFound;
+  const sov = validCount > 0 ? Math.round(mentions / validCount * 100) : 0;
 
   // Live progress badge in header
   const actionsEl = el('ov-header-actions');
@@ -1044,9 +1085,10 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const lrEl = el('ov-last-run-age');
   if (lrEl) { lrEl.textContent = 'NOW'; lrEl.style.color = 'var(--green)'; }
 
-  // Update GEO scores row
+  // Update GEO scores row (only every 5 results to avoid O(n) filtering on each result)
   const scoresRow = el('ov-scores-row');
-  if (scoresRow && validResults.length > 0) {
+  if (scoresRow && validCount > 0 && (received % 5 === 0 || received >= totalExpected)) {
+    const validResults = liveResults.filter(r => !r.error);
     const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
     const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
     const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
@@ -1893,7 +1935,7 @@ async function clearAllQueries(){
   if (!confirm('Clear all ' + b.queries.length + ' queries? This cannot be undone.')) return;
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries: [] });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     renderOverview();
     toast('All queries cleared', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -1928,7 +1970,7 @@ async function aiGenerateQueries(){
     if (!pick) return;
     const queries = [...(b.queries||[]), ...newQs];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
-    brands[brands.findIndex(x=>x.id===b.id)] = result.brand;
+    updateBrandInList(result.brand);
     renderOverview();
     toast(newQs.length + ' AI-generated queries added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -2769,7 +2811,7 @@ async function addComp(){
   const competitors = [...(b.competitors||[]), v];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     inp.value = '';
     renderCompetitors();
     toast('Competitor added', 'ok');
@@ -2783,7 +2825,7 @@ async function removeComp(i){
   const competitors = (b.competitors||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     renderCompetitors();
     toast('Competitor removed', 'ok');
   } catch(e) { toast(e.message,'err'); }
@@ -2933,7 +2975,7 @@ async function saveWebhook(){
   const url = el('alert-webhook-url').value.trim();
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { webhookUrl: url });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     renderAlerts();
     toast(url ? 'Webhook saved' : 'Webhook removed', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -2961,7 +3003,7 @@ async function loadQuerySuggestions(){
     if (!pick) return;
     const queries = [...(b.queries || []), ...newSuggestions];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
-    brands[brands.findIndex(x=>x.id===b.id)] = result.brand;
+    updateBrandInList(result.brand);
     renderAll();
     toast(newSuggestions.length + ' queries added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -3147,7 +3189,7 @@ async function addAlias(){
   if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     inp.value = '';
     renderAliasTags();
     toast('Alias added', 'ok');
@@ -3161,7 +3203,7 @@ async function removeAlias(i){
   const aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     renderAliasTags();
     toast('Alias removed', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -3179,7 +3221,7 @@ async function autoGenerateAliases(){
   });
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases: newAliases });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     renderAliasTags();
     toast(generated.length + ' aliases generated', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -3210,7 +3252,7 @@ async function addArea(){
   if (!nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) nearbyAreas.push(val);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     inp.value = '';
     renderAreaTags();
     toast('Area added', 'ok');
@@ -3224,7 +3266,7 @@ async function removeArea(i){
   const nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
-    brands[brands.findIndex(x=>x.id===b.id)] = data.brand;
+    updateBrandInList(data.brand);
     renderAreaTags();
     toast('Area removed', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -3248,7 +3290,7 @@ async function autoFetchNearbyAreas(){
 
     const nearbyAreas = [...(b.nearbyAreas || []), ...newAreas];
     const saveData = await api('PUT', '/api/brands/' + b.id, { nearbyAreas });
-    brands[brands.findIndex(x => x.id === b.id)] = saveData.brand;
+    updateBrandInList(saveData.brand);
     renderAreaTags();
     toast(newAreas.length + ' nearby areas added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
@@ -3574,7 +3616,7 @@ async function runQueries(){
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-    } catch(_) {}
+    } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
@@ -3657,7 +3699,7 @@ async function runQueries(){
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-    } catch(_) {}
+    } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
     localStorage.removeItem('trackly_active_run');
     liveResults = [];
@@ -3753,7 +3795,7 @@ async function pollRunStatus(brandId, runId, opts) {
                 renderBrandSelect();
                 if (currentBrandId) el('brand-select').value = currentBrandId;
               }
-            } catch(_) {}
+            } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
             const elapsed = fmtTime(Date.now()-startTime);
             if (timerEl) timerEl.textContent = elapsed;
@@ -3799,7 +3841,7 @@ async function pollRunStatus(brandId, runId, opts) {
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
-            } catch(_) {}
+            } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
             liveResults = [];
             liveRunTime = null;
@@ -3876,7 +3918,7 @@ async function checkActiveRun() {
           if (proofSel) proofSel.value = '';
           renderView(currentView);
         }
-      } catch(_) {}
+      } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
       if (data.status === 'done') {
         toast('Query run completed while you were away. Results are ready!', 'ok');
       }
@@ -4112,7 +4154,7 @@ async function renderApiLogs(){
       const runCost = runningMap[log.id] || 0;
       const runCostStr = runCost > 0 ? '$' + runCost.toFixed(4) : '—';
       const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-|mistral-)/, '').substring(0, 18);
-      const dataAttr = item.runId ? ` data-runid="${item.runId}"` : '';
+      const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       tbl += `<tr${dataAttr} style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
         <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>

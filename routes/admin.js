@@ -57,15 +57,16 @@ router.delete('/api-logs', auth, async (req, res) => {
   }
 });
 
-// ─── ACTIVITY LOG (audit trail) ──────────────────────────────────
+// ─── ACTIVITY LOG (audit trail — scoped to current user) ────────
 router.get('/activity-logs', auth, async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const result = await pool.query(
       `SELECT al.*, u.email AS user_email FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
-       ORDER BY al.created_at DESC LIMIT $1`,
-      [limit]
+       WHERE al.user_id = $1
+       ORDER BY al.created_at DESC LIMIT $2`,
+      [req.user.id, limit]
     );
     res.json({ logs: result.rows });
   } catch(e) {
@@ -174,16 +175,20 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-// Admin: list users with brand counts
+// Admin: list users with brand counts (paginated)
 router.get('/admin/users', auth, requireAdmin, async (req, res) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const offset = parseInt(req.query.offset) || 0;
     const result = await pool.query(`
       SELECT u.*, COUNT(b.id)::int AS brand_count
       FROM users u LEFT JOIN brands b ON b.user_id = u.id
       GROUP BY u.id ORDER BY u.created_at
-    `);
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+    const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM users');
     const users = result.rows.map(row => ({ ...safeUser(row), brandCount: row.brand_count || 0 }));
-    res.json({ users, total: users.length });
+    res.json({ users, total: countResult.rows[0].total });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -268,7 +273,7 @@ router.post('/admin/users', auth, requireAdmin, async (req, res) => {
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [trimmedEmail]);
     if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const id = uid();
     const userName = (name || '').trim() || trimmedEmail.split('@')[0];
     const userRole = role === 'admin' ? 'admin' : null;
@@ -309,7 +314,7 @@ router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => 
   try {
     const { password } = req.body;
     if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const result = await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email', [hash, req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     auditLog(req.user.id, 'admin_reset_password', 'user', req.params.id, { email: result.rows[0].email }, req.ip);
