@@ -375,25 +375,24 @@ async function initGoogleSignIn() {
 }
 
 function renderGoogleButtons() {
-  if (!window.google || !googleClientId) return;
-
-  // Show dividers and button containers
-  ['login', 'register'].forEach(panel => {
-    const divider = el('google-divider-' + panel);
-    const btnContainer = el('google-btn-' + panel);
-    if (divider) divider.style.display = 'flex';
-    if (btnContainer) {
-      btnContainer.style.display = 'block';
-      btnContainer.innerHTML = '<button type="button" class="google-signin-btn" onclick="triggerGoogleSignIn()"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>';
-    }
-  });
+  // Google buttons are now always visible in HTML — no dynamic creation needed
 }
 
 async function triggerGoogleSignIn() {
-  if (!window.google || !googleClientId) return;
+  if (!googleClientId && !window.__GOOGLE_CLIENT_ID) {
+    el('auth-err').textContent = 'Google Sign-In is not configured. Please use email and password to sign in.';
+    el('auth-err').style.display = 'block';
+    return;
+  }
+  if (!window.google) {
+    el('auth-err').textContent = 'Google Sign-In is loading. Please try again in a moment.';
+    el('auth-err').style.display = 'block';
+    loadGoogleScript();
+    return;
+  }
 
   google.accounts.id.initialize({
-    client_id: googleClientId,
+    client_id: googleClientId || window.__GOOGLE_CLIENT_ID,
     callback: handleGoogleCredential
   });
   google.accounts.id.prompt();
@@ -424,15 +423,7 @@ function authTab(tab){
   const panel = el('panel-' + tab);
   if (panel) panel.classList.add('active');
   el('auth-err').style.display = 'none';
-  // Show Google button only on login/register panels
-  const showGoogle = (tab === 'login' || tab === 'register');
-  ['login', 'register'].forEach(panel => {
-    const divider = el('google-divider-' + panel);
-    const btn = el('google-btn-' + panel);
-    var hasGoogle = googleClientId || window.__GOOGLE_CLIENT_ID;
-    if (divider) divider.style.display = (showGoogle && hasGoogle) ? '' : 'none';
-    if (btn) btn.style.display = (showGoogle && hasGoogle) ? '' : 'none';
-  });
+  // Google buttons are always visible in HTML — they show a helpful message if not configured
 }
 
 async function doLogin(){
@@ -6191,22 +6182,18 @@ document.addEventListener('keydown', e => {
 
 // ─── AUTO-LOGIN ───────────────────────────────────────────────────
 (async function(){
-  // Load public config (Google Client ID etc.)
+  // Load public config (Google Client ID etc.) with 5s timeout
   try {
-    const cfg = await fetch('/api/config').then(r => r.json());
+    const cfgCtrl = new AbortController();
+    const cfgTimeout = setTimeout(() => cfgCtrl.abort(), 5000);
+    const cfg = await fetch('/api/config', { signal: cfgCtrl.signal }).then(r => r.json());
+    clearTimeout(cfgTimeout);
     if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
   } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
-  // Show/hide Google buttons based on config
+  // Show Google landing button only when configured
   if (window.__GOOGLE_CLIENT_ID) {
     const lg = document.getElementById('land-google-signin');
     if (lg) lg.style.display = '';
-    // Show Google buttons in auth panels
-    ['login', 'register'].forEach(function(panel) {
-      var d = document.getElementById('google-divider-' + panel);
-      var b = document.getElementById('google-btn-' + panel);
-      if (d) d.style.display = '';
-      if (b) b.style.display = '';
-    });
   }
   // Check for password reset token in URL
   const urlParams = new URLSearchParams(window.location.search);
