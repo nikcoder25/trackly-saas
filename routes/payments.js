@@ -162,12 +162,12 @@ if (DODO_WEBHOOK_KEY) {
           const plan = metadata.plan;
 
           if (!userId || !plan) {
-            log.warn('[DodoPayments Webhook] payment.succeeded missing user_id or plan in metadata');
+            log.warn('payment.succeeded missing user_id or plan in metadata');
             return;
           }
 
           if (!['pro', 'agency'].includes(plan)) {
-            log.warn('[DodoPayments Webhook] Invalid plan in metadata:', plan);
+            log.warn('Invalid plan in metadata', { plan });
             return;
           }
 
@@ -180,10 +180,10 @@ if (DODO_WEBHOOK_KEY) {
             log.info(`Upgraded user ${result.rows[0].email} to ${plan} plan`);
             await markWebhookProcessed(eventId, 'payment.succeeded');
           } else {
-            log.warn(`[DodoPayments] User not found for upgrade: ${userId}`);
+            log.warn('User not found for upgrade', { userId });
           }
         } catch(e) {
-          log.error('[DodoPayments Webhook] payment.succeeded error:', e.message);
+          log.error('payment.succeeded error', { error: e.message });
         }
       },
 
@@ -191,8 +191,7 @@ if (DODO_WEBHOOK_KEY) {
       onPaymentFailed: async (payload) => {
         const data = payload.data || payload;
         const metadata = data.metadata || {};
-        log.warn(`[DodoPayments] Payment failed for user ${metadata.user_id || 'unknown'}:`,
-          data.payment_id || 'no payment id');
+        log.warn('Payment failed', { userId: metadata.user_id || 'unknown', paymentId: data.payment_id || null });
       },
 
       // Subscription activated
@@ -207,7 +206,7 @@ if (DODO_WEBHOOK_KEY) {
           const plan = metadata.plan || planFromProductId(productId);
 
           if (!userId || !plan) {
-            log.warn('[DodoPayments Webhook] subscription.active missing user_id or plan');
+            log.warn('subscription.active missing user_id or plan');
             return;
           }
 
@@ -219,10 +218,10 @@ if (DODO_WEBHOOK_KEY) {
             `UPDATE users SET plan = $1, settings = settings || $2::jsonb WHERE id = $3`,
             [plan, JSON.stringify({ dodo_subscription_id: subscriptionId }), userId]
           );
-          log.info(`[DodoPayments] Subscription activated for user ${userId}: ${plan}`);
+          log.info(`Subscription activated for user ${userId}: ${plan}`);
           await markWebhookProcessed('sub_active_' + eventId, 'subscription.active');
         } catch(e) {
-          log.error('[DodoPayments Webhook] subscription.active error:', e.message);
+          log.error('subscription.active error', { error: e.message });
         }
       },
 
@@ -233,10 +232,10 @@ if (DODO_WEBHOOK_KEY) {
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           if (userId) {
-            log.info(`[DodoPayments] Subscription renewed for user ${userId}`);
+            log.info(`Subscription renewed for user ${userId}`);
           }
         } catch(e) {
-          log.error('[DodoPayments Webhook] subscription.renewed error:', e.message);
+          log.error('subscription.renewed error', { error: e.message });
         }
       },
 
@@ -258,16 +257,16 @@ if (DODO_WEBHOOK_KEY) {
               );
               if (result.rows.length) {
                 await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', result.rows[0].id]);
-                log.info(`[DodoPayments] Subscription cancelled, downgraded user ${result.rows[0].id} to free`);
+                log.info(`Subscription cancelled, downgraded user ${result.rows[0].id} to free`);
               }
             }
             return;
           }
           await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
-          log.info(`[DodoPayments] Subscription cancelled, downgraded user ${userId} to free`);
+          log.info(`Subscription cancelled, downgraded user ${userId} to free`);
           await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
         } catch(e) {
-          log.error('[DodoPayments Webhook] subscription.cancelled error:', e.message);
+          log.error('subscription.cancelled error', { error: e.message });
         }
       },
 
@@ -279,9 +278,9 @@ if (DODO_WEBHOOK_KEY) {
           const userId = metadata.user_id;
           if (!userId) return;
           await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
-          log.info(`[DodoPayments] Subscription expired, downgraded user ${userId} to free`);
+          log.info(`Subscription expired, downgraded user ${userId} to free`);
         } catch(e) {
-          log.error('[DodoPayments Webhook] subscription.expired error:', e.message);
+          log.error('subscription.expired error', { error: e.message });
         }
       },
 
@@ -289,7 +288,7 @@ if (DODO_WEBHOOK_KEY) {
       onSubscriptionOnHold: async (payload) => {
         const data = payload.data || payload;
         const metadata = data.metadata || {};
-        log.warn(`[DodoPayments] Subscription on hold for user ${metadata.user_id || 'unknown'}`);
+        log.warn('Subscription on hold', { userId: metadata.user_id || 'unknown' });
       },
 
       // Refund succeeded — downgrade to free
@@ -302,16 +301,16 @@ if (DODO_WEBHOOK_KEY) {
           const userId = metadata.user_id;
           if (!userId) return;
           await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
-          log.info(`[DodoPayments] Refund processed, downgraded user ${userId} to free`);
+          log.info(`Refund processed, downgraded user ${userId} to free`);
           await markWebhookProcessed('refund_' + eventId, 'refund.succeeded');
         } catch(e) {
-          log.error('[DodoPayments Webhook] refund.succeeded error:', e.message);
+          log.error('refund.succeeded error', { error: e.message });
         }
       },
 
       // Log all payloads for debugging
       onPayload: async (payload) => {
-        log.info(`[DodoPayments Webhook] Event: ${payload.type}`);
+        log.info(`Webhook event: ${payload.type}`);
       }
     })
   );
