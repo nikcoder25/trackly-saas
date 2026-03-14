@@ -72,8 +72,23 @@ if (process.env.NODE_ENV === 'production') {
 
 // Security headers
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP to allow inline scripts/styles in SPA
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://accounts.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://accounts.google.com"],
+      frameSrc: ["https://accounts.google.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: []
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } // needed for Google Sign-In popup
 }));
 
 // Gzip compression
@@ -386,6 +401,13 @@ async function sendScheduledReports(frequency) {
 // ─── Password reset page ─────────────────────────────────────────
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── LEGAL PAGES ─────────────────────────────────────────────────
+['privacy', 'terms', 'cookies'].forEach(page => {
+  app.get(`/${page}`, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', `${page}.html`));
+  });
 });
 
 // ─── CATCH-ALL: serve app for SPA routing ────────────────────────
