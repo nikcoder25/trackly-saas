@@ -9,7 +9,7 @@ const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount } = require('../lib/ai-platforms');
-const { parseResponse, detectCompetitors } = require('../lib/parser');
+const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -258,10 +258,6 @@ router.post('/:id/run', auth, async (req, res) => {
     return res.status(400).json({ error: 'No valid platforms selected.' });
   }
 
-  // Stream: send initial metadata so frontend knows total expected
-  const totalExpected = (brand.queries || []).length * activePlatforms.length;
-  sendEvent('start', { totalExpected, platforms: activePlatforms, queries: brand.queries || [] });
-
   const newMentions = [];
   allResults = [];
   const platSOV = {};
@@ -273,85 +269,107 @@ router.post('/:id/run', auth, async (req, res) => {
   // Log context for tracking every API call in the database
   const logCtx = { userId: req.user.id, brandId: brand.id, runId, logFn: logApiCall };
 
-  // Run all platforms in parallel, and within each platform run queries
-  // in parallel batches (batch size = number of API keys for that platform)
-  async function runPlatform(plat) {
-    let pm = 0;
-    const keyName = PLATFORM_KEY_MAP[plat];
-    const keyCount = (keys[keyName] || []).length || 1;
-    const concurrency = Math.min(keyCount, queries.length);
+  // Pre-compile brand regex patterns once — reused for all 80+ parse calls
+  const matcher = buildBrandMatcher(brand);
+
+  // Track consecutive failures per platform for early-abort
+  const platFailCount = {};
+  const FAIL_THRESHOLD = 3; // Skip remaining queries after 3 consecutive failures
+
+  // Build flat list of all (platform, query) pairs for true parallel dispatch
+  // Rate limiting per-key handles the spacing — we just fire them all at once
+  const tasks = [];
+  for (const plat of activePlatforms) {
     resetBatchCount(plat);
-
-    // Process queries in parallel batches
-    for (let i = 0; i < queries.length; i += concurrency) {
-      const batch = queries.slice(i, i + concurrency);
-      const batchResults = await Promise.allSettled(
-        batch.map(async (q) => {
-          const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
-          return { q, result };
-        })
-      );
-
-      for (let bi = 0; bi < batchResults.length; bi++) {
-        const settled = batchResults[bi];
-        const q = batch[bi];
-        if (settled.status === 'fulfilled') {
-          const { result } = settled.value;
-          if (!result) { totalQ++; continue; }
-          const { text, citations: extraCites, model: modelUsed } = result;
-          const parsed = parseResponse(text, brand, q);
-          parsed.simulated = false;
-          if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0,10);
-          totalQ++;
-          const compMentions = detectCompetitors(text, brand.competitors || []);
-          const resultObj = {
-            platform: plat, query: q,
-            context: text.substring(0, 300), raw: text,
-            simulated: false, mentioned: parsed.mentioned,
-            sentiment: parsed.sentiment, recommended: parsed.recommended,
-            citations: parsed.cites, model: modelUsed || plat,
-            locationRelevant: parsed.locationRelevant,
-            matchedLocation: parsed.matchedLocation || '',
-            competitorMentions: compMentions,
-            listPosition: parsed.listPosition || null
-          };
-          allResults.push(resultObj);
-          sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
-          if (parsed.mentioned) {
-            pm++; totalM++;
-            newMentions.push({
-              id: uid(), platform: plat, query: q,
-              context: text.substring(0, 300), raw: text,
-              sentiment: parsed.sentiment, recommended: parsed.recommended,
-              citations: parsed.cites, simulated: false,
-              model: modelUsed || plat,
-              locationRelevant: parsed.locationRelevant,
-              matchedLocation: parsed.matchedLocation || '',
-              time: new Date().toISOString()
-            });
-          }
-        } else {
-          const errMsg = settled.reason?.message || 'Unknown error';
-          console.error(`[${plat}] API error for query "${q}":`, errMsg);
-          const errObj = {
-            platform: plat, query: q,
-            context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
-            simulated: false, mentioned: false,
-            sentiment: 'neutral', recommended: false,
-            citations: [], error: true, errorMessage: errMsg
-          };
-          allResults.push(errObj);
-          totalQ++;
-          sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
-        }
-      }
+    platFailCount[plat] = 0;
+    for (const q of queries) {
+      tasks.push({ plat, q });
     }
-    platSOV[plat] = queries.length > 0 ? Math.round((pm / queries.length) * 100) : 0;
   }
 
-  // Run all platforms simultaneously
-  console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms: ${activePlatforms.join(', ')}`);
-  await Promise.all(activePlatforms.map(plat => runPlatform(plat)));
+  console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls): ${activePlatforms.join(', ')}`);
+  sendEvent('start', { totalExpected: tasks.length, platforms: activePlatforms, queries: brand.queries || [] });
+
+  // Fire all tasks in parallel — rateLimitWait() serializes per-key automatically
+  const settled = await Promise.allSettled(
+    tasks.map(async ({ plat, q }) => {
+      // Early-abort: skip if this platform has failed too many times
+      if (platFailCount[plat] >= FAIL_THRESHOLD) {
+        throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+      }
+      const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
+      // Reset fail count on success
+      platFailCount[plat] = 0;
+      return { plat, q, result };
+    })
+  );
+
+  // Process all results
+  const platMentionCount = {};
+  for (let i = 0; i < settled.length; i++) {
+    const { plat, q } = tasks[i];
+    const s = settled[i];
+
+    if (s.status === 'fulfilled') {
+      const { result } = s.value;
+      if (!result) { totalQ++; continue; }
+      const { text, citations: extraCites, model: modelUsed } = result;
+      const parsed = parseResponse(text, brand, q, matcher);
+      parsed.simulated = false;
+      if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+      totalQ++;
+      const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+      const resultObj = {
+        platform: plat, query: q,
+        context: text.substring(0, 300), raw: text,
+        simulated: false, mentioned: parsed.mentioned,
+        sentiment: parsed.sentiment, recommended: parsed.recommended,
+        citations: parsed.cites, model: modelUsed || plat,
+        locationRelevant: parsed.locationRelevant,
+        matchedLocation: parsed.matchedLocation || '',
+        competitorMentions: compMentions,
+        listPosition: parsed.listPosition || null
+      };
+      allResults.push(resultObj);
+      sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+      if (parsed.mentioned) {
+        totalM++;
+        if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+        platMentionCount[plat]++;
+        newMentions.push({
+          id: uid(), platform: plat, query: q,
+          context: text.substring(0, 300), raw: text,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: parsed.cites, simulated: false,
+          model: modelUsed || plat,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || '',
+          time: new Date().toISOString()
+        });
+      }
+    } else {
+      const errMsg = s.reason?.message || 'Unknown error';
+      // Increment consecutive failure count for early-abort
+      platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+      if (platFailCount[plat] <= FAIL_THRESHOLD) {
+        console.error(`[${plat}] API error for query "${q}":`, errMsg);
+      }
+      const errObj = {
+        platform: plat, query: q,
+        context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
+        simulated: false, mentioned: false,
+        sentiment: 'neutral', recommended: false,
+        citations: [], error: true, errorMessage: errMsg
+      };
+      allResults.push(errObj);
+      totalQ++;
+      sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
+    }
+  }
+  // Calculate per-platform SOV
+  for (const plat of activePlatforms) {
+    platSOV[plat] = queries.length > 0 ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;
+  }
   console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors`);
 
   const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
@@ -789,74 +807,82 @@ async function runBrandQueries(brand) {
   let totalQ = 0, totalM = 0;
   const logCtx = { userId: brand.userId, brandId: brand.id, logFn: logApiCall };
 
-  // Run all platforms in parallel with batched queries per platform
-  async function runCronPlatform(plat) {
-    let pm = 0;
-    const keyName = PLATFORM_KEY_MAP[plat];
-    const keyCount = (keys[keyName] || []).length || 1;
-    const concurrency = Math.min(keyCount, queries.length);
-    resetBatchCount(plat);
+  // Pre-compile brand matcher once for all parse calls
+  const matcher = buildBrandMatcher(brand);
+  const platFailCount = {};
+  const FAIL_THRESHOLD = 3;
 
-    for (let i = 0; i < queries.length; i += concurrency) {
-      const batch = queries.slice(i, i + concurrency);
-      const batchResults = await Promise.allSettled(
-        batch.map(async (q) => {
-          const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
-          return { q, result };
-        })
-      );
-      for (let bi = 0; bi < batchResults.length; bi++) {
-        const settled = batchResults[bi];
-        const q = batch[bi];
-        if (settled.status === 'fulfilled') {
-          const { result } = settled.value;
-          if (!result) { totalQ++; continue; }
-          const { text, citations: extraCites, model: modelUsed } = result;
-          const parsed = parseResponse(text, brand, q);
-          if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-          totalQ++;
-          allResults.push({
-            platform: plat, query: q,
-            context: text.substring(0, 300), raw: text,
-            simulated: false, mentioned: parsed.mentioned,
-            sentiment: parsed.sentiment, recommended: parsed.recommended,
-            citations: parsed.cites, model: modelUsed || plat,
-            locationRelevant: parsed.locationRelevant,
-            matchedLocation: parsed.matchedLocation || '',
-            listPosition: parsed.listPosition || null
-          });
-          if (parsed.mentioned) {
-            pm++; totalM++;
-            newMentions.push({
-              id: uid(), platform: plat, query: q,
-              context: text.substring(0, 300), raw: text,
-              sentiment: parsed.sentiment, recommended: parsed.recommended,
-              citations: parsed.cites, simulated: false,
-              model: modelUsed || plat,
-              locationRelevant: parsed.locationRelevant,
-              matchedLocation: parsed.matchedLocation || '',
-              listPosition: parsed.listPosition || null,
-              time: new Date().toISOString()
-            });
-          }
-        } else {
-          const errMsg = settled.reason?.message || 'Unknown error';
-          console.error(`[Cron][${plat}] API error for "${q}":`, errMsg);
-          allResults.push({
-            platform: plat, query: q,
-            context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
-            simulated: false, mentioned: false,
-            sentiment: 'neutral', recommended: false,
-            citations: [], error: true, errorMessage: errMsg
-          });
-          totalQ++;
-        }
-      }
-    }
-    platSOV[plat] = queries.length ? Math.round((pm/queries.length)*100) : 0;
+  // Build flat task list and fire all in parallel
+  const tasks = [];
+  for (const plat of activePlatforms) {
+    resetBatchCount(plat);
+    platFailCount[plat] = 0;
+    for (const q of queries) tasks.push({ plat, q });
   }
 
-  await Promise.all(activePlatforms.map(plat => runCronPlatform(plat)));
+  const settled = await Promise.allSettled(
+    tasks.map(async ({ plat, q }) => {
+      if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
+      const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
+      platFailCount[plat] = 0;
+      return { plat, q, result };
+    })
+  );
+
+  const platMentionCount = {};
+  for (let i = 0; i < settled.length; i++) {
+    const { plat, q } = tasks[i];
+    const s = settled[i];
+    if (s.status === 'fulfilled') {
+      const { result } = s.value;
+      if (!result) { totalQ++; continue; }
+      const { text, citations: extraCites, model: modelUsed } = result;
+      const parsed = parseResponse(text, brand, q, matcher);
+      if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+      totalQ++;
+      allResults.push({
+        platform: plat, query: q,
+        context: text.substring(0, 300), raw: text,
+        simulated: false, mentioned: parsed.mentioned,
+        sentiment: parsed.sentiment, recommended: parsed.recommended,
+        citations: parsed.cites, model: modelUsed || plat,
+        locationRelevant: parsed.locationRelevant,
+        matchedLocation: parsed.matchedLocation || '',
+        listPosition: parsed.listPosition || null
+      });
+      if (parsed.mentioned) {
+        totalM++;
+        if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+        platMentionCount[plat]++;
+        newMentions.push({
+          id: uid(), platform: plat, query: q,
+          context: text.substring(0, 300), raw: text,
+          sentiment: parsed.sentiment, recommended: parsed.recommended,
+          citations: parsed.cites, simulated: false,
+          model: modelUsed || plat,
+          locationRelevant: parsed.locationRelevant,
+          matchedLocation: parsed.matchedLocation || '',
+          listPosition: parsed.listPosition || null,
+          time: new Date().toISOString()
+        });
+      }
+    } else {
+      platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+      const errMsg = s.reason?.message || 'Unknown error';
+      if (platFailCount[plat] <= FAIL_THRESHOLD) console.error(`[Cron][${plat}] API error for "${q}":`, errMsg);
+      allResults.push({
+        platform: plat, query: q,
+        context: `[API Error] ${errMsg}`, raw: `[API Error] ${errMsg}`,
+        simulated: false, mentioned: false,
+        sentiment: 'neutral', recommended: false,
+        citations: [], error: true, errorMessage: errMsg
+      });
+      totalQ++;
+    }
+  }
+  for (const plat of activePlatforms) {
+    platSOV[plat] = queries.length ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;
+  }
 
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   if (!brand.runs) brand.runs = [];
