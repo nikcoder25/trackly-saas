@@ -1136,15 +1136,72 @@ router.post('/brands/:id/copilot', auth, async (req, res) => {
       recentData: diagResult.rows
     };
 
-    // Generate a structured answer without calling external LLM
-    // This is a rules-based copilot for v1
-    const answer = generateCopilotAnswer(question, context);
+    // Try AI-powered answer first, fall back to rules-based
+    let answer;
+    let aiPowered = false;
+    try {
+      const { getServerKeys } = require('../lib/helpers');
+      const keys = getServerKeys();
+      const platformOrder = ['deepseek', 'gemini', 'openai', 'mistral', 'claude', 'perplexity'];
+      const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', mistral: 'Mistral', claude: 'Claude', perplexity: 'Perplexity' };
+      let aiPlatform = null;
+      for (const p of platformOrder) {
+        if (keys[p] && keys[p].length > 0) { aiPlatform = platformMap[p]; break; }
+      }
+      if (aiPlatform) {
+        const { queryAI } = require('../lib/ai-platforms');
+        const copilotPrompt = buildCopilotPrompt(question, context);
+        const result = await queryAI(copilotPrompt, aiPlatform, {}, keys, {});
+        if (result && result.text && result.text.trim().length > 10) {
+          answer = result.text.trim();
+          aiPowered = true;
+        }
+      }
+    } catch(aiErr) {
+      // AI call failed — fall back to rules-based
+    }
+    if (!answer) {
+      answer = generateCopilotAnswer(question, context);
+    }
 
-    res.json({ answer, context: { sov: context.currentSov, trend: context.sovTrend } });
+    res.json({ answer, aiPowered, context: { sov: context.currentSov, trend: context.sovTrend } });
   } catch(e) {
     res.status(500).json({ error: 'Failed to process question' });
   }
 });
+
+function buildCopilotPrompt(question, ctx) {
+  // Build a compact data summary for the LLM
+  const sentimentSummary = {};
+  const platformSummary = {};
+  ctx.recentData.forEach(r => {
+    if (r.mentioned) sentimentSummary[r.sentiment] = (sentimentSummary[r.sentiment] || 0) + r.count;
+    if (!platformSummary[r.platform]) platformSummary[r.platform] = { total: 0, mentioned: 0 };
+    platformSummary[r.platform].total += r.count;
+    if (r.mentioned) platformSummary[r.platform].mentioned += r.count;
+  });
+
+  const platBreakdown = Object.entries(platformSummary)
+    .map(([p, d]) => `${p}: ${d.mentioned}/${d.total} mentions (${d.total > 0 ? Math.round(d.mentioned/d.total*100) : 0}%)`)
+    .join(', ');
+
+  return `You are Trackly Copilot, an AI assistant for the Trackly AI Visibility platform. Answer the user's question about their brand data concisely and helpfully.
+
+Brand: ${ctx.brandName}
+Industry: ${ctx.industry || 'Not specified'}
+Current Share of Voice (SOV): ${ctx.currentSov}%
+SOV Trend: ${ctx.sovTrend > 0 ? '+' : ''}${ctx.sovTrend}%
+Total Runs: ${ctx.totalRuns}
+Tracked Platforms: ${ctx.platforms.join(', ') || 'None yet'}
+Competitors: ${ctx.competitors.length > 0 ? ctx.competitors.join(', ') : 'None configured'}
+Queries Tracked: ${ctx.queries.length} (${ctx.queries.slice(0, 5).join('; ')}${ctx.queries.length > 5 ? '...' : ''})
+Platform Breakdown (last 7 days): ${platBreakdown || 'No data'}
+Sentiment (last 7 days): ${Object.entries(sentimentSummary).map(([k,v]) => `${k}: ${v}`).join(', ') || 'No data'}
+
+User question: ${question}
+
+Keep your answer under 200 words. Be specific with numbers from the data. If you don't have enough data to answer, say so and suggest what the user should do (e.g., run more queries, add competitors).`;
+}
 
 function generateCopilotAnswer(question, ctx) {
   const q = question.toLowerCase();
