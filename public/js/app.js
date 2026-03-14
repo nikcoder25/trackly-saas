@@ -39,6 +39,14 @@ function showLanding(){
   el('auth-page').style.display = 'none';
   el('app').style.display = 'none';
 }
+function toggleLandingMenu(){
+  var menu = el('land-nav-menu');
+  if(menu) menu.classList.toggle('open');
+}
+function closeLandingMenu(){
+  var menu = el('land-nav-menu');
+  if(menu) menu.classList.remove('open');
+}
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const API = '';  // relative URLs - same server
