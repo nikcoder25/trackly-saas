@@ -17,13 +17,14 @@ if (process.env.NODE_ENV === 'production' && !process.env.ALLOWED_ORIGINS) {
   console.warn('[WARN] ALLOWED_ORIGINS not set in production. CORS will reject all cross-origin requests.');
 }
 
-const express     = require('express');
-const cors        = require('cors');
-const helmet      = require('helmet');
-const compression = require('compression');
-const rateLimit   = require('express-rate-limit');
-const cron        = require('node-cron');
-const path        = require('path');
+const express      = require('express');
+const cors         = require('cors');
+const helmet       = require('helmet');
+const compression  = require('compression');
+const cookieParser = require('cookie-parser');
+const rateLimit    = require('express-rate-limit');
+const cron         = require('node-cron');
+const path         = require('path');
 
 const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
 const { auth }         = require('./middleware/auth');
@@ -103,6 +104,23 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '2mb' }));
+app.use(cookieParser());
+
+// ─── CSRF PROTECTION ─────────────────────────────────────────────
+// Validate Origin header on state-changing requests to prevent cross-site
+// form submissions. Safe because browsers always send Origin on POST/PUT/DELETE.
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  const origin = req.headers.origin;
+  if (!origin) return next(); // Server-to-server or same-origin (older browsers omit Origin)
+  const allowed = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+    : null;
+  // In dev mode (no ALLOWED_ORIGINS), allow all origins
+  if (!allowed) return next();
+  if (allowed.includes(origin)) return next();
+  return res.status(403).json({ error: 'Forbidden — origin not allowed' });
+});
 
 // Rate limit handler — includes retryAfter in response body
 function rateLimitHandler(windowMs) {
