@@ -69,7 +69,10 @@ router.post('/checkout', auth, async (req, res) => {
 
   // Don't allow if already on same or higher plan
   const tiers = { free: 0, pro: 1, agency: 2, owner: 3 };
-  if ((tiers[user.plan] || 0) >= (tiers[plan] || 0)) {
+  const currentTier = tiers[user.plan];
+  const targetTier = tiers[plan];
+  // Guard against unknown plan values (undefined tier would bypass the check)
+  if (currentTier === undefined || targetTier === undefined || currentTier >= targetTier) {
     return res.status(400).json({ error: `You are already on the ${user.plan} plan.` });
   }
 

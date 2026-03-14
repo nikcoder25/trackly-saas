@@ -55,7 +55,14 @@ app.set('trust proxy', 1); // Trust first proxy (Railway, Render, etc.)
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
     if (req.headers['x-forwarded-proto'] !== 'https') {
-      return res.redirect(301, 'https://' + req.headers.host + req.url);
+      // Validate Host header against ALLOWED_ORIGINS to prevent host header injection
+      const allowedHosts = (process.env.ALLOWED_ORIGINS || '')
+        .split(',').map(s => { try { return new URL(s.trim()).host; } catch { return s.trim(); } }).filter(Boolean);
+      const host = req.headers.host || '';
+      if (allowedHosts.length && !allowedHosts.includes(host)) {
+        return res.status(400).send('Invalid host');
+      }
+      return res.redirect(301, 'https://' + host + req.url);
     }
     // HSTS header — force HTTPS for 1 year
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');

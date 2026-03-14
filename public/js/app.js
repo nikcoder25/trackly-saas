@@ -1216,7 +1216,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
     const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
     const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
-    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : (b.city ? 0 : 1);
+    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : 0;
     const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
     const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
     const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
@@ -1518,7 +1518,7 @@ function renderOverview(){
     const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
     const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
     const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
-    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : (b.city ? 0 : 1);
+    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : 0;
     const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
     const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
     const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
@@ -4863,7 +4863,8 @@ async function renderPromptDetail() {
       const totalRuns = platforms.reduce((s, p) => s + (p.total_runs || 0), 0);
       const totalMentions = platforms.reduce((s, p) => s + (p.mention_count || 0), 0);
       const avgRate = totalRuns > 0 ? (totalMentions / totalRuns * 100).toFixed(1) : 0;
-      const avgRank = platforms.filter(p => p.avg_rank).reduce((s, p) => s + parseFloat(p.avg_rank), 0) / (platforms.filter(p => p.avg_rank).length || 1);
+      const rankedPlatforms = platforms.filter(p => p.avg_rank);
+      const avgRank = rankedPlatforms.length > 0 ? rankedPlatforms.reduce((s, p) => s + parseFloat(p.avg_rank), 0) / rankedPlatforms.length : 0;
 
       metricsEl.innerHTML = `
         <div class="card" style="padding:14px;text-align:center;">

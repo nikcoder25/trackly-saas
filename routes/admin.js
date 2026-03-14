@@ -591,7 +591,8 @@ router.get('/export/brand/:id', auth, async (req, res) => {
     // Include archived runs
     const archived = await pool.query('SELECT data FROM archived_runs WHERE brand_id = $1 ORDER BY run_date', [req.params.id]);
     brandData.archivedRuns = archived.rows.map(r => r.data);
-    res.setHeader('Content-Disposition', `attachment; filename="trackly-${brandData.name || 'brand'}-export.json"`);
+    const safeName = (brandData.name || 'brand').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
+    res.setHeader('Content-Disposition', `attachment; filename="trackly-${safeName}-export.json"`);
     res.json(brandData);
   } catch(e) {
     res.status(500).json({ error: 'Export failed' });
@@ -632,7 +633,8 @@ router.get('/export/brand/:id/csv', auth, async (req, res) => {
       });
     });
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="trackly-${data.name || 'brand'}-data.csv"`);
+    const safeName = (data.name || 'brand').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
+    res.setHeader('Content-Disposition', `attachment; filename="trackly-${safeName}-data.csv"`);
     res.send(rows.join('\n'));
   } catch(e) {
     res.status(500).json({ error: 'CSV export failed' });

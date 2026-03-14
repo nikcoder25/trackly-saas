@@ -16,6 +16,19 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email'
 const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = require('../lib/totp');
 const crypto = require('crypto');
 
+// Per-account brute force protection — 10 failed attempts per 15 min per email/username
+// Prevents distributed attacks targeting a single account from many IPs
+const loginAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts for this account. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
+  keyGenerator: (req) => 'login_account:' + (req.body?.email || '').toString().toLowerCase().trim(),
+  skipSuccessfulRequests: true
+});
+
 // Stricter rate limit for 2FA attempts — 5 attempts per 15 minutes per IP
 const twoFALimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -46,8 +59,7 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
-    if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
+    // Pre-check username availability (email uniqueness enforced atomically below)
     if (trimmedUsername) {
       const existingUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
       if (existingUser.rows.length) return res.status(400).json({ error: 'Username already taken' });
@@ -57,10 +69,16 @@ router.post('/register', async (req, res) => {
     const id = uid();
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
-    await pool.query(
-      'INSERT INTO users (id, email, username, name, password_hash, plan, verify_token) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    // Use INSERT...ON CONFLICT to atomically prevent duplicate email registration
+    // (eliminates race condition between SELECT check and INSERT)
+    const insertResult = await pool.query(
+      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id`,
       [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
     );
+    if (!insertResult.rows.length) return res.status(400).json({ error: 'Email already registered' });
 
     // Send verification email
     sendVerificationEmail(email.toLowerCase(), verifyToken).catch(e => {
@@ -79,7 +97,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', twoFALimiter, async (req, res) => {
+router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email/username and password required' });
   try {
@@ -90,10 +108,11 @@ router.post('/login', twoFALimiter, async (req, res) => {
       ? await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(email) = LOWER($1)`, [email])
       : await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(username) = LOWER($1)`, [email]);
     const user = result.rows[0];
-    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(400).json({ error: 'Invalid email or password' });
+    // Always run bcrypt.compare even when user is not found to prevent
+    // timing-based user enumeration (constant-time regardless of user existence)
+    const DUMMY_HASH = '$2a$12$000000000000000000000uGiltNn9J1kOXqSqMpNQHCbSZkHm5mZS';
+    const ok = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
+    if (!user || !ok) return res.status(400).json({ error: 'Invalid credentials' });
 
     // Check if 2FA is enabled
     const totpSecret = user.settings?.totp_secret;
@@ -190,12 +209,15 @@ router.post('/refresh', async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
-    const result = await pool.query('SELECT id, email, refresh_token FROM users WHERE refresh_token = $1', [refreshToken]);
+    // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent
+    // refresh requests both read the same token before either rotates it
+    const newRefreshToken = crypto.randomBytes(40).toString('hex');
+    const result = await pool.query(
+      'UPDATE users SET refresh_token = $1 WHERE refresh_token = $2 RETURNING id, email',
+      [newRefreshToken, refreshToken]
+    );
     if (!result.rows.length) return res.status(401).json({ error: 'Invalid refresh token' });
     const user = result.rows[0];
-    // Rotate refresh token
-    const newRefreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
     const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
     res.json({ token: accessToken, refreshToken: newRefreshToken });
   } catch(e) {
