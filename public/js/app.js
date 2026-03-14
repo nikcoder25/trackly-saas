@@ -1035,7 +1035,7 @@ function showLiveNotif(result) {
       const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
       const rawHtml = mdToHtml(raw);
       const hre = b ? brandHighlightRe(b) : null;
-      textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
+      textEl.innerHTML = hre ? rawHtml.replace(hre, (m) => '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">'+esc(m)+'</mark>') : rawHtml;
       const cc = el('resp-modal-cites');
       const cites = result.citations||[];
       if (cc) {
@@ -1349,7 +1349,7 @@ function appendLiveProofCard(result) {
   const isMentioned = result.mentioned;
   const preview = isError ? friendlyError(result.errorMessage) : (result.context || '').replace(/[#*_~`]/g,'').substring(0, 300);
   const proofHre = brandHighlightRe(b);
-  const displayResp = proofHre && preview ? preview.replace(proofHre,'<mark>$1</mark>') : preview;
+  const displayResp = proofHre && preview ? preview.replace(proofHre, (m) => '<mark>'+esc(m)+'</mark>') : preview;
   const statusBadge = isError
     ? `<div class="proof-card-badge" style="color:var(--amber);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);font-weight:700;border-radius:var(--radius-full);">⚠ ERROR</div>`
     : isMentioned
@@ -2350,7 +2350,7 @@ function renderMentions(){
     if (open) {
       const full = isErr ? friendlyError(r.errorMessage) : (r.raw||r.context||'');
       const hre = brandHighlightRe(b);
-      const hlHtml = hre ? mdToHtml(full).replace(hre,'<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>') : mdToHtml(full);
+      const hlHtml = hre ? mdToHtml(full).replace(hre, (m) => '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">'+esc(m)+'</mark>') : mdToHtml(full);
 
       html += `<div class="mt-detail" style="animation:slideDown .2s ease;">
         <div class="mt-detail-body">
@@ -2417,7 +2417,7 @@ function openResp(mentionId){
     textEl.style.whiteSpace = 'normal';
     const rawHtml = mdToHtml(m.raw || m.context || '');
     const hre = brandHighlightRe(b);
-    textEl.innerHTML = hre ? rawHtml.replace(hre, '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">$1</mark>') : rawHtml;
+    textEl.innerHTML = hre ? rawHtml.replace(hre, (m) => '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">'+esc(m)+'</mark>') : rawHtml;
     // Citations
     const cc = el('resp-modal-cites');
     const cites = m.citations||[];
@@ -2586,7 +2586,7 @@ function renderProof(){
       const proofHre = brandHighlightRe(b);
       // Highlight brand name in ALL responses (not just mentioned) so user can verify
       const displayResp = proofHre
-        ? renderedResp.replace(proofHre,'<mark>$1</mark>')
+        ? renderedResp.replace(proofHre, (m) => '<mark>'+esc(m)+'</mark>')
         : renderedResp;
       const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
       const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
