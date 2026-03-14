@@ -141,6 +141,10 @@ app.use('/', seoRoutes);
 // ─── SCHEDULED RUNS (cron) ───────────────────────────────────────
 const { runBrandQueries } = require('./routes/brands');
 
+// Cron concurrency — process up to 5 brands simultaneously to avoid
+// sequential bottleneck at scale (300+ users with scheduled brands).
+const CRON_BATCH_SIZE = 5;
+
 cron.schedule('0 * * * *', async () => {
   try {
     // Only fetch brands that have a schedule configured (avoid full table scan)
@@ -151,21 +155,38 @@ cron.schedule('0 * * * *', async () => {
     if (!result.rows.length) return;
     console.log(`[Cron] Found ${result.rows.length} brands with active schedules`);
     const now = Date.now();
+
+    // Filter to brands that are due for a run
+    const dueBrands = [];
     for (const row of result.rows) {
       const brand = { id: row.id, userId: row.user_id, ...row.data };
       if (!brand.schedule) continue;
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
       const intervalMs = brand.schedule * 3600 * 1000;
       if (now - lastRun >= intervalMs) {
-        console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
-        try {
-          await runBrandQueries(brand);
-        } catch(e) {
-          console.error(`[Cron] Error for ${brand.name}:`, e.message);
-          notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
-        }
+        dueBrands.push(brand);
       }
     }
+
+    if (!dueBrands.length) return;
+    console.log(`[Cron] ${dueBrands.length} brands due for scheduled run (batch size: ${CRON_BATCH_SIZE})`);
+
+    // Process in parallel batches of CRON_BATCH_SIZE
+    for (let i = 0; i < dueBrands.length; i += CRON_BATCH_SIZE) {
+      const batch = dueBrands.slice(i, i + CRON_BATCH_SIZE);
+      await Promise.allSettled(
+        batch.map(async (brand) => {
+          console.log(`[Cron] Running scheduled queries for brand: ${brand.name}`);
+          try {
+            await runBrandQueries(brand);
+          } catch(e) {
+            console.error(`[Cron] Error for ${brand.name}:`, e.message);
+            notify(brand.userId, 'run_failed', 'Scheduled Run Failed', `Scheduled run for "${brand.name}" failed: ${e.message}`, { brandId: brand.id });
+          }
+        })
+      );
+    }
+    console.log(`[Cron] Scheduled runs complete: ${dueBrands.length} brands processed`);
   } catch(e) {
     console.error('[Cron] Error:', e.message);
   }

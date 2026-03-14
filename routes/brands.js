@@ -17,6 +17,19 @@ const PLATFORM_KEY_MAP = {
   'DeepSeek': 'deepseek', 'Mistral': 'mistral'
 };
 
+// Cheapest platforms first — used to prioritize when plan limits truncate the list
+// Based on default model cost per query (input+output)
+const PLATFORM_COST_ORDER = [
+  'Gemini',      // gemini-2.0-flash: $0.10/$0.40
+  'Google AIO',  // gemini-2.0-flash + search: $0.10/$0.40
+  'DeepSeek',    // deepseek-chat: $0.27/$1.10
+  'Grok',        // grok-3-mini: $0.30/$0.50
+  'Perplexity',  // sonar: $1.00/$1.00
+  'Claude',      // claude-haiku: $0.80/$4.00
+  'Mistral',     // mistral-large: $2.00/$6.00
+  'ChatGPT'      // gpt-5-search: $2.50/$10.00
+];
+
 // List brands
 router.get('/', auth, async (req, res) => {
   try {
@@ -223,6 +236,9 @@ router.post('/:id/run', auth, async (req, res) => {
     .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
+
+  // Sort by cost (cheapest first) so plan limits pick the most cost-effective platforms
+  availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
 
   if (availablePlatforms.length > limits.platforms) {
     availablePlatforms = availablePlatforms.slice(0, limits.platforms);
@@ -762,6 +778,8 @@ async function runBrandQueries(brand) {
     .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
+  // Sort by cost (cheapest first) so plan limits pick the most cost-effective platforms
+  activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
   if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
   if (!activePlatforms.length || !queries.length) return;
 
