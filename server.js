@@ -423,6 +423,11 @@ async function sendScheduledReports(frequency) {
   }
 }
 
+// ─── Login page (direct URL access) ─────────────────────────────
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ─── Password reset page ─────────────────────────────────────────
 app.get('/reset-password', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
