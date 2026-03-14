@@ -426,45 +426,54 @@ router.post('/:id/run', auth, async (req, res) => {
         const s = settled[i];
 
         if (s.status === 'fulfilled') {
-          const { result } = s.value;
-          if (!result) { totalQ++; runState.received++; continue; }
-          const { text, citations: extraCites, model: modelUsed } = result;
-          const parsed = parseResponse(text, brand, q, matcher);
-          parsed.simulated = false;
-          if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-          totalQ++;
-          const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
-          const resultObj = {
-            platform: plat, query: q,
-            context: text.substring(0, 300), raw: text,
-            simulated: false, mentioned: parsed.mentioned,
-            sentiment: parsed.sentiment, recommended: parsed.recommended,
-            citations: parsed.cites, model: modelUsed || plat,
-            locationRelevant: parsed.locationRelevant,
-            matchedLocation: parsed.matchedLocation || '',
-            competitorMentions: compMentions,
-            listPosition: parsed.listPosition || null
-          };
-          allResults.push(resultObj);
-          // Update run state for polling
-          runState.received++;
-          if (parsed.mentioned) { runState.foundCount++; }
-          runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
-          sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
-          if (parsed.mentioned) {
-            totalM++;
-            if (!platMentionCount[plat]) platMentionCount[plat] = 0;
-            platMentionCount[plat]++;
-            newMentions.push({
-              id: uid(), platform: plat, query: q,
+          try {
+            const { result } = s.value;
+            if (!result) { totalQ++; runState.received++; continue; }
+            const { text, citations: extraCites, model: modelUsed } = result;
+            if (!text || typeof text !== 'string') { totalQ++; runState.received++; continue; }
+            const parsed = parseResponse(text, brand, q, matcher);
+            parsed.simulated = false;
+            if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+            totalQ++;
+            const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+            const resultObj = {
+              platform: plat, query: q,
               context: text.substring(0, 300), raw: text,
+              simulated: false, mentioned: parsed.mentioned,
               sentiment: parsed.sentiment, recommended: parsed.recommended,
-              citations: parsed.cites, simulated: false,
-              model: modelUsed || plat,
+              citations: parsed.cites, model: modelUsed || plat,
               locationRelevant: parsed.locationRelevant,
               matchedLocation: parsed.matchedLocation || '',
-              time: new Date().toISOString()
-            });
+              competitorMentions: compMentions,
+              listPosition: parsed.listPosition || null
+            };
+            allResults.push(resultObj);
+            // Update run state for polling
+            runState.received++;
+            if (parsed.mentioned) { runState.foundCount++; }
+            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
+            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+            if (parsed.mentioned) {
+              totalM++;
+              if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+              platMentionCount[plat]++;
+              newMentions.push({
+                id: uid(), platform: plat, query: q,
+                context: text.substring(0, 300), raw: text,
+                sentiment: parsed.sentiment, recommended: parsed.recommended,
+                citations: parsed.cites, simulated: false,
+                model: modelUsed || plat,
+                locationRelevant: parsed.locationRelevant,
+                matchedLocation: parsed.matchedLocation || '',
+                time: new Date().toISOString()
+              });
+            }
+          } catch(parseErr) {
+            console.error(`[${plat}] Result processing error for query "${q}":`, parseErr.message);
+            allResults.push({ platform: plat, query: q, context: '[Processing Error]', raw: '', simulated: false, mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: parseErr.message });
+            totalQ++;
+            runState.received++;
+            runState.errorCount++;
           }
         } else {
           const errMsg = s.reason?.message || 'Unknown error';
@@ -1076,37 +1085,44 @@ async function runBrandQueries(brand) {
     const { plat, q } = tasks[i];
     const s = settled[i];
     if (s.status === 'fulfilled') {
-      const { result } = s.value;
-      if (!result) { totalQ++; continue; }
-      const { text, citations: extraCites, model: modelUsed } = result;
-      const parsed = parseResponse(text, brand, q, matcher);
-      if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
-      totalQ++;
-      allResults.push({
-        platform: plat, query: q,
-        context: text.substring(0, 300), raw: text,
-        simulated: false, mentioned: parsed.mentioned,
-        sentiment: parsed.sentiment, recommended: parsed.recommended,
-        citations: parsed.cites, model: modelUsed || plat,
-        locationRelevant: parsed.locationRelevant,
-        matchedLocation: parsed.matchedLocation || '',
-        listPosition: parsed.listPosition || null
-      });
-      if (parsed.mentioned) {
-        totalM++;
-        if (!platMentionCount[plat]) platMentionCount[plat] = 0;
-        platMentionCount[plat]++;
-        newMentions.push({
-          id: uid(), platform: plat, query: q,
+      try {
+        const { result } = s.value;
+        if (!result) { totalQ++; continue; }
+        const { text, citations: extraCites, model: modelUsed } = result;
+        if (!text || typeof text !== 'string') { totalQ++; continue; }
+        const parsed = parseResponse(text, brand, q, matcher);
+        if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
+        totalQ++;
+        allResults.push({
+          platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
+          simulated: false, mentioned: parsed.mentioned,
           sentiment: parsed.sentiment, recommended: parsed.recommended,
-          citations: parsed.cites, simulated: false,
-          model: modelUsed || plat,
+          citations: parsed.cites, model: modelUsed || plat,
           locationRelevant: parsed.locationRelevant,
           matchedLocation: parsed.matchedLocation || '',
-          listPosition: parsed.listPosition || null,
-          time: new Date().toISOString()
+          listPosition: parsed.listPosition || null
         });
+        if (parsed.mentioned) {
+          totalM++;
+          if (!platMentionCount[plat]) platMentionCount[plat] = 0;
+          platMentionCount[plat]++;
+          newMentions.push({
+            id: uid(), platform: plat, query: q,
+            context: text.substring(0, 300), raw: text,
+            sentiment: parsed.sentiment, recommended: parsed.recommended,
+            citations: parsed.cites, simulated: false,
+            model: modelUsed || plat,
+            locationRelevant: parsed.locationRelevant,
+            matchedLocation: parsed.matchedLocation || '',
+            listPosition: parsed.listPosition || null,
+            time: new Date().toISOString()
+          });
+        }
+      } catch(parseErr) {
+        console.error(`[Cron][${plat}] Result processing error for "${q}":`, parseErr.message);
+        allResults.push({ platform: plat, query: q, context: '[Processing Error]', raw: '', mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: parseErr.message });
+        totalQ++;
       }
     } else {
       platFailCount[plat] = (platFailCount[plat] || 0) + 1;
