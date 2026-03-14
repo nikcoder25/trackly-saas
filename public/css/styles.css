@@ -362,7 +362,7 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   .land-nav-links a{padding:10px 0;font-size:15px;}
   .land-nav-right{order:2;margin-left:auto;gap:8px;}
   .land-nav-right .land-btn{padding:8px 14px;font-size:12px;}
-  .land-nav-right .land-btn-ghost{display:none;}
+  .land-nav-right .land-btn-ghost{padding:8px 12px;font-size:12px;}
   .land-hero{padding:48px 20px 40px;}
   .land-hero h1{font-size:32px;letter-spacing:-1px;}
   .land-hero p{font-size:16px;}
