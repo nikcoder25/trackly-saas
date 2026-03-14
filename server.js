@@ -156,7 +156,17 @@ const runLimiter = rateLimit({
 });
 app.use('/api/brands/:id/run', runLimiter);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Static assets — cache CSS/JS for 1 day (they're unversioned, so not too aggressive)
+// HTML has no-cache so users always get the latest SPA shell
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  etag: true,
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // ─── API ROUTES ──────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);

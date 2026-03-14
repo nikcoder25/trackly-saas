@@ -58,14 +58,25 @@ const PLATFORM_COST_ORDER = [
 // List brands (includes team-shared brands)
 router.get('/', auth, async (req, res) => {
   try {
-    // Strip `raw` text from runs/mentions/allResults to keep response payload small.
-    // Full raw text is persisted in prompt_runs table and can be fetched on demand.
+    // Trim brand data for API response to keep payloads lightweight.
+    // - Strip `raw` text everywhere (full text is in prompt_runs table)
+    // - Strip `allResults` from older runs (frontend only renders latest 2 runs'
+    //   detailed results; older runs only need summary fields for SOV charts)
+    // - Strip `raw` from mentions
     function trimBrandData(data) {
-      if (data.runs) {
-        for (const run of data.runs) {
+      if (data.runs && data.runs.length > 0) {
+        for (let ri = 0; ri < data.runs.length; ri++) {
+          const run = data.runs[ri];
+          const isRecent = ri >= data.runs.length - 2; // keep last 2 runs' allResults
           if (run.allResults) {
-            for (let i = 0; i < run.allResults.length; i++) {
-              if (run.allResults[i].raw) { delete run.allResults[i].raw; }
+            if (!isRecent) {
+              // Old runs: drop allResults entirely — summary fields (sov, totalQ, totalM, platforms) suffice
+              delete run.allResults;
+            } else {
+              // Recent runs: keep allResults but strip raw text
+              for (let i = 0; i < run.allResults.length; i++) {
+                if (run.allResults[i].raw) { delete run.allResults[i].raw; }
+              }
             }
           }
           if (run.mentions) {
@@ -477,9 +488,11 @@ router.post('/:id/run', auth, async (req, res) => {
             if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
             totalQ++;
             const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+            // Use shorter context for not-found results (150 chars vs 300 for mentioned)
+            const ctxLen = parsed.mentioned ? 300 : 150;
             const resultObj = {
               platform: plat, query: q,
-              context: text.substring(0, 300), raw: text,
+              context: text.substring(0, ctxLen), raw: text,
               simulated: false, mentioned: parsed.mentioned,
               sentiment: parsed.sentiment, recommended: parsed.recommended,
               citations: parsed.cites, model: modelUsed || plat,
@@ -492,8 +505,8 @@ router.post('/:id/run', auth, async (req, res) => {
             // Update run state for polling
             runState.received++;
             if (parsed.mentioned) { runState.foundCount++; }
-            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
-            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, ctxLen) });
+            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, ctxLen) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
             if (parsed.mentioned) {
               totalM++;
               if (!platMentionCount[plat]) platMentionCount[plat] = 0;
@@ -580,7 +593,6 @@ router.post('/:id/run', auth, async (req, res) => {
       // Rebuild queryStats — single pass over runs (O(runs × mentions) instead of O(runs × queries))
       const qsNew = {};
       queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
-      const citMap = {};
       saveBrandObj.runs.forEach(run => {
         // Count runs per query — use a Set of mentioned queries for O(1) lookup
         const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
@@ -589,16 +601,11 @@ router.post('/:id/run', auth, async (req, res) => {
           qsNew[q].runs++;
           if (mentionedQueries.has(q)) qsNew[q].mentions++;
         }
-        // Build citations map in same pass
-        (run.mentions||[]).forEach(m => {
-          (m.citations||[]).forEach(url => {
-            if (!citMap[url]) citMap[url] = { url, count: 0 };
-            citMap[url].count++;
-          });
-        });
       });
       saveBrandObj.queryStats = qsNew;
-      saveBrandObj.citations = citMap;
+      // Remove legacy citations map — never used by frontend, citations are
+      // already persisted in the citations DB table. Saves ~10-50KB per brand.
+      delete saveBrandObj.citations;
 
       // Update all-time mentions (strip raw text — full text is in prompt_runs table)
       if (!saveBrandObj.mentions) saveBrandObj.mentions = [];

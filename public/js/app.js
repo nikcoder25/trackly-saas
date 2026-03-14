@@ -1,3 +1,21 @@
+// ─── LAZY-LOAD CHART.JS ──────────────────────────────────────────
+// Chart.js (~200KB) is only loaded when a chart view is first opened,
+// saving bandwidth on initial page load for all users.
+let _chartJsLoaded = false;
+let _chartJsPromise = null;
+function ensureChartJs() {
+  if (_chartJsLoaded || typeof Chart !== 'undefined') { _chartJsLoaded = true; return Promise.resolve(); }
+  if (_chartJsPromise) return _chartJsPromise;
+  _chartJsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+    s.onload = () => { _chartJsLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('Failed to load Chart.js'));
+    document.head.appendChild(s);
+  });
+  return _chartJsPromise;
+}
+
 // ─── LANDING / AUTH NAVIGATION ────────────────────────────────────
 function showAuth(tab){
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
@@ -1994,43 +2012,47 @@ function renderOverview(){
     ql.appendChild(tag);
   });
 
-  // Mini SOV trend chart on overview
+  // Mini SOV trend chart on overview (lazy-loads Chart.js)
   const miniTrend = el('ov-mini-trend');
   const history = b.sovHistory || [];
-  if (history.length >= 2 && typeof Chart !== 'undefined') {
+  if (history.length >= 2) {
     miniTrend.style.display = 'block';
-    const miniLabels = history.slice(-14).map(h => {
-      const d = new Date(h.date);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
-    const miniData = history.slice(-14).map(h => h.overall);
-    if (window._ovMiniChart) { window._ovMiniChart.destroy(); window._ovMiniChart = null; }
-    const mCtx = el('ov-mini-chart').getContext('2d');
-    window._ovMiniChart = new Chart(mCtx, {
-      type: 'line',
-      data: {
-        labels: miniLabels,
-        datasets: [{
-          label: 'SOV %',
-          data: miniData,
-          borderColor: '#FF6154',
-          backgroundColor: 'rgba(255,97,84,0.08)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: '#FF6154'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
-          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+    ensureChartJs().then(() => {
+      const miniLabels = history.slice(-14).map(h => {
+        const d = new Date(h.date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const miniData = history.slice(-14).map(h => h.overall);
+      if (window._ovMiniChart) { window._ovMiniChart.destroy(); window._ovMiniChart = null; }
+      const canvas = el('ov-mini-chart');
+      if (!canvas) return;
+      const mCtx = canvas.getContext('2d');
+      window._ovMiniChart = new Chart(mCtx, {
+        type: 'line',
+        data: {
+          labels: miniLabels,
+          datasets: [{
+            label: 'SOV %',
+            data: miniData,
+            borderColor: '#FF6154',
+            backgroundColor: 'rgba(255,97,84,0.08)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#FF6154'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
+            y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+          }
         }
-      }
-    });
+      });
+    }).catch(() => {});
   } else {
     miniTrend.style.display = 'none';
   }
@@ -3105,6 +3127,14 @@ let platSovChartInstance = null;
 
 function renderTrends(){
   const b = brand(); if (!b) return;
+
+  // Lazy-load Chart.js then render
+  ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
+    const cont = document.querySelector('#view-trends');
+    if (cont) cont.insertAdjacentHTML('afterbegin', '<div class="empty-state"><p>Failed to load chart library.</p></div>');
+  });
+}
+function _renderTrendsCharts(b) {
   const history = b.sovHistory || [];
 
   // Destroy existing chart instances safely
@@ -4973,8 +5003,11 @@ async function renderPromptDetail() {
       metricsEl.innerHTML = '<div class="card" style="padding:16px;grid-column:1/-1;text-align:center;color:var(--muted);">No data yet. Run queries to see prompt-level metrics.</div>';
     }
 
-    // Load history for chart
-    const histData = await api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=30${platform ? '&platform=' + platform : ''}`);
+    // Load history for chart (lazy-load Chart.js in parallel with data fetch)
+    const [histData] = await Promise.all([
+      api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=30${platform ? '&platform=' + platform : ''}`),
+      ensureChartJs()
+    ]);
 
     // Visibility chart
     if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }
