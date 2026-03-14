@@ -1316,6 +1316,17 @@ function renderOverview(){
   el('ov-last-run-age').textContent = runAgeText;
   el('ov-last-run-age').style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
 
+  // Run duration — show how long the last crawl took
+  const durationEl = el('ov-run-duration');
+  if (lastRun && lastRun.durationMs) {
+    const ds = Math.floor(lastRun.durationMs / 1000);
+    const dm = Math.floor(ds / 60);
+    const dsec = ds % 60;
+    durationEl.textContent = dm > 0 ? dm + 'm ' + dsec + 's' : dsec + 's';
+  } else {
+    durationEl.textContent = '--';
+  }
+
   // ─── API Health Banner ───────────────────────────────────────
   const healthEl = el('ov-api-health');
   if (lastRun && lastRun.allResults) {

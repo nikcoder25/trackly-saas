@@ -394,7 +394,8 @@ router.post('/:id/run', auth, async (req, res) => {
     try {
       console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms: ${activePlatforms.join(', ')} (runId: ${runId})`);
       await Promise.all(activePlatforms.map(plat => runPlatform(plat)));
-      console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors (runId: ${runId})`);
+      const durationMs = Date.now() - runState.startedAt;
+      console.log(`[Run] Complete: ${totalQ} queries, ${totalM} mentions, ${allResults.filter(r=>r.error).length} errors, ${Math.round(durationMs/1000)}s (runId: ${runId})`);
 
       const today = new Date().toISOString().split('T')[0];
       const sov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
@@ -404,7 +405,7 @@ router.post('/:id/run', auth, async (req, res) => {
       const saveBrandObj = freshBrand || brand;
 
       if (!saveBrandObj.runs) saveBrandObj.runs = [];
-      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), durationMs, mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
 
       // Archive old runs
       if (saveBrandObj.runs.length > 30) {
@@ -892,6 +893,7 @@ async function runBrandQueries(brand) {
   if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
   if (!activePlatforms.length || !queries.length) return;
 
+  const cronStartTime = Date.now();
   const newMentions = [];
   const allResults = [];
   const platSOV = {};
@@ -969,7 +971,7 @@ async function runBrandQueries(brand) {
 
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), durationMs: Date.now() - cronStartTime, mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
 
   // Archive old runs
   if (brand.runs.length > 30) {
