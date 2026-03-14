@@ -131,7 +131,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false },
-  skip: (req) => req.path.includes('/run'), // Runs have their own rate limiter below
+  skip: (req) => /\/brands\/[^/]+\/run$/.test(req.path), // Only skip the exact run endpoint (has its own limiter)
   keyGenerator: userOrIpKey('user:')
 });
 app.use('/api/', apiLimiter);
@@ -166,12 +166,14 @@ app.get('/admin', async (req, res) => {
   // Accept secret via X-Admin-Key header (preferred) or query param (legacy)
   const provided = req.headers['x-admin-key'] || req.query.key || '';
   // Use timing-safe comparison to prevent timing attacks
-  if (typeof provided !== 'string' || provided.length !== secret.length) {
+  if (typeof provided !== 'string') {
     return res.status(404).send('Not found');
   }
   try {
     const crypto = require('crypto');
-    if (!crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(secret))) {
+    const providedBuf = Buffer.from(provided);
+    const secretBuf = Buffer.from(secret);
+    if (providedBuf.length !== secretBuf.length || !crypto.timingSafeEqual(providedBuf, secretBuf)) {
       return res.status(404).send('Not found');
     }
   } catch(e) {
@@ -200,7 +202,14 @@ const CRON_BATCH_SIZE = parseInt(process.env.CRON_BATCH_SIZE, 10) || 5;
 // Helper: try to acquire PostgreSQL advisory lock (non-blocking, session-level)
 // Used to prevent duplicate cron jobs when running multiple server instances
 async function withCronLock(lockId, fn) {
-  const client = await pool.connect();
+  let client;
+  try {
+    client = await pool.connect();
+  } catch(e) {
+    // Cannot get DB connection — skip this cron cycle rather than running unprotected
+    log.warn('Cron lock: failed to get DB connection, skipping cycle', { error: e.message });
+    return;
+  }
   try {
     const lockResult = await client.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockId]);
     if (!lockResult.rows[0]?.acquired) {
@@ -212,8 +221,8 @@ async function withCronLock(lockId, fn) {
       await client.query('SELECT pg_advisory_unlock($1)', [lockId]).catch(() => {});
     }
   } catch(e) {
-    // If advisory lock fails, proceed anyway (single-instance fallback)
-    await fn();
+    // Lock query failed — skip rather than running unprotected (prevents duplicate runs)
+    log.warn('Cron lock acquisition failed, skipping cycle', { error: e.message, lockId });
   } finally {
     client.release();
   }
@@ -396,16 +405,15 @@ const server = app.listen(PORT, () => {
   log.info(`API Keys: ${keyInfo}`);
 
   // Cleanup old data at startup and every 24h
-  cleanupApiLogs();
-  cleanupNotifications();
-  cleanupResetTokens();
-  cleanupWebhookEvents();
-  cleanupPromptRuns();
-  setInterval(cleanupApiLogs, 24 * 60 * 60 * 1000);
-  setInterval(cleanupNotifications, 24 * 60 * 60 * 1000);
-  setInterval(cleanupResetTokens, 24 * 60 * 60 * 1000);
-  setInterval(cleanupWebhookEvents, 24 * 60 * 60 * 1000);
-  setInterval(cleanupPromptRuns, 24 * 60 * 60 * 1000);
+  const runAllCleanups = () => {
+    cleanupApiLogs();
+    cleanupNotifications();
+    cleanupResetTokens();
+    cleanupWebhookEvents();
+    cleanupPromptRuns();
+  };
+  runAllCleanups();
+  setInterval(runAllCleanups, 24 * 60 * 60 * 1000);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────

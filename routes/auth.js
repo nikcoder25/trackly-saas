@@ -85,7 +85,7 @@ router.post('/login', twoFALimiter, async (req, res) => {
   try {
     // Allow login with email OR username
     const isEmail = email.includes('@');
-    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, created_at';
+    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, email_verified, created_at';
     const result = isEmail
       ? await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(email) = LOWER($1)`, [email])
       : await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(username) = LOWER($1)`, [email]);
