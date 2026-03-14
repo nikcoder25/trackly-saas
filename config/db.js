@@ -304,9 +304,12 @@ async function initDB() {
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS tokens_out INTEGER DEFAULT 0;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS cost NUMERIC(12,8) DEFAULT 0;
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS run_id TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
     `);
     // Add unique index on username (only for non-null values)
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;`);
     log.info('PostgreSQL tables ready');
   } finally {
     client.release();

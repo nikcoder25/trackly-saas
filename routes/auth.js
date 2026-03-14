@@ -448,4 +448,100 @@ router.get('/2fa/status', auth, async (req, res) => {
   }
 });
 
+// ─── Google Sign-In ──────────────────────────────────────
+// Accepts a Google credential (ID token) from the frontend Google Identity Services flow.
+// Verifies the token with Google, then either logs in the existing user or creates a new one.
+router.post('/google', async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) return res.status(400).json({ error: 'Google credential required' });
+
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ error: 'Google Sign-In not configured' });
+
+  try {
+    // Verify the ID token with Google's tokeninfo endpoint (no SDK needed)
+    const https = require('https');
+    const googlePayload = await new Promise((resolve, reject) => {
+      const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
+      https.get(url, { timeout: 10000 }, (apiRes) => {
+        let data = '';
+        apiRes.on('data', chunk => { data += chunk; });
+        apiRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (apiRes.statusCode !== 200) reject(new Error(parsed.error_description || 'Token verification failed'));
+            else resolve(parsed);
+          } catch(e) { reject(new Error('Invalid Google response')); }
+        });
+      }).on('error', reject).on('timeout', function() { this.destroy(); reject(new Error('Google verification timeout')); });
+    });
+
+    // Validate audience matches our client ID
+    if (googlePayload.aud !== GOOGLE_CLIENT_ID) {
+      return res.status(400).json({ error: 'Invalid Google token audience' });
+    }
+    if (!googlePayload.email || googlePayload.email_verified !== 'true') {
+      return res.status(400).json({ error: 'Google account email not verified' });
+    }
+
+    const googleId = googlePayload.sub;
+    const email = googlePayload.email.toLowerCase();
+    const name = googlePayload.name || email.split('@')[0];
+    const avatarUrl = googlePayload.picture || null;
+
+    // Check if user already exists by google_id or email
+    let user;
+    const byGoogleId = await pool.query(
+      'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, avatar_url FROM users WHERE google_id = $1',
+      [googleId]
+    );
+
+    if (byGoogleId.rows.length) {
+      user = byGoogleId.rows[0];
+      // Update avatar if changed
+      if (avatarUrl && avatarUrl !== user.avatar_url) {
+        await pool.query('UPDATE users SET avatar_url = $1 WHERE id = $2', [avatarUrl, user.id]);
+        user.avatar_url = avatarUrl;
+      }
+    } else {
+      // Check by email — link Google account to existing user
+      const byEmail = await pool.query(
+        'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, avatar_url FROM users WHERE LOWER(email) = LOWER($1)',
+        [email]
+      );
+
+      if (byEmail.rows.length) {
+        user = byEmail.rows[0];
+        // Link Google ID to existing account and mark email verified
+        await pool.query('UPDATE users SET google_id = $1, email_verified = TRUE, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3', [googleId, avatarUrl, user.id]);
+        user.avatar_url = user.avatar_url || avatarUrl;
+      } else {
+        // Create new user
+        const id = uid();
+        await pool.query(
+          `INSERT INTO users (id, email, name, password_hash, plan, google_id, email_verified, avatar_url)
+           VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7)`,
+          [id, email, name, 'google_oauth_no_password', 'free', googleId, avatarUrl]
+        );
+        const newUser = await pool.query(
+          'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, avatar_url FROM users WHERE id = $1',
+          [id]
+        );
+        user = newUser.rows[0];
+        auditLog(id, 'register_google', 'user', id, { email, googleId }, req.ip);
+      }
+    }
+
+    const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshTok = crypto.randomBytes(40).toString('hex');
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshTok, user.id]);
+
+    auditLog(user.id, 'login_google', 'user', user.id, {}, req.ip);
+    res.json({ token: accessToken, refreshToken: refreshTok, user: safeUser(user) });
+  } catch(e) {
+    console.error('[Google Auth]', e.message);
+    res.status(400).json({ error: 'Google sign-in failed: ' + e.message });
+  }
+});
+
 module.exports = router;
