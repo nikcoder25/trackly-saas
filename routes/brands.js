@@ -4,12 +4,13 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool, auditLog, logApiCall } = require('../config/db');
+const { pool, auditLog, logApiCall, refreshPromptRunStats } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
+const { evaluateAlerts } = require('../lib/alerts');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -544,6 +545,37 @@ router.post('/:id/run', auth, async (req, res) => {
 
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);
+
+      // Persist individual prompt runs to prompt_runs table (Epic 1.1)
+      const batchId = runId;
+      for (const r of allResults) {
+        try {
+          await pool.query(
+            `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, run_index, response_raw, response_parsed,
+             mentioned, sentiment, recommended, list_position, citations, competitor_mentions, latency_ms, success,
+             error_message, meta, batch_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+            [uid(), brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
+             JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
+             r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+             r.listPosition || null, JSON.stringify(r.citations || []),
+             JSON.stringify(r.competitorMentions || []), null, !r.error,
+             r.errorMessage || null, JSON.stringify({}), batchId]
+          );
+        } catch(prErr) { /* ignore individual insert errors */ }
+      }
+
+      // Refresh prompt_run_stats materialized data (Epic 1.1)
+      refreshPromptRunStats(brand.id).catch(() => {});
+
+      // Evaluate alert rules (Epic 6.2)
+      const previousSOVForAlerts = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
+      evaluateAlerts(brand.id, {
+        sov,
+        previousSov: previousSOVForAlerts,
+        allResults,
+        platforms: platSOV
+      }).catch(() => {});
 
       // Webhook alert
       const previousSOV = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
@@ -1118,6 +1150,29 @@ async function runBrandQueries(brand) {
   brand.sovHistory = brand.sovHistory.filter(h => h.date !== today);
   brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
   if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
+
+  // Persist individual prompt runs (Epic 1.1)
+  const cronBatchId = brand.runs[brand.runs.length - 1]?.id || uid();
+  for (const r of allResults) {
+    try {
+      await pool.query(
+        `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, run_index, response_raw, response_parsed,
+         mentioned, sentiment, recommended, list_position, citations, competitor_mentions, latency_ms, success,
+         error_message, meta, batch_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+        [uid(), brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
+         JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
+         r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+         r.listPosition || null, JSON.stringify(r.citations || []),
+         JSON.stringify(r.competitorMentions || []), null, !r.error,
+         r.errorMessage || null, JSON.stringify({}), cronBatchId]
+      );
+    } catch(prErr) { /* ignore */ }
+  }
+
+  // Refresh stats + evaluate alerts
+  refreshPromptRunStats(brand.id).catch(() => {});
+  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV }).catch(() => {});
 
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);

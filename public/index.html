@@ -649,9 +649,16 @@
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
     <button class="nav-item" onclick="go('apilogs')">⚠ API Logs</button>
+    <div class="nav-group">Advanced</div>
+    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
+    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations</button>
+    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor</button>
+    <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis</button>
+    <button class="nav-item" onclick="go('copilot')">◈ Copilot</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
     <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
+    <button class="nav-item" onclick="go('billing')">◻ Billing</button>
     <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
     <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;">⚑ Admin Panel</button>
     <button class="nav-item" id="nav-become-admin" onclick="becomeAdmin()" style="display:none;color:var(--amber);">★ Become Admin</button>
@@ -1045,6 +1052,133 @@
           Permanently delete your account and all brands. This cannot be undone.
         </div>
         <button onclick="deleteAccount()" style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">DELETE MY ACCOUNT</button>
+      </div>
+    </div>
+
+    <!-- PROMPT DETAILS ──────────────────── -->
+    <div id="view-promptdetails" class="view">
+      <div class="view-title">Prompt Details</div>
+      <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <select class="finput" id="pd-prompt-select" style="flex:1;min-width:300px;margin:0;" onchange="renderPromptDetail()"></select>
+        <select class="finput" id="pd-platform-filter" style="width:160px;margin:0;" onchange="renderPromptDetail()">
+          <option value="">All Platforms</option>
+        </select>
+      </div>
+      <div id="pd-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+        <div class="card" style="padding:16px;"><div class="card-title">Visibility Over Time</div><canvas id="pd-visibility-chart" height="200"></canvas></div>
+        <div class="card" style="padding:16px;"><div class="card-title">Competitor Share</div><canvas id="pd-competitor-chart" height="200"></canvas></div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div class="card-title">Sentiment Distribution</div>
+        <div id="pd-sentiment-dist" style="display:flex;gap:12px;margin-top:8px;"></div>
+      </div>
+      <div class="card" style="padding:16px;margin-top:16px;">
+        <div class="card-title">Diagnostic Events</div>
+        <div id="pd-diagnostics"></div>
+      </div>
+      <div class="card" style="padding:16px;margin-top:16px;">
+        <div class="card-title">Prompt Metadata</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px;">
+          <div><label class="flabel">Intent</label><select class="finput" id="pd-intent" style="margin:0;" onchange="savePromptMetadata()"><option value="awareness">Awareness</option><option value="comparison">Comparison</option><option value="commercial">Commercial</option><option value="navigational">Navigational</option></select></div>
+          <div><label class="flabel">Funnel Stage</label><select class="finput" id="pd-funnel" style="margin:0;" onchange="savePromptMetadata()"><option value="tofu">TOFU</option><option value="mofu">MOFU</option><option value="bofu">BOFU</option></select></div>
+          <div><label class="flabel">Tags</label><input class="finput" id="pd-tags" style="margin:0;" placeholder="tag1, tag2" onchange="savePromptMetadata()"></div>
+        </div>
+      </div>
+      <div class="card" style="padding:16px;margin-top:16px;">
+        <div class="card-title">Sample Responses</div>
+        <div id="pd-sample-responses"></div>
+      </div>
+    </div>
+
+    <!-- RECOMMENDATIONS ──────────────────── -->
+    <div id="view-recommendations" class="view">
+      <div class="view-title">Recommendations &amp; Action Center</div>
+      <div class="view-sub">AI-powered suggestions to improve your brand visibility across platforms.</div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <button class="btn-primary" onclick="generateRecommendations()" style="font-size:12px;padding:8px 16px;">Generate Recommendations</button>
+        <select class="finput" id="rec-filter-status" style="width:140px;margin:0;" onchange="renderRecommendations()">
+          <option value="">All Status</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+          <option value="ignored">Ignored</option>
+        </select>
+        <select class="finput" id="rec-filter-severity" style="width:140px;margin:0;" onchange="renderRecommendations()">
+          <option value="">All Severity</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+        </select>
+      </div>
+      <div id="rec-list"></div>
+    </div>
+
+    <!-- ACCURACY MONITOR ──────────────────── -->
+    <div id="view-accuracy" class="view">
+      <div class="view-title">Accuracy Monitor</div>
+      <div class="view-sub">Track when AI platforms provide inaccurate information about your brand. Define canonical facts and we'll flag mismatches.</div>
+      <div class="card" style="padding:16px;margin-bottom:16px;">
+        <div class="card-title">Canonical Facts</div>
+        <div class="view-sub" style="margin-bottom:12px;">Define the key facts about your brand (pricing, features, status) so we can detect when AI gets them wrong.</div>
+        <div id="facts-list"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:12px;align-items:end;">
+          <div><label class="flabel">Fact Key</label><input class="finput" id="fact-key" placeholder="e.g. pricing" style="margin:0;"></div>
+          <div><label class="flabel">Fact Value</label><input class="finput" id="fact-value" placeholder="e.g. starts at $29/mo" style="margin:0;"></div>
+          <div><label class="flabel">Category</label><select class="finput" id="fact-category" style="margin:0;"><option value="general">General</option><option value="pricing">Pricing</option><option value="features">Features</option><option value="company">Company</option></select></div>
+          <button class="btn-primary" onclick="addFact()" style="font-size:12px;padding:8px 16px;height:38px;">Add</button>
+        </div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="card-title">Detected Mismatches</div>
+          <button class="btn-secondary" onclick="checkAccuracy()" style="font-size:11px;padding:6px 12px;">Check Now</button>
+        </div>
+        <div id="accuracy-results" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <!-- CITATION ANALYSIS ─────────────────── -->
+    <div id="view-citations" class="view">
+      <div class="view-title">Citation Analysis</div>
+      <div class="view-sub">Understand which domains AI platforms cite when mentioning your brand.</div>
+      <div id="citation-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;"></div>
+      <div class="card" style="padding:16px;">
+        <div class="card-title">Top Cited Domains</div>
+        <div id="citation-domains"></div>
+      </div>
+    </div>
+
+    <!-- COPILOT ──────────────────────────── -->
+    <div id="view-copilot" class="view">
+      <div class="view-title">Trackly Copilot</div>
+      <div class="view-sub">Ask questions about your brand's AI visibility data in natural language.</div>
+      <div class="card" style="padding:16px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;">
+          <input class="finput" id="copilot-input" placeholder="e.g. Why is my SOV declining? How do I improve visibility?" style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')askCopilot()">
+          <button class="btn-primary" onclick="askCopilot()" style="font-size:12px;padding:8px 16px;">Ask</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+          <button class="pill-btn" onclick="el('copilot-input').value='What is my current share of voice?';askCopilot()">Current SOV</button>
+          <button class="pill-btn" onclick="el('copilot-input').value='Who are my top competitors?';askCopilot()">Top Competitors</button>
+          <button class="pill-btn" onclick="el('copilot-input').value='How can I improve my visibility?';askCopilot()">How to Improve</button>
+          <button class="pill-btn" onclick="el('copilot-input').value='What is the sentiment about my brand?';askCopilot()">Sentiment</button>
+        </div>
+      </div>
+      <div id="copilot-history" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+
+    <!-- BILLING ──────────────────────────── -->
+    <div id="view-billing" class="view">
+      <div class="view-title">Billing &amp; Usage</div>
+      <div class="view-sub">View your current plan, usage, and manage your subscription.</div>
+      <div id="billing-plan-card" style="margin-bottom:16px;"></div>
+      <div id="billing-usage" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;"></div>
+      <div id="billing-warnings"></div>
+      <div class="card" style="padding:16px;margin-top:16px;">
+        <div class="card-title">Plan Comparison</div>
+        <div id="billing-plans"></div>
       </div>
     </div>
 

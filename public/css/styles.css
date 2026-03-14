@@ -427,6 +427,10 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 }
 .btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,97,84,.3);}
 .btn-primary:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font);}
+.btn-secondary:hover{background:var(--bg4);transform:translateY(-1px);}
+.pill-btn{background:var(--bg3);color:var(--muted);border:1px solid var(--border);padding:4px 12px;border-radius:16px;font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font);}
+.pill-btn:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary-border);}
 .auth-err{
   background:var(--danger-light);
   border:1px solid rgba(239,68,68,.2);

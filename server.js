@@ -25,7 +25,7 @@ const rateLimit   = require('express-rate-limit');
 const cron        = require('node-cron');
 const path        = require('path');
 
-const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents } = require('./config/db');
+const { pool, initDB, notify, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 const { createLogger }  = require('./lib/logger');
@@ -36,7 +36,8 @@ const authRoutes    = require('./routes/auth');
 const brandRoutes   = require('./routes/brands');
 const adminRoutes   = require('./routes/admin');
 const seoRoutes     = require('./routes/seo');
-const paymentRoutes = require('./routes/payments');
+const paymentRoutes  = require('./routes/payments');
+const analyticsRoutes = require('./routes/analytics');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -147,6 +148,7 @@ app.use('/api/auth',     authRoutes);
 app.use('/api/brands',   brandRoutes);
 app.use('/api',          adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api',          analyticsRoutes);
 
 // ─── Admin panel page (secured with JWT-based admin auth) ───────
 app.get('/admin', async (req, res) => {
@@ -170,6 +172,11 @@ app.get('/admin', async (req, res) => {
   // Set Cache-Control to prevent caching of admin page with secret in URL
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// ─── METHODOLOGY PAGE (public, SEO-friendly) ───────────────────
+app.get('/methodology', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ─── SEO LANDING PAGES ──────────────────────────────────────────
@@ -383,10 +390,12 @@ const server = app.listen(PORT, () => {
   cleanupNotifications();
   cleanupResetTokens();
   cleanupWebhookEvents();
+  cleanupPromptRuns();
   setInterval(cleanupApiLogs, 24 * 60 * 60 * 1000);
   setInterval(cleanupNotifications, 24 * 60 * 60 * 1000);
   setInterval(cleanupResetTokens, 24 * 60 * 60 * 1000);
   setInterval(cleanupWebhookEvents, 24 * 60 * 60 * 1000);
+  setInterval(cleanupPromptRuns, 24 * 60 * 60 * 1000);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────

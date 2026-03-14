@@ -541,8 +541,14 @@ function renderView(view){
   if (view==='trends')      renderTrends();
   if (view==='competitors') renderCompetitors();
   if (view==='setup')       renderSetup();
-  if (view==='alerts')      renderAlerts();
-  if (view==='apilogs')     renderApiLogs();
+  if (view==='alerts')          renderAlerts();
+  if (view==='apilogs')         renderApiLogs();
+  if (view==='promptdetails')   renderPromptDetails();
+  if (view==='recommendations') renderRecommendations();
+  if (view==='accuracy')        renderAccuracyMonitor();
+  if (view==='citations')       renderCitationAnalysis();
+  if (view==='copilot')         { /* copilot is interactive, no auto-render */ }
+  if (view==='billing')         renderBilling();
 }
 
 // ─── ACCOUNT & PLAN ──────────────────────────────────────────────
@@ -4597,6 +4603,562 @@ async function becomeAdmin(){
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROMPT DETAILS VIEW (Epic 2.4)
+// ═══════════════════════════════════════════════════════════════════
+let _pdVisChart = null, _pdCompChart = null;
+
+async function renderPromptDetails() {
+  const b = brand();
+  if (!b) return;
+
+  // Populate prompt selector
+  const sel = el('pd-prompt-select');
+  const queries = b.queries || [];
+  sel.innerHTML = queries.map((q, i) => `<option value="${esc(q)}">${esc(q)}</option>`).join('');
+
+  // Populate platform filter
+  const platFilter = el('pd-platform-filter');
+  platFilter.innerHTML = '<option value="">All Platforms</option>' +
+    PLATS.map(p => `<option value="${p}">${p}</option>`).join('');
+
+  renderPromptDetail();
+}
+
+async function renderPromptDetail() {
+  const b = brand();
+  if (!b) return;
+  const prompt = el('pd-prompt-select').value;
+  const platform = el('pd-platform-filter').value;
+  if (!prompt) return;
+
+  try {
+    // Load visibility data
+    const visData = await api('GET', `/api/brands/${b.id}/prompt-visibility`);
+    const promptData = (visData.visibility || []).find(v => v.prompt === prompt);
+
+    // Render metrics cards
+    const metricsEl = el('pd-metrics');
+    if (promptData) {
+      const platforms = Object.values(promptData.platforms);
+      const totalRuns = platforms.reduce((s, p) => s + (p.total_runs || 0), 0);
+      const totalMentions = platforms.reduce((s, p) => s + (p.mention_count || 0), 0);
+      const avgRate = totalRuns > 0 ? (totalMentions / totalRuns * 100).toFixed(1) : 0;
+      const avgRank = platforms.filter(p => p.avg_rank).reduce((s, p) => s + parseFloat(p.avg_rank), 0) / (platforms.filter(p => p.avg_rank).length || 1);
+
+      metricsEl.innerHTML = `
+        <div class="card" style="padding:14px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;">${avgRate}%</div>
+          <div style="font-size:11px;color:var(--muted);">Mention Rate</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;">${totalRuns}</div>
+          <div style="font-size:11px;color:var(--muted);">Total Runs</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;">${totalMentions}</div>
+          <div style="font-size:11px;color:var(--muted);">Mentions</div>
+        </div>
+        <div class="card" style="padding:14px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;">${avgRank ? '#' + avgRank.toFixed(1) : '--'}</div>
+          <div style="font-size:11px;color:var(--muted);">Avg Rank</div>
+        </div>
+      `;
+
+      // Sentiment distribution
+      const sentEl = el('pd-sentiment-dist');
+      let totalSent = 0;
+      const sentAgg = { positive: 0, neutral: 0, negative: 0 };
+      platforms.forEach(p => {
+        const dist = p.sentiment_distribution || {};
+        sentAgg.positive += (dist.positive || 0);
+        sentAgg.neutral += (dist.neutral || 0);
+        sentAgg.negative += (dist.negative || 0);
+      });
+      totalSent = sentAgg.positive + sentAgg.neutral + sentAgg.negative;
+      sentEl.innerHTML = ['positive', 'neutral', 'negative'].map(s => {
+        const pct = totalSent > 0 ? (sentAgg[s] / totalSent * 100).toFixed(0) : 0;
+        const colors = { positive: 'var(--green)', neutral: 'var(--muted)', negative: 'var(--red,#ef4444)' };
+        return `<div style="flex:1;text-align:center;"><div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${colors[s]};border-radius:4px;"></div></div><div style="font-size:11px;margin-top:4px;color:${colors[s]};">${s}: ${pct}% (${sentAgg[s]})</div></div>`;
+      }).join('');
+    } else {
+      metricsEl.innerHTML = '<div class="card" style="padding:16px;grid-column:1/-1;text-align:center;color:var(--muted);">No data yet. Run queries to see prompt-level metrics.</div>';
+    }
+
+    // Load history for chart
+    const histData = await api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=30${platform ? '&platform=' + platform : ''}`);
+
+    // Visibility chart
+    if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }
+    const canvas = document.getElementById('pd-visibility-chart');
+    if (canvas && histData.history && histData.history.length > 0) {
+      const grouped = {};
+      histData.history.forEach(h => {
+        if (!grouped[h.platform]) grouped[h.platform] = [];
+        grouped[h.platform].push(h);
+      });
+      const datasets = Object.entries(grouped).map(([plat, data]) => ({
+        label: plat,
+        data: data.map(d => ({ x: d.date, y: d.mentionRate })),
+        borderColor: PLAT_THEME[plat]?.color || '#888',
+        backgroundColor: PLAT_THEME[plat]?.bg || 'rgba(136,136,136,0.1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: false,
+        pointRadius: 3
+      }));
+      _pdVisChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { datasets },
+        options: { responsive: true, scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Mention Rate %' } } }, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    // Competitor chart
+    if (_pdCompChart) { _pdCompChart.destroy(); _pdCompChart = null; }
+    const compData = await api('GET', `/api/brands/${b.id}/competitor-analysis`);
+    const compCanvas = document.getElementById('pd-competitor-chart');
+    if (compCanvas && compData.topCompetitors && compData.topCompetitors.length > 0) {
+      const top = compData.topCompetitors.slice(0, 8);
+      _pdCompChart = new Chart(compCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: top.map(c => c.competitor),
+          datasets: [{
+            label: 'Appearances',
+            data: top.map(c => c.total_appearances),
+            backgroundColor: 'rgba(79,70,229,0.6)',
+            borderRadius: 4
+          }]
+        },
+        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } } }
+      });
+    }
+
+    // Diagnostics
+    const diagData = await api('GET', `/api/brands/${b.id}/diagnostics`);
+    const diagEl = el('pd-diagnostics');
+    if (diagData.events && diagData.events.length > 0) {
+      diagEl.innerHTML = diagData.events.map(ev => {
+        const sevColors = { high: '#ef4444', critical: '#dc2626', medium: '#f59e0b', info: '#3b82f6' };
+        return `<div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid ${sevColors[ev.severity] || '#888'};margin-bottom:8px;">
+          <div style="font-weight:600;font-size:13px;">${esc(ev.message)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Type: ${ev.type} | Severity: ${ev.severity}</div>
+        </div>`;
+      }).join('');
+    } else {
+      diagEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No diagnostic events detected. Everything looks stable.</div>';
+    }
+
+    // Load prompt metadata
+    const metaData = await api('GET', `/api/brands/${b.id}/prompt-metadata`);
+    const meta = (metaData.metadata || []).find(m => m.prompt === prompt);
+    if (meta) {
+      el('pd-intent').value = meta.intent || 'awareness';
+      el('pd-funnel').value = meta.funnel_stage || 'tofu';
+      el('pd-tags').value = (meta.tags || []).join(', ');
+    } else {
+      el('pd-intent').value = 'awareness';
+      el('pd-funnel').value = 'tofu';
+      el('pd-tags').value = '';
+    }
+
+    // Sample responses
+    const runsData = await api('GET', `/api/brands/${b.id}/prompt-runs?prompt=${encodeURIComponent(prompt)}&limit=5${platform ? '&platform=' + platform : ''}`);
+    const samplesEl = el('pd-sample-responses');
+    if (runsData.runs && runsData.runs.length > 0) {
+      samplesEl.innerHTML = runsData.runs.map(r => `
+        <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;margin-bottom:8px;cursor:pointer;" onclick="viewPromptRun('${b.id}','${r.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><span style="font-weight:600;">${esc(r.platform)}</span> <span style="color:var(--muted);font-size:11px;">${r.model || ''}</span></div>
+            <div style="font-size:11px;color:var(--muted);">${new Date(r.created_at).toLocaleString()}</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px;">
+            <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${r.mentioned ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.1)'};color:${r.mentioned ? 'var(--green)' : 'var(--red,#ef4444)'};">${r.mentioned ? 'Mentioned' : 'Not mentioned'}</span>
+            <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${r.sentiment}</span>
+            ${r.list_position ? `<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">#${r.list_position}</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    } else {
+      samplesEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No sample responses yet.</div>';
+    }
+  } catch(e) {
+    console.error('[PromptDetails]', e);
+  }
+}
+
+async function savePromptMetadata() {
+  const b = brand();
+  if (!b) return;
+  const prompt = el('pd-prompt-select').value;
+  if (!prompt) return;
+  const tags = el('pd-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  try {
+    await api('PUT', `/api/brands/${b.id}/prompt-metadata`, {
+      prompt,
+      intent: el('pd-intent').value,
+      funnel_stage: el('pd-funnel').value,
+      tags
+    });
+    toast('Prompt metadata saved', 'ok');
+  } catch(e) { toast('Failed to save metadata', 'err'); }
+}
+
+async function viewPromptRun(brandId, runId) {
+  try {
+    const data = await api('GET', `/api/brands/${brandId}/prompt-runs/${runId}`);
+    const r = data.run;
+    const modal = document.createElement('div');
+    modal.className = 'overlay open';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:700px;">
+        <div class="modal-head">
+          <span>Response Details</span>
+          <button class="modal-close" onclick="this.closest('.overlay').remove()">&times;</button>
+        </div>
+        <div style="padding:20px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div><strong>Platform:</strong> ${esc(r.platform)}</div>
+            <div><strong>Model:</strong> ${esc(r.model || 'N/A')}</div>
+            <div><strong>Mentioned:</strong> ${r.mentioned ? 'Yes' : 'No'}</div>
+            <div><strong>Sentiment:</strong> ${esc(r.sentiment)}</div>
+            <div><strong>Position:</strong> ${r.list_position || 'N/A'}</div>
+            <div><strong>Date:</strong> ${new Date(r.created_at).toLocaleString()}</div>
+          </div>
+          <div><strong>Prompt:</strong></div>
+          <div style="background:var(--bg2);padding:12px;border-radius:8px;margin:8px 0;font-size:13px;">${esc(r.prompt)}</div>
+          <div><strong>Full Response:</strong></div>
+          <div style="background:var(--bg2);padding:12px;border-radius:8px;margin:8px 0;font-size:13px;max-height:400px;overflow-y:auto;white-space:pre-wrap;">${r.response_raw ? esc(r.response_raw) : '(response not stored)'}</div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  } catch(e) { toast('Failed to load response', 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RECOMMENDATIONS VIEW (Epic 3.4)
+// ═══════════════════════════════════════════════════════════════════
+async function renderRecommendations() {
+  const b = brand();
+  if (!b) return;
+  const status = el('rec-filter-status')?.value || '';
+  const severity = el('rec-filter-severity')?.value || '';
+  try {
+    let url = `/api/brands/${b.id}/recommendations?`;
+    if (status) url += `status=${status}&`;
+    if (severity) url += `severity=${severity}&`;
+    const data = await api('GET', url);
+    const recs = data.recommendations || [];
+    const listEl = el('rec-list');
+
+    if (recs.length === 0) {
+      listEl.innerHTML = '<div class="card" style="padding:24px;text-align:center;color:var(--muted);">No recommendations yet. Click "Generate Recommendations" to analyze your data.</div>';
+      return;
+    }
+
+    listEl.innerHTML = recs.map(r => {
+      const sevColors = { critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
+      const statusIcons = { open: '○', in_progress: '◐', done: '●', ignored: '⊘' };
+      return `<div class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid ${sevColors[r.severity] || '#888'};">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div style="flex:1;">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+              <span style="font-size:14px;">${statusIcons[r.status] || '○'}</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${sevColors[r.severity]}22;color:${sevColors[r.severity]};font-weight:600;text-transform:uppercase;">${r.severity}</span>
+              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--muted);">${r.type}</span>
+            </div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${esc(r.title)}</div>
+            <div style="font-size:13px;color:var(--muted);">${esc(r.description || '')}</div>
+            ${r.playbook_id ? `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:8px;" onclick="viewPlaybook('${r.playbook_id}')">View Playbook</button>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;">
+            <select class="finput" style="width:120px;margin:0;font-size:11px;padding:4px 8px;" onchange="updateRecommendation('${r.id}',this.value)">
+              <option value="open" ${r.status==='open'?'selected':''}>Open</option>
+              <option value="in_progress" ${r.status==='in_progress'?'selected':''}>In Progress</option>
+              <option value="done" ${r.status==='done'?'selected':''}>Done</option>
+              <option value="ignored" ${r.status==='ignored'?'selected':''}>Ignored</option>
+            </select>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { toast('Failed to load recommendations', 'err'); }
+}
+
+async function generateRecommendations() {
+  const b = brand();
+  if (!b) return;
+  try {
+    toast('Analyzing data...', 'ok');
+    const data = await api('POST', `/api/brands/${b.id}/recommendations/generate`);
+    toast(`Generated ${data.generated} recommendations`, 'ok');
+    renderRecommendations();
+  } catch(e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+async function updateRecommendation(id, status) {
+  try {
+    await api('PUT', `/api/recommendations/${id}`, { status });
+    toast('Updated', 'ok');
+  } catch(e) { toast('Failed', 'err'); }
+}
+
+async function viewPlaybook(playbookId) {
+  try {
+    const data = await api('GET', `/api/playbooks/${playbookId}`);
+    const pb = data.playbook;
+    const modal = document.createElement('div');
+    modal.className = 'overlay open';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:600px;">
+        <div class="modal-head">
+          <span>${esc(pb.title)}</span>
+          <button class="modal-close" onclick="this.closest('.overlay').remove()">&times;</button>
+        </div>
+        <div style="padding:20px;">
+          <p style="color:var(--muted);margin-bottom:16px;">${esc(pb.description)}</p>
+          <div style="font-weight:600;margin-bottom:8px;">Action Steps:</div>
+          ${pb.steps.map((s, i) => `<div style="padding:8px 12px;background:var(--bg2);border-radius:6px;margin-bottom:6px;font-size:13px;"><span style="font-weight:700;margin-right:8px;">${i + 1}.</span>${esc(s)}</div>`).join('')}
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  } catch(e) { toast('Failed to load playbook', 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ACCURACY MONITOR VIEW (Epic 8.1)
+// ═══════════════════════════════════════════════════════════════════
+async function renderAccuracyMonitor() {
+  const b = brand();
+  if (!b) return;
+  try {
+    const data = await api('GET', `/api/brands/${b.id}/facts`);
+    const facts = data.facts || [];
+    const factsEl = el('facts-list');
+    if (facts.length === 0) {
+      factsEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No facts defined yet. Add canonical facts below.</div>';
+    } else {
+      factsEl.innerHTML = facts.map(f => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg2);border-radius:6px;margin-bottom:6px;">
+          <div><span style="font-weight:600;font-size:13px;">${esc(f.fact_key)}</span>: <span style="font-size:13px;">${esc(f.fact_value)}</span> <span style="font-size:11px;color:var(--muted);">[${f.category}]</span></div>
+          <button style="background:none;border:none;color:var(--red,#ef4444);cursor:pointer;font-size:14px;" onclick="deleteFact(${f.id})">&times;</button>
+        </div>
+      `).join('');
+    }
+  } catch(e) { console.error('[Accuracy]', e); }
+}
+
+async function addFact() {
+  const b = brand();
+  if (!b) return;
+  const factKey = el('fact-key').value.trim();
+  const factValue = el('fact-value').value.trim();
+  const category = el('fact-category').value;
+  if (!factKey || !factValue) { toast('Both key and value are required', 'err'); return; }
+  try {
+    await api('PUT', `/api/brands/${b.id}/facts`, { facts: [{ fact_key: factKey, fact_value: factValue, category }] });
+    el('fact-key').value = '';
+    el('fact-value').value = '';
+    renderAccuracyMonitor();
+    toast('Fact added', 'ok');
+  } catch(e) { toast('Failed', 'err'); }
+}
+
+async function deleteFact(factId) {
+  const b = brand();
+  if (!b) return;
+  try {
+    await api('DELETE', `/api/brands/${b.id}/facts/${factId}`);
+    renderAccuracyMonitor();
+    toast('Fact deleted', 'ok');
+  } catch(e) { toast('Failed', 'err'); }
+}
+
+async function checkAccuracy() {
+  const b = brand();
+  if (!b) return;
+  try {
+    const data = await api('GET', `/api/brands/${b.id}/accuracy`);
+    const el2 = el('accuracy-results');
+    if (data.mismatches && data.mismatches.length > 0) {
+      el2.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--muted);">Checked ${data.totalChecked} responses against ${data.factCount} facts</div>` +
+        data.mismatches.map(m => `
+        <div style="padding:10px 14px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;margin-bottom:8px;">
+          <div style="font-weight:600;font-size:13px;color:var(--red,#ef4444);">Mismatch: "${esc(m.fact_key)}"</div>
+          <div style="font-size:12px;margin-top:4px;">Expected: <strong>${esc(m.expected_value)}</strong></div>
+          <div style="font-size:12px;margin-top:2px;">Platform: ${esc(m.platform)} | Prompt: "${esc(m.prompt)}"</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">${new Date(m.date).toLocaleString()}</div>
+        </div>
+      `).join('');
+    } else {
+      el2.innerHTML = `<div style="padding:16px;text-align:center;color:var(--green);">All AI responses match your canonical facts. Checked ${data.totalChecked} responses.</div>`;
+    }
+  } catch(e) { toast('Failed: ' + e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CITATION ANALYSIS VIEW (Epic 8.2)
+// ═══════════════════════════════════════════════════════════════════
+async function renderCitationAnalysis() {
+  const b = brand();
+  if (!b) return;
+  try {
+    const data = await api('GET', `/api/brands/${b.id}/citation-analysis`);
+    const domains = data.domains || [];
+
+    const summaryEl = el('citation-summary');
+    const typeCount = {};
+    domains.forEach(d => { typeCount[d.type] = (typeCount[d.type] || 0) + d.totalCitations; });
+    summaryEl.innerHTML = `
+      <div class="card" style="padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:700;">${data.totalCitations || 0}</div>
+        <div style="font-size:11px;color:var(--muted);">Total Citations</div>
+      </div>
+      <div class="card" style="padding:14px;text-align:center;">
+        <div style="font-size:24px;font-weight:700;">${domains.length}</div>
+        <div style="font-size:11px;color:var(--muted);">Unique Domains</div>
+      </div>
+      ${Object.entries(typeCount).slice(0, 3).map(([type, count]) => `
+        <div class="card" style="padding:14px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;">${count}</div>
+          <div style="font-size:11px;color:var(--muted);">${type.replace('_', ' ')}</div>
+        </div>
+      `).join('')}
+    `;
+
+    const domainsEl = el('citation-domains');
+    if (domains.length === 0) {
+      domainsEl.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">No citations found yet. Run more queries to build citation data.</div>';
+      return;
+    }
+    domainsEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--bg3);">
+        <th style="text-align:left;padding:8px;">Domain</th>
+        <th style="text-align:center;padding:8px;">Type</th>
+        <th style="text-align:center;padding:8px;">Citations</th>
+        <th style="text-align:left;padding:8px;">Top URLs</th>
+      </tr></thead>
+      <tbody>${domains.map(d => `
+        <tr style="border-bottom:1px solid var(--bg3);">
+          <td style="padding:8px;font-weight:600;">${esc(d.domain)}</td>
+          <td style="padding:8px;text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${d.type}</span></td>
+          <td style="padding:8px;text-align:center;font-weight:600;">${d.totalCitations}</td>
+          <td style="padding:8px;font-size:11px;">${(d.urls || []).slice(0, 2).map(u => `<a href="${safeHref(u.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;">${esc(u.url.substring(0, 50))}...</a> (${u.count})`).join('<br>')}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) { toast('Failed to load citations', 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COPILOT VIEW (Epic 8.3)
+// ═══════════════════════════════════════════════════════════════════
+async function askCopilot() {
+  const b = brand();
+  if (!b) return;
+  const input = el('copilot-input');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+
+  const historyEl = el('copilot-history');
+  // Add user question
+  historyEl.innerHTML = `
+    <div style="padding:12px 16px;background:var(--bg3);border-radius:8px;align-self:flex-end;max-width:80%;"><div style="font-size:11px;color:var(--muted);margin-bottom:4px;">You</div>${esc(question)}</div>
+  ` + historyEl.innerHTML;
+
+  try {
+    const data = await api('POST', `/api/brands/${b.id}/copilot`, { question });
+    historyEl.innerHTML = `
+      <div style="padding:12px 16px;background:rgba(79,70,229,0.08);border-radius:8px;max-width:80%;border-left:3px solid var(--primary);">
+        <div style="font-size:11px;color:var(--primary);margin-bottom:4px;">Copilot</div>
+        <div style="font-size:13px;line-height:1.6;">${esc(data.answer)}</div>
+      </div>
+    ` + historyEl.innerHTML;
+  } catch(e) {
+    historyEl.innerHTML = `<div style="padding:12px 16px;background:rgba(239,68,68,0.08);border-radius:8px;max-width:80%;"><div style="font-size:11px;color:var(--red,#ef4444);margin-bottom:4px;">Error</div>${esc(e.message)}</div>` + historyEl.innerHTML;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BILLING VIEW (Epic 7.1-7.2)
+// ═══════════════════════════════════════════════════════════════════
+async function renderBilling() {
+  try {
+    const data = await api('GET', '/api/billing');
+    const plan = data.plan;
+    const usage = data.usage || {};
+
+    // Plan card
+    const planEl = el('billing-plan-card');
+    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', owner: '#059669' };
+    planEl.innerHTML = `
+      <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Current Plan</div>
+            <div style="font-size:28px;font-weight:700;text-transform:uppercase;color:${planColors[plan]};">${plan}</div>
+            <div style="font-size:12px;color:var(--muted);">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
+          </div>
+          ${plan !== 'owner' ? '<button class="btn-primary" style="font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
+        </div>
+      </div>`;
+
+    // Usage meters
+    const usageEl = el('billing-usage');
+    const meters = [
+      { label: 'Brands', ...usage.brands },
+      { label: 'Runs Today', ...usage.runsToday },
+      { label: 'Queries', ...usage.queries },
+      { label: 'Platforms', ...usage.platforms }
+    ];
+    usageEl.innerHTML = meters.map(m => {
+      const pct = m.limit > 0 ? Math.min((m.used / m.limit) * 100, 100) : 0;
+      const color = pct > 90 ? 'var(--red,#ef4444)' : pct > 70 ? '#f59e0b' : 'var(--green)';
+      return `<div class="card" style="padding:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+          <span>${m.label}</span><span style="font-weight:600;">${m.used} / ${m.limit >= 9999 ? '∞' : m.limit}</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.3s;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Warnings
+    const warningsEl = el('billing-warnings');
+    if (data.warnings && data.warnings.length) {
+      warningsEl.innerHTML = data.warnings.map(w => `
+        <div style="padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;margin-bottom:8px;font-size:13px;">
+          ⚠ ${esc(w.message)}
+        </div>
+      `).join('');
+    } else {
+      warningsEl.innerHTML = '';
+    }
+
+    // Plan comparison
+    const plansEl = el('billing-plans');
+    const allPlans = data.allPlans || {};
+    plansEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:12px;">
+      <thead><tr style="border-bottom:2px solid var(--bg3);">
+        <th style="text-align:left;padding:8px;">Feature</th>
+        ${Object.keys(allPlans).map(p => `<th style="text-align:center;padding:8px;${p === plan ? 'color:var(--primary);font-weight:700;' : ''}">${p.toUpperCase()}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Brands</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.brands >= 9999 ? '∞' : l.brands}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Queries / Brand</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.queries >= 9999 ? '∞' : l.queries}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Runs / Day</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.runsPerDay >= 9999 ? '∞' : l.runsPerDay}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Competitors</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.competitors >= 9999 ? '∞' : l.competitors}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Platforms</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.platforms}</td>`).join('')}</tr>
+        <tr><td style="padding:8px;">Scheduled Runs</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.scheduledRuns ? '✓' : '—'}</td>`).join('')}</tr>
+      </tbody>
+    </table>`;
+  } catch(e) { toast('Failed to load billing', 'err'); }
 }
 
 // ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
