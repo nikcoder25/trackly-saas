@@ -46,7 +46,7 @@ function updateBrandInList(updatedBrand) {
   const idx = brands.findIndex(x => x.id === updatedBrand.id);
   if (idx !== -1) brands[idx] = updatedBrand;
 }
-function escAttr(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function escAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function safeBtoa(s){ try { return btoa(s); } catch(e) { return btoa(encodeURIComponent(s).replace(/%[0-9A-F]{2}/g,'')); } }
 function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
 // Simple markdown to HTML for AI responses
@@ -1074,18 +1074,29 @@ function clearLiveNotifs() {
 
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
 // Called on every new result during streaming — updates whichever view is active
+// Throttle heavy DOM updates to prevent UI freezing during rapid SSE events
+let _liveUpdateTimer = null;
+let _liveUpdatePending = null;
+
 function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
 
-  // Show bottom-right notification popup
+  // Show bottom-right notification popup (lightweight — no throttle needed)
   showLiveNotif(result);
 
-  // Update overview if visible (recalculate all stats from liveResults)
-  if (currentView === 'overview') {
-    renderOverviewLive(received, totalExpected, liveFound, liveErrors);
+  // Throttle heavy view updates: batch DOM writes to at most every 500ms
+  _liveUpdatePending = { received, totalExpected, liveFound, liveErrors, result };
+  if (!_liveUpdateTimer) {
+    _liveUpdateTimer = setTimeout(() => {
+      _liveUpdateTimer = null;
+      const p = _liveUpdatePending;
+      if (!p) return;
+      _liveUpdatePending = null;
+      _flushLiveUpdate(p.received, p.totalExpected, p.liveFound, p.liveErrors);
+    }, 500);
   }
 
-  // Append card to mentions if visible
+  // Always append individual cards immediately for mentions/proof (lightweight append)
   if (currentView === 'mentions') {
     const cardsEl = el('live-cards');
     if (cardsEl) {
@@ -1093,10 +1104,15 @@ function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
       cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(result, runTimeStr).replace('class="mention-card ','class="mention-card mention-card-live '));
     }
   }
-
-  // Append card to proof if visible
   if (currentView === 'proof') {
     appendLiveProofCard(result);
+  }
+}
+
+function _flushLiveUpdate(received, totalExpected, liveFound, liveErrors) {
+  // Update overview if visible (recalculate all stats from liveResults)
+  if (currentView === 'overview') {
+    renderOverviewLive(received, totalExpected, liveFound, liveErrors);
   }
 }
 
@@ -3807,8 +3823,11 @@ async function runQueries(){
           // Feed result to all live views
           onLiveResult(r, received, totalExpected, liveFoundCount, liveErrorCount);
 
-          statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
-          updateLiveStats();
+          // Throttle status bar updates — only update every 3rd result or at completion
+          if (received % 3 === 0 || received >= totalExpected) {
+            statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
+            updateLiveStats();
+          }
         } else if (evt.type === 'done') {
           finalData = evt;
         } else if (evt.type === 'error') {
@@ -4362,7 +4381,7 @@ async function renderApiLogs(){
           <td style="font-family:var(--mono);font-size:11px;color:var(--amber);text-align:right;font-weight:800;">${costStr}</td>
           <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:700;">RUN TOTAL</td>
           <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${durStr}</td>
-          <td colspan="3" style="font-family:var(--mono);font-size:9px;color:var(--blue);">▾ click to toggle</td>
+          <td colspan="3" style="font-family:var(--mono);font-size:9px;color:var(--blue);">▶ click to expand</td>
         </tr>`;
         return;
       }
@@ -4383,7 +4402,7 @@ async function renderApiLogs(){
       const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-|mistral-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
-      tbl += `<tr${dataAttr} style="${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
+      tbl += `<tr${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
         <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
         <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
         <td style="font-family:var(--mono);font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.model || '')}">${esc(modelShort || '—')}</td>
@@ -5038,18 +5057,28 @@ async function renderRecommendations() {
     if (status) url += `status=${status}&`;
     if (severity) url += `severity=${severity}&`;
     const data = await api('GET', url);
-    const recs = data.recommendations || [];
+    let recs = data.recommendations || [];
     const listEl = el('rec-list');
 
+    // By default, hide completed (done) and ignored items unless user explicitly filters
+    if (!status) {
+      recs = recs.filter(r => r.status !== 'done' && r.status !== 'ignored');
+    }
+
     if (recs.length === 0) {
-      listEl.innerHTML = '<div class="card" style="padding:24px;text-align:center;color:var(--muted);">No recommendations yet. Click "Generate Recommendations" to analyze your data.</div>';
+      const allRecs = data.recommendations || [];
+      const doneCount = allRecs.filter(r => r.status === 'done' || r.status === 'ignored').length;
+      listEl.innerHTML = doneCount > 0
+        ? `<div class="card" style="padding:24px;text-align:center;color:var(--muted);">All recommendations completed! ${doneCount} item${doneCount>1?'s':''} done. Use the status filter to view completed items.</div>`
+        : '<div class="card" style="padding:24px;text-align:center;color:var(--muted);">No recommendations yet. Click "Generate Recommendations" to analyze your data.</div>';
       return;
     }
 
     listEl.innerHTML = recs.map(r => {
       const sevColors = { critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
       const statusIcons = { open: '○', in_progress: '◐', done: '●', ignored: '⊘' };
-      return `<div class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid ${sevColors[r.severity] || '#888'};">
+      const isDone = r.status === 'done';
+      return `<div class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid ${isDone ? 'var(--green)' : sevColors[r.severity] || '#888'};${isDone ? 'opacity:0.6;' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:start;">
           <div style="flex:1;">
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
@@ -5057,12 +5086,13 @@ async function renderRecommendations() {
               <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${sevColors[r.severity]}22;color:${sevColors[r.severity]};font-weight:600;text-transform:uppercase;">${r.severity}</span>
               <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--muted);">${r.type}</span>
             </div>
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${esc(r.title)}</div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;${isDone ? 'text-decoration:line-through;' : ''}">${esc(r.title)}</div>
             <div style="font-size:13px;color:var(--muted);">${esc(r.description || '')}</div>
             ${r.playbook_id ? `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:8px;" onclick="viewPlaybook('${r.playbook_id}')">View Playbook</button>` : ''}
           </div>
-          <div style="display:flex;gap:6px;">
-            <select class="finput" style="width:120px;margin:0;font-size:11px;padding:4px 8px;" onchange="updateRecommendation('${r.id}',this.value)">
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${r.status !== 'done' ? `<button onclick="updateRecommendation('${r.id}','done')" style="font-family:var(--mono);font-size:10px;background:none;border:1px solid var(--green);color:var(--green);padding:4px 10px;cursor:pointer;border-radius:var(--radius-xs);white-space:nowrap;" title="Mark as completed">&#10003; Done</button>` : ''}
+            <select class="finput" style="width:110px;margin:0;font-size:11px;padding:4px 8px;" onchange="updateRecommendation('${r.id}',this.value)">
               <option value="open" ${r.status==='open'?'selected':''}>Open</option>
               <option value="in_progress" ${r.status==='in_progress'?'selected':''}>In Progress</option>
               <option value="done" ${r.status==='done'?'selected':''}>Done</option>
@@ -5089,7 +5119,9 @@ async function generateRecommendations() {
 async function updateRecommendation(id, status) {
   try {
     await api('PUT', `/api/recommendations/${id}`, { status });
-    toast('Updated', 'ok');
+    toast(status === 'done' ? 'Marked as completed' : 'Updated to ' + status, 'ok');
+    // Re-render to reflect status change (done items get hidden)
+    renderRecommendations();
   } catch(e) { toast('Failed', 'err'); }
 }
 
@@ -5264,7 +5296,7 @@ async function askCopilot() {
     historyEl.innerHTML = `
       <div style="padding:12px 16px;background:rgba(79,70,229,0.08);border-radius:8px;max-width:80%;border-left:3px solid var(--primary);">
         <div style="font-size:11px;color:var(--primary);margin-bottom:4px;">Copilot</div>
-        <div style="font-size:13px;line-height:1.6;">${esc(data.answer)}</div>
+        <div style="font-size:13px;line-height:1.6;">${mdToHtml(data.answer)}</div>
       </div>
     ` + historyEl.innerHTML;
   } catch(e) {
@@ -5383,18 +5415,27 @@ async function exportRecommendations(){
 }
 
 // ─── DASHBOARD PRESETS ────────────────────────────────────────────
+let _activePreset = '';
 function applyDashboardPreset(preset){
-  if (!preset) return; // custom view — no changes
-  const viewMap = {
-    founder: ['overview','trends','recommendations','competitors'],
-    seo_manager: ['promptdetails','citations','competitors','platforms'],
-    agency_manager: ['overview','billing','recommendations']
+  _activePreset = preset || '';
+  // Section IDs on the overview page that can be toggled
+  const allSections = ['ov-hero','ov-api-health','ov-scores-row','ov-category-row','ov-plat-grid','ov-mini-trend','ov-query-perf','ov-competitors','ov-citations','ov-last-run-summary','ov-location-viz','ov-insights','ov-query-section'];
+  // Define which sections each preset shows
+  const presetSections = {
+    '': allSections, // Custom = show all
+    founder: ['ov-hero','ov-scores-row','ov-mini-trend','ov-competitors','ov-insights','ov-last-run-summary'],
+    seo_manager: ['ov-hero','ov-api-health','ov-scores-row','ov-plat-grid','ov-query-perf','ov-citations','ov-category-row'],
+    agency_manager: ['ov-hero','ov-api-health','ov-category-row','ov-plat-grid','ov-last-run-summary','ov-competitors']
   };
-  const views = viewMap[preset];
-  if (views && views.length) {
-    go(views[0]);
-    toast('Switched to ' + el('ov-preset-select').selectedOptions[0]?.text, 'ok');
-  }
+  const visible = new Set(presetSections[preset] || allSections);
+  allSections.forEach(id => {
+    const section = el(id);
+    if (section) section.style.display = visible.has(id) ? '' : 'none';
+  });
+  // Re-render overview to populate visible sections
+  if (currentView === 'overview') renderOverview();
+  const label = el('ov-preset-select')?.selectedOptions[0]?.text || 'Custom View';
+  toast('Switched to ' + label, 'ok');
 }
 
 // ─── LOADING STATE HELPER ─────────────────────────────────────────
