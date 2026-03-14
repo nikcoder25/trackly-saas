@@ -556,7 +556,7 @@ router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
           const citResult = await pool.query(`
             SELECT COUNT(DISTINCT pr.id)::int AS cnt
             FROM prompt_runs pr
-            LEFT JOIN citations c ON c.run_id = pr.id
+            LEFT JOIN citations c ON c.prompt_run_id = pr.id
             WHERE pr.brand_id = $1 AND pr.mentioned = TRUE AND pr.success = TRUE
               AND pr.created_at > NOW() - INTERVAL '30 days'
               AND c.id IS NULL

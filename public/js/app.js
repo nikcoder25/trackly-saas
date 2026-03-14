@@ -1191,10 +1191,12 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const lrEl = el('ov-last-run-age');
   if (lrEl) { lrEl.textContent = 'NOW'; lrEl.style.color = 'var(--green)'; }
 
+  // Compute validResults once — used by scores row, health banner, and category SOV
+  const validResults = liveResults.filter(r => !r.error);
+
   // Update GEO scores row (only every 5 results to avoid O(n) filtering on each result)
   const scoresRow = el('ov-scores-row');
   if (scoresRow && validCount > 0 && (received % 5 === 0 || received >= totalExpected)) {
-    const validResults = liveResults.filter(r => !r.error);
     const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
     const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
     const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
