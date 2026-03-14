@@ -1651,8 +1651,10 @@ function renderOverview(){
   const sovDiff = prevSOV !== null ? sov - prevSOV : null;
 
   // ─── Header ──────────────────────────────────────────────────
-  el('ov-brand-title').textContent = b.name || 'Overview';
-  el('ov-sub').textContent = [b.industry, b.city].filter(Boolean).join(' · ') || 'Select a brand and run queries to see results.';
+  const presetTitle = _activePreset && _presetMeta[_activePreset] ? _presetMeta[_activePreset].title : '';
+  el('ov-brand-title').textContent = presetTitle ? (b.name || 'Overview') + ' — ' + presetTitle : (b.name || 'Overview');
+  const baseSub = [b.industry, b.city].filter(Boolean).join(' · ') || 'Select a brand and run queries to see results.';
+  el('ov-sub').textContent = baseSub;
 
   // Header actions: Run button + last run age (live countdown)
   const { text: runAgeText, dot: ageDotClass } = _fmtRunAge(lastRun);
@@ -1686,23 +1688,65 @@ function renderOverview(){
     diffEl.textContent = '';
   }
 
-  el('ov-mentions').textContent = mentions + ' / ' + totalResults;
-  el('ov-platforms').textContent = activePlats + ' / ' + PLATS.length;
-  const qLimit = getUserLimits().queries;
-  el('ov-queries').textContent = queries + ' / ' + qLimit;
-  el('ov-queries').style.color = queries >= qLimit ? 'var(--red)' : '';
-  el('ov-last-run-age').textContent = runAgeText;
-  el('ov-last-run-age').style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
-
-  // Run duration — show how long the last crawl took
-  const durationEl = el('ov-run-duration');
-  if (lastRun && lastRun.durationMs) {
-    const ds = Math.floor(lastRun.durationMs / 1000);
+  // Customize hero stats based on active preset
+  const heroStatsEl = document.querySelector('.ov-hero-stats');
+  if (heroStatsEl && _activePreset === 'founder') {
+    // Founder: Show high-level business metrics
+    const mentionRate = totalResults > 0 ? Math.round(mentions / totalResults * 100) : 0;
+    heroStatsEl.innerHTML = `
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val" style="color:${mentionRate >= 50 ? 'var(--green)' : mentionRate > 0 ? 'var(--amber)' : ''}">${mentionRate}%</div><div class="ov-hero-stat-lbl">Mention Rate</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${activePlats} / ${PLATS.length}</div><div class="ov-hero-stat-lbl">AI Platforms</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-last-run-age">${runAgeText}</div><div class="ov-hero-stat-lbl">Last Updated</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${queries}</div><div class="ov-hero-stat-lbl">Queries Tracking</div></div>`;
+  } else if (heroStatsEl && _activePreset === 'seo_manager') {
+    // SEO: Show technical diagnostic stats
+    const qLimit = getUserLimits().queries;
+    const durationMs = lastRun && lastRun.durationMs ? lastRun.durationMs : 0;
+    const ds = Math.floor(durationMs / 1000);
     const dm = Math.floor(ds / 60);
     const dsec = ds % 60;
-    durationEl.textContent = dm > 0 ? dm + 'm ' + dsec + 's' : dsec + 's';
+    const durText = durationMs ? (dm > 0 ? dm + 'm ' + dsec + 's' : dsec + 's') : '--';
+    heroStatsEl.innerHTML = `
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${mentions} / ${totalResults}</div><div class="ov-hero-stat-lbl">Mentions / Responses</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${activePlats} / ${PLATS.length}</div><div class="ov-hero-stat-lbl">Platforms Active</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${queries} / ${qLimit}</div><div class="ov-hero-stat-lbl">Queries / Limit</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${durText}</div><div class="ov-hero-stat-lbl">Crawl Duration</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-last-run-age">${runAgeText}</div><div class="ov-hero-stat-lbl">Data Freshness</div></div>`;
+  } else if (heroStatsEl && _activePreset === 'agency_manager') {
+    // Agency: Show client-focused summary
+    const healthStatus = activePlats >= PLATS.length ? 'Healthy' : activePlats > PLATS.length / 2 ? 'Partial' : activePlats > 0 ? 'Degraded' : 'Offline';
+    const healthColor = activePlats >= PLATS.length ? 'var(--green)' : activePlats > PLATS.length / 2 ? 'var(--amber)' : 'var(--red)';
+    heroStatsEl.innerHTML = `
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${mentions} / ${totalResults}</div><div class="ov-hero-stat-lbl">Mentions / Total</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val" style="color:${healthColor}">${healthStatus}</div><div class="ov-hero-stat-lbl">System Health</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${activePlats}</div><div class="ov-hero-stat-lbl">Active Platforms</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-last-run-age">${runAgeText}</div><div class="ov-hero-stat-lbl">Last Run</div></div>`;
   } else {
-    durationEl.textContent = '--';
+    // Custom/default: original stats
+    el('ov-mentions').textContent = mentions + ' / ' + totalResults;
+    el('ov-platforms').textContent = activePlats + ' / ' + PLATS.length;
+    const qLimit = getUserLimits().queries;
+    el('ov-queries').textContent = queries + ' / ' + qLimit;
+    el('ov-queries').style.color = queries >= qLimit ? 'var(--red)' : '';
+    el('ov-last-run-age').textContent = runAgeText;
+    el('ov-last-run-age').style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
+
+    // Run duration — show how long the last crawl took
+    const durationEl = el('ov-run-duration');
+    if (lastRun && lastRun.durationMs) {
+      const ds = Math.floor(lastRun.durationMs / 1000);
+      const dm = Math.floor(ds / 60);
+      const dsec = ds % 60;
+      durationEl.textContent = dm > 0 ? dm + 'm ' + dsec + 's' : dsec + 's';
+    } else {
+      durationEl.textContent = '--';
+    }
+  }
+
+  // Update last-run-age color for all presets
+  const runAgeEl = el('ov-last-run-age');
+  if (runAgeEl) {
+    runAgeEl.style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
   }
 
   // ─── Single-pass aggregation over allResults ─────────────────
@@ -1750,11 +1794,34 @@ function renderOverview(){
   const healthEl = el('ov-api-health');
   if (lastRun && lastRun.allResults) {
     const dotColor = _ovErrs === 0 ? 'var(--green)' : _ovErrs <= 3 ? 'var(--amber)' : 'var(--red)';
-    healthEl.innerHTML = `<div class="ov-health">
-      <div class="ov-health-dot" style="background:${dotColor};"></div>
-      <div class="ov-health-text"><strong>${_ovHealthyPlats.size}/${_ovAllPlats.size}</strong> platforms healthy · <strong>${_ovValid}</strong> ok · <span style="color:${_ovErrs > 0 ? 'var(--red)' : 'inherit'}">${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</span></div>
-      ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Errors →</a>` : ''}
-    </div>`;
+    if (_activePreset === 'seo_manager') {
+      // SEO Manager: Detailed diagnostic health banner
+      const successRate = _ovValid > 0 ? Math.round(_ovValid / (_ovValid + _ovErrs) * 100) : 0;
+      healthEl.innerHTML = `<div class="ov-health">
+        <div class="ov-health-dot" style="background:${dotColor};"></div>
+        <div class="ov-health-text">
+          <strong>${_ovHealthyPlats.size}/${_ovAllPlats.size}</strong> platforms healthy ·
+          <strong>${_ovValid}</strong> valid responses ·
+          <strong>${successRate}%</strong> success rate ·
+          <span style="color:${_ovErrs > 0 ? 'var(--red)' : 'inherit'}">${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</span>
+        </div>
+        ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">Diagnose Errors →</a>` : `<span style="font-family:var(--mono);font-size:10px;color:var(--green);margin-left:auto;">All Systems Go</span>`}
+      </div>`;
+    } else if (_activePreset === 'agency_manager') {
+      // Agency Manager: Status-focused health strip
+      const statusLabel = _ovErrs === 0 ? 'ALL CLEAR' : _ovErrs <= 3 ? 'MINOR ISSUES' : 'ATTENTION NEEDED';
+      healthEl.innerHTML = `<div class="ov-health">
+        <div class="ov-health-dot" style="background:${dotColor};"></div>
+        <div class="ov-health-text"><strong style="letter-spacing:.5px;">${statusLabel}</strong> · ${_ovHealthyPlats.size}/${_ovAllPlats.size} platforms · ${_ovValid} responses · ${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</div>
+        ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Logs →</a>` : ''}
+      </div>`;
+    } else {
+      healthEl.innerHTML = `<div class="ov-health">
+        <div class="ov-health-dot" style="background:${dotColor};"></div>
+        <div class="ov-health-text"><strong>${_ovHealthyPlats.size}/${_ovAllPlats.size}</strong> platforms healthy · <strong>${_ovValid}</strong> ok · <span style="color:${_ovErrs > 0 ? 'var(--red)' : 'inherit'}">${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</span></div>
+        ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Errors →</a>` : ''}
+      </div>`;
+    }
   } else {
     healthEl.innerHTML = '';
   }
@@ -1777,32 +1844,65 @@ function renderOverview(){
     const recPct = _ovValid > 0 ? Math.round(recommendRate * 100) : 0;
     const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
 
-    scoresRow.innerHTML = `
-      <div class="ov-score-card">
-        <div class="ov-score-icon" style="color:${geoColor};">◎</div>
-        <div class="ov-score-body">
-          <div class="ov-score-label">GEO Score</div>
-          <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
-          <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
+    if (_activePreset === 'founder') {
+      // Founder view: Large centered score cards with progress indicators
+      scoresRow.innerHTML = `
+        <div class="ov-score-card">
+          <div class="ov-score-icon" style="color:${geoColor};">◎</div>
+          <div class="ov-score-body">
+            <div class="ov-score-label">GEO Score</div>
+            <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+            <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${geoScore}%;background:${geoColor};border-radius:2px;transition:width .6s ease;"></div></div>
+            <div class="ov-score-tag" style="color:${geoColor};margin-top:6px;">${geoLabel} — ${geoScore >= 70 ? 'Excellent AI visibility' : geoScore >= 40 ? 'Growing steadily' : geoScore > 0 ? 'Needs improvement' : 'Not visible yet'}</div>
+          </div>
         </div>
-      </div>
-      <div class="ov-score-card">
-        <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
-        <div class="ov-score-body">
-          <div class="ov-score-label">AI Sentiment</div>
-          <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
-          <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
+        <div class="ov-score-card">
+          <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
+          <div class="ov-score-body">
+            <div class="ov-score-label">Brand Perception</div>
+            <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
+            <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${sentimentScore}%;background:${sentColor};border-radius:2px;transition:width .6s ease;"></div></div>
+            <div class="ov-score-breakdown" style="margin-top:6px;"><span style="color:var(--green);">+${posCount} positive</span> <span style="color:var(--muted);">~${neuCount} neutral</span> <span style="color:var(--red);">-${negCount} negative</span></div>
+          </div>
         </div>
-      </div>
-      <div class="ov-score-card">
-        <div class="ov-score-icon" style="color:${recColor};">★</div>
-        <div class="ov-score-body">
-          <div class="ov-score-label">Recommended</div>
-          <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
-          <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+        <div class="ov-score-card">
+          <div class="ov-score-icon" style="color:${recColor};">★</div>
+          <div class="ov-score-body">
+            <div class="ov-score-label">AI Recommends You</div>
+            <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
+            <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${recPct}%;background:${recColor};border-radius:2px;transition:width .6s ease;"></div></div>
+            <div class="ov-score-tag" style="color:${recColor};margin-top:6px;">${recPct >= 50 ? 'Strong endorsement rate' : recPct > 0 ? 'Room to grow' : 'Not yet recommended'}</div>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      scoresRow.innerHTML = `
+        <div class="ov-score-card">
+          <div class="ov-score-icon" style="color:${geoColor};">◎</div>
+          <div class="ov-score-body">
+            <div class="ov-score-label">GEO Score</div>
+            <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+            <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
+          </div>
+        </div>
+        <div class="ov-score-card">
+          <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
+          <div class="ov-score-body">
+            <div class="ov-score-label">AI Sentiment</div>
+            <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
+            <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
+          </div>
+        </div>
+        <div class="ov-score-card">
+          <div class="ov-score-icon" style="color:${recColor};">★</div>
+          <div class="ov-score-body">
+            <div class="ov-score-label">Recommended</div>
+            <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
+            <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+          </div>
+        </div>
+      `;
+    }
   } else {
     scoresRow.innerHTML = '';
   }
@@ -1929,7 +2029,9 @@ function renderOverview(){
     }
 
     if (tips.length > 0) {
-      let insHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Actionable Insights</div><div class="ov-card-sub">${tips.length} tip${tips.length !== 1 ? 's' : ''}</div></div>`;
+      const insTitle = _activePreset === 'founder' ? 'Executive Action Items' : 'Actionable Insights';
+      const insSub = _activePreset === 'founder' ? `${tips.length} recommendation${tips.length !== 1 ? 's' : ''} for growth` : `${tips.length} tip${tips.length !== 1 ? 's' : ''}`;
+      let insHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${insTitle}</div><div class="ov-card-sub">${insSub}</div></div>`;
       tips.forEach(t => {
         insHtml += `<div class="ov-insight" style="border-left-color:${t.color};">
           <div class="ov-insight-head"><span class="ov-insight-icon">${t.icon}</span><strong>${t.title}</strong></div>
@@ -1981,14 +2083,28 @@ function renderOverview(){
     });
     const sorted = Object.entries(queryStats).map(([q, s]) => ({ query: q, ...s, rate: Math.round(s.found / s.total * 100) })).sort((a, b) => b.rate - a.rate);
     if (sorted.length > 0) {
-      let qpHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Query Performance</div><div class="ov-card-sub">${sorted.length} queries</div></div>`;
-      sorted.forEach(s => {
+      const qpTitle = _activePreset === 'seo_manager' ? 'Query Rankings & Performance' : 'Query Performance';
+      const avgRate = Math.round(sorted.reduce((sum, s) => sum + s.rate, 0) / sorted.length);
+      const qpSub = _activePreset === 'seo_manager' ? `${sorted.length} queries · avg ${avgRate}% mention rate` : `${sorted.length} queries`;
+      let qpHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${qpTitle}</div><div class="ov-card-sub">${qpSub}</div></div>`;
+      sorted.forEach((s, i) => {
         const barColor = s.rate >= 50 ? 'var(--green)' : s.rate > 0 ? 'var(--amber)' : 'var(--red)';
-        qpHtml += `<div class="ov-qp-bar">
-          <div class="ov-qp-query">${esc(s.query)}</div>
-          <div class="ov-qp-track"><div class="ov-qp-fill" style="width:${s.rate}%;background:${barColor};"></div></div>
-          <div class="ov-qp-rate" style="color:${barColor};">${s.rate}%</div>
-        </div>`;
+        if (_activePreset === 'seo_manager') {
+          // SEO: Show rank number and found/total counts
+          qpHtml += `<div class="ov-qp-bar">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--muted);width:20px;flex-shrink:0;">#${i+1}</span>
+            <div class="ov-qp-query">${esc(s.query)}</div>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);flex-shrink:0;">${s.found}/${s.total}</span>
+            <div class="ov-qp-track"><div class="ov-qp-fill" style="width:${s.rate}%;background:${barColor};"></div></div>
+            <div class="ov-qp-rate" style="color:${barColor};">${s.rate}%</div>
+          </div>`;
+        } else {
+          qpHtml += `<div class="ov-qp-bar">
+            <div class="ov-qp-query">${esc(s.query)}</div>
+            <div class="ov-qp-track"><div class="ov-qp-fill" style="width:${s.rate}%;background:${barColor};"></div></div>
+            <div class="ov-qp-rate" style="color:${barColor};">${s.rate}%</div>
+          </div>`;
+        }
       });
       qpHtml += `</div>`;
       qpEl.innerHTML = qpHtml;
@@ -2019,12 +2135,31 @@ function renderOverview(){
     });
     const topComp = Object.entries(competitors).sort((a, b) => b[1] - a[1]).slice(0, 8);
     if (topComp.length > 0) {
-      let compHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Competitors in AI</div><div class="ov-card-sub">${topComp.length} brands</div></div>`;
-      compHtml += `<div style="display:flex;flex-wrap:wrap;gap:6px;">`;
-      topComp.forEach(([name, count]) => {
-        compHtml += `<div class="ov-comp-chip"><span>${esc(name)}</span><span class="ov-comp-count">${count}x</span></div>`;
-      });
-      compHtml += `</div></div>`;
+      const compTitle = _activePreset === 'founder' ? 'Competitive Landscape' : _activePreset === 'agency_manager' ? 'Competitor Tracking' : 'Competitors in AI';
+      const compSub = _activePreset === 'founder' ? `${topComp.length} brands competing for AI mentions` : _activePreset === 'agency_manager' ? `${topComp.length} brands detected across platforms` : `${topComp.length} brands`;
+      let compHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${compTitle}</div><div class="ov-card-sub">${compSub}</div></div>`;
+
+      if (_activePreset === 'agency_manager') {
+        // Agency: Show as a ranked list with position numbers
+        compHtml += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+        topComp.forEach(([name, count], i) => {
+          const barW = Math.round(count / topComp[0][1] * 100);
+          compHtml += `<div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);width:18px;text-align:right;">#${i+1}</span>
+            <span style="font-size:12px;font-weight:600;width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(name)}</span>
+            <div style="flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;"><div style="height:100%;width:${barW}%;background:rgba(20,184,166,.5);border-radius:2px;"></div></div>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">${count}x</span>
+          </div>`;
+        });
+        compHtml += `</div>`;
+      } else {
+        compHtml += `<div style="display:flex;flex-wrap:wrap;gap:6px;">`;
+        topComp.forEach(([name, count]) => {
+          compHtml += `<div class="ov-comp-chip"><span>${esc(name)}</span><span class="ov-comp-count">${count}x</span></div>`;
+        });
+        compHtml += `</div>`;
+      }
+      compHtml += `</div>`;
       compEl.innerHTML = compHtml;
     } else { compEl.innerHTML = ''; }
   } else { compEl.innerHTML = ''; }
@@ -2050,7 +2185,9 @@ function renderOverview(){
       const topDomains = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
       const brandDomain = b.website ? b.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase() : '';
 
-      let citHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Citation Sources</div><div class="ov-card-sub">Where AI pulls information from</div></div>`;
+      const citTitle = _activePreset === 'seo_manager' ? 'Citation Analysis' : 'Citation Sources';
+      const citSub = _activePreset === 'seo_manager' ? `${topDomains.length} domains · ${allCites.length} total citations` : 'Where AI pulls information from';
+      let citHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${citTitle}</div><div class="ov-card-sub">${citSub}</div></div>`;
       citHtml += `<div class="ov-cit-list">`;
       topDomains.forEach(([domain, count]) => {
         const isOwn = brandDomain && domain.includes(brandDomain);
@@ -2082,7 +2219,9 @@ function renderOverview(){
     const errors = lastRun.allResults.filter(r => r.error);
     const found = lastRun.allResults.filter(r => r.mentioned);
     const runTime = new Date(lastRun.time || lastRun.date);
-    let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">Last Run — ${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>`;
+    const summaryTitle = _activePreset === 'agency_manager' ? 'Run Status Report' : _activePreset === 'founder' ? 'Latest Activity' : 'Last Run';
+    const timeStr = `${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
+    let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${summaryTitle} — ${timeStr}</div></div>`;
     if (errors.length > 0) {
       summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;border-radius:var(--radius-xs);">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
@@ -2142,6 +2281,11 @@ function renderOverview(){
 
   // Mini SOV trend chart on overview (lazy-loads Chart.js)
   const miniTrend = el('ov-mini-trend');
+  // Update chart section title per preset
+  const trendTitle = miniTrend.querySelector('.ov-card-title');
+  const trendSub = miniTrend.querySelector('.ov-card-sub');
+  if (trendTitle) trendTitle.textContent = _activePreset === 'founder' ? 'Growth Trajectory' : 'SOV Trend';
+  if (trendSub) trendSub.textContent = _activePreset === 'founder' ? 'Your AI visibility over time' : 'Last 14 runs';
   const history = b.sovHistory || [];
   if (history.length >= 2) {
     miniTrend.style.display = 'block';
@@ -2155,6 +2299,8 @@ function renderOverview(){
       const canvas = el('ov-mini-chart');
       if (!canvas) return;
       const mCtx = canvas.getContext('2d');
+      const chartColor = _activePreset === 'founder' ? '#818cf8' : '#FF6154';
+      const chartBg = _activePreset === 'founder' ? 'rgba(129,140,248,0.08)' : 'rgba(255,97,84,0.08)';
       window._ovMiniChart = new Chart(mCtx, {
         type: 'line',
         data: {
@@ -2162,12 +2308,12 @@ function renderOverview(){
           datasets: [{
             label: 'SOV %',
             data: miniData,
-            borderColor: '#FF6154',
-            backgroundColor: 'rgba(255,97,84,0.08)',
+            borderColor: chartColor,
+            backgroundColor: chartBg,
             fill: true,
             tension: 0.3,
             pointRadius: 3,
-            pointBackgroundColor: '#FF6154'
+            pointBackgroundColor: chartColor
           }]
         },
         options: {
@@ -5659,6 +5805,28 @@ async function exportRecommendations(){
 
 // ─── DASHBOARD PRESETS ────────────────────────────────────────────
 let _activePreset = '';
+
+const _presetMeta = {
+  founder: {
+    icon: '👔',
+    title: 'Founder Overview',
+    desc: 'High-level KPIs and trends for executive decision-making. Focus on what matters most — growth trajectory, brand sentiment, and competitive position.',
+    className: 'preset-founder'
+  },
+  seo_manager: {
+    icon: '🔍',
+    title: 'SEO Manager Dashboard',
+    desc: 'Technical analytics for optimizing AI visibility. Deep-dive into platform performance, query rankings, and citation sources.',
+    className: 'preset-seo_manager'
+  },
+  agency_manager: {
+    icon: '📊',
+    title: 'Agency Overview',
+    desc: 'Client reporting dashboard with platform health, competitive landscape, and performance status at a glance.',
+    className: 'preset-agency_manager'
+  }
+};
+
 function applyDashboardPreset(preset){
   _activePreset = preset || '';
   // Section IDs on the overview page that can be toggled
@@ -5675,6 +5843,34 @@ function applyDashboardPreset(preset){
     const section = el(id);
     if (section) section.style.display = visible.has(id) ? '' : 'none';
   });
+
+  // Apply preset-specific CSS class to the overview container
+  const ovContainer = el('view-overview');
+  if (ovContainer) {
+    // Remove all preset classes
+    ovContainer.classList.remove('preset-founder', 'preset-seo_manager', 'preset-agency_manager');
+    // Add the active preset class
+    const meta = _presetMeta[preset];
+    if (meta) ovContainer.classList.add(meta.className);
+  }
+
+  // Render preset banner
+  const bannerEl = el('ov-preset-banner');
+  if (bannerEl) {
+    const meta = _presetMeta[preset];
+    if (meta) {
+      bannerEl.innerHTML = `<div class="ov-preset-banner">
+        <div class="ov-preset-banner-icon">${meta.icon}</div>
+        <div class="ov-preset-banner-text">
+          <div class="ov-preset-banner-title">${meta.title}</div>
+          <div class="ov-preset-banner-desc">${meta.desc}</div>
+        </div>
+      </div>`;
+    } else {
+      bannerEl.innerHTML = '';
+    }
+  }
+
   // Re-render overview to populate visible sections
   if (currentView === 'overview') renderOverview();
   const label = el('ov-preset-select')?.selectedOptions[0]?.text || 'Custom View';

@@ -746,15 +746,18 @@
           <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and run queries to see results.</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <select class="finput" id="ov-preset-select" style="width:160px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
-            <option value="">Custom View</option>
-            <option value="founder">Founder View</option>
-            <option value="seo_manager">SEO Manager</option>
-            <option value="agency_manager">Agency View</option>
+          <select class="finput" id="ov-preset-select" style="width:180px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
+            <option value="">All Sections</option>
+            <option value="founder">👔 Founder View</option>
+            <option value="seo_manager">🔍 SEO Manager</option>
+            <option value="agency_manager">📊 Agency View</option>
           </select>
           <div class="ov-header-actions" id="ov-header-actions"></div>
         </div>
       </div>
+
+      <!-- Preset-specific banner -->
+      <div id="ov-preset-banner"></div>
 
       <!-- SOV Hero Card -->
       <div class="ov-hero" id="ov-hero">
