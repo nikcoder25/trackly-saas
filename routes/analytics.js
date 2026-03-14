@@ -483,11 +483,48 @@ router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
     const sovHistory = (brand.sovHistory || []).map(h => ({ date: h.date, value: h.overall }));
     const trend = trendAnalysis(sovHistory);
 
+    // Platform-level breakdown for per-platform gap detection
+    const platStats = await pool.query(`
+      SELECT platform,
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE mentioned)::int AS mentions
+      FROM prompt_runs
+      WHERE brand_id = $1 AND success = TRUE AND created_at > NOW() - INTERVAL '30 days'
+      GROUP BY platform
+    `, [req.params.id]);
+    const platformBreakdown = {};
+    platStats.rows.forEach(r => {
+      platformBreakdown[r.platform] = { total: r.total, mentions: r.mentions, mentionRate: r.total > 0 ? r.mentions / r.total : 0 };
+    });
+
+    // Query-level breakdown for blind spot detection
+    const queryStats = await pool.query(`
+      SELECT prompt,
+        COUNT(*)::int AS runs,
+        COUNT(*) FILTER (WHERE mentioned)::int AS mentions
+      FROM prompt_runs
+      WHERE brand_id = $1 AND success = TRUE AND created_at > NOW() - INTERVAL '30 days'
+      GROUP BY prompt
+    `, [req.params.id]);
+    const queryBreakdown = {};
+    queryStats.rows.forEach(r => { queryBreakdown[r.prompt] = { runs: r.runs, mentions: r.mentions }; });
+
+    // Average rank position
+    const rankResult = await pool.query(`
+      SELECT AVG(list_position)::float AS avg_rank
+      FROM prompt_runs
+      WHERE brand_id = $1 AND success = TRUE AND mentioned = TRUE AND list_position IS NOT NULL
+        AND created_at > NOW() - INTERVAL '30 days'
+    `, [req.params.id]);
+
     const analytics = {
       overallMentionRate: mentionRate,
       sentimentDistribution,
       topCompetitors,
       trend,
+      platformBreakdown,
+      queryBreakdown,
+      avgRank: rankResult.rows[0]?.avg_rank || null,
       mentionedWithoutCitation: await (async () => {
         try {
           const citResult = await pool.query(`
