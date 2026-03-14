@@ -414,6 +414,9 @@ async function initApp(){
     closeModal('add-brand-modal');
     renderAll();
   }
+
+  // Check if there's a query run still active on the server (e.g. user closed tab and reopened)
+  checkActiveRun();
 }
 
 function renderBrandSelect(){
@@ -3458,6 +3461,7 @@ async function runQueries(){
   let received = 0;
   let liveFoundCount = 0;
   let liveErrorCount = 0;
+  let activeRunId = null;
 
   function updateLiveStats() {
     const statsEl = el('live-stats');
@@ -3505,6 +3509,13 @@ async function runQueries(){
 
         if (evt.type === 'start') {
           totalExpected = evt.totalExpected || 0;
+          activeRunId = evt.runId || null;
+          // Save active run to localStorage so we can resume after page reload
+          if (activeRunId) {
+            localStorage.setItem('trackly_active_run', JSON.stringify({
+              runId: activeRunId, brandId: b.id, startedAt: Date.now()
+            }));
+          }
           statusTxt.textContent = `Running ${evt.queries?.length || 0} queries on ${evt.platforms?.length || 0} platforms...`;
           updateLiveStats();
         } else if (evt.type === 'result') {
@@ -3525,6 +3536,9 @@ async function runQueries(){
         }
       }
     }
+
+    // Clear active run from localStorage
+    localStorage.removeItem('trackly_active_run');
 
     clearInterval(timerInt);
     fill.style.width = '100%';
@@ -3585,6 +3599,21 @@ async function runQueries(){
     }
   } catch(e) {
     clearInterval(timerInt);
+
+    // If we have a runId, the server is still running in the background.
+    // Switch to polling instead of showing an error.
+    if (activeRunId) {
+      console.log('[Run] SSE connection lost, switching to polling for runId:', activeRunId);
+      statusTxt.textContent = 'Reconnecting — queries still running on server...';
+      try {
+        await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, timerInt: setInterval(() => { timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000) });
+        return; // pollRunStatus handles cleanup
+      } catch(pollErr) {
+        console.error('[Run] Polling also failed:', pollErr.message);
+        // Fall through to error handling below
+      }
+    }
+
     statusTxt.style.color = 'var(--red)';
     statusTxt.textContent = 'Run failed: ' + e.message;
     fill.style.width = '0%';
@@ -3602,6 +3631,7 @@ async function runQueries(){
       }
     } catch(_) {}
 
+    localStorage.removeItem('trackly_active_run');
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
@@ -3621,6 +3651,195 @@ async function runQueries(){
   runningQueries = false;
   btn.classList.remove('running');
   btn.textContent = '▶ RUN QUERIES';
+}
+
+// ─── POLL RUN STATUS (fallback when SSE disconnects or page reloads) ────
+async function pollRunStatus(brandId, runId, opts) {
+  opts = opts || {};
+  const startTime = opts.startTime || Date.now();
+  let received = opts.received || 0;
+  let totalExpected = opts.totalExpected || 0;
+  let liveFoundCount = opts.liveFoundCount || 0;
+  let liveErrorCount = opts.liveErrorCount || 0;
+  let lastResultCount = opts.lastResultCount || 0;
+
+  const btn = el('run-btn');
+  const prog = el('run-progress');
+  const fill = el('run-progress-fill');
+  const statusTxt = el('run-status-text');
+  const timerEl = el('run-timer');
+
+  function fmtTime(ms) {
+    const s = Math.floor(ms/1000);
+    const m = Math.floor(s/60);
+    const sec = s%60;
+    return m > 0 ? m+'m '+sec+'s' : sec+'s';
+  }
+
+  // Set up UI
+  runningQueries = true;
+  if (btn) { btn.classList.add('running'); btn.textContent = '⏳ RUNNING...'; }
+  if (prog) prog.style.display = 'block';
+
+  const timerInt = opts.timerInt || setInterval(() => {
+    if (timerEl) timerEl.textContent = fmtTime(Date.now()-startTime);
+  }, 1000);
+
+  return new Promise((resolve, reject) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const data = await api('GET', `/api/brands/${brandId}/run-status/${runId}`);
+
+        // Update progress
+        received = data.received || 0;
+        totalExpected = data.totalExpected || totalExpected;
+        liveFoundCount = data.foundCount || 0;
+        liveErrorCount = data.errorCount || 0;
+
+        const pct = totalExpected > 0 ? Math.round((received / totalExpected) * 100) : 0;
+        if (fill) fill.style.width = pct + '%';
+        if (statusTxt) statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
+
+        // Feed any new results to live views
+        if (data.results && data.results.length > lastResultCount) {
+          const newResults = data.results.slice(lastResultCount);
+          for (const r of newResults) {
+            onLiveResult(r, received, totalExpected, liveFoundCount, liveErrorCount);
+          }
+          lastResultCount = data.results.length;
+        }
+
+        if (data.status === 'done' || data.status === 'error') {
+          clearInterval(pollInterval);
+          clearInterval(timerInt);
+          localStorage.removeItem('trackly_active_run');
+
+          if (data.status === 'done') {
+            if (fill) fill.style.width = '100%';
+
+            // Reload fresh brand data
+            try {
+              const freshData = await api('GET', '/api/brands');
+              if (freshData.brands) {
+                brands = freshData.brands;
+                renderBrandSelect();
+                if (currentBrandId) el('brand-select').value = currentBrandId;
+              }
+            } catch(_) {}
+
+            const elapsed = fmtTime(Date.now()-startTime);
+            if (timerEl) timerEl.textContent = elapsed;
+            const result = data.finalData?.result || { totalQ: received, totalM: liveFoundCount, sov: 0, newMentions: liveFoundCount, errorCount: liveErrorCount };
+
+            if (statusTxt) statusTxt.textContent = `Done! Brand found in ${result.newMentions || liveFoundCount} of ${result.totalQ || received} responses · ${elapsed}`;
+
+            setTimeout(() => {
+              if (prog) prog.style.display = 'none';
+              if (fill) fill.style.width = '0%';
+              if (timerEl) timerEl.textContent = '';
+            }, 5000);
+
+            liveResults = [];
+            liveRunTime = null;
+            runningQueries = false;
+            clearLiveNotifs();
+            renderView(currentView);
+
+            if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
+
+            const errors = result.errorCount || liveErrorCount;
+            if (errors > 0) {
+              toast(`Run complete — ${result.totalQ - errors} succeeded, ${errors} failed.`, 'warn');
+            } else {
+              toast(result.sov === 0
+                ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
+                : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`,
+                result.sov > 0 ? 'ok' : 'warn');
+            }
+            resolve();
+          } else {
+            // Error
+            if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Run failed: ' + (data.error || 'Unknown error'); }
+            if (fill) { fill.style.width = '0%'; fill.style.background = 'var(--red)'; }
+
+            // Reload brand data (emergency save may have stored partial results)
+            try {
+              const freshData = await api('GET', '/api/brands');
+              if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
+            } catch(_) {}
+
+            liveResults = [];
+            liveRunTime = null;
+            runningQueries = false;
+            clearLiveNotifs();
+            if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
+            toast('Run failed — check API Logs for details.', 'err');
+            setTimeout(() => { if (prog) prog.style.display = 'none'; if (statusTxt) statusTxt.style.color = ''; if (fill) fill.style.background = ''; renderView(currentView); }, 2000);
+            resolve();
+          }
+        }
+      } catch(pollErr) {
+        console.error('[Poll] Error polling run status:', pollErr.message);
+        // Keep polling — server might be temporarily unreachable
+      }
+    }, 2000); // Poll every 2 seconds
+  });
+}
+
+// ─── RESUME ACTIVE RUN ON PAGE LOAD ─────────────────────────────
+async function checkActiveRun() {
+  const stored = localStorage.getItem('trackly_active_run');
+  if (!stored) return;
+  let runInfo;
+  try { runInfo = JSON.parse(stored); } catch(_) { localStorage.removeItem('trackly_active_run'); return; }
+
+  // Discard runs older than 10 minutes (server cleans up after 10 min too)
+  if (Date.now() - runInfo.startedAt > 10 * 60 * 1000) {
+    localStorage.removeItem('trackly_active_run');
+    return;
+  }
+
+  // Check if the run is still active on the server
+  try {
+    const data = await api('GET', `/api/brands/${runInfo.brandId}/run-status/${runInfo.runId}`);
+    if (data.status === 'running') {
+      // Switch to the brand that has a running query
+      if (currentBrandId !== runInfo.brandId) {
+        currentBrandId = runInfo.brandId;
+        const sel = el('brand-select');
+        if (sel) sel.value = currentBrandId;
+      }
+      toast('Resuming active query run...', 'ok');
+      liveResults = [];
+      liveRunTime = new Date(runInfo.startedAt);
+      await pollRunStatus(runInfo.brandId, runInfo.runId, {
+        startTime: runInfo.startedAt,
+        received: data.received || 0,
+        totalExpected: data.totalExpected || 0,
+        liveFoundCount: data.foundCount || 0,
+        liveErrorCount: data.errorCount || 0,
+        lastResultCount: 0  // Feed all results from scratch on resume
+      });
+    } else {
+      // Run already finished while we were away — just clear and reload
+      localStorage.removeItem('trackly_active_run');
+      try {
+        const freshData = await api('GET', '/api/brands');
+        if (freshData.brands) {
+          brands = freshData.brands;
+          renderBrandSelect();
+          if (currentBrandId) el('brand-select').value = currentBrandId;
+          renderView(currentView);
+        }
+      } catch(_) {}
+      if (data.status === 'done') {
+        toast('Query run completed while you were away. Results are ready!', 'ok');
+      }
+    }
+  } catch(_) {
+    // Run not found — probably already cleaned up, just clear localStorage
+    localStorage.removeItem('trackly_active_run');
+  }
 }
 
 // ─── API LOGS / DIAGNOSTICS ─────────────────────────────────────
