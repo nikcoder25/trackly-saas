@@ -1,3 +1,28 @@
+// ─── LAZY-LOAD CHART.JS ──────────────────────────────────────────
+// Chart.js (~200KB) is only loaded when a chart view is first opened,
+// saving bandwidth on initial page load for all users.
+let _chartJsLoaded = false;
+let _chartJsPromise = null;
+function ensureChartJs() {
+  if (_chartJsLoaded || typeof Chart !== 'undefined') { _chartJsLoaded = true; return Promise.resolve(); }
+  if (_chartJsPromise) return _chartJsPromise;
+  _chartJsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+    s.onload = () => { _chartJsLoaded = true; resolve(); };
+    s.onerror = () => reject(new Error('Failed to load Chart.js'));
+    document.head.appendChild(s);
+  });
+  return _chartJsPromise;
+}
+
+// ─── PAUSE ANIMATIONS WHEN TAB HIDDEN ────────────────────────────
+// CSS animations and transitions keep burning GPU/CPU even when the tab
+// is in the background. Pause them via a class on <body>.
+document.addEventListener('visibilitychange', () => {
+  document.body.classList.toggle('tab-hidden', document.hidden);
+});
+
 // ─── LANDING / AUTH NAVIGATION ────────────────────────────────────
 function showAuth(tab){
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
@@ -50,24 +75,28 @@ function escAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;'
 function safeBtoa(s){ try { return btoa(s); } catch(e) { return btoa(encodeURIComponent(s).replace(/%[0-9A-F]{2}/g,'')); } }
 function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
 // Simple markdown to HTML for AI responses
+// Regex patterns pre-compiled once — avoids recompilation on each of 640+ calls per run
+const _mdRe = {
+  headers: /^#{1,4}\s+(.+)$/gm,
+  bold: /\*\*(.+?)\*\*/g,
+  bold2: /__(.+?)__/g,
+  italic: /(?<!\w)\*([^*\n]+?)\*(?!\w)/g,
+  ul: /^[\s]*[-*]\s+(.+)$/gm,
+  ol: /^[\s]*(\d+)\.\s+(.+)$/gm,
+  dblnl: /\n\n/g,
+  nl: /\n/g
+};
 function mdToHtml(s){
   if (!s) return '';
   let h = esc(s);
-  // Headers: ### Title → <strong>Title</strong> with margin
-  h = h.replace(/^#{1,4}\s+(.+)$/gm, '<div style="font-weight:700;margin:10px 0 4px;">$1</div>');
-  // Bold: **text** or __text__
-  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  h = h.replace(/__(.+?)__/g, '<strong>$1</strong>');
-  // Italic: *text* or _text_ (but not inside words)
-  h = h.replace(/(?<!\w)\*([^*\n]+?)\*(?!\w)/g, '<em>$1</em>');
-  // Unordered list items: - item or * item
-  h = h.replace(/^[\s]*[-*]\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">• $1</div>');
-  // Numbered list items: 1. item
-  h = h.replace(/^[\s]*(\d+)\.\s+(.+)$/gm, '<div style="padding-left:16px;margin:2px 0;">$1. $2</div>');
-  // Paragraphs — convert double newlines
-  h = h.replace(/\n\n/g, '<div style="margin:8px 0;"></div>');
-  // Single newlines
-  h = h.replace(/\n/g, '<br>');
+  h = h.replace(_mdRe.headers, '<div style="font-weight:700;margin:10px 0 4px;">$1</div>');
+  h = h.replace(_mdRe.bold, '<strong>$1</strong>');
+  h = h.replace(_mdRe.bold2, '<strong>$1</strong>');
+  h = h.replace(_mdRe.italic, '<em>$1</em>');
+  h = h.replace(_mdRe.ul, '<div style="padding-left:16px;margin:2px 0;">• $1</div>');
+  h = h.replace(_mdRe.ol, '<div style="padding-left:16px;margin:2px 0;">$1. $2</div>');
+  h = h.replace(_mdRe.dblnl, '<div style="margin:8px 0;"></div>');
+  h = h.replace(_mdRe.nl, '<br>');
   return h;
 }
 // Persistent error storage (survives page reloads and brand data refreshes)
@@ -375,12 +404,12 @@ async function doResetPassword(){
   if (!pw || pw.length < 8) { msgEl.textContent = 'Password must be at least 8 characters.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   if (pw !== pw2) { msgEl.textContent = 'Passwords do not match.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (!token) { msgEl.textContent = 'Invalid reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  const resetToken = params.get('token');
+  if (!resetToken) { msgEl.textContent = 'Invalid reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   const btn = document.querySelector('#panel-reset .btn-primary');
   btn.disabled = true; btn.textContent = 'RESETTING...';
   try {
-    const data = await api('POST', '/api/auth/reset-password', { token, newPassword: pw });
+    const data = await api('POST', '/api/auth/reset-password', { token: resetToken, newPassword: pw });
     msgEl.textContent = data.message || 'Password reset! You can now log in.';
     msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.display = 'block';
     setTimeout(() => { window.location.href = '/'; }, 2000);
@@ -987,89 +1016,110 @@ function renderAll(){
 const _NOTIF_MAX = 5;       // max visible at once
 const _NOTIF_DURATION = 3500; // ms before auto-dismiss
 const _notifSeen = new Set();
+// Notification queue — batch DOM writes to reduce layout thrashing
+let _notifQueue = [];
+let _notifFlushTimer = null;
+
 function showLiveNotif(result) {
-  const cont = el('live-notifs');
-  if (!cont) return;
   // Dedup — don't show same platform+query combo twice in one run
   const dedupKey = (result.platform || '') + '||' + (result.query || '');
   if (_notifSeen.has(dedupKey)) return;
   _notifSeen.add(dedupKey);
-  const t = PLAT_THEME[result.platform] || {};
-  const isErr = result.error;
-  const isMentioned = result.mentioned;
 
-  // Status label
-  let statusCls, statusText;
-  if (isErr) { statusCls = 'error'; statusText = 'Error'; }
-  else if (isMentioned) { statusCls = 'found'; statusText = 'Found'; }
-  else { statusCls = 'notfound'; statusText = 'Not Found'; }
+  // Queue the notification and flush in batches (max every 200ms)
+  _notifQueue.push(result);
+  if (!_notifFlushTimer) {
+    _notifFlushTimer = setTimeout(_flushNotifQueue, 200);
+  }
+}
 
-  const queryShort = (result.query || '').length > 45 ? result.query.substring(0, 45) + '...' : (result.query || '');
+function _flushNotifQueue() {
+  _notifFlushTimer = null;
+  const cont = el('live-notifs');
+  if (!cont || !_notifQueue.length) { _notifQueue = []; return; }
 
-  const notif = document.createElement('div');
-  notif.className = 'live-notif';
-  notif.innerHTML = `
-    <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
-    <div class="live-notif-body">
-      <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
-      <div class="live-notif-sub">${esc(queryShort)}</div>
-    </div>
-    <div class="live-notif-status ${statusCls}">${statusText}</div>`;
+  // Only show the last _NOTIF_MAX notifications from the queue
+  const batch = _notifQueue.slice(-_NOTIF_MAX);
+  _notifQueue = [];
 
-  // Click to open the full result in modal
-  notif.onclick = () => {
-    notif.remove();
-    try {
-      const b = brand();
-      const t2 = PLAT_THEME[result.platform]||{};
-      const head = el('resp-modal-head');
-      const titleEl = el('resp-modal-title');
-      const queryEl = el('resp-modal-query');
-      const textEl = el('resp-modal-text');
-      if (!head || !titleEl || !queryEl || !textEl) return;
-      head.style.background = t2.bg||'var(--bg2)';
-      head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
-      titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-      queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
-      textEl.style.whiteSpace = 'normal';
-      const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
-      const rawHtml = mdToHtml(raw);
-      const hre = b ? brandHighlightRe(b) : null;
-      textEl.innerHTML = hre ? rawHtml.replace(hre, (m) => '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">'+esc(m)+'</mark>') : rawHtml;
-      const cc = el('resp-modal-cites');
-      const cites = result.citations||[];
-      if (cc) {
-        if (cites.length) {
-          cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
-            + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
-        } else cc.innerHTML = '';
+  // Build all notification elements in a document fragment (single reflow)
+  const frag = document.createDocumentFragment();
+  for (const result of batch) {
+    const t = PLAT_THEME[result.platform] || {};
+    const isErr = result.error;
+    const isMentioned = result.mentioned;
+    let statusCls, statusText;
+    if (isErr) { statusCls = 'error'; statusText = 'Error'; }
+    else if (isMentioned) { statusCls = 'found'; statusText = 'Found'; }
+    else { statusCls = 'notfound'; statusText = 'Not Found'; }
+    const queryShort = (result.query || '').length > 45 ? result.query.substring(0, 45) + '...' : (result.query || '');
+
+    const notif = document.createElement('div');
+    notif.className = 'live-notif';
+    notif.innerHTML = `
+      <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
+      <div class="live-notif-body">
+        <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
+        <div class="live-notif-sub">${esc(queryShort)}</div>
+      </div>
+      <div class="live-notif-status ${statusCls}">${statusText}</div>`;
+
+    notif.onclick = () => {
+      notif.remove();
+      try {
+        const b = brand();
+        const t2 = PLAT_THEME[result.platform]||{};
+        const head = el('resp-modal-head');
+        const titleEl = el('resp-modal-title');
+        const queryEl = el('resp-modal-query');
+        const textEl = el('resp-modal-text');
+        if (!head || !titleEl || !queryEl || !textEl) return;
+        head.style.background = t2.bg||'var(--bg2)';
+        head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
+        titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+        queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+        textEl.style.whiteSpace = 'normal';
+        const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
+        const rawHtml = mdToHtml(raw);
+        const hre = b ? brandHighlightRe(b) : null;
+        textEl.innerHTML = hre ? rawHtml.replace(hre, (m) => '<mark style="background:rgba(255,97,84,.2);color:var(--green);border-radius:4px;padding:1px 4px;">'+esc(m)+'</mark>') : rawHtml;
+        const cc = el('resp-modal-cites');
+        const cites = result.citations||[];
+        if (cc) {
+          if (cites.length) {
+            cc.innerHTML = '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;letter-spacing:1px;">SOURCES (' + cites.length + ')</div>'
+              + cites.map((c,i)=>`<div style="font-family:var(--mono);font-size:10px;margin-bottom:4px;"><span style="color:var(--muted)">[${i+1}]</span> <a href="${safeHref(c)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${esc(c)}</a></div>`).join('');
+          } else cc.innerHTML = '';
+        }
+        openModal('resp-modal');
+      } catch(e) { console.error('live notif click error:', e); }
+    };
+    frag.appendChild(notif);
+
+    // Auto-dismiss with single timer per notification
+    setTimeout(() => {
+      if (notif.parentNode) {
+        notif.classList.add('notif-exit');
+        setTimeout(() => notif.remove(), 300);
       }
-      openModal('resp-modal');
-    } catch(e) { console.error('live notif click error:', e); }
-  };
-
-  cont.appendChild(notif);
-
-  // Cap visible notifications
-  while (cont.children.length > _NOTIF_MAX) {
-    const oldest = cont.children[0];
-    oldest.classList.add('notif-exit');
-    setTimeout(() => oldest.remove(), 300);
+    }, _NOTIF_DURATION);
   }
 
-  // Auto-dismiss
-  setTimeout(() => {
-    if (notif.parentNode) {
-      notif.classList.add('notif-exit');
-      setTimeout(() => notif.remove(), 300);
-    }
-  }, _NOTIF_DURATION);
+  // Single DOM write: append all at once
+  cont.appendChild(frag);
+
+  // Cap visible notifications — remove oldest in one pass
+  while (cont.children.length > _NOTIF_MAX) {
+    cont.removeChild(cont.children[0]);
+  }
 }
 
 function clearLiveNotifs() {
   const cont = el('live-notifs');
   if (cont) cont.innerHTML = '';
   _notifSeen.clear();
+  _notifQueue = [];
+  if (_notifFlushTimer) { clearTimeout(_notifFlushTimer); _notifFlushTimer = null; }
 }
 
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
@@ -1078,8 +1128,55 @@ function clearLiveNotifs() {
 let _liveUpdateTimer = null;
 let _liveUpdatePending = null;
 
+// Incremental counters updated O(1) per result — avoids re-filtering liveResults array
+let _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() };
+function _resetLiveCounters() { _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() }; }
+function _updateLiveCounters(r) {
+  const p = r.platform;
+  _liveCounters.activePlats.add(p);
+  if (!r.error) {
+    if (!_liveCounters.platCounts[p]) _liveCounters.platCounts[p] = 0;
+    _liveCounters.platCounts[p]++;
+    if (r.mentioned) {
+      if (!_liveCounters.platMentions[p]) _liveCounters.platMentions[p] = 0;
+      _liveCounters.platMentions[p]++;
+      if (r.sentiment === 'positive') _liveCounters.posCount++;
+      else if (r.sentiment === 'negative') _liveCounters.negCount++;
+      else _liveCounters.neuCount++;
+      if (r.locationRelevant !== undefined) { _liveCounters.locTotal++; if (r.locationRelevant) _liveCounters.locRelevant++; }
+    }
+    if (r.recommended) _liveCounters.recCount++;
+  }
+}
+
+// Queue for batching live card DOM appends via requestAnimationFrame
+let _liveCardQueue = [];
+let _liveCardRaf = null;
+function _flushLiveCards() {
+  _liveCardRaf = null;
+  if (!_liveCardQueue.length) return;
+  const batch = _liveCardQueue;
+  _liveCardQueue = [];
+
+  if (currentView === 'mentions') {
+    const cardsEl = el('live-cards');
+    if (cardsEl) {
+      const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
+      let html = '';
+      for (const r of batch) {
+        html += buildMentionCard(r, runTimeStr).replace('class="mention-card ','class="mention-card mention-card-live ');
+      }
+      cardsEl.insertAdjacentHTML('beforeend', html);
+    }
+  }
+  if (currentView === 'proof') {
+    for (const r of batch) appendLiveProofCard(r);
+  }
+}
+
 function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
+  _updateLiveCounters(result);
 
   // Show bottom-right notification popup (lightweight — no throttle needed)
   showLiveNotif(result);
@@ -1096,16 +1193,10 @@ function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
     }, 500);
   }
 
-  // Always append individual cards immediately for mentions/proof (lightweight append)
-  if (currentView === 'mentions') {
-    const cardsEl = el('live-cards');
-    if (cardsEl) {
-      const runTimeStr = liveRunTime ? liveRunTime.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + liveRunTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '';
-      cardsEl.insertAdjacentHTML('beforeend', buildMentionCard(result, runTimeStr).replace('class="mention-card ','class="mention-card mention-card-live '));
-    }
-  }
-  if (currentView === 'proof') {
-    appendLiveProofCard(result);
+  // Queue card appends and flush via requestAnimationFrame to avoid blocking the main thread
+  _liveCardQueue.push(result);
+  if (!_liveCardRaf) {
+    _liveCardRaf = requestAnimationFrame(_flushLiveCards);
   }
 }
 
@@ -1198,37 +1289,35 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const sovEl = el('ov-sov');
   if (sovEl) { sovEl.textContent = sov + '%'; sovEl.style.color = sovColor; }
 
-  // Update hero stats
+  // Update hero stats using incremental counters (O(1) instead of O(n))
   const mEl = el('ov-mentions');
   if (mEl) mEl.textContent = mentions + ' / ' + totalResults;
-  const activePlats = new Set(liveResults.map(r => r.platform)).size;
   const pEl = el('ov-platforms');
-  if (pEl) pEl.textContent = activePlats + ' / ' + PLATS.length;
+  if (pEl) pEl.textContent = _liveCounters.activePlats.size + ' / ' + PLATS.length;
   const lrEl = el('ov-last-run-age');
   if (lrEl) { lrEl.textContent = 'NOW'; lrEl.style.color = 'var(--green)'; }
 
-  // Compute validResults once — used by scores row, health banner, and category SOV
-  const validResults = liveResults.filter(r => !r.error);
+  // Use incremental counters instead of re-filtering liveResults array
+  const c = _liveCounters;
 
-  // Update GEO scores row (only every 5 results to avoid O(n) filtering on each result)
+  // Update GEO scores row (only every 5 results to reduce DOM writes)
   const scoresRow = el('ov-scores-row');
   if (scoresRow && validCount > 0 && (received % 5 === 0 || received >= totalExpected)) {
-    const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
-    const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
-    const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
-    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : 0;
+    const mentionRate = validCount > 0 ? mentions / validCount : 0;
+    const recommendRate = validCount > 0 ? c.recCount / validCount : 0;
+    const locationRate = c.locTotal > 0 ? c.locRelevant / c.locTotal : 0;
     const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
     const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
     const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
 
-    const mentionedResults = validResults.filter(r => r.mentioned);
-    const posCount = mentionedResults.filter(r => r.sentiment === 'positive').length;
-    const negCount = mentionedResults.filter(r => r.sentiment === 'negative').length;
-    const neuCount = mentionedResults.filter(r => r.sentiment === 'neutral').length;
-    const sentimentScore = mentionedResults.length > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedResults.length)) : 0;
+    const mentionedTotal = c.posCount + c.negCount + c.neuCount;
+    const posCount = c.posCount;
+    const negCount = c.negCount;
+    const neuCount = c.neuCount;
+    const sentimentScore = mentionedTotal > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedTotal)) : 0;
     const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
 
-    const recPct = validResults.length > 0 ? Math.round(recommendRate * 100) : 0;
+    const recPct = validCount > 0 ? Math.round(recommendRate * 100) : 0;
     const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
 
     scoresRow.innerHTML = `
@@ -1259,19 +1348,15 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     `;
   }
 
-  // Update platform cards — highlight ones that have new results
+  // Update platform cards — use incremental counters instead of re-iterating liveResults
   const pg = el('ov-plat-grid');
   if (pg) {
     const platSOV = {};
     const platCounts = {};
-    liveResults.forEach(r => {
-      if (r.error) return;
-      const p = r.platform;
-      if (!platCounts[p]) platCounts[p] = { total: 0, found: 0 };
-      platCounts[p].total++;
-      if (r.mentioned) platCounts[p].found++;
-    });
-    Object.entries(platCounts).forEach(([p, c]) => { platSOV[p] = Math.round(c.found / c.total * 100); });
+    for (const p of Object.keys(c.platCounts)) {
+      platCounts[p] = { total: c.platCounts[p], found: c.platMentions[p] || 0 };
+      platSOV[p] = c.platCounts[p] > 0 ? Math.round((c.platMentions[p] || 0) / c.platCounts[p] * 100) : 0;
+    }
 
     pg.innerHTML = '';
     PLATS.forEach(plat => {
@@ -1294,13 +1379,13 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     });
   }
 
-  // Update API health banner
+  // Update API health banner using counters
   const healthEl = el('ov-api-health');
-  if (healthEl && liveResults.length > 0) {
-    const errs = liveResults.filter(r => r.error).length;
-    const okCount = validResults.length;
-    const healthyPlats = new Set(validResults.map(r => r.platform)).size;
-    const totalPlats = new Set(liveResults.map(r => r.platform)).size;
+  if (healthEl && received > 0) {
+    const errs = liveErrors;
+    const okCount = validCount;
+    const healthyPlats = Object.keys(c.platCounts).length;
+    const totalPlats = c.activePlats.size;
     const dotColor = errs === 0 ? 'var(--green)' : errs <= 3 ? 'var(--amber)' : 'var(--red)';
     healthEl.innerHTML = `<div class="ov-health ov-card-updating">
       <div class="ov-health-dot" style="background:${dotColor};"></div>
@@ -1309,15 +1394,16 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     </div>`;
   }
 
-  // Category SOV
+  // Category SOV — computed from incremental counters
   const catRow = el('ov-category-row');
-  if (catRow && validResults.length > 0) {
+  if (catRow && validCount > 0) {
     const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral'];
     const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
-    const chatR = validResults.filter(r => chatAI.includes(r.platform));
-    const searchR = validResults.filter(r => searchAI.includes(r.platform));
-    const chatSOV = chatR.length > 0 ? Math.round(chatR.filter(r => r.mentioned).length / chatR.length * 100) : null;
-    const searchSOV = searchR.length > 0 ? Math.round(searchR.filter(r => r.mentioned).length / searchR.length * 100) : null;
+    let chatTotal = 0, chatFound = 0, searchTotal = 0, searchFound = 0;
+    for (const p of chatAI) { chatTotal += c.platCounts[p] || 0; chatFound += c.platMentions[p] || 0; }
+    for (const p of searchAI) { searchTotal += c.platCounts[p] || 0; searchFound += c.platMentions[p] || 0; }
+    const chatSOV = chatTotal > 0 ? Math.round(chatFound / chatTotal * 100) : null;
+    const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
     function cc(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
     let ch = '';
     if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek · Mistral</div></div>`;
@@ -1327,13 +1413,24 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   }
 }
 
+// Cache the brand highlight regex for the duration of a run — avoids recompiling 80+ times
+let _cachedHighlightRe = null;
+let _cachedHighlightBrandId = null;
+
+function _getCachedHighlightRe(b) {
+  if (_cachedHighlightBrandId === b.id && _cachedHighlightRe !== null) return _cachedHighlightRe;
+  _cachedHighlightRe = brandHighlightRe(b);
+  _cachedHighlightBrandId = b.id;
+  return _cachedHighlightRe;
+}
+
 // Append a live proof card during streaming
 function appendLiveProofCard(result) {
   const b = brand();
   if (!b) return;
   let cont = el('live-proof-cards');
   if (!cont) {
-    // Set up live proof container if not exists
+    // Set up live proof container if not exists (only runs once per view switch)
     const proofCont = el('proof-container');
     if (!proofCont) return;
     proofCont.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
@@ -1348,7 +1445,7 @@ function appendLiveProofCard(result) {
   const isError = result.error;
   const isMentioned = result.mentioned;
   const preview = isError ? friendlyError(result.errorMessage) : (result.context || '').replace(/[#*_~`]/g,'').substring(0, 300);
-  const proofHre = brandHighlightRe(b);
+  const proofHre = _getCachedHighlightRe(b);
   const displayResp = proofHre && preview ? preview.replace(proofHre, (m) => '<mark>'+esc(m)+'</mark>') : preview;
   const statusBadge = isError
     ? `<div class="proof-card-badge" style="color:var(--amber);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);font-weight:700;border-radius:var(--radius-full);">⚠ ERROR</div>`
@@ -1493,18 +1590,55 @@ function renderOverview(){
     durationEl.textContent = '--';
   }
 
+  // ─── Single-pass aggregation over allResults ─────────────────
+  // Compute all stats in ONE loop instead of 15+ separate .filter() calls.
+  // For 80+ results, this avoids ~1,200+ redundant array iterations.
+  let _ovValid = 0, _ovErrs = 0, _ovMentioned = 0, _ovRec = 0;
+  let _ovPos = 0, _ovNeg = 0, _ovNeu = 0;
+  let _ovLocTotal = 0, _ovLocRelevant = 0;
+  const _ovHealthyPlats = new Set(), _ovAllPlats = new Set();
+  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral']);
+  const _ovSearchAI = new Set(['Perplexity', 'Google AIO', 'Gemini']);
+  let _ovChatTotal = 0, _ovChatMentioned = 0, _ovSearchTotal = 0, _ovSearchMentioned = 0;
+  const _ovNegResults = [];
+  const _ovPlatMentions = {};
+  const _ovLocCounts = {};
+  if (lastRun && lastRun.allResults) {
+    for (const r of lastRun.allResults) {
+      _ovAllPlats.add(r.platform);
+      if (r.error) { _ovErrs++; continue; }
+      _ovValid++;
+      _ovHealthyPlats.add(r.platform);
+      if (!_ovPlatMentions[r.platform]) _ovPlatMentions[r.platform] = { total: 0, found: 0 };
+      _ovPlatMentions[r.platform].total++;
+      if (_ovChatAI.has(r.platform)) { _ovChatTotal++; }
+      if (_ovSearchAI.has(r.platform)) { _ovSearchTotal++; }
+      if (r.mentioned) {
+        _ovMentioned++;
+        if (_ovPlatMentions[r.platform]) _ovPlatMentions[r.platform].found++;
+        if (_ovChatAI.has(r.platform)) _ovChatMentioned++;
+        if (_ovSearchAI.has(r.platform)) _ovSearchMentioned++;
+        if (r.sentiment === 'positive') _ovPos++;
+        else if (r.sentiment === 'negative') { _ovNeg++; _ovNegResults.push(r); }
+        else _ovNeu++;
+        if (r.locationRelevant !== undefined) { _ovLocTotal++; if (r.locationRelevant) _ovLocRelevant++; }
+        if (r.matchedLocation) {
+          const loc = r.matchedLocation.charAt(0).toUpperCase() + r.matchedLocation.slice(1);
+          _ovLocCounts[loc] = (_ovLocCounts[loc] || 0) + 1;
+        }
+      }
+      if (r.recommended) _ovRec++;
+    }
+  }
+
   // ─── API Health Banner ───────────────────────────────────────
   const healthEl = el('ov-api-health');
   if (lastRun && lastRun.allResults) {
-    const errs = lastRun.allResults.filter(r => r.error).length;
-    const okCount = lastRun.allResults.filter(r => !r.error).length;
-    const healthyPlats = new Set(lastRun.allResults.filter(r => !r.error).map(r => r.platform)).size;
-    const totalPlats = new Set(lastRun.allResults.map(r => r.platform)).size;
-    const dotColor = errs === 0 ? 'var(--green)' : errs <= 3 ? 'var(--amber)' : 'var(--red)';
+    const dotColor = _ovErrs === 0 ? 'var(--green)' : _ovErrs <= 3 ? 'var(--amber)' : 'var(--red)';
     healthEl.innerHTML = `<div class="ov-health">
       <div class="ov-health-dot" style="background:${dotColor};"></div>
-      <div class="ov-health-text"><strong>${healthyPlats}/${totalPlats}</strong> platforms healthy · <strong>${okCount}</strong> ok · <span style="color:${errs > 0 ? 'var(--red)' : 'inherit'}">${errs} error${errs !== 1 ? 's' : ''}</span></div>
-      ${errs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Errors →</a>` : ''}
+      <div class="ov-health-text"><strong>${_ovHealthyPlats.size}/${_ovAllPlats.size}</strong> platforms healthy · <strong>${_ovValid}</strong> ok · <span style="color:${_ovErrs > 0 ? 'var(--red)' : 'inherit'}">${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</span></div>
+      ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Errors →</a>` : ''}
     </div>`;
   } else {
     healthEl.innerHTML = '';
@@ -1513,26 +1647,19 @@ function renderOverview(){
   // ─── GEO & Sentiment Scores ──────────────────────────────────
   const scoresRow = el('ov-scores-row');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
-    const validResults = lastRun.allResults.filter(r => !r.error);
-    // GEO Score: weighted combination of mention rate, recommendation rate, and location relevance
-    const mentionRate = validResults.length > 0 ? validResults.filter(r => r.mentioned).length / validResults.length : 0;
-    const recommendRate = validResults.length > 0 ? validResults.filter(r => r.recommended).length / validResults.length : 0;
-    const locationResults = validResults.filter(r => r.mentioned && r.locationRelevant !== undefined);
-    const locationRate = locationResults.length > 0 ? locationResults.filter(r => r.locationRelevant).length / locationResults.length : 0;
+    const mentionRate = _ovValid > 0 ? _ovMentioned / _ovValid : 0;
+    const recommendRate = _ovValid > 0 ? _ovRec / _ovValid : 0;
+    const locationRate = _ovLocTotal > 0 ? _ovLocRelevant / _ovLocTotal : 0;
     const geoScore = Math.round((mentionRate * 40 + recommendRate * 35 + locationRate * 25));
     const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)';
     const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
 
-    // Sentiment breakdown
-    const mentionedResults = validResults.filter(r => r.mentioned);
-    const posCount = mentionedResults.filter(r => r.sentiment === 'positive').length;
-    const negCount = mentionedResults.filter(r => r.sentiment === 'negative').length;
-    const neuCount = mentionedResults.filter(r => r.sentiment === 'neutral').length;
-    const sentimentScore = mentionedResults.length > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedResults.length)) : 0;
+    const mentionedTotal = _ovPos + _ovNeg + _ovNeu;
+    const posCount = _ovPos, negCount = _ovNeg, neuCount = _ovNeu;
+    const sentimentScore = mentionedTotal > 0 ? Math.round(((posCount * 100 + neuCount * 50) / mentionedTotal)) : 0;
     const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
 
-    // Recommendation rate
-    const recPct = validResults.length > 0 ? Math.round(recommendRate * 100) : 0;
+    const recPct = _ovValid > 0 ? Math.round(recommendRate * 100) : 0;
     const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
 
     scoresRow.innerHTML = `
@@ -1568,12 +1695,8 @@ function renderOverview(){
   // ─── Category SOV + Best/Worst Row ───────────────────────────
   const catRow = el('ov-category-row');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
-    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral'];
-    const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
-    const chatResults = lastRun.allResults.filter(r => chatAI.includes(r.platform) && !r.error);
-    const searchResults = lastRun.allResults.filter(r => searchAI.includes(r.platform) && !r.error);
-    const chatSOV = chatResults.length > 0 ? Math.round(chatResults.filter(r => r.mentioned).length / chatResults.length * 100) : null;
-    const searchSOV = searchResults.length > 0 ? Math.round(searchResults.filter(r => r.mentioned).length / searchResults.length * 100) : null;
+    const chatSOV = _ovChatTotal > 0 ? Math.round(_ovChatMentioned / _ovChatTotal * 100) : null;
+    const searchSOV = _ovSearchTotal > 0 ? Math.round(_ovSearchMentioned / _ovSearchTotal * 100) : null;
 
     const platEntries = Object.entries(lastRun.platforms || {});
     const best = platEntries.length ? platEntries.reduce((a, b) => b[1] > a[1] ? b : a) : null;
@@ -1612,20 +1735,8 @@ function renderOverview(){
   // ─── Location Visibility ────────────────────────────────────
   const locViz = el('ov-location-viz');
   if (lastRun && lastRun.allResults && b.city) {
-    const validResults = lastRun.allResults.filter(r => !r.error && r.mentioned);
-    const withLoc = validResults.filter(r => r.locationRelevant !== undefined);
-    const locRelevant = withLoc.filter(r => r.locationRelevant);
-    const locRate = withLoc.length > 0 ? Math.round(locRelevant.length / withLoc.length * 100) : 0;
-
-    // Count matched locations
-    const locationCounts = {};
-    validResults.forEach(r => {
-      if (r.matchedLocation) {
-        const loc = r.matchedLocation.charAt(0).toUpperCase() + r.matchedLocation.slice(1);
-        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
-      }
-    });
-    const topLocs = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const locRate = _ovLocTotal > 0 ? Math.round(_ovLocRelevant / _ovLocTotal * 100) : 0;
+    const topLocs = Object.entries(_ovLocCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const nearbyAreas = b.nearbyAreas || [];
 
     let locHtml = `<div class="ov-card ov-loc-card">
@@ -1662,23 +1773,13 @@ function renderOverview(){
   // ─── Actionable Insights ──────────────────────────────────────
   const insightsEl = el('ov-insights');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
-    const validResults = lastRun.allResults.filter(r => !r.error);
     const tips = [];
 
-    // Analyze platform gaps
-    const platMentions = {};
-    PLATS.forEach(p => { platMentions[p] = { total: 0, found: 0 }; });
-    validResults.forEach(r => {
-      if (platMentions[r.platform]) {
-        platMentions[r.platform].total++;
-        if (r.mentioned) platMentions[r.platform].found++;
-      }
-    });
-
+    // Analyze platform gaps using pre-computed _ovPlatMentions
     const strongPlats = [];
     const weakPlats = [];
     const missingPlats = [];
-    Object.entries(platMentions).forEach(([p, s]) => {
+    Object.entries(_ovPlatMentions).forEach(([p, s]) => {
       if (s.total === 0) return;
       const rate = s.found / s.total;
       if (rate >= 0.5) strongPlats.push(p);
@@ -1690,22 +1791,20 @@ function renderOverview(){
       tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources — diversify your online presence.`, color: 'var(--amber)' });
     }
 
-    if (sov === 0 && validResults.length > 0) {
+    if (sov === 0 && _ovValid > 0) {
       tips.push({ type: 'zero', icon: '🎯', title: 'Getting Started with GEO', text: `AI platforms haven't picked up your brand yet. Focus on: <strong>structured data</strong> on your website, <strong>review profiles</strong> (Google, Yelp), and <strong>authoritative backlinks</strong>. These are what AI models reference.`, color: 'var(--blue)' });
     } else if (sov > 0 && sov < 30) {
       tips.push({ type: 'grow', icon: '📈', title: 'Growing Your AI Presence', text: `You're appearing in ${sov}% of queries. To boost this: create <strong>FAQ-style content</strong> that directly answers common questions, and ensure your <strong>Google Business Profile</strong> is fully optimized.`, color: 'var(--green)' });
     }
 
-    // Sentiment insight
-    const mentionedResults = validResults.filter(r => r.mentioned);
-    const negResults = mentionedResults.filter(r => r.sentiment === 'negative');
-    if (negResults.length > 0) {
-      tips.push({ type: 'sentiment', icon: '⚠', title: 'Negative Sentiment Detected', text: `${negResults.length} AI response${negResults.length > 1 ? 's' : ''} show negative sentiment about your brand. Check <a href="#" onclick="go('mentions');return false;" style="color:var(--red);">All Results</a> to see what AI is saying and address underlying issues.`, color: 'var(--red)' });
+    // Sentiment insight using pre-computed _ovNegResults
+    if (_ovNegResults.length > 0) {
+      tips.push({ type: 'sentiment', icon: '⚠', title: 'Negative Sentiment Detected', text: `${_ovNegResults.length} AI response${_ovNegResults.length > 1 ? 's' : ''} show negative sentiment about your brand. Check <a href="#" onclick="go('mentions');return false;" style="color:var(--red);">All Results</a> to see what AI is saying and address underlying issues.`, color: 'var(--red)' });
     }
 
-    // Recommendation tip
-    const recRate = mentionedResults.length > 0 ? mentionedResults.filter(r => r.recommended).length / mentionedResults.length : 0;
-    if (mentionedResults.length > 0 && recRate < 0.3) {
+    // Recommendation tip using pre-computed _ovMentioned and _ovRec
+    const recRate = _ovMentioned > 0 ? _ovRec / _ovMentioned : 0;
+    if (_ovMentioned > 0 && recRate < 0.3) {
       tips.push({ type: 'rec', icon: '★', title: 'Low Recommendation Rate', text: `AI mentions you but rarely <strong>recommends</strong> you. Earn more positive reviews, add customer testimonials to your site, and build authority with case studies and awards.`, color: 'var(--amber)' });
     }
 
@@ -1926,43 +2025,47 @@ function renderOverview(){
     ql.appendChild(tag);
   });
 
-  // Mini SOV trend chart on overview
+  // Mini SOV trend chart on overview (lazy-loads Chart.js)
   const miniTrend = el('ov-mini-trend');
   const history = b.sovHistory || [];
-  if (history.length >= 2 && typeof Chart !== 'undefined') {
+  if (history.length >= 2) {
     miniTrend.style.display = 'block';
-    const miniLabels = history.slice(-14).map(h => {
-      const d = new Date(h.date);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
-    const miniData = history.slice(-14).map(h => h.overall);
-    if (window._ovMiniChart) { window._ovMiniChart.destroy(); window._ovMiniChart = null; }
-    const mCtx = el('ov-mini-chart').getContext('2d');
-    window._ovMiniChart = new Chart(mCtx, {
-      type: 'line',
-      data: {
-        labels: miniLabels,
-        datasets: [{
-          label: 'SOV %',
-          data: miniData,
-          borderColor: '#FF6154',
-          backgroundColor: 'rgba(255,97,84,0.08)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: '#FF6154'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
-          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+    ensureChartJs().then(() => {
+      const miniLabels = history.slice(-14).map(h => {
+        const d = new Date(h.date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const miniData = history.slice(-14).map(h => h.overall);
+      if (window._ovMiniChart) { window._ovMiniChart.destroy(); window._ovMiniChart = null; }
+      const canvas = el('ov-mini-chart');
+      if (!canvas) return;
+      const mCtx = canvas.getContext('2d');
+      window._ovMiniChart = new Chart(mCtx, {
+        type: 'line',
+        data: {
+          labels: miniLabels,
+          datasets: [{
+            label: 'SOV %',
+            data: miniData,
+            borderColor: '#FF6154',
+            backgroundColor: 'rgba(255,97,84,0.08)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#FF6154'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
+            y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+          }
         }
-      }
-    });
+      });
+    }).catch(() => {});
   } else {
     miniTrend.style.display = 'none';
   }
@@ -3037,6 +3140,14 @@ let platSovChartInstance = null;
 
 function renderTrends(){
   const b = brand(); if (!b) return;
+
+  // Lazy-load Chart.js then render
+  ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
+    const cont = document.querySelector('#view-trends');
+    if (cont) cont.insertAdjacentHTML('afterbegin', '<div class="empty-state"><p>Failed to load chart library.</p></div>');
+  });
+}
+function _renderTrendsCharts(b) {
   const history = b.sovHistory || [];
 
   // Destroy existing chart instances safely
@@ -3718,6 +3829,11 @@ async function runQueries(){
 
   runningQueries = true;
   liveResults = [];
+  _resetLiveCounters();
+  _liveCardQueue = [];
+  if (_liveCardRaf) { cancelAnimationFrame(_liveCardRaf); _liveCardRaf = null; }
+  if (_liveUpdateTimer) { clearTimeout(_liveUpdateTimer); _liveUpdateTimer = null; }
+  _liveUpdatePending = null;
   liveRunTime = new Date();
 
   const btn = el('run-btn');
@@ -3842,13 +3958,8 @@ async function runQueries(){
     clearInterval(timerInt);
     fill.style.width = '100%';
 
-    // Update brand data from final response
-    if (finalData && finalData.brand) {
-      const idx = brands.findIndex(x=>x.id===b.id);
-      if (idx >= 0) brands[idx] = finalData.brand;
-    }
-    // Always reload fresh brand data to ensure we have complete results
-    // (the done event may be too large and get truncated)
+    // Reload fresh brand data from API (the done event only contains result summary
+    // to avoid sending massive payloads that freeze the browser)
     try {
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
@@ -4905,8 +5016,11 @@ async function renderPromptDetail() {
       metricsEl.innerHTML = '<div class="card" style="padding:16px;grid-column:1/-1;text-align:center;color:var(--muted);">No data yet. Run queries to see prompt-level metrics.</div>';
     }
 
-    // Load history for chart
-    const histData = await api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=30${platform ? '&platform=' + platform : ''}`);
+    // Load history for chart (lazy-load Chart.js in parallel with data fetch)
+    const [histData] = await Promise.all([
+      api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=30${platform ? '&platform=' + platform : ''}`),
+      ensureChartJs()
+    ]);
 
     // Visibility chart
     if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }

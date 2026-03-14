@@ -159,6 +159,8 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_prompt_runs_created_at ON prompt_runs(created_at);
       CREATE INDEX IF NOT EXISTS idx_prompt_runs_batch_id ON prompt_runs(batch_id);
       CREATE INDEX IF NOT EXISTS idx_prompt_runs_brand_prompt ON prompt_runs(brand_id, prompt);
+      -- Composite index for refreshPromptRunStats query (brand_id + success + created_at + GROUP BY columns)
+      CREATE INDEX IF NOT EXISTS idx_prompt_runs_stats_refresh ON prompt_runs(brand_id, success, created_at) INCLUDE (prompt, platform, mentioned, sentiment, list_position);
 
       -- Epic 1.1: Aggregated stats per prompt/platform
       CREATE TABLE IF NOT EXISTS prompt_run_stats (

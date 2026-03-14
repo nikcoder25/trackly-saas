@@ -58,9 +58,47 @@ const PLATFORM_COST_ORDER = [
 // List brands (includes team-shared brands)
 router.get('/', auth, async (req, res) => {
   try {
+    // Trim brand data for API response to keep payloads lightweight.
+    // - Strip `raw` text everywhere (full text is in prompt_runs table)
+    // - Strip `allResults` from older runs (frontend only renders latest 2 runs'
+    //   detailed results; older runs only need summary fields for SOV charts)
+    // - Strip `raw` from mentions
+    function trimBrandData(data) {
+      if (data.runs && data.runs.length > 0) {
+        for (let ri = 0; ri < data.runs.length; ri++) {
+          const run = data.runs[ri];
+          const isRecent = ri >= data.runs.length - 2; // keep last 2 runs' allResults
+          if (run.allResults) {
+            if (!isRecent) {
+              // Old runs: drop allResults entirely — summary fields (sov, totalQ, totalM, platforms) suffice
+              delete run.allResults;
+            } else {
+              // Recent runs: keep allResults but strip raw text
+              for (let i = 0; i < run.allResults.length; i++) {
+                if (run.allResults[i].raw) { delete run.allResults[i].raw; }
+              }
+            }
+          }
+          if (run.mentions) {
+            for (let i = 0; i < run.mentions.length; i++) {
+              if (run.mentions[i].raw) { delete run.mentions[i].raw; }
+            }
+          }
+        }
+      }
+      if (data.mentions) {
+        for (let i = 0; i < data.mentions.length; i++) {
+          if (data.mentions[i].raw) { delete data.mentions[i].raw; }
+        }
+      }
+      return data;
+    }
     // Own brands
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
-    const brands = result.rows.map(row => ({ id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
+    const brands = result.rows.map(row => {
+      const data = trimBrandData({ ...row.data });
+      return { id: row.id, userId: row.user_id, ...data, createdAt: row.created_at, updatedAt: row.updated_at };
+    });
     // Team-shared brands (where user is a member)
     const teamResult = await pool.query(
       `SELECT b.*, tm.role AS team_role, u.name AS owner_name, u.email AS owner_email
@@ -71,12 +109,15 @@ router.get('/', auth, async (req, res) => {
        ORDER BY b.created_at`,
       [req.user.id]
     );
-    const sharedBrands = teamResult.rows.map(row => ({
-      id: row.id, userId: row.user_id, ...row.data,
-      createdAt: row.created_at, updatedAt: row.updated_at,
-      shared: true, teamRole: row.team_role,
-      ownerName: row.owner_name, ownerEmail: row.owner_email
-    }));
+    const sharedBrands = teamResult.rows.map(row => {
+      const data = trimBrandData({ ...row.data });
+      return {
+        id: row.id, userId: row.user_id, ...data,
+        createdAt: row.created_at, updatedAt: row.updated_at,
+        shared: true, teamRole: row.team_role,
+        ownerName: row.owner_name, ownerEmail: row.owner_email
+      };
+    });
     res.json({ brands, sharedBrands });
   } catch(e) {
     console.error('[Brands GET]', e.message);
@@ -405,19 +446,30 @@ router.post('/:id/run', auth, async (req, res) => {
     try {
       console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls): ${activePlatforms.join(', ')} (runId: ${runId})`);
 
-      // Fire all tasks in parallel — rateLimitWait() serializes per-key automatically
-      const settled = await Promise.allSettled(
-        tasks.map(async ({ plat, q }) => {
-          // Early-abort: skip if this platform has failed too many times
-          if (platFailCount[plat] >= FAIL_THRESHOLD) {
-            throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+      // Run tasks with bounded concurrency to prevent overwhelming the server
+      // and consuming excessive memory with 80+ simultaneous API calls.
+      const CONCURRENCY = 6;
+      const settled = new Array(tasks.length);
+      let nextIdx = 0;
+
+      async function runWorker() {
+        while (nextIdx < tasks.length) {
+          const idx = nextIdx++;
+          const { plat, q } = tasks[idx];
+          try {
+            if (platFailCount[plat] >= FAIL_THRESHOLD) {
+              throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+            }
+            const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
+            platFailCount[plat] = 0;
+            settled[idx] = { status: 'fulfilled', value: { plat, q, result } };
+          } catch (err) {
+            settled[idx] = { status: 'rejected', reason: err };
           }
-          const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
-          // Reset fail count on success
-          platFailCount[plat] = 0;
-          return { plat, q, result };
-        })
-      );
+        }
+      }
+
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => runWorker()));
 
       // Process all results
       const platMentionCount = {};
@@ -436,9 +488,11 @@ router.post('/:id/run', auth, async (req, res) => {
             if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
             totalQ++;
             const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
+            // Use shorter context for not-found results (150 chars vs 300 for mentioned)
+            const ctxLen = parsed.mentioned ? 300 : 150;
             const resultObj = {
               platform: plat, query: q,
-              context: text.substring(0, 300), raw: text,
+              context: text.substring(0, ctxLen), raw: text,
               simulated: false, mentioned: parsed.mentioned,
               sentiment: parsed.sentiment, recommended: parsed.recommended,
               citations: parsed.cites, model: modelUsed || plat,
@@ -451,8 +505,8 @@ router.post('/:id/run', auth, async (req, res) => {
             // Update run state for polling
             runState.received++;
             if (parsed.mentioned) { runState.foundCount++; }
-            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, 300) });
-            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, 300) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
+            runState.results.push({ ...resultObj, raw: undefined, context: text.substring(0, ctxLen) });
+            sendEvent('result', { result: { ...resultObj, raw: undefined, context: text.substring(0, ctxLen) }, totalQ, totalM: totalM + (parsed.mentioned ? 1 : 0) });
             if (parsed.mentioned) {
               totalM++;
               if (!platMentionCount[plat]) platMentionCount[plat] = 0;
@@ -512,7 +566,15 @@ router.post('/:id/run', auth, async (req, res) => {
       const saveBrandObj = freshBrand || brand;
 
       if (!saveBrandObj.runs) saveBrandObj.runs = [];
-      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), durationMs, mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+      // Strip `raw` text from allResults before storing in brand JSON — full raw text
+      // is already persisted in the prompt_runs table. Keeping raw in allResults causes
+      // the brand object to grow by ~3KB per result, leading to 20-100MB+ brand objects
+      // after 30 runs that freeze the browser and bloat the database.
+      const lightResults = allResults.map(r => {
+        const { raw, ...rest } = r;
+        return rest;
+      });
+      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), durationMs, mentions: newMentions, allResults: lightResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
 
       // Archive old runs
       if (saveBrandObj.runs.length > 30) {
@@ -531,7 +593,6 @@ router.post('/:id/run', auth, async (req, res) => {
       // Rebuild queryStats — single pass over runs (O(runs × mentions) instead of O(runs × queries))
       const qsNew = {};
       queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
-      const citMap = {};
       saveBrandObj.runs.forEach(run => {
         // Count runs per query — use a Set of mentioned queries for O(1) lookup
         const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
@@ -540,21 +601,20 @@ router.post('/:id/run', auth, async (req, res) => {
           qsNew[q].runs++;
           if (mentionedQueries.has(q)) qsNew[q].mentions++;
         }
-        // Build citations map in same pass
-        (run.mentions||[]).forEach(m => {
-          (m.citations||[]).forEach(url => {
-            if (!citMap[url]) citMap[url] = { url, count: 0 };
-            citMap[url].count++;
-          });
-        });
       });
       saveBrandObj.queryStats = qsNew;
-      saveBrandObj.citations = citMap;
+      // Remove legacy citations map — never used by frontend, citations are
+      // already persisted in the citations DB table. Saves ~10-50KB per brand.
+      delete saveBrandObj.citations;
 
-      // Update all-time mentions
+      // Update all-time mentions (strip raw text — full text is in prompt_runs table)
       if (!saveBrandObj.mentions) saveBrandObj.mentions = [];
+      const lightMentions = newMentions.map(m => {
+        const { raw, ...rest } = m;
+        return rest;
+      });
       const keys2 = new Set(saveBrandObj.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
-      const deduped = newMentions.filter(m => !keys2.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
+      const deduped = lightMentions.filter(m => !keys2.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
       saveBrandObj.mentions = [...deduped, ...saveBrandObj.mentions].slice(0, 500);
 
       // SOV history
@@ -566,26 +626,38 @@ router.post('/:id/run', auth, async (req, res) => {
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);
 
-      // Persist individual prompt runs to prompt_runs table (Epic 1.1)
+      // Persist prompt runs in batches (instead of 80+ individual INSERTs)
       const batchId = runId;
-      for (const r of allResults) {
+      const PR_BATCH = 20;
+      for (let i = 0; i < allResults.length; i += PR_BATCH) {
+        const batch = allResults.slice(i, i + PR_BATCH);
+        const values = [];
+        const params = [];
+        let pi = 1;
+        for (const r of batch) {
+          const id = uid();
+          values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14},$${pi+15},$${pi+16},$${pi+17},$${pi+18})`);
+          params.push(id, brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
+            JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
+            r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+            r.listPosition || null, JSON.stringify(r.citations || []),
+            JSON.stringify(r.competitorMentions || []), null, !r.error,
+            r.errorMessage || null, JSON.stringify({}), batchId);
+          pi += 19;
+        }
         try {
           await pool.query(
             `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, run_index, response_raw, response_parsed,
              mentioned, sentiment, recommended, list_position, citations, competitor_mentions, latency_ms, success,
              error_message, meta, batch_id)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-            [uid(), brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
-             JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
-             r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
-             r.listPosition || null, JSON.stringify(r.citations || []),
-             JSON.stringify(r.competitorMentions || []), null, !r.error,
-             r.errorMessage || null, JSON.stringify({}), batchId]
+             VALUES ${values.join(',')}`,
+            params
           );
-        } catch(prErr) { /* ignore individual insert errors */ }
+        } catch(prErr) { /* ignore batch insert errors */ }
       }
 
-      // Persist citations with domain authority scores
+      // Persist citations in batches
+      const citRows = [];
       for (const r of allResults) {
         if (!r.citations || !r.citations.length || r.error) continue;
         for (let ci = 0; ci < r.citations.length; ci++) {
@@ -596,13 +668,28 @@ router.post('/:id/run', auth, async (req, res) => {
             const daScore = scoreDomainAuthority(domain);
             const domainType = classifyDomain(domain);
             const isBrand = brand.website ? domain.includes(new URL(brand.website.startsWith('http') ? brand.website : 'https://' + brand.website).hostname.replace(/^www\./, '')) : false;
-            await pool.query(
-              `INSERT INTO citations (prompt_run_id, brand_id, url, domain, domain_type, domain_authority_score, position, is_brand)
-               VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
-              [brand.id, citUrl, domain, domainType, daScore, ci + 1, isBrand]
-            );
-          } catch(_) { /* skip invalid URLs or insert errors */ }
+            citRows.push([brand.id, citUrl, domain, domainType, daScore, ci + 1, isBrand]);
+          } catch(_) { /* skip invalid URLs */ }
         }
+      }
+      const CIT_BATCH = 30;
+      for (let i = 0; i < citRows.length; i += CIT_BATCH) {
+        const batch = citRows.slice(i, i + CIT_BATCH);
+        const values = [];
+        const params = [];
+        let pi = 1;
+        for (const row of batch) {
+          values.push(`(NULL,$${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6})`);
+          params.push(...row);
+          pi += 7;
+        }
+        try {
+          await pool.query(
+            `INSERT INTO citations (prompt_run_id, brand_id, url, domain, domain_type, domain_authority_score, position, is_brand)
+             VALUES ${values.join(',')}`,
+            params
+          );
+        } catch(_) { /* ignore batch insert errors */ }
       }
 
       // Refresh prompt_run_stats materialized data (Epic 1.1)
@@ -634,14 +721,17 @@ router.post('/:id/run', auth, async (req, res) => {
 
       const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors };
 
-      // Update run state for polling
+      // Update run state for polling (store lightweight summary, not the full brand object)
       runState.status = 'done';
-      runState.finalData = { brand: saveBrandObj, result: finalResult };
+      runState.finalData = { result: finalResult };
       runState.completedAt = Date.now();
       brandRunLocks.delete(brand.id);
 
-      // Stream final event if client is still connected
-      sendEvent('done', { brand: saveBrandObj, result: finalResult, warnings: req._overageWarnings || [] });
+      // Stream final event — send only the result summary, NOT the full brand object.
+      // The full brand object can be 20-100MB+ with historical runs and raw AI text,
+      // which freezes the browser when parsed via JSON.parse() on the main thread.
+      // The frontend already fetches fresh brand data via GET /api/brands after the run.
+      sendEvent('done', { result: finalResult, warnings: req._overageWarnings || [] });
       if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
 
     } catch(e) {
@@ -653,11 +743,14 @@ router.post('/:id/run', auth, async (req, res) => {
         if (eBrand) {
           if (!eBrand.runs) eBrand.runs = [];
           const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+          // Strip raw text from emergency save (same as normal save) to prevent
+          // brand object from growing 20-100MB+ and freezing the browser later
+          const emergResults = (allResults || []).map(r => { const { raw, ...rest } = r; return rest; });
           eBrand.runs.push({
             id: runId,
             date: new Date().toISOString().split('T')[0],
             time: new Date().toISOString(),
-            allResults: allResults || [],
+            allResults: emergResults,
             sov: emergSov,
             totalQ, totalM,
             queries: brand.queries || [],
@@ -724,7 +817,7 @@ router.get('/:id/run-status/:runId', auth, async (req, res) => {
           totalExpected: run.totalQ || 0,
           foundCount: run.totalM || 0,
           errorCount: (run.allResults || []).filter(r => r.error).length,
-          finalData: { brand, result: { totalQ: run.totalQ, totalM: run.totalM, sov: run.sov, newMentions: (run.mentions || []).length, errorCount: (run.allResults || []).filter(r => r.error).length } }
+          finalData: { result: { totalQ: run.totalQ, totalM: run.totalM, sov: run.sov, newMentions: (run.mentions || []).length, errorCount: (run.allResults || []).filter(r => r.error).length } }
         });
       }
     }

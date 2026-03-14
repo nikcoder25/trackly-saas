@@ -36,7 +36,7 @@ function seoPage({ title, description, keywords, h1, subtitle, content, canonica
 <meta name="theme-color" content="#FF6154">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{--bg:#ffffff;--bg2:#f5f3f0;--bg3:#fafafa;--border:#e8e5e1;--text:#1a1a2e;--muted:#64748b;--primary:#FF6154;--accent:#6366f1;--success:#10b981;--font:'Inter',system-ui,-apple-system,sans-serif;--mono:'JetBrains Mono',monospace;--radius:12px;--radius-sm:8px;}
