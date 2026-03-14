@@ -6206,6 +6206,14 @@ document.addEventListener('keydown', e => {
     el('panel-reset').classList.add('active');
     return;
   }
+  // Direct /login URL — show login form immediately (skip landing page)
+  if (window.location.pathname === '/login' && !_hasSession) {
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
+    authTab('login');
+    return;
+  }
   if (!_hasSession) {
     el('landing-page').style.display = 'block';
     el('auth-page').style.display = 'none';
