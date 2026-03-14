@@ -62,21 +62,21 @@ router.post('/checkout', auth, async (req, res) => {
     return res.status(503).json({ error: 'Payment product not configured for this plan. Contact support.' });
   }
 
-  // Get current user info
-  const userResult = await pool.query('SELECT id, email, name, plan FROM users WHERE id = $1', [req.user.id]);
-  if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
-  const user = userResult.rows[0];
-
-  // Don't allow if already on same or higher plan
-  const tiers = { free: 0, pro: 1, agency: 2, owner: 3 };
-  const currentTier = tiers[user.plan];
-  const targetTier = tiers[plan];
-  // Guard against unknown plan values (undefined tier would bypass the check)
-  if (currentTier === undefined || targetTier === undefined || currentTier >= targetTier) {
-    return res.status(400).json({ error: `You are already on the ${user.plan} plan.` });
-  }
-
   try {
+    // Get current user info
+    const userResult = await pool.query('SELECT id, email, name, plan FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const user = userResult.rows[0];
+
+    // Don't allow if already on same or higher plan
+    const tiers = { free: 0, pro: 1, agency: 2, owner: 3 };
+    const currentTier = tiers[user.plan];
+    const targetTier = tiers[plan];
+    // Guard against unknown plan values (undefined tier would bypass the check)
+    if (currentTier === undefined || targetTier === undefined || currentTier >= targetTier) {
+      return res.status(400).json({ error: `You are already on the ${user.plan} plan.` });
+    }
+
     const baseUrl = DODO_ENVIRONMENT === 'live_mode'
       ? 'https://live.dodopayments.com'
       : 'https://test.dodopayments.com';

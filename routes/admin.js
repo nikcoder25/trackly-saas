@@ -123,45 +123,6 @@ router.post('/upgrade', auth, async (req, res) => {
   }
 });
 
-// Stripe webhook — handle payment confirmation
-router.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    console.warn('[Stripe] STRIPE_WEBHOOK_SECRET not configured, rejecting webhook');
-    return res.status(503).json({ error: 'Webhook not configured' });
-  }
-  const sig = req.headers['stripe-signature'];
-  if (!sig) {
-    return res.status(400).json({ error: 'Missing stripe-signature header' });
-  }
-  // Verify signature using HMAC (without requiring stripe SDK)
-  try {
-    const crypto = require('crypto');
-    const payload = req.body.toString();
-    const parts = sig.split(',').reduce((acc, part) => {
-      const [key, val] = part.split('=');
-      acc[key] = val;
-      return acc;
-    }, {});
-    const timestamp = parts.t;
-    const signature = parts.v1;
-    if (!timestamp || !signature) return res.status(400).json({ error: 'Invalid signature format' });
-    // Reject old timestamps (5 min tolerance)
-    if (Math.abs(Date.now() / 1000 - parseInt(timestamp)) > 300) {
-      return res.status(400).json({ error: 'Webhook timestamp too old' });
-    }
-    const expected = crypto.createHmac('sha256', webhookSecret)
-      .update(timestamp + '.' + payload)
-      .digest('hex');
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
-      return res.status(400).json({ error: 'Invalid webhook signature' });
-    }
-  } catch(e) {
-    return res.status(400).json({ error: 'Webhook verification failed' });
-  }
-  res.json({ received: true });
-});
-
 // Admin middleware
 async function requireAdmin(req, res, next) {
   try {

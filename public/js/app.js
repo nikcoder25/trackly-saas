@@ -404,12 +404,12 @@ async function doResetPassword(){
   if (!pw || pw.length < 8) { msgEl.textContent = 'Password must be at least 8 characters.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   if (pw !== pw2) { msgEl.textContent = 'Passwords do not match.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (!token) { msgEl.textContent = 'Invalid reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  const resetToken = params.get('token');
+  if (!resetToken) { msgEl.textContent = 'Invalid reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   const btn = document.querySelector('#panel-reset .btn-primary');
   btn.disabled = true; btn.textContent = 'RESETTING...';
   try {
-    const data = await api('POST', '/api/auth/reset-password', { token, newPassword: pw });
+    const data = await api('POST', '/api/auth/reset-password', { token: resetToken, newPassword: pw });
     msgEl.textContent = data.message || 'Password reset! You can now log in.';
     msgEl.style.borderColor = 'var(--success,var(--green))'; msgEl.style.color = 'var(--success,var(--green))'; msgEl.style.display = 'block';
     setTimeout(() => { window.location.href = '/'; }, 2000);

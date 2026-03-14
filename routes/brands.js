@@ -743,11 +743,14 @@ router.post('/:id/run', auth, async (req, res) => {
         if (eBrand) {
           if (!eBrand.runs) eBrand.runs = [];
           const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+          // Strip raw text from emergency save (same as normal save) to prevent
+          // brand object from growing 20-100MB+ and freezing the browser later
+          const emergResults = (allResults || []).map(r => { const { raw, ...rest } = r; return rest; });
           eBrand.runs.push({
             id: runId,
             date: new Date().toISOString().split('T')[0],
             time: new Date().toISOString(),
-            allResults: allResults || [],
+            allResults: emergResults,
             sov: emergSov,
             totalQ, totalM,
             queries: brand.queries || [],
