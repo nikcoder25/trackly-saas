@@ -215,6 +215,13 @@ app.use('/api',          adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api',          analyticsRoutes);
 
+// ─── Public config (non-sensitive values for frontend) ──────────
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null
+  });
+});
+
 // ─── Admin panel page (secured with JWT-based admin auth) ───────
 app.get('/admin', async (req, res) => {
   // Support both legacy ADMIN_SECRET and JWT auth via cookie/header

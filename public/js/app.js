@@ -411,6 +411,12 @@ function authTab(tab){
   const panel = el('panel-' + tab);
   if (panel) panel.classList.add('active');
   el('auth-err').style.display = 'none';
+  // Show Google button only on login/register panels
+  const showGoogle = (tab === 'login' || tab === 'register');
+  const gw = document.getElementById('google-signin-wrap');
+  const gd = document.querySelector('.auth-divider');
+  if (gw) gw.style.display = showGoogle ? '' : 'none';
+  if (gd) gd.style.display = showGoogle ? '' : 'none';
 }
 
 async function doLogin(){
@@ -483,11 +489,7 @@ async function doRegister(){
 }
 
 function showForgotPassword(){
-  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  const fp = el('panel-forgot');
-  if (fp) fp.classList.add('active');
-  el('auth-err').style.display = 'none';
+  authTab('forgot');
 }
 
 async function doForgotPassword(){
@@ -529,6 +531,91 @@ async function doResetPassword(){
     msgEl.textContent = e.message; msgEl.style.borderColor = 'var(--danger,var(--red))'; msgEl.style.color = 'var(--danger,var(--red))'; msgEl.style.display = 'block';
   } finally {
     btn.disabled = false; btn.textContent = 'RESET PASSWORD';
+  }
+}
+
+// ─── PASSWORD VISIBILITY TOGGLE ──────────────────────────────────
+function togglePwVis(btn){
+  const inp = btn.parentElement.querySelector('input');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  } else {
+    inp.type = 'password';
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  }
+}
+
+// ─── GOOGLE SIGN-IN ─────────────────────────────────────────────
+let _googleScriptLoaded = false;
+function loadGoogleScript(){
+  if (_googleScriptLoaded) return;
+  _googleScriptLoaded = true;
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.async = true;
+  s.defer = true;
+  document.head.appendChild(s);
+}
+// Load Google script when auth page is shown
+const _origShowAuth = showAuth;
+showAuth = function(tab){
+  _origShowAuth(tab);
+  loadGoogleScript();
+};
+
+async function doGoogleLogin(){
+  const btn = el('btn-google-signin');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+  el('auth-err').style.display = 'none';
+
+  try {
+    // Wait for Google script to load
+    if (typeof google === 'undefined' || !google.accounts) {
+      loadGoogleScript();
+      await new Promise((resolve, reject) => {
+        let attempts = 0;
+        const check = setInterval(() => {
+          attempts++;
+          if (typeof google !== 'undefined' && google.accounts) { clearInterval(check); resolve(); }
+          else if (attempts > 50) { clearInterval(check); reject(new Error('Google Sign-In failed to load. Please try again.')); }
+        }, 100);
+      });
+    }
+
+    // Use Google One Tap / popup
+    const credential = await new Promise((resolve, reject) => {
+      google.accounts.id.initialize({
+        client_id: window.__GOOGLE_CLIENT_ID || '',
+        callback: (response) => {
+          if (response.credential) resolve(response.credential);
+          else reject(new Error('Google sign-in was cancelled.'));
+        },
+        auto_select: false,
+        cancel_on_tap_outside: false
+      });
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Fallback: use the button flow with popup
+          google.accounts.oauth2 ? reject(new Error('Google popup blocked. Allow popups and try again.')) : reject(new Error('Google Sign-In not available. Check your browser settings.'));
+        }
+      });
+    });
+
+    const data = await api('POST', '/api/auth/google', { credential });
+    token = data.token;
+    refreshToken = data.refreshToken || '';
+    currentUser = data.user;
+    localStorage.setItem('trackly_token', token);
+    localStorage.setItem('trackly_refresh', refreshToken);
+    await initApp();
+  } catch(e) {
+    el('auth-err').textContent = e.message || 'Google sign-in failed. Please try again.';
+    el('auth-err').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.08 24.08 0 000 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Continue with Google';
   }
 }
 
@@ -6095,6 +6182,21 @@ document.addEventListener('keydown', e => {
 
 // ─── AUTO-LOGIN ───────────────────────────────────────────────────
 (async function(){
+  // Load public config (Google Client ID etc.)
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
+  } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
+  // Show/hide Google buttons based on config
+  if (!window.__GOOGLE_CLIENT_ID) {
+    const gw = document.getElementById('google-signin-wrap');
+    const gd = document.querySelector('.auth-divider');
+    if (gw) gw.style.display = 'none';
+    if (gd) gd.style.display = 'none';
+  } else {
+    const lg = document.getElementById('land-google-signin');
+    if (lg) lg.style.display = '';
+  }
   // Check for password reset token in URL
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('token') && window.location.pathname === '/reset-password') {

@@ -422,7 +422,7 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   font-family:var(--font);
   transition:all .2s;
 }
-.auth-tab.active{background:var(--white);color:var(--text-primary);}
+.auth-tab.active{background:var(--white);color:var(--text-primary);box-shadow:0 1px 3px rgba(0,0,0,.06);}
 .auth-panel{display:none;} .auth-panel.active{display:block;}
 
 /* Password visibility toggle */
@@ -473,14 +473,14 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   text-transform:uppercase;
 }
 .finput{
-  width:100%;background:var(--bg-section);
+  width:100%;background:var(--white);
   border:1px solid var(--card-border);
   color:var(--text-primary);
   padding:12px 14px;
   font-family:var(--font);font-size:14px;
   outline:none;margin-bottom:16px;
   border-radius:var(--radius-xs);
-  transition:border-color .2s;
+  transition:border-color .2s, box-shadow .2s;
 }
 .finput:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light);}
 .btn{
@@ -507,6 +507,24 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 .pill-btn{background:var(--bg3);color:var(--muted);border:1px solid var(--border);padding:4px 12px;border-radius:16px;font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font);}
 .pill-btn:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary-border);}
 
+/* Landing Google button */
+.land-google-wrap{margin-top:16px;text-align:center;}
+.btn-google-land{
+  display:inline-flex;align-items:center;gap:10px;
+  padding:12px 28px;background:rgba(255,255,255,.1);color:#fff;
+  border:1px solid rgba(255,255,255,.2);border-radius:var(--radius-sm);
+  font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;
+  backdrop-filter:blur(4px);transition:all .2s;
+}
+.btn-google-land:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.35);transform:translateY(-1px);}
+.btn-google-land svg{flex-shrink:0;}
+
+/* Auth footer */
+.auth-footer{
+  margin-top:20px;text-align:center;
+  font-size:11px;color:var(--text-muted);line-height:1.6;
+}
+
 /* Wizard steps */
 .wizard-step{flex:1;text-align:center;padding:8px 4px;font-size:11px;font-family:var(--font);font-weight:600;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:default;transition:all .15s;}
 .wizard-step span{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:50%;background:var(--bg3);color:var(--muted);font-size:10px;margin-right:4px;text-align:center;}
@@ -521,6 +539,15 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   padding:12px 14px;font-size:13px;
   margin-bottom:16px;display:none;
   border-radius:var(--radius-xs);
+}
+
+/* Auth responsive — stack on mobile */
+@media(max-width:768px){
+  .auth-container{flex-direction:column;}
+  .auth-left{flex:0 0 auto;padding:32px 24px;}
+  .auth-left-heading{font-size:22px;}
+  .auth-features{display:none;}
+  .auth-right{padding:24px;}
 }
 
 /* ── APP LAYOUT (dark theme preserved) ── */
