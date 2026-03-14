@@ -488,7 +488,19 @@ router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
       sentimentDistribution,
       topCompetitors,
       trend,
-      mentionedWithoutCitation: 0 // TODO: compute from citations table
+      mentionedWithoutCitation: await (async () => {
+        try {
+          const citResult = await pool.query(`
+            SELECT COUNT(DISTINCT pr.id)::int AS cnt
+            FROM prompt_runs pr
+            LEFT JOIN citations c ON c.run_id = pr.id
+            WHERE pr.brand_id = $1 AND pr.mentioned = TRUE AND pr.success = TRUE
+              AND pr.created_at > NOW() - INTERVAL '30 days'
+              AND c.id IS NULL
+          `, [req.params.id]);
+          return citResult.rows[0]?.cnt || 0;
+        } catch(_) { return 0; }
+      })()
     };
 
     const newRecs = await generateRecommendations(req.params.id, analytics);

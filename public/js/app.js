@@ -2594,9 +2594,38 @@ function exportProofCSV(){
 }
 
 // ─── PLATFORM STATUS ──────────────────────────────────────────────
-function renderPlatformStatus(){
+async function renderPlatformStatus(){
   const b = brand();
   if (!b) return;
+
+  // Fetch platform health from API
+  const healthDiv = el('plat-health-cards');
+  try {
+    const hData = await api('GET', '/api/meta/platforms');
+    const platforms = hData.platforms || [];
+    if (platforms.length) {
+      healthDiv.innerHTML = platforms.map(p => {
+        const t = PLAT_THEME[p.name]||{};
+        const statusClr = p.status === 'healthy' ? 'var(--green)' : p.status === 'degraded' ? 'var(--amber,#f59e0b)' : 'var(--red)';
+        return `<div class="card" style="padding:12px;border-left:3px solid ${t.color||'var(--border)'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:13px;">${t.logo||''} ${esc(p.name)}</span>
+            <span class="badge" style="background:${statusClr};color:#fff;font-size:9px;padding:2px 6px;">${(p.status||'unknown').toUpperCase()}</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            Avg latency: ${p.avgLatency ? p.avgLatency+'ms' : '—'}<br>
+            Success rate: ${p.successRate != null ? p.successRate+'%' : '—'}<br>
+            Last 24h calls: ${p.callCount || 0}
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      healthDiv.innerHTML = '';
+    }
+  } catch(e) {
+    healthDiv.innerHTML = '';
+  }
+
   const cont = el('plat-status-container');
   if (!b.runs || !b.runs.length) {
     cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
@@ -2781,7 +2810,7 @@ function renderQPerf(){
 }
 
 // ─── COMPETITORS ──────────────────────────────────────────────────
-function renderCompetitors(){
+async function renderCompetitors(){
   const b = brand(); if (!b) return;
   const cont = el('comp-tags');
   cont.innerHTML = '';
@@ -2845,6 +2874,51 @@ function renderCompetitors(){
 
   html += '</tbody></table></div>';
   compDiv.innerHTML = html;
+
+  // Fetch co-occurrence data from prompt_runs
+  const cooccDiv = el('comp-cooccurrence');
+  const platBreakDiv = el('comp-platform-breakdown');
+  try {
+    const coData = await api('GET', '/api/brands/'+b.id+'/competitor-analysis');
+    const cooccurrence = coData.cooccurrence || [];
+    if (cooccurrence.length) {
+      let coHtml = '<table class="tbl"><thead><tr><th>Competitor</th><th>Co-mentions</th><th>Total Runs</th><th>Rate</th></tr></thead><tbody>';
+      cooccurrence.forEach(c => {
+        const rate = c.total > 0 ? Math.round(c.count / c.total * 100) : 0;
+        coHtml += `<tr>
+          <td style="font-weight:600;">${esc(c.name)}</td>
+          <td style="font-family:var(--mono);">${c.count}</td>
+          <td style="font-family:var(--mono);">${c.total}</td>
+          <td style="font-family:var(--mono);color:${rate>50?'var(--red)':'var(--muted)'};">${rate}%</td>
+        </tr>`;
+      });
+      coHtml += '</tbody></table>';
+      cooccDiv.innerHTML = coHtml;
+    } else {
+      cooccDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">No co-occurrence data yet. Run more queries to build up data.</div>';
+    }
+
+    // Platform breakdown
+    const platBreak = coData.platformBreakdown || [];
+    if (platBreak.length) {
+      let pbHtml = '<table class="tbl"><thead><tr><th>Platform</th><th>Competitor</th><th>Appearances</th></tr></thead><tbody>';
+      platBreak.forEach(p => {
+        const t = PLAT_THEME[p.platform]||{};
+        pbHtml += `<tr>
+          <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(p.platform)}</td>
+          <td>${esc(p.name)}</td>
+          <td style="font-family:var(--mono);">${p.count}</td>
+        </tr>`;
+      });
+      pbHtml += '</tbody></table>';
+      platBreakDiv.innerHTML = pbHtml;
+    } else {
+      platBreakDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">No platform breakdown data available.</div>';
+    }
+  } catch(e) {
+    cooccDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load co-occurrence data.</div>';
+    platBreakDiv.innerHTML = '';
+  }
 }
 
 async function addComp(){
@@ -2978,7 +3052,7 @@ function renderTrends(){
 }
 
 // ─── ALERTS ──────────────────────────────────────────────────────
-function renderAlerts(){
+async function renderAlerts(){
   const b = brand(); if (!b) return;
   el('alert-webhook-url').value = b.webhookUrl || '';
   const status = el('webhook-status');
@@ -2986,6 +3060,32 @@ function renderAlerts(){
     status.innerHTML = '<span style="color:var(--green);">&#x2713; Webhook configured</span>';
   } else {
     status.innerHTML = '<span style="color:var(--muted);">No webhook configured</span>';
+  }
+
+  // Load alert rules from API
+  const rulesEl = el('alert-rules-list');
+  try {
+    const data = await api('GET', '/api/brands/'+b.id+'/alerts');
+    const rules = data.rules || [];
+    if (!rules.length) {
+      rulesEl.innerHTML = '<div class="empty-state"><p>No alert rules configured. Click "+ Add Alert" to create one.</p></div>';
+    } else {
+      const condLabels = { visibility_drop:'Visibility Drop', sov_below:'SOV Below', brand_disappeared:'Brand Disappeared', negative_sentiment:'Negative Sentiment', new_competitor:'New Competitor' };
+      rulesEl.innerHTML = '<table class="tbl"><thead><tr><th>Name</th><th>Condition</th><th>Threshold</th><th>Action</th><th>Status</th><th></th></tr></thead><tbody>' +
+        rules.map(r => `<tr>
+          <td style="font-weight:600;">${esc(r.name)}</td>
+          <td style="font-family:var(--mono);font-size:11px;">${condLabels[r.condition_type]||r.condition_type}</td>
+          <td style="font-family:var(--mono);">${r.condition_type==='brand_disappeared'||r.condition_type==='new_competitor'?'—':r.threshold+'%'}</td>
+          <td><span class="badge ${r.action_type==='webhook'?'real':'sim'}">${r.action_type.toUpperCase()}</span></td>
+          <td><button class="pill-btn" onclick="toggleAlertRule('${r.id}',${r.enabled})" style="${r.enabled?'color:var(--green);border-color:var(--green);':''}">
+            ${r.enabled?'Enabled':'Disabled'}
+          </button></td>
+          <td><button onclick="deleteAlertRule('${r.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">&#x2715;</button></td>
+        </tr>`).join('') +
+        '</tbody></table>';
+    }
+  } catch(e) {
+    rulesEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load alert rules.</div>';
   }
 
   // SOV change history
@@ -3420,6 +3520,10 @@ async function saveBrandSetup(){
 function openAddBrand(){
   el('add-brand-err').style.display = 'none';
   ['nb-name','nb-industry','nb-website','nb-city'].forEach(id => { const e=el(id); if(e) e.value=''; });
+  // Reset wizard state
+  _wizardComps = [];
+  _wizardQueries = [];
+  wizardNext(1);
   openModal('add-brand-modal');
 }
 
@@ -3685,6 +3789,11 @@ async function runQueries(){
       fill.style.width = '0%';
       timerEl.textContent = '';
     }, 5000);
+
+    // Show overage warnings if any
+    if (finalData && finalData.warnings && finalData.warnings.length) {
+      finalData.warnings.forEach(w => toast(w, 'warn'));
+    }
 
     // Re-render current view with final data (enables filters, pagination, VIEW FULL buttons)
     liveResults = [];
@@ -5159,6 +5268,205 @@ async function renderBilling() {
       </tbody>
     </table>`;
   } catch(e) { toast('Failed to load billing', 'err'); }
+}
+
+// ─── ALERTS CRUD ──────────────────────────────────────────────────
+function openAddAlert(){
+  el('alert-add-form').style.display = 'block';
+  el('alert-name').value = '';
+  el('alert-condition').value = 'visibility_drop';
+  el('alert-threshold').value = '10';
+  el('alert-action').value = 'in_app';
+  updateAlertParams();
+}
+
+function updateAlertParams(){
+  const cond = el('alert-condition').value;
+  const threshLabel = el('alert-params-row').querySelector('.flabel');
+  if (cond === 'brand_disappeared' || cond === 'new_competitor') {
+    threshLabel.textContent = 'N/A';
+    el('alert-threshold').disabled = true;
+    el('alert-threshold').value = '0';
+  } else if (cond === 'sov_below') {
+    threshLabel.textContent = 'SOV Threshold (%)';
+    el('alert-threshold').disabled = false;
+    el('alert-threshold').value = '20';
+  } else if (cond === 'negative_sentiment') {
+    threshLabel.textContent = 'Spike Threshold (%)';
+    el('alert-threshold').disabled = false;
+    el('alert-threshold').value = '30';
+  } else {
+    threshLabel.textContent = 'Threshold (%)';
+    el('alert-threshold').disabled = false;
+    el('alert-threshold').value = '10';
+  }
+}
+
+async function saveAlertRule(){
+  const b = brand(); if (!b) return;
+  const name = el('alert-name').value.trim();
+  if (!name) { toast('Alert name is required','err'); return; }
+  const rule = {
+    name,
+    conditionType: el('alert-condition').value,
+    threshold: parseFloat(el('alert-threshold').value) || 0,
+    actionType: el('alert-action').value
+  };
+  try {
+    await api('POST', '/api/brands/'+b.id+'/alerts', rule);
+    el('alert-add-form').style.display = 'none';
+    toast('Alert rule created','ok');
+    renderAlerts();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function deleteAlertRule(ruleId){
+  if (!confirm('Delete this alert rule?')) return;
+  const b = brand(); if (!b) return;
+  try {
+    await api('DELETE', '/api/brands/'+b.id+'/alerts/'+ruleId);
+    toast('Alert rule deleted','ok');
+    renderAlerts();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function toggleAlertRule(ruleId, enabled){
+  const b = brand(); if (!b) return;
+  try {
+    await api('PUT', '/api/brands/'+b.id+'/alerts/'+ruleId, { enabled: !enabled });
+    renderAlerts();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ─── ONBOARDING WIZARD ───────────────────────────────────────────
+let _wizardComps = [];
+let _wizardQueries = [];
+
+function wizardNext(step){
+  // Validate step 1 before moving forward
+  if (step === 2) {
+    const name = el('nb-name').value.trim();
+    const industry = el('nb-industry').value.trim();
+    if (!name || !industry) {
+      el('add-brand-err').textContent = 'Brand name and industry are required.';
+      el('add-brand-err').style.display = 'block';
+      return;
+    }
+    el('add-brand-err').style.display = 'none';
+    // Auto-generate query suggestions for step 3
+    if (!_wizardQueries.length) {
+      const city = el('nb-city').value.trim();
+      _wizardQueries = generateWizardQueries(name, industry, city);
+    }
+  }
+  // Show target step, hide others
+  for (let i = 1; i <= 3; i++) {
+    const s = el('wizard-step-'+i);
+    if (s) s.style.display = i === step ? 'block' : 'none';
+  }
+  // Update step indicators
+  document.querySelectorAll('.wizard-step').forEach(ws => {
+    const wsStep = parseInt(ws.getAttribute('data-step'));
+    ws.classList.toggle('active', wsStep === step);
+    ws.classList.toggle('done', wsStep < step);
+  });
+  // Render step content
+  if (step === 2) renderWizardComps();
+  if (step === 3) renderWizardQueries();
+}
+
+function generateWizardQueries(name, industry, city){
+  const qs = [];
+  const loc = city ? ' in '+city : '';
+  qs.push('What is the best '+industry+' company'+loc+'?');
+  qs.push('Top '+industry+' services'+loc);
+  qs.push('Compare '+industry+' companies'+loc);
+  qs.push('Is '+name+' a good '+industry+' company?');
+  if (city) qs.push('Best '+industry+' near '+city);
+  return qs;
+}
+
+function renderWizardComps(){
+  const cont = el('wizard-comp-tags');
+  cont.innerHTML = _wizardComps.map((c,i) =>
+    `<span class="query-tag">${esc(c)} <button onclick="_wizardComps.splice(${i},1);renderWizardComps()">&#x2715;</button></span>`
+  ).join('');
+}
+
+function wizardAddComp(){
+  const inp = el('wizard-comp-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (_wizardComps.includes(v)) { toast('Already added','err'); return; }
+  _wizardComps.push(v);
+  inp.value = '';
+  renderWizardComps();
+}
+
+function renderWizardQueries(){
+  const cont = el('wizard-query-list');
+  cont.innerHTML = _wizardQueries.map((q,i) =>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <span class="query-tag" style="flex:1;">${esc(q)}</span>
+      <button onclick="_wizardQueries.splice(${i},1);renderWizardQueries()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;">&#x2715;</button>
+    </div>`
+  ).join('');
+  if (!_wizardQueries.length) cont.innerHTML = '<div style="color:var(--muted);font-size:12px;">No queries yet. Add custom ones or load suggestions.</div>';
+}
+
+function wizardAddQuery(){
+  const inp = el('wizard-query-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  _wizardQueries.push(v);
+  inp.value = '';
+  renderWizardQueries();
+}
+
+async function wizardLoadSuggestions(){
+  const industry = el('nb-industry').value.trim();
+  const city = el('nb-city').value.trim();
+  if (!industry) { toast('Set industry in Step 1 first','err'); return; }
+  try {
+    const data = await api('GET', '/api/query-suggestions?industry='+encodeURIComponent(industry)+'&city='+encodeURIComponent(city));
+    const suggestions = data.suggestions || [];
+    const existing = new Set(_wizardQueries.map(q => q.toLowerCase()));
+    suggestions.forEach(s => { if (!existing.has(s.toLowerCase())) _wizardQueries.push(s); });
+    renderWizardQueries();
+    toast(suggestions.length+' suggestions loaded','ok');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function doAddBrandWizard(){
+  const name = el('nb-name').value.trim();
+  const industry = el('nb-industry').value.trim();
+  if (!name || !industry) {
+    toast('Brand name and industry are required','err');
+    return;
+  }
+  try {
+    const payload = {
+      name, industry,
+      website: el('nb-website').value.trim(),
+      city: el('nb-city').value.trim(),
+      competitors: _wizardComps,
+      queries: _wizardQueries
+    };
+    const data = await api('POST', '/api/brands', payload);
+    brands.push(data.brand);
+    currentBrandId = data.brand.id;
+    localStorage.setItem('trackly_brand', currentBrandId);
+    renderBrandSelect();
+    el('brand-select').value = currentBrandId;
+    closeModal('add-brand-modal');
+    _wizardComps = [];
+    _wizardQueries = [];
+    renderAll();
+    toast('Brand "'+name+'" created with '+_wizardQueries.length+' queries','ok');
+  } catch(e) {
+    el('add-brand-err').textContent = e.message;
+    el('add-brand-err').style.display = 'block';
+  }
 }
 
 // ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────

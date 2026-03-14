@@ -272,6 +272,17 @@ router.post('/:id/run', auth, async (req, res) => {
         if (streaming) return sseError(res, errMsg);
         return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
       }
+      // Soft overage warning — approaching limit
+      const runUsagePct = limits.runsPerDay > 0 ? todayRuns / limits.runsPerDay : 0;
+      const _overageWarnings = [];
+      if (runUsagePct >= 0.8 && todayRuns < limits.runsPerDay) {
+        _overageWarnings.push(`You've used ${todayRuns}/${limits.runsPerDay} daily runs (${Math.round(runUsagePct*100)}%). Consider upgrading for more capacity.`);
+      }
+      const queryUsagePct = limits.queries > 0 ? (brand.queries||[]).length / limits.queries : 0;
+      if (queryUsagePct >= 0.8) {
+        _overageWarnings.push(`You're using ${(brand.queries||[]).length}/${limits.queries} queries (${Math.round(queryUsagePct*100)}%). Upgrade for more query slots.`);
+      }
+      req._overageWarnings = _overageWarnings;
     } catch(txErr) {
       await limitClient.query('ROLLBACK').catch(() => {});
       throw txErr;
@@ -601,7 +612,7 @@ router.post('/:id/run', auth, async (req, res) => {
       brandRunLocks.delete(brand.id);
 
       // Stream final event if client is still connected
-      sendEvent('done', { brand: saveBrandObj, result: finalResult });
+      sendEvent('done', { brand: saveBrandObj, result: finalResult, warnings: req._overageWarnings || [] });
       if (streaming && clientConnected) { try { res.end(); } catch(_) {} }
 
     } catch(e) {

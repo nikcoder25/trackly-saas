@@ -431,6 +431,14 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 .btn-secondary:hover{background:var(--bg4);transform:translateY(-1px);}
 .pill-btn{background:var(--bg3);color:var(--muted);border:1px solid var(--border);padding:4px 12px;border-radius:16px;font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font);}
 .pill-btn:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary-border);}
+
+/* Wizard steps */
+.wizard-step{flex:1;text-align:center;padding:8px 4px;font-size:11px;font-family:var(--font);font-weight:600;color:var(--muted);background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);cursor:default;transition:all .15s;}
+.wizard-step span{display:inline-block;width:18px;height:18px;line-height:18px;border-radius:50%;background:var(--bg3);color:var(--muted);font-size:10px;margin-right:4px;text-align:center;}
+.wizard-step.active{color:var(--primary);border-color:var(--primary-border);background:var(--primary-light);}
+.wizard-step.active span{background:var(--primary);color:#fff;}
+.wizard-step.done{color:var(--green);border-color:var(--green);}
+.wizard-step.done span{background:var(--green);color:#fff;}
 .auth-err{
   background:var(--danger-light);
   border:1px solid rgba(239,68,68,.2);

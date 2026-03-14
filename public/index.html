@@ -842,7 +842,9 @@
     <!-- PLATFORM STATUS ──────────────────── -->
     <div id="view-platforms" class="view">
       <div class="view-title">Platform Status</div>
-      <div class="view-sub">SOV per AI platform over time.</div>
+      <div class="view-sub">SOV per AI platform and real-time API health.</div>
+      <!-- Platform Health (from /api/meta/platforms) -->
+      <div id="plat-health-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;"></div>
       <div id="plat-status-container"></div>
     </div>
 
@@ -866,6 +868,16 @@
         </div>
       </div>
       <div id="comp-comparison" style="margin-top:16px;"></div>
+      <!-- Co-occurrence trends from prompt_runs -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Competitor Co-occurrence (30 days)</div>
+        <div class="view-sub" style="margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
+        <div id="comp-cooccurrence"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Per-Platform Breakdown</div>
+        <div id="comp-platform-breakdown"></div>
+      </div>
     </div>
 
     <!-- SOV TRENDS ────────────────────────── -->
@@ -892,10 +904,46 @@
     <!-- ALERTS ─────────────────────────── -->
     <div id="view-alerts" class="view">
       <div class="view-title">Alerts &amp; Webhooks</div>
-      <div class="view-sub">Get notified when your SOV changes.</div>
+      <div class="view-sub">Get notified when your visibility changes across AI platforms.</div>
+
+      <!-- Alert Rules -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">Alert Rules</div>
+          <button class="btn-primary" onclick="openAddAlert()" style="font-size:11px;padding:6px 14px;">+ Add Alert</button>
+        </div>
+        <div id="alert-rules-list"></div>
+      </div>
+
+      <!-- Add Alert Form (hidden by default) -->
+      <div id="alert-add-form" class="card" style="margin-top:16px;display:none;border:1px solid var(--primary-border);">
+        <div class="card-title">New Alert Rule</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div><label class="flabel">Alert Name</label><input class="finput" id="alert-name" placeholder="e.g. SOV dropped below 20%" style="margin:0;"></div>
+          <div><label class="flabel">Condition</label><select class="finput" id="alert-condition" style="margin:0;" onchange="updateAlertParams()">
+            <option value="visibility_drop">Visibility Drop (%)</option>
+            <option value="sov_below">SOV Below Threshold</option>
+            <option value="brand_disappeared">Brand Disappeared</option>
+            <option value="negative_sentiment">Negative Sentiment Spike</option>
+            <option value="new_competitor">New Competitor Detected</option>
+          </select></div>
+        </div>
+        <div id="alert-params-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div><label class="flabel">Threshold (%)</label><input class="finput" id="alert-threshold" type="number" value="10" min="1" max="100" style="margin:0;"></div>
+          <div><label class="flabel">Action</label><select class="finput" id="alert-action" style="margin:0;">
+            <option value="in_app">In-App Notification</option>
+            <option value="email">Email</option>
+            <option value="webhook">Webhook</option>
+          </select></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-primary" onclick="saveAlertRule()" style="font-size:12px;padding:8px 16px;">Save Alert</button>
+          <button class="btn-secondary" onclick="el('alert-add-form').style.display='none'" style="font-size:12px;padding:8px 16px;">Cancel</button>
+        </div>
+      </div>
 
       <!-- SOV Change History -->
-      <div class="card">
+      <div class="card" style="margin-top:16px;">
         <div class="card-title">Recent SOV Changes</div>
         <div id="alert-sov-history"></div>
       </div>
@@ -912,24 +960,6 @@
           <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--primary);color:#fff;border:none;font-family:var(--font);font-weight:700;cursor:pointer;border-radius:6px;">SAVE</button>
         </div>
         <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
-      </div>
-
-      <!-- Payload Format -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Webhook Payload Format</div>
-        <pre style="background:var(--bg3);border:1px solid var(--border);padding:14px;font-family:var(--mono);font-size:11px;color:var(--muted);overflow-x:auto;white-space:pre-wrap;line-height:1.6;">{
-  "event": "sov_change",
-  "brand": "Your Brand Name",
-  "sov": 45,
-  "previousSOV": 30,
-  "change": 15,
-  "direction": "increased",
-  "mentions": 3,
-  "totalQueries": 8,
-  "platforms": {"ChatGPT": 50, "Perplexity": 40, ...},
-  "timestamp": "2026-03-11T12:00:00.000Z",
-  "summary": "Your Brand SOV increased: 30% → 45% (+15%)"
-}</pre>
       </div>
     </div>
 
@@ -1394,21 +1424,58 @@
 
 <!-- Add Brand Modal -->
 <div class="overlay" id="add-brand-modal">
-  <div class="add-brand-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+  <div class="add-brand-box" style="max-width:560px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <div class="add-brand-title" style="margin-bottom:0;">Add New Brand</div>
       <button onclick="closeModal('add-brand-modal')" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:16px;cursor:pointer;line-height:1;padding:6px 12px;font-weight:700;border-radius:var(--radius-xs);" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">&#x2715;</button>
     </div>
+    <!-- Wizard Steps Indicator -->
+    <div id="wizard-steps" style="display:flex;gap:4px;margin-bottom:16px;">
+      <div class="wizard-step active" data-step="1"><span>1</span> Brand Info</div>
+      <div class="wizard-step" data-step="2"><span>2</span> Competitors</div>
+      <div class="wizard-step" data-step="3"><span>3</span> Queries</div>
+    </div>
     <div id="add-brand-err" style="display:none;background:rgba(239,68,68,.06);border:1px solid var(--red);color:var(--red);padding:8px 12px;font-size:11px;font-family:var(--mono);margin-bottom:12px;border-radius:var(--radius-xs);"></div>
-    <label class="flabel">Brand Name *</label>
-    <input class="finput" id="nb-name" type="text" placeholder="Your Brand Name">
-    <label class="flabel">Industry *</label>
-    <input class="finput" id="nb-industry" type="text" placeholder="e.g. HVAC, Plumbing">
-    <label class="flabel">Website</label>
-    <input class="finput" id="nb-website" type="text" placeholder="yourbrand.com">
-    <label class="flabel">City / Location</label>
-    <input class="finput" id="nb-city" type="text" placeholder="e.g. Austin TX">
-    <button class="btn-primary" onclick="doAddBrand()">CREATE BRAND</button>
+    <!-- Step 1: Brand Info -->
+    <div id="wizard-step-1">
+      <label class="flabel">Brand Name *</label>
+      <input class="finput" id="nb-name" type="text" placeholder="Your Brand Name">
+      <label class="flabel">Industry *</label>
+      <input class="finput" id="nb-industry" type="text" placeholder="e.g. HVAC, Plumbing, SaaS">
+      <label class="flabel">Website</label>
+      <input class="finput" id="nb-website" type="text" placeholder="yourbrand.com">
+      <label class="flabel">City / Location</label>
+      <input class="finput" id="nb-city" type="text" placeholder="e.g. Austin TX (optional for non-local)">
+      <button class="btn-primary" onclick="wizardNext(2)" style="width:100%;margin-top:8px;">Next: Add Competitors</button>
+      <button class="btn-secondary" onclick="doAddBrand()" style="width:100%;margin-top:6px;font-size:11px;">Skip wizard &amp; create now</button>
+    </div>
+    <!-- Step 2: Competitors -->
+    <div id="wizard-step-2" style="display:none;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Add 3-5 competitors you want to track alongside your brand. You can always change these later.</div>
+      <div id="wizard-comp-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+      <div class="add-query-row" style="margin-bottom:12px;">
+        <input id="wizard-comp-input" type="text" placeholder="Competitor name..." onkeydown="if(event.key==='Enter')wizardAddComp()">
+        <button onclick="wizardAddComp()">+ Add</button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" onclick="wizardNext(1)" style="flex:1;">Back</button>
+        <button class="btn-primary" onclick="wizardNext(3)" style="flex:1;">Next: Set Queries</button>
+      </div>
+    </div>
+    <!-- Step 3: Queries -->
+    <div id="wizard-step-3" style="display:none;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">These queries will be sent to AI platforms to check if your brand is mentioned. We've auto-generated some based on your info.</div>
+      <div id="wizard-query-list" style="margin-bottom:12px;"></div>
+      <div class="add-query-row" style="margin-bottom:12px;">
+        <input id="wizard-query-input" type="text" placeholder="Add custom query..." onkeydown="if(event.key==='Enter')wizardAddQuery()">
+        <button onclick="wizardAddQuery()">+ Add</button>
+      </div>
+      <button class="btn-secondary" onclick="wizardLoadSuggestions()" style="width:100%;margin-bottom:8px;font-size:11px;">Load AI-Generated Suggestions</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-secondary" onclick="wizardNext(2)" style="flex:1;">Back</button>
+        <button class="btn-primary" onclick="doAddBrandWizard()" style="flex:1;">Create Brand &amp; Run</button>
+      </div>
+    </div>
   </div>
 </div>
 
