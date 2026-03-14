@@ -1309,3 +1309,6 @@ select.finput{appearance:none;}
 
 /* Progress bar animated */
 #run-progress-fill{transition:width .3s ease;}
+
+/* Pause all animations/transitions when browser tab is hidden (saves CPU/GPU) */
+.tab-hidden *,.tab-hidden *::before,.tab-hidden *::after{animation-play-state:paused !important;transition:none !important;}
