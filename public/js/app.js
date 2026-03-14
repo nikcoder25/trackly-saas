@@ -134,6 +134,14 @@ function copyResponse(){
   }).catch(() => toast('Copy failed', 'err'));
 }
 
+function copyQuery(query, btnEl){
+  navigator.clipboard.writeText(query).then(() => {
+    btnEl.innerHTML = '&#10003;';
+    btnEl.style.color = 'var(--green)';
+    setTimeout(() => { btnEl.innerHTML = '&#x2398;'; btnEl.style.color = ''; }, 1500);
+  }).catch(() => toast('Copy failed', 'err'));
+}
+
 function brand(){
   return brands.find(b => b.id === currentBrandId) || null;
 }
@@ -1271,7 +1279,7 @@ function appendLiveProofCard(result) {
       <div class="proof-card-badges">${statusBadge}</div>
     </div>
     <div class="proof-card-body">
-      <div class="proof-card-query">"${esc(result.query)}"</div>
+      <div class="proof-card-query">"${esc(result.query)}"<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(result.query))},this)" title="Copy keyword">&#x2398;</button></div>
       ${isError
         ? `<div class="proof-not-found" style="color:var(--amber);">${esc(friendlyError(result.errorMessage))}</div>`
         : `<div class="proof-card-resp" style="color:var(--text);max-height:200px;overflow:hidden;">${displayResp}${preview.length >= 300 ? '...' : ''}</div>`
@@ -2234,7 +2242,7 @@ function renderMentions(){
             <span style="color:${t.color||'#888'};font-size:15px;">${t.logo||'?'}</span>
           </div>
           <div class="mt-item-text">
-            <div class="mt-item-query">${esc(r.query)}</div>
+            <div class="mt-item-query">${esc(r.query)}<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(r.query))},this)" title="Copy keyword">&#x2398;</button></div>
             <div class="mt-item-meta">
               <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
               <span class="mt-item-model">${esc(r.model||'')}</span>
@@ -2525,7 +2533,7 @@ function renderProof(){
           </div>
         </div>
         <div class="proof-card-body">
-          <div class="proof-card-query">"${esc(q)}"</div>
+          <div class="proof-card-query">"${esc(q)}"<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(q))},this)" title="Copy keyword">&#x2398;</button></div>
           ${isError
             ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
@@ -3489,7 +3497,7 @@ function buildMentionCard(r, runTimeStr) {
         <span style="color:${t.color||'#888'};font-size:15px;">${t.logo||'?'}</span>
       </div>
       <div class="mt-live-info">
-        <div class="mt-item-query">${esc(r.query)}</div>
+        <div class="mt-item-query">${esc(r.query)}<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(r.query))},this)" title="Copy keyword">&#x2398;</button></div>
         <div class="mt-item-meta">
           <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
           <span class="mt-item-model">${esc(r.model||'')}</span>
