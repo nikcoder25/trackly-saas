@@ -771,21 +771,42 @@ function renderView(view){
   if (view==='account') { renderAccount(); loadModelSettings(); return; }
   if (view==='admin')   { renderAdmin(); return; }
   if (!b) {
-    // Show helpful message for views that require a brand
-    const viewEl = el('view-' + view);
-    if (viewEl) {
-      const existing = viewEl.querySelector('.no-brand-msg');
-      if (!existing) {
-        const msg = document.createElement('div');
-        msg.className = 'empty-state no-brand-msg';
-        msg.innerHTML = '<p>Select or create a brand first to view this section.</p>';
-        viewEl.prepend(msg);
-      }
+    // Show global empty state when no brand exists or is selected
+    const noBrands = !brands.length;
+    // Hide all view sections to avoid blank space
+    document.querySelectorAll('.view').forEach(v => {
+      if (v.style) v.style.display = 'none';
+    });
+    // Show or create the global empty state
+    let emptyEl = document.getElementById('global-no-brand');
+    if (!emptyEl) {
+      emptyEl = document.createElement('div');
+      emptyEl.id = 'global-no-brand';
+      emptyEl.className = 'global-empty-state';
+      const mainContent = document.querySelector('.main');
+      if (mainContent) mainContent.appendChild(emptyEl);
+    }
+    emptyEl.style.display = 'flex';
+    if (noBrands) {
+      emptyEl.innerHTML = '<div class=\"global-empty-icon\">🚀</div>' +
+        '<h2 class=\"global-empty-title\">Welcome to Trackly!</h2>' +
+        '<p class=\"global-empty-desc\">Start by adding your first brand to track how AI platforms mention your business across ChatGPT, Perplexity, Claude, Gemini, and more.</p>' +
+        '<button class=\"global-empty-btn\" onclick=\"openAddBrand()\">+ Add Your First Brand</button>';
+    } else {
+      emptyEl.innerHTML = '<div class=\"global-empty-icon\">📋</div>' +
+        '<h2 class=\"global-empty-title\">Select a Brand</h2>' +
+        '<p class=\"global-empty-desc\">Choose a brand from the dropdown above to view your AI visibility dashboard.</p>';
     }
     return;
   }
-  // Remove no-brand messages when brand is available
+  // Remove no-brand messages and global empty state when brand is available
   document.querySelectorAll('.no-brand-msg').forEach(m => m.remove());
+  const _globalEmpty = document.getElementById('global-no-brand');
+  if (_globalEmpty) _globalEmpty.style.display = 'none';
+  // Restore view sections visibility
+  document.querySelectorAll('.view').forEach(v => {
+    v.style.display = '';
+  });
   if (view==='overview')    renderOverview();
   if (view==='mentions') {
     if (runningQueries) setupLiveMentions();
