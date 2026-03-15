@@ -645,7 +645,7 @@ function doLogout(){
 async function initApp(){
   el('landing-page').style.display = 'none';
   el('auth-page').style.display = 'none';
-  el('app').style.display = 'block';
+  el('app').style.display = 'grid';
       if (window.location.pathname !== '/dashboard') history.replaceState(null, '', '/dashboard');
 
   // Update topbar
