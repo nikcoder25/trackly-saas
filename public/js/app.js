@@ -4,7 +4,7 @@
 let _chartJsLoaded = false;
 let _chartJsPromise = null;
 function ensureChartJs() {
-  if (_chartJsLoaded || typeof Chart !== 'undefined') { _chartJsLoaded = true; return Promise.resolve(); }
+  if (_chartJsLoaded || typeof Chart != 'undefined') { _chartJsLoaded = true; return Promise.resolve(); }
   if (_chartJsPromise) return _chartJsPromise;
   _chartJsPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
@@ -645,7 +645,7 @@ function doLogout(){
 async function initApp(){
   el('landing-page').style.display = 'none';
   el('auth-page').style.display = 'none';
-  el('landing-page').style.display = 'block';
+  el('app').style.display = 'block';
       if (window.location.pathname !== '/dashboard') history.replaceState(null, '', '/dashboard');
 
   // Update topbar
