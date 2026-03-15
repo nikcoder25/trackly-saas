@@ -14,7 +14,7 @@ const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 // ─── API LOGS (per-user, server-side) ────────────────────────────
 router.get('/api-logs', auth, async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+        const limit = Math.max(1, Math.min(parseInt(req.query.limit) || 100, 500));
     const brandId = req.query.brandId || null;
     let query = 'SELECT * FROM api_logs WHERE user_id = $1';
     const params = [req.user.id];
@@ -63,7 +63,7 @@ router.delete('/api-logs', auth, async (req, res) => {
 // ─── ACTIVITY LOG (audit trail — scoped to current user) ────────
 router.get('/activity-logs', auth, async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+        const limit = Math.max(1, Math.min(parseInt(req.query.limit) || 50, 200));
     const result = await pool.query(
       `SELECT al.*, u.email AS user_email FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
