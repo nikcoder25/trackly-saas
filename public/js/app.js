@@ -274,7 +274,8 @@ async function api(method, path, data){
   const opts = {
     method,
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-    signal: controller.signal
+    signal: controller.signal,
+    credentials: 'include'
   };
   if (data) opts.body = JSON.stringify(data);
   let res;
@@ -292,7 +293,8 @@ async function api(method, path, data){
         _refreshPromise = fetch(API + '/api/auth/refresh', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken })
+          body: JSON.stringify({ refreshToken }),
+          credentials: 'include'
         }).then(async (refreshRes) => {
           if (refreshRes.ok) {
             const refreshData = await refreshRes.json();
