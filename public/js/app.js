@@ -638,13 +638,15 @@ function doLogout(){
   el('app').style.display = 'none';
   el('auth-page').style.display = 'none';
   el('landing-page').style.display = 'block';
+      history.replaceState(null, '', '/');
 }
 
 // ─── APP INIT ─────────────────────────────────────────────────────
 async function initApp(){
   el('landing-page').style.display = 'none';
   el('auth-page').style.display = 'none';
-  el('app').style.display = 'grid';
+  el('landing-page').style.display = 'block';
+      if (window.location.pathname !== '/dashboard') history.replaceState(null, '', '/dashboard');
 
   // Update topbar
   el('user-email-badge').textContent = currentUser.email;
