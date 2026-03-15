@@ -213,6 +213,11 @@ router.put('/:id', auth, async (req, res) => {
       if (req.body[key] !== undefined) safeBody[key] = req.body[key];
     }
 
+
+        // Reject empty brand name
+        if (safeBody.name !== undefined && !safeBody.name.trim()) {
+                return res.status(400).json({ error: 'Brand name cannot be empty' });
+        }
     // Input length validation for string fields
     const strLimits = { name: 100, industry: 100, website: 500, description: 1000, city: 100, webhookUrl: 500 };
     for (const [field, maxLen] of Object.entries(strLimits)) {
