@@ -1627,4 +1627,12 @@ select.finput{appearance:none;}
 }
 
 /* Pause all animations/transitions when browser tab is hidden (saves CPU/GPU) */
+
+/* —— GLOBAL EMPTY STATE (no brand) —————————————————————————— */
+.global-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;min-height:60vh;width:100%;}
+.global-empty-icon{font-size:64px;margin-bottom:24px;}
+.global-empty-title{font-size:28px;font-weight:700;color:var(--text);margin-bottom:12px;}
+.global-empty-desc{font-size:16px;color:var(--muted);max-width:480px;line-height:1.6;margin-bottom:32px;}
+.global-empty-btn{background:var(--primary);color:#fff;border:none;padding:14px 32px;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;}
+.global-empty-btn:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,97,84,.3);}
 .tab-hidden *,.tab-hidden *::before,.tab-hidden *::after{animation-play-state:paused !important;transition:none !important;}
