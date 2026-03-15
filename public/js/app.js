@@ -285,8 +285,8 @@ async function api(method, path, data){
     throw new Error('Unable to connect to the server. Please check your connection and try again.');
   }
   clearTimeout(timeoutId);
-  // Auto-refresh token on 401 (not for auth endpoints themselves)
-  if (res.status === 401 && refreshToken && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
+  // Auto-refresh token on 401 (not for auth endpoints themselves). Don't check in-memory refreshToken — httpOnly cookie handles it on page reload.
+  if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
     try {
       // Use shared promise to prevent concurrent refresh attempts
       if (!_refreshPromise) {
