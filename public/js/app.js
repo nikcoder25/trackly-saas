@@ -4786,8 +4786,7 @@ async function renderApiLogs(){
     const logsEl = el('apilogs-server-logs');
     if (!logs.length) {
       logsEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:12px 0;">No API calls logged yet. Run queries to see every API call tracked here.</div>';
-      return;
-    }
+        }
 
     // Store logs for copy-to-clipboard access
     window._apiLogs = logs;
