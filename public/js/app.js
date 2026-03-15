@@ -23,10 +23,20 @@ document.addEventListener('visibilitychange', () => {
   document.body.classList.toggle('tab-hidden', document.hidden);
 });
 
-// ─── LANDING NAVIGATION ──────────────────────────────────────────
+// ─── LANDING / AUTH NAVIGATION ────────────────────────────────────
+function showAuth(tab){
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+  el('landing-page').style.display = 'none';
+  el('auth-page').style.display = 'flex';
+  el('app').style.display = 'none';
+  authTab(tab || 'login');
+  // Lazily load Google Sign-In when auth page is shown
+  if (!googleClientId) initGoogleSignIn();
+}
 function showLanding(){
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
   el('landing-page').style.display = 'block';
+  el('auth-page').style.display = 'none';
   el('app').style.display = 'none';
 }
 function toggleLandingMenu(){
@@ -554,6 +564,12 @@ function loadGoogleScript(){
   s.defer = true;
   document.head.appendChild(s);
 }
+// Load Google script when auth page is shown
+const _origShowAuth = showAuth;
+showAuth = function(tab){
+  _origShowAuth(tab);
+  loadGoogleScript();
+};
 
 async function doGoogleLogin(){
   el('auth-err').style.display = 'none';
@@ -6166,7 +6182,60 @@ document.addEventListener('keydown', e => {
 
 // ─── AUTO-LOGIN ───────────────────────────────────────────────────
 (async function(){
-  // Always show landing page (auth has been removed)
-  el('landing-page').style.display = 'block';
-  el('app').style.display = 'none';
+  // Load public config (Google Client ID etc.) with 5s timeout
+  try {
+    const cfgCtrl = new AbortController();
+    const cfgTimeout = setTimeout(() => cfgCtrl.abort(), 5000);
+    const cfg = await fetch('/api/config', { signal: cfgCtrl.signal }).then(r => r.json());
+    clearTimeout(cfgTimeout);
+    if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
+  } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
+  // Show Google landing button only when configured
+  if (window.__GOOGLE_CLIENT_ID) {
+    const lg = document.getElementById('land-google-signin');
+    if (lg) lg.style.display = '';
+  }
+  // Check for password reset token in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('token') && window.location.pathname === '/reset-password') {
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
+    document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    el('panel-reset').classList.add('active');
+    return;
+  }
+  // Direct /login or /signup URL — show auth form immediately (skip landing page)
+  if ((window.location.pathname === '/login' || window.location.pathname === '/signup') && !_hasSession) {
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
+    authTab(window.location.pathname === '/signup' ? 'register' : 'login');
+    return;
+  }
+  if (!_hasSession) {
+    el('landing-page').style.display = 'block';
+    el('auth-page').style.display = 'none';
+    el('app').style.display = 'none';
+    return;
+  }
+  // Try auto-login via httpOnly cookie
+  el('landing-page').style.display = 'none';
+  try {
+    const data = await api('GET', '/api/auth/me');
+    currentUser = data.user;
+    await initApp();
+  } catch(e) {
+    // Cookie invalid or expired — show login page directly (not landing)
+    localStorage.removeItem('trackly_session');
+    token = '';
+    el('landing-page').style.display = 'none';
+    el('app').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    authTab('login');
+    // Show helpful message
+    el('auth-err').textContent = 'Session expired. Please log in again.';
+    el('auth-err').style.display = 'block';
+  }
 })();

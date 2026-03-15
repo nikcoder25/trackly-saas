@@ -416,6 +416,19 @@ async function sendScheduledReports(frequency) {
   }
 }
 
+// ─── Login & Signup pages (direct URL access) ──────────────────
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+app.get('/signup', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ─── Password reset page ─────────────────────────────────────────
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ─── LEGAL PAGES ─────────────────────────────────────────────────
 ['privacy', 'terms', 'cookies'].forEach(page => {
   app.get(`/${page}`, (req, res) => {

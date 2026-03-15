@@ -79,13 +79,14 @@ a{color:var(--primary);text-decoration:none;}a:hover{text-decoration:underline;}
     <a href="/perplexity-brand-tracking">Perplexity</a>
     <a href="/gemini-brand-tracking">Gemini</a>
   </div>
-  <div class="seo-nav-right"></div>
+  <div class="seo-nav-right"><a class="seo-btn" href="/signup">Start Tracking Free</a></div>
 </nav>
 </header>
 <main>
 <section class="seo-hero" aria-label="Hero">
   <h1>${h1}</h1>
   <p>${subtitle}</p>
+  <a class="seo-btn" href="/signup" style="padding:14px 36px;font-size:15px;">Start Tracking Free</a>
 </section>
 <article class="seo-content">
 ${content}
@@ -93,6 +94,8 @@ ${content}
 <section class="seo-cta" aria-label="Call to action">
   <h2>Ready to track your AI visibility?</h2>
   <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek & Mistral.</p>
+  <a class="seo-btn" href="/signup" style="padding:14px 36px;font-size:15px;">Get Started Free</a>
+  <p style="font-size:13px;color:var(--muted);margin-top:12px;">No credit card required.</p>
 </section>
 </main>
 <footer class="seo-footer">
