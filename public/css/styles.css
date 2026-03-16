@@ -1039,6 +1039,12 @@ body:has(#app[style*="display:grid"]){
 .query-tag:hover{border-color:var(--primary-border);background:var(--primary-light);}
 .query-tag button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;line-height:1;padding:0;}
 .query-tag button:hover{color:var(--red);}
+/* Multi-select query styles */
+.query-tag-selectable{cursor:pointer;user-select:none;}
+.query-tag-selectable:hover{background:var(--primary-light);border-color:var(--primary-border);}
+.query-tag-selected{background:var(--primary-light);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);}
+.query-select-cb{margin-right:6px;cursor:pointer;accent-color:var(--primary);width:14px;height:14px;}
+.ov-btn-active{background:var(--primary-light)!important;border-color:var(--primary)!important;color:var(--primary)!important;}
 .add-query-row{display:flex;gap:8px;margin-top:10px;}
 .add-query-row input{
   flex:1;background:var(--bg);border:1px solid var(--border);
