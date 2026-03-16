@@ -1774,7 +1774,7 @@ function renderOverview(){
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
-    actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
+    actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '');
       // `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
   }
   // Start live countdown ticker for the age displays
