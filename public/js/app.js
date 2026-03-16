@@ -4271,6 +4271,21 @@ async function runQueries(){
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({ error: 'Request failed' }));
+      // If concurrent run error (409), wait briefly and retry once — the server
+      // auto-releases stale locks, so a retry usually succeeds
+      if (response.status === 409 && !runQueries._retried) {
+        runQueries._retried = true;
+        statusTxt.textContent = 'Previous run still finishing — retrying in 3s...';
+        clearInterval(timerInt);
+        runningQueries = false;
+        btn.classList.remove('running');
+        btn.textContent = '▶ RUN QUERIES';
+        prog.style.display = 'none';
+        await new Promise(r => setTimeout(r, 3000));
+        runQueries._retried = false;
+        return runQueries();
+      }
+      runQueries._retried = false;
       throw new Error(errData.error || 'Request failed');
     }
 
