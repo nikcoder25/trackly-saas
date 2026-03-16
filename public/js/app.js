@@ -833,7 +833,7 @@ function renderView(view){
 
 // ─── ACCOUNT & PLAN ──────────────────────────────────────────────
 function getUserLimits() {
-  return (currentUser && currentUser.limits) || { brands: 1, prompts: 3, competitors: 0, scheduledRuns: false, platforms: 2, sentiment: false };
+  return (currentUser && currentUser.limits) || { brands: 1, prompts: 3, queries: 3, competitors: 0, scheduledRuns: false, platforms: 2, sentiment: false };
 }
 
 function renderAccount(){
@@ -1756,7 +1756,7 @@ function renderOverview(){
   const mentions = lastRun ? (lastRun.mentions||[]).length : 0;
   const totalResults = lastRun ? (lastRun.allResults||[]).length : 0;
   const activePlats = lastRun ? Object.keys(lastRun.platforms||{}).length : 0;
-  const queries = (b.queries||[]).length;
+  const queries = brands.reduce((s, br) => s + (br.queries||[]).length, 0);
   const prevRun = b.runs && b.runs.length > 1 ? b.runs[b.runs.length - 2] : null;
   const prevSOV = prevRun ? (prevRun.sov || 0) : null;
   const sovDiff = prevSOV !== null ? sov - prevSOV : null;
