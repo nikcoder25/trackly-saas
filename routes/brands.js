@@ -446,12 +446,15 @@ router.post('/:id/run', auth, async (req, res) => {
   const platFailCount = {};
   const FAIL_THRESHOLD = 3; // Skip remaining queries after 3 consecutive failures
 
-  // Build flat list of all (platform, query) pairs for true parallel dispatch
+  // Build interleaved list — query-first order spreads requests across platforms
+  // so concurrent workers naturally hit different APIs (reducing rate limit waits)
   const tasks = [];
   for (const plat of activePlatforms) {
     resetBatchCount(plat);
     platFailCount[plat] = 0;
-    for (const q of queries) {
+  }
+  for (const q of queries) {
+    for (const plat of activePlatforms) {
       tasks.push({ plat, q });
     }
   }
@@ -1186,22 +1189,38 @@ async function runBrandQueries(brand) {
   const platFailCount = {};
   const FAIL_THRESHOLD = 3;
 
-  // Build flat task list and fire all in parallel
+  // Build interleaved task list with bounded concurrency (prevents API flooding)
   const tasks = [];
   for (const plat of activePlatforms) {
     resetBatchCount(plat);
     platFailCount[plat] = 0;
-    for (const q of queries) tasks.push({ plat, q });
+  }
+  for (const q of queries) {
+    for (const plat of activePlatforms) {
+      tasks.push({ plat, q });
+    }
   }
 
-  const settled = await Promise.allSettled(
-    tasks.map(async ({ plat, q }) => {
-      if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
-      const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
-      platFailCount[plat] = 0;
-      return { plat, q, result };
-    })
-  );
+  // Bounded concurrency worker pool (same pattern as main run endpoint)
+  const CRON_CONCURRENCY = Math.max(activePlatforms.length, 8);
+  let cronNextIdx = 0;
+  const cronResults = new Array(tasks.length);
+  async function cronWorker() {
+    while (cronNextIdx < tasks.length) {
+      const idx = cronNextIdx++;
+      const { plat, q } = tasks[idx];
+      try {
+        if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
+        const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
+        platFailCount[plat] = 0;
+        cronResults[idx] = { status: 'fulfilled', value: { plat, q, result } };
+      } catch(err) {
+        cronResults[idx] = { status: 'rejected', reason: err };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CRON_CONCURRENCY, tasks.length) }, () => cronWorker()));
+  const settled = cronResults;
 
   const platMentionCount = {};
   for (let i = 0; i < settled.length; i++) {
