@@ -374,15 +374,15 @@ router.post('/:id/run', auth, async (req, res) => {
     if (brandRunLocks.has(brand.id)) {
       const lock = brandRunLocks.get(brand.id);
       const lockAge = Date.now() - (lock?.lockedAt || 0);
-      const hasActiveRun = [...activeRuns.values()].some(r => r.brandId === brand.id && r.status === 'running');
-      // Auto-release stale locks: no active run found, or lock held > 5 minutes without progress
-      if (hasActiveRun && lockAge < 5 * 60 * 1000) {
+      const activeRun = [...activeRuns.values()].find(r => r.brandId === brand.id && r.status === 'running');
+      // If there's a genuinely active run that's making progress, block
+      if (activeRun) {
         const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
         if (streaming) return sseError(res, errMsg);
         return res.status(409).json({ error: errMsg });
       }
-      // Stale lock — release it and allow the new run
-      console.log(`[Run] Auto-releasing stale lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s, hasActiveRun: ${hasActiveRun})`);
+      // No active run found — this is a stale/orphaned lock, release it
+      console.log(`[Run] Auto-releasing stale lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s, no active run found)`);
       brandRunLocks.delete(brand.id);
     }
     brandRunLocks.set(brand.id, { lockedAt: Date.now() });
