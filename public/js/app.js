@@ -1737,8 +1737,8 @@ function _startRunAgeCountdown(lastRun) {
   _runAgeTimer = setInterval(() => {
     const { text, dot } = _fmtRunAge(lastRun);
     // Update header age badge
-    const ageEl = document.querySelector('.ov-run-age');
-    if (ageEl) ageEl.innerHTML = `<span class="dot ${dot}"></span>${text}`;
+    // Removed duplicate header status badge
+    // if (ageEl) ageEl.innerHTML = `<span class="dot ${dot}"></span>${text}`;
     // Update stat card age
     const statEl = el('ov-last-run-age');
     if (statEl) {
@@ -1774,8 +1774,8 @@ function renderOverview(){
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
-    actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '') +
-      `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
+    actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
+      // `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
   }
   // Start live countdown ticker for the age displays
   _startRunAgeCountdown(lastRun);
