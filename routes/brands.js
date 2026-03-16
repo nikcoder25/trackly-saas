@@ -24,8 +24,7 @@ const PLATFORM_KEY_MAP = {
 const activeRuns = new Map(); // runId → { status, received, totalExpected, results, ... }
 
 // Per-brand lock to prevent concurrent runs corrupting the same brand's data
-// Maps brandId → { lockedAt: timestamp } so we can auto-release stale locks
-const brandRunLocks = new Map();
+const brandRunLocks = new Set(); // brandId → active if set
 
 // Clean up completed runs after 10 minutes to avoid memory leaks
 setInterval(() => {
@@ -37,7 +36,7 @@ setInterval(() => {
     }
   }
   // Safety: clear stale brand locks (in case a run crashed without releasing)
-  for (const [brandId, lock] of brandRunLocks) {
+  for (const brandId of brandRunLocks) {
     const hasActive = [...activeRuns.values()].some(r => r.brandId === brandId && r.status === 'running');
     if (!hasActive) brandRunLocks.delete(brandId);
   }
@@ -372,20 +371,11 @@ router.post('/:id/run', auth, async (req, res) => {
 
     // Prevent concurrent runs on the same brand
     if (brandRunLocks.has(brand.id)) {
-      const lock = brandRunLocks.get(brand.id);
-      const lockAge = Date.now() - (lock?.lockedAt || 0);
-      const activeRun = [...activeRuns.values()].find(r => r.brandId === brand.id && r.status === 'running');
-      // If there's a genuinely active run that's making progress, block
-      if (activeRun) {
-        const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
-        if (streaming) return sseError(res, errMsg);
-        return res.status(409).json({ error: errMsg });
-      }
-      // No active run found — this is a stale/orphaned lock, release it
-      console.log(`[Run] Auto-releasing stale lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s, no active run found)`);
-      brandRunLocks.delete(brand.id);
+      const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
+      if (streaming) return sseError(res, errMsg);
+      return res.status(409).json({ error: errMsg });
     }
-    brandRunLocks.set(brand.id, { lockedAt: Date.now() });
+    brandRunLocks.add(brand.id);
   } catch(e) {
     console.error('[Run] Validation error:', e.message);
     if (streaming) return sseError(res, 'Failed to start run: ' + e.message);

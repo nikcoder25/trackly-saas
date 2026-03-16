@@ -4271,17 +4271,6 @@ async function runQueries(){
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({ error: 'Request failed' }));
-      // If concurrent run error (409), don't treat as crash — show friendly message
-      if (response.status === 409) {
-        clearInterval(timerInt);
-        statusTxt.textContent = '';
-        prog.style.display = 'none';
-        btn.classList.remove('running');
-        btn.textContent = '▶ RUN QUERIES';
-        runningQueries = false;
-        toast('A run is already in progress for this brand. Please wait for it to finish.', 'warn');
-        return;
-      }
       throw new Error(errData.error || 'Request failed');
     }
 
