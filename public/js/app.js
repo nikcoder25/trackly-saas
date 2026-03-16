@@ -2393,7 +2393,6 @@ function renderOverview(){
                                                                             cb.addEventListener('click', function(e){ e.stopPropagation(); toggleQuerySelection(i); });
                                                                                     tag.insertBefore(cb, tag.firstChild);
                                                                                           }
-          }
     const qText = document.createTextNode(q + ' ');
     tag.appendChild(qText);
           if (!_querySelectMode) {
