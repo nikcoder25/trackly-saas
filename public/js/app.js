@@ -2382,12 +2382,26 @@ function renderOverview(){
   (b.queries||[]).forEach((q,i) => {
     const tag = document.createElement('span');
     tag.className = 'query-tag';
+          if (_querySelectMode) {
+                    tag.classList.add('query-tag-selectable');
+                            if (_selectedQueryIndices.has(i)) tag.classList.add('query-tag-selected');
+                                    tag.addEventListener('click', function(){ toggleQuerySelection(i); });
+                                            const cb = document.createElement('input');
+                                                    cb.type = 'checkbox';
+                                                            cb.checked = _selectedQueryIndices.has(i);
+                                                                    cb.className = 'query-select-cb';
+                                                                            cb.addEventListener('click', function(e){ e.stopPropagation(); toggleQuerySelection(i); });
+                                                                                    tag.insertBefore(cb, tag.firstChild);
+                                                                                          }
+          }
     const qText = document.createTextNode(q + ' ');
     tag.appendChild(qText);
+          if (!_querySelectMode) {
     const btn = document.createElement('button');
     btn.textContent = '\u2715';
     btn.addEventListener('click', function(){ ovRemoveQuery(i); });
     tag.appendChild(btn);
+          }
     ql.appendChild(tag);
   });
 
@@ -2542,6 +2556,81 @@ async function clearAllQueries(){
     toast('All queries cleared', 'ok');
   } catch(e) { toast(e.message, 'err'); }
 }
+
+// —— MULTI-SELECT QUERY MANAGEMENT ——————————————————
+let _querySelectMode = false;
+let _selectedQueryIndices = new Set();
+
+function toggleSelectMode() {
+  _querySelectMode = !_querySelectMode;
+    _selectedQueryIndices.clear();
+      const btn = el('ov-select-mode-btn');
+        const delBtn = el('ov-delete-selected-btn');
+          const selAllBtn = el('ov-select-all-btn');
+            const deselAllBtn = el('ov-deselect-all-btn');
+              if (btn) btn.textContent = _querySelectMode ? '✓ SELECTING' : '☐ SELECT';
+                if (btn) btn.classList.toggle('ov-btn-active', _querySelectMode);
+                  if (delBtn) delBtn.style.display = _querySelectMode ? '' : 'none';
+                    if (selAllBtn) selAllBtn.style.display = _querySelectMode ? '' : 'none';
+                      if (deselAllBtn) deselAllBtn.style.display = _querySelectMode ? '' : 'none';
+                        updateSelectedCount();
+                          renderOverview();
+                          }
+
+                          function toggleQuerySelection(i) {
+                            if (_selectedQueryIndices.has(i)) {
+                                _selectedQueryIndices.delete(i);
+                                  } else {
+                                      _selectedQueryIndices.add(i);
+                                        }
+                                          updateSelectedCount();
+                                            renderOverview();
+                                            }
+
+                                            function selectAllQueries() {
+                                              const b = brand();
+                                                (b.queries||[]).forEach((_, i) => _selectedQueryIndices.add(i));
+                                                  updateSelectedCount();
+                                                    renderOverview();
+                                                    }
+
+                                                    function deselectAllQueries() {
+                                                      _selectedQueryIndices.clear();
+                                                        updateSelectedCount();
+                                                          renderOverview();
+                                                          }
+
+                                                          function updateSelectedCount() {
+                                                            const countEl = el('ov-selected-count');
+                                                              if (countEl) countEl.textContent = _selectedQueryIndices.size;
+                                                                const delBtn = el('ov-delete-selected-btn');
+                                                                  if (delBtn) delBtn.disabled = _selectedQueryIndices.size === 0;
+                                                                  }
+
+                                                                  async function deleteSelectedQueries() {
+                                                                    const b = brand(); if (!b) return;
+                                                                      const count = _selectedQueryIndices.size;
+                                                                        if (count === 0) { toast('No queries selected', 'warn'); return; }
+                                                                          if (!confirm('Delete ' + count + ' selected quer' + (count===1?'y':'ies') + '? This cannot be undone.')) return;
+                                                                            const queries = (b.queries||[]).filter((_, idx) => !_selectedQueryIndices.has(idx));
+                                                                              try {
+                                                                                  const data = await api('PUT', '/api/brands/'+b.id, { queries });
+                                                                                      const idx = brands.findIndex(x => x.id === b.id);
+                                                                                          brands[idx] = data.brand;
+                                                                                              _selectedQueryIndices.clear();
+                                                                                                  _querySelectMode = false;
+                                                                                                      const btn = el('ov-select-mode-btn');
+                                                                                                          const delBtn = el('ov-delete-selected-btn');
+                                                                                                              const selAllBtn = el('ov-select-all-btn');
+                                                                                                                  const deselAllBtn = el('ov-deselect-all-btn');
+                                                                                                                      if (btn) { btn.textContent = '☐ SELECT'; btn.classList.remove('ov-btn-active'); }
+                                                                                                                          if (delBtn) delBtn.style.display = 'none';
+                                                                                                                              if (selAllBtn) selAllBtn.style.display = 'none';
+                                                                                                                                  if (deselAllBtn) deselAllBtn.style.display = 'none';
+                                                                                                                                      renderOverview();
+                                                                                                                                          toast(count + ' quer' + (count===1?'y':'ies') + ' removed', 'ok');
+                                                                                                                                            } catch(e) { toast(e.message, 'err'); }
+                                                                                                                                            }
 
 async function aiGenerateQueries(){
   const b = brand(); if (!b) return;

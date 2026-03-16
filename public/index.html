@@ -878,6 +878,10 @@
             <button onclick="loadQuerySuggestions()" class="ov-btn-subtle ov-btn-blue">SUGGEST</button>
             <button id="ai-gen-queries-btn" onclick="aiGenerateQueries()" class="ov-btn-subtle ov-btn-green">AI GENERATE</button>
             <button onclick="clearAllQueries()" class="ov-btn-subtle ov-btn-red">CLEAR ALL</button>
+                          <button id="ov-select-mode-btn" onclick="toggleSelectMode()" class="ov-btn-subtle">☐ SELECT</button>
+                                        <button id="ov-delete-selected-btn" onclick="deleteSelectedQueries()" class="ov-btn-subtle ov-btn-red" style="display:none;">🗑 DELETE SELECTED (<span id="ov-selected-count">0</span>)</button>
+                                                      <button id="ov-select-all-btn" onclick="selectAllQueries()" class="ov-btn-subtle" style="display:none;">SELECT ALL</button>
+                                                                    <button id="ov-deselect-all-btn" onclick="deselectAllQueries()" class="ov-btn-subtle" style="display:none;">DESELECT ALL</button>
           </div>
         </div>
         <div id="bulk-query-box" style="display:none;margin-top:12px;">
