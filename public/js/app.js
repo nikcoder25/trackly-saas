@@ -4271,21 +4271,17 @@ async function runQueries(){
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({ error: 'Request failed' }));
-      // If concurrent run error (409), wait briefly and retry once — the server
-      // auto-releases stale locks, so a retry usually succeeds
-      if (response.status === 409 && !runQueries._retried) {
-        runQueries._retried = true;
-        statusTxt.textContent = 'Previous run still finishing — retrying in 3s...';
+      // If concurrent run error (409), don't treat as crash — show friendly message
+      if (response.status === 409) {
         clearInterval(timerInt);
-        runningQueries = false;
+        statusTxt.textContent = '';
+        prog.style.display = 'none';
         btn.classList.remove('running');
         btn.textContent = '▶ RUN QUERIES';
-        prog.style.display = 'none';
-        await new Promise(r => setTimeout(r, 3000));
-        runQueries._retried = false;
-        return runQueries();
+        runningQueries = false;
+        toast('A run is already in progress for this brand. Please wait for it to finish.', 'warn');
+        return;
       }
-      runQueries._retried = false;
       throw new Error(errData.error || 'Request failed');
     }
 
