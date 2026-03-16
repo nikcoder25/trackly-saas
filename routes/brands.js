@@ -453,7 +453,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
       // Run tasks with bounded concurrency. Each worker processes and streams
       // results immediately as they arrive (real-time SSE to the frontend).
-      const CONCURRENCY = 6;
+      const CONCURRENCY = Math.max(activePlatforms.length, 8);
       const platMentionCount = {};
       let nextIdx = 0;
 
