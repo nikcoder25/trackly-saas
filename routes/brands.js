@@ -1372,8 +1372,7 @@ async function runBrandQueries(brand) {
           if (mentionedQueries.has(q)) qsNew[q].mentions++;
         }
       }
-      }
-
+    
       (run.mentions||[]).forEach(m => {
         (m.citations||[]).forEach(url => {
         if (!citMap[url]) citMap[url] = { url, count: 0 };
