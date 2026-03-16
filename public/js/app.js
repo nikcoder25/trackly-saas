@@ -833,7 +833,7 @@ function renderView(view){
 
 // ─── ACCOUNT & PLAN ──────────────────────────────────────────────
 function getUserLimits() {
-  return (currentUser && currentUser.limits) || { brands: 1, prompts: 5, competitors: 0, scheduledRuns: false, platforms: 2, sentiment: false };
+  return (currentUser && currentUser.limits) || { brands: 1, prompts: 3, competitors: 0, scheduledRuns: false, platforms: 2, sentiment: false };
 }
 
 function renderAccount(){
