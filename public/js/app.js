@@ -1209,7 +1209,7 @@ function showUpgradeModal(reason) {
 async function doUpgrade(plan) {
   const current = (currentUser && currentUser.plan) || 'free';
   if (plan === current) return;
-  const tiers = {free:0, pro:1, agency:2};
+  const tiers = {free:0, pro:1, agency:2, enterprise:3};
   const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
@@ -5815,7 +5815,7 @@ async function renderBilling() {
 
     // Plan card
     const planEl = el('billing-plan-card');
-    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', owner: '#059669' };
+    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
     planEl.innerHTML = `
       <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
         <div style="display:flex;justify-content:space-between;align-items:center;">

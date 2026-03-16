@@ -221,8 +221,8 @@
   <section class="land-section" id="pricing" aria-label="Pricing">
     <div class="land-section-label">Pricing</div>
     <h2>Simple, transparent pricing</h2>
-    <p class="section-sub">Start free, upgrade when you need more.</p>
-    <div class="land-pricing">
+    <p class="section-sub">Start free, upgrade when you need more. Best value in AI visibility tracking.</p>
+    <div class="land-pricing" style="grid-template-columns:repeat(4,1fr);">
       <div class="land-price-card">
         <h3>Free</h3>
         <div class="price">$0<span>/mo</span></div>
@@ -232,9 +232,10 @@
           <li>2 AI platforms</li>
           <li>10 queries per brand</li>
           <li>2 runs per day</li>
-          <li>SOV tracking &amp; evidence export</li>
+          <li>SOV tracking</li>
+          <li>Evidence export</li>
         </ul>
-        <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Get Started</button>
+        <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Get Started Free</button>
       </div>
       <div class="land-price-card featured">
         <h3>Pro</h3>
@@ -246,6 +247,7 @@
           <li>25 queries per brand</li>
           <li>10 runs per day</li>
           <li>Competitor tracking (5)</li>
+          <li>Sentiment analysis</li>
           <li>Scheduled runs &amp; webhooks</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Pro</button>
@@ -253,16 +255,96 @@
       <div class="land-price-card">
         <h3>Agency</h3>
         <div class="price">$89<span>/mo</span></div>
-        <div class="price-sub">For agencies & teams</div>
+        <div class="price-sub">For agencies &amp; teams</div>
         <ul>
           <li>20 brands</li>
           <li>All 8 AI platforms</li>
           <li>50 queries per brand</li>
           <li>50 runs per day</li>
           <li>Competitor tracking (20)</li>
+          <li>Sentiment analysis</li>
           <li>Scheduled runs &amp; webhooks</li>
         </ul>
         <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Agency</button>
+      </div>
+      <div class="land-price-card" style="border-color:var(--purple,#9b72ff);">
+        <h3 style="color:var(--purple,#9b72ff);">Enterprise</h3>
+        <div class="price">$499<span>/mo</span></div>
+        <div class="price-sub">For large organizations</div>
+        <ul>
+          <li>100 brands</li>
+          <li>All 8 AI platforms</li>
+          <li>200 queries per brand</li>
+          <li>500 runs per day</li>
+          <li>Unlimited competitors</li>
+          <li>Sentiment analysis</li>
+          <li>API access</li>
+          <li>Priority support</li>
+        </ul>
+        <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Enterprise</button>
+      </div>
+    </div>
+
+    <!-- Competitor Comparison -->
+    <div style="margin-top:48px;max-width:900px;margin-left:auto;margin-right:auto;">
+      <h3 style="text-align:center;font-size:20px;margin-bottom:6px;">How Trackly compares</h3>
+      <p class="section-sub" style="margin-bottom:24px;">More platforms, better pricing, real free plan.</p>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;text-align:center;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left;padding:10px 12px;color:var(--muted);font-weight:600;">Feature</th>
+              <th style="padding:10px 12px;color:var(--primary);font-weight:700;">Trackly</th>
+              <th style="padding:10px 12px;color:var(--muted);font-weight:600;">Otterly.ai</th>
+              <th style="padding:10px 12px;color:var(--muted);font-weight:600;">Peec AI</th>
+              <th style="padding:10px 12px;color:var(--muted);font-weight:600;">Knowatoa</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="text-align:left;padding:8px 12px;">Free Plan</td>
+              <td style="padding:8px 12px;color:var(--green);">&#x2713; Yes</td>
+              <td style="padding:8px 12px;color:var(--red);">&#x2717; Trial only</td>
+              <td style="padding:8px 12px;color:var(--red);">&#x2717; No</td>
+              <td style="padding:8px 12px;color:var(--amber);">Audit only</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="text-align:left;padding:8px 12px;">AI Platforms</td>
+              <td style="padding:8px 12px;color:var(--primary);font-weight:700;">8 platforms</td>
+              <td style="padding:8px 12px;">4 (+add-ons)</td>
+              <td style="padding:8px 12px;">3</td>
+              <td style="padding:8px 12px;">5</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="text-align:left;padding:8px 12px;">Starting Price</td>
+              <td style="padding:8px 12px;color:var(--primary);font-weight:700;">$35/mo</td>
+              <td style="padding:8px 12px;">$29/mo</td>
+              <td style="padding:8px 12px;">$89/mo</td>
+              <td style="padding:8px 12px;">$59/mo</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="text-align:left;padding:8px 12px;">Sentiment Analysis</td>
+              <td style="padding:8px 12px;color:var(--green);">&#x2713; All paid</td>
+              <td style="padding:8px 12px;color:var(--red);">&#x2717; No</td>
+              <td style="padding:8px 12px;">$199+/mo</td>
+              <td style="padding:8px 12px;color:var(--green);">&#x2713; Yes</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="text-align:left;padding:8px 12px;">Competitor Tracking</td>
+              <td style="padding:8px 12px;color:var(--green);">&#x2713; From $35</td>
+              <td style="padding:8px 12px;">&#x2713; Yes</td>
+              <td style="padding:8px 12px;">&#x2713; Yes</td>
+              <td style="padding:8px 12px;">&#x2713; Yes</td>
+            </tr>
+            <tr>
+              <td style="text-align:left;padding:8px 12px;">100-prompt plan</td>
+              <td style="padding:8px 12px;color:var(--primary);font-weight:700;">$89/mo</td>
+              <td style="padding:8px 12px;">$189/mo</td>
+              <td style="padding:8px 12px;">$399/mo</td>
+              <td style="padding:8px 12px;">Custom</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -1421,19 +1503,19 @@
 
 <!-- Upgrade Modal -->
 <div class="overlay" id="upgrade-modal" role="dialog" aria-modal="true" aria-label="Upgrade Your Plan">
-  <div class="modal" style="max-width:700px;">
+  <div class="modal" style="max-width:900px;">
     <div class="modal-head">
       <div class="modal-title">Upgrade Your Plan</div>
       <button class="modal-close" onclick="closeModal('upgrade-modal')">&#x2715;</button>
     </div>
     <div class="modal-body">
       <div id="upgrade-reason" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:var(--amber);display:none;border-radius:var(--radius-xs);"></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="upgrade-plans">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;" id="upgrade-plans">
         <div class="upgrade-plan-card" data-plan="free">
           <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Free</div>
           <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$0<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            1 brand<br>3 AI platforms<br>5 queries<br>2 runs/day<br>SOV tracking
+            1 brand<br>2 AI platforms<br>10 queries<br>2 runs/day<br>SOV tracking
           </div>
           <button class="btn-upgrade" onclick="doUpgrade('free')">CURRENT</button>
         </div>
@@ -1441,7 +1523,7 @@
           <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--primary);">Pro</div>
           <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$35<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            5 brands<br>All 8 platforms<br>25 queries<br>10 runs/day<br>Competitors &amp; webhooks<br>Scheduled runs
+            5 brands<br>All 8 platforms<br>25 queries<br>10 runs/day<br>Competitors (5)<br>Sentiment analysis<br>Scheduled runs
           </div>
           <button class="btn-upgrade" onclick="doUpgrade('pro')">UPGRADE TO PRO</button>
         </div>
@@ -1449,9 +1531,17 @@
           <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--purple,#9b72ff);">Agency</div>
           <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$89<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            20 brands<br>All 8 platforms<br>50 queries<br>50 runs/day<br>Competitors (20)<br>Scheduled runs
+            20 brands<br>All 8 platforms<br>50 queries<br>50 runs/day<br>Competitors (20)<br>Sentiment analysis<br>Scheduled runs
           </div>
           <button class="btn-upgrade" onclick="doUpgrade('agency')">UPGRADE TO AGENCY</button>
+        </div>
+        <div class="upgrade-plan-card" data-plan="enterprise" style="border-color:var(--purple,#9b72ff);">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--purple,#9b72ff);">Enterprise</div>
+          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$499<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+            100 brands<br>All 8 platforms<br>200 queries<br>500 runs/day<br>Unlimited competitors<br>API access<br>Priority support
+          </div>
+          <button class="btn-upgrade" onclick="doUpgrade('enterprise')">UPGRADE TO ENTERPRISE</button>
         </div>
       </div>
     </div>

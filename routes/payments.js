@@ -36,13 +36,15 @@ const DODO_ENVIRONMENT    = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode'
 const DODO_RETURN_URL     = process.env.DODO_PAYMENTS_RETURN_URL || '';
 
 // Product IDs — set these in your DodoPayments dashboard, then configure via env vars
-const DODO_PRO_PRODUCT_ID    = process.env.DODO_PRO_PRODUCT_ID || '';
-const DODO_AGENCY_PRODUCT_ID = process.env.DODO_AGENCY_PRODUCT_ID || '';
+const DODO_PRO_PRODUCT_ID        = process.env.DODO_PRO_PRODUCT_ID || '';
+const DODO_AGENCY_PRODUCT_ID     = process.env.DODO_AGENCY_PRODUCT_ID || '';
+const DODO_ENTERPRISE_PRODUCT_ID = process.env.DODO_ENTERPRISE_PRODUCT_ID || '';
 
 // Map product IDs to plans
 function planFromProductId(productId) {
   if (productId === DODO_PRO_PRODUCT_ID) return 'pro';
   if (productId === DODO_AGENCY_PRODUCT_ID) return 'agency';
+  if (productId === DODO_ENTERPRISE_PRODUCT_ID) return 'enterprise';
   return null;
 }
 
@@ -53,11 +55,12 @@ router.post('/checkout', auth, async (req, res) => {
   }
 
   const { plan } = req.body;
-  if (!['pro', 'agency'].includes(plan)) {
-    return res.status(400).json({ error: 'Invalid plan. Choose pro or agency.' });
+  if (!['pro', 'agency', 'enterprise'].includes(plan)) {
+    return res.status(400).json({ error: 'Invalid plan. Choose pro, agency, or enterprise.' });
   }
 
-  const productId = plan === 'pro' ? DODO_PRO_PRODUCT_ID : DODO_AGENCY_PRODUCT_ID;
+  const productIdMap = { pro: DODO_PRO_PRODUCT_ID, agency: DODO_AGENCY_PRODUCT_ID, enterprise: DODO_ENTERPRISE_PRODUCT_ID };
+  const productId = productIdMap[plan];
   if (!productId) {
     return res.status(503).json({ error: 'Payment product not configured for this plan. Contact support.' });
   }
@@ -69,7 +72,7 @@ router.post('/checkout', auth, async (req, res) => {
     const user = userResult.rows[0];
 
     // Don't allow if already on same or higher plan
-    const tiers = { free: 0, pro: 1, agency: 2, owner: 3 };
+    const tiers = { free: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
     const currentTier = tiers[user.plan];
     const targetTier = tiers[plan];
     // Guard against unknown plan values (undefined tier would bypass the check)
@@ -169,7 +172,7 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
 
-          if (!['pro', 'agency'].includes(plan)) {
+          if (!['pro', 'agency', 'enterprise'].includes(plan)) {
             log.warn('Invalid plan in metadata', { plan });
             return;
           }
@@ -331,7 +334,8 @@ router.get('/payment-status', auth, (req, res) => {
     environment: DODO_ENVIRONMENT,
     products: {
       pro: !!DODO_PRO_PRODUCT_ID,
-      agency: !!DODO_AGENCY_PRODUCT_ID
+      agency: !!DODO_AGENCY_PRODUCT_ID,
+      enterprise: !!DODO_ENTERPRISE_PRODUCT_ID
     }
   });
 });
