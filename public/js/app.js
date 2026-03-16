@@ -4267,28 +4267,56 @@ async function runQueries(){
   }
 
   try {
+      // Abort controller for timeout (10 min)
+      const abortCtrl = new AbortController();
+      const fetchTimeout = setTimeout(() => abortCtrl.abort(), 10 * 60 * 1000);
     const response = await fetch(API + '/api/brands/'+b.id+'/run?stream=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ platforms: selectedPlats })
+        signal: abortCtrl.signal
     });
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({ error: 'Request failed' }));
-      // If concurrent run error (409), don't treat as crash — show friendly message
+      // If concurrent run error (409), show force-run option
       if (response.status === 409) {
+        clearTimeout(fetchTimeout);
         clearInterval(timerInt);
         statusTxt.textContent = '';
         prog.style.display = 'none';
         btn.classList.remove('running');
         btn.textContent = '▶ RUN QUERIES';
         runningQueries = false;
-        toast('A run is already in progress for this brand. Please wait for it to finish.', 'warn');
+        toast('A run is already in progress. You can force a new run if the previous one is stuck.', 'warn');
+        // Show a "Force Run" button
+        const forceBtn = document.createElement('button');
+        forceBtn.textContent = '⚡ FORCE RUN';
+        forceBtn.className = 'ov-run-btn';
+        forceBtn.style.cssText = 'background:#e74c3c;margin-left:8px;';
+        forceBtn.onclick = async () => {
+          forceBtn.disabled = true;
+          forceBtn.textContent = 'Releasing lock...';
+          try {
+            await fetch(API + '/api/brands/' + b.id + '/force-release', {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + token }
+            });
+            forceBtn.remove();
+            runQueries(); // Retry the run
+          } catch (e) {
+                  forceBtn.textContent = '⚡ FORCE RUN';
+            forceBtn.disabled = false;
+            toast('Failed to force release. Try again.', 'error');
+          }
+        };
+        btn.parentElement.appendChild(forceBtn);
         return;
       }
       throw new Error(errData.error || 'Request failed');
     }
 
+      clearTimeout(fetchTimeout); // Connection established, clear fetch timeout
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -4404,6 +4432,12 @@ async function runQueries(){
       toast(toastMsg, result.sov > 0 ? 'ok' : 'warn');
     }
   } catch(e) {
+    clearTimeout(fetchTimeout);
+    // Handle abort/timeout specifically — just fall through to polling
+    if (e.name === 'AbortError') {
+      console.warn('[runQueries] Fetch timed out after 10 min. Falling back to polling.');
+      toast('Connection timed out. Checking if run is still in progress...', 'warn');
+    }
     clearInterval(timerInt);
 
     // If we have a runId, the server is still running in the background.
