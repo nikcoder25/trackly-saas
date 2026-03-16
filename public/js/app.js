@@ -833,7 +833,7 @@ function renderView(view){
 
 // ─── ACCOUNT & PLAN ──────────────────────────────────────────────
 function getUserLimits() {
-  return (currentUser && currentUser.limits) || { brands: 1, queries: 5, runsPerDay: 2, competitors: 0, scheduledRuns: false, platforms: 3 };
+  return (currentUser && currentUser.limits) || { brands: 1, prompts: 3, competitors: 0, scheduledRuns: false, platforms: 2, sentiment: false };
 }
 
 function renderAccount(){
@@ -869,8 +869,7 @@ function renderAccount(){
   const usageHtml = `
     <div style="display:grid;gap:12px;margin-top:8px;">
       ${usageBar('Brands', brandCount, limits.brands)}
-      ${usageBar('Queries (current brand)', queryCount, limits.queries)}
-      ${usageBar('Runs today', todayRuns, limits.runsPerDay)}
+      ${usageBar('Total prompts', brands.reduce((s,br)=>s+(br.queries||[]).length,0), limits.prompts)}
       ${usageBar('Platforms', limits.platforms, 8)}
       ${usageBar('Competitors', compCount, limits.competitors)}
     </div>
@@ -1209,7 +1208,7 @@ function showUpgradeModal(reason) {
 async function doUpgrade(plan) {
   const current = (currentUser && currentUser.plan) || 'free';
   if (plan === current) return;
-  const tiers = {free:0, pro:1, agency:2};
+  const tiers = {free:0, pro:1, agency:2, enterprise:3};
   const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
@@ -2361,17 +2360,18 @@ function renderOverview(){
 
   // Queries list with count indicator
   const queryCount = (b.queries||[]).length;
-  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
+  const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+  const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
   const qCountEl = el('ov-query-count');
   if (qCountEl) {
-    const atLimit = queryCount >= queryLimit;
-    qCountEl.textContent = queryCount + ' / ' + queryLimit + ' queries';
+    const atLimit = totalPrompts >= promptLimit;
+    qCountEl.textContent = totalPrompts + ' / ' + promptLimit + ' prompts';
     qCountEl.style.color = atLimit ? 'var(--amber)' : 'var(--muted)';
   }
   const limitMsg = el('ov-query-limit-msg');
   if (limitMsg) {
-    if (queryCount >= queryLimit) {
-      limitMsg.textContent = 'Query limit reached (' + queryLimit + '). Remove a query or upgrade your plan to add more.';
+    if (totalPrompts >= promptLimit) {
+      limitMsg.textContent = 'Prompt limit reached (' + totalPrompts + '/' + promptLimit + '). Remove a prompt or upgrade your plan for more.';
       limitMsg.style.display = 'block';
     } else {
       limitMsg.style.display = 'none';
@@ -2450,10 +2450,12 @@ async function ovAddQuery(){
   if (!q) return;
   const b = brand();
   if (!b) return;
-  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
-  if ((b.queries||[]).length >= queryLimit) {
-    toast('Query limit reached (' + queryLimit + '). Upgrade your plan to add more.', 'err');
-    showUpgradeModal('Your plan allows up to ' + queryLimit + ' queries. Upgrade for more.');
+  // Total prompts check — count across all brands
+  const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+  const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+  if (totalPrompts >= promptLimit) {
+    toast('Prompt limit reached (' + totalPrompts + '/' + promptLimit + '). Upgrade your plan for more.', 'err');
+    showUpgradeModal('Your plan allows ' + promptLimit + ' total prompts across all brands. You have ' + totalPrompts + '. Upgrade for more.');
     return;
   }
   // Duplicate check (case-insensitive)
@@ -2495,13 +2497,13 @@ async function bulkAddQueries(){
   const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
   const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
   if (!unique.length) { toast('All queries already exist', 'err'); return; }
-  const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
-  const currentCount = (b.queries||[]).length;
-  if (currentCount + unique.length > queryLimit) {
-    const allowed = queryLimit - currentCount;
-    if (allowed <= 0) { toast('Query limit reached (' + queryLimit + '). Upgrade your plan.', 'err'); return; }
+  const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+  const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+  if (totalPrompts + unique.length > promptLimit) {
+    const allowed = promptLimit - totalPrompts;
+    if (allowed <= 0) { toast('Prompt limit reached (' + totalPrompts + '/' + promptLimit + '). Upgrade your plan.', 'err'); return; }
     unique.splice(allowed);
-    toast('Only ' + allowed + ' queries added (plan limit: ' + queryLimit + ')', 'warn');
+    toast('Only ' + allowed + ' prompts added (plan limit: ' + promptLimit + ')', 'warn');
   }
   const queries = [...(b.queries||[]), ...unique];
   try {
@@ -2562,9 +2564,10 @@ async function aiGenerateQueries(){
     const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
     let newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
     if (!newQs.length) { toast('All generated queries already exist!', 'ok'); return; }
-    const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
-    const remaining = queryLimit - (b.queries||[]).length;
-    if (remaining <= 0) { toast('Query limit reached. Upgrade your plan.', 'err'); return; }
+    const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+    const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+    const remaining = promptLimit - totalPrompts;
+    if (remaining <= 0) { toast('Prompt limit reached. Upgrade your plan.', 'err'); return; }
     if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
     const pick = confirm('Add ' + newQs.length + ' AI-generated queries?\n\n' + newQs.join('\n'));
     if (!pick) return;
@@ -3710,9 +3713,10 @@ async function loadQuerySuggestions(){
     const existing = new Set((b.queries || []).map(q => q.toLowerCase()));
     let newSuggestions = suggestions.filter(s => !existing.has(s.toLowerCase()));
     if (!newSuggestions.length) { toast('All suggestions already added!', 'ok'); return; }
-    const queryLimit = currentUser.limits ? currentUser.limits.queries : 5;
-    const remaining = queryLimit - (b.queries || []).length;
-    if (remaining <= 0) { toast('Query limit reached. Upgrade your plan.', 'err'); return; }
+    const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+    const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+    const remaining = promptLimit - totalPrompts;
+    if (remaining <= 0) { toast('Prompt limit reached. Upgrade your plan.', 'err'); return; }
     if (newSuggestions.length > remaining) newSuggestions = newSuggestions.slice(0, remaining);
     const pick = confirm('Add ' + newSuggestions.length + ' suggested queries?\n\n' + newSuggestions.join('\n'));
     if (!pick) return;
@@ -5164,7 +5168,7 @@ function openAdminEdit(userId){
   el('admin-edit-joined').textContent = joined;
   el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
   el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
-  el('admin-edit-limits').textContent = (u.limits?.queries || '?') + ' queries, ' + (u.limits?.runsPerDay || '?') + ' runs/day';
+  el('admin-edit-limits').textContent = (u.limits?.prompts || '?') + ' prompts, ' + (u.limits?.brands || '?') + ' brands';
   // Disable role change for self, hide delete for self
   el('admin-edit-role').disabled = (u.id === currentUser.id);
   el('admin-edit-password').value = '';
@@ -5826,7 +5830,7 @@ async function renderBilling() {
 
     // Plan card
     const planEl = el('billing-plan-card');
-    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', owner: '#059669' };
+    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
     planEl.innerHTML = `
       <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -5881,12 +5885,14 @@ async function renderBilling() {
         ${Object.keys(allPlans).map(p => `<th style="text-align:center;padding:8px;${p === plan ? 'color:var(--primary);font-weight:700;' : ''}">${p.toUpperCase()}</th>`).join('')}
       </tr></thead>
       <tbody>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Total Prompts</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prompts >= 9999 ? '∞' : l.prompts}</td>`).join('')}</tr>
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Brands</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.brands >= 9999 ? '∞' : l.brands}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Queries / Brand</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.queries >= 9999 ? '∞' : l.queries}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Runs / Day</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.runsPerDay >= 9999 ? '∞' : l.runsPerDay}</td>`).join('')}</tr>
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Competitors</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.competitors >= 9999 ? '∞' : l.competitors}</td>`).join('')}</tr>
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Platforms</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.platforms}</td>`).join('')}</tr>
-        <tr><td style="padding:8px;">Scheduled Runs</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.scheduledRuns ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Sentiment</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.sentiment ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Scheduled Runs</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.scheduledRuns ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">API Access</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.apiAccess ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr><td style="padding:8px;">Priority Support</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prioritySupport ? '✓' : '—'}</td>`).join('')}</tr>
       </tbody>
     </table>`;
   } catch(e) { toast('Failed to load billing', 'err'); }

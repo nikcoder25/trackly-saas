@@ -99,14 +99,14 @@ router.get('/plans', auth, (req, res) => {
 router.post('/upgrade', auth, async (req, res) => {
   const { plan } = req.body;
   // SECURITY: Never allow self-service upgrade to 'owner' — only admin-assigned
-  if (!['free', 'pro', 'agency'].includes(plan)) {
+  if (!['free', 'pro', 'agency', 'enterprise'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
   try {
     const currentUser = await pool.query('SELECT plan, role FROM users WHERE id = $1', [req.user.id]);
     if (!currentUser.rows.length) return res.status(404).json({ error: 'User not found' });
     const currentPlan = currentUser.rows[0].plan || 'free';
-    const tiers = { free: 0, pro: 1, agency: 2, owner: 3 };
+    const tiers = { free: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
     // Block any upgrade attempt — upgrades must go through DodoPayments checkout
     if ((tiers[plan] || 0) > (tiers[currentPlan] || 0)) {
       return res.status(403).json({ error: 'Payment required for plan upgrades. Use the upgrade button to proceed with payment.' });
@@ -167,7 +167,7 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     let idx = 1;
 
     if (plan !== undefined) {
-      if (!['free', 'pro', 'agency', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+      if (!['free', 'pro', 'agency', 'enterprise', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
       updates.push(`plan = $${idx++}`);
       values.push(plan);
     }
@@ -294,7 +294,7 @@ router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => 
 // Admin: update user plan (legacy endpoint)
 router.put('/admin/users/:id/plan', auth, requireAdmin, async (req, res) => {
   try {
-    if (!['free', 'pro', 'agency', 'owner'].includes(req.body.plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (!['free', 'pro', 'agency', 'enterprise', 'owner'].includes(req.body.plan)) return res.status(400).json({ error: 'Invalid plan' });
     const result = await pool.query('UPDATE users SET plan = $1 WHERE id = $2 RETURNING *', [req.body.plan, req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     res.json({ user: safeUser(result.rows[0]) });
@@ -806,7 +806,7 @@ router.get('/docs', (req, res) => {
       { method: 'POST', path: '/api/brands/:id/run', description: 'Run AI queries for a brand', auth: true },
       { method: 'GET', path: '/api/keys/status', description: 'Get API key status', auth: true },
       { method: 'GET', path: '/api/plans', description: 'Get plan information', auth: true },
-      { method: 'POST', path: '/api/upgrade', description: 'Change plan (downgrade or request upgrade)', auth: true, body: { plan: 'free|pro|agency' } },
+      { method: 'POST', path: '/api/upgrade', description: 'Change plan (downgrade or request upgrade)', auth: true, body: { plan: 'free|pro|agency|enterprise' } },
       { method: 'GET', path: '/api/models', description: 'Get available AI models', auth: true },
       { method: 'GET', path: '/api/settings', description: 'Get user settings', auth: true },
       { method: 'PUT', path: '/api/settings', description: 'Update user settings', auth: true },

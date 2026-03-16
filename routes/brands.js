@@ -247,8 +247,18 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    if (safeBody.queries && safeBody.queries.length > limits.queries) {
-      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.queries} queries. Upgrade for more.`, planLimit: true, limit: 'queries', max: limits.queries });
+    // Total prompts check — count queries across ALL brands, not just this one
+    if (safeBody.queries) {
+      const allBrandsResult = await pool.query(
+        `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
+         FROM brands WHERE user_id = $1 AND id != $2`,
+        [req.user.id, req.params.id]
+      );
+      const otherBrandPrompts = parseInt(allBrandsResult.rows[0].total) || 0;
+      const newTotal = otherBrandPrompts + safeBody.queries.length;
+      if (newTotal > limits.prompts) {
+        return res.status(403).json({ error: `Your ${plan} plan allows ${limits.prompts} total prompts across all brands. You're using ${otherBrandPrompts} in other brands. Upgrade for more.`, planLimit: true, limit: 'prompts', current: newTotal, max: limits.prompts });
+      }
     }
     if (safeBody.competitors && safeBody.competitors.length > limits.competitors) {
       return res.status(403).json({ error: limits.competitors === 0 ? `Competitor tracking is available on Pro and Agency plans.` : `Your ${plan} plan allows up to ${limits.competitors} competitors. Upgrade for more.`, planLimit: true, limit: 'competitors', max: limits.competitors });
@@ -298,44 +308,26 @@ router.post('/:id/run', auth, async (req, res) => {
     plan = await getUserPlan(req.user.id);
     limits = getPlanLimits(plan);
 
-    const queryCount = (brand.queries || []).length;
-    if (queryCount > limits.queries) {
-      const errMsg = `Your ${plan} plan allows up to ${limits.queries} queries per brand. You have ${queryCount}. Remove some queries or upgrade.`;
+    // Total prompts check — count across ALL brands
+    const allPromptsResult = await pool.query(
+      `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
+       FROM brands WHERE user_id = $1`,
+      [req.user.id]
+    );
+    const totalPrompts = parseInt(allPromptsResult.rows[0].total) || 0;
+    if (totalPrompts > limits.prompts) {
+      const errMsg = `Your ${plan} plan allows ${limits.prompts} total prompts. You have ${totalPrompts}. Remove some prompts or upgrade.`;
       if (streaming) return sseError(res, errMsg);
-      return res.status(403).json({ error: errMsg, planLimit: true, limit: 'queries' });
+      return res.status(403).json({ error: errMsg, planLimit: true, limit: 'prompts' });
     }
 
-    // Atomic run limit check — use transaction + SELECT FOR UPDATE to prevent TOCTOU race
-    const today = new Date().toISOString().split('T')[0];
-    const limitClient = await pool.connect();
-    try {
-      await limitClient.query('BEGIN');
-      const freshBrand = await limitClient.query('SELECT data FROM brands WHERE id = $1 FOR UPDATE', [brand.id]);
-      const freshRuns = freshBrand.rows[0]?.data?.runs || [];
-      const todayRuns = freshRuns.filter(r => (r.date || '').startsWith(today)).length;
-      await limitClient.query('COMMIT');
-      if (todayRuns >= limits.runsPerDay) {
-        const errMsg = `Your ${plan} plan allows ${limits.runsPerDay} runs per day. Upgrade for more.`;
-        if (streaming) return sseError(res, errMsg);
-        return res.status(403).json({ error: errMsg, planLimit: true, limit: 'runsPerDay' });
-      }
-      // Soft overage warning — approaching limit
-      const runUsagePct = limits.runsPerDay > 0 ? todayRuns / limits.runsPerDay : 0;
-      const _overageWarnings = [];
-      if (runUsagePct >= 0.8 && todayRuns < limits.runsPerDay) {
-        _overageWarnings.push(`You've used ${todayRuns}/${limits.runsPerDay} daily runs (${Math.round(runUsagePct*100)}%). Consider upgrading for more capacity.`);
-      }
-      const queryUsagePct = limits.queries > 0 ? (brand.queries||[]).length / limits.queries : 0;
-      if (queryUsagePct >= 0.8) {
-        _overageWarnings.push(`You're using ${(brand.queries||[]).length}/${limits.queries} queries (${Math.round(queryUsagePct*100)}%). Upgrade for more query slots.`);
-      }
-      req._overageWarnings = _overageWarnings;
-    } catch(txErr) {
-      await limitClient.query('ROLLBACK').catch(() => {});
-      throw txErr;
-    } finally {
-      limitClient.release();
+    // Soft overage warning — approaching prompt limit
+    const _overageWarnings = [];
+    const promptUsagePct = limits.prompts > 0 ? totalPrompts / limits.prompts : 0;
+    if (promptUsagePct >= 0.8) {
+      _overageWarnings.push(`You're using ${totalPrompts}/${limits.prompts} total prompts (${Math.round(promptUsagePct*100)}%). Upgrade for more prompt slots.`);
     }
+    req._overageWarnings = _overageWarnings;
 
     keys = getServerKeys();
     const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
@@ -1158,10 +1150,6 @@ async function runBrandQueries(brand) {
   const plan = await getUserPlan(brand.userId);
   const limits = getPlanLimits(plan);
   if (!limits.scheduledRuns) return; // plan doesn't allow scheduled runs
-
-  const today = new Date().toISOString().split('T')[0];
-  const todayRuns = (brand.runs || []).filter(r => (r.date || '').startsWith(today)).length;
-  if (todayRuns >= limits.runsPerDay) return; // daily run limit reached
 
   // Load user settings for scheduled runs
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);

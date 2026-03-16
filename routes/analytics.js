@@ -953,8 +953,7 @@ router.get('/billing', auth, async (req, res) => {
 
     const usage = {
       brands: { used: brandCount.rows[0].count, limit: limits.brands },
-      runsToday: { used: todayRuns.rows[0].count, limit: limits.runsPerDay },
-      queries: { used: totalQueries.rows[0].total || 0, limit: limits.queries },
+      prompts: { used: totalQueries.rows[0].total || 0, limit: limits.prompts },
       platforms: { used: limits.platforms, limit: 8 }
     };
 
