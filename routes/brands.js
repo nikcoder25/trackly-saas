@@ -26,6 +26,7 @@ const activeRuns = new Map(); // runId → { status, received, totalExpected, re
 // Per-brand lock to prevent concurrent runs corrupting the same brand's data
 // Maps brandId → { lockedAt: timestamp } so we can auto-release stale locks
 const brandRunLocks = new Map();
+const MAX_LOCK_AGE_MS = 10 * 60 * 1000; // 10 min — auto-release stuck locks
 
 // Clean up completed runs after 10 minutes to avoid memory leaks
 setInterval(() => {
@@ -36,11 +37,24 @@ setInterval(() => {
       brandRunLocks.delete(run.brandId);
     }
   }
-  // Safety: clear stale brand locks (in case a run crashed without releasing)
-  for (const [brandId, lock] of brandRunLocks) {
-    const hasActive = [...activeRuns.values()].some(r => r.brandId === brandId && r.status === 'running');
-    if (!hasActive) brandRunLocks.delete(brandId);
-  }
+    // Safety: clear stale brand locks (orphaned or expired)
+    for (const [brandId, lock] of brandRunLocks) {
+      const hasActive = [...activeRuns.values()].some(r => r.brandId === brandId && r.status === 'running');
+      const lockAge = Date.now() - (lock?.lockedAt || 0);
+      if (!hasActive) {
+        // No active run — orphaned lock
+        brandRunLocks.delete(brandId);
+      } else if (lockAge > MAX_LOCK_AGE_MS) {
+        // Lock expired — force-release even if active run exists
+        console.log(`[Cleanup] Force-releasing expired lock for brand ${brandId} (age: ${Math.round(lockAge/1000)}s)`);
+        const stuckRun = [...activeRuns.values()].find(r => r.brandId === brandId && r.status === 'running');
+        if (stuckRun) {
+          stuckRun.status = 'error';
+          stuckRun.completedAt = Date.now();
+        }
+        brandRunLocks.delete(brandId);
+      }
+    }
 }, 60 * 1000);
 
 // Cheapest platforms first — used to prioritize when plan limits truncate the list
@@ -294,9 +308,33 @@ router.delete('/:id', auth, async (req, res) => {
 // closing the browser tab does NOT stop the run.  The server fires off
 // the work in the background and the frontend can reconnect via the
 // GET /:id/run-status/:runId polling endpoint.
+// ── Force-release a stuck brand lock ──────────────────────────
+router.post('/:id/force-release', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const hadLock = brandRunLocks.has(brand.id);
+    const activeRun = [...activeRuns.values()].find(r => r.brandId === brand.id && r.status === 'running');
+    
+    if (activeRun) {
+      activeRun.status = 'error';
+      activeRun.completedAt = Date.now();
+    }
+    brandRunLocks.delete(brand.id);
+    
+    console.log(`[Force-Release] Brand ${brand.id} — hadLock: ${hadLock}, hadActiveRun: ${!!activeRun}`);
+    res.json({ success: true, released: hadLock || !!activeRun });
+  } catch (err) {
+    console.error('[Force-Release] Error:', err);
+    res.status(500).json({ error: 'Failed to release lock' });
+  }
+});
+
 router.post('/:id/run', auth, async (req, res) => {
-  req.setTimeout(300000);
+  req.setTimeout(600000); // 10 min to match MAX_LOCK_AGE_MS
   const streaming = req.query.stream === '1';
+    const forceRun = req.query.force === '1';
 
   // ── Validation (synchronous with request) ──────────────────────
   let brand, plan, limits, keys, queries, activePlatforms, totalExpected, runId;
@@ -363,19 +401,40 @@ router.post('/:id/run', auth, async (req, res) => {
     runId = uid();
 
     // Prevent concurrent runs on the same brand
-    if (brandRunLocks.has(brand.id)) {
+    // --- Concurrency lock check ---
+    if (brandRunLocks.has(brand.id) && !forceRun) {
       const lock = brandRunLocks.get(brand.id);
       const lockAge = Date.now() - (lock?.lockedAt || 0);
       const activeRun = [...activeRuns.values()].find(r => r.brandId === brand.id && r.status === 'running');
-      // If there's a genuinely active run that's making progress, block
-      if (activeRun) {
+
+      // Force-release if lock is older than MAX_LOCK_AGE_MS regardless of activeRun
+      if (lockAge > MAX_LOCK_AGE_MS) {
+        console.log(`[Run] Force-releasing expired lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s, max: ${MAX_LOCK_AGE_MS/1000}s)`);
+        if (activeRun) {
+          activeRun.status = 'error';
+          activeRun.completedAt = Date.now();
+        }
+        brandRunLocks.delete(brand.id);
+      } else if (activeRun) {
+        // Active run exists and lock is within time limit — block
         const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
         if (streaming) return sseError(res, errMsg);
         return res.status(409).json({ error: errMsg });
+      } else {
+        // No active run — stale/orphaned lock, release it
+        console.log(`[Run] Auto-releasing stale lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s)`);
+        brandRunLocks.delete(brand.id);
       }
-      // No active run found — this is a stale/orphaned lock, release it
-      console.log(`[Run] Auto-releasing stale lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s, no active run found)`);
+    }
+    // If forceRun, clean up any existing lock/active run
+    if (forceRun && brandRunLocks.has(brand.id)) {
+      const activeRun = [...activeRuns.values()].find(r => r.brandId === brand.id && r.status === 'running');
+      if (activeRun) {
+        activeRun.status = 'error';
+        activeRun.completedAt = Date.now();
+      }
       brandRunLocks.delete(brand.id);
+      console.log(`[Run] Force-run requested: cleared lock for brand ${brand.id}`);
     }
     brandRunLocks.set(brand.id, { lockedAt: Date.now() });
   } catch(e) {
