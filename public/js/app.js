@@ -4273,7 +4273,7 @@ async function runQueries(){
     const response = await fetch(API + '/api/brands/'+b.id+'/run?stream=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ platforms: selectedPlats })
+      body: JSON.stringify({ platforms: selectedPlats }),
         signal: abortCtrl.signal
     });
 
