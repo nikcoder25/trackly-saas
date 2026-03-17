@@ -156,13 +156,16 @@ router.get('/admin/users', auth, requireAdmin, async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const offset = parseInt(req.query.offset) || 0;
     const result = await pool.query(`
-      SELECT u.*, COUNT(b.id)::int AS brand_count
-      FROM users u LEFT JOIN brands b ON b.user_id = u.id
+      SELECT u.*, COUNT(DISTINCT b.id)::int AS brand_count,
+             COUNT(DISTINCT pm.id)::int AS tracked_prompts
+      FROM users u
+      LEFT JOIN brands b ON b.user_id = u.id
+      LEFT JOIN prompt_metadata pm ON pm.brand_id = b.id
       GROUP BY u.id ORDER BY u.created_at
       LIMIT $1 OFFSET $2
     `, [limit, offset]);
     const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM users');
-    const users = result.rows.map(row => ({ ...safeUser(row), brandCount: row.brand_count || 0 }));
+    const users = result.rows.map(row => ({ ...safeUser(row), brandCount: row.brand_count || 0, trackedPrompts: row.tracked_prompts || 0 }));
     res.json({ users, total: countResult.rows[0].total });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
