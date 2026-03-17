@@ -80,6 +80,7 @@ setInterval(() => {
         const stuckRun = [...activeRuns.values()].find(r => r.brandId === brandId && r.status === 'running');
         if (stuckRun) {
           stuckRun.status = 'error';
+          stuckRun.aborted = true; // Signal the running task to stop writing data
           stuckRun.completedAt = Date.now();
         }
         brandRunLocks.delete(brandId);
@@ -734,6 +735,13 @@ router.post('/:id/run', auth, async (req, res) => {
       saveBrandObj.sovHistory = saveBrandObj.sovHistory.filter(h => h.date !== today);
       saveBrandObj.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
       if (saveBrandObj.sovHistory.length > 90) saveBrandObj.sovHistory = saveBrandObj.sovHistory.slice(-90);
+
+      // Abort check: if lock was force-released while we were running, skip saving
+      // to prevent data corruption from a concurrent run
+      if (runState.aborted) {
+        console.warn(`[Run] Brand ${brand.id} run aborted (lock expired) — skipping save to prevent corruption`);
+        return;
+      }
 
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);
