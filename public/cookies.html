@@ -43,8 +43,8 @@ a{color:var(--accent);}
 <h2>2. What We Store</h2>
 <table>
   <tr><th>Name</th><th>Type</th><th>Purpose</th><th>Duration</th></tr>
-  <tr><td>token</td><td>localStorage</td><td>Authentication — keeps you logged in</td><td>Until logout</td></tr>
-  <tr><td>refreshToken</td><td>localStorage</td><td>Token refresh — renews your session</td><td>Until logout</td></tr>
+  <tr><td>trackly_token</td><td>httpOnly cookie</td><td>Authentication — keeps you logged in</td><td>Until logout</td></tr>
+  <tr><td>refreshToken</td><td>sessionStorage</td><td>Token refresh — renews your session</td><td>Until tab close</td></tr>
   <tr><td>theme</td><td>localStorage</td><td>Stores your UI theme preference</td><td>Persistent</td></tr>
 </table>
 

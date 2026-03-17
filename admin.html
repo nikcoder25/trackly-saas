@@ -253,7 +253,8 @@ async function api(method, path, data){
   const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
   if(data) opts.body = JSON.stringify(data);
   const res = await fetch(API+path, opts);
-  const json = await res.json();
+  let json;
+  try { json = await res.json(); } catch(e) { throw new Error('Server returned non-JSON response (status ' + res.status + ')'); }
   if(!res.ok) throw new Error(json.error||'Request failed');
   return json;
 }
@@ -298,12 +299,12 @@ async function init(){
           $('become-admin-btn').style.display='inline-block';
           $('become-admin-msg').style.display='block';
         }
-      }catch(e){}
+      }catch(e){ console.warn('[Admin] Admin check failed:', e.message); }
       showScreen('not-admin');
     }
   }catch(e){
     token='';
-    localStorage.removeItem('trackly_token');
+    sessionStorage.removeItem('trackly_admin_token');
     showScreen('login');
   }
 }
@@ -378,7 +379,7 @@ function renderTable(users){
     return;
   }
   let html=`<table class="tbl"><thead><tr>
-    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
+    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>Tracked Prompts</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
   </tr></thead><tbody>`;
   users.forEach(u=>{
     const joined=u.createdAt?new Date(u.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
@@ -392,6 +393,7 @@ function renderTable(users){
       <td><span class="badge badge-${u.plan}">${(u.plan||'free').toUpperCase()}</span></td>
       <td><span class="badge badge-${u.role==='admin'?'admin':'user'}">${u.role||'user'}</span></td>
       <td style="font-family:var(--mono);font-size:12px;">${u.brandCount!==undefined?u.brandCount:'—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${u.trackedPrompts||0}</td>
       <td style="font-family:var(--mono);font-size:11px;color:${keyCount?'var(--green)':'var(--muted)'};">${keyCount?keyCount+' set':'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
       <td style="text-align:right;">
