@@ -10,6 +10,17 @@ const { auth } = require('../middleware/auth');
 const { uid, safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
+const rateLimit = require('express-rate-limit');
+
+// Rate limit for data exports — 10 requests per minute per user
+const exportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many export requests. Please try again in 1 minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
 
 // ─── API LOGS (per-user, server-side) ────────────────────────────
 router.get('/api-logs', auth, async (req, res) => {
@@ -551,7 +562,7 @@ router.get('/admin/audit-logs', auth, requireAdmin, async (req, res) => {
 });
 
 // Data export — full brand data as JSON
-router.get('/export/brand/:id', auth, async (req, res) => {
+router.get('/export/brand/:id', auth, exportLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
@@ -569,7 +580,7 @@ router.get('/export/brand/:id', auth, async (req, res) => {
 });
 
 // Data export — all brands as JSON
-router.get('/export/all', auth, async (req, res) => {
+router.get('/export/all', auth, exportLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
     const brands = result.rows.map(row => ({ id: row.id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
@@ -583,7 +594,7 @@ router.get('/export/all', auth, async (req, res) => {
 });
 
 // Data export — brand as CSV
-router.get('/export/brand/:id/csv', auth, async (req, res) => {
+router.get('/export/brand/:id/csv', auth, exportLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Brand not found' });
@@ -798,6 +809,12 @@ router.get('/docs', (req, res) => {
       { method: 'POST', path: '/api/auth/forgot-password', description: 'Request password reset', body: { email: 'string' } },
       { method: 'POST', path: '/api/auth/reset-password', description: 'Reset password with token', body: { token: 'string', newPassword: 'string' } },
       { method: 'GET', path: '/api/auth/verify-email', description: 'Verify email with token', query: { token: 'string' } },
+      { method: 'POST', path: '/api/auth/google', description: 'Sign in with Google ID token', body: { credential: 'string' } },
+      { method: 'POST', path: '/api/auth/logout', description: 'Log out and clear tokens', auth: true },
+      { method: 'POST', path: '/api/auth/2fa/setup', description: 'Generate TOTP secret for 2FA setup', auth: true },
+      { method: 'POST', path: '/api/auth/2fa/verify', description: 'Verify TOTP code to enable 2FA', auth: true, body: { code: 'string' } },
+      { method: 'POST', path: '/api/auth/2fa/disable', description: 'Disable 2FA (requires password)', auth: true, body: { password: 'string' } },
+      { method: 'GET', path: '/api/auth/2fa/status', description: 'Get 2FA status and backup code count', auth: true },
       { method: 'GET', path: '/api/brands', description: 'List all brands', auth: true },
       { method: 'POST', path: '/api/brands', description: 'Create a brand', auth: true, body: { name: 'string', industry: 'string?', website: 'string?', city: 'string?' } },
       { method: 'GET', path: '/api/brands/:id', description: 'Get a brand', auth: true },
@@ -823,14 +840,6 @@ router.get('/docs', (req, res) => {
   });
 });
 
-// Health check (no sensitive data exposed)
-router.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ status: 'ok', time: new Date().toISOString() });
-  } catch(e) {
-    res.status(503).json({ status: 'error', time: new Date().toISOString() });
-  }
-});
+// Health check moved to server.js (before auth middleware) for monitoring tools
 
 module.exports = router;

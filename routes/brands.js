@@ -25,8 +25,34 @@ const activeRuns = new Map(); // runId → { status, received, totalExpected, re
 
 // Per-brand lock to prevent concurrent runs corrupting the same brand's data
 // Maps brandId → { lockedAt: timestamp } so we can auto-release stale locks
+// NOTE: In-memory locks work for single-instance only. For multi-instance deployments,
+// acquireBrandLock() also attempts a PostgreSQL advisory lock as a distributed guard.
 const brandRunLocks = new Map();
 const MAX_LOCK_AGE_MS = 10 * 60 * 1000; // 10 min — auto-release stuck locks
+
+// Attempt to acquire a PostgreSQL advisory lock for a brand run.
+// Uses a hash of the brand ID as the lock key. Returns true if acquired.
+async function acquireDbBrandLock(brandId) {
+  try {
+    // Convert brand ID string to a numeric hash for pg_try_advisory_lock
+    const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
+    const lockKey = hash.readInt32BE(0); // first 4 bytes as int32
+    const result = await pool.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockKey]);
+    return result.rows[0]?.acquired === true;
+  } catch(e) {
+    // If DB lock fails, fall through to in-memory lock (single-instance fallback)
+    console.warn('[Run] DB advisory lock failed, using in-memory lock only:', e.message);
+    return true;
+  }
+}
+
+async function releaseDbBrandLock(brandId) {
+  try {
+    const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
+    const lockKey = hash.readInt32BE(0);
+    await pool.query('SELECT pg_advisory_unlock($1)', [lockKey]);
+  } catch(e) { /* best-effort */ }
+}
 
 // Clean up completed runs after 10 minutes to avoid memory leaks
 setInterval(() => {
@@ -403,7 +429,14 @@ router.post('/:id/run', auth, async (req, res) => {
     runId = uid();
 
     // Prevent concurrent runs on the same brand
-    // --- Concurrency lock check ---
+    // --- DB advisory lock (multi-instance safe) ---
+    const dbLockAcquired = await acquireDbBrandLock(brand.id);
+    if (!dbLockAcquired && !forceRun) {
+      const errMsg = 'A run is already in progress for this brand on another server. Please wait for it to finish.';
+      if (streaming) return sseError(res, errMsg);
+      return res.status(409).json({ error: errMsg });
+    }
+    // --- In-memory lock check (single-instance fast path) ---
     if (brandRunLocks.has(brand.id) && !forceRun) {
       const lock = brandRunLocks.get(brand.id);
       const lockAge = Date.now() - (lock?.lockedAt || 0);
@@ -793,6 +826,7 @@ router.post('/:id/run', auth, async (req, res) => {
       runState.finalData = { result: finalResult };
       runState.completedAt = Date.now();
       brandRunLocks.delete(brand.id);
+      releaseDbBrandLock(brand.id);
 
       // Stream final event — send only the result summary, NOT the full brand object.
       // The full brand object can be 20-100MB+ with historical runs and raw AI text,
@@ -803,6 +837,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
     } catch(e) {
       brandRunLocks.delete(brand.id);
+      releaseDbBrandLock(brand.id);
       console.error('[Run]', e.message, e.stack);
       // Emergency save
       try {
@@ -843,6 +878,7 @@ router.post('/:id/run', auth, async (req, res) => {
   })().catch(e => {
     // Safety net: prevent unhandled rejection from crashing the process
     brandRunLocks.delete(brand.id);
+    releaseDbBrandLock(brand.id);
     console.error('[Run] Unhandled execution error:', e.message);
     runState.status = 'error';
     runState.error = e.message;
