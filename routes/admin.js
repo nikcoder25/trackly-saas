@@ -448,8 +448,8 @@ router.post('/ai-generate-queries', auth, async (req, res) => {
   if (!brandName || !industry) return res.status(400).json({ error: 'Brand name and industry are required' });
 
   const keys = getServerKeys();
-  const platformOrder = ['deepseek', 'gemini', 'openai', 'mistral', 'claude', 'perplexity', 'grok'];
-  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', mistral: 'Mistral', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
+  const platformOrder = ['deepseek', 'gemini', 'openai', 'claude', 'perplexity', 'grok'];
+  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
   let platform = null;
   for (const p of platformOrder) {
     if (keys[p] && keys[p].length > 0) { platform = platformMap[p]; break; }
@@ -510,8 +510,8 @@ router.post('/nearby-areas', auth, async (req, res) => {
 
   const keys = getServerKeys();
   // Pick an available platform (prefer cheaper/faster ones)
-  const platformOrder = ['deepseek', 'gemini', 'openai', 'mistral', 'claude', 'perplexity', 'grok'];
-  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', mistral: 'Mistral', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
+  const platformOrder = ['deepseek', 'gemini', 'openai', 'claude', 'perplexity', 'grok'];
+  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
   let platform = null;
   let apiKey = null;
   for (const p of platformOrder) {

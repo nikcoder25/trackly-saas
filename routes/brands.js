@@ -15,7 +15,7 @@ const { evaluateAlerts } = require('../lib/alerts');
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
   'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini',
-  'DeepSeek': 'deepseek', 'Mistral': 'mistral'
+  'DeepSeek': 'deepseek'
 };
 
 // ─── BACKGROUND RUN TRACKING ────────────────────────────────────
@@ -97,7 +97,6 @@ const PLATFORM_COST_ORDER = [
   'Grok',        // grok-3-mini: $0.30/$0.50
   'Perplexity',  // sonar: $1.00/$1.00
   'Claude',      // claude-haiku: $0.80/$4.00
-  'Mistral',     // mistral-large: $2.00/$6.00
   'ChatGPT'      // gpt-5-search: $2.50/$10.00
 ];
 
