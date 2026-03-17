@@ -4373,10 +4373,11 @@ async function runQueries(){
       `<span style="color:var(--muted);">${received}/${totalExpected} (${pct}%)</span>`;
   }
 
+  // Abort controller for timeout (10 min) — declared outside try so catch can access
+  const abortCtrl = new AbortController();
+  const fetchTimeout = setTimeout(() => abortCtrl.abort(), 10 * 60 * 1000);
+
   try {
-      // Abort controller for timeout (10 min)
-      const abortCtrl = new AbortController();
-      const fetchTimeout = setTimeout(() => abortCtrl.abort(), 10 * 60 * 1000);
     const response = await fetch(API + '/api/brands/'+b.id+'/run?stream=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
