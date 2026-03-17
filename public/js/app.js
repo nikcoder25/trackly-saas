@@ -657,6 +657,10 @@ async function initApp(){
   // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');
   const becomeAdminNav = el('nav-become-admin');
+  // Show/hide Run Queries button based on role
+  const runBtn = el('run-btn');
+  if (runBtn) runBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
+
   if (currentUser.role === 'admin') {
     if (adminNav) adminNav.style.display = 'block';
     if (becomeAdminNav) becomeAdminNav.style.display = 'none';
@@ -1773,7 +1777,7 @@ function renderOverview(){
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
-    actionsEl.innerHTML = '';
+    actionsEl.innerHTML = (queries > 0 && currentUser && currentUser.role === 'admin') ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
       // `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
   }
   // Start live countdown ticker for the age displays
