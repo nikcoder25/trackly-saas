@@ -833,7 +833,7 @@ function renderView(view){
 
 // ─── ACCOUNT & PLAN ──────────────────────────────────────────────
 function getUserLimits() {
-  return (currentUser && currentUser.limits) || { brands: 1, prompts: 3, queries: 3, competitors: 0, scheduledRuns: false, platforms: 2, sentiment: false };
+  return (currentUser && currentUser.limits) || { brands: 1, prompts: 3, queries: 3, competitors: 0, platforms: 2, sentiment: false };
 }
 
 function renderAccount(){
@@ -878,9 +878,9 @@ function renderAccount(){
 
   // Plan cards
   const planData = [
-    { id: 'free', name: 'Free', price: '$0', features: '1 brand, 3 platforms, 5 queries, 2 runs/day' },
-    { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 8 platforms, 25 queries, 10 runs/day, competitors, scheduled runs' },
-    { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 8 platforms, 50 queries, 50 runs/day, 20 competitors, scheduled runs' }
+          { id: 'free', name: 'Free', price: '$0', features: '1 brand, 2 platforms, 50 prompts/month' },
+                { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 8 platforms, 500 prompts/month, competitors, sentiment' },
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 8 platforms, 2000 prompts/month, 20 competitors, sentiment' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
@@ -1773,7 +1773,7 @@ function renderOverview(){
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
-    actionsEl.innerHTML = (queries > 0 ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '');
+          actionsEl.innerHTML = ''; // Manual run button removed — queries run on automated schedule
       // `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
   }
   // Start live countdown ticker for the age displays
@@ -4285,6 +4285,9 @@ function buildMentionCard(r, runTimeStr) {
 }
 
 async function runQueries(){
+      // Manual runs disabled — queries now run automatically on schedule
+          toast('Manual query runs have been removed. All queries now run automatically on schedule.', 'warn');
+              return;
   if (runningQueries) return;
   const b = brand();
   if (!b) { toast('Select a brand first','err'); return; }
@@ -6012,7 +6015,6 @@ async function renderBilling() {
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Competitors</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.competitors >= 9999 ? '∞' : l.competitors}</td>`).join('')}</tr>
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Platforms</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.platforms}</td>`).join('')}</tr>
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Sentiment</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.sentiment ? '✓' : '—'}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Scheduled Runs</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.scheduledRuns ? '✓' : '—'}</td>`).join('')}</tr>
         <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">API Access</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.apiAccess ? '✓' : '—'}</td>`).join('')}</tr>
         <tr><td style="padding:8px;">Priority Support</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prioritySupport ? '✓' : '—'}</td>`).join('')}</tr>
       </tbody>
