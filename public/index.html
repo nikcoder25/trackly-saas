@@ -608,6 +608,13 @@
             </button>
           </div>
 
+          <!-- 2FA code input (hidden by default, shown when server requires it) -->
+          <div id="login-2fa-wrap" style="display:none;">
+            <label class="flabel" for="login-totp">Two-Factor Authentication Code</label>
+            <input class="finput" id="login-totp" type="text" placeholder="Enter 6-digit code" autocomplete="one-time-code" maxlength="10" inputmode="numeric" style="text-align:center;letter-spacing:4px;font-size:18px;">
+            <p style="font-size:11px;color:var(--text-muted);margin:4px 0 8px;">Enter the code from your authenticator app, or a backup code.</p>
+          </div>
+
           <button type="submit" class="btn-primary" id="login-btn">Log In</button>
         </form>
 

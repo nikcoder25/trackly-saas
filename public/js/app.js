@@ -441,6 +441,8 @@ function authTab(tab){
 async function doLogin(){
   const email = el('login-email').value.trim();
   const password = el('login-pass').value;
+  const totpInput = el('login-totp');
+  const totpCode = totpInput ? totpInput.value.trim() : '';
   el('auth-err').style.display = 'none';
   const btn = document.querySelector('#panel-login .btn-primary');
   if (!email || !password) {
@@ -450,17 +452,32 @@ async function doLogin(){
   }
   btn.disabled = true; btn.textContent = 'LOGGING IN...';
   try {
-    const data = await api('POST', '/api/auth/login', { email, password });
+    const body = { email, password };
+    if (totpCode) body.totpCode = totpCode;
+    const data = await api('POST', '/api/auth/login', body);
+    // Handle 2FA challenge — server returns requires2FA when TOTP is needed
+    if (data.requires2FA) {
+      const wrap = el('login-2fa-wrap');
+      if (wrap) { wrap.style.display = 'block'; }
+      if (totpInput) { totpInput.focus(); }
+      btn.disabled = false; btn.textContent = 'VERIFY & LOG IN';
+      return;
+    }
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
     localStorage.setItem('trackly_session', '1');
+    // Reset 2FA UI on successful login
+    const wrap = el('login-2fa-wrap');
+    if (wrap) wrap.style.display = 'none';
+    if (totpInput) totpInput.value = '';
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';
   } finally {
-    btn.disabled = false; btn.textContent = 'LOG IN';
+    btn.disabled = false;
+    btn.textContent = el('login-2fa-wrap')?.style.display === 'none' ? 'LOG IN' : 'VERIFY & LOG IN';
   }
 }
 

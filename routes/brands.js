@@ -4,7 +4,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool, auditLog, logApiCall, refreshPromptRunStats } = require('../config/db');
+const { pool, auditLog, logApiCall, refreshPromptRunStats, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
@@ -1252,7 +1252,6 @@ async function sendWebhookAlert(brand, run, previousSOV) {
         console.error(`[Webhook] All ${MAX_RETRIES + 1} attempts failed for ${brand.name}:`, e.message);
         // Notify user that their webhook is failing
         try {
-          const { notify } = require('../config/db');
           notify(brand.userId, 'webhook_failed', 'Webhook Failed',
             `Webhook delivery to ${url} failed after ${MAX_RETRIES + 1} attempts for brand "${brand.name}": ${e.message}`,
             { brandId: brand.id, webhookUrl: url });
@@ -1477,8 +1476,8 @@ async function runBrandQueries(brand) {
   const newCompetitors = [...seenCompetitors].filter(c => !knownCompetitors.has(c));
 
   // Refresh stats + evaluate alerts
-  refreshPromptRunStats(brand.id).catch(() => {});
-  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV, newCompetitors }).catch(() => {});
+  refreshPromptRunStats(brand.id).catch(e => console.error(`[Cron] refreshPromptRunStats failed for ${brand.id}:`, e.message));
+  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV, newCompetitors }).catch(e => console.error(`[Cron] evaluateAlerts failed for ${brand.id}:`, e.message));
 
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
