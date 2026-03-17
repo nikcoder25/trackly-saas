@@ -510,12 +510,17 @@ router.post('/:id/run', auth, async (req, res) => {
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no'
     });
+    // Disable Nagle's algorithm — send each SSE event immediately without buffering
+    if (res.socket) res.socket.setNoDelay(true);
     // When the client disconnects, stop writing but do NOT stop execution
-    req.on('close', () => { clientConnected = false; });
+    res.on('close', () => { clientConnected = false; });
   }
   function sendEvent(type, data) {
     if (!streaming || !clientConnected) return;
-    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(_) { clientConnected = false; }
+    try {
+      res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n');
+      if (typeof res.flush === 'function') res.flush();
+    } catch(_) { clientConnected = false; }
   }
 
   // Send start event immediately (includes runId so frontend can poll)
