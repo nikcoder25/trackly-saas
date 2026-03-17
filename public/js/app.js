@@ -3664,7 +3664,9 @@ function renderTrends(){
   // Lazy-load Chart.js then render
   ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
     const cont = document.querySelector('#view-trends');
-    if (cont) cont.insertAdjacentHTML('afterbegin', '<div class="empty-state"><p>Failed to load chart library.</p></div>');
+    if (cont && !cont.querySelector('.chartjs-error')) {
+      cont.insertAdjacentHTML('afterbegin', '<div class="empty-state chartjs-error"><p>Failed to load chart library. Please refresh the page.</p></div>');
+    }
   });
 }
 function _renderTrendsCharts(b) {
@@ -3686,6 +3688,9 @@ function _renderTrendsCharts(b) {
   }
   if (!el('sov-chart') || !el('plat-sov-chart')) return;
 
+  // Remove any previous empty-state messages (must happen before both branches)
+  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
+
   if (!history.length) {
     el('sov-chart').style.display = 'none';
     sovParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet. Run queries at least twice to see trends.</p></div>');
@@ -3693,9 +3698,6 @@ function _renderTrendsCharts(b) {
     platParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet.</p></div>');
     return;
   }
-
-  // Remove any previous empty-state messages
-  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
   el('sov-chart').style.display = '';
   el('plat-sov-chart').style.display = '';
 
