@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trackly — Admin Panel</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -231,7 +232,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 <script>
 const API = '';
-let token = localStorage.getItem('trackly_token') || '';
+// Use sessionStorage instead of localStorage to limit token exposure
+// Token is cleared when the browser tab is closed
+let token = sessionStorage.getItem('trackly_admin_token') || '';
 let allUsers = [];
 let currentAdmin = null;
 
@@ -264,7 +267,7 @@ async function doLogin(){
     const data = await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})}).then(r=>r.json());
     if(data.error) throw new Error(data.error);
     token = data.token;
-    localStorage.setItem('trackly_token',token);
+    sessionStorage.setItem('trackly_admin_token',token);
     init();
   }catch(e){
     $('login-error').textContent=e.message; $('login-error').style.display='block';
@@ -273,7 +276,7 @@ async function doLogin(){
 
 function doLogout(){
   token='';
-  localStorage.removeItem('trackly_token');
+  sessionStorage.removeItem('trackly_admin_token');
   showScreen('login');
 }
 

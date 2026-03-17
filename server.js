@@ -16,6 +16,11 @@ if (missing.length) {
 if (process.env.NODE_ENV === 'production' && !process.env.ALLOWED_ORIGINS) {
   console.warn('[WARN] ALLOWED_ORIGINS not set in production. CORS will reject all cross-origin requests.');
 }
+if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.error('[FATAL] JWT_SECRET must be at least 32 characters in production for security.');
+  console.error('  Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  process.exit(1);
+}
 
 const express      = require('express');
 const cors         = require('cors');
@@ -61,7 +66,7 @@ if (process.env.NODE_ENV === 'production') {
         .split(',').map(s => { try { return new URL(s.trim()).host; } catch { return s.trim(); } }).filter(Boolean);
       const host = req.headers.host || '';
       if (allowedHosts.length && !allowedHosts.includes(host)) {
-        return res.status(400).send('Invalid host');
+        return res.status(400).json({ error: 'Invalid host' });
       }
       return res.redirect(301, 'https://' + host + req.url);
     }
@@ -76,7 +81,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "https://accounts.google.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
@@ -113,12 +118,18 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
   const origin = req.headers.origin;
-  if (!origin) return next(); // Server-to-server or same-origin (older browsers omit Origin)
   const allowed = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
     : null;
   // In dev mode (no ALLOWED_ORIGINS), allow all origins
   if (!allowed) return next();
+  if (!origin) {
+    // In production, reject state-changing requests without Origin header
+    // unless they come with a valid Authorization header (API/server-to-server calls)
+    const hasAuth = req.headers.authorization || req.cookies?.trackly_token;
+    if (!hasAuth) return res.status(403).json({ error: 'Forbidden — missing origin header' });
+    return next();
+  }
   if (allowed.includes(origin)) return next();
   return res.status(403).json({ error: 'Forbidden — origin not allowed' });
 });
@@ -202,6 +213,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// ─── HEALTH CHECK (before auth — accessible to monitoring tools) ──
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', time: new Date().toISOString() });
+  } catch(e) {
+    res.status(503).json({ status: 'error', time: new Date().toISOString() });
+  }
+});
+
 // ─── CONFIG ENDPOINT (public — serves non-secret configuration) ──
 app.get('/api/config', (req, res) => {
   res.json({
@@ -220,22 +241,22 @@ app.use('/api',          analyticsRoutes);
 app.get('/admin', async (req, res) => {
   // Support both legacy ADMIN_SECRET and JWT auth via cookie/header
   const secret = process.env.ADMIN_SECRET;
-  if (!secret) return res.status(404).send('Not found');
+  if (!secret) return res.status(404).json({ error: 'Not found' });
   // Accept secret via X-Admin-Key header only (query param removed for security — secrets in URLs leak via logs, referrer headers, and browser history)
   const provided = req.headers['x-admin-key'] || '';
   // Use timing-safe comparison to prevent timing attacks
   if (typeof provided !== 'string') {
-    return res.status(404).send('Not found');
+    return res.status(404).json({ error: 'Not found' });
   }
   try {
     const crypto = require('crypto');
     const providedBuf = Buffer.from(provided);
     const secretBuf = Buffer.from(secret);
     if (providedBuf.length !== secretBuf.length || !crypto.timingSafeEqual(providedBuf, secretBuf)) {
-      return res.status(404).send('Not found');
+      return res.status(404).json({ error: 'Not found' });
     }
   } catch(e) {
-    return res.status(404).send('Not found');
+    return res.status(404).json({ error: 'Not found' });
   }
   // Set Cache-Control to prevent caching of admin page with secret in URL
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -493,9 +514,18 @@ const server = app.listen(PORT, () => {
 function shutdown(signal) {
   log.info(`${signal} received. Shutting down gracefully...`);
   server.close(() => {
+    const poolCloseTimeout = setTimeout(() => {
+      log.warn('Database pool close timed out after 5s, forcing exit.');
+      process.exit(1);
+    }, 5000);
     pool.end().then(() => {
+      clearTimeout(poolCloseTimeout);
       log.info('Database connections closed.');
       process.exit(0);
+    }).catch(() => {
+      clearTimeout(poolCloseTimeout);
+      log.warn('Database pool close failed, forcing exit.');
+      process.exit(1);
     });
   });
   // Force exit after 10s if graceful shutdown fails

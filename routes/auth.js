@@ -60,6 +60,46 @@ const twoFALimiter = rateLimit({
   skip: (req) => !req.body?.totpCode
 });
 
+// Rate limit for forgot-password — 5 requests per hour per IP
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many password reset requests. Please try again in 1 hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
+// Rate limit for reset-password — 10 attempts per hour per IP
+const resetPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many password reset attempts. Please try again in 1 hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
+// Rate limit for email verification — 20 attempts per hour per IP
+const verifyEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many verification attempts. Please try again in 1 hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
+// Rate limit for 2FA setup/verify — 10 attempts per 15 minutes per user
+const twoFASetupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many 2FA setup attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
 router.post('/register', async (req, res) => {
   const { email, password, name, username } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -191,7 +231,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
 });
 
 // Email verification
-router.get('/verify-email', async (req, res) => {
+router.get('/verify-email', verifyEmailLimiter, async (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).json({ error: 'Verification token required' });
   try {
@@ -315,7 +355,7 @@ router.delete('/account', auth, async (req, res) => {
 });
 
 // Forgot password — generate reset token (stored in PostgreSQL)
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required' });
   try {
@@ -343,7 +383,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // Reset password with token
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) return res.status(400).json({ error: 'Token and new password required' });
   if (typeof newPassword !== 'string') return res.status(400).json({ error: 'Invalid input' });
@@ -389,7 +429,7 @@ router.get('/me', auth, async (req, res) => {
 
 // ─── 2FA (TOTP) Setup ─────────────────────────────────
 // Step 1: Generate a TOTP secret and return the otpauth URL
-router.post('/2fa/setup', auth, async (req, res) => {
+router.post('/2fa/setup', auth, twoFASetupLimiter, async (req, res) => {
   try {
     const userResult = await pool.query('SELECT email, settings FROM users WHERE id = $1', [req.user.id]);
     if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -412,7 +452,7 @@ router.post('/2fa/setup', auth, async (req, res) => {
 });
 
 // Step 2: Verify the TOTP code to confirm setup
-router.post('/2fa/verify', auth, async (req, res) => {
+router.post('/2fa/verify', auth, twoFASetupLimiter, async (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ error: '2FA code required' });
   try {
