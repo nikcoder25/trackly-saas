@@ -1172,12 +1172,12 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
     allQueries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
     (brand.runs || []).forEach(r => {
       const mentionedQueries = new Set((r.mentions || []).map(m => m.query));
-          const queriesInRun = new Set((r.allResults||[]).map(res => res.query));
+      const queriesInRun = new Set((r.allResults||[]).map(res => res.query));
       for (const q of allQueries) {
         if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
         if (queriesInRun.has(q)) {
-                    qsNew[q].runs++;
-                    if (mentionedQueries.has(q)) qsNew[q].mentions++;
+          qsNew[q].runs++;
+          if (mentionedQueries.has(q)) qsNew[q].mentions++;
         }
       }
     });
@@ -1423,22 +1423,22 @@ async function runBrandQueries(brand) {
   }
 
   if (!brand.mentions) brand.mentions = [];
-  const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
-  brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0])), ...brand.mentions].slice(0,500);
+  const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0]));
+  brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0])), ...brand.mentions].slice(0,500);
 
   const qsNew = {};
   queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
   const citMap = {};
   brand.runs.forEach(run => {
     const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
-      const queriesInRun = new Set((run.allResults||[]).map(r => r.query));
+    const queriesInRun = new Set((run.allResults||[]).map(r => r.query));
     for (const q of queries) {
-        if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
-        if (queriesInRun.has(q)) {
-          qsNew[q].runs++;
-          if (mentionedQueries.has(q)) qsNew[q].mentions++;
-        }
+      if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+      if (queriesInRun.has(q)) {
+        qsNew[q].runs++;
+        if (mentionedQueries.has(q)) qsNew[q].mentions++;
       }
+    }
     
       (run.mentions||[]).forEach(m => {
         (m.citations||[]).forEach(url => {

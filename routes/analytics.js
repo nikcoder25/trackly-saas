@@ -1067,6 +1067,7 @@ router.get('/brands/:id/accuracy', auth, async (req, res) => {
       const lower = run.response_raw.toLowerCase();
 
       for (const fact of facts) {
+        if (!fact.fact_key || !fact.fact_value) continue;
         const factLower = fact.fact_value.toLowerCase();
         // Simple check: if the fact key is mentioned but the fact value is not present
         const keyInResponse = lower.includes(fact.fact_key.toLowerCase());
