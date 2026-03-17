@@ -2802,7 +2802,7 @@ async function retryQuery(runId, platform, query, btnEl){
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ runId, platform, query })
     });
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || 'Retry failed');
     // Update local brand data from server response
     const idx = brands.findIndex(x => x.id === b.id);
@@ -2826,7 +2826,7 @@ async function recheckQuery(runId, platform, query, btnEl){
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ runId, platform, query })
     });
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || 'Recheck failed');
     const idx = brands.findIndex(x => x.id === b.id);
     if (idx !== -1 && data.brand) brands[idx] = data.brand;
@@ -2862,8 +2862,9 @@ function renderMentions(){
   runs.forEach(r => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + '  ·  SOV ' + r.sov + '%';
+    const d = new Date(r.time || r.date || 0);
+    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    opt.textContent = dateStr + '  ·  SOV ' + r.sov + '%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -3179,8 +3180,9 @@ function renderProof(){
   (b.runs||[]).slice().reverse().forEach((r,i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
+    const d = new Date(r.time || r.date || 0);
+    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    opt.textContent = dateStr + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;

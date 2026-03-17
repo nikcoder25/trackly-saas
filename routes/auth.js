@@ -179,7 +179,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
     if (totpSecret) {
       const { totpCode } = req.body;
       if (!totpCode) {
-        return res.status(200).json({ requires2FA: true, message: 'Enter your 2FA code' });
+        return res.status(202).json({ requires2FA: true, message: 'Enter your 2FA code' });
       }
       // Check TOTP code or backup code
       const backupCodes = user.settings?.totp_backup_codes || [];
@@ -195,6 +195,10 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
         try {
           await client.query('BEGIN');
           const freshUser = await client.query('SELECT settings FROM users WHERE id = $1 FOR UPDATE', [user.id]);
+          if (!freshUser.rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'User not found' });
+          }
           const freshCodes = freshUser.rows[0]?.settings?.totp_backup_codes || [];
           const freshIndex = freshCodes.indexOf(totpCode);
           if (freshIndex === -1) {
@@ -613,7 +617,7 @@ router.post('/google', async (req, res) => {
 router.post('/logout', auth, async (req, res) => {
   try {
     await pool.query('UPDATE users SET refresh_token = NULL WHERE id = $1', [req.user.id]);
-  } catch(e) { /* best-effort */ }
+  } catch(e) { console.warn('[Logout] Failed to clear refresh token:', e.message); }
   clearTokenCookies(res);
   res.json({ message: 'Logged out' });
 });

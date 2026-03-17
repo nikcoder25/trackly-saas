@@ -182,11 +182,12 @@ router.post('/', auth, async (req, res) => {
     if (website && (typeof website !== 'string' || website.length > 500)) return res.status(400).json({ error: 'Website URL too long' });
     if (city && (typeof city !== 'string' || city.length > 100)) return res.status(400).json({ error: 'City must be 100 characters or less' });
 
-    const countResult = await pool.query('SELECT COUNT(*) FROM brands WHERE user_id = $1', [req.user.id]);
+    const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM brands WHERE user_id = $1', [req.user.id]);
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
-    if (parseInt(countResult.rows[0].count) >= limits.brands) {
-      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: parseInt(countResult.rows[0].count), max: limits.brands });
+    const brandCount = parseInt(countResult.rows[0]?.count, 10) || 0;
+    if (brandCount >= limits.brands) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: brandCount, max: limits.brands });
     }
 
     const id = uid();
@@ -813,7 +814,7 @@ router.post('/:id/run', auth, async (req, res) => {
       }
 
       // Refresh prompt_run_stats materialized data (Epic 1.1)
-      refreshPromptRunStats(brand.id).catch(() => {});
+      refreshPromptRunStats(brand.id).catch(e => console.error(`[Run] refreshPromptRunStats failed for ${brand.id}:`, e.message));
 
       // Evaluate alert rules (Epic 6.2)
       const previousSOVForAlerts = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
@@ -822,7 +823,7 @@ router.post('/:id/run', auth, async (req, res) => {
         previousSov: previousSOVForAlerts,
         allResults,
         platforms: platSOV
-      }).catch(() => {});
+      }).catch(e => console.error(`[Run] evaluateAlerts failed for ${brand.id}:`, e.message));
 
       // Webhook alert (reuse previousSOVForAlerts computed above)
       if (saveBrandObj.webhookUrl && sov !== previousSOVForAlerts) {
