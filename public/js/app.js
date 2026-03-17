@@ -441,6 +441,8 @@ function authTab(tab){
 async function doLogin(){
   const email = el('login-email').value.trim();
   const password = el('login-pass').value;
+  const totpInput = el('login-totp');
+  const totpCode = totpInput ? totpInput.value.trim() : '';
   el('auth-err').style.display = 'none';
   const btn = document.querySelector('#panel-login .btn-primary');
   if (!email || !password) {
@@ -450,17 +452,32 @@ async function doLogin(){
   }
   btn.disabled = true; btn.textContent = 'LOGGING IN...';
   try {
-    const data = await api('POST', '/api/auth/login', { email, password });
+    const body = { email, password };
+    if (totpCode) body.totpCode = totpCode;
+    const data = await api('POST', '/api/auth/login', body);
+    // Handle 2FA challenge — server returns requires2FA when TOTP is needed
+    if (data.requires2FA) {
+      const wrap = el('login-2fa-wrap');
+      if (wrap) { wrap.style.display = 'block'; }
+      if (totpInput) { totpInput.focus(); }
+      btn.disabled = false; btn.textContent = 'VERIFY & LOG IN';
+      return;
+    }
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
     localStorage.setItem('trackly_session', '1');
+    // Reset 2FA UI on successful login
+    const wrap = el('login-2fa-wrap');
+    if (wrap) wrap.style.display = 'none';
+    if (totpInput) totpInput.value = '';
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';
   } finally {
-    btn.disabled = false; btn.textContent = 'LOG IN';
+    btn.disabled = false;
+    btn.textContent = el('login-2fa-wrap')?.style.display === 'none' ? 'LOG IN' : 'VERIFY & LOG IN';
   }
 }
 
@@ -2785,7 +2802,7 @@ async function retryQuery(runId, platform, query, btnEl){
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ runId, platform, query })
     });
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || 'Retry failed');
     // Update local brand data from server response
     const idx = brands.findIndex(x => x.id === b.id);
@@ -2809,7 +2826,7 @@ async function recheckQuery(runId, platform, query, btnEl){
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ runId, platform, query })
     });
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) throw new Error(data.error || 'Recheck failed');
     const idx = brands.findIndex(x => x.id === b.id);
     if (idx !== -1 && data.brand) brands[idx] = data.brand;
@@ -2845,8 +2862,9 @@ function renderMentions(){
   runs.forEach(r => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + '  ·  SOV ' + r.sov + '%';
+    const d = new Date(r.time || r.date || 0);
+    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    opt.textContent = dateStr + '  ·  SOV ' + r.sov + '%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -3162,8 +3180,9 @@ function renderProof(){
   (b.runs||[]).slice().reverse().forEach((r,i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
-    const d = new Date(r.time || r.date);
-    opt.textContent = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
+    const d = new Date(r.time || r.date || 0);
+    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    opt.textContent = dateStr + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;

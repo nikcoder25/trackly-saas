@@ -379,7 +379,7 @@ function renderTable(users){
     return;
   }
   let html=`<table class="tbl"><thead><tr>
-    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>Tracked Prompts</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
+    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>Queries</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
   </tr></thead><tbody>`;
   users.forEach(u=>{
     const joined=u.createdAt?new Date(u.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
@@ -393,7 +393,7 @@ function renderTable(users){
       <td><span class="badge badge-${u.plan}">${(u.plan||'free').toUpperCase()}</span></td>
       <td><span class="badge badge-${u.role==='admin'?'admin':'user'}">${u.role||'user'}</span></td>
       <td style="font-family:var(--mono);font-size:12px;">${u.brandCount!==undefined?u.brandCount:'—'}</td>
-      <td style="font-family:var(--mono);font-size:12px;">${u.trackedPrompts||0}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${u.trackedQueries||0}</td>
       <td style="font-family:var(--mono);font-size:11px;color:${keyCount?'var(--green)':'var(--muted)'};">${keyCount?keyCount+' set':'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
       <td style="text-align:right;">

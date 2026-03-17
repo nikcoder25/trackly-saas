@@ -395,8 +395,8 @@ router.get('/brands/:id/diagnostics', auth, async (req, res) => {
     const baselineCompSet = new Set(baselineComps.rows.map(r => r.comp));
     const newCompetitors = [...currentCompSet].filter(c => !baselineCompSet.has(c));
 
-    const c = current.rows[0];
-    const b = baseline.rows[0];
+    const c = current.rows[0] || { total: 0, mentions: 0, avg_rank: null, sentiment_score: null };
+    const b = baseline.rows[0] || { total: 0, mentions: 0, avg_rank: null, sentiment_score: null };
     const events = detectDiagnosticEvents(
       {
         mentionRate: c.total > 0 ? c.mentions / c.total : 0,
@@ -477,7 +477,7 @@ router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
       WHERE brand_id = $1 AND success = TRUE AND created_at > NOW() - INTERVAL '30 days'
     `, [req.params.id]);
 
-    const s = stats.rows[0];
+    const s = stats.rows[0] || { total: 0, mentions: 0, sentiment_score: null };
     const mentionRate = s.total > 0 ? s.mentions / s.total : 0;
 
     // Get sentiment distribution
@@ -1067,6 +1067,7 @@ router.get('/brands/:id/accuracy', auth, async (req, res) => {
       const lower = run.response_raw.toLowerCase();
 
       for (const fact of facts) {
+        if (!fact.fact_key || !fact.fact_value) continue;
         const factLower = fact.fact_value.toLowerCase();
         // Simple check: if the fact key is mentioned but the fact value is not present
         const keyInResponse = lower.includes(fact.fact_key.toLowerCase());

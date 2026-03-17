@@ -4,7 +4,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool, auditLog, logApiCall, refreshPromptRunStats } = require('../config/db');
+const { pool, auditLog, logApiCall, refreshPromptRunStats, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
@@ -80,6 +80,7 @@ setInterval(() => {
         const stuckRun = [...activeRuns.values()].find(r => r.brandId === brandId && r.status === 'running');
         if (stuckRun) {
           stuckRun.status = 'error';
+          stuckRun.aborted = true; // Signal the running task to stop writing data
           stuckRun.completedAt = Date.now();
         }
         brandRunLocks.delete(brandId);
@@ -181,11 +182,12 @@ router.post('/', auth, async (req, res) => {
     if (website && (typeof website !== 'string' || website.length > 500)) return res.status(400).json({ error: 'Website URL too long' });
     if (city && (typeof city !== 'string' || city.length > 100)) return res.status(400).json({ error: 'City must be 100 characters or less' });
 
-    const countResult = await pool.query('SELECT COUNT(*) FROM brands WHERE user_id = $1', [req.user.id]);
+    const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM brands WHERE user_id = $1', [req.user.id]);
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
-    if (parseInt(countResult.rows[0].count) >= limits.brands) {
-      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: parseInt(countResult.rows[0].count), max: limits.brands });
+    const brandCount = parseInt(countResult.rows[0]?.count, 10) || 0;
+    if (brandCount >= limits.brands) {
+      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: brandCount, max: limits.brands });
     }
 
     const id = uid();
@@ -735,6 +737,13 @@ router.post('/:id/run', auth, async (req, res) => {
       saveBrandObj.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
       if (saveBrandObj.sovHistory.length > 90) saveBrandObj.sovHistory = saveBrandObj.sovHistory.slice(-90);
 
+      // Abort check: if lock was force-released while we were running, skip saving
+      // to prevent data corruption from a concurrent run
+      if (runState.aborted) {
+        console.warn(`[Run] Brand ${brand.id} run aborted (lock expired) — skipping save to prevent corruption`);
+        return;
+      }
+
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);
 
@@ -805,7 +814,7 @@ router.post('/:id/run', auth, async (req, res) => {
       }
 
       // Refresh prompt_run_stats materialized data (Epic 1.1)
-      refreshPromptRunStats(brand.id).catch(() => {});
+      refreshPromptRunStats(brand.id).catch(e => console.error(`[Run] refreshPromptRunStats failed for ${brand.id}:`, e.message));
 
       // Evaluate alert rules (Epic 6.2)
       const previousSOVForAlerts = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
@@ -814,7 +823,7 @@ router.post('/:id/run', auth, async (req, res) => {
         previousSov: previousSOVForAlerts,
         allResults,
         platforms: platSOV
-      }).catch(() => {});
+      }).catch(e => console.error(`[Run] evaluateAlerts failed for ${brand.id}:`, e.message));
 
       // Webhook alert (reuse previousSOVForAlerts computed above)
       if (saveBrandObj.webhookUrl && sov !== previousSOVForAlerts) {
@@ -1163,12 +1172,12 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
     allQueries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
     (brand.runs || []).forEach(r => {
       const mentionedQueries = new Set((r.mentions || []).map(m => m.query));
-          const queriesInRun = new Set((r.allResults||[]).map(res => res.query));
+      const queriesInRun = new Set((r.allResults||[]).map(res => res.query));
       for (const q of allQueries) {
         if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
         if (queriesInRun.has(q)) {
-                    qsNew[q].runs++;
-                    if (mentionedQueries.has(q)) qsNew[q].mentions++;
+          qsNew[q].runs++;
+          if (mentionedQueries.has(q)) qsNew[q].mentions++;
         }
       }
     });
@@ -1252,7 +1261,6 @@ async function sendWebhookAlert(brand, run, previousSOV) {
         console.error(`[Webhook] All ${MAX_RETRIES + 1} attempts failed for ${brand.name}:`, e.message);
         // Notify user that their webhook is failing
         try {
-          const { notify } = require('../config/db');
           notify(brand.userId, 'webhook_failed', 'Webhook Failed',
             `Webhook delivery to ${url} failed after ${MAX_RETRIES + 1} attempts for brand "${brand.name}": ${e.message}`,
             { brandId: brand.id, webhookUrl: url });
@@ -1415,22 +1423,22 @@ async function runBrandQueries(brand) {
   }
 
   if (!brand.mentions) brand.mentions = [];
-  const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+m.time.split('T')[0]));
-  brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+m.time.split('T')[0])), ...brand.mentions].slice(0,500);
+  const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0]));
+  brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0])), ...brand.mentions].slice(0,500);
 
   const qsNew = {};
   queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
   const citMap = {};
   brand.runs.forEach(run => {
     const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
-      const queriesInRun = new Set((run.allResults||[]).map(r => r.query));
+    const queriesInRun = new Set((run.allResults||[]).map(r => r.query));
     for (const q of queries) {
-        if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
-        if (queriesInRun.has(q)) {
-          qsNew[q].runs++;
-          if (mentionedQueries.has(q)) qsNew[q].mentions++;
-        }
+      if (!qsNew[q]) qsNew[q] = { runs: 0, mentions: 0 };
+      if (queriesInRun.has(q)) {
+        qsNew[q].runs++;
+        if (mentionedQueries.has(q)) qsNew[q].mentions++;
       }
+    }
     
       (run.mentions||[]).forEach(m => {
         (m.citations||[]).forEach(url => {
@@ -1477,8 +1485,8 @@ async function runBrandQueries(brand) {
   const newCompetitors = [...seenCompetitors].filter(c => !knownCompetitors.has(c));
 
   // Refresh stats + evaluate alerts
-  refreshPromptRunStats(brand.id).catch(() => {});
-  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV, newCompetitors }).catch(() => {});
+  refreshPromptRunStats(brand.id).catch(e => console.error(`[Cron] refreshPromptRunStats failed for ${brand.id}:`, e.message));
+  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV, newCompetitors }).catch(e => console.error(`[Cron] evaluateAlerts failed for ${brand.id}:`, e.message));
 
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
