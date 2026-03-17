@@ -4299,9 +4299,11 @@ function buildMentionCard(r, runTimeStr) {
 }
 
 async function runQueries(){
-      // Manual runs disabled — queries now run automatically on schedule
-          toast('Manual query runs have been removed. All queries now run automatically on schedule.', 'warn');
-              return;
+  // Manual runs restricted to admin/owner only
+  if (!currentUser || currentUser.role !== 'admin') {
+    toast('Only admins can trigger manual query runs.', 'err');
+    return;
+  }
   if (runningQueries) return;
   const b = brand();
   if (!b) { toast('Select a brand first','err'); return; }
