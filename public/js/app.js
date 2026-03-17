@@ -821,7 +821,11 @@ function renderView(view){
   document.querySelectorAll('.view').forEach(v => {
     v.style.display = '';
   });
-  if (view==='overview')    renderOverview();
+  if (view==='overview') {
+    renderOverview();
+    if (runningQueries) setupLiveFeed();
+    else hideLiveFeed();
+  }
   if (view==='mentions') {
     if (runningQueries) setupLiveMentions();
     else renderMentions();
@@ -1398,6 +1402,9 @@ function _flushLiveCards() {
   const batch = _liveCardQueue;
   _liveCardQueue = [];
 
+  if (currentView === 'overview') {
+    for (const r of batch) appendLiveFeedRow(r);
+  }
   if (currentView === 'mentions') {
     const cardsEl = el('live-cards');
     if (cardsEl) {
@@ -1651,6 +1658,56 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     catRow.innerHTML = ch;
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
   }
+}
+
+// Set up live feed on overview — shows each result as it streams in
+function setupLiveFeed() {
+  const feed = el('ov-live-feed');
+  if (!feed) return;
+  feed.style.display = '';
+  feed.innerHTML = `<div class="ov-card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+        <span style="font-size:13px;font-weight:600;color:var(--text);">Results Feed</span>
+      </div>
+      <span id="ov-feed-count" style="font-family:var(--mono);font-size:11px;color:var(--muted);">0 results</span>
+    </div>
+    <div id="ov-feed-list" style="max-height:400px;overflow-y:auto;"></div>
+  </div>`;
+  // Backfill any results already received
+  for (const r of liveResults) appendLiveFeedRow(r);
+}
+
+function appendLiveFeedRow(result) {
+  const list = el('ov-feed-list');
+  if (!list) return;
+  const t = PLAT_THEME[result.platform]||{};
+  const isError = result.error;
+  const isMentioned = result.mentioned;
+  const statusIcon = isError ? '<span style="color:var(--amber);">⚠</span>'
+    : isMentioned ? '<span style="color:var(--green);">✓</span>'
+    : '<span style="color:var(--red);">✗</span>';
+  const statusText = isError ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
+  const statusColor = isError ? 'var(--amber)' : isMentioned ? 'var(--green)' : 'var(--red)';
+  const query = (result.query || '').length > 60 ? result.query.substring(0,57)+'...' : (result.query || '');
+
+  const row = `<div class="live-feed-row" style="display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:12px;animation:fadeInUp .3s ease;">
+    <span style="color:${t.color||'var(--muted)'};font-size:14px;width:20px;text-align:center;flex-shrink:0;">${t.logo||'?'}</span>
+    <span style="color:var(--muted);font-family:var(--mono);font-size:10px;width:70px;flex-shrink:0;">${esc(result.platform)}</span>
+    <span style="flex:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(query)}</span>
+    <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${statusColor};flex-shrink:0;">${statusIcon} ${statusText}</span>
+  </div>`;
+  list.insertAdjacentHTML('afterbegin', row);
+
+  // Update count
+  const countEl = el('ov-feed-count');
+  if (countEl) countEl.textContent = list.children.length + ' results';
+}
+
+function hideLiveFeed() {
+  const feed = el('ov-live-feed');
+  if (feed) feed.style.display = 'none';
 }
 
 // Cache the brand highlight regex for the duration of a run — avoids recompiling 80+ times
@@ -4348,7 +4405,7 @@ async function runQueries(){
   }, 1000);
 
   // Stay on current view — render live state
-  if (currentView === 'overview') renderOverview();
+  if (currentView === 'overview') { renderOverview(); setupLiveFeed(); }
   if (currentView === 'mentions') setupLiveMentions();
   if (currentView === 'proof') setupLiveProof();
 
@@ -4528,6 +4585,7 @@ async function runQueries(){
     liveRunTime = null;
     runningQueries = false;
     clearLiveNotifs();
+    hideLiveFeed();
     renderView(currentView);
 
     if (errors > 0) {
