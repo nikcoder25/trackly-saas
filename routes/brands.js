@@ -510,6 +510,8 @@ router.post('/:id/run', auth, async (req, res) => {
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no'
     });
+    // Disable Nagle's algorithm — send each SSE event immediately without buffering
+    if (res.socket) res.socket.setNoDelay(true);
     // When the client disconnects, stop writing but do NOT stop execution
     req.on('close', () => { clientConnected = false; });
   }

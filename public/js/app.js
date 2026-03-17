@@ -1661,10 +1661,15 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
 }
 
 // Set up live feed on overview — shows each result as it streams in
+let _liveFeedCount = 0;
 function setupLiveFeed() {
   const feed = el('ov-live-feed');
   if (!feed) return;
+  // If feed already exists and is up to date, skip rebuild
+  const existingList = el('ov-feed-list');
+  if (existingList && feed.style.display !== 'none' && _liveFeedCount === liveResults.length) return;
   feed.style.display = '';
+  _liveFeedCount = 0;
   feed.innerHTML = `<div class="ov-card" style="padding:0;overflow:hidden;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg);">
       <div style="display:flex;align-items:center;gap:10px;">
@@ -1680,8 +1685,13 @@ function setupLiveFeed() {
 }
 
 function appendLiveFeedRow(result) {
-  const list = el('ov-feed-list');
-  if (!list) return;
+  let list = el('ov-feed-list');
+  if (!list) {
+    // Auto-create feed container if it doesn't exist yet (race condition guard)
+    setupLiveFeed();
+    list = el('ov-feed-list');
+    if (!list) return;
+  }
   const t = PLAT_THEME[result.platform]||{};
   const isError = result.error;
   const isMentioned = result.mentioned;
@@ -1699,15 +1709,17 @@ function appendLiveFeedRow(result) {
     <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${statusColor};flex-shrink:0;">${statusIcon} ${statusText}</span>
   </div>`;
   list.insertAdjacentHTML('afterbegin', row);
+  _liveFeedCount++;
 
   // Update count
   const countEl = el('ov-feed-count');
-  if (countEl) countEl.textContent = list.children.length + ' results';
+  if (countEl) countEl.textContent = _liveFeedCount + ' results';
 }
 
 function hideLiveFeed() {
   const feed = el('ov-live-feed');
-  if (feed) feed.style.display = 'none';
+  if (feed) { feed.style.display = 'none'; feed.innerHTML = ''; }
+  _liveFeedCount = 0;
 }
 
 // Cache the brand highlight regex for the duration of a run — avoids recompiling 80+ times

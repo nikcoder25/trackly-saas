@@ -98,10 +98,11 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } // needed for Google Sign-In popup
 }));
 
-// Gzip compression — skip SSE streams so results arrive in real-time
+// Gzip compression — skip SSE streaming endpoints so results arrive in real-time.
+// Must check URL (not Content-Type header) because middleware runs before route handlers set headers.
 app.use(compression({
   filter: (req, res) => {
-    if (res.getHeader('Content-Type') === 'text/event-stream') return false;
+    if (req.url && req.url.includes('/run') && req.query && req.query.stream === '1') return false;
     return compression.filter(req, res);
   }
 }));
