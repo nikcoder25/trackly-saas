@@ -953,7 +953,7 @@ router.get('/billing', auth, async (req, res) => {
     const usage = {
       brands: { used: brandCount.rows[0].count, limit: limits.brands },
       prompts: { used: totalQueries.rows[0].total || 0, limit: limits.prompts },
-      platforms: { used: limits.platforms, limit: 8 }
+      platforms: { used: limits.platforms, limit: 7 }
     };
 
     // Check approaching limits

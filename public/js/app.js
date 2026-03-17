@@ -903,7 +903,7 @@ function renderAccount(){
     <div style="display:grid;gap:12px;margin-top:8px;">
       ${usageBar('Brands', brandCount, limits.brands)}
       ${usageBar('Total prompts', brands.reduce((s,br)=>s+(br.queries||[]).length,0), limits.prompts)}
-      ${usageBar('Platforms', limits.platforms, 8)}
+      ${usageBar('Platforms', limits.platforms, 7)}
       ${usageBar('Competitors', compCount, limits.competitors)}
     </div>
   `;
