@@ -313,7 +313,7 @@ async function api(method, path, data){
             return true;
           }
           return false;
-        }).finally(() => { _refreshPromise = null; });
+        }).catch(() => false).finally(() => { _refreshPromise = null; });
       }
       const refreshOk = await _refreshPromise;
       if (refreshOk) {
