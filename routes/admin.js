@@ -331,15 +331,21 @@ router.get('/admin/check-admin', auth, async (req, res) => {
 // Security: requires ADMIN_SECRET env var to prevent any user from self-promoting
 router.post('/admin/make-first-admin', auth, async (req, res) => {
   try {
-    const adminCheck = await pool.query('SELECT id FROM users WHERE role = $1', ['admin']);
-    if (adminCheck.rows.length) return res.status(400).json({ error: 'Admin already exists' });
-    // Require admin secret as additional verification to prevent unauthorized self-promotion
+    // Require admin secret to prevent unauthorized self-promotion
     const adminSecret = process.env.ADMIN_SECRET;
-    if (adminSecret) {
-      const provided = req.headers['x-admin-key'] || '';
-      if (provided !== adminSecret) return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
+    if (!adminSecret) {
+      return res.status(403).json({ error: 'ADMIN_SECRET not configured. Cannot promote to admin without it.' });
     }
-    await pool.query('UPDATE users SET role = $1, plan = $2 WHERE id = $3', ['admin', 'owner', req.user.id]);
+    const provided = req.headers['x-admin-key'] || '';
+    if (provided !== adminSecret) return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
+    // Atomic check-and-promote: only promote if no admin exists yet (prevents race condition)
+    const promoted = await pool.query(
+      `UPDATE users SET role = $1, plan = $2 WHERE id = $3
+       AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')
+       RETURNING id`,
+      ['admin', 'owner', req.user.id]
+    );
+    if (!promoted.rows.length) return res.status(400).json({ error: 'Admin already exists' });
     auditLog(req.user.id, 'make_first_admin', 'user', req.user.id, { email: req.user.email }, req.ip);
     res.json({ success: true, email: req.user.email });
   } catch(e) {
@@ -499,6 +505,9 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
 router.post('/nearby-areas', auth, async (req, res) => {
   const { city } = req.body;
   if (!city || !city.trim()) return res.status(400).json({ error: 'City is required' });
+  // Sanitize city input to prevent prompt injection — allow only letters, numbers, spaces, commas, periods, hyphens
+  const sanitizedCity = city.trim().replace(/[^\w\s,.\-']/g, '').substring(0, 100);
+  if (!sanitizedCity) return res.status(400).json({ error: 'Invalid city name' });
 
   const keys = getServerKeys();
   // Pick an available platform (prefer cheaper/faster ones)
@@ -515,7 +524,7 @@ router.post('/nearby-areas', auth, async (req, res) => {
   }
   if (!platform) return res.status(400).json({ error: 'No AI platform API keys configured.' });
 
-  const prompt = `List exactly 10-15 nearby cities, towns, suburbs, and service areas within a 30-mile radius of "${city.trim()}". Return ONLY a JSON array of strings, nothing else. Example format: ["City 1", "City 2", "City 3"]. Include the county/region name and state abbreviation. Do not include the original city itself.`;
+  const prompt = `List exactly 10-15 nearby cities, towns, suburbs, and service areas within a 30-mile radius of "${sanitizedCity}". Return ONLY a JSON array of strings, nothing else. Example format: ["City 1", "City 2", "City 3"]. Include the county/region name and state abbreviation. Do not include the original city itself.`;
 
   try {
     const { queryAI } = require('../lib/ai-platforms');
@@ -538,7 +547,7 @@ router.post('/nearby-areas', auth, async (req, res) => {
     }
 
     if (!areas.length) return res.status(500).json({ error: 'No nearby areas found' });
-    res.json({ areas, city: city.trim(), platform });
+    res.json({ areas, city: sanitizedCity, platform });
   } catch(e) {
     console.error('[Nearby Areas]', e.message);
     // SECURITY: Don't expose internal error details to clients

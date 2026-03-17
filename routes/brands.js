@@ -61,6 +61,10 @@ setInterval(() => {
     if (run.completedAt && run.completedAt < cutoff) {
       activeRuns.delete(id);
       brandRunLocks.delete(run.brandId);
+    } else if (!run.completedAt && run.startedAt && run.startedAt < cutoff) {
+      // Run never completed (crash/error without setting completedAt) — clean up
+      activeRuns.delete(id);
+      brandRunLocks.delete(run.brandId);
     }
   }
     // Safety: clear stale brand locks (orphaned or expired)
@@ -812,10 +816,9 @@ router.post('/:id/run', auth, async (req, res) => {
         platforms: platSOV
       }).catch(() => {});
 
-      // Webhook alert
-      const previousSOV = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
-      if (saveBrandObj.webhookUrl && sov !== previousSOV) {
-        sendWebhookAlert(saveBrandObj, saveBrandObj.runs[saveBrandObj.runs.length - 1], previousSOV).catch(() => {});
+      // Webhook alert (reuse previousSOVForAlerts computed above)
+      if (saveBrandObj.webhookUrl && sov !== previousSOVForAlerts) {
+        sendWebhookAlert(saveBrandObj, saveBrandObj.runs[saveBrandObj.runs.length - 1], previousSOVForAlerts).catch(() => {});
       }
 
       const errorResults = allResults.filter(r => r.error);
@@ -1247,6 +1250,13 @@ async function sendWebhookAlert(brand, run, previousSOV) {
         await new Promise(r => setTimeout(r, delayMs));
       } else {
         console.error(`[Webhook] All ${MAX_RETRIES + 1} attempts failed for ${brand.name}:`, e.message);
+        // Notify user that their webhook is failing
+        try {
+          const { notify } = require('../config/db');
+          notify(brand.userId, 'webhook_failed', 'Webhook Failed',
+            `Webhook delivery to ${url} failed after ${MAX_RETRIES + 1} attempts for brand "${brand.name}": ${e.message}`,
+            { brandId: brand.id, webhookUrl: url });
+        } catch(_) { /* ignore notification errors */ }
       }
     }
   }
@@ -1277,6 +1287,7 @@ async function runBrandQueries(brand) {
   if (!activePlatforms.length || !queries.length) return;
 
   const cronStartTime = Date.now();
+  const today = new Date().toISOString().split('T')[0];
   const newMentions = [];
   const allResults = [];
   const platSOV = {};
@@ -1334,6 +1345,7 @@ async function runBrandQueries(brand) {
         const parsed = parseResponse(text, brand, q, matcher);
         if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
         totalQ++;
+        const compMentions = detectCompetitors(text, brand.competitors || [], matcher);
         allResults.push({
           platform: plat, query: q,
           context: text.substring(0, 300), raw: text,
@@ -1342,6 +1354,7 @@ async function runBrandQueries(brand) {
           citations: parsed.cites, model: modelUsed || plat,
           locationRelevant: parsed.locationRelevant,
           matchedLocation: parsed.matchedLocation || '',
+          competitorMentions: compMentions,
           listPosition: parsed.listPosition || null
         });
         if (parsed.mentioned) {
@@ -1453,9 +1466,19 @@ async function runBrandQueries(brand) {
     } catch(prErr) { /* ignore */ }
   }
 
+  // Compute new competitors from this run
+  const knownCompetitors = new Set((brand.competitors || []).map(c => c.toLowerCase()));
+  const seenCompetitors = new Set();
+  for (const r of allResults) {
+    for (const comp of (r.competitorMentions || [])) {
+      seenCompetitors.add(comp.toLowerCase());
+    }
+  }
+  const newCompetitors = [...seenCompetitors].filter(c => !knownCompetitors.has(c));
+
   // Refresh stats + evaluate alerts
   refreshPromptRunStats(brand.id).catch(() => {});
-  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV }).catch(() => {});
+  evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV, newCompetitors }).catch(() => {});
 
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);

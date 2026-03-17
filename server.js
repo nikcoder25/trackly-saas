@@ -368,8 +368,8 @@ cron.schedule('0 * * * *', async () => {
 // ─── SCHEDULED REPORTS (cron — every Monday 8am and 1st of month 8am) ──
 const { sendReportEmail, isEmailConfigured } = require('./lib/email');
 
-cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly'));  // Monday 8am
-cron.schedule('0 8 1 * *', () => sendScheduledReports('monthly')); // 1st of month 8am
+cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly').catch(e => log.error('Weekly report cron failed', { error: e.message })));   // Monday 8am
+cron.schedule('0 8 1 * *', () => sendScheduledReports('monthly').catch(e => log.error('Monthly report cron failed', { error: e.message }))); // 1st of month 8am
 
 async function sendScheduledReports(frequency) {
   if (!isEmailConfigured()) return;

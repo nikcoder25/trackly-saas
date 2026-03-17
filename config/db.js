@@ -10,6 +10,10 @@ const log = createLogger('DB');
 const sslConfig = process.env.DATABASE_URL
   ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true' }
   : false;
+if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL && process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'true') {
+  console.warn('[WARN] DB_SSL_REJECT_UNAUTHORIZED is not set to "true" in production. TLS certificate validation is disabled, which allows MITM attacks.');
+  console.warn('       Set DB_SSL_REJECT_UNAUTHORIZED=true if your database supports valid SSL certificates.');
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
