@@ -515,7 +515,10 @@ router.post('/:id/run', auth, async (req, res) => {
   }
   function sendEvent(type, data) {
     if (!streaming || !clientConnected) return;
-    try { res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n'); } catch(_) { clientConnected = false; }
+    try {
+      res.write('data: ' + JSON.stringify({ type, ...data }) + '\n\n');
+      if (typeof res.flush === 'function') res.flush();
+    } catch(_) { clientConnected = false; }
   }
 
   // Send start event immediately (includes runId so frontend can poll)
