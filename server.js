@@ -66,7 +66,7 @@ if (process.env.NODE_ENV === 'production') {
         .split(',').map(s => { try { return new URL(s.trim()).host; } catch { return s.trim(); } }).filter(Boolean);
       const host = req.headers.host || '';
       if (allowedHosts.length && !allowedHosts.includes(host)) {
-        return res.status(400).send('Invalid host');
+        return res.status(400).json({ error: 'Invalid host' });
       }
       return res.redirect(301, 'https://' + host + req.url);
     }
@@ -81,7 +81,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "https://accounts.google.com", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
@@ -241,22 +241,22 @@ app.use('/api',          analyticsRoutes);
 app.get('/admin', async (req, res) => {
   // Support both legacy ADMIN_SECRET and JWT auth via cookie/header
   const secret = process.env.ADMIN_SECRET;
-  if (!secret) return res.status(404).send('Not found');
+  if (!secret) return res.status(404).json({ error: 'Not found' });
   // Accept secret via X-Admin-Key header only (query param removed for security — secrets in URLs leak via logs, referrer headers, and browser history)
   const provided = req.headers['x-admin-key'] || '';
   // Use timing-safe comparison to prevent timing attacks
   if (typeof provided !== 'string') {
-    return res.status(404).send('Not found');
+    return res.status(404).json({ error: 'Not found' });
   }
   try {
     const crypto = require('crypto');
     const providedBuf = Buffer.from(provided);
     const secretBuf = Buffer.from(secret);
     if (providedBuf.length !== secretBuf.length || !crypto.timingSafeEqual(providedBuf, secretBuf)) {
-      return res.status(404).send('Not found');
+      return res.status(404).json({ error: 'Not found' });
     }
   } catch(e) {
-    return res.status(404).send('Not found');
+    return res.status(404).json({ error: 'Not found' });
   }
   // Set Cache-Control to prevent caching of admin page with secret in URL
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
