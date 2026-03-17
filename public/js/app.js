@@ -9,6 +9,8 @@ function ensureChartJs() {
   _chartJsPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+    s.integrity = 'sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb';
+    s.crossOrigin = 'anonymous';
     s.onload = () => { _chartJsLoaded = true; resolve(); };
     s.onerror = () => reject(new Error('Failed to load Chart.js'));
     document.head.appendChild(s);
@@ -145,15 +147,23 @@ function friendlyError(msg){
   return msg.length > 100 ? msg.substring(0, 100) + '...' : msg;
 }
 function brandHighlightRe(b){
-  // Build regex that matches brand name + all aliases with word boundaries
-  // Must use \b to avoid highlighting "Pro" inside "Professional" etc.
+  // Build regex that matches brand name + all aliases
+  // Uses adaptive boundaries: \b for alphanumeric-only terms,
+  // lookahead/lookbehind for terms with special chars (e.g. C++, C#)
   const terms = [b.name];
   if (b.aliases && b.aliases.length) terms.push(...b.aliases);
-  const escaped = terms.filter(t=>t&&t.length>=2).map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
-  if (!escaped.length) return null;
+  const filtered = terms.filter(t=>t&&t.length>=2);
+  if (!filtered.length) return null;
   // Sort longest first so longer matches take priority
-  escaped.sort((x,y) => y.length - x.length);
-  return new RegExp('\\b('+escaped.join('|')+')\\b', 'gi');
+  filtered.sort((x,y) => y.length - x.length);
+  const patterns = filtered.map(t => {
+    const esc = t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    // If term is purely word characters, use \b for precise matching
+    if (/^\w+$/.test(t)) return '\\b' + esc + '\\b';
+    // For terms with special chars (C++, C#, .NET), use lookaround for whitespace/boundary
+    return '(?<![\\w])' + esc + '(?![\\w])';
+  });
+  return new RegExp('('+patterns.join('|')+')', 'gi');
 }
 function toast(msg, type='ok'){
   const t = el('toast');
@@ -528,7 +538,7 @@ async function doResetPassword(){
   if (pw !== pw2) { msgEl.textContent = 'Passwords do not match.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   const params = new URLSearchParams(window.location.search);
   const resetToken = params.get('token');
-  if (!resetToken) { msgEl.textContent = 'Invalid reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
+  if (!resetToken || resetToken.length < 32) { msgEl.textContent = 'Invalid or malformed reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
   const btn = document.querySelector('#panel-reset .btn-primary');
   btn.disabled = true; btn.textContent = 'RESETTING...';
   try {
