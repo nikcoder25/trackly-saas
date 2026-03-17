@@ -912,8 +912,8 @@ function renderAccount(){
   // Plan cards
   const planData = [
           { id: 'free', name: 'Free', price: '$0', features: '1 brand, 2 platforms, 50 prompts/month' },
-                { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 8 platforms, 500 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 8 platforms, 2000 prompts/month, 20 competitors, sentiment' }
+                { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 7 platforms, 500 prompts/month, competitors, sentiment' },
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 2000 prompts/month, 20 competitors, sentiment' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
@@ -3397,28 +3397,7 @@ async function renderPlatformStatus(){
   cont.innerHTML = html;
 }
 
-// ─── QUERY PERFORMANCE / RANK TRACKER ─────────────────────────────
-let _qperfSelectedQueries = new Set();
-
-function qperfToggleAll() {
-  const b = brand(); if (!b) return;
-  const queries = b.queries || [];
-  if (_qperfSelectedQueries.size === queries.length) _qperfSelectedQueries.clear();
-  else queries.forEach(q => _qperfSelectedQueries.add(q));
-  renderQPerf();
-}
-
-function qperfToggleQuery(q) {
-  if (_qperfSelectedQueries.has(q)) _qperfSelectedQueries.delete(q);
-  else _qperfSelectedQueries.add(q);
-  renderQPerf();
-}
-
-function qperfRunSelected() {
-  if (!_qperfSelectedQueries.size) { toast('Select queries first', 'err'); return; }
-  // Switch to overview and trigger a run (uses all queries - selection is for viewing)
-  go('mentions');
-}
+// ─── QUERY PERFORMANCE ────────────────────────────────────────────
 
 function renderQPerf(){
   const b = brand(); if (!b) return;
