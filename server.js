@@ -99,10 +99,11 @@ app.use(helmet({
 }));
 
 // Gzip compression — skip SSE streaming endpoints so results arrive in real-time.
-// Must check URL (not Content-Type header) because middleware runs before route handlers set headers.
+// Check raw req.url string (always available) rather than req.query (may not be parsed yet)
+// or res.getHeader (not set until route handler runs).
 app.use(compression({
   filter: (req, res) => {
-    if (req.url && req.url.includes('/run') && req.query && req.query.stream === '1') return false;
+    if (req.url && /\/run\?.*stream=1/.test(req.url)) return false;
     return compression.filter(req, res);
   }
 }));

@@ -1685,13 +1685,8 @@ function setupLiveFeed() {
 }
 
 function appendLiveFeedRow(result) {
-  let list = el('ov-feed-list');
-  if (!list) {
-    // Auto-create feed container if it doesn't exist yet (race condition guard)
-    setupLiveFeed();
-    list = el('ov-feed-list');
-    if (!list) return;
-  }
+  const list = el('ov-feed-list');
+  if (!list) return;
   const t = PLAT_THEME[result.platform]||{};
   const isError = result.error;
   const isMentioned = result.mentioned;
