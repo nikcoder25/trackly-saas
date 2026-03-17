@@ -358,8 +358,9 @@ router.post('/:id/force-release', auth, async (req, res) => {
 });
 
 router.post('/:id/run', auth, async (req, res) => {
-  // Manual runs restricted to admin users only
-  if (req.user.role !== 'admin') {
+  // Manual runs restricted to admin users only — check DB since JWT may not contain role
+  const _roleCheck = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+  if (!_roleCheck.rows[0] || _roleCheck.rows[0].role !== 'admin') {
     return res.status(403).json({ error: 'Only admins can trigger manual query runs.' });
   }
   req.setTimeout(600000); // 10 min to match MAX_LOCK_AGE_MS
