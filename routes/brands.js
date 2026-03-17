@@ -332,6 +332,8 @@ router.post('/:id/force-release', auth, async (req, res) => {
 });
 
 router.post('/:id/run', auth, async (req, res) => {
+  // Manual runs disabled — all queries now run on automated schedule only
+  return res.status(403).json({ error: 'Manual query runs have been removed. All queries now run automatically on schedule.' });
   req.setTimeout(600000); // 10 min to match MAX_LOCK_AGE_MS
   const streaming = req.query.stream === '1';
     const forceRun = req.query.force === '1';
@@ -1214,7 +1216,7 @@ async function runBrandQueries(brand) {
   // Enforce plan limits for scheduled runs
   const plan = await getUserPlan(brand.userId);
   const limits = getPlanLimits(plan);
-  if (!limits.scheduledRuns) return; // plan doesn't allow scheduled runs
+  // scheduledRuns check removed — all plans now have scheduled runs // plan doesn't allow scheduled runs
 
   // Load user settings for scheduled runs
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
