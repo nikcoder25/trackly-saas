@@ -6510,6 +6510,10 @@ async function doAddBrandWizard(){
     _wizardNearbyAreas = [];
     renderAll();
     toast('Brand "'+name+'" created with '+queryCount+' queries','ok');
+    // Auto-run queries after brand creation
+    if (queryCount > 0) {
+      setTimeout(() => runQueries(), 500);
+    }
   } catch(e) {
     el('add-brand-err').textContent = e.message;
     el('add-brand-err').style.display = 'block';
