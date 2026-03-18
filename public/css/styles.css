@@ -1802,3 +1802,9 @@ select.finput{appearance:none;}
 .global-empty-btn{background:var(--primary);color:#fff;border:none;padding:14px 32px;border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;transition:all .2s;}
 .global-empty-btn:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,97,84,.3);}
 .tab-hidden *,.tab-hidden *::before,.tab-hidden *::after{animation-play-state:paused !important;transition:none !important;}
+
+/* —— ACTIVITY & LOGS TABS —————————————————————————— */
+.al-tab{padding:10px 20px;border:none;background:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.al-tab:hover{color:var(--text);}
+.al-tab.al-tab-active{color:var(--primary);border-bottom-color:var(--primary);}
+.al-tab-content{}
