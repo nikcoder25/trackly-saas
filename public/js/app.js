@@ -807,7 +807,6 @@ function closeMobileMenu(){
 function go(view){
   // Clean up chart instances when leaving views to prevent memory leaks
   if (currentView === 'trends') {
-    if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
     if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
   }
   if (currentView === 'overview' && window._ovMiniChart) {
@@ -3955,7 +3954,6 @@ async function removeComp(i){
 }
 
 // ─── SOV TRENDS (Chart.js) ────────────────────────────────────────
-let sovChartInstance = null;
 let platSovChartInstance = null;
 
 function renderTrends(){
@@ -3970,8 +3968,7 @@ function renderTrends(){
 function _renderTrendsCharts(b) {
   const history = b.sovHistory || [];
 
-  // Destroy existing chart instances safely
-  if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
+  // Destroy existing chart instance safely
   if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
 
   const barContainer = el('sov-bar-container');
@@ -4095,29 +4092,6 @@ async function renderAlerts(){
     rulesEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load alert rules.</div>';
   }
 
-  // SOV change history
-  const histEl = el('alert-sov-history');
-  const history = b.sovHistory || [];
-  if (history.length < 2) {
-    histEl.innerHTML = '<div class="empty-state"><p>No SOV changes recorded yet. Run queries at least twice to see changes here.</p></div>';
-    return;
-  }
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Date</th><th class="th">SOV</th><th class="th">Change</th><th class="th">Platforms</th></tr></thead><tbody>';
-  for (let i = history.length - 1; i >= 0; i--) {
-    const h = history[i];
-    const prev = i > 0 ? history[i - 1].overall : 0;
-    const change = h.overall - prev;
-    const changeStr = i === 0 ? '—' : (change > 0 ? '+' + change + '%' : change + '%');
-    const changeColor = change > 0 ? 'var(--green)' : change < 0 ? 'var(--red)' : 'var(--muted)';
-    const date = new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const plats = h.platforms ? Object.entries(h.platforms).map(([p, v]) => p + ': ' + v + '%').join(', ') : '—';
-    html += '<tr class="trow"><td class="td" style="font-family:var(--mono);font-size:11px;">' + date + '</td>';
-    html += '<td class="td" style="font-family:var(--mono);font-weight:700;">' + h.overall + '%</td>';
-    html += '<td class="td" style="font-family:var(--mono);color:' + changeColor + ';">' + (i === 0 ? '—' : changeStr) + '</td>';
-    html += '<td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + esc(plats) + '</td></tr>';
-  }
-  html += '</tbody></table>';
-  histEl.innerHTML = html;
 }
 
 async function saveWebhook(){
@@ -5193,96 +5167,17 @@ async function checkActiveRun() {
 // ─── API LOGS / DIAGNOSTICS ─────────────────────────────────────
 async function renderApiLogs(){
   const container = el('apilogs-content');
-  container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:20px;">Loading API logs from server...</div>';
+  container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">Loading API call logs...</div>';
 
-  let html = '';
-
-  // 1. Client-side errors (localStorage)
+  // Client-side errors banner (if any)
+  let errBanner = '';
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
-    html += `<div class="card" style="margin-bottom:16px;border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.06);border-radius:var(--radius);">
-      <div class="card-title" style="color:var(--red);">Recent Run Failures (${clientErrors.length})</div>`;
-    clientErrors.forEach((err, errIdx) => {
-      const dt = new Date(err.time);
-      const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-      const isCrash = err.type === 'crash';
-
-      // Build structured detail lines
-      let details = '';
-      if (err.brand) details += `<div><span style="color:var(--muted);">Brand:</span> <strong>${esc(err.brand)}</strong></div>`;
-      if (err.platforms) details += `<div><span style="color:var(--muted);">Platforms:</span> ${esc(err.platforms)}</div>`;
-      if (err.queries) details += `<div><span style="color:var(--muted);">Queries:</span> ${err.queries}</div>`;
-      if (err.totalExpected) details += `<div><span style="color:var(--muted);">Progress:</span> ${err.received || 0}/${err.totalExpected} completed (${err.foundCount || 0} found, ${err.errorCount || 0} errors)</div>`;
-      if (err.endpoint) details += `<div><span style="color:var(--muted);">Endpoint:</span> ${esc(err.endpoint)}</div>`;
-
-      // Platform-specific errors
-      let platDetails = '';
-      if (err.platformErrors && Object.keys(err.platformErrors).length > 0) {
-        Object.entries(err.platformErrors).forEach(([plat, msgs]) => {
-          const t = PLAT_THEME[plat] || {};
-          const uniqueMsgs = [...new Set(msgs)];
-          platDetails += `<div style="margin-top:4px;"><span style="color:${t.color||'var(--text)'};font-weight:700;">${esc(plat)}</span>: <span style="color:var(--red);">${uniqueMsgs.map(m => esc(m)).join('; ')}</span></div>`;
-        });
-      }
-
-      // Build the plain-text version for clipboard
-      const copyId = 'err-copy-' + errIdx;
-
-      html += `<div style="font-family:var(--mono);font-size:11px;margin-bottom:10px;line-height:1.7;padding:10px 12px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:var(--radius-xs);position:relative;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
-          <div>${esc(dateStr)} ${isCrash ? '<span style="color:var(--red);font-weight:700;">CRASHED</span>' : '<span style="color:var(--amber);font-weight:700;">ERRORS</span>'}</div>
-          <button onclick="copyErrorLog(${errIdx})" style="background:var(--bg);border:1px solid var(--border);color:var(--muted);font-size:9px;padding:3px 8px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0;" title="Copy full error details to clipboard">&#x1F4CB; Copy</button>
-        </div>
-        <div style="color:var(--red);font-weight:700;word-break:break-word;margin-bottom:6px;">${esc(err.error)}</div>
-        ${details ? `<div style="font-size:10px;line-height:1.8;color:var(--text);margin-bottom:4px;">${details}</div>` : ''}
-        ${platDetails}
-        ${err.stack ? `<details style="margin-top:6px;"><summary style="cursor:pointer;color:var(--muted);font-size:9px;user-select:none;">Stack trace</summary><pre style="margin:4px 0 0;font-size:9px;color:var(--muted);white-space:pre-wrap;word-break:break-all;max-height:120px;overflow:auto;">${esc(err.stack)}</pre></details>` : ''}
-      </div>`;
-    });
-    html += `<button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS ALL</button></div>`;
+    errBanner = `<div style="margin-bottom:14px;padding:12px 16px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.04);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:12px;"><span style="color:var(--red);font-weight:700;">${clientErrors.length} recent run failure${clientErrors.length>1?'s':''}</span> <span style="color:var(--muted);">— check console for details</span></div>
+      <button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS</button>
+    </div>`;
   }
-
-  // 2. API Key Status
-  html += `<div class="card" style="margin-bottom:16px;">
-    <div class="card-title">API Key Status</div>
-    <div id="apilogs-key-status" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
-  </div>`;
-
-  // 3. Server-side API call logs
-  html += `<div class="card" style="margin-bottom:16px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div class="card-title" style="margin-bottom:0;">API Call Log</div>
-      <div style="display:flex;gap:8px;">
-        <button onclick="renderApiLogs()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">REFRESH</button>
-        <button onclick="clearApiLogs()" style="background:none;border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:10px;padding:4px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">CLEAR LOGS</button>
-      </div>
-    </div>
-    <div id="apilogs-stats" style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:8px 0;"></div>
-    <div id="apilogs-server-logs">Loading...</div>
-  </div>`;
-
-  // 4. Activity / Audit Log
-  html += `<div class="card" style="margin-bottom:16px;">
-    <div class="card-title">User Activity Log</div>
-    <div id="apilogs-activity">Loading activity...</div>
-  </div>`;
-
-  // 5. Guide
-  html += `<div class="card" style="margin-top:16px;">
-    <div class="card-title">Common Errors &amp; Fixes</div>
-    <div style="font-size:12px;line-height:1.8;color:var(--muted);">
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Rate limited / 429</span> — Too many requests. Multiple API keys help. Wait and retry.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Invalid API key / 401</span> — Key is wrong or expired. Replace in Railway and redeploy.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">No credits / quota exceeded</span> — Add credits in your API provider dashboard.</div>
-      <div style="margin-bottom:8px;"><span style="color:var(--red);font-family:var(--mono);font-size:11px;">Request timed out</span> — API took too long (>45s). Retry later.</div>
-      <div><span style="color:var(--red);font-family:var(--mono);font-size:11px;">0 key(s)</span> — No keys loaded. Add PLATFORM_API_KEY_1, _2, _3 in Railway.</div>
-    </div>
-  </div>`;
-
-  container.innerHTML = html;
-
-  // Load key status
-  loadKeyStatus();
 
   // Load server logs
   try {
@@ -5291,77 +5186,60 @@ async function renderApiLogs(){
     const data = await api('GET', '/api/api-logs?limit=200' + brandParam);
     const logs = data.logs || [];
     const stats = data.stats || {};
-
-    // Stats summary
-    const statsEl = el('apilogs-stats');
-    if (statsEl) {
-      const totalCost24h = stats.total_cost ? '$' + stats.total_cost.toFixed(4) : '$0.00';
-      const totalTokens24h = ((stats.total_tokens_in || 0) + (stats.total_tokens_out || 0)).toLocaleString();
-      statsEl.innerHTML = `Last 24h: <span style="color:var(--green);">${stats.success || 0} ok</span> · <span style="color:var(--red);">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms · <span style="color:var(--amber);font-weight:700;">${totalCost24h}</span> cost · ${totalTokens24h} tokens`;
-    }
-
-    // Render logs table
-    const logsEl = el('apilogs-server-logs');
-    if (!logs.length) {
-      logsEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:12px 0;">No API calls logged yet. Run queries to see every API call tracked here.</div>';
-        }
-
-    // Store logs for copy-to-clipboard access
     window._apiLogs = logs;
 
+    if (!logs.length) {
+      container.innerHTML = errBanner + `<div class="card" style="text-align:center;padding:32px;">
+        <div style="font-size:28px;margin-bottom:8px;">&#128225;</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No API Calls Yet</div>
+        <div style="color:var(--muted);font-size:12px;">Run queries to see every API call tracked here.</div>
+      </div>`;
+      return;
+    }
+
+    // Stats summary line
+    const totalCost24h = stats.total_cost ? '$' + stats.total_cost.toFixed(4) : '$0.00';
+    const totalTokens24h = ((stats.total_tokens_in || 0) + (stats.total_tokens_out || 0)).toLocaleString();
+    const statsSummary = `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px;">
+      Last 24h: <span style="color:var(--green);font-weight:600;">${stats.success || 0} ok</span> · <span style="color:${(stats.errors||0) > 0 ? 'var(--red)' : 'var(--muted)'};">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms · <span style="color:var(--amber);font-weight:700;">${totalCost24h}</span> cost · ${totalTokens24h} tokens
+    </div>`;
+
     // Group logs by run_id
-    const runGroups = [];
     const runMap = {};
-    const ungrouped = [];
+    const runGroups = [];
     logs.forEach(log => {
       if (log.run_id) {
         if (!runMap[log.run_id]) {
-          runMap[log.run_id] = { id: log.run_id, logs: [], totalCost: 0, totalTokens: 0, totalMs: 0, ok: 0, errors: 0, platforms: new Set(), startTime: null, endTime: null };
+          runMap[log.run_id] = { id: log.run_id, logs: [], totalCost: 0, totalTokens: 0, ok: 0, errors: 0, platforms: new Set(), startTime: null, endTime: null };
           runGroups.push(runMap[log.run_id]);
         }
         const g = runMap[log.run_id];
         g.logs.push(log);
         g.totalCost += parseFloat(log.cost) || 0;
         g.totalTokens += (log.tokens_in || 0) + (log.tokens_out || 0);
-        g.totalMs += log.response_ms || 0;
         if (log.status === 'error') g.errors++; else g.ok++;
         g.platforms.add(log.platform);
         const t = new Date(log.created_at).getTime();
         if (!g.startTime || t < g.startTime) g.startTime = t;
         if (!g.endTime || t > g.endTime) g.endTime = t;
-      } else {
-        ungrouped.push(log);
       }
     });
 
-    // Calculate running total across all logs
-    let runningCostTotal = 0;
-    const logsReversed = logs.slice().reverse();
-    const runningMap = {};
-    logsReversed.forEach(log => {
-      runningCostTotal += parseFloat(log.cost) || 0;
-      runningMap[log.id] = runningCostTotal;
-    });
-
-    let tbl = `<div style="overflow-x:auto;max-height:700px;overflow-y:auto;">
+    // Build table
+    let tbl = `<div class="card" style="padding:0;overflow:hidden;">
+      <div style="overflow-x:auto;max-height:700px;overflow-y:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:11px;">
       <thead style="position:sticky;top:0;z-index:1;"><tr style="background:var(--bg3);">
-        <th class="th" style="width:130px;">Time</th>
-        <th class="th" style="width:80px;">Platform</th>
-        <th class="th" style="width:120px;">Model</th>
+        <th class="th">Time</th>
+        <th class="th">Platform</th>
+        <th class="th">Model</th>
         <th class="th">Query</th>
-        <th class="th" style="width:60px;">Status</th>
-        <th class="th" style="width:80px;">Tokens</th>
-        <th class="th" style="width:60px;">Cost</th>
-        <th class="th" style="width:70px;">Running</th>
-        <th class="th" style="width:50px;">Time</th>
-        <th class="th" style="width:60px;">Key</th>
-        <th class="th">Error</th>
-        <th style="width:36px;"></th>
+        <th class="th">Status</th>
+        <th class="th">Time</th>
+        <th class="th">Cost</th>
       </tr></thead><tbody>`;
 
-    // Render grouped runs + ungrouped logs in chronological order (newest first)
-    // Build a flat render list with run summaries interleaved
+    // Build render items (grouped runs interleaved)
     const renderItems = [];
     const processedRunIds = new Set();
     const logIndexMap = new Map();
@@ -5381,104 +5259,55 @@ async function renderApiLogs(){
       if (item.type === 'run-summary') {
         const g = item.group;
         const startDt = new Date(g.startTime);
-        const timeStr = startDt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + startDt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+        const timeStr = startDt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
         const durationSec = g.endTime && g.startTime ? Math.round((g.endTime - g.startTime) / 1000) : 0;
         const durStr = durationSec >= 60 ? Math.floor(durationSec/60) + 'm ' + (durationSec%60) + 's' : durationSec + 's';
-        const costStr = g.totalCost > 0 ? '$' + g.totalCost.toFixed(4) : '$0.00';
-        const platList = [...g.platforms].join(', ');
-        tbl += `<tr style="background:rgba(59,130,246,.06);border-top:2px solid rgba(59,130,246,.3);cursor:pointer;" onclick="this.classList.toggle('run-collapsed');let s=this.nextElementSibling;while(s&&s.dataset.runid==='${g.id}'){s.style.display=s.style.display==='none'?'':'none';s=s.nextElementSibling;}">
-          <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;color:var(--blue);font-weight:700;">▶ ${esc(timeStr)}</td>
-          <td colspan="2" style="font-size:10px;font-weight:700;color:var(--text);">${g.ok + g.errors} calls · ${[...g.platforms].length} platforms</td>
-          <td style="font-size:10px;color:var(--muted);">${esc(platList)}</td>
-          <td style="text-align:center;"><span style="color:var(--green);font-weight:700;font-size:10px;">${g.ok}</span>${g.errors ? ` <span style="color:var(--red);font-weight:700;font-size:10px;">${g.errors}</span>` : ''}</td>
-          <td style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;">${g.totalTokens.toLocaleString()}</td>
-          <td style="font-family:var(--mono);font-size:11px;color:var(--amber);text-align:right;font-weight:800;">${costStr}</td>
-          <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:700;">RUN TOTAL</td>
-          <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${durStr}</td>
-          <td colspan="3" style="font-family:var(--mono);font-size:9px;color:var(--blue);">▶ click to expand</td>
+        const costStr = g.totalCost > 0 ? '$' + g.totalCost.toFixed(3) : '$0.00';
+        tbl += `<tr style="background:rgba(59,130,246,.05);border-top:2px solid rgba(59,130,246,.2);cursor:pointer;" onclick="let s=this.nextElementSibling;while(s&&s.dataset.runid==='${g.id}'){s.style.display=s.style.display==='none'?'':'none';s=s.nextElementSibling;}">
+          <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--blue);font-weight:700;white-space:nowrap;">▶ ${esc(timeStr)}</td>
+          <td class="td" style="font-weight:700;font-size:11px;">${g.ok + g.errors} calls · ${[...g.platforms].length} platforms</td>
+          <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${[...g.platforms].join(', ')}</td>
+          <td class="td" style="font-size:10px;color:var(--muted);">${g.ok} ok${g.errors ? ', <span style="color:var(--red);">' + g.errors + ' errors</span>' : ''}</td>
+          <td class="td"><span class="status-found">${g.ok}</span></td>
+          <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${durStr}</td>
+          <td class="td" style="font-family:var(--mono);font-size:11px;color:var(--amber);font-weight:700;">${costStr}</td>
         </tr>`;
         return;
       }
 
       const log = item.log;
       const dt = new Date(log.created_at);
-      const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const timeStr = dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isErr = log.status === 'error';
       const t = PLAT_THEME[log.platform] || {};
-      const queryShort = (log.query || '').length > 50 ? log.query.substring(0, 50) + '...' : (log.query || '—');
+      const queryShort = (log.query || '').length > 40 ? log.query.substring(0, 40) + '...' : (log.query || '—');
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
-      const totalTokens = (log.tokens_in || 0) + (log.tokens_out || 0);
-      const tokenStr = totalTokens > 0 ? totalTokens.toLocaleString() : '—';
       const costVal = parseFloat(log.cost) || 0;
-      const costStr = costVal > 0 ? '$' + costVal.toFixed(4) : '—';
-      const runCost = runningMap[log.id] || 0;
-      const runCostStr = runCost > 0 ? '$' + runCost.toFixed(4) : '—';
+      const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
       const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
-      tbl += `<tr${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
-        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
-        <td style="color:${t.color || 'var(--text)'};font-weight:700;font-size:10px;">${esc(log.platform)}</td>
-        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.model || '')}">${esc(modelShort || '—')}</td>
-        <td style="font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
-        <td style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${isErr ? 'FAIL' : 'OK'}</span></td>
-        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right;" title="In: ${(log.tokens_in||0).toLocaleString()} / Out: ${(log.tokens_out||0).toLocaleString()}">${tokenStr}</td>
-        <td style="font-family:var(--mono);font-size:10px;color:var(--amber);text-align:right;font-weight:600;">${costStr}</td>
-        <td style="font-family:var(--mono);font-size:10px;color:var(--text);text-align:right;font-weight:700;">${runCostStr}</td>
-        <td style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;">${respTime}</td>
-        <td style="font-family:var(--mono);font-size:9px;color:var(--muted);">...${esc(log.key_hint || '?')}</td>
-        <td style="font-size:10px;color:var(--red);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(log.error || '')}">${isErr ? esc(friendlyError(log.error)) : ''}</td>
-        <td style="text-align:center;"><button onclick="copyApiLogRow(window._apiLogs[${item.logIdx}])" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:8px;padding:2px 5px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);" title="Copy log entry">&#x1F4CB;</button></td>
+      tbl += `<tr class="trow"${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.04);' : ''}">
+        <td class="td" style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
+        <td class="td" style="color:${t.color || 'var(--text)'};font-weight:700;font-size:11px;">${esc(log.platform)}</td>
+        <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${esc(modelShort || '—')}</td>
+        <td class="td" style="font-size:11px;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
+        <td class="td" style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${log.http_status || (isErr ? 'ERR' : '200')}</span></td>
+        <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${respTime}</td>
+        <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;">${costStr}</td>
       </tr>`;
     });
 
-    tbl += '</tbody></table></div>';
-    if (logs.length >= 200) tbl += '<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px;">Showing last 200 entries. Older logs are auto-cleaned after 7 days.</div>';
-    logsEl.innerHTML = tbl;
+    tbl += '</tbody></table></div></div>';
+
+    const countLine = logs.length >= 200
+      ? `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:10px 0;">Showing 200 of ${stats.total_calls || 200}+ API calls</div>`
+      : `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:10px 0;">Showing ${logs.length} of ${stats.total_calls || logs.length} API calls</div>`;
+
+    container.innerHTML = errBanner + statsSummary + tbl + countLine;
 
   } catch(e) {
-    const logsEl = el('apilogs-server-logs');
-    if (logsEl) logsEl.innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:11px;">Failed to load logs: ${esc(e.message)}</div>`;
-  }
-
-  // Load activity logs
-  try {
-    const actData = await api('GET', '/api/activity-logs?limit=50');
-    const actEl = el('apilogs-activity');
-    const actLogs = actData.logs || [];
-    if (!actLogs.length) {
-      actEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">No activity logged yet.</div>';
-    } else {
-      const actionIcons = {login:'&#x1F511;',register:'&#x1F4DD;',create_brand:'&#x2795;',delete_brand:'&#x1F5D1;',run_queries:'&#x25B6;',update_brand:'&#x270F;',change_plan:'&#x2B50;',export_data:'&#x1F4E5;',change_password:'&#x1F512;',admin_edit_user:'&#x1F6E0;'};
-      let actHtml = '<div style="max-height:400px;overflow-y:auto;">';
-      actLogs.forEach(log => {
-        const dt = new Date(log.created_at);
-        const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-        const icon = actionIcons[log.action] || '&#x25CF;';
-        const email = log.user_email || 'Unknown';
-        const details = log.details || {};
-        let detailStr = '';
-        if (details.brand) detailStr = ' — ' + esc(details.brand);
-        if (details.plan) detailStr = ' — plan: ' + esc(details.plan);
-        if (details.email) detailStr = ' — ' + esc(details.email);
-        actHtml += `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
-          <span style="font-size:14px;flex-shrink:0;width:20px;text-align:center;">${icon}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <span style="font-weight:600;color:var(--text);">${esc(email)}</span>
-              <span style="color:var(--muted);font-size:11px;">${esc(log.action.replace(/_/g,' '))}</span>
-              <span style="color:var(--muted);font-family:var(--mono);font-size:9px;">${esc(timeStr)}</span>
-            </div>
-            ${detailStr ? `<div style="color:var(--muted);font-size:11px;margin-top:2px;">${detailStr}</div>` : ''}
-          </div>
-        </div>`;
-      });
-      actHtml += '</div>';
-      actEl.innerHTML = actHtml;
-    }
-  } catch(e) {
-    const actEl = el('apilogs-activity');
-    if (actEl) actEl.innerHTML = `<div style="color:var(--muted);font-family:var(--mono);font-size:11px;">Activity logs unavailable.</div>`;
+    container.innerHTML = errBanner + `<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:16px;">Failed to load logs: ${esc(e.message)}</div>`;
   }
 }
 
