@@ -1806,3 +1806,4 @@ select.finput{appearance:none;}
 .al-tab{padding:10px 20px;border:none;background:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
 .al-tab:hover{color:var(--text);}
 .al-tab.al-tab-active{color:var(--primary);border-bottom-color:var(--primary);}
+.al-tab-content{}

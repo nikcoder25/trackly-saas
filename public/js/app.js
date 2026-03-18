@@ -687,10 +687,6 @@ async function initApp(){
   const runBtn = el('run-btn');
   if (runBtn) runBtn.style.display = '';
 
-  // Show API Logs nav for owners/admins only
-  const apiLogsNav = el('nav-apilogs');
-  if (apiLogsNav) apiLogsNav.style.display = (currentUser.role === 'admin' || currentUser.plan === 'owner') ? 'block' : 'none';
-
   // Show Team nav for agency+ plans
   const teamNav = el('nav-team');
   if (teamNav) teamNav.style.display = (['agency', 'enterprise', 'owner'].includes(currentUser.plan) || currentUser.role === 'admin') ? 'block' : 'none';
@@ -2324,7 +2320,7 @@ function renderOverview(){
           <strong>${successRate}%</strong> success rate ·
           <span style="color:${_ovErrs > 0 ? 'var(--red)' : 'inherit'}">${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</span>
         </div>
-        ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">Diagnose Errors →</a>` : `<span style="font-family:var(--mono);font-size:10px;color:var(--green);margin-left:auto;">All Systems Go</span>`}
+        ${_ovErrs > 0 ? `<a href="#" onclick="go('activitylog');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">Diagnose Errors →</a>` : `<span style="font-family:var(--mono);font-size:10px;color:var(--green);margin-left:auto;">All Systems Go</span>`}
       </div>`;
     } else if (_activePreset === 'agency_manager') {
       // Agency Manager: Status-focused health strip
@@ -2332,13 +2328,13 @@ function renderOverview(){
       healthEl.innerHTML = `<div class="ov-health">
         <div class="ov-health-dot" style="background:${dotColor};"></div>
         <div class="ov-health-text"><strong style="letter-spacing:.5px;">${statusLabel}</strong> · ${_ovHealthyPlats.size}/${_ovAllPlats.size} platforms · ${_ovValid} responses · ${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</div>
-        ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Logs →</a>` : ''}
+        ${_ovErrs > 0 ? `<a href="#" onclick="go('activitylog');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Logs →</a>` : ''}
       </div>`;
     } else {
       healthEl.innerHTML = `<div class="ov-health">
         <div class="ov-health-dot" style="background:${dotColor};"></div>
         <div class="ov-health-text"><strong>${_ovHealthyPlats.size}/${_ovAllPlats.size}</strong> platforms healthy · <strong>${_ovValid}</strong> ok · <span style="color:${_ovErrs > 0 ? 'var(--red)' : 'inherit'}">${_ovErrs} error${_ovErrs !== 1 ? 's' : ''}</span></div>
-        ${_ovErrs > 0 ? `<a href="#" onclick="go('apilogs');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Errors →</a>` : ''}
+        ${_ovErrs > 0 ? `<a href="#" onclick="go('activitylog');return false;" style="font-family:var(--mono);font-size:10px;color:var(--red);text-decoration:none;margin-left:auto;">View Errors →</a>` : ''}
       </div>`;
     }
   } else {
@@ -2744,7 +2740,7 @@ function renderOverview(){
     if (errors.length > 0) {
       summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;border-radius:var(--radius-xs);">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
-      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('apilogs');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
+      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('activitylog');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
       summaryHtml += `</div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
