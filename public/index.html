@@ -1624,7 +1624,7 @@
     <!-- Step 3: Queries -->
     <div id="wizard-step-3" style="display:none;">
       <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">These queries will be sent to AI platforms to check if your brand is mentioned. We've auto-generated some based on your info.</div>
-      <div id="wizard-query-list" style="margin-bottom:12px;"></div>
+      <div id="wizard-query-list" style="margin-bottom:12px;max-height:40vh;overflow-y:auto;"></div>
       <div class="add-query-row" style="margin-bottom:12px;">
         <input id="wizard-query-input" type="text" placeholder="Add custom query..." onkeydown="if(event.key==='Enter')wizardAddQuery()">
         <button onclick="wizardAddQuery()">+ Add</button>
