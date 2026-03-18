@@ -1400,6 +1400,7 @@ select.finput{appearance:none;}
 .ov-cat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0;}
 .ov-cat-card .ov-cat-label{font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
 .ov-cat-card .ov-cat-val{font-family:var(--mono);font-size:26px;font-weight:800;line-height:1;}
+.ov-cat-card .ov-cat-detail{font-family:var(--mono);font-size:10px;color:var(--text-secondary,var(--muted));margin-top:8px;opacity:.7;}
 .ov-cat-card .ov-cat-sub{font-family:var(--font);font-size:11px;color:var(--muted);margin-top:6px;}
 
 .ov-health{

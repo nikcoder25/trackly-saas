@@ -1672,10 +1672,12 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
     function cc(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
     let ch = '';
-    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
-    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(searchSOV)};"><div class="ov-cat-label">Search AI</div><div class="ov-cat-val" style="color:${cc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
+    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
+    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${cc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
     catRow.innerHTML = ch;
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
+    const catSec = el('ov-category-section');
+    if (catSec) catSec.style.display = '';
   }
 }
 
@@ -2129,6 +2131,7 @@ function renderOverview(){
 
   // ─── Category SOV + Best/Worst Row ───────────────────────────
   const catRow = el('ov-category-row');
+  const catSection = el('ov-category-section');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
     const chatSOV = _ovChatTotal > 0 ? Math.round(_ovChatMentioned / _ovChatTotal * 100) : null;
     const searchSOV = _ovSearchTotal > 0 ? Math.round(_ovSearchMentioned / _ovSearchTotal * 100) : null;
@@ -2141,21 +2144,23 @@ function renderOverview(){
     let catHtml = '';
     if (chatSOV !== null) {
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(chatSOV)};">
-        <div class="ov-cat-label">Chat AI</div>
+        <div class="ov-cat-label">💬 Chat AI</div>
         <div class="ov-cat-val" style="color:${catColor(chatSOV)};">${chatSOV}%</div>
+        <div class="ov-cat-detail">Mentioned in ${_ovChatMentioned} of ${_ovChatTotal} responses</div>
         <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
       </div>`;
     }
     if (searchSOV !== null) {
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(searchSOV)};">
-        <div class="ov-cat-label">Search AI</div>
+        <div class="ov-cat-label">🔍 Search AI</div>
         <div class="ov-cat-val" style="color:${catColor(searchSOV)};">${searchSOV}%</div>
+        <div class="ov-cat-detail">Mentioned in ${_ovSearchMentioned} of ${_ovSearchTotal} responses</div>
         <div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div>
       </div>`;
     }
     if (best) {
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid var(--green);">
-        <div class="ov-cat-label">Best Platform</div>
+        <div class="ov-cat-label">🏆 Best Platform</div>
         <div class="ov-cat-val" style="color:var(--green);">${esc(best[0])}</div>
         <div class="ov-cat-sub">${best[1]}% SOV — strongest visibility</div>
       </div>`;
@@ -2163,8 +2168,10 @@ function renderOverview(){
     catRow.innerHTML = catHtml;
     catRow.classList.add('ov-animate-stagger');
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null, !!best].filter(Boolean).length}, 1fr)`;
+    if (catSection) catSection.style.display = '';
   } else {
     catRow.innerHTML = '';
+    if (catSection) catSection.style.display = 'none';
   }
 
   // ─── Location Visibility ────────────────────────────────────
