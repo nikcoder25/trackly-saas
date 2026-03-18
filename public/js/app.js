@@ -2575,18 +2575,19 @@ function renderOverview(){
     const platEntries = Object.entries(lastRun.platforms || {});
     const best = platEntries.length ? platEntries.reduce((a, b) => b[1] > a[1] ? b : a) : null;
 
-    const catColor = sovColor;
+    // Use global sovColor function (not the local sovColor string variable)
+    const _catColor = window.sovColor || function(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; };
 
     let catHtml = '';
-    catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(chatSOV)};">
+    catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${_catColor(chatSOV)};">
       <div class="ov-cat-label">💬 Chat AI SOV</div>
-      <div class="ov-cat-val" style="color:${catColor(chatSOV)};">${chatSOV}%</div>
+      <div class="ov-cat-val" style="color:${_catColor(chatSOV)};">${chatSOV}%</div>
       <div class="ov-cat-detail">Mentioned in ${_ovChatMentioned} of ${_ovChatTotal} responses</div>
       <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
     </div>`;
-    catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(searchSOV)};">
+    catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${_catColor(searchSOV)};">
       <div class="ov-cat-label">🔍 Search AI SOV</div>
-      <div class="ov-cat-val" style="color:${catColor(searchSOV)};">${searchSOV}%</div>
+      <div class="ov-cat-val" style="color:${_catColor(searchSOV)};">${searchSOV}%</div>
       <div class="ov-cat-detail">Mentioned in ${_ovSearchMentioned} of ${_ovSearchTotal} responses</div>
       <div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div>
     </div>`;
@@ -6339,6 +6340,10 @@ function applyDashboardPreset(preset){
 function showViewLoading(containerId){
   const cont = el(containerId);
   if (cont) cont.innerHTML = skeletonHTML(3);
+}
+function hideViewLoading(containerId){
+  const cont = el(containerId);
+  if (cont && cont.querySelector('.skeleton')) cont.innerHTML = '';
 }
 
 // ─── ALERTS CRUD ──────────────────────────────────────────────────
