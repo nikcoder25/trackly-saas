@@ -691,6 +691,10 @@ async function initApp(){
   const apiLogsNav = el('nav-apilogs');
   if (apiLogsNav) apiLogsNav.style.display = (currentUser.role === 'admin' || currentUser.plan === 'owner') ? 'block' : 'none';
 
+  // Show Team nav for agency+ plans
+  const teamNav = el('nav-team');
+  if (teamNav) teamNav.style.display = (['agency', 'enterprise', 'owner'].includes(currentUser.plan) || currentUser.role === 'admin') ? 'block' : 'none';
+
   if (currentUser.role === 'admin') {
     if (adminNav) adminNav.style.display = 'block';
     if (becomeAdminNav) becomeAdminNav.style.display = 'none';
@@ -802,8 +806,11 @@ function go(view){
 
 function renderView(view){
   const b = brand();
-  if (view==='account') { renderAccount(); loadModelSettings(); return; }
+  if (view==='account') { renderAccount(); loadModelSettings(); load2FAStatus(); return; }
   if (view==='admin')   { renderAdmin(); return; }
+  if (view==='activitylog') { renderActivityLog(); return; }
+  if (view==='notifications') { renderNotificationPrefs(); return; }
+  if (view==='team') { renderTeamMembers(); return; }
   if (!b) {
     // Show global empty state when no brand exists or is selected
     const noBrands = !brands.length;
@@ -1202,6 +1209,285 @@ async function markAllRead() {
 }
 // Load notification count on init
 function initNotifications() { loadNotifications(); }
+
+// ── Activity Log ──────────────────────────────────────
+async function renderActivityLog() {
+  const container = el('activitylog-content');
+  container.innerHTML = '<div style="padding:8px 0;">Loading activity...</div>';
+  try {
+    const data = await api('GET', '/api/activity-logs?limit=50');
+    const logs = data.logs || [];
+    if (!logs.length) {
+      container.innerHTML = '<div style="padding:8px 0;">No activity logged yet.</div>';
+      return;
+    }
+    const actionIcons = {login:'&#x1F511;',register:'&#x1F4DD;',create_brand:'&#x2795;',delete_brand:'&#x1F5D1;',run_queries:'&#x25B6;',update_brand:'&#x270F;',change_plan:'&#x2B50;',export_data:'&#x1F4E5;',change_password:'&#x1F512;',admin_edit_user:'&#x1F6E0;','2fa_enabled':'&#x1F510;','2fa_disabled':'&#x1F513;',team_invite:'&#x1F465;',team_remove:'&#x274C;',team_role_update:'&#x1F504;'};
+    let html = '<div style="max-height:600px;overflow-y:auto;">';
+    logs.forEach(log => {
+      const dt = new Date(log.created_at);
+      const timeStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      const icon = actionIcons[log.action] || '&#x25CF;';
+      const details = log.details || {};
+      let detailStr = '';
+      if (details.brand) detailStr = ' — ' + esc(details.brand);
+      if (details.plan) detailStr = ' — plan: ' + esc(details.plan);
+      if (details.email) detailStr = ' — ' + esc(details.email);
+      if (details.role) detailStr += ' (role: ' + esc(details.role) + ')';
+      html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+        <span style="font-size:16px;flex-shrink:0;width:24px;text-align:center;">${icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-weight:600;color:var(--text);text-transform:capitalize;">${esc(log.action.replace(/_/g,' '))}</span>
+            <span style="color:var(--muted);font-family:var(--mono);font-size:10px;">${esc(timeStr)}</span>
+          </div>
+          ${detailStr ? `<div style="color:var(--muted);font-size:11px;margin-top:2px;">${detailStr}</div>` : ''}
+          ${log.ip ? `<div style="color:var(--muted);font-family:var(--mono);font-size:9px;margin-top:2px;">IP: ${esc(log.ip)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--red);">Failed to load activity: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── 2FA Management ────────────────────────────────────
+async function load2FAStatus() {
+  const statusEl = el('twofa-status');
+  const actionsEl = el('twofa-actions');
+  try {
+    const data = await api('GET', '/api/auth/2fa/status');
+    if (data.enabled) {
+      statusEl.innerHTML = `<span style="color:var(--green);font-weight:700;">ENABLED</span> <span style="color:var(--muted);">&mdash; ${data.backupCodesRemaining} backup code${data.backupCodesRemaining !== 1 ? 's' : ''} remaining</span>`;
+      actionsEl.innerHTML = '<button class="btn" onclick="el(\'twofa-disable-form\').style.display=el(\'twofa-disable-form\').style.display===\'none\'?\'block\':\'none\'" style="font-size:11px;">DISABLE 2FA</button>';
+      el('twofa-setup-form').style.display = 'none';
+    } else {
+      statusEl.innerHTML = '<span style="color:var(--muted);">Not enabled.</span> <span style="font-size:11px;color:var(--muted);">Add an extra layer of security to your account with an authenticator app.</span>';
+      actionsEl.innerHTML = '<button class="btn-primary" onclick="setup2FA()" style="font-size:11px;">ENABLE 2FA</button>';
+      el('twofa-disable-form').style.display = 'none';
+    }
+  } catch(e) {
+    statusEl.innerHTML = '<span style="color:var(--red);">Failed to load 2FA status.</span>';
+    actionsEl.innerHTML = '';
+  }
+}
+
+async function setup2FA() {
+  try {
+    const data = await api('POST', '/api/auth/2fa/setup');
+    const qrArea = el('twofa-qr-area');
+    qrArea.innerHTML = `
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">
+        Scan this URL in your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code below to verify.
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border);padding:10px;border-radius:var(--radius-xs);margin-bottom:8px;word-break:break-all;font-family:var(--mono);font-size:10px;color:var(--text);">
+        ${esc(data.otpauthUrl)}
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
+        Manual entry key: <strong style="color:var(--primary);letter-spacing:2px;">${esc(data.secret)}</strong>
+      </div>`;
+    el('twofa-setup-form').style.display = 'block';
+    el('twofa-verify-code').value = '';
+    el('twofa-verify-code').focus();
+  } catch(e) {
+    toast(e.message || 'Failed to start 2FA setup', 'err');
+  }
+}
+
+async function verify2FA() {
+  const code = el('twofa-verify-code').value.trim();
+  if (!code) return toast('Enter the 6-digit code', 'err');
+  try {
+    const data = await api('POST', '/api/auth/2fa/verify', { code });
+    el('twofa-setup-form').style.display = 'none';
+    toast('Two-factor authentication enabled!', 'ok');
+    // Show backup codes
+    if (data.backupCodes && data.backupCodes.length) {
+      const codesEl = el('twofa-backup-codes');
+      codesEl.style.display = 'block';
+      codesEl.innerHTML = `
+        <div style="background:var(--bg2);border:1px solid var(--amber);padding:16px;border-radius:var(--radius-xs);">
+          <div style="font-weight:700;color:var(--amber);margin-bottom:8px;font-size:12px;">SAVE YOUR BACKUP CODES</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;">
+            Store these codes in a safe place. Each can be used once if you lose access to your authenticator.
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
+            ${data.backupCodes.map(c => `<div style="background:var(--bg3);padding:6px 10px;border-radius:var(--radius-xs);font-family:var(--mono);font-size:12px;letter-spacing:1px;text-align:center;">${esc(c)}</div>`).join('')}
+          </div>
+          <button class="btn" onclick="navigator.clipboard.writeText('${data.backupCodes.join('\\n')}');toast('Backup codes copied!','ok');" style="font-size:10px;">COPY ALL CODES</button>
+        </div>`;
+    }
+    load2FAStatus();
+  } catch(e) {
+    toast(e.message || 'Invalid code', 'err');
+  }
+}
+
+async function disable2FA() {
+  const pw = el('twofa-disable-pw').value;
+  if (!pw) return toast('Enter your password', 'err');
+  try {
+    await api('POST', '/api/auth/2fa/disable', { password: pw });
+    el('twofa-disable-form').style.display = 'none';
+    el('twofa-disable-pw').value = '';
+    el('twofa-backup-codes').style.display = 'none';
+    toast('Two-factor authentication disabled', 'ok');
+    load2FAStatus();
+  } catch(e) {
+    toast(e.message || 'Failed to disable 2FA', 'err');
+  }
+}
+
+// ── Notification Preferences ──────────────────────────
+async function renderNotificationPrefs() {
+  // Load report schedule
+  try {
+    const data = await api('GET', '/api/report-settings');
+    const freq = data.reportSchedule?.frequency || 'off';
+    el('notif-report-freq').value = freq;
+  } catch(e) {
+    el('notif-report-freq').value = 'off';
+  }
+
+  // Render notification type toggles
+  const types = [
+    { key: 'visibility_drop', label: 'Visibility Drop Alerts', desc: 'When your brand visibility drops significantly' },
+    { key: 'sov_below', label: 'SOV Below Threshold', desc: 'When share of voice falls below your target' },
+    { key: 'brand_disappeared', label: 'Brand Disappeared', desc: 'When your brand is no longer mentioned' },
+    { key: 'negative_sentiment', label: 'Negative Sentiment', desc: 'When negative sentiment spikes' },
+    { key: 'new_competitor', label: 'New Competitor Detected', desc: 'When a new competitor appears in responses' },
+    { key: 'team_invite', label: 'Team Invitations', desc: 'When you are added to a team' }
+  ];
+  const togglesEl = el('notif-type-toggles');
+  let togglesHtml = '';
+  types.forEach(t => {
+    togglesHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:12px;font-weight:600;">${esc(t.label)}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">${esc(t.desc)}</div>
+      </div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--green);">Active</span>
+    </div>`;
+  });
+  togglesEl.innerHTML = togglesHtml;
+
+  // Load recent notifications
+  try {
+    const data = await api('GET', '/api/notifications');
+    const notifs = data.notifications || [];
+    const histEl = el('notif-history');
+    if (!notifs.length) {
+      histEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">No notifications yet.</div>';
+      return;
+    }
+    let html = '';
+    notifs.forEach(n => {
+      const time = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${n.read?'opacity:0.5;':''}">
+        <div style="width:8px;height:8px;border-radius:50%;background:${n.read?'var(--border)':'var(--primary)'};margin-top:5px;flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:${n.read?'400':'700'};">${esc(n.title)}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">${esc(n.message||'')} &middot; ${time}</div>
+        </div>
+      </div>`;
+    });
+    histEl.innerHTML = html;
+  } catch(e) {
+    el('notif-history').innerHTML = '<div style="color:var(--red);font-size:11px;">Failed to load notifications.</div>';
+  }
+}
+
+async function saveReportSchedule() {
+  const freq = el('notif-report-freq').value;
+  try {
+    await api('PUT', '/api/report-settings', { frequency: freq });
+    const status = el('notif-report-status');
+    status.style.display = 'inline';
+    setTimeout(() => { status.style.display = 'none'; }, 2000);
+    toast('Report schedule saved', 'ok');
+  } catch(e) {
+    toast(e.message || 'Failed to save', 'err');
+  }
+}
+
+// ── Team Management ───────────────────────────────────
+function toggleTeamInvite() {
+  const form = el('team-invite-form');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') el('team-invite-email').focus();
+}
+
+async function renderTeamMembers() {
+  const listEl = el('team-members-list');
+  listEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Loading...</div>';
+  try {
+    const data = await api('GET', '/api/team');
+    const members = data.members || [];
+    if (!members.length) {
+      listEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:16px 0;text-align:center;">No team members yet. Invite someone to get started.</div>';
+      return;
+    }
+    let html = '<div style="display:flex;flex-direction:column;gap:2px;">';
+    members.forEach(m => {
+      const joined = new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const roleColor = m.role === 'editor' ? 'var(--amber)' : 'var(--muted)';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
+        <div>
+          <div style="font-size:12px;font-weight:600;">${esc(m.email || m.name || 'Unknown')}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Joined ${joined}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select class="finput" style="margin:0;width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
+            <option value="viewer" ${m.role==='viewer'?'selected':''}>Viewer</option>
+            <option value="editor" ${m.role==='editor'?'selected':''}>Editor</option>
+          </select>
+          <button onclick="removeTeamMember('${esc(m.user_id)}')" style="background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:9px;padding:4px 8px;cursor:pointer;border-radius:var(--radius-xs);">REMOVE</button>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+  } catch(e) {
+    listEl.innerHTML = `<div style="color:var(--red);font-size:11px;">Failed to load team: ${esc(e.message)}</div>`;
+  }
+}
+
+async function sendTeamInvite() {
+  const email = el('team-invite-email').value.trim();
+  const role = el('team-invite-role').value;
+  if (!email) return toast('Enter an email address', 'err');
+  try {
+    await api('POST', '/api/team/invite', { email, role });
+    toast('Team member added!', 'ok');
+    el('team-invite-email').value = '';
+    el('team-invite-form').style.display = 'none';
+    renderTeamMembers();
+  } catch(e) {
+    toast(e.message || 'Failed to invite', 'err');
+  }
+}
+
+async function updateTeamRole(memberId, role) {
+  try {
+    await api('PUT', '/api/team/' + memberId, { role });
+    toast('Role updated', 'ok');
+  } catch(e) {
+    toast(e.message || 'Failed to update role', 'err');
+    renderTeamMembers();
+  }
+}
+
+async function removeTeamMember(memberId) {
+  if (!confirm('Remove this team member?')) return;
+  try {
+    await api('DELETE', '/api/team/' + memberId);
+    toast('Team member removed', 'ok');
+    renderTeamMembers();
+  } catch(e) {
+    toast(e.message || 'Failed to remove', 'err');
+  }
+}
 
 function usageBar(label, current, max) {
   const pct = max > 0 ? Math.min(100, Math.round((current / max) * 100)) : 0;
