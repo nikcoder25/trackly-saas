@@ -4291,6 +4291,9 @@ function openAddBrand(){
   // Reset wizard state
   _wizardComps = [];
   _wizardQueries = [];
+  _wizardNearbyAreas = [];
+  const nearbySection = el('wizard-nearby-section');
+  if (nearbySection) nearbySection.style.display = 'none';
   wizardNext(1);
   openModal('add-brand-modal');
 }
@@ -6330,6 +6333,58 @@ async function toggleAlertRule(ruleId, enabled){
 // ─── ONBOARDING WIZARD ───────────────────────────────────────────
 let _wizardComps = [];
 let _wizardQueries = [];
+let _wizardNearbyAreas = [];
+
+// Show/hide nearby areas section when city field changes
+document.addEventListener('DOMContentLoaded', () => {
+  const cityInput = el('nb-city');
+  if (cityInput) {
+    cityInput.addEventListener('input', () => {
+      const section = el('wizard-nearby-section');
+      if (section) section.style.display = cityInput.value.trim() ? 'block' : 'none';
+    });
+  }
+});
+
+function renderWizardNearbyTags(){
+  const cont = el('wizard-nearby-tags');
+  if (!cont) return;
+  cont.innerHTML = _wizardNearbyAreas.map((a,i) =>
+    `<span class="query-tag" style="font-size:11px;padding:3px 8px;">${esc(a)} <button onclick="_wizardNearbyAreas.splice(${i},1);renderWizardNearbyTags()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;">&#x2715;</button></span>`
+  ).join('');
+  if (!_wizardNearbyAreas.length) cont.innerHTML = '<div style="color:var(--muted);font-size:11px;">No nearby areas yet.</div>';
+}
+
+function wizardAddNearbyArea(){
+  const inp = el('wizard-nearby-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (_wizardNearbyAreas.some(a => a.toLowerCase() === v.toLowerCase())) { toast('Already added','err'); return; }
+  _wizardNearbyAreas.push(v);
+  inp.value = '';
+  renderWizardNearbyTags();
+}
+
+async function wizardFetchNearbyAreas(){
+  const city = el('nb-city').value.trim();
+  if (!city) { toast('Enter a city first','err'); return; }
+  const btn = el('wizard-fetch-areas-btn');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+  try {
+    const data = await api('POST', '/api/nearby-areas', { city });
+    const existing = new Set(_wizardNearbyAreas.map(a => a.toLowerCase()));
+    const newAreas = (data.areas || []).filter(a => !existing.has(a.toLowerCase()));
+    if (!newAreas.length) { toast('No new areas found','ok'); return; }
+    _wizardNearbyAreas.push(...newAreas);
+    renderWizardNearbyTags();
+    toast(newAreas.length + ' nearby areas added','ok');
+  } catch(e) { toast(e.message,'err'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch Nearby Areas';
+  }
+}
 
 function wizardNext(step){
   // Validate step 1 before moving forward
@@ -6439,7 +6494,8 @@ async function doAddBrandWizard(){
       website: el('nb-website').value.trim(),
       city: el('nb-city').value.trim(),
       competitors: _wizardComps,
-      queries: _wizardQueries
+      queries: _wizardQueries,
+      nearbyAreas: _wizardNearbyAreas
     };
     const queryCount = _wizardQueries.length;
     const data = await api('POST', '/api/brands', payload);
@@ -6451,6 +6507,7 @@ async function doAddBrandWizard(){
     closeModal('add-brand-modal');
     _wizardComps = [];
     _wizardQueries = [];
+    _wizardNearbyAreas = [];
     renderAll();
     toast('Brand "'+name+'" created with '+queryCount+' queries','ok');
   } catch(e) {

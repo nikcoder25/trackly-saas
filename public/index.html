@@ -1605,6 +1605,17 @@
       <input class="finput" id="nb-website" type="text" placeholder="yourbrand.com">
       <label class="flabel">City / Location</label>
       <input class="finput" id="nb-city" type="text" placeholder="e.g. Austin TX (optional for non-local)">
+      <div id="wizard-nearby-section" style="display:none;margin-top:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <label class="flabel" style="margin-bottom:0;">Nearby Areas</label>
+          <button type="button" id="wizard-fetch-areas-btn" onclick="wizardFetchNearbyAreas()" class="btn-secondary" style="font-size:10px;padding:4px 10px;">Fetch Nearby Areas</button>
+        </div>
+        <div id="wizard-nearby-tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;max-height:120px;overflow-y:auto;"></div>
+        <div class="add-query-row" style="margin-bottom:0;">
+          <input id="wizard-nearby-input" type="text" placeholder="Add area manually..." onkeydown="if(event.key==='Enter')wizardAddNearbyArea()">
+          <button onclick="wizardAddNearbyArea()">+ Add</button>
+        </div>
+      </div>
       <button class="btn-primary" onclick="wizardNext(2)" style="width:100%;margin-top:8px;">Next: Add Competitors</button>
       <button class="btn-secondary" onclick="doAddBrand()" style="width:100%;margin-top:6px;font-size:11px;">Skip wizard &amp; create now</button>
     </div>

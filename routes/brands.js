@@ -175,7 +175,7 @@ router.get('/', auth, async (req, res) => {
 // Create brand
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, industry, website, city, goal } = req.body;
+    const { name, industry, website, city, goal, competitors, queries, nearbyAreas } = req.body;
     if (!name) return res.status(400).json({ error: 'Brand name required' });
     // Input length validation
     if (typeof name !== 'string' || name.length > 100) return res.status(400).json({ error: 'Brand name must be 100 characters or less' });
@@ -191,22 +191,31 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: brandCount, max: limits.brands });
     }
 
+    // Accept wizard-provided competitors, queries, nearbyAreas — with validation
+    const safeComps = Array.isArray(competitors) ? competitors.filter(c => typeof c === 'string').map(c => c.trim()).filter(Boolean).slice(0, 100) : [];
+    const safeNearby = Array.isArray(nearbyAreas) ? nearbyAreas.filter(a => typeof a === 'string').map(a => a.trim()).filter(Boolean).slice(0, 100) : [];
+    const defaultQueries = city
+      ? [
+        `What is the best ${industry||'service'} company in ${city}?`,
+        `Who are the top ${industry||'service'} providers in ${city}?`,
+        `Best ${industry||'service'} recommendations in ${city}`
+      ]
+      : [
+        `What is the best ${industry||'service'} company?`,
+        `Who are the top ${industry||'service'} providers?`,
+        `Best ${industry||'service'} recommendations`
+      ];
+    const safeQueries = Array.isArray(queries) && queries.length > 0
+      ? queries.filter(q => typeof q === 'string').map(q => q.trim()).filter(Boolean).slice(0, 300)
+      : defaultQueries;
+
     const id = uid();
     const data = {
       name, industry: industry||'', website: website||'', city: city||'',
       goal: goal || 70,
-      competitors: [],
-      queries: city
-        ? [
-          `What is the best ${industry||'service'} company in ${city}?`,
-          `Who are the top ${industry||'service'} providers in ${city}?`,
-          `Best ${industry||'service'} recommendations in ${city}`
-        ]
-        : [
-          `What is the best ${industry||'service'} company?`,
-          `Who are the top ${industry||'service'} providers?`,
-          `Best ${industry||'service'} recommendations`
-        ],
+      competitors: safeComps,
+      nearbyAreas: safeNearby,
+      queries: safeQueries,
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
       citations: {}, notes: {}, schedule: null
     };
