@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trackly — Dashboard Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f8f9fb;--bg2:#ffffff;--bg3:#f1f3f5;--bg4:#e9ecef;
+  --border:#e2e5ea;--text:#1a1a2e;--muted:#6b7280;
+  --green:#10b981;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;
+  --purple:#8b5cf6;
+  --primary:#FF6154;--primary-hover:#e8503f;
+  --primary-light:rgba(255,97,84,.08);--primary-border:rgba(255,97,84,.2);
+  --text-primary:#1a1a2e;--text-secondary:#4a5568;--text-inverse:#ffffff;
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono','SF Mono','Fira Code',monospace;
+  --radius:12px;--radius-sm:8px;--radius-xs:6px;
+  --app-shadow:0 1px 3px rgba(0,0,0,.04),0 1px 2px rgba(0,0,0,.02);
+  --app-shadow-lg:0 4px 16px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.03);
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+
+/* Layout */
+.preview-layout{display:grid;grid-template-columns:220px 1fr;grid-template-rows:52px 1fr;height:100vh;}
+.topbar{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);z-index:10;
+}
+.topbar-left{display:flex;align-items:center;gap:16px;}
+.logo{font-size:20px;font-weight:800;letter-spacing:-1px;color:var(--text);}
+.logo span{color:var(--primary);}
+.brand-select{
+  padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);
+  font-family:var(--font);font-size:12px;background:var(--bg);color:var(--text);
+}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.user-badge{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.plan-badge{
+  font-family:var(--mono);font-size:9px;font-weight:700;
+  padding:3px 10px;border-radius:100px;cursor:pointer;
+  background:var(--primary-light);color:var(--primary);border:1px solid var(--primary-border);
+}
+.logout-btn{font-family:var(--mono);font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px 8px;}
+
+/* Sidebar */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:8px;}
+.nav-group{
+  padding:14px 12px 6px;font-family:var(--font);
+  font-size:10px;font-weight:700;
+  color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;
+}
+.nav-item{
+  display:block;width:100%;padding:9px 14px;
+  font-size:13px;font-weight:500;color:var(--text-secondary);
+  background:none;border:none;text-align:left;
+  cursor:pointer;font-family:var(--font);
+  transition:all .15s;border-radius:var(--radius-xs);margin-bottom:1px;
+}
+.nav-item:hover{color:var(--text-primary);background:var(--bg3);}
+.nav-item.active{color:var(--primary);background:var(--primary-light);font-weight:600;}
+.nav-item.run-btn-nav{
+  color:var(--text-inverse);background:var(--primary);border:none;
+  margin:8px 4px 4px;width:calc(100% - 8px);
+  text-align:center;padding:10px;
+  font-family:var(--font);font-size:12px;font-weight:700;
+  letter-spacing:.3px;border-radius:var(--radius-xs);
+  box-shadow:0 1px 3px rgba(255,97,84,.2);
+}
+.nav-item.run-btn-nav:hover{background:var(--primary-hover);transform:translateY(-1px);}
+
+/* Main content */
+.main{overflow-y:auto;background:var(--bg);padding:16px 32px 32px;max-width:1100px;}
+.view-title{font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;color:var(--text);}
+.view-sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+.card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:22px;margin-bottom:14px;border-radius:var(--radius);
+  box-shadow:var(--app-shadow);transition:all .2s;
+}
+.card:hover{box-shadow:var(--app-shadow-lg);}
+.card-title{
+  font-family:var(--font);font-size:12px;font-weight:700;
+  letter-spacing:.5px;color:var(--muted);
+  text-transform:uppercase;margin-bottom:14px;
+}
+
+/* New / Changed badge */
+.badge-new{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--green);color:#fff;letter-spacing:.5px;
+}
+.badge-moved{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--blue);color:#fff;letter-spacing:.5px;
+}
+.badge-merged{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--purple);color:#fff;letter-spacing:.5px;
+}
+
+/* Overview components */
+.ov-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+.ov-hero{
+  display:flex;align-items:center;gap:32px;
+  background:var(--bg2);border:1px solid var(--border);
+  padding:24px;border-radius:var(--radius);margin-bottom:14px;
+  box-shadow:var(--app-shadow);
+}
+.ov-hero-sov{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.ov-hero-sov-ring{position:relative;width:120px;height:120px;}
+.ov-ring-svg{width:100%;height:100%;}
+.ov-ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ov-ring-pct{font-family:var(--mono);font-size:28px;font-weight:800;color:var(--text);}
+.ov-ring-diff{font-family:var(--mono);font-size:11px;font-weight:700;}
+.ov-hero-sov-label{font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:8px;}
+.ov-hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:20px;flex:1;}
+.ov-hero-stat{text-align:center;padding:12px 0;}
+.ov-hero-stat-val{font-family:var(--mono);font-size:22px;font-weight:800;margin-bottom:4px;}
+.ov-hero-stat-lbl{font-family:var(--font);font-size:10px;font-weight:600;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;}
+
+.ov-plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
+.ov-plat-card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:16px;border-radius:var(--radius-sm);text-align:center;
+  box-shadow:var(--app-shadow);transition:all .2s;
+}
+.ov-plat-card:hover{box-shadow:var(--app-shadow-lg);}
+.ov-plat-name{font-size:11px;font-weight:700;margin-bottom:6px;}
+.ov-plat-status{font-family:var(--mono);font-size:9px;margin-bottom:8px;}
+.ov-plat-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:4px;}
+.ov-plat-bar-fill{height:100%;border-radius:2px;transition:width .5s;}
+.ov-plat-sov{font-family:var(--mono);font-size:14px;font-weight:800;}
+
+.ov-card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:22px;margin-bottom:14px;border-radius:var(--radius);
+  box-shadow:var(--app-shadow);
+}
+.ov-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.ov-card-title{font-family:var(--font);font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;}
+.ov-card-sub{font-family:var(--font);font-size:11px;color:var(--muted);}
+
+.ov-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.ov-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+
+.ov-scores-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+
+/* Alerts strip */
+.alerts-strip{
+  display:flex;gap:10px;margin-bottom:14px;overflow-x:auto;
+}
+.alert-chip{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);white-space:nowrap;min-width:0;flex-shrink:0;
+  box-shadow:var(--app-shadow);transition:all .2s;
+}
+.alert-chip:hover{box-shadow:var(--app-shadow-lg);}
+.alert-chip.warn{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.04);}
+.alert-chip.danger{border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.04);}
+.alert-chip.info{border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.04);}
+.alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.alert-text{font-size:12px;font-weight:600;color:var(--text);}
+.alert-time{font-family:var(--mono);font-size:9px;color:var(--muted);}
+
+/* Compare toggle */
+.compare-toggle{
+  display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-xs);
+  overflow:hidden;font-family:var(--mono);font-size:10px;
+}
+.compare-toggle button{
+  padding:5px 12px;border:none;background:var(--bg);color:var(--muted);
+  cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:600;
+  transition:all .15s;
+}
+.compare-toggle button:hover{color:var(--text);}
+.compare-toggle button.active{background:var(--primary);color:#fff;}
+
+/* Scheduled run */
+.next-run-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;background:rgba(16,185,129,.06);
+  border:1px solid rgba(16,185,129,.2);border-radius:100px;
+  font-family:var(--mono);font-size:10px;color:var(--green);font-weight:600;
+}
+
+/* Preview banner */
+.preview-banner{
+  background:linear-gradient(135deg,var(--primary),var(--purple));
+  color:#fff;padding:12px 24px;text-align:center;
+  font-family:var(--font);font-size:13px;font-weight:600;
+  letter-spacing:.3px;
+}
+.preview-banner a{color:#fff;text-decoration:underline;margin-left:8px;}
+
+/* Score card */
+.score-card{
+  background:var(--bg2);border:1px solid var(--border);
+  padding:20px;border-radius:var(--radius);text-align:center;
+  box-shadow:var(--app-shadow);transition:all .2s;
+}
+.score-card:hover{box-shadow:var(--app-shadow-lg);}
+.score-val{font-family:var(--mono);font-size:32px;font-weight:800;margin-bottom:2px;}
+.score-label{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;}
+.score-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:6px;}
+.score-bar-fill{height:100%;border-radius:2px;}
+.score-status{font-family:var(--mono);font-size:10px;font-weight:600;}
+
+/* Query perf bars */
+.qbar-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bg3);}
+.qbar-label{font-size:12px;min-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qbar-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.qbar-fill{height:100%;border-radius:3px;}
+.qbar-val{font-family:var(--mono);font-size:11px;font-weight:700;min-width:40px;text-align:right;}
+
+/* Competitor chips */
+.comp-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;background:var(--bg3);border:1px solid var(--border);
+  border-radius:100px;font-size:12px;font-weight:600;margin:3px;
+}
+.comp-count{font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+@media(max-width:768px){
+  .preview-layout{grid-template-columns:1fr;grid-template-rows:52px auto 1fr;}
+  .sidebar{max-height:300px;border-right:none;border-bottom:1px solid var(--border);}
+  .ov-hero{flex-direction:column;gap:16px;padding:18px;}
+  .ov-scores-row,.ov-grid-2,.ov-grid-3{grid-template-columns:1fr;}
+  .main{padding:12px 16px 32px;}
+}
+</style>
+</head>
+<body>
+
+<div class="preview-banner">
+  PREVIEW MODE — This is how your reorganized dashboard will look.
+</div>
+
+<div class="preview-layout">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">Track<span>ly</span></div>
+      <select class="brand-select">
+        <option>Acme HVAC Services</option>
+        <option>+ Add Brand</option>
+      </select>
+    </div>
+    <div class="topbar-right">
+      <span class="user-badge">owner@acmehvac.com</span>
+      <span class="plan-badge">OWNER</span>
+      <button class="logout-btn">LOGOUT</button>
+    </div>
+  </div>
+
+  <!-- Sidebar — REORGANIZED -->
+  <div class="sidebar">
+    <button class="nav-item run-btn-nav">&#9654; RUN QUERIES</button>
+
+    <div class="nav-group">Dashboard</div>
+    <button class="nav-item active" onclick="showView('overview')">&#9672; Overview</button>
+    <button class="nav-item" onclick="showView('mentions')">&#9678; Mentions</button>
+    <button class="nav-item" onclick="showView('recommendations')">&#10022; Recommendations <span class="badge-moved">MOVED</span></button>
+
+    <div class="nav-group">Analysis</div>
+    <button class="nav-item" onclick="showView('proof')">&#9670; Evidence &amp; Proof <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="showView('qperf')">&#9723; Query Performance</button>
+    <button class="nav-item" onclick="showView('promptdetails')">&#9671; Prompt Details <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="showView('trends')">&#9670; SOV Trends</button>
+    <button class="nav-item" onclick="showView('competitors')">&#8856; Competitors</button>
+    <button class="nav-item" onclick="showView('citations')">&#11044; Citation Analysis <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="showView('accuracy')">&#9678; Accuracy Monitor <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="showView('platforms')">&#11177; Platform Status</button>
+
+    <div class="nav-group">Tools</div>
+    <button class="nav-item" onclick="showView('copilot')">&#9672; Copilot</button>
+
+    <div class="nav-group">Settings</div>
+    <button class="nav-item" onclick="showView('setup')">&#9881; Brand Setup</button>
+    <button class="nav-item" onclick="showView('alerts')">&#9889; Alerts &amp; Notifications <span class="badge-merged">MERGED</span></button>
+    <button class="nav-item" onclick="showView('team')">&#9678; Team Members</button>
+    <button class="nav-item" onclick="showView('billing')">&#9723; Billing</button>
+    <button class="nav-item" onclick="showView('account')">&#9673; Account &amp; Plan</button>
+    <button class="nav-item" onclick="showView('activitylog')">&#9670; Activity &amp; Logs <span class="badge-merged">MERGED</span></button>
+    <button class="nav-item" style="color:var(--amber);">&#9873; Admin Panel</button>
+  </div>
+
+  <!-- Main Content — OVERVIEW with new features -->
+  <div class="main" id="main-content">
+
+    <!-- ==================== OVERVIEW VIEW ==================== -->
+    <div id="view-overview">
+      <!-- Header -->
+      <div class="ov-header">
+        <div>
+          <div class="view-title">Acme HVAC Services</div>
+          <div class="view-sub" style="margin-bottom:0;">HVAC &middot; Austin TX &middot; Last run 2h ago</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <!-- NEW: Next scheduled run -->
+          <div class="next-run-badge">
+            <span>&#9200;</span> Next run in 4h 12m
+          </div>
+          <!-- NEW: Compare toggle -->
+          <div class="compare-toggle">
+            <button class="active">Current</button>
+            <button>vs Last Week</button>
+            <button>vs Last Month</button>
+          </div>
+          <select class="brand-select" style="width:150px;">
+            <option>All Sections</option>
+            <option>Founder View</option>
+            <option>SEO Manager</option>
+            <option>Agency View</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- NEW: Recent Alerts Strip -->
+      <div class="alerts-strip">
+        <div class="alert-chip danger">
+          <div class="alert-dot" style="background:var(--red);"></div>
+          <div>
+            <div class="alert-text">SOV dropped below 20% on Gemini</div>
+            <div class="alert-time">2 hours ago</div>
+          </div>
+        </div>
+        <div class="alert-chip warn">
+          <div class="alert-dot" style="background:var(--amber);"></div>
+          <div>
+            <div class="alert-text">Visibility down 15% on Perplexity</div>
+            <div class="alert-time">5 hours ago</div>
+          </div>
+        </div>
+        <div class="alert-chip info">
+          <div class="alert-dot" style="background:var(--blue);"></div>
+          <div>
+            <div class="alert-text">New competitor "CoolAir Pro" detected</div>
+            <div class="alert-time">1 day ago</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SOV Hero -->
+      <div class="ov-hero">
+        <div class="ov-hero-sov">
+          <div class="ov-hero-sov-ring">
+            <svg viewBox="0 0 120 120" class="ov-ring-svg">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" stroke-width="8"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--green)" stroke-width="8" stroke-dasharray="326.7" stroke-dashoffset="98" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="ov-ring-label">
+              <span class="ov-ring-pct">72%</span>
+              <span class="ov-ring-diff" style="color:var(--green);">&#8593; 4%</span>
+            </div>
+          </div>
+          <div class="ov-hero-sov-label">Share of Voice</div>
+        </div>
+        <div class="ov-hero-stats">
+          <div class="ov-hero-stat">
+            <div class="ov-hero-stat-val">18<span style="font-size:14px;color:var(--muted);font-weight:400;">/25</span></div>
+            <div class="ov-hero-stat-lbl">Mentions / Total</div>
+          </div>
+          <div class="ov-hero-stat">
+            <div class="ov-hero-stat-val" style="color:var(--green);">6<span style="font-size:14px;color:var(--muted);font-weight:400;">/7</span></div>
+            <div class="ov-hero-stat-lbl">Platforms Active</div>
+          </div>
+          <div class="ov-hero-stat">
+            <div class="ov-hero-stat-val">12</div>
+            <div class="ov-hero-stat-lbl">Queries Tracked</div>
+          </div>
+          <div class="ov-hero-stat">
+            <div class="ov-hero-stat-val" style="color:var(--green);">2h</div>
+            <div class="ov-hero-stat-lbl">Last Run</div>
+          </div>
+          <div class="ov-hero-stat">
+            <div class="ov-hero-stat-val">47s</div>
+            <div class="ov-hero-stat-lbl">Run Duration</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Health -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>
+        <span style="font-weight:600;">All Systems Healthy</span>
+        <span style="color:var(--muted);font-family:var(--mono);font-size:10px;">6 platforms healthy &middot; 25 ok &middot; 0 errors</span>
+      </div>
+
+      <!-- Scores Row -->
+      <div class="ov-scores-row">
+        <div class="score-card">
+          <div class="score-val" style="color:var(--green);">78</div>
+          <div class="score-label">GEO Score</div>
+          <div class="score-bar"><div class="score-bar-fill" style="width:78%;background:var(--green);"></div></div>
+          <div class="score-status" style="color:var(--green);">Strong</div>
+        </div>
+        <div class="score-card">
+          <div class="score-val" style="color:var(--blue);">85</div>
+          <div class="score-label">AI Sentiment</div>
+          <div class="score-bar"><div class="score-bar-fill" style="width:85%;background:var(--blue);"></div></div>
+          <div class="score-status" style="color:var(--blue);">+14 positive &middot; ~8 neutral &middot; -3 negative</div>
+        </div>
+        <div class="score-card">
+          <div class="score-val" style="color:var(--purple);">64</div>
+          <div class="score-label">AI Recommends You</div>
+          <div class="score-bar"><div class="score-bar-fill" style="width:64%;background:var(--purple);"></div></div>
+          <div class="score-status" style="color:var(--purple);">Moderate Endorsement</div>
+        </div>
+      </div>
+
+      <!-- Category SOV -->
+      <div class="ov-grid-3">
+        <div class="score-card">
+          <div class="score-val" style="font-size:24px;color:var(--blue);">68%</div>
+          <div class="score-label">Chat AI SOV</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">ChatGPT, Claude, Grok, DeepSeek</div>
+        </div>
+        <div class="score-card">
+          <div class="score-val" style="font-size:24px;color:var(--amber);">76%</div>
+          <div class="score-label">Search AI SOV</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">Perplexity, Google AIO, Gemini</div>
+        </div>
+        <div class="score-card">
+          <div class="score-val" style="font-size:24px;color:var(--green);">92%</div>
+          <div class="score-label">Best Platform</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">Perplexity</div>
+        </div>
+      </div>
+
+      <!-- Insights -->
+      <div class="ov-card" style="border-color:rgba(99,102,241,.2);background:rgba(99,102,241,.02);">
+        <div class="ov-card-head">
+          <div class="ov-card-title" style="color:var(--purple);">Actionable Insights</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px;">
+            <span style="color:var(--amber);font-size:14px;">&#9888;</span>
+            <div><strong>Platform Gap:</strong> <span style="color:var(--muted);">You're visible on Perplexity (92%) but only 18% on Gemini. Consider optimizing content for Gemini's ranking factors.</span></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px;">
+            <span style="color:var(--green);font-size:14px;">&#10004;</span>
+            <div><strong>Growing Presence:</strong> <span style="color:var(--muted);">SOV increased 4% since last run. Keep building authoritative content.</span></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px;">
+            <span style="color:var(--red);font-size:14px;">&#9679;</span>
+            <div><strong>3 negative sentiment responses</strong> <span style="color:var(--muted);">detected. Review in Evidence & Proof to understand context.</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Platform Cards Grid -->
+      <div class="ov-plat-grid" id="plat-grid"></div>
+
+      <!-- SOV Trend -->
+      <div class="ov-card">
+        <div class="ov-card-head">
+          <div class="ov-card-title">SOV Trend</div>
+          <div class="ov-card-sub">Last 14 runs</div>
+        </div>
+        <div style="height:140px;display:flex;align-items:end;gap:6px;padding:0 4px;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.4;" id="bar1"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 4</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.5;" id="bar2"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 6</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.5;" id="bar3"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 8</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.6;" id="bar4"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 10</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.6;" id="bar5"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 12</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.7;" id="bar6"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 14</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;opacity:.8;" id="bar7"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">Mar 16</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;" id="bar8"></div>
+            <span style="font-family:var(--mono);font-size:8px;color:var(--primary);font-weight:700;">Mar 18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Query Perf + Competitors -->
+      <div class="ov-grid-2">
+        <div class="ov-card">
+          <div class="ov-card-head">
+            <div class="ov-card-title">Query Performance</div>
+            <div class="ov-card-sub">Avg 72%</div>
+          </div>
+          <div id="qperf-bars"></div>
+        </div>
+        <div class="ov-card">
+          <div class="ov-card-head">
+            <div class="ov-card-title">Competitors in AI</div>
+          </div>
+          <div id="comp-chips"></div>
+        </div>
+      </div>
+
+      <!-- Citation Sources -->
+      <div class="ov-card">
+        <div class="ov-card-head">
+          <div class="ov-card-title">Citation Sources</div>
+          <div class="ov-card-sub">8 domains &middot; 34 total citations</div>
+        </div>
+        <div id="citation-bars"></div>
+      </div>
+    </div>
+
+    <!-- ==================== OTHER VIEWS (placeholder) ==================== -->
+    <div id="view-mentions" style="display:none;">
+      <div class="view-title">AI Mentions</div>
+      <div class="view-sub">Track how AI platforms mention your brand across all queries.</div>
+      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">Preview — This page already exists in your app. No changes here.</div>
+    </div>
+    <div id="view-recommendations" style="display:none;">
+      <div class="view-title">Recommendations</div>
+      <div class="view-sub">AI-powered suggestions to improve your visibility.</div>
+      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">Moved from Advanced to Dashboard — more accessible for daily use.</div>
+    </div>
+    <div id="view-proof" style="display:none;">
+      <div class="view-title">Evidence &amp; Proof</div>
+      <div class="view-sub">Verifiable AI responses with real data.</div>
+      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">Moved from Dashboard to Analysis — it's detailed data analysis, not a quick-glance view.</div>
+    </div>
+    <div id="view-alerts" style="display:none;">
+      <div class="view-title">Alerts &amp; Notifications</div>
+      <div class="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
+      <div class="card">
+        <div class="card-title">Alert Rules</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:12px 0;">SOV Below 20% &middot; Visibility Drop 15% &middot; Brand Disappeared</div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">Email Report Schedule</div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px;">
+          <select class="brand-select" style="width:150px;"><option>Weekly</option><option>Monthly</option><option>Off</option></select>
+          <button style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">SAVE</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">Recent Notifications</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Notification history would appear here.</div>
+      </div>
+      <div class="card" style="margin-top:0;padding:20px;text-align:center;color:var(--purple);font-family:var(--mono);font-size:11px;border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.03);">
+        Merged: Alerts + Notifications into one unified page.
+      </div>
+    </div>
+    <div id="view-activitylog" style="display:none;">
+      <div class="view-title">Activity &amp; Logs</div>
+      <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
+      <div class="card">
+        <div class="card-title">Account Activity</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Login, password changes, brand modifications, 2FA events...</div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">API Call Logs</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Server-side API logs, errors, response times, costs...</div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">API Key Status</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">2</span> OpenAI keys</div>
+          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">1</span> Perplexity key</div>
+          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">1</span> Claude key</div>
+          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">1</span> Gemini key</div>
+          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--red);font-weight:700;">0</span> Grok keys</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0;padding:20px;text-align:center;color:var(--purple);font-family:var(--mono);font-size:11px;border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.03);">
+        Merged: Activity Log + API Logs into one unified page.
+      </div>
+    </div>
+
+    <!-- Generic placeholder for other views -->
+    <div id="view-generic" style="display:none;">
+      <div class="view-title" id="generic-title">Page</div>
+      <div class="view-sub" id="generic-sub">No changes to this page.</div>
+      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">
+        This page already exists in your app. No layout changes proposed.
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// Platform data
+const platforms = [
+  { name: 'ChatGPT', color: '#10a37f', sov: 75, active: true },
+  { name: 'Perplexity', color: '#20b8cd', sov: 92, active: true },
+  { name: 'Claude', color: '#cc9b7a', sov: 80, active: true },
+  { name: 'Gemini', color: '#4285f4', sov: 18, active: true },
+  { name: 'Grok', color: '#1d9bf0', sov: 65, active: true },
+  { name: 'Google AIO', color: '#ea4335', sov: 71, active: true },
+  { name: 'DeepSeek', color: '#667eea', sov: 0, active: false }
+];
+
+// Render platform cards
+const grid = document.getElementById('plat-grid');
+platforms.forEach(p => {
+  const barColor = p.sov >= 50 ? 'var(--green)' : p.sov > 0 ? 'var(--amber)' : 'var(--bg4)';
+  grid.innerHTML += `<div class="ov-plat-card">
+    <div class="ov-plat-name" style="color:${p.color};">${p.name}</div>
+    <div class="ov-plat-status" style="color:${p.active?'var(--green)':'var(--muted)'};">${p.active?'● ACTIVE':'○ INACTIVE'}</div>
+    <div class="ov-plat-bar"><div class="ov-plat-bar-fill" style="width:${p.sov}%;background:${barColor};"></div></div>
+    <div class="ov-plat-sov" style="color:${p.color};">${p.sov}%</div>
+  </div>`;
+});
+
+// Render query perf
+const queries = [
+  { q: 'Best HVAC company in Austin TX', pct: 92 },
+  { q: 'Top rated AC repair near me', pct: 83 },
+  { q: 'Emergency heating repair Austin', pct: 75 },
+  { q: 'HVAC installation cost Texas', pct: 67 },
+  { q: 'Who fixes air conditioning Austin', pct: 58 },
+  { q: 'Affordable furnace repair', pct: 42 },
+];
+const qEl = document.getElementById('qperf-bars');
+queries.forEach(q => {
+  const c = q.pct >= 50 ? 'var(--green)' : q.pct > 0 ? 'var(--amber)' : 'var(--red)';
+  qEl.innerHTML += `<div class="qbar-row"><span class="qbar-label">${q.q}</span><div class="qbar-track"><div class="qbar-fill" style="width:${q.pct}%;background:${c};"></div></div><span class="qbar-val" style="color:${c};">${q.pct}%</span></div>`;
+});
+
+// Render competitors
+const comps = [
+  { name: 'ABC Cooling Co', count: 14 },
+  { name: 'Texas Climate Pros', count: 11 },
+  { name: 'CoolAir Pro', count: 9 },
+  { name: 'Reliable HVAC', count: 7 },
+  { name: 'AirFlow Masters', count: 5 },
+];
+const cEl = document.getElementById('comp-chips');
+comps.forEach(c => {
+  cEl.innerHTML += `<span class="comp-chip">${c.name} <span class="comp-count">${c.count}x</span></span>`;
+});
+
+// Render citations
+const cites = [
+  { domain: 'acmehvac.com', count: 12, own: true },
+  { domain: 'yelp.com', count: 8 },
+  { domain: 'bbb.org', count: 5 },
+  { domain: 'homeadvisor.com', count: 4 },
+  { domain: 'angi.com', count: 3 },
+  { domain: 'reddit.com', count: 2 },
+];
+const citEl = document.getElementById('citation-bars');
+const maxCite = cites[0].count;
+cites.forEach(c => {
+  const pct = (c.count / maxCite * 100);
+  citEl.innerHTML += `<div class="qbar-row"><span class="qbar-label">${c.own?'<span style="color:var(--amber);">★</span> ':''}${c.domain}</span><div class="qbar-track"><div class="qbar-fill" style="width:${pct}%;background:${c.own?'var(--amber)':'var(--blue)'};"></div></div><span class="qbar-val" style="color:var(--muted);">${c.count}</span></div>`;
+});
+
+// SOV trend bars
+const sovData = [48, 52, 55, 58, 60, 64, 68, 72];
+sovData.forEach((v, i) => {
+  document.getElementById('bar' + (i+1)).style.height = (v / 100 * 120) + 'px';
+});
+
+// View switching
+const viewDescriptions = {
+  qperf: ['Query Performance', 'Monitor mention rates for every tracked keyword.'],
+  promptdetails: ['Prompt Details', 'Deep analytics per query — moved from Advanced to Analysis.'],
+  trends: ['SOV Trends', 'Share of Voice over time.'],
+  competitors: ['Competitors', 'Track competitor mentions alongside your brand.'],
+  citations: ['Citation Analysis', 'Which sources AI cites — moved from Advanced to Analysis.'],
+  accuracy: ['Accuracy Monitor', 'Verify AI response accuracy — moved from Advanced to Analysis.'],
+  platforms: ['Platform Status', 'SOV per platform and API health.'],
+  copilot: ['Copilot', 'AI assistant for visibility strategy.'],
+  setup: ['Brand Setup', 'Configure brand details.'],
+  team: ['Team Members', 'Manage team access.'],
+  billing: ['Billing', 'Manage subscription.'],
+  account: ['Account & Plan', 'Account info, 2FA, model settings, export.'],
+};
+
+function showView(view) {
+  // Hide all views
+  document.querySelectorAll('[id^="view-"]').forEach(v => v.style.display = 'none');
+  // Deactivate nav
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  // Activate clicked nav
+  event.target.classList.add('active');
+
+  const specific = document.getElementById('view-' + view);
+  if (specific) {
+    specific.style.display = 'block';
+  } else if (viewDescriptions[view]) {
+    const g = document.getElementById('view-generic');
+    document.getElementById('generic-title').textContent = viewDescriptions[view][0];
+    document.getElementById('generic-sub').textContent = viewDescriptions[view][1];
+    g.style.display = 'block';
+  } else {
+    const g = document.getElementById('view-generic');
+    document.getElementById('generic-title').textContent = view.charAt(0).toUpperCase() + view.slice(1);
+    document.getElementById('generic-sub').textContent = 'No changes to this page.';
+    g.style.display = 'block';
+  }
+  document.getElementById('main-content').scrollTop = 0;
+}
+
+// Compare toggle
+document.querySelectorAll('.compare-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.compare-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
