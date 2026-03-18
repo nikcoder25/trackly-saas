@@ -2778,7 +2778,7 @@ async function aiGenerateQueries(){
 
 // ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
 let mentionsPage = 0;
-const MENTIONS_PER_PAGE = 15;
+let MENTIONS_PER_PAGE = 15;
 
 let mentionsPlatFilter = 'all';
 let mentionsExpandedRow = null;
@@ -2965,6 +2965,10 @@ function renderMentions(){
     return;
   }
 
+  // Sync per-page selector
+  const ppSel = el('mentions-perpage');
+  if (ppSel && +ppSel.value !== MENTIONS_PER_PAGE) ppSel.value = MENTIONS_PER_PAGE;
+
   const pages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
   if (mentionsPage >= pages) mentionsPage = pages - 1;
   if (mentionsPage < 0) mentionsPage = 0;
@@ -3056,14 +3060,18 @@ function renderMentions(){
 
   // ── Pagination ──
   if (pages > 1) {
+    const ps = Math.max(0, Math.min(mentionsPage - 2, pages - 5));
+    const pe = Math.min(pages - 1, ps + 4);
     html += `<div class="mt-pager">
-      <span class="mt-pager-info">${from+1}–${Math.min(from+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length}</span>
+      <span class="mt-pager-info">Showing ${from+1}–${Math.min(from+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results</span>
       <div class="mt-pager-btns">`;
-    if (mentionsPage > 0) html += `<button class="mt-pg" onclick="mentionsPage=0;mentionsExpandedRow=null;renderMentions()">«</button><button class="mt-pg" onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()">‹</button>`;
-    const ps = Math.max(0,mentionsPage-2), pe = Math.min(pages-1,ps+4);
+    if (mentionsPage > 0) html += `<button class="mt-pg" onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()" title="Previous">‹</button>`;
     for (let p=ps;p<=pe;p++) html += `<button class="mt-pg ${p===mentionsPage?'mt-pg-cur':''}" onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()">${p+1}</button>`;
-    if (mentionsPage < pages-1) html += `<button class="mt-pg" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()">›</button><button class="mt-pg" onclick="mentionsPage=${pages-1};mentionsExpandedRow=null;renderMentions()">»</button>`;
+    if (mentionsPage < pages-1) html += `<button class="mt-pg" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()" title="Next">›</button>`;
+    if (mentionsPage < pages-2) html += `<button class="mt-pg" onclick="mentionsPage=${pages-1};mentionsExpandedRow=null;renderMentions()" title="Last page">»</button>`;
     html += `</div></div>`;
+  } else if (filtered.length) {
+    html += `<div class="mt-pager"><span class="mt-pager-info">Showing all ${filtered.length} results</span></div>`;
   }
 
   cont.innerHTML = html;

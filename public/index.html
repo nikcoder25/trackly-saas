@@ -930,6 +930,17 @@
             <option value="errors">Errors Only</option>
           </select>
           <input class="finput mt-search" id="mentions-search" type="text" placeholder="Filter by keyword..." oninput="mentionsPage=0;renderMentions()">
+          <div class="mt-perpage">
+            <label class="mt-perpage-label" for="mentions-perpage">Show</label>
+            <select class="finput mt-perpage-sel" id="mentions-perpage" onchange="MENTIONS_PER_PAGE=+this.value;mentionsPage=0;mentionsExpandedRow=null;renderMentions()">
+              <option value="10">10</option>
+              <option value="15" selected>15</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span class="mt-perpage-suffix">per page</span>
+          </div>
         </div>
       </div>
       <!-- Results -->
