@@ -1385,11 +1385,11 @@ select.finput{appearance:none;}
 }
 
 /* ── ALERTS STRIP ─────────────────────── */
-.alerts-strip{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.alerts-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
 .alert-chip{
   display:flex;align-items:center;gap:8px;
   padding:10px 16px;background:var(--bg2);border:1px solid var(--border);
-  border-radius:var(--radius-sm);min-width:0;flex:1 1 0;
+  border-radius:var(--radius-sm);min-width:0;
   box-shadow:var(--app-shadow);transition:all .2s;
 }
 .alert-chip:hover{box-shadow:var(--app-shadow-lg);}
@@ -1748,7 +1748,7 @@ input.brand-select{padding:7px 10px;}
   .ov-plat-grid{grid-template-columns:repeat(2,1fr);}
   .ov-loc-grid{grid-template-columns:1fr;}
   .ov-cit-domain{width:140px;}
-  .alerts-strip{flex-direction:column;}
+  .alerts-strip{grid-template-columns:1fr;}
 }
 
 .hamburger-btn{display:none;}
