@@ -21,6 +21,11 @@ if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET && process.e
   console.error('  Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
   process.exit(1);
 }
+if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
+  console.warn('[WARN] ENCRYPTION_KEY not set in production — falling back to JWT_SECRET.');
+  console.warn('       Rotating JWT_SECRET will make ALL encrypted API keys UNRECOVERABLE.');
+  console.warn('       Set ENCRYPTION_KEY: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+}
 
 const express      = require('express');
 const cors         = require('cors');

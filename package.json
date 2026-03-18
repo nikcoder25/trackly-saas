@@ -8,7 +8,8 @@
     "dev": "node server.js",
     "build": "npm run build:js && npm run build:css",
     "build:js": "terser public/js/app.js -o public/js/app.min.js -c -m --source-map",
-    "build:css": "cleancss -o public/css/styles.min.css public/css/styles.css"
+    "build:css": "cleancss -o public/css/styles.min.css public/css/styles.css",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dodopayments/express": "^0.2.6",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "clean-css-cli": "^5.6.3",
-    "terser": "^5.46.1"
+    "terser": "^5.46.1",
+    "vitest": "^4.1.0"
   }
 }

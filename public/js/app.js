@@ -76,9 +76,46 @@ let runningQueries = false;
 let liveResults = [];     // Accumulates results during streaming
 let liveRunTime = null;   // Timestamp of current live run
 
+// ── API RESPONSE CACHE (client-side) ──────────────────────────────
+const _apiCache = new Map();
+const API_CACHE_TTL = 30000; // 30s default TTL
+
+function cachedApi(method, url, body, ttlMs) {
+  if (method !== 'GET') return api(method, url, body);
+  const key = url;
+  const cached = _apiCache.get(key);
+  if (cached && Date.now() - cached.ts < (ttlMs || API_CACHE_TTL)) return Promise.resolve(cached.data);
+  return api(method, url, body).then(data => {
+    _apiCache.set(key, { data, ts: Date.now() });
+    // Evict old entries if cache grows too large
+    if (_apiCache.size > 100) {
+      const oldest = _apiCache.keys().next().value;
+      _apiCache.delete(oldest);
+    }
+    return data;
+  });
+}
+
+function invalidateCache(urlPrefix) {
+  for (const key of _apiCache.keys()) {
+    if (key.startsWith(urlPrefix)) _apiCache.delete(key);
+  }
+}
+
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function debounce(fn, ms) { let t; return function(...a){ clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
+const debouncedFilterMentions = debounce(() => { mentionsPage=0; renderMentions(); }, 250);
+const debouncedFilterAdmin = debounce(filterAdminUsers, 250);
+function skeletonHTML(rows) {
+  rows = rows || 3;
+  let h = '<div class="skeleton-wrap">';
+  for (let i = 0; i < rows; i++) {
+    const w = 40 + Math.random() * 50;
+    h += '<div class="skeleton-line" style="width:' + Math.round(w) + '%;"></div>';
+  }
+  return h + '</div>';
+}
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // Safe brand update — avoids brands[-1] corruption when findIndex returns -1
 function updateBrandInList(updatedBrand) {
@@ -702,7 +739,7 @@ async function initApp(){
   }
 
   // Load brands
-  const data = await api('GET', '/api/brands');
+  const data = await cachedApi('GET', '/api/brands', null, 15000);
   brands = data.brands || [];
 
   // Load notifications
@@ -952,7 +989,7 @@ async function loadModelSettings() {
   try {
     // Load available models
     if (!platformModels) {
-      const resp = await api('GET', '/api/models');
+      const resp = await cachedApi('GET', '/api/models', null, 60000);
       platformModels = resp.models || {};
     }
     // Load current user settings
@@ -1145,6 +1182,7 @@ async function importBrandConfig(fileInput){
       aliases: brandData.aliases || []
     };
     const result = await api('POST', '/api/brands', payload);
+    invalidateCache('/api/brands');
     brands.push(result.brand);
     currentBrandId = result.brand.id;
     localStorage.setItem('trackly_brand', currentBrandId);
@@ -4553,6 +4591,7 @@ async function doAddBrand(){
       website: el('nb-website').value.trim(),
       city: el('nb-city').value.trim()
     });
+    invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
     localStorage.setItem('trackly_brand', currentBrandId);
@@ -4573,6 +4612,7 @@ async function deleteBrand(){
   if (!confirm('Delete brand "'+b.name+'"? This cannot be undone.')) return;
   try {
     await api('DELETE', '/api/brands/'+b.id);
+    invalidateCache('/api/brands');
     brands = brands.filter(x => x.id !== b.id);
     if (brands.length > 0) {
       currentBrandId = brands[0].id;
@@ -6502,7 +6542,7 @@ function applyDashboardPreset(preset){
 // ─── LOADING STATE HELPER ─────────────────────────────────────────
 function showViewLoading(containerId){
   const cont = el(containerId);
-  if (cont) cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);"><div style="font-size:20px;margin-bottom:8px;">⟳</div>Loading...</div>';
+  if (cont) cont.innerHTML = skeletonHTML(3);
 }
 
 // ─── ALERTS CRUD ──────────────────────────────────────────────────
@@ -6758,6 +6798,7 @@ async function doAddBrandWizard(){
     };
     const queryCount = _wizardQueries.length;
     const data = await api('POST', '/api/brands', payload);
+    invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
     localStorage.setItem('trackly_brand', currentBrandId);
@@ -6831,7 +6872,7 @@ document.addEventListener('keydown', e => {
   // Try auto-login via httpOnly cookie
   el('landing-page').style.display = 'none';
   try {
-    const data = await api('GET', '/api/auth/me');
+    const data = await cachedApi('GET', '/api/auth/me', null, 30000);
     currentUser = data.user;
     await initApp();
   } catch(e) {

@@ -946,7 +946,7 @@
           <option value="recommended">Recommended</option>
           <option value="errors">Errors Only</option>
         </select>
-        <input class="brand-select" id="mentions-search" placeholder="Filter by keyword..." style="width:160px;" oninput="mentionsPage=0;renderMentions()">
+        <input class="brand-select" id="mentions-search" placeholder="Filter by keyword..." style="width:160px;" oninput="debouncedFilterMentions()">
       </div>
       <div id="mentions-container"></div>
     </div>
@@ -1465,7 +1465,7 @@
               <option value="admin">Admin</option>
               <option value="user">User</option>
             </select>
-            <input class="finput" id="admin-search" type="text" placeholder="Search by name or email..." style="margin:0;width:260px;padding:6px 10px;font-size:12px;" oninput="filterAdminUsers()">
+            <input class="finput" id="admin-search" type="text" placeholder="Search by name or email..." style="margin:0;width:260px;padding:6px 10px;font-size:12px;" oninput="debouncedFilterAdmin()">
             <div style="font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;" id="admin-user-count"></div>
           </div>
         </div>
