@@ -76,9 +76,46 @@ let runningQueries = false;
 let liveResults = [];     // Accumulates results during streaming
 let liveRunTime = null;   // Timestamp of current live run
 
+// ── API RESPONSE CACHE (client-side) ──────────────────────────────
+const _apiCache = new Map();
+const API_CACHE_TTL = 30000; // 30s default TTL
+
+function cachedApi(method, url, body, ttlMs) {
+  if (method !== 'GET') return api(method, url, body);
+  const key = url;
+  const cached = _apiCache.get(key);
+  if (cached && Date.now() - cached.ts < (ttlMs || API_CACHE_TTL)) return Promise.resolve(cached.data);
+  return api(method, url, body).then(data => {
+    _apiCache.set(key, { data, ts: Date.now() });
+    // Evict old entries if cache grows too large
+    if (_apiCache.size > 100) {
+      const oldest = _apiCache.keys().next().value;
+      _apiCache.delete(oldest);
+    }
+    return data;
+  });
+}
+
+function invalidateCache(urlPrefix) {
+  for (const key of _apiCache.keys()) {
+    if (key.startsWith(urlPrefix)) _apiCache.delete(key);
+  }
+}
+
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function debounce(fn, ms) { let t; return function(...a){ clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
+const debouncedFilterMentions = debounce(() => { mentionsPage=0; renderMentions(); }, 250);
+const debouncedFilterAdmin = debounce(filterAdminUsers, 250);
+function skeletonHTML(rows) {
+  rows = rows || 3;
+  let h = '<div class="skeleton-wrap">';
+  for (let i = 0; i < rows; i++) {
+    const w = 40 + Math.random() * 50;
+    h += '<div class="skeleton-line" style="width:' + Math.round(w) + '%;"></div>';
+  }
+  return h + '</div>';
+}
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // Safe brand update — avoids brands[-1] corruption when findIndex returns -1
 function updateBrandInList(updatedBrand) {
@@ -702,7 +739,7 @@ async function initApp(){
   }
 
   // Load brands
-  const data = await api('GET', '/api/brands');
+  const data = await cachedApi('GET', '/api/brands', null, 15000);
   brands = data.brands || [];
 
   // Load notifications
@@ -952,7 +989,7 @@ async function loadModelSettings() {
   try {
     // Load available models
     if (!platformModels) {
-      const resp = await api('GET', '/api/models');
+      const resp = await cachedApi('GET', '/api/models', null, 60000);
       platformModels = resp.models || {};
     }
     // Load current user settings
@@ -1145,6 +1182,7 @@ async function importBrandConfig(fileInput){
       aliases: brandData.aliases || []
     };
     const result = await api('POST', '/api/brands', payload);
+    invalidateCache('/api/brands');
     brands.push(result.brand);
     currentBrandId = result.brand.id;
     localStorage.setItem('trackly_brand', currentBrandId);
@@ -2950,7 +2988,7 @@ function renderOverview(){
           plugins: { legend: { display: false } },
           scales: {
             x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { display: false } },
-            y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+            y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
           }
         }
       });
@@ -2983,6 +3021,7 @@ async function ovAddQuery(){
   const queries = [...(b.queries||[]), q];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     inp.value = '';
@@ -3024,6 +3063,7 @@ async function bulkAddQueries(){
   const queries = [...(b.queries||[]), ...unique];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     el('bulk-query-input').value = '';
@@ -3040,6 +3080,7 @@ async function ovRemoveQuery(i){
   const queries = (b.queries||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     renderOverview();
@@ -3053,6 +3094,7 @@ async function clearAllQueries(){
   if (!confirm('Clear all ' + b.queries.length + ' queries? This cannot be undone.')) return;
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries: [] });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderOverview();
     toast('All queries cleared', 'ok');
@@ -3117,6 +3159,7 @@ function toggleSelectMode() {
                                                                             const queries = (b.queries||[]).filter((_, idx) => !_selectedQueryIndices.has(idx));
                                                                               try {
                                                                                   const data = await api('PUT', '/api/brands/'+b.id, { queries });
+                                                                                      invalidateCache('/api/brands');
                                                                                       const idx = brands.findIndex(x => x.id === b.id);
                                                                                           brands[idx] = data.brand;
                                                                                               _selectedQueryIndices.clear();
@@ -3164,6 +3207,7 @@ async function aiGenerateQueries(){
     if (!pick) return;
     const queries = [...(b.queries||[]), ...newQs];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     updateBrandInList(result.brand);
     renderOverview();
     toast(newQs.length + ' AI-generated queries added', 'ok');
@@ -3644,7 +3688,7 @@ async function renderPlatformStatus(){
   // Fetch platform health from API
   const healthDiv = el('plat-health-cards');
   try {
-    const hData = await api('GET', '/api/meta/platforms');
+    const hData = await cachedApi('GET', '/api/meta/platforms', null, 60000);
     const platformsObj = hData.platforms || {};
     const platformEntries = Object.entries(platformsObj);
     if (platformEntries.length) {
@@ -3923,6 +3967,7 @@ async function addComp(){
   const competitors = [...(b.competitors||[]), v];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     inp.value = '';
     renderCompetitors();
@@ -3937,6 +3982,7 @@ async function removeComp(i){
   const competitors = (b.competitors||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderCompetitors();
     toast('Competitor removed', 'ok');
@@ -4019,8 +4065,8 @@ function _renderTrendsCharts(b) {
       maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
       scales: {
-        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1e25' } },
-        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
+        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
       }
     }
   });
@@ -4051,8 +4097,8 @@ function _renderTrendsCharts(b) {
       maintainAspectRatio: false,
       plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
       scales: {
-        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: '#1a1e25' } },
-        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
+        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
+        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
       }
     }
   });
@@ -4126,6 +4172,7 @@ async function saveWebhook(){
   const url = el('alert-webhook-url').value.trim();
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { webhookUrl: url });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAlerts();
     toast(url ? 'Webhook saved' : 'Webhook removed', 'ok');
@@ -4155,6 +4202,7 @@ async function loadQuerySuggestions(){
     if (!pick) return;
     const queries = [...(b.queries || []), ...newSuggestions];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     updateBrandInList(result.brand);
     renderAll();
     toast(newSuggestions.length + ' queries added', 'ok');
@@ -4341,6 +4389,7 @@ async function addAlias(){
   if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     inp.value = '';
     renderAliasTags();
@@ -4355,6 +4404,7 @@ async function removeAlias(i){
   const aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAliasTags();
     toast('Alias removed', 'ok');
@@ -4373,6 +4423,7 @@ async function autoGenerateAliases(){
   });
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases: newAliases });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAliasTags();
     toast(generated.length + ' aliases generated', 'ok');
@@ -4404,6 +4455,7 @@ async function addArea(){
   if (!nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) nearbyAreas.push(val);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     inp.value = '';
     renderAreaTags();
@@ -4418,6 +4470,7 @@ async function removeArea(i){
   const nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAreaTags();
     toast('Area removed', 'ok');
@@ -4442,6 +4495,7 @@ async function autoFetchNearbyAreas(){
 
     const nearbyAreas = [...(b.nearbyAreas || []), ...newAreas];
     const saveData = await api('PUT', '/api/brands/' + b.id, { nearbyAreas });
+    invalidateCache('/api/brands');
     updateBrandInList(saveData.brand);
     renderAreaTags();
     toast(newAreas.length + ' nearby areas added', 'ok');
@@ -4514,6 +4568,7 @@ async function saveBrandSetup(){
       aliases: b.aliases || [],
       nearbyAreas: b.nearbyAreas || []
     });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x=>x.id===b.id);
     if (idx >= 0) brands[idx] = data.brand;
     renderBrandSelect();
@@ -4553,6 +4608,7 @@ async function doAddBrand(){
       website: el('nb-website').value.trim(),
       city: el('nb-city').value.trim()
     });
+    invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
     localStorage.setItem('trackly_brand', currentBrandId);
@@ -4573,6 +4629,7 @@ async function deleteBrand(){
   if (!confirm('Delete brand "'+b.name+'"? This cannot be undone.')) return;
   try {
     await api('DELETE', '/api/brands/'+b.id);
+    invalidateCache('/api/brands');
     brands = brands.filter(x => x.id !== b.id);
     if (brands.length > 0) {
       currentBrandId = brands[0].id;
@@ -4814,6 +4871,7 @@ async function runQueries(){
 
     // Reload fresh brand data from API (the done event only contains result summary
     // to avoid sending massive payloads that freeze the browser)
+    invalidateCache('/api/brands');
     try {
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
@@ -4909,6 +4967,7 @@ async function runQueries(){
     });
 
     // Reload brand data (emergency save may have stored partial results)
+    invalidateCache('/api/brands');
     try {
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
@@ -5018,6 +5077,7 @@ async function pollRunStatus(brandId, runId, opts) {
             if (statusTxt) statusTxt.style.color = '';
 
             // Reload fresh brand data
+            invalidateCache('/api/brands');
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) {
@@ -5068,6 +5128,7 @@ async function pollRunStatus(brandId, runId, opts) {
             if (fill) { fill.style.width = '0%'; fill.style.background = 'var(--red)'; }
 
             // Reload brand data (emergency save may have stored partial results)
+            invalidateCache('/api/brands');
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
@@ -5147,6 +5208,7 @@ async function checkActiveRun() {
     } else {
       // Run already finished while we were away — just clear and reload
       localStorage.removeItem('trackly_active_run');
+      invalidateCache('/api/brands');
       try {
         const freshData = await api('GET', '/api/brands');
         if (freshData.brands) {
@@ -6502,7 +6564,7 @@ function applyDashboardPreset(preset){
 // ─── LOADING STATE HELPER ─────────────────────────────────────────
 function showViewLoading(containerId){
   const cont = el(containerId);
-  if (cont) cont.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);"><div style="font-size:20px;margin-bottom:8px;">⟳</div>Loading...</div>';
+  if (cont) cont.innerHTML = skeletonHTML(3);
 }
 
 // ─── ALERTS CRUD ──────────────────────────────────────────────────
@@ -6552,6 +6614,7 @@ async function saveAlertRule(){
   };
   try {
     await api('POST', '/api/brands/'+b.id+'/alerts', rule);
+    invalidateCache('/api/brands');
     el('alert-add-form').style.display = 'none';
     toast('Alert rule created','ok');
     renderAlerts();
@@ -6758,6 +6821,7 @@ async function doAddBrandWizard(){
     };
     const queryCount = _wizardQueries.length;
     const data = await api('POST', '/api/brands', payload);
+    invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
     localStorage.setItem('trackly_brand', currentBrandId);
@@ -6831,7 +6895,7 @@ document.addEventListener('keydown', e => {
   // Try auto-login via httpOnly cookie
   el('landing-page').style.display = 'none';
   try {
-    const data = await api('GET', '/api/auth/me');
+    const data = await cachedApi('GET', '/api/auth/me', null, 30000);
     currentUser = data.user;
     await initApp();
   } catch(e) {

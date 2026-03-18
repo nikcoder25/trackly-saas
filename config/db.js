@@ -8,11 +8,13 @@ const log = createLogger('DB');
 // Railway (and many PaaS providers) use self-signed certs for managed PostgreSQL.
 // rejectUnauthorized defaults to false unless explicitly set to 'true'.
 const sslConfig = process.env.DATABASE_URL
-  ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true' }
+  ? { rejectUnauthorized: process.env.NODE_ENV === 'production'
+      ? process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'  // default true in prod
+      : process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true'   // default false in dev
+    }
   : false;
-if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL && process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'true') {
-  console.warn('[WARN] DB_SSL_REJECT_UNAUTHORIZED is not set to "true" in production. TLS certificate validation is disabled, which allows MITM attacks.');
-  console.warn('       Set DB_SSL_REJECT_UNAUTHORIZED=true if your database supports valid SSL certificates.');
+if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL && process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false') {
+  console.warn('[WARN] DB_SSL_REJECT_UNAUTHORIZED is explicitly set to "false" in production. TLS certificate validation is disabled.');
 }
 
 const pool = new Pool({

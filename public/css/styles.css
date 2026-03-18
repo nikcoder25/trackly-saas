@@ -1983,3 +1983,9 @@ input.brand-select{padding:7px 10px;}
 .al-tab:hover{color:var(--text);}
 .al-tab.al-tab-active{color:var(--primary);border-bottom-color:var(--primary);}
 .al-tab-content{}
+
+/* ── SKELETON LOADING ────── */
+.skeleton-wrap{padding:16px;}
+.skeleton-line{height:14px;margin-bottom:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.5s ease-in-out infinite;}
+@keyframes skeleton-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.tab-hidden .skeleton-line{animation:none;}
