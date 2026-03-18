@@ -6069,10 +6069,10 @@ async function renderRecommendations() {
           <div>
             <div style="font-size:13px;font-weight:700;margin-bottom:4px;${isDone ? 'text-decoration:line-through;' : ''}">${esc(r.title)}</div>
             <div style="font-size:12px;color:var(--muted);line-height:1.6;">${esc(r.description || '')}</div>
-            ${r.playbook_id ? `<button class="pbtn" style="font-size:10px;margin-top:8px;" onclick="viewPlaybook('${r.playbook_id}')">View Playbook</button>` : ''}
+            ${r.playbook_id ? `<button class="pbtn" style="font-size:10px;margin-top:8px;" onclick="viewPlaybook('${escAttr(r.playbook_id)}')">View Playbook</button>` : ''}
             <div style="display:flex;gap:6px;margin-top:8px;">
-              ${r.status !== 'done' ? `<button onclick="updateRecommendation('${r.id}','done')" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--green);color:var(--green);padding:3px 8px;cursor:pointer;border-radius:100px;white-space:nowrap;">&#10003; Done</button>` : ''}
-              <select class="brand-select" style="width:100px;font-size:10px;padding:2px 6px;" onchange="updateRecommendation('${r.id}',this.value)">
+              ${r.status !== 'done' ? `<button onclick="updateRecommendation('${escAttr(r.id)}','done')" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--green);color:var(--green);padding:3px 8px;cursor:pointer;border-radius:100px;white-space:nowrap;">&#10003; Done</button>` : ''}
+              <select class="brand-select" style="width:100px;font-size:10px;padding:2px 6px;" onchange="updateRecommendation('${escAttr(r.id)}',this.value)">
                 <option value="open" ${r.status==='open'?'selected':''}>Open</option>
                 <option value="in_progress" ${r.status==='in_progress'?'selected':''}>In Progress</option>
                 <option value="done" ${r.status==='done'?'selected':''}>Done</option>
