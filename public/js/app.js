@@ -3387,11 +3387,12 @@ function renderMentions(){
     return;
   }
 
-  const pages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
+  const effectivePerPage = MENTIONS_PER_PAGE === 0 ? filtered.length : MENTIONS_PER_PAGE;
+  const pages = effectivePerPage > 0 ? Math.ceil(filtered.length / effectivePerPage) : 1;
   if (mentionsPage >= pages) mentionsPage = pages - 1;
   if (mentionsPage < 0) mentionsPage = 0;
-  const from = mentionsPage * MENTIONS_PER_PAGE;
-  const slice = filtered.slice(from, from + MENTIONS_PER_PAGE);
+  const from = mentionsPage * effectivePerPage;
+  const slice = filtered.slice(from, from + effectivePerPage);
 
   // ── Results table (preview design) ──
   let html = `<div class="card" style="padding:0;overflow:hidden;">
@@ -3427,13 +3428,27 @@ function renderMentions(){
     }
   });
   html += `</tbody></table></div>`;
-  html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing ${from+1}–${Math.min(from+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results</div>`;
+  // Pagination footer
+  const showingEnd = MENTIONS_PER_PAGE === 0 ? filtered.length : Math.min(from + MENTIONS_PER_PAGE, filtered.length);
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;flex-wrap:wrap;gap:8px;">`;
+  html += `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Showing ${from+1}–${showingEnd} of ${filtered.length} results</div>`;
 
-  // Pagination
+  // Per-page selector
+  html += `<div style="display:flex;align-items:center;gap:8px;">`;
+  html += `<span style="font-size:11px;color:var(--muted);">Show:</span>`;
+  [15, 25, 50, 100, 0].forEach(n => {
+    const label = n === 0 ? 'All' : n;
+    const isActive = MENTIONS_PER_PAGE === n;
+    html += `<button style="padding:4px 10px;border:1px solid ${isActive ? 'var(--primary)' : 'var(--border)'};background:${isActive ? 'var(--primary)' : 'var(--bg2)'};color:${isActive ? '#fff' : 'var(--muted)'};font-family:var(--mono);font-size:10px;font-weight:600;cursor:pointer;border-radius:var(--radius-xs);" onclick="MENTIONS_PER_PAGE=${n};mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${label}</button>`;
+  });
+  html += `</div>`;
+  html += `</div>`;
+
+  // Page buttons
   if (pages > 1) {
     const ps = Math.max(0, Math.min(mentionsPage - 2, pages - 5));
     const pe = Math.min(pages - 1, ps + 4);
-    html += `<div style="display:flex;justify-content:center;gap:4px;margin-top:8px;">`;
+    html += `<div style="display:flex;justify-content:center;gap:4px;margin-top:4px;">`;
     if (mentionsPage > 0) html += `<button class="pbtn" onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()">‹</button>`;
     for (let p=ps;p<=pe;p++) html += `<button class="pbtn" style="${p===mentionsPage?'background:var(--primary);color:#fff;border-color:var(--primary);':''}" onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()">${p+1}</button>`;
     if (mentionsPage < pages-1) html += `<button class="pbtn" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()">›</button>`;
