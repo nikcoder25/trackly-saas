@@ -62,6 +62,39 @@ const PLAT_THEME = {
   'DeepSeek':   {bg:'rgba(74,158,255,.06)',color:'#4a9eff',logo:'◇'},
 };
 
+// ─── CLIENT-SIDE COST ESTIMATION (fallback for logs with no server cost) ──
+const CLIENT_MODEL_PRICING = {
+  'gpt-5-search-api':        { i: 2.50, o: 10.00 },
+  'gpt-4o-search-preview':   { i: 2.50, o: 10.00 },
+  'gpt-5.4':                 { i: 2.50, o: 10.00 },
+  'gpt-4o':                  { i: 2.50, o: 10.00 },
+  'claude-sonnet-4-20250514':{ i: 3.00, o: 15.00 },
+  'claude-opus-4-6':         { i:15.00, o: 75.00 },
+  'claude-sonnet-4-6':       { i: 3.00, o: 15.00 },
+  'claude-haiku-4-5-20251001':{ i: 0.80, o: 4.00 },
+  'gemini-2.5-flash':        { i: 0.15, o: 0.60 },
+  'gemini-2.5-pro':          { i: 1.25, o: 10.00 },
+  'gemini-2.0-flash':        { i: 0.10, o: 0.40 },
+  'grok-3-mini':             { i: 0.30, o: 0.50 },
+  'grok-4':                  { i: 3.00, o: 15.00 },
+  'grok-4-1-fast':           { i: 2.00, o: 10.00 },
+  'sonar-pro':               { i: 3.00, o: 15.00 },
+  'sonar':                   { i: 1.00, o: 1.00 },
+  'sonar-reasoning-pro':     { i: 3.00, o: 15.00 },
+  'deepseek-chat':           { i: 0.27, o: 1.10 },
+  'deepseek-reasoner':       { i: 0.55, o: 2.19 },
+};
+function clientEstimateCost(model, tokensIn, tokensOut) {
+  if (!model || (!tokensIn && !tokensOut)) return 0;
+  let p = CLIENT_MODEL_PRICING[model];
+  if (!p) {
+    const key = Object.keys(CLIENT_MODEL_PRICING).find(k => model.startsWith(k) || k.startsWith(model));
+    if (key) p = CLIENT_MODEL_PRICING[key];
+  }
+  if (!p) return 0;
+  return ((tokensIn || 0) * p.i + (tokensOut || 0) * p.o) / 1_000_000;
+}
+
 // ─── STATE ────────────────────────────────────────────────────────
 // Tokens are kept in-memory only; httpOnly cookies handle persistence across reloads
 let token = '';
@@ -5204,8 +5237,12 @@ async function renderApiLogs(){
       return;
     }
 
-    // Stats summary line
-    const totalCost24h = stats.total_cost ? '$' + stats.total_cost.toFixed(4) : '$0.00';
+    // Stats summary line — recalculate cost to include client-estimated costs for all platforms
+    let recalcCost = 0;
+    logs.forEach(l => {
+      recalcCost += parseFloat(l.cost) || clientEstimateCost(l.model, l.tokens_in, l.tokens_out);
+    });
+    const totalCost24h = recalcCost > 0 ? '$' + recalcCost.toFixed(4) : '$0.00';
     const totalTokens24h = ((stats.total_tokens_in || 0) + (stats.total_tokens_out || 0)).toLocaleString();
     const statsSummary = `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px;">
       Last 24h: <span style="color:var(--green);font-weight:600;">${stats.success || 0} ok</span> · <span style="color:${(stats.errors||0) > 0 ? 'var(--red)' : 'var(--muted)'};">${stats.errors || 0} errors</span> · ${stats.platforms_used || 0} platforms · avg ${stats.avg_ms || 0}ms · <span style="color:var(--amber);font-weight:700;">${totalCost24h}</span> cost · ${totalTokens24h} tokens
@@ -5222,7 +5259,8 @@ async function renderApiLogs(){
         }
         const g = runMap[log.run_id];
         g.logs.push(log);
-        g.totalCost += parseFloat(log.cost) || 0;
+        const logCost = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
+        g.totalCost += logCost;
         g.totalTokens += (log.tokens_in || 0) + (log.tokens_out || 0);
         if (log.status === 'error') g.errors++; else g.ok++;
         g.platforms.add(log.platform);
@@ -5289,7 +5327,7 @@ async function renderApiLogs(){
       const t = PLAT_THEME[log.platform] || {};
       const queryShort = (log.query || '').length > 40 ? log.query.substring(0, 40) + '...' : (log.query || '—');
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
-      const costVal = parseFloat(log.cost) || 0;
+      const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
       const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
       const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
