@@ -5842,40 +5842,55 @@ async function renderRecommendations() {
     if (status) url += `status=${status}&`;
     if (severity) url += `severity=${severity}&`;
     const data = await api('GET', url);
-    let recs = data.recommendations || [];
+    const allRecs = data.recommendations || [];
     const listEl = el('rec-list');
 
-    // By default, hide completed (done) and ignored items unless user explicitly filters
+    // KPI cards
+    const kpisEl = el('rec-kpis');
+    if (kpisEl) {
+      const open = allRecs.filter(r => r.status === 'open').length;
+      const inProg = allRecs.filter(r => r.status === 'in_progress').length;
+      const done = allRecs.filter(r => r.status === 'done').length;
+      const high = allRecs.filter(r => r.severity === 'critical' || r.severity === 'high').length;
+      kpisEl.innerHTML = `
+        <div class="score-card"><div class="score-val" style="font-size:24px;">${allRecs.length}</div><div class="score-label">Total</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:${open > 0 ? 'var(--amber)' : 'var(--muted)'};">${open}</div><div class="score-label">Open</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${inProg}</div><div class="score-label">In Progress</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${done}</div><div class="score-label">Completed</div></div>
+      `;
+    }
+
+    // Filter
+    let recs = [...allRecs];
     if (!status) {
       recs = recs.filter(r => r.status !== 'done' && r.status !== 'ignored');
     }
 
     if (recs.length === 0) {
-      const allRecs = data.recommendations || [];
       const doneCount = allRecs.filter(r => r.status === 'done' || r.status === 'ignored').length;
       listEl.innerHTML = doneCount > 0
-        ? `<div class="card" style="padding:24px;text-align:center;color:var(--muted);">All recommendations completed! ${doneCount} item${doneCount>1?'s':''} done. Use the status filter to view completed items.</div>`
-        : '<div class="card" style="padding:24px;text-align:center;color:var(--muted);">No recommendations yet. Click "Generate Recommendations" to analyze your data.</div>';
+        ? `<div class="card" style="padding:32px;text-align:center;color:var(--muted);"><div style="font-size:28px;margin-bottom:8px;">&#10003;</div><div style="font-weight:700;font-size:14px;margin-bottom:4px;">All Caught Up!</div><div style="font-size:12px;">${doneCount} recommendation${doneCount>1?'s':''} completed. Use the status filter to review.</div></div>`
+        : '<div class="card" style="padding:32px;text-align:center;color:var(--muted);"><div style="font-size:28px;margin-bottom:8px;">&#9733;</div><div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Recommendations Yet</div><div style="font-size:12px;">Click "Generate" to analyze your data and get actionable suggestions.</div></div>';
       return;
     }
 
     const sevColors = { critical: 'var(--red)', high: 'var(--red)', medium: 'var(--amber)', low: 'var(--blue)' };
-    const sevLabels = { critical: 'HIGH PRIORITY', high: 'HIGH PRIORITY', medium: 'MEDIUM', low: 'SUGGESTION' };
-    const sevBgs = { critical: 'rgba(239,68,68,.08)', high: 'rgba(239,68,68,.08)', medium: 'rgba(245,158,11,.08)', low: 'rgba(59,130,246,.08)' };
-    listEl.innerHTML = recs.map(r => {
+    const sevLabels = { critical: 'HIGH', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
+    listEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;">${recs.map((r, idx) => {
       const isDone = r.status === 'done';
-      const color = isDone ? 'var(--green)' : (sevColors[r.severity] || 'var(--blue)');
-      const label = isDone ? 'ON TRACK' : (sevLabels[r.severity] || 'SUGGESTION');
-      const bg = isDone ? 'rgba(16,185,129,.08)' : (sevBgs[r.severity] || 'rgba(59,130,246,.08)');
-      return `<div class="card" style="border-left:3px solid ${color};${isDone ? 'opacity:0.7;' : ''}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:4px;${isDone ? 'text-decoration:line-through;' : ''}">${esc(r.title)}</div>
-            <div style="font-size:12px;color:var(--muted);line-height:1.6;">${esc(r.description || '')}</div>
-            ${r.playbook_id ? `<button class="pbtn" style="font-size:10px;margin-top:8px;" onclick="viewPlaybook('${escAttr(r.playbook_id)}')">View Playbook</button>` : ''}
-            <div style="display:flex;gap:6px;margin-top:8px;">
-              ${r.status !== 'done' ? `<button onclick="updateRecommendation('${escAttr(r.id)}','done')" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--green);color:var(--green);padding:3px 8px;cursor:pointer;border-radius:100px;white-space:nowrap;">&#10003; Done</button>` : ''}
-              <select class="brand-select" style="width:100px;font-size:10px;padding:2px 6px;" onchange="updateRecommendation('${escAttr(r.id)}',this.value)">
+      const isIgnored = r.status === 'ignored';
+      const color = isDone ? 'var(--green)' : isIgnored ? 'var(--muted)' : (sevColors[r.severity] || 'var(--blue)');
+      const label = isDone ? 'DONE' : isIgnored ? 'IGNORED' : (sevLabels[r.severity] || 'LOW');
+      const dimmed = isDone || isIgnored;
+      return `<div class="card" style="padding:16px 20px;border-left:3px solid ${color};${dimmed ? 'opacity:0.5;' : ''}animation:fadeIn .2s ease ${Math.min(idx*0.04,.3)}s both;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;${isDone ? 'text-decoration:line-through;' : ''}">${esc(r.title)}</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;">${esc(r.description || '')}</div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              ${r.playbook_id ? `<button class="pbtn" style="font-size:10px;padding:4px 10px;" onclick="viewPlaybook('${escAttr(r.playbook_id)}')">Playbook</button>` : ''}
+              ${!isDone ? `<button onclick="updateRecommendation('${escAttr(r.id)}','done')" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--green);color:var(--green);padding:4px 10px;cursor:pointer;border-radius:100px;">&#10003; Mark Done</button>` : ''}
+              <select class="finp" style="width:110px;margin:0;font-size:10px;padding:3px 6px;" onchange="updateRecommendation('${escAttr(r.id)}',this.value)">
                 <option value="open" ${r.status==='open'?'selected':''}>Open</option>
                 <option value="in_progress" ${r.status==='in_progress'?'selected':''}>In Progress</option>
                 <option value="done" ${r.status==='done'?'selected':''}>Done</option>
@@ -5883,10 +5898,10 @@ async function renderRecommendations() {
               </select>
             </div>
           </div>
-          <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:${bg};color:${color};font-weight:700;white-space:nowrap;">${label}</span>
+          <span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:4px 10px;border-radius:100px;color:${color};background:${color === 'var(--red)' ? 'rgba(239,68,68,.08)' : color === 'var(--amber)' ? 'rgba(245,158,11,.08)' : color === 'var(--green)' ? 'rgba(16,185,129,.08)' : 'rgba(59,130,246,.08)'};white-space:nowrap;flex-shrink:0;">${label}</span>
         </div>
       </div>`;
-    }).join('');
+    }).join('')}</div>`;
   } catch(e) { toast('Failed to load recommendations', 'err'); } finally { hideViewLoading('rec-list'); }
 }
 
