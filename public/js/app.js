@@ -9,10 +9,9 @@ function ensureChartJs() {
   _chartJsPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
-    s.integrity = 'sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb';
     s.crossOrigin = 'anonymous';
     s.onload = () => { _chartJsLoaded = true; resolve(); };
-    s.onerror = () => reject(new Error('Failed to load Chart.js'));
+    s.onerror = () => { _chartJsPromise = null; reject(new Error('Failed to load Chart.js')); };
     document.head.appendChild(s);
   });
   return _chartJsPromise;
@@ -52,7 +51,7 @@ function closeLandingMenu(){
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const API = '';  // relative URLs - same server
-const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO','DeepSeek','Mistral'];
+const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO','DeepSeek'];
 const PLAT_THEME = {
   'ChatGPT':    {bg:'rgba(25,195,125,.06)',color:'#19c37d',logo:'⬡'},
   'Perplexity': {bg:'rgba(155,114,255,.06)',color:'#9b72ff',logo:'◎'},
@@ -61,7 +60,6 @@ const PLAT_THEME = {
   'Grok':       {bg:'rgba(29,155,240,.06)',color:'#1d9bf0',logo:'⚡'},
   'Google AIO': {bg:'rgba(52,168,83,.06)',color:'#34a853',logo:'⬤'},
   'DeepSeek':   {bg:'rgba(74,158,255,.06)',color:'#4a9eff',logo:'◇'},
-  'Mistral':    {bg:'rgba(255,112,0,.06)',color:'#ff7000',logo:'▣'},
 };
 
 // ─── STATE ────────────────────────────────────────────────────────
@@ -905,7 +903,7 @@ function renderAccount(){
     <div style="display:grid;gap:12px;margin-top:8px;">
       ${usageBar('Brands', brandCount, limits.brands)}
       ${usageBar('Total prompts', brands.reduce((s,br)=>s+(br.queries||[]).length,0), limits.prompts)}
-      ${usageBar('Platforms', limits.platforms, 8)}
+      ${usageBar('Platforms', limits.platforms, 7)}
       ${usageBar('Competitors', compCount, limits.competitors)}
     </div>
   `;
@@ -914,8 +912,8 @@ function renderAccount(){
   // Plan cards
   const planData = [
           { id: 'free', name: 'Free', price: '$0', features: '1 brand, 2 platforms, 50 prompts/month' },
-                { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 8 platforms, 500 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 8 platforms, 2000 prompts/month, 20 competitors, sentiment' }
+                { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 7 platforms, 500 prompts/month, competitors, sentiment' },
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 2000 prompts/month, 20 competitors, sentiment' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
@@ -952,7 +950,6 @@ async function loadModelSettings() {
       'Grok': '<span style="color:#1da1f2;">&#9889;</span>',
       'Perplexity': '<span style="color:#20b2aa;">&#9678;</span>',
       'DeepSeek': '<span style="color:#6366f1;">&#9673;</span>',
-      'Mistral': '<span style="color:#ff7000;">&#9670;</span>',
       'Google AIO': '<span style="color:#ea4335;">&#9733;</span>'
     };
 
@@ -1661,7 +1658,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   // Category SOV — computed from incremental counters
   const catRow = el('ov-category-row');
   if (catRow && validCount > 0) {
-    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral'];
+    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek'];
     const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
     let chatTotal = 0, chatFound = 0, searchTotal = 0, searchFound = 0;
     for (const p of chatAI) { chatTotal += c.platCounts[p] || 0; chatFound += c.platMentions[p] || 0; }
@@ -1670,7 +1667,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
     function cc(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
     let ch = '';
-    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek · Mistral</div></div>`;
+    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
     if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(searchSOV)};"><div class="ov-cat-label">Search AI</div><div class="ov-cat-val" style="color:${cc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
     catRow.innerHTML = ch;
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
@@ -1962,7 +1959,7 @@ function renderOverview(){
   let _ovPos = 0, _ovNeg = 0, _ovNeu = 0;
   let _ovLocTotal = 0, _ovLocRelevant = 0;
   const _ovHealthyPlats = new Set(), _ovAllPlats = new Set();
-  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok', 'DeepSeek', 'Mistral']);
+  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok', 'DeepSeek']);
   const _ovSearchAI = new Set(['Perplexity', 'Google AIO', 'Gemini']);
   let _ovChatTotal = 0, _ovChatMentioned = 0, _ovSearchTotal = 0, _ovSearchMentioned = 0;
   const _ovNegResults = [];
@@ -2129,7 +2126,7 @@ function renderOverview(){
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(chatSOV)};">
         <div class="ov-cat-label">Chat AI</div>
         <div class="ov-cat-val" style="color:${catColor(chatSOV)};">${chatSOV}%</div>
-        <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek · Mistral</div>
+        <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
       </div>`;
     }
     if (searchSOV !== null) {
@@ -3400,28 +3397,7 @@ async function renderPlatformStatus(){
   cont.innerHTML = html;
 }
 
-// ─── QUERY PERFORMANCE / RANK TRACKER ─────────────────────────────
-let _qperfSelectedQueries = new Set();
-
-function qperfToggleAll() {
-  const b = brand(); if (!b) return;
-  const queries = b.queries || [];
-  if (_qperfSelectedQueries.size === queries.length) _qperfSelectedQueries.clear();
-  else queries.forEach(q => _qperfSelectedQueries.add(q));
-  renderQPerf();
-}
-
-function qperfToggleQuery(q) {
-  if (_qperfSelectedQueries.has(q)) _qperfSelectedQueries.delete(q);
-  else _qperfSelectedQueries.add(q);
-  renderQPerf();
-}
-
-function qperfRunSelected() {
-  if (!_qperfSelectedQueries.size) { toast('Select queries first', 'err'); return; }
-  // Switch to overview and trigger a run (uses all queries - selection is for viewing)
-  go('mentions');
-}
+// ─── QUERY PERFORMANCE ────────────────────────────────────────────
 
 function renderQPerf(){
   const b = brand(); if (!b) return;
@@ -3441,118 +3417,101 @@ function renderQPerf(){
     resultMap[key][r.platform] = r;
   });
 
-  // Determine active platforms from last run
-  const activePlats = lastRun
-    ? (lastRun.activePlatforms || [...new Set(allResults.map(r => r.platform))])
-    : PLATS.slice(0, 3);
+  // Aggregate stats
+  const totalRuns = queries.reduce((s, q) => s + (qs[q]?.runs || 0), 0);
+  const totalMentions = queries.reduce((s, q) => s + (qs[q]?.mentions || 0), 0);
+  const avgRate = totalRuns > 0 ? Math.round(totalMentions / totalRuns * 100) : 0;
+  const topQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) > 0.6; }).length;
+  const lowQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) <= 0.3; }).length;
 
-  // Header with actions
-  const allSelected = _qperfSelectedQueries.size === queries.length && queries.length > 0;
-  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--muted);">
-        <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:16px;height:16px;">
-        Select All (${queries.length})
-      </label>
-      ${_qperfSelectedQueries.size > 0 ? `<span style="font-size:11px;font-weight:700;color:var(--primary);">${_qperfSelectedQueries.size} selected</span>` : ''}
+  // ── Summary Cards ──
+  let html = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+    <div class="card" style="padding:16px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Total Queries</div>
+      <div style="font-size:28px;font-weight:800;color:var(--text);font-family:var(--mono);">${queries.length}</div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      ${lastRun ? `<span style="font-size:10px;color:var(--muted);font-family:var(--mono);">Last run: ${new Date(lastRun.time||lastRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${new Date(lastRun.time||lastRun.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+    <div class="card" style="padding:16px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Avg Mention Rate</div>
+      <div style="font-size:28px;font-weight:800;color:${avgRate > 60 ? 'var(--green)' : avgRate > 30 ? 'var(--amber)' : 'var(--red)'};font-family:var(--mono);">${avgRate}%</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Strong (>60%)</div>
+      <div style="font-size:28px;font-weight:800;color:var(--green);font-family:var(--mono);">${topQueries}</div>
+    </div>
+    <div class="card" style="padding:16px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Needs Work (≤30%)</div>
+      <div style="font-size:28px;font-weight:800;color:${lowQueries > 0 ? 'var(--red)' : 'var(--muted)'};font-family:var(--mono);">${lowQueries}</div>
     </div>
   </div>`;
 
-  // ── Query Performance Summary Table ──
-  html += `<h4 style="margin:0 0 10px;font-size:13px;font-weight:700;color:var(--text);">Query Performance</h4>`;
-  html += `<div class="table-scroll" style="margin-bottom:24px;"><table class="tbl" style="font-size:12px;"><thead><tr>
-    <th style="min-width:200px;">Query</th>
-    <th style="width:60px;text-align:center;">Runs</th>
-    <th style="width:80px;text-align:center;">Mentions</th>
-    <th style="width:100px;text-align:center;">Mention Rate</th>
-    <th style="width:120px;"></th>
-  </tr></thead><tbody>`;
-  queries.forEach((q, idx) => {
+  // ── Last run info ──
+  if (lastRun) {
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);font-size:11px;color:var(--muted);font-family:var(--mono);">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+      Last run: ${new Date(lastRun.time||lastRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${new Date(lastRun.time||lastRun.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
+      <span style="margin-left:auto;">${allResults.length} results across ${[...new Set(allResults.map(r=>r.platform))].length} platforms</span>
+    </div>`;
+  }
+
+  // ── Query Cards ──
+  html += `<div style="display:flex;flex-direction:column;gap:10px;">`;
+  // Sort queries by rate descending for better overview
+  const sortedQueries = [...queries].sort((a, b) => {
+    const ra = qs[a]?.runs ? (qs[a].mentions / qs[a].runs) : 0;
+    const rb = qs[b]?.runs ? (qs[b].mentions / qs[b].runs) : 0;
+    return rb - ra;
+  });
+
+  sortedQueries.forEach((q, idx) => {
     const stat = qs[q] || { runs: 0, mentions: 0 };
     const rate = stat.runs ? Math.round((stat.mentions / stat.runs) * 100) : 0;
     const rateColor = rate > 60 ? 'var(--green)' : rate > 30 ? 'var(--amber)' : 'var(--red)';
-    html += `<tr style="animation:fadeIn .2s ease ${Math.min(idx*0.03,.3)}s both;">
-      <td style="font-weight:600;">${esc(q)}</td>
-      <td style="text-align:center;font-family:var(--mono);">${stat.runs}</td>
-      <td style="text-align:center;font-family:var(--mono);">${stat.mentions}</td>
-      <td style="text-align:center;font-family:var(--mono);font-weight:700;color:${rateColor};">${rate}%</td>
-      <td><div style="width:100%;height:6px;background:var(--border);border-radius:3px;"><div style="width:${rate}%;height:100%;background:${rateColor};border-radius:3px;transition:width .4s ease;"></div></div></td>
-    </tr>`;
-  });
-  html += `</tbody></table></div>`;
+    const platResults = resultMap[q] || {};
+    const platCount = Object.keys(platResults).length;
+    const mentionedPlats = Object.values(platResults).filter(r => r.mentioned && !r.error).length;
+    const errorPlats = Object.values(platResults).filter(r => r.error).length;
 
-  // ── Rank Matrix Table ──
-  html += `<h4 style="margin:0 0 10px;font-size:13px;font-weight:700;color:var(--text);">Platform Rank Matrix</h4>`;
-  html += `<div class="table-scroll"><table class="tbl" style="font-size:12px;"><thead><tr>
-    <th style="width:28px;text-align:center;padding:8px 4px;">
-      <input type="checkbox" ${allSelected?'checked':''} onchange="qperfToggleAll()" style="accent-color:var(--primary);width:14px;height:14px;">
-    </th>
-    <th style="min-width:200px;">Keyword</th>
-    <th style="width:70px;text-align:center;">Rate</th>`;
-  activePlats.forEach(p => {
-    const t = PLAT_THEME[p] || {};
-    html += `<th style="text-align:center;width:80px;white-space:nowrap;"><span style="color:${t.color||'var(--muted)'};font-size:13px;">${t.logo||'?'}</span> <span style="font-size:10px;">${p.length>8?p.slice(0,7)+'…':p}</span></th>`;
-  });
-  html += `</tr></thead><tbody>`;
-
-  queries.forEach((q, idx) => {
-    const stat = qs[q] || { runs: 0, mentions: 0 };
-    const rate = stat.runs ? Math.round((stat.mentions / stat.runs) * 100) : 0;
-    const rateColor = rate > 60 ? 'var(--green)' : rate > 30 ? 'var(--amber)' : 'var(--red)';
-    const isSelected = _qperfSelectedQueries.has(q);
-
-    html += `<tr style="animation:fadeIn .2s ease ${Math.min(idx*0.03,.3)}s both;${isSelected?'background:rgba(255,97,84,.04);':''}">
-      <td style="text-align:center;padding:8px 4px;">
-        <input type="checkbox" ${isSelected?'checked':''} onchange="qperfToggleQuery('${escAttr(q)}')" style="accent-color:var(--primary);width:14px;height:14px;">
-      </td>
-      <td>
-        <div style="font-weight:600;color:var(--text);line-height:1.3;">${esc(q)}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;">${stat.runs} runs · ${stat.mentions} mentions</div>
-      </td>
-      <td style="text-align:center;">
-        <div style="font-family:var(--mono);font-weight:800;font-size:14px;color:${rateColor};">${rate}%</div>
-        <div style="width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:4px;"><div style="width:${rate}%;height:100%;background:${rateColor};border-radius:2px;transition:width .4s ease;"></div></div>
-      </td>`;
-
-    // Platform cells — show rank/mention status
-    activePlats.forEach(p => {
-      const r = (resultMap[q] || {})[p];
-      if (!r) {
-        html += `<td style="text-align:center;"><span style="color:var(--muted);font-size:10px;">—</span></td>`;
-      } else if (r.error) {
-        html += `<td style="text-align:center;"><span style="font-size:10px;color:var(--amber);" title="${esc(friendlyError(r.errorMessage))}">⚠</span></td>`;
-      } else if (r.mentioned) {
-        const pos = r.listPosition;
-        const posLabel = pos ? '#' + pos : '✓';
-        const posColor = pos ? (pos <= 3 ? 'var(--green)' : pos <= 5 ? 'var(--amber)' : 'var(--text)') : 'var(--green)';
-        html += `<td style="text-align:center;">
-          <div style="font-family:var(--mono);font-weight:800;font-size:${pos?'14px':'16px'};color:${posColor};line-height:1;" title="${pos?'Ranked #'+pos+' in list':'Mentioned (no numbered list)'}">${posLabel}</div>
-          ${r.recommended ? '<div style="font-size:8px;color:var(--accent);font-weight:700;margin-top:2px;">REC</div>' : ''}
-          ${r.sentiment==='positive' ? '<div style="font-size:8px;color:var(--green);margin-top:1px;">+</div>' : r.sentiment==='negative' ? '<div style="font-size:8px;color:var(--red);margin-top:1px;">−</div>' : ''}
-        </td>`;
-      } else {
-        html += `<td style="text-align:center;"><span style="font-size:14px;color:var(--red);opacity:.6;" title="Not mentioned">✗</span></td>`;
-      }
-    });
-
-    html += `</tr>`;
+    html += `<div class="card" style="padding:14px 16px;animation:fadeIn .2s ease ${Math.min(idx*0.04,.4)}s both;">
+      <div style="display:flex;align-items:flex-start;gap:14px;">
+        <!-- Rate circle -->
+        <div style="min-width:52px;height:52px;border-radius:50%;border:3px solid ${rateColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-family:var(--mono);font-weight:800;font-size:14px;color:${rateColor};">${rate}%</span>
+        </div>
+        <!-- Query info -->
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.3;margin-bottom:4px;">${esc(q)}</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);font-family:var(--mono);">
+            <span>${stat.runs} runs</span>
+            <span>${stat.mentions} mentions</span>
+            ${platCount > 0 ? `<span>${mentionedPlats}/${platCount} platforms</span>` : ''}
+            ${errorPlats > 0 ? `<span style="color:var(--amber);">${errorPlats} error${errorPlats>1?'s':''}</span>` : ''}
+          </div>
+          <!-- Platform pills -->
+          ${platCount > 0 ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            ${Object.entries(platResults).map(([p, r]) => {
+              const t = PLAT_THEME[p] || {};
+              if (r.error) return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);background:rgba(245,158,11,.08);color:var(--amber);border:1px solid rgba(245,158,11,.2);" title="${esc(p)}: API error">${t.logo||''} ${p.length>9?p.slice(0,8)+'…':p} ⚠</span>`;
+              if (r.mentioned) {
+                const pos = r.listPosition;
+                const label = pos ? '#'+pos : '✓';
+                return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);background:${t.bg||'var(--bg2)'};color:${t.color||'var(--text)'};border:1px solid ${t.color||'var(--border)'}30;" title="${esc(p)}${pos?' — Ranked #'+pos:' — Mentioned'}">${t.logo||''} ${p.length>9?p.slice(0,8)+'…':p} <strong>${label}</strong>${r.recommended?' ★':''}</span>`;
+              }
+              return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);background:var(--bg2);color:var(--muted);border:1px solid var(--border);opacity:.6;" title="${esc(p)}: Not mentioned">${t.logo||''} ${p.length>9?p.slice(0,8)+'…':p} ✗</span>`;
+            }).join('')}
+          </div>` : ''}
+        </div>
+        <!-- Progress bar (right side) -->
+        <div style="min-width:80px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+          <div style="width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+            <div style="width:${rate}%;height:100%;background:${rateColor};border-radius:3px;transition:width .4s ease;"></div>
+          </div>
+          <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">mention rate</span>
+        </div>
+      </div>
+    </div>`;
   });
 
-  html += '</tbody></table></div>';
-
-  // ── Legend ──
-  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-size:10px;color:var(--muted);">
-    <span><strong style="color:var(--green);font-size:13px;">✓</strong> Mentioned</span>
-    <span><strong style="color:var(--green);font-family:var(--mono);">#3</strong> Rank in list</span>
-    <span><strong style="color:var(--red);font-size:13px;opacity:.6;">✗</strong> Not found</span>
-    <span><strong style="color:var(--amber);">⚠</strong> API error</span>
-    <span><strong style="color:var(--accent);font-size:9px;">REC</strong> Recommended</span>
-    <span><strong style="color:var(--green);font-size:9px;">+</strong> Positive &nbsp; <strong style="color:var(--red);font-size:9px;">−</strong> Negative</span>
-  </div>`;
-
+  html += `</div>`;
   cont.innerHTML = html;
 }
 
@@ -3705,7 +3664,9 @@ function renderTrends(){
   // Lazy-load Chart.js then render
   ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
     const cont = document.querySelector('#view-trends');
-    if (cont) cont.insertAdjacentHTML('afterbegin', '<div class="empty-state"><p>Failed to load chart library.</p></div>');
+    if (cont && !cont.querySelector('.chartjs-error')) {
+      cont.insertAdjacentHTML('afterbegin', '<div class="empty-state chartjs-error"><p>Failed to load chart library. Please refresh the page.</p></div>');
+    }
   });
 }
 function _renderTrendsCharts(b) {
@@ -3716,14 +3677,19 @@ function _renderTrendsCharts(b) {
   if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
 
   // Ensure canvas elements exist (recreate if previously destroyed)
-  const sovParent = el('sov-chart') ? el('sov-chart').parentElement : document.querySelector('#view-trends .card:first-child');
-  if (!el('sov-chart')) {
+  const cards = document.querySelectorAll('#view-trends .card');
+  const sovParent = el('sov-chart') ? el('sov-chart').parentElement : (cards[0] || null);
+  if (!el('sov-chart') && sovParent) {
     sovParent.innerHTML = '<div class="card-title">Overall SOV Trend</div><canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>';
   }
-  const platParent = el('plat-sov-chart') ? el('plat-sov-chart').parentElement : document.querySelector('#view-trends .card:nth-child(2)');
-  if (!el('plat-sov-chart')) {
+  const platParent = el('plat-sov-chart') ? el('plat-sov-chart').parentElement : (cards[1] || null);
+  if (!el('plat-sov-chart') && platParent) {
     platParent.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>';
   }
+  if (!el('sov-chart') || !el('plat-sov-chart')) return;
+
+  // Remove any previous empty-state messages (must happen before both branches)
+  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
 
   if (!history.length) {
     el('sov-chart').style.display = 'none';
@@ -3732,9 +3698,6 @@ function _renderTrendsCharts(b) {
     platParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet.</p></div>');
     return;
   }
-
-  // Remove any previous empty-state messages
-  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
   el('sov-chart').style.display = '';
   el('plat-sov-chart').style.display = '';
 
@@ -5136,7 +5099,7 @@ async function renderApiLogs(){
       const costStr = costVal > 0 ? '$' + costVal.toFixed(4) : '—';
       const runCost = runningMap[log.id] || 0;
       const runCostStr = runCost > 0 ? '$' + runCost.toFixed(4) : '—';
-      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-|mistral-)/, '').substring(0, 18);
+      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       tbl += `<tr${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.06);' : ''}">
