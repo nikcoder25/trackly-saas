@@ -3811,11 +3811,12 @@ async function renderCompetitors(){
   cont.innerHTML = '';
   (b.competitors||[]).forEach((c,i) => {
     const tag = document.createElement('span');
-    tag.className = 'query-tag';
+    tag.className = 'comp-chip';
     const cText = document.createTextNode(c + ' ');
     tag.appendChild(cText);
     const btn = document.createElement('button');
-    btn.textContent = '\u2715';
+    btn.style.cssText = 'background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;margin-left:4px;';
+    btn.innerHTML = '&times;';
     btn.addEventListener('click', function(){ removeComp(i); });
     tag.appendChild(btn);
     cont.appendChild(tag);
