@@ -166,6 +166,12 @@ function clearStoredRunErrors() {
   localStorage.removeItem('trackly_run_errors');
 }
 
+// SOV color helper (green >= 40%, amber > 0%, red = 0%)
+function sovColor(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
+
+// Format milliseconds to human-readable time
+function fmtTime(ms) { const s = Math.floor(ms/1000); return s >= 60 ? Math.floor(s/60) + 'm ' + (s%60) + 's' : s + 's'; }
+
 // Friendly error message for display
 function friendlyError(msg){
   if (!msg) return 'Unknown error';
@@ -2002,10 +2008,9 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     for (const p of searchAI) { searchTotal += c.platCounts[p] || 0; searchFound += c.platMentions[p] || 0; }
     const chatSOV = chatTotal > 0 ? Math.round(chatFound / chatTotal * 100) : null;
     const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
-    function cc(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
     let ch = '';
-    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${cc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
-    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${cc(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${cc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
+    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${sovColor(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${sovColor(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
+    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${sovColor(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${sovColor(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
     catRow.innerHTML = ch;
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
     const catSec = el('ov-category-section');
@@ -2570,7 +2575,7 @@ function renderOverview(){
     const platEntries = Object.entries(lastRun.platforms || {});
     const best = platEntries.length ? platEntries.reduce((a, b) => b[1] > a[1] ? b : a) : null;
 
-    function catColor(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
+    const catColor = sovColor;
 
     let catHtml = '';
     catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(chatSOV)};">
@@ -4650,12 +4655,6 @@ async function runQueries(){
 
   // Live timer
   const startTime = Date.now();
-  function fmtTime(ms) {
-    const s = Math.floor(ms/1000);
-    const m = Math.floor(s/60);
-    const sec = s%60;
-    return m > 0 ? m+'m '+sec+'s' : sec+'s';
-  }
   timerEl.textContent = '0s';
   const timerInt = setInterval(() => {
     timerEl.textContent = fmtTime(Date.now()-startTime);
@@ -4941,13 +4940,6 @@ async function pollRunStatus(brandId, runId, opts) {
   const fill = el('run-progress-fill');
   const statusTxt = el('run-status-text');
   const timerEl = el('run-timer');
-
-  function fmtTime(ms) {
-    const s = Math.floor(ms/1000);
-    const m = Math.floor(s/60);
-    const sec = s%60;
-    return m > 0 ? m+'m '+sec+'s' : sec+'s';
-  }
 
   // Set up UI
   runningQueries = true;
