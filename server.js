@@ -31,7 +31,7 @@ const rateLimit    = require('express-rate-limit');
 const cron         = require('node-cron');
 const path         = require('path');
 
-const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns } = require('./config/db');
+const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, cleanupResponseCache, cleanupDailyCosts } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 const { createLogger }  = require('./lib/logger');
@@ -512,6 +512,8 @@ const server = app.listen(PORT, () => {
     cleanupResetTokens();
     cleanupWebhookEvents();
     cleanupPromptRuns();
+    cleanupResponseCache();
+    cleanupDailyCosts();
   };
   runAllCleanups();
   setInterval(runAllCleanups, 24 * 60 * 60 * 1000);

@@ -4,7 +4,7 @@
 const express = require('express');
 const router  = express.Router();
 
-const { pool, auditLog, logApiCall, refreshPromptRunStats, notify } = require('../config/db');
+const { pool, auditLog, logApiCall, refreshPromptRunStats, notify, getDailyCost, incrementDailyCost } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
@@ -410,6 +410,18 @@ router.post('/:id/run', auth, async (req, res) => {
     const enabledPlatforms = userSettings.enabledPlatforms || {};
     queries = brand.queries || [];
     if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
+
+    // ── Daily cost budget check ─────────────────────────────────
+    // Prevents runaway costs. Budget scales with plan tier.
+    const DAILY_COST_BUDGETS = { free: 0.50, pro: 2.00, agency: 8.00, enterprise: 50.00, owner: 9999 };
+    const dailyBudget = DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.free;
+    const dailyCostData = await getDailyCost(req.user.id);
+    const currentDailyCost = parseFloat(dailyCostData.total_cost) || 0;
+    if (currentDailyCost >= dailyBudget) {
+      const errMsg = `Daily API cost budget reached ($${currentDailyCost.toFixed(2)}/$${dailyBudget.toFixed(2)}). Budget resets at midnight UTC. Upgrade plan for higher limits.`;
+      if (streaming) return sseError(res, errMsg);
+      return res.status(429).json({ error: errMsg, dailyBudget: true, spent: currentDailyCost, limit: dailyBudget });
+    }
 
     let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
       .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
@@ -840,6 +852,20 @@ router.post('/:id/run', auth, async (req, res) => {
 
       const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors };
 
+      // Track daily cost for budget enforcement
+      // Sum cost from api_logs for this run (non-cached results only)
+      try {
+        const costResult = await pool.query(
+          'SELECT COALESCE(SUM(cost), 0) as run_cost, COUNT(*) as call_count FROM api_logs WHERE run_id = $1 AND status = $2',
+          [runId, 'ok']
+        );
+        const runCost = parseFloat(costResult.rows[0]?.run_cost) || 0;
+        const callCount = parseInt(costResult.rows[0]?.call_count) || 0;
+        if (runCost > 0) {
+          await incrementDailyCost(req.user.id, runCost, callCount);
+        }
+      } catch(_costErr) { /* non-critical — don't fail run */ }
+
       // Update run state for polling (store lightweight summary, not the full brand object)
       runState.status = 'done';
       runState.finalData = { result: finalResult };
@@ -965,6 +991,66 @@ router.get('/:id/run-status/:runId', auth, async (req, res) => {
     resp.error = runState.error;
   }
   res.json(resp);
+});
+
+// ─── COST ESTIMATE ───────────────────────────────────────────────
+// Returns estimated cost for running queries on a brand + daily spend so far
+router.get('/:id/cost-estimate', auth, async (req, res) => {
+  try {
+    const brand = await getBrand(req.params.id, req.user.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    const keys = getServerKeys();
+    const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
+    const userSettings = userRow.rows[0]?.settings || {};
+    const modelPrefs = userSettings.models || {};
+    const enabledPlatforms = userSettings.enabledPlatforms || {};
+
+    let activePlatforms = Object.entries(PLATFORM_KEY_MAP)
+      .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
+      .map(([plat]) => plat)
+      .filter(plat => enabledPlatforms[plat] !== false);
+    activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+    if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
+
+    const queries = brand.queries || [];
+    const { MODEL_PRICING, getDefaultModel } = require('../lib/ai-platforms');
+
+    // Estimate cost per platform (assume ~250 input tokens, ~400 output tokens per query)
+    const AVG_INPUT_TOKENS = 250;
+    const AVG_OUTPUT_TOKENS = 400;
+    const platformCosts = {};
+    let totalEstimate = 0;
+
+    for (const plat of activePlatforms) {
+      const model = modelPrefs[plat] || getDefaultModel(plat);
+      const pricing = MODEL_PRICING[model];
+      if (!pricing) continue;
+      const costPerQuery = (AVG_INPUT_TOKENS * pricing.input + AVG_OUTPUT_TOKENS * pricing.output) / 1_000_000;
+      platformCosts[plat] = { model, costPerQuery: Math.round(costPerQuery * 100000) / 100000, totalQueries: queries.length, totalCost: Math.round(costPerQuery * queries.length * 100000) / 100000 };
+      totalEstimate += costPerQuery * queries.length;
+    }
+
+    // Get daily spend
+    const dailyCostData = await getDailyCost(req.user.id);
+    const DAILY_COST_BUDGETS = { free: 0.50, pro: 2.00, agency: 8.00, enterprise: 50.00, owner: 9999 };
+
+    res.json({
+      estimatedRunCost: Math.round(totalEstimate * 100000) / 100000,
+      platformCosts,
+      queryCount: queries.length,
+      platformCount: activePlatforms.length,
+      totalApiCalls: queries.length * activePlatforms.length,
+      dailySpent: parseFloat(dailyCostData.total_cost) || 0,
+      dailyBudget: DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.free,
+      dailyQueriesUsed: parseInt(dailyCostData.query_count) || 0,
+      plan
+    });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to estimate cost' });
+  }
 });
 
 // ─── RETRY SINGLE QUERY ──────────────────────────────────────────
