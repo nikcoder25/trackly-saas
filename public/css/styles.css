@@ -1457,7 +1457,7 @@ select.finput{appearance:none;}
 .ov-hero-sov-ring{position:relative;width:120px;height:120px;}
 .ov-ring-svg{width:100%;height:100%;}
 .ov-ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.ov-ring-pct{font-family:var(--mono);font-size:28px;font-weight:800;line-height:1;}
+.ov-ring-pct{font-family:var(--mono);font-size:28px;font-weight:800;line-height:1;color:var(--text);}
 .ov-ring-diff{font-family:var(--mono);font-size:11px;font-weight:700;margin-top:2px;}
 .ov-hero-sov-label{font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:8px;}
 .ov-hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:20px;flex:1;}
