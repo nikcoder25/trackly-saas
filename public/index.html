@@ -926,70 +926,53 @@
 
     <!-- MENTIONS ─────────────────────────── -->
     <div id="view-mentions" class="view">
-      <!-- Header row -->
-      <div class="mt-header">
-        <div class="mt-header-left">
-          <h2 class="mt-title">AI Mentions</h2>
-          <p class="mt-subtitle">Track how AI platforms mention your brand across all queries</p>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="view-title">AI Mentions</div>
+          <div class="view-sub">Track how AI platforms mention your brand across all queries.</div>
         </div>
-        <div class="mt-header-right">
-          <select class="finput mt-run-sel" id="mentions-run-sel" onchange="mentionsPage=0;mentionsExpandedRow=null;renderMentions()"></select>
-          <button class="mt-btn-export" onclick="exportMentionsCSV()">↓ Export</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="brand-select" id="mentions-run-sel" style="width:180px;" onchange="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()"></select>
+          <button class="pbtn" onclick="exportMentionsCSV()">&#8595; Export</button>
         </div>
       </div>
-      <!-- Score cards -->
       <div id="mentions-kpis"></div>
-      <!-- Filter bar -->
-      <div class="mt-filterbar">
-        <div id="mentions-plat-filters" class="mt-platforms"></div>
-        <div class="mt-filter-controls">
-          <select class="finput mt-sel" id="mentions-filter-sel" onchange="mentionsPage=0;renderMentions()">
-            <option value="all">All Results</option>
-            <option value="mentioned">Mentioned Only</option>
-            <option value="not-mentioned">Not Mentioned</option>
-            <option value="recommended">Recommended</option>
-            <option value="errors">Errors Only</option>
-          </select>
-          <input class="finput mt-search" id="mentions-search" type="text" placeholder="Filter by keyword..." oninput="mentionsPage=0;renderMentions()">
-        </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;" id="mentions-plat-filters"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
+        <select class="brand-select" id="mentions-filter-sel" style="width:140px;" onchange="mentionsPage=0;renderMentions()">
+          <option value="all">All Results</option>
+          <option value="mentioned">Mentioned Only</option>
+          <option value="not-mentioned">Not Mentioned</option>
+          <option value="recommended">Recommended</option>
+          <option value="errors">Errors Only</option>
+        </select>
+        <input class="brand-select" id="mentions-search" placeholder="Filter by keyword..." style="width:160px;" oninput="mentionsPage=0;renderMentions()">
       </div>
-      <!-- Results -->
       <div id="mentions-container"></div>
     </div>
 
     <!-- EVIDENCE & PROOF ─────────────────── -->
     <div id="view-proof" class="view">
-      <div class="proof-hero">
-        <div class="proof-hero-left">
-          <div class="view-title" style="margin-bottom:4px;">Evidence &amp; Proof</div>
-          <div class="view-sub" style="margin-bottom:0;">Verifiable AI responses — your brand's visibility, proven with real data.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="view-title">Evidence &amp; Proof</div>
+          <div class="view-sub">Verifiable AI responses — your brand's visibility, proven with real data.</div>
         </div>
-        <button class="proof-export-btn" onclick="exportProofCSV()">
-          <span class="proof-export-icon">↓</span> Export CSV
-        </button>
+        <button class="pbtn" onclick="exportProofCSV()">&#8595; Export CSV</button>
       </div>
-      <div class="proof-toolbar">
-        <div class="proof-filter-group">
-          <label class="proof-filter-label" for="proof-run-sel">Run</label>
-          <select class="finput proof-filter-select proof-filter-run" id="proof-run-sel" onchange="renderProof()"></select>
-        </div>
-        <div class="proof-filter-group">
-          <label class="proof-filter-label" for="proof-plat-sel">Platform</label>
-          <select class="finput proof-filter-select" id="proof-plat-sel" onchange="renderProof()">
-            <option value="">All Platforms</option>
-            <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
-            <option>Gemini</option><option>Grok</option><option>Google AIO</option>
-            <option>DeepSeek</option>
-          </select>
-        </div>
-        <div class="proof-filter-group">
-          <label class="proof-filter-label" for="proof-result-sel">Result</label>
-          <select class="finput proof-filter-select" id="proof-result-sel" onchange="renderProof()">
-            <option value="">All Results</option>
-            <option value="found">Found</option>
-            <option value="notfound">Not Found</option>
-          </select>
-        </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;">
+        <select class="brand-select" id="proof-run-sel" style="width:180px;" onchange="renderProof()"></select>
+        <select class="brand-select" id="proof-plat-sel" style="width:140px;" onchange="renderProof()">
+          <option value="">All Platforms</option>
+          <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
+          <option>Gemini</option><option>Grok</option><option>Google AIO</option>
+          <option>DeepSeek</option>
+        </select>
+        <select class="brand-select" id="proof-result-sel" style="width:130px;" onchange="renderProof()">
+          <option value="">All Results</option>
+          <option value="found">Found</option>
+          <option value="notfound">Not Found</option>
+        </select>
       </div>
       <div id="proof-summary-strip"></div>
       <div id="proof-container"></div>
@@ -1332,65 +1315,41 @@
 
     <!-- PROMPT DETAILS ──────────────────── -->
     <div id="view-promptdetails" class="view">
-      <div style="display:flex;justify-content:space-between;align-items:start;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
           <div class="view-title">Prompt Details</div>
           <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
         </div>
-        <button class="btn-secondary" onclick="exportPromptData()" style="font-size:11px;white-space:nowrap;">Export CSV</button>
+        <button class="pbtn" onclick="exportPromptData()">Export CSV</button>
       </div>
-      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
-        <select class="finput" id="pd-prompt-select" style="flex:1;min-width:300px;margin:0;" onchange="renderPromptDetail()"></select>
-        <select class="finput" id="pd-platform-filter" style="width:160px;margin:0;" onchange="renderPromptDetail()">
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <select class="brand-select" id="pd-prompt-select" style="flex:1;" onchange="renderPromptDetail()"></select>
+        <select class="brand-select" id="pd-platform-filter" style="width:150px;" onchange="renderPromptDetail()">
           <option value="">All Platforms</option>
         </select>
       </div>
-      <div id="pd-metrics" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-        <div class="card" style="padding:16px;"><div class="card-title">Visibility Over Time</div><canvas id="pd-visibility-chart" height="200"></canvas></div>
-        <div class="card" style="padding:16px;"><div class="card-title">Competitor Share</div><canvas id="pd-competitor-chart" height="200"></canvas></div>
+      <div id="pd-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div class="ov-grid-2" style="margin-bottom:16px;">
+        <div class="card" style="padding:16px;"><div class="card-title">Visibility Over Time</div><canvas id="pd-visibility-chart" height="150"></canvas></div>
+        <div class="card" style="padding:16px;"><div class="card-title">Competitor Share</div><canvas id="pd-competitor-chart" height="150"></canvas></div>
       </div>
-      <div class="card" style="padding:16px;">
-        <div class="card-title">Sentiment Distribution</div>
-        <div id="pd-sentiment-dist" style="display:flex;gap:12px;margin-top:8px;"></div>
-      </div>
-      <div class="card" style="padding:16px;margin-top:16px;">
-        <div class="card-title">Diagnostic Events</div>
-        <div id="pd-diagnostics"></div>
-      </div>
-      <div class="card" style="padding:16px;margin-top:16px;">
-        <div class="card-title">Prompt Metadata</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px;">
-          <div><label class="flabel">Intent</label><select class="finput" id="pd-intent" style="margin:0;" onchange="savePromptMetadata()"><option value="awareness">Awareness</option><option value="comparison">Comparison</option><option value="commercial">Commercial</option><option value="navigational">Navigational</option></select></div>
-          <div><label class="flabel">Funnel Stage</label><select class="finput" id="pd-funnel" style="margin:0;" onchange="savePromptMetadata()"><option value="tofu">TOFU</option><option value="mofu">MOFU</option><option value="bofu">BOFU</option></select></div>
-          <div><label class="flabel">Tags</label><input class="finput" id="pd-tags" style="margin:0;" placeholder="tag1, tag2" onchange="savePromptMetadata()"></div>
-        </div>
-      </div>
-      <div class="card" style="padding:16px;margin-top:16px;">
-        <div class="card-title">Sample Responses</div>
-        <div id="pd-sample-responses"></div>
-      </div>
+      <div class="card" id="pd-platform-table"></div>
     </div>
 
     <!-- RECOMMENDATIONS ──────────────────── -->
     <div id="view-recommendations" class="view">
-      <div style="display:flex;justify-content:space-between;align-items:start;">
-        <div>
-          <div class="view-title">Recommendations &amp; Action Center</div>
-          <div class="view-sub">AI-powered suggestions to improve your brand visibility across platforms.</div>
-        </div>
-        <button class="btn-secondary" onclick="exportRecommendations()" style="font-size:11px;white-space:nowrap;">Export CSV</button>
-      </div>
-      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
-        <button class="btn-primary" onclick="generateRecommendations()" style="font-size:12px;padding:8px 16px;">Generate Recommendations</button>
-        <select class="finput" id="rec-filter-status" style="width:140px;margin:0;" onchange="renderRecommendations()">
+      <div class="view-title">Recommendations</div>
+      <div class="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+        <button class="pbtn" onclick="generateRecommendations()" style="font-weight:700;">Generate Recommendations</button>
+        <select class="brand-select" id="rec-filter-status" style="width:140px;" onchange="renderRecommendations()">
           <option value="">All Status</option>
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
           <option value="done">Done</option>
           <option value="ignored">Ignored</option>
         </select>
-        <select class="finput" id="rec-filter-severity" style="width:140px;margin:0;" onchange="renderRecommendations()">
+        <select class="brand-select" id="rec-filter-severity" style="width:140px;" onchange="renderRecommendations()">
           <option value="">All Severity</option>
           <option value="critical">Critical</option>
           <option value="high">High</option>
@@ -1403,22 +1362,22 @@
     <!-- ACCURACY MONITOR ──────────────────── -->
     <div id="view-accuracy" class="view">
       <div class="view-title">Accuracy Monitor</div>
-      <div class="view-sub">Track when AI platforms provide inaccurate information about your brand. Define canonical facts and we'll flag mismatches.</div>
+      <div class="view-sub">Verify how accurately AI platforms represent your brand information.</div>
+      <div id="accuracy-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
       <div class="card" style="padding:16px;margin-bottom:16px;">
         <div class="card-title">Canonical Facts</div>
-        <div class="view-sub" style="margin-bottom:12px;">Define the key facts about your brand (pricing, features, status) so we can detect when AI gets them wrong.</div>
         <div id="facts-list"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:12px;align-items:end;">
           <div><label class="flabel">Fact Key</label><input class="finput" id="fact-key" placeholder="e.g. pricing" style="margin:0;"></div>
           <div><label class="flabel">Fact Value</label><input class="finput" id="fact-value" placeholder="e.g. starts at $29/mo" style="margin:0;"></div>
           <div><label class="flabel">Category</label><select class="finput" id="fact-category" style="margin:0;"><option value="general">General</option><option value="pricing">Pricing</option><option value="features">Features</option><option value="company">Company</option></select></div>
-          <button class="btn-primary" onclick="addFact()" style="font-size:12px;padding:8px 16px;height:38px;">Add</button>
+          <button class="pbtn" onclick="addFact()" style="font-weight:700;">Add</button>
         </div>
       </div>
       <div class="card" style="padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <div class="card-title">Detected Mismatches</div>
-          <button class="btn-secondary" onclick="checkAccuracy()" style="font-size:11px;padding:6px 12px;">Check Now</button>
+          <button class="pbtn" onclick="checkAccuracy()">Check Now</button>
         </div>
         <div id="accuracy-results" style="margin-top:12px;"></div>
       </div>
@@ -1427,10 +1386,10 @@
     <!-- CITATION ANALYSIS ─────────────────── -->
     <div id="view-citations" class="view">
       <div class="view-title">Citation Analysis</div>
-      <div class="view-sub">Understand which domains AI platforms cite when mentioning your brand.</div>
-      <div id="citation-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;"></div>
-      <div class="card" style="padding:16px;">
-        <div class="card-title">Top Cited Domains</div>
+      <div class="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
+      <div id="citation-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="card-title" style="padding:14px 14px 0;">Top Cited Domains</div>
         <div id="citation-domains"></div>
       </div>
     </div>
