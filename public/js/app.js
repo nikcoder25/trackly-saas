@@ -3676,7 +3676,7 @@ async function renderPlatformStatus(){
     cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
     return;
   }
-  let html = '<div class="table-scroll"><table class="tbl"><thead><tr><th>Platform</th><th>Last SOV</th><th>Key Status</th><th>Trend (last 7 runs)</th></tr></thead><tbody>';
+  let html = '<div class="card" style="padding:0;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Last SOV</th><th class="th">Key Status</th><th class="th">Trend (last 7 runs)</th></tr></thead><tbody>';
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
     const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
@@ -3687,11 +3687,11 @@ async function renderPlatformStatus(){
       const sov = (r.platforms||{})[plat]||0;
       return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;opacity:.8;"></div>`;
     }).join('');
-    html += `<tr>
-      <td><span style="color:${t.color||'#fff'}">${t.logo}</span> ${plat}</td>
-      <td><span class="stat-val" style="font-size:18px;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
-      <td><span class="badge ${hasKey?'real':'sim'}">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
-      <td style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
+    html += `<tr class="trow">
+      <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(plat)}</span></td>
+      <td class="td"><span style="font-family:var(--mono);font-size:18px;font-weight:800;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
+      <td class="td"><span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${hasKey?'var(--green)':'var(--red)'};padding:2px 8px;background:${hasKey?'rgba(16,185,129,.08)':'rgba(239,68,68,.08)'};border-radius:100px;">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
+      <td class="td" style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
     </tr>`;
   });
   html += '</tbody></table></div>';
@@ -3725,24 +3725,12 @@ function renderQPerf(){
   const topQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) > 0.6; }).length;
   const lowQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) <= 0.3; }).length;
 
-  // ── Summary Cards ──
-  let html = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
-    <div class="card" style="padding:16px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Total Queries</div>
-      <div style="font-size:28px;font-weight:800;color:var(--text);font-family:var(--mono);">${queries.length}</div>
-    </div>
-    <div class="card" style="padding:16px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Avg Mention Rate</div>
-      <div style="font-size:28px;font-weight:800;color:${avgRate > 60 ? 'var(--green)' : avgRate > 30 ? 'var(--amber)' : 'var(--red)'};font-family:var(--mono);">${avgRate}%</div>
-    </div>
-    <div class="card" style="padding:16px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Strong (>60%)</div>
-      <div style="font-size:28px;font-weight:800;color:var(--green);font-family:var(--mono);">${topQueries}</div>
-    </div>
-    <div class="card" style="padding:16px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">Needs Work (≤30%)</div>
-      <div style="font-size:28px;font-weight:800;color:${lowQueries > 0 ? 'var(--red)' : 'var(--muted)'};font-family:var(--mono);">${lowQueries}</div>
-    </div>
+  // ── Summary Cards (using .score-card for preview consistency) ──
+  let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+    <div class="score-card"><div class="score-val" style="font-size:24px;">${queries.length}</div><div class="score-label">Total Queries</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:${avgRate > 60 ? 'var(--green)' : avgRate > 30 ? 'var(--amber)' : 'var(--red)'};">${avgRate}%</div><div class="score-label">Avg Mention Rate</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${topQueries}</div><div class="score-label">Strong (&gt;60%)</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:${lowQueries > 0 ? 'var(--red)' : 'var(--muted)'};">${lowQueries}</div><div class="score-label">Needs Work (&le;30%)</div></div>
   </div>`;
 
   // ── Last run info ──
@@ -3852,17 +3840,17 @@ async function renderCompetitors(){
     cm.forEach(c => { if (compStats[c] !== undefined) compStats[c]++; });
   });
 
-  let html = '<div class="card"><div class="card-title">Mention Comparison (Last Run)</div>';
-  html += '<table class="tbl"><thead><tr><th>Brand</th><th>Mentions</th><th>Share</th><th>Bar</th></tr></thead><tbody>';
+  let html = '<div class="card" style="padding:0;overflow:hidden;"><div class="card-title" style="padding:14px 14px 0;">Mention Comparison (Last Run)</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Brand</th><th class="th">Mentions</th><th class="th">Share</th><th class="th">Bar</th></tr></thead><tbody>';
 
   // Your brand row
   const total = allResults.length;
   const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
-  html += `<tr style="background:rgba(255,97,84,.05);">
-    <td><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
-    <td style="font-family:var(--mono)">${brandMentions}/${total}</td>
-    <td style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
-    <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${brandPct}%;background:var(--green);"></div></div></td>
+  html += `<tr class="trow" style="background:rgba(255,97,84,.05);">
+    <td class="td"><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
+    <td class="td" style="font-family:var(--mono)">${brandMentions}/${total}</td>
+    <td class="td" style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
+    <td class="td"><div class="sov-bar-wrap"><div class="sov-bar" style="width:${brandPct}%;background:var(--green);"></div></div></td>
   </tr>`;
 
   // Competitor rows sorted by mention count
@@ -3871,11 +3859,11 @@ async function renderCompetitors(){
     const cnt = compStats[c] || 0;
     const pct = total ? Math.round((cnt / total) * 100) : 0;
     const clr = cnt > brandMentions ? 'var(--red)' : cnt === brandMentions ? 'var(--amber,#f59e0b)' : 'var(--muted)';
-    html += `<tr>
-      <td>${esc(c)}</td>
-      <td style="font-family:var(--mono)">${cnt}/${total}</td>
-      <td style="font-family:var(--mono);color:${clr};font-weight:700;">${pct}%</td>
-      <td><div class="sov-bar-wrap"><div class="sov-bar" style="width:${pct}%;background:${clr};"></div></div></td>
+    html += `<tr class="trow">
+      <td class="td">${esc(c)}</td>
+      <td class="td" style="font-family:var(--mono)">${cnt}/${total}</td>
+      <td class="td" style="font-family:var(--mono);color:${clr};font-weight:700;">${pct}%</td>
+      <td class="td"><div class="sov-bar-wrap"><div class="sov-bar" style="width:${pct}%;background:${clr};"></div></div></td>
     </tr>`;
   });
 
@@ -3889,13 +3877,13 @@ async function renderCompetitors(){
     const coData = await api('GET', '/api/brands/'+b.id+'/competitor-analysis');
     const topComps = coData.topCompetitors || [];
     if (topComps.length) {
-      let coHtml = '<table class="tbl"><thead><tr><th>Competitor</th><th>Appearances</th><th>Prompts</th><th>Platforms</th></tr></thead><tbody>';
+      let coHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Competitor</th><th class="th">Appearances</th><th class="th">Prompts</th><th class="th">Platforms</th></tr></thead><tbody>';
       topComps.forEach(c => {
-        coHtml += `<tr>
-          <td style="font-weight:600;">${esc(c.competitor)}</td>
-          <td style="font-family:var(--mono);">${c.total_appearances}</td>
-          <td style="font-family:var(--mono);">${c.prompt_count}</td>
-          <td style="font-family:var(--mono);">${c.platform_count}</td>
+        coHtml += `<tr class="trow">
+          <td class="td" style="font-weight:600;">${esc(c.competitor)}</td>
+          <td class="td" style="font-family:var(--mono);">${c.total_appearances}</td>
+          <td class="td" style="font-family:var(--mono);">${c.prompt_count}</td>
+          <td class="td" style="font-family:var(--mono);">${c.platform_count}</td>
         </tr>`;
       });
       coHtml += '</tbody></table>';
@@ -3907,14 +3895,14 @@ async function renderCompetitors(){
     // Platform breakdown
     const byPlat = coData.byPlatform || [];
     if (byPlat.length) {
-      let pbHtml = '<table class="tbl"><thead><tr><th>Platform</th><th>Competitor</th><th>Appearances</th><th>Co-mentioned</th></tr></thead><tbody>';
+      let pbHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Competitor</th><th class="th">Appearances</th><th class="th">Co-mentioned</th></tr></thead><tbody>';
       byPlat.forEach(p => {
         const t = PLAT_THEME[p.platform]||{};
-        pbHtml += `<tr>
-          <td><span style="color:${t.color||'#fff'}">${t.logo||''}</span> ${esc(p.platform)}</td>
-          <td>${esc(p.competitor)}</td>
-          <td style="font-family:var(--mono);">${p.appearances}</td>
-          <td style="font-family:var(--mono);">${p.co_mentioned_with_brand}</td>
+        pbHtml += `<tr class="trow">
+          <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(p.platform)}</span></td>
+          <td class="td">${esc(p.competitor)}</td>
+          <td class="td" style="font-family:var(--mono);">${p.appearances}</td>
+          <td class="td" style="font-family:var(--mono);">${p.co_mentioned_with_brand}</td>
         </tr>`;
       });
       pbHtml += '</tbody></table>';
@@ -4090,23 +4078,19 @@ async function renderAlerts(){
       rulesEl.innerHTML = '<div class="empty-state"><p>No alert rules configured. Click "+ Add Alert" to create one.</p></div>';
     } else {
       const condLabels = { visibility_drop:'Visibility Drop', sov_below:'SOV Below', brand_disappeared:'Brand Disappeared', negative_sentiment:'Negative Sentiment', new_competitor:'New Competitor' };
-      rulesEl.innerHTML = '<table class="tbl"><thead><tr><th>Name</th><th>Condition</th><th>Threshold</th><th>Action</th><th>Cooldown</th><th>Status</th><th></th></tr></thead><tbody>' +
+      rulesEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' +
         rules.map(r => {
           const params = r.condition_params || {};
-          const thresh = r.condition_type==='brand_disappeared'||r.condition_type==='new_competitor' ? '—' : (params.threshold||0)+'%';
-          return `<tr>
-          <td style="font-weight:600;">${esc(r.name)}</td>
-          <td style="font-family:var(--mono);font-size:11px;">${condLabels[r.condition_type]||r.condition_type}</td>
-          <td style="font-family:var(--mono);">${thresh}</td>
-          <td><span class="badge ${r.action_type==='webhook'?'real':'sim'}">${r.action_type.toUpperCase()}</span></td>
-          <td style="font-family:var(--mono);font-size:11px;">${r.cooldown_hours||24}h</td>
-          <td><button class="pill-btn" onclick="toggleAlertRule('${r.id}',${r.enabled})" style="${r.enabled?'color:var(--green);border-color:var(--green);':''}">
-            ${r.enabled?'Enabled':'Disabled'}
-          </button></td>
-          <td><button onclick="deleteAlertRule('${r.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">&#x2715;</button></td>
-        </tr>`;
+          const thresh = r.condition_type==='brand_disappeared'||r.condition_type==='new_competitor' ? '' : ' ('+((params.threshold||0)+'%')+')';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg3);border-radius:var(--radius-xs);">
+          <div><span style="font-weight:700;font-size:12px;">${esc(r.name)}</span> <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">&middot; ${r.action_type.charAt(0).toUpperCase()+r.action_type.slice(1).replace('_',' ')} &middot; ${r.cooldown_hours||24}h cooldown${thresh}</span></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="color:${r.enabled?'var(--green)':'var(--muted)'};font-family:var(--mono);font-size:10px;cursor:pointer;" onclick="toggleAlertRule('${escAttr(r.id)}',${r.enabled})">${r.enabled?'ACTIVE':'DISABLED'}</span>
+            <button onclick="deleteAlertRule('${escAttr(r.id)}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">&#x2715;</button>
+          </div>
+        </div>`;
         }).join('') +
-        '</tbody></table>';
+        '</div>';
     }
   } catch(e) {
     rulesEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load alert rules.</div>';
@@ -4119,7 +4103,7 @@ async function renderAlerts(){
     histEl.innerHTML = '<div class="empty-state"><p>No SOV changes recorded yet. Run queries at least twice to see changes here.</p></div>';
     return;
   }
-  let html = '<table class="tbl"><thead><tr><th>Date</th><th>SOV</th><th>Change</th><th>Platforms</th></tr></thead><tbody>';
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Date</th><th class="th">SOV</th><th class="th">Change</th><th class="th">Platforms</th></tr></thead><tbody>';
   for (let i = history.length - 1; i >= 0; i--) {
     const h = history[i];
     const prev = i > 0 ? history[i - 1].overall : 0;
@@ -4128,10 +4112,10 @@ async function renderAlerts(){
     const changeColor = change > 0 ? 'var(--green)' : change < 0 ? 'var(--red)' : 'var(--muted)';
     const date = new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const plats = h.platforms ? Object.entries(h.platforms).map(([p, v]) => p + ': ' + v + '%').join(', ') : '—';
-    html += '<tr><td style="font-family:var(--mono);font-size:11px;">' + date + '</td>';
-    html += '<td style="font-family:var(--mono);font-weight:700;">' + h.overall + '%</td>';
-    html += '<td style="font-family:var(--mono);color:' + changeColor + ';">' + (i === 0 ? '—' : changeStr) + '</td>';
-    html += '<td style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + esc(plats) + '</td></tr>';
+    html += '<tr class="trow"><td class="td" style="font-family:var(--mono);font-size:11px;">' + date + '</td>';
+    html += '<td class="td" style="font-family:var(--mono);font-weight:700;">' + h.overall + '%</td>';
+    html += '<td class="td" style="font-family:var(--mono);color:' + changeColor + ';">' + (i === 0 ? '—' : changeStr) + '</td>';
+    html += '<td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + esc(plats) + '</td></tr>';
   }
   html += '</tbody></table>';
   histEl.innerHTML = html;
@@ -5345,19 +5329,19 @@ async function renderApiLogs(){
     });
 
     let tbl = `<div style="overflow-x:auto;max-height:700px;overflow-y:auto;">
-      <table class="tbl" style="width:100%;font-size:11px;">
-      <thead style="position:sticky;top:0;background:var(--bg2);z-index:1;"><tr>
-        <th style="width:130px;">Time</th>
-        <th style="width:80px;">Platform</th>
-        <th style="width:120px;">Model</th>
-        <th>Query</th>
-        <th style="width:60px;">Status</th>
-        <th style="width:80px;">Tokens</th>
-        <th style="width:60px;">Cost</th>
-        <th style="width:70px;">Running</th>
-        <th style="width:50px;">Time</th>
-        <th style="width:60px;">Key</th>
-        <th>Error</th>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead style="position:sticky;top:0;z-index:1;"><tr style="background:var(--bg3);">
+        <th class="th" style="width:130px;">Time</th>
+        <th class="th" style="width:80px;">Platform</th>
+        <th class="th" style="width:120px;">Model</th>
+        <th class="th">Query</th>
+        <th class="th" style="width:60px;">Status</th>
+        <th class="th" style="width:80px;">Tokens</th>
+        <th class="th" style="width:60px;">Cost</th>
+        <th class="th" style="width:70px;">Running</th>
+        <th class="th" style="width:50px;">Time</th>
+        <th class="th" style="width:60px;">Key</th>
+        <th class="th">Error</th>
         <th style="width:36px;"></th>
       </tr></thead><tbody>`;
 
@@ -5653,8 +5637,8 @@ function renderAdminTable(users){
     el('admin-users-table').innerHTML = '<div class="empty-state"><p>No users found.</p></div>';
     return;
   }
-  let html = `<table class="tbl"><thead><tr>
-    <th>User</th><th>Plan</th><th>Role</th><th>Brands</th><th>API Keys</th><th>Joined</th><th style="text-align:right;">Actions</th>
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);">
+    <th class="th">User</th><th class="th">Plan</th><th class="th">Role</th><th class="th">Brands</th><th class="th">API Keys</th><th class="th">Joined</th><th class="th" style="text-align:right;">Actions</th>
   </tr></thead><tbody>`;
   users.forEach(u => {
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
