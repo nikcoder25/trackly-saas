@@ -6337,7 +6337,6 @@ async function renderBilling() {
 
     // Plan comparison
     const plansEl = el('billing-plans');
-    const allPlans = data.allPlans || {};
     plansEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:12px;">
       <thead><tr style="border-bottom:2px solid var(--bg3);">
         <th style="text-align:left;padding:8px;">Feature</th>
