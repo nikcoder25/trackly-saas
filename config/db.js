@@ -296,6 +296,36 @@ async function initDB() {
         UNIQUE(brand_id, fact_key)
       );
       CREATE INDEX IF NOT EXISTS idx_brand_facts_brand ON brand_facts(brand_id);
+
+      -- Persistent response cache (survives restarts, shared across instances)
+      CREATE TABLE IF NOT EXISTS response_cache (
+        cache_key TEXT PRIMARY KEY,
+        platform TEXT NOT NULL,
+        model TEXT NOT NULL,
+        query TEXT NOT NULL,
+        brand_id TEXT,
+        city TEXT,
+        response JSONB NOT NULL,
+        is_search BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_response_cache_expires ON response_cache(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_response_cache_platform ON response_cache(platform);
+      -- Index for cross-brand cache lookups (same query, no brand_id filter)
+      CREATE INDEX IF NOT EXISTS idx_response_cache_global ON response_cache(platform, model, query) WHERE brand_id IS NULL;
+
+      -- Daily cost budget tracking per user
+      CREATE TABLE IF NOT EXISTS daily_cost_tracker (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        cost_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        total_cost NUMERIC(12,8) DEFAULT 0,
+        query_count INTEGER DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, cost_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_daily_cost_user ON daily_cost_tracker(user_id, cost_date);
     `);
     // Migrations for existing DBs
     await client.query(`
@@ -450,4 +480,81 @@ async function refreshPromptRunStats(brandId) {
   }
 }
 
-module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, refreshPromptRunStats };
+// ── Persistent response cache (DB-backed) ───────────────────────
+async function getDbCachedResponse(cacheKey) {
+  try {
+    const result = await pool.query(
+      'SELECT response FROM response_cache WHERE cache_key = $1 AND expires_at > NOW()',
+      [cacheKey]
+    );
+    return result.rows[0]?.response || null;
+  } catch(e) {
+    log.error('DB cache read failed', { error: e.message });
+    return null;
+  }
+}
+
+async function setDbCachedResponse(cacheKey, platform, model, query, brandId, city, response, isSearch, ttlMs) {
+  try {
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await pool.query(
+      `INSERT INTO response_cache (cache_key, platform, model, query, brand_id, city, response, is_search, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (cache_key) DO UPDATE SET response = $7, expires_at = $9, created_at = NOW()`,
+      [cacheKey, platform, model, query, brandId || null, city || null, JSON.stringify(response), isSearch, expiresAt]
+    );
+  } catch(e) {
+    log.error('DB cache write failed', { error: e.message });
+  }
+}
+
+// Cleanup expired cache entries
+async function cleanupResponseCache() {
+  try {
+    const result = await pool.query("DELETE FROM response_cache WHERE expires_at < NOW()");
+    if (result.rowCount > 0) log.info(`Cleaned up ${result.rowCount} expired cache entries`);
+  } catch(e) {
+    log.error('Response cache cleanup failed', { error: e.message });
+  }
+}
+
+// ── Daily cost budget tracking ──────────────────────────────────
+async function getDailyCost(userId) {
+  try {
+    const result = await pool.query(
+      'SELECT total_cost, query_count FROM daily_cost_tracker WHERE user_id = $1 AND cost_date = CURRENT_DATE',
+      [userId]
+    );
+    return result.rows[0] || { total_cost: 0, query_count: 0 };
+  } catch(e) {
+    log.error('Daily cost read failed', { error: e.message });
+    return { total_cost: 0, query_count: 0 };
+  }
+}
+
+async function incrementDailyCost(userId, cost, queryCount) {
+  try {
+    await pool.query(
+      `INSERT INTO daily_cost_tracker (user_id, cost_date, total_cost, query_count)
+       VALUES ($1, CURRENT_DATE, $2, $3)
+       ON CONFLICT (user_id, cost_date) DO UPDATE SET
+         total_cost = daily_cost_tracker.total_cost + $2,
+         query_count = daily_cost_tracker.query_count + $3,
+         updated_at = NOW()`,
+      [userId, cost || 0, queryCount || 1]
+    );
+  } catch(e) {
+    log.error('Daily cost increment failed', { error: e.message });
+  }
+}
+
+// Cleanup old daily cost records (keep 90 days for analytics)
+async function cleanupDailyCosts() {
+  try {
+    await pool.query("DELETE FROM daily_cost_tracker WHERE cost_date < CURRENT_DATE - INTERVAL '90 days'");
+  } catch(e) {
+    log.error('Daily cost cleanup failed', { error: e.message });
+  }
+}
+
+module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, refreshPromptRunStats, getDbCachedResponse, setDbCachedResponse, cleanupResponseCache, getDailyCost, incrementDailyCost, cleanupDailyCosts };
