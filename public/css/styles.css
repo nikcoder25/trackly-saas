@@ -451,6 +451,7 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   transition:color .2s;
 }
 .pw-toggle:hover{color:var(--text-primary);}
+.pw-eye-open,.pw-eye-closed{pointer-events:none;}
 
 /* Auth divider for Google */
 .auth-divider{
@@ -641,6 +642,13 @@ body:has(#app[style*="display:grid"]){
   padding:4px 8px;
 }
 .logout-btn:hover{color:var(--text);}
+.notif-bell{
+  position:relative;background:none;border:1px solid var(--border);
+  color:var(--muted);font-size:14px;cursor:pointer;
+  padding:4px 8px;line-height:1;border-radius:var(--radius-xs);
+  transition:all .15s;
+}
+.notif-bell:hover{border-color:var(--primary);color:var(--primary);}
 
 /* ── SIDEBAR ─────────────────────────────── */
 .sidebar{
@@ -741,6 +749,11 @@ body:has(#app[style*="display:grid"]){
 .mt-live-info{flex:1;min-width:0;}
 .mt-live-tags{display:flex;gap:5px;align-items:center;flex-wrap:wrap;}
 .mt-live-preview{font-size:12px;color:var(--muted);line-height:1.6;max-height:48px;overflow:hidden;}
+.mt-live-resp{font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px;max-height:36px;overflow:hidden;font-family:var(--mono);}
+
+/* ── COPILOT SUGGESTIONS ── */
+.copilot-suggestion{color:var(--primary);cursor:pointer;transition:opacity .15s;}
+.copilot-suggestion:hover{opacity:.7;text-decoration:underline;}
 
 /* ── MENTIONS PAGE ─────────────────────── */
 
@@ -1406,6 +1419,36 @@ select.finput{appearance:none;}
 }
 .plat-filter:hover{border-color:var(--primary);color:var(--primary);}
 .plat-filter.active-filter{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+/* ── BRAND-SELECT (shared dropdown/input style) ── */
+.brand-select{
+  padding:5px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);
+  font-family:var(--font);font-size:12px;background:var(--bg);color:var(--text);
+  outline:none;transition:border-color .15s;
+}
+.brand-select:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light);}
+input.brand-select{padding:7px 10px;}
+
+/* ── LIVE FEED ROW (streaming results) ── */
+.live-feed-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 16px;border-bottom:1px solid var(--border);
+  font-size:12px;animation:fadeInUp .3s ease;
+}
+
+/* ── PLATFORM TOGGLE (model settings) ── */
+.platform-toggle{
+  width:16px;height:16px;accent-color:var(--primary);cursor:pointer;
+  flex-shrink:0;
+}
+
+/* ── MODEL SELECT (AI model dropdowns) ── */
+.model-select{
+  font-family:var(--mono);font-size:11px;
+}
+
+/* ── TRENDS EMPTY STATE ── */
+.trends-empty{padding:32px 0;}
 
 /* ── FORM ELEMENTS (preview) ─────────── */
 .form-group{margin-bottom:14px;}
