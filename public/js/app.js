@@ -1389,11 +1389,12 @@ async function renderNotificationPrefs() {
     let html = '';
     notifs.forEach(n => {
       const time = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${n.read?'opacity:0.5;':''}">
-        <div style="width:8px;height:8px;border-radius:50%;background:${n.read?'var(--border)':'var(--primary)'};margin-top:5px;flex-shrink:0;"></div>
+      const dotColor = n.read ? 'var(--border)' : (n.severity === 'critical' || n.severity === 'high') ? 'var(--red)' : n.severity === 'medium' ? 'var(--amber)' : 'var(--primary)';
+      html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};margin-top:5px;flex-shrink:0;"></div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:${n.read?'400':'700'};">${esc(n.title)}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">${esc(n.message||'')} &middot; ${time}</div>
+          <div style="font-size:12px;font-weight:700;${n.read?'opacity:.6;':''}">${esc(n.title)}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">${esc(n.message||'')} &middot; ${time}${n.read?' &middot; read':''}</div>
         </div>
       </div>`;
     });
@@ -1433,17 +1434,17 @@ async function renderTeamMembers() {
       listEl.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:16px 0;text-align:center;">No team members yet. Invite someone to get started.</div>';
       return;
     }
-    let html = '<div style="display:flex;flex-direction:column;gap:2px;">';
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
     members.forEach(m => {
       const joined = new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const roleColor = m.role === 'editor' ? 'var(--amber)' : 'var(--muted)';
-      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
         <div>
-          <div style="font-size:12px;font-weight:600;">${esc(m.email || m.name || 'Unknown')}</div>
+          <div style="font-size:13px;font-weight:600;">${esc(m.email || m.name || 'Unknown')}</div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Joined ${joined}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <select class="finput" style="margin:0;width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
+          <select class="brand-select" style="width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
             <option value="viewer" ${m.role==='viewer'?'selected':''}>Viewer</option>
             <option value="editor" ${m.role==='editor'?'selected':''}>Editor</option>
           </select>
@@ -3267,12 +3268,13 @@ function renderMentions(){
     cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet — run queries to start tracking.</p></div>';
     return;
   }
-  runs.forEach(r => {
+  runs.forEach((r, i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date || 0);
-    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    opt.textContent = dateStr + '  ·  SOV ' + r.sov + '%';
+    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const runNum = runs.length - i;
+    opt.textContent = 'Run #' + runNum + ' \u2014 ' + dateStr;
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -3511,12 +3513,14 @@ function renderProof(){
   const sel = el('proof-run-sel');
   const curVal = sel.value;
   sel.innerHTML = '';
-  (b.runs||[]).slice().reverse().forEach((r,i) => {
+  const proofRuns = (b.runs||[]).slice().reverse();
+  proofRuns.forEach((r,i) => {
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date || 0);
-    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    opt.textContent = dateStr + ' — ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
+    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const runNum = proofRuns.length - i;
+    opt.textContent = 'Run #' + runNum + ' \u2014 ' + dateStr;
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -3641,60 +3645,45 @@ async function renderPlatformStatus(){
   const b = brand();
   if (!b) return;
 
+  const cont = el('plat-status-cards');
+  if (!cont) return;
+
   // Fetch platform health from API
-  const healthDiv = el('plat-health-cards');
+  let healthMap = {};
   try {
     const hData = await api('GET', '/api/meta/platforms');
-    const platformsObj = hData.platforms || {};
-    const platformEntries = Object.entries(platformsObj);
-    if (platformEntries.length) {
-      healthDiv.innerHTML = platformEntries.map(([name, p]) => {
-        const t = PLAT_THEME[name]||{};
-        const statusClr = p.status === 'green' ? 'var(--green)' : p.status === 'amber' ? 'var(--amber,#f59e0b)' : p.status === 'red' ? 'var(--red)' : 'var(--muted)';
-        const statusLabel = p.status === 'green' ? 'HEALTHY' : p.status === 'amber' ? 'DEGRADED' : p.status === 'red' ? 'DOWN' : 'NO DATA';
-        return `<div class="card" style="padding:12px;border-left:3px solid ${t.color||'var(--border)'};">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:13px;">${t.logo||''} ${esc(name)}</span>
-            <span class="badge" style="background:${statusClr};color:#fff;font-size:9px;padding:2px 6px;">${statusLabel}</span>
-          </div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            Avg latency: ${p.avg_latency_ms ? p.avg_latency_ms+'ms' : '—'}<br>
-            Success rate: ${p.success_rate != null ? p.success_rate+'%' : '—'}<br>
-            Last 24h calls: ${p.total_calls_24h || 0}
-          </div>
-        </div>`;
-      }).join('');
-    } else {
-      healthDiv.innerHTML = '';
-    }
-  } catch(e) {
-    healthDiv.innerHTML = '';
-  }
+    healthMap = hData.platforms || {};
+  } catch(e) {}
 
-  const cont = el('plat-status-container');
   if (!b.runs || !b.runs.length) {
-    cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
+    cont.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><p>No data yet.</p></div>';
     return;
   }
-  let html = '<div class="card" style="padding:0;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Last SOV</th><th class="th">Key Status</th><th class="th">Trend (last 7 runs)</th></tr></thead><tbody>';
+
+  let html = '';
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
     const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
     const hasKey = keyStatus[keyField];
     const recent = b.runs.slice(-7);
     const lastSOV = recent.length ? (recent[recent.length-1].platforms||{})[plat]||0 : 0;
-    const bars = recent.map(r => {
-      const sov = (r.platforms||{})[plat]||0;
-      return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;opacity:.8;"></div>`;
-    }).join('');
-    html += `<tr class="trow">
-      <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(plat)}</span></td>
-      <td class="td"><span style="font-family:var(--mono);font-size:18px;font-weight:800;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
-      <td class="td"><span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${hasKey?'var(--green)':'var(--red)'};padding:2px 8px;background:${hasKey?'rgba(16,185,129,.08)':'rgba(239,68,68,.08)'};border-radius:100px;">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
-      <td class="td" style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
-    </tr>`;
+    const health = healthMap[plat] || {};
+    const statusClr = health.status === 'green' ? 'var(--green)' : health.status === 'amber' ? 'var(--amber,#f59e0b)' : health.status === 'red' ? 'var(--red)' : 'var(--muted)';
+    const statusLabel = health.status === 'green' ? 'HEALTHY' : health.status === 'amber' ? 'DEGRADED' : health.status === 'red' ? 'DOWN' : hasKey ? 'ACTIVE' : 'INACTIVE';
+    html += `<div class="card" style="padding:16px;border-left:3px solid ${t.color||'var(--border)'};">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:13px;">${t.logo||''} ${esc(plat)}</span>
+        <span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;color:${statusClr};background:${statusClr === 'var(--green)' ? 'rgba(16,185,129,.08)' : statusClr === 'var(--red)' ? 'rgba(239,68,68,.08)' : 'rgba(107,114,128,.08)'};">${statusLabel}</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:${t.color||'var(--green)'};margin-bottom:8px;">${lastSOV}%</div>
+      <div class="sov-bar-wrap" style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px;">
+        <div style="width:${lastSOV}%;height:100%;background:${t.color||'var(--green)'};border-radius:3px;transition:width .4s ease;"></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+        ${health.avg_latency_ms ? 'Latency: '+health.avg_latency_ms+'ms' : ''}${health.success_rate != null ? ' &middot; Success: '+health.success_rate+'%' : ''}
+      </div>
+    </div>`;
   });
-  html += '</tbody></table></div>';
   cont.innerHTML = html;
 }
 
@@ -3841,79 +3830,44 @@ async function renderCompetitors(){
     cm.forEach(c => { if (compStats[c] !== undefined) compStats[c]++; });
   });
 
-  let html = '<div class="card" style="padding:0;overflow:hidden;"><div class="card-title" style="padding:14px 14px 0;">Mention Comparison (Last Run)</div>';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Brand</th><th class="th">Mentions</th><th class="th">Share</th><th class="th">Bar</th></tr></thead><tbody>';
-
-  // Your brand row
+  // Comparison bars (preview qbar-row design)
   const total = allResults.length;
   const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
-  html += `<tr class="trow" style="background:rgba(255,97,84,.05);">
-    <td class="td"><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
-    <td class="td" style="font-family:var(--mono)">${brandMentions}/${total}</td>
-    <td class="td" style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
-    <td class="td"><div class="sov-bar-wrap"><div class="sov-bar" style="width:${brandPct}%;background:var(--green);"></div></div></td>
-  </tr>`;
+  let html = `<div class="card" style="margin-top:0;">
+    <div class="card-title">Competitor Comparison</div>`;
+  html += `<div class="qbar-row"><span class="qbar-label" style="font-weight:700;">${esc(b.name)} (You)</span><div class="qbar-track"><div class="qbar-fill" style="width:${brandPct}%;background:var(--primary);"></div></div><span class="qbar-val" style="color:var(--primary);">${brandPct}%</span></div>`;
 
   // Competitor rows sorted by mention count
   const sorted = competitors.slice().sort((a,b2) => (compStats[b2]||0) - (compStats[a]||0));
-  sorted.forEach(c => {
+  const compColors = ['var(--blue)', 'var(--purple)', 'var(--amber)', 'var(--green)', 'var(--red)'];
+  sorted.forEach((c, i) => {
     const cnt = compStats[c] || 0;
     const pct = total ? Math.round((cnt / total) * 100) : 0;
-    const clr = cnt > brandMentions ? 'var(--red)' : cnt === brandMentions ? 'var(--amber,#f59e0b)' : 'var(--muted)';
-    html += `<tr class="trow">
-      <td class="td">${esc(c)}</td>
-      <td class="td" style="font-family:var(--mono)">${cnt}/${total}</td>
-      <td class="td" style="font-family:var(--mono);color:${clr};font-weight:700;">${pct}%</td>
-      <td class="td"><div class="sov-bar-wrap"><div class="sov-bar" style="width:${pct}%;background:${clr};"></div></div></td>
-    </tr>`;
+    const clr = compColors[i % compColors.length];
+    html += `<div class="qbar-row"><span class="qbar-label">${esc(c)}</span><div class="qbar-track"><div class="qbar-fill" style="width:${pct}%;background:${clr};"></div></div><span class="qbar-val" style="color:${clr};">${pct}%</span></div>`;
   });
 
-  html += '</tbody></table></div>';
+  html += '</div>';
   compDiv.innerHTML = html;
 
   // Fetch co-occurrence data from prompt_runs
   const cooccDiv = el('comp-cooccurrence');
-  const platBreakDiv = el('comp-platform-breakdown');
   try {
     const coData = await api('GET', '/api/brands/'+b.id+'/competitor-analysis');
     const topComps = coData.topCompetitors || [];
     if (topComps.length) {
-      let coHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Competitor</th><th class="th">Appearances</th><th class="th">Prompts</th><th class="th">Platforms</th></tr></thead><tbody>';
+      const maxApp = Math.max(...topComps.map(c => c.total_appearances), 1);
+      let coHtml = '';
       topComps.forEach(c => {
-        coHtml += `<tr class="trow">
-          <td class="td" style="font-weight:600;">${esc(c.competitor)}</td>
-          <td class="td" style="font-family:var(--mono);">${c.total_appearances}</td>
-          <td class="td" style="font-family:var(--mono);">${c.prompt_count}</td>
-          <td class="td" style="font-family:var(--mono);">${c.platform_count}</td>
-        </tr>`;
+        const pct = (c.total_appearances / maxApp * 100);
+        coHtml += `<div class="qbar-row"><span class="qbar-label">${esc(c.competitor)}</span><div class="qbar-track"><div class="qbar-fill" style="width:${pct}%;background:var(--purple);"></div></div><span class="qbar-val" style="color:var(--muted);">${c.total_appearances}x</span></div>`;
       });
-      coHtml += '</tbody></table>';
       cooccDiv.innerHTML = coHtml;
     } else {
       cooccDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">No co-occurrence data yet. Run more queries to build up data.</div>';
     }
-
-    // Platform breakdown
-    const byPlat = coData.byPlatform || [];
-    if (byPlat.length) {
-      let pbHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Competitor</th><th class="th">Appearances</th><th class="th">Co-mentioned</th></tr></thead><tbody>';
-      byPlat.forEach(p => {
-        const t = PLAT_THEME[p.platform]||{};
-        pbHtml += `<tr class="trow">
-          <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(p.platform)}</span></td>
-          <td class="td">${esc(p.competitor)}</td>
-          <td class="td" style="font-family:var(--mono);">${p.appearances}</td>
-          <td class="td" style="font-family:var(--mono);">${p.co_mentioned_with_brand}</td>
-        </tr>`;
-      });
-      pbHtml += '</tbody></table>';
-      platBreakDiv.innerHTML = pbHtml;
-    } else {
-      platBreakDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">No platform breakdown data available.</div>';
-    }
   } catch(e) {
     cooccDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load co-occurrence data.</div>';
-    platBreakDiv.innerHTML = '';
   }
 }
 
@@ -5977,7 +5931,7 @@ async function renderPromptDetail() {
           <td class="td">${found ? 'Yes' : '—'}</td>
         </tr>`;
       });
-      tableEl.innerHTML = `<div class="card-title" style="padding:14px 14px 0;">Per-Platform Results</div>
+      tableEl.innerHTML = `<div class="card-title">Per-Platform Results</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Found</th><th class="th">Position</th><th class="th">Sentiment</th><th class="th">Recommended</th></tr></thead>
           <tbody>${tableRows}</tbody>
@@ -6263,16 +6217,14 @@ async function renderCitationAnalysis() {
       domainsEl.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">No citations found yet. Run more queries to build citation data.</div>';
       return;
     }
-    domainsEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead><tr style="background:var(--bg3);"><th class="th">Domain</th><th class="th">Type</th><th class="th">Citations</th><th class="th">Top URLs</th></tr></thead>
-      <tbody>${domains.map(d => `
-        <tr class="trow">
-          <td class="td" style="font-weight:600;">${esc(d.domain)}</td>
-          <td class="td"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${d.type}</span></td>
-          <td class="td" style="font-weight:600;">${d.totalCitations}</td>
-          <td class="td" style="font-size:11px;">${(d.urls || []).slice(0, 2).map(u => `<a href="${safeHref(u.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;">${esc(u.url.substring(0, 50))}...</a> (${u.count})`).join('<br>')}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
+    const maxCites = Math.max(...domains.map(d => d.totalCitations), 1);
+    domainsEl.innerHTML = domains.map(d => {
+      const pct = (d.totalCitations / maxCites * 100);
+      const isOwn = bDomain && d.domain.includes(bDomain);
+      const star = isOwn ? '<span style="color:var(--amber);">&#9733;</span> ' : '';
+      const col = isOwn ? 'var(--amber)' : 'var(--blue)';
+      return `<div class="qbar-row"><span class="qbar-label">${star}${esc(d.domain)}</span><div class="qbar-track"><div class="qbar-fill" style="width:${pct}%;background:${col};"></div></div><span class="qbar-val" style="color:var(--muted);">${d.totalCitations}</span></div>`;
+    }).join('');
   } catch(e) { toast('Failed to load citations', 'err'); }
 }
 
@@ -6324,18 +6276,29 @@ async function renderBilling() {
     const plan = data.plan;
     const usage = data.usage || {};
 
-    // Plan card
+    // Plan card (preview design: plan name + description inline)
+    const allPlans = data.allPlans || {};
     const planEl = el('billing-plan-card');
     const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
+    const planDesc = { free: 'Basic access with limited features', pro: 'Full access for growing businesses', agency: 'Multi-brand management for agencies', enterprise: 'Custom enterprise features', owner: 'Unlimited access to all features' };
     planEl.innerHTML = `
-      <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Current Plan</div>
-            <div style="font-size:28px;font-weight:700;text-transform:uppercase;color:${planColors[plan]};">${plan}</div>
-            <div style="font-size:12px;color:var(--muted);">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
-          </div>
-          ${plan !== 'owner' ? '<button class="btn-primary" style="font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
+      <div class="card">
+        <div class="card-title">Current Plan</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <span style="font-family:var(--mono);font-size:20px;font-weight:800;color:${planColors[plan] || 'var(--primary)'};">${plan.toUpperCase()}</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">${planDesc[plan] || 'Current subscription plan'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          ${Object.entries(allPlans).slice(0, 3).map(([p, limits]) => {
+            const isActive = p === plan;
+            const price = p === 'free' ? '$0' : p === 'pro' ? '$35' : p === 'agency' ? '$89' : '$0';
+            const desc = p === 'free' ? (limits.brands||1)+' brand &middot; '+(limits.prompts||3)+' queries' : p === 'pro' ? (limits.brands||5)+' brands &middot; '+(limits.prompts||25)+' queries' : (limits.brands||20)+' brands &middot; '+(limits.prompts||100)+' queries';
+            return `<div style="border:1px solid ${isActive?'var(--primary-border)':'var(--border)'};padding:16px;border-radius:var(--radius-xs);text-align:center;${isActive?'background:var(--primary-light);':''}">
+              <div style="font-weight:700;margin-bottom:4px;${isActive?'color:var(--primary);':''}">${p.charAt(0).toUpperCase()+p.slice(1)}</div>
+              <div style="font-family:var(--mono);font-size:20px;font-weight:800;">${price}</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">${desc}</div>
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
 

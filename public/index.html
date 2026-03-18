@@ -982,9 +982,7 @@
     <div id="view-platforms" class="view">
       <div class="view-title">Platform Status</div>
       <div class="view-sub">SOV per AI platform and real-time API health.</div>
-      <!-- Platform Health (from /api/meta/platforms) -->
-      <div id="plat-health-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;"></div>
-      <div id="plat-status-container"></div>
+      <div id="plat-status-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
     </div>
 
     <!-- QUERY PERFORMANCE ────────────────── -->
@@ -1013,10 +1011,6 @@
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
         <div id="comp-cooccurrence"></div>
       </div>
-      <div class="card" style="margin-top:0;">
-        <div class="card-title">Per-Platform Breakdown</div>
-        <div id="comp-platform-breakdown"></div>
-      </div>
     </div>
 
     <!-- SOV TRENDS ────────────────────────── -->
@@ -1027,7 +1021,7 @@
         <div class="card-title">Overall SOV Trend</div>
         <canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>
       </div>
-      <div class="card" style="padding:20px;margin-top:16px;">
+      <div class="card" style="padding:20px;margin-top:0;">
         <div class="card-title">Per-Platform SOV Trend</div>
         <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
       </div>
@@ -1045,7 +1039,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="card-title" style="margin:0;">Alert Rules</div>
-          <button class="btn-primary" onclick="openAddAlert()" style="font-size:11px;padding:6px 14px;">+ Add Alert</button>
+          <button class="pbtn" onclick="openAddAlert()" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Add Alert</button>
         </div>
         <div id="alert-rules-list"></div>
       </div>
@@ -1091,9 +1085,9 @@
           Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
           We'll POST a JSON payload whenever your SOV changes after a run.
         </div>
-        <div class="add-query-row">
-          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;border-radius:var(--radius-xs);">
-          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--primary);color:#fff;border:none;font-family:var(--font);font-weight:700;cursor:pointer;border-radius:6px;">SAVE</button>
+        <div style="display:flex;gap:8px;">
+          <input class="brand-select" id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;padding:8px 10px;">
+          <button class="pbtn" onclick="saveWebhook()" style="background:var(--primary);color:#fff;border-color:var(--primary);">SAVE</button>
         </div>
         <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
       </div>
@@ -1101,16 +1095,14 @@
       <!-- Notification Preferences (merged in) -->
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Email Report Schedule</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Receive periodic email summaries of your brand visibility across AI platforms.
-        </div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;">Receive periodic email summaries of your brand visibility.</div>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <select class="finput" id="notif-report-freq" style="margin:0;width:180px;">
+          <select class="brand-select" id="notif-report-freq" style="width:150px;">
             <option value="off">Off</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          <button class="btn-primary" onclick="saveReportSchedule()" style="font-size:11px;">SAVE</button>
+          <button class="pbtn" onclick="saveReportSchedule()" style="background:var(--primary);color:#fff;border-color:var(--primary);">SAVE</button>
           <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
@@ -1132,20 +1124,20 @@
       <div class="view-title">Brand Setup</div>
       <div class="view-sub">Configure your brand details.</div>
       <div class="card">
-        <div class="form-row">
-          <label class="flabel">Brand Name</label>
-          <input class="finput" id="s-name" type="text" placeholder="Your Brand Name">
+        <div class="form-group">
+          <label class="flbl">Brand Name</label>
+          <input class="finp" id="s-name" type="text" placeholder="Your Brand Name">
         </div>
-        <div class="form-row">
-          <label class="flabel">Industry</label>
-          <input class="finput" id="s-industry" type="text" placeholder="e.g. HVAC, Plumbing, Landscaping">
+        <div class="form-group">
+          <label class="flbl">Industry</label>
+          <input class="finp" id="s-industry" type="text" placeholder="e.g. HVAC, Plumbing, Landscaping">
         </div>
-        <div class="form-row">
-          <label class="flabel">Website</label>
-          <input class="finput" id="s-website" type="text" placeholder="yourbrand.com">
+        <div class="form-group">
+          <label class="flbl">Website</label>
+          <input class="finp" id="s-website" type="text" placeholder="yourbrand.com">
         </div>
-        <div class="form-row">
-          <label class="flabel">Alternate Names / Aliases</label>
+        <div class="form-group">
+          <label class="flbl">Alternate Names / Aliases</label>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
             AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br>
             Auto-generated from brand name &amp; website — add more if needed.
@@ -1157,12 +1149,12 @@
             <button onclick="autoGenerateAliases()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">AUTO-GENERATE</button>
           </div>
         </div>
-        <div class="form-row">
-          <label class="flabel">City / Location</label>
-          <input class="finput" id="s-city" type="text" placeholder="e.g. Austin TX">
+        <div class="form-group">
+          <label class="flbl">City / Location</label>
+          <input class="finp" id="s-city" type="text" placeholder="e.g. Austin TX">
         </div>
-        <div class="form-row">
-          <label class="flabel">Nearby Areas</label>
+        <div class="form-group">
+          <label class="flbl">Nearby Areas</label>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
             Add state, nearby cities, and service areas. When a query has no location, these areas will also be checked in AI responses.
           </div>
@@ -1173,16 +1165,16 @@
             <button id="auto-fetch-areas-btn" onclick="autoFetchNearbyAreas()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">AUTO-FETCH</button>
           </div>
         </div>
-        <div class="form-row">
-          <label class="flabel">SOV Goal (%)</label>
-          <input class="finput" id="s-goal" type="number" min="1" max="100" placeholder="70">
+        <div class="form-group">
+          <label class="flbl">SOV Goal (%)</label>
+          <input class="finp" id="s-goal" type="number" min="1" max="100" placeholder="70" style="width:100px;">
         </div>
-        <div class="form-row">
-          <label class="flabel">AI Platforms to Track</label>
+        <div class="form-group">
+          <label class="flbl">AI Platforms to Track</label>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">Select which AI models to query when running keyword tracking.</div>
           <div id="setup-plat-list" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
         </div>
-        <button class="btn-primary" onclick="saveBrandSetup()">SAVE CHANGES</button>
+        <button style="padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;" onclick="saveBrandSetup()">SAVE CHANGES</button>
         <button onclick="deleteBrand()" style="width:100%;padding:10px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;border-radius:var(--radius-xs);">DELETE BRAND</button>
       </div>
     </div>
@@ -1192,9 +1184,10 @@
     <div id="view-account" class="view">
       <div class="view-title">Account &amp; Plan</div>
       <div class="view-sub">Manage your account and subscription.</div>
+      <!-- Account Info -->
       <div class="card">
         <div class="card-title">Account Info</div>
-        <div style="font-family:var(--mono);font-size:12px;line-height:2;">
+        <div style="font-family:var(--mono);font-size:12px;line-height:2.2;">
           <div>Email: <strong id="acct-email"></strong> <span id="acct-email-verify"></span></div>
           <div style="display:flex;align-items:center;gap:8px;">Username: <strong id="acct-username" style="color:var(--primary);">—</strong>
             <button onclick="promptSetUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">SET</button>
@@ -1203,37 +1196,8 @@
           <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Plan Usage</div>
-        <div id="acct-usage"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">AI Model Settings</div>
-        <div class="view-sub" style="margin-bottom:12px;font-size:11px;">Choose which model to use for each AI platform when running queries.</div>
-        <div id="model-settings"></div>
-        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
-          <button class="btn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
-          <span id="model-save-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Change Plan</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Export Data</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
-          Download your brand data, query results, and SOV history.
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn" onclick="exportAllData()">EXPORT CURRENT BRAND (JSON)</button>
-          <button class="btn" onclick="exportBrandCSV()">EXPORT CURRENT BRAND (CSV)</button>
-          <button class="btn" onclick="exportAllBrandsData()">EXPORT ALL BRANDS (JSON)</button>
-          <button class="btn" onclick="el('import-brand-file').click()" style="background:var(--bg3);border-color:var(--primary-border);color:var(--primary);">IMPORT BRAND (JSON)</button>
-          <input type="file" id="import-brand-file" accept=".json" style="display:none;" onchange="importBrandConfig(this)">
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px;">
+      <!-- Two-Factor Authentication (preview order: after Account Info) -->
+      <div class="card">
         <div class="card-title">Two-Factor Authentication</div>
         <div id="twofa-status" style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:12px;">Loading...</div>
         <div id="twofa-actions"></div>
@@ -1252,19 +1216,52 @@
         </div>
         <div id="twofa-backup-codes" style="display:none;margin-top:12px;"></div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Change Password</div>
-        <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;margin-top:10px;">
-          <input class="finput" id="pw-current" type="password" placeholder="Current password">
-          <input class="finput" id="pw-new" type="password" placeholder="New password (min 8 characters)">
-          <input class="finput" id="pw-confirm" type="password" placeholder="Confirm new password">
-          <button class="btn" onclick="changePassword()">UPDATE PASSWORD</button>
+      <!-- AI Model Settings -->
+      <div class="card">
+        <div class="card-title">AI Model Settings</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;">Choose which model to use for each AI platform when running queries.</div>
+        <div id="model-settings"></div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+          <button onclick="saveModelSettings()" id="btn-save-models" style="padding:8px 16px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">SAVE MODEL SETTINGS</button>
+          <span id="model-save-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;border-color:var(--red);">
+      <!-- Export Data -->
+      <div class="card">
+        <div class="card-title">Export Data</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="pbtn" onclick="exportAllData()">EXPORT BRAND (JSON)</button>
+          <button class="pbtn" onclick="exportBrandCSV()">EXPORT BRAND (CSV)</button>
+          <button class="pbtn" onclick="exportAllBrandsData()">EXPORT ALL (JSON)</button>
+          <button class="pbtn" onclick="el('import-brand-file').click()" style="border-color:var(--primary);color:var(--primary);">IMPORT BRAND</button>
+          <input type="file" id="import-brand-file" accept=".json" style="display:none;" onchange="importBrandConfig(this)">
+        </div>
+      </div>
+      <!-- Change Password -->
+      <div class="card">
+        <div class="card-title">Change Password</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;">
+          <input class="finp" id="pw-current" type="password" placeholder="Current password">
+          <input class="finp" id="pw-new" type="password" placeholder="New password (min 8 characters)">
+          <input class="finp" id="pw-confirm" type="password" placeholder="Confirm new password">
+          <button class="pbtn" onclick="changePassword()" style="width:fit-content;">UPDATE PASSWORD</button>
+        </div>
+      </div>
+      <!-- Plan Usage -->
+      <div class="card">
+        <div class="card-title">Plan Usage</div>
+        <div id="acct-usage"></div>
+      </div>
+      <!-- Change Plan -->
+      <div class="card">
+        <div class="card-title">Change Plan</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
+      </div>
+      <!-- Danger Zone -->
+      <div class="card" style="border-color:var(--red);">
         <div class="card-title" style="color:var(--red);">Danger Zone</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
-          Permanently delete your account and all brands. This cannot be undone.
+          Permanently delete your account. This cannot be undone.
         </div>
         <button onclick="deleteAccount()" style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">DELETE MY ACCOUNT</button>
       </div>
@@ -1305,16 +1302,16 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="card-title" style="margin:0;">Members</div>
-          <button class="btn-primary" onclick="toggleTeamInvite()" style="font-size:11px;padding:6px 14px;">+ Invite</button>
+          <button class="pbtn" onclick="toggleTeamInvite()" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Invite</button>
         </div>
-        <div id="team-invite-form" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
+        <div id="team-invite-form" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-xs);">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <input class="finput" id="team-invite-email" type="email" placeholder="user@example.com" style="margin:0;flex:1;min-width:200px;">
-            <select class="finput" id="team-invite-role" style="margin:0;width:120px;">
+            <input class="brand-select" id="team-invite-email" type="email" placeholder="user@example.com" style="flex:1;padding:8px 10px;">
+            <select class="brand-select" id="team-invite-role" style="width:110px;">
               <option value="viewer">Viewer</option>
               <option value="editor">Editor</option>
             </select>
-            <button class="btn-primary" onclick="sendTeamInvite()" style="font-size:11px;white-space:nowrap;">SEND INVITE</button>
+            <button class="pbtn" onclick="sendTeamInvite()" style="background:var(--primary);color:#fff;border-color:var(--primary);">SEND INVITE</button>
           </div>
         </div>
         <div id="team-members-list"></div>
