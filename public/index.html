@@ -51,7 +51,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
 <link rel="dns-prefetch" href="https://accounts.google.com">
 <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
-<link rel="stylesheet" href="/css/styles.min.css?v=9">
+<link rel="stylesheet" href="/css/styles.min.css?v=10">
 </head>
 <body>
 
@@ -980,40 +980,53 @@
 
     <!-- PLATFORM STATUS ──────────────────── -->
     <div id="view-platforms" class="view">
-      <div class="view-title">Platform Status</div>
-      <div class="view-sub">SOV per AI platform and real-time API health.</div>
-      <!-- Platform Health (from /api/meta/platforms) -->
-      <div id="plat-health-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Platform Status</div>
+          <div class="view-sub">SOV per AI platform and real-time API health.</div>
+        </div>
+        <button class="pbtn" onclick="renderPlatformStatus()">Refresh</button>
+      </div>
+      <div id="plat-health-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;"></div>
       <div id="plat-status-container"></div>
     </div>
 
     <!-- QUERY PERFORMANCE ────────────────── -->
     <div id="view-qperf" class="view">
-      <div class="view-title">Query Performance</div>
-      <div class="view-sub">Monitor mention rates and performance for every tracked keyword across AI platforms.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Query Performance</div>
+          <div class="view-sub">Monitor mention rates and performance for every tracked keyword across AI platforms.</div>
+        </div>
+        <button class="pbtn" onclick="go('setup')">Manage Queries</button>
+      </div>
+      <div id="qperf-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
       <div id="qperf-container"></div>
     </div>
 
     <!-- COMPETITORS ──────────────────────── -->
     <div id="view-competitors" class="view">
-      <div class="view-title">Competitors</div>
-      <div class="view-sub">Track mentions alongside your brand.</div>
-      <div class="card">
-        <div class="card-title">Competitor Brands</div>
-        <div id="comp-tags"></div>
-        <div class="add-query-row" style="margin-top:10px;">
-          <input id="comp-input" type="text" placeholder="Add competitor name..." onkeydown="if(event.key==='Enter')addComp()">
-          <button onclick="addComp()">+ Add</button>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Competitors</div>
+          <div class="view-sub">Track mentions alongside your brand.</div>
         </div>
       </div>
-      <div id="comp-comparison" style="margin-top:16px;"></div>
-      <!-- Co-occurrence trends from prompt_runs -->
-      <div class="card" style="margin-top:16px;">
+      <div class="card">
+        <div class="card-title">Competitor Brands</div>
+        <div id="comp-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input class="finp" id="comp-input" type="text" placeholder="Add competitor name..." style="flex:1;" onkeydown="if(event.key==='Enter')addComp()">
+          <button class="pbtn" onclick="addComp()">+ Add</button>
+        </div>
+      </div>
+      <div id="comp-comparison" style="margin-top:14px;"></div>
+      <div class="card" style="margin-top:14px;">
         <div class="card-title">Competitor Co-occurrence (30 days)</div>
-        <div class="view-sub" style="margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
         <div id="comp-cooccurrence"></div>
       </div>
-      <div class="card" style="margin-top:16px;">
+      <div class="card" style="margin-top:14px;">
         <div class="card-title">Per-Platform Breakdown</div>
         <div id="comp-platform-breakdown"></div>
       </div>
@@ -1023,11 +1036,12 @@
     <div id="view-trends" class="view">
       <div class="view-title">SOV Trends</div>
       <div class="view-sub">Share of Voice over time — overall and per platform.</div>
+      <div id="trends-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
       <div class="card" style="padding:20px;">
         <div class="card-title">Overall SOV Trend</div>
         <canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>
       </div>
-      <div class="card" style="padding:20px;margin-top:16px;">
+      <div class="card" style="padding:20px;margin-top:14px;">
         <div class="card-title">Per-Platform SOV Trend</div>
         <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
       </div>
@@ -1331,17 +1345,17 @@
         <button class="pbtn" onclick="exportPromptData()">Export CSV</button>
       </div>
       <div style="display:flex;gap:12px;margin-bottom:16px;">
-        <select class="brand-select" id="pd-prompt-select" style="flex:1;" onchange="renderPromptDetail()"></select>
-        <select class="brand-select" id="pd-platform-filter" style="width:150px;" onchange="renderPromptDetail()">
+        <select class="finp" id="pd-prompt-select" style="flex:1;" onchange="renderPromptDetail()"></select>
+        <select class="finp" id="pd-platform-filter" style="width:150px;" onchange="renderPromptDetail()">
           <option value="">All Platforms</option>
         </select>
       </div>
       <div id="pd-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
-      <div class="ov-grid-2" style="margin-bottom:16px;">
+      <div class="ov-grid-2" style="margin-bottom:14px;">
         <div class="card" style="padding:16px;"><div class="card-title">Visibility Over Time</div><canvas id="pd-visibility-chart" height="150"></canvas></div>
         <div class="card" style="padding:16px;"><div class="card-title">Competitor Share</div><canvas id="pd-competitor-chart" height="150"></canvas></div>
       </div>
-      <div class="card" id="pd-platform-table"></div>
+      <div class="card" id="pd-platform-table" style="padding:0;overflow:hidden;"></div>
     </div>
 
     <!-- RECOMMENDATIONS ──────────────────── -->
@@ -1369,32 +1383,39 @@
 
     <!-- ACCURACY MONITOR ──────────────────── -->
     <div id="view-accuracy" class="view">
-      <div class="view-title">Accuracy Monitor <span class="badge-moved">MOVED TO ANALYSIS</span></div>
-      <div class="view-sub">Verify how accurately AI platforms represent your brand information.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Accuracy Monitor <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-sub">Verify how accurately AI platforms represent your brand information.</div>
+        </div>
+        <button class="pbtn" onclick="checkAccuracy()" style="background:var(--primary);color:#fff;border-color:var(--primary);">Check Now</button>
+      </div>
       <div id="accuracy-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
-      <div class="card" style="padding:16px;margin-bottom:16px;">
+      <div class="card" style="padding:16px;margin-bottom:14px;">
         <div class="card-title">Canonical Facts</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;">Define what's true about your brand. We'll check if AI gets it right.</div>
         <div id="facts-list"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:12px;align-items:end;">
-          <div><label class="flabel">Fact Key</label><input class="finput" id="fact-key" placeholder="e.g. pricing" style="margin:0;"></div>
-          <div><label class="flabel">Fact Value</label><input class="finput" id="fact-value" placeholder="e.g. starts at $29/mo" style="margin:0;"></div>
-          <div><label class="flabel">Category</label><select class="finput" id="fact-category" style="margin:0;"><option value="general">General</option><option value="pricing">Pricing</option><option value="features">Features</option><option value="company">Company</option></select></div>
+          <div><label class="flbl">Fact Key</label><input class="finp" id="fact-key" placeholder="e.g. founded_year" style="margin:0;"></div>
+          <div><label class="flbl">Fact Value</label><input class="finp" id="fact-value" placeholder="e.g. 2009" style="margin:0;"></div>
+          <div><label class="flbl">Category</label><select class="finp" id="fact-category" style="margin:0;"><option value="general">General</option><option value="pricing">Pricing</option><option value="features">Features</option><option value="company">Company</option></select></div>
           <button class="pbtn" onclick="addFact()" style="font-weight:700;">Add</button>
         </div>
       </div>
       <div class="card" style="padding:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div class="card-title">Detected Mismatches</div>
-          <button class="pbtn" onclick="checkAccuracy()">Check Now</button>
-        </div>
+        <div class="card-title">Detected Mismatches</div>
         <div id="accuracy-results" style="margin-top:12px;"></div>
       </div>
     </div>
 
     <!-- CITATION ANALYSIS ─────────────────── -->
     <div id="view-citations" class="view">
-      <div class="view-title">Citation Analysis <span class="badge-moved">MOVED TO ANALYSIS</span></div>
-      <div class="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Citation Analysis <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
+        </div>
+      </div>
       <div id="citation-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="card-title" style="padding:14px 14px 0;">Top Cited Domains</div>
@@ -1727,6 +1748,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=15" defer></script>
+<script src="/js/app.min.js?v=16" defer></script>
 </body>
 </html>
