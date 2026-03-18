@@ -378,15 +378,11 @@ async function initGoogleSignIn() {
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
-    script.onload = () => renderGoogleButtons();
+    script.onload = () => {};
     document.head.appendChild(script);
   } catch(e) {
     // Google Sign-In not available — silently skip
   }
-}
-
-function renderGoogleButtons() {
-  // Google buttons are now always visible in HTML — no dynamic creation needed
 }
 
 async function triggerGoogleSignIn() {
@@ -779,6 +775,10 @@ function go(view){
   }
   if (currentView === 'overview' && window._ovMiniChart) {
     window._ovMiniChart.destroy(); window._ovMiniChart = null;
+  }
+  if (currentView === 'promptdetails') {
+    if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }
+    if (_pdCompChart) { _pdCompChart.destroy(); _pdCompChart = null; }
   }
   // Clear run age timer when leaving overview to prevent memory leak
   if (currentView === 'overview' && _runAgeTimer) {
@@ -4745,7 +4745,7 @@ async function runQueries(){
           } catch (e) {
                   forceBtn.textContent = '⚡ FORCE RUN';
             forceBtn.disabled = false;
-            toast('Failed to force release. Try again.', 'error');
+            toast('Failed to force release. Try again.', 'err');
           }
         };
         btn.parentElement.appendChild(forceBtn);
@@ -6095,7 +6095,7 @@ async function renderRecommendations() {
         </div>
       </div>`;
     }).join('');
-  } catch(e) { toast('Failed to load recommendations', 'err'); }
+  } catch(e) { toast('Failed to load recommendations', 'err'); } finally { hideViewLoading('rec-list'); }
 }
 
 async function generateRecommendations() {

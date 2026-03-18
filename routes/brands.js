@@ -42,7 +42,7 @@ async function acquireDbBrandLock(brandId) {
   } catch(e) {
     // If DB lock fails, fall through to in-memory lock (single-instance fallback)
     console.warn('[Run] DB advisory lock failed, using in-memory lock only:', e.message);
-    return true;
+    return false;
   }
 }
 
@@ -880,7 +880,7 @@ router.post('/:id/run', auth, async (req, res) => {
         if (runCost > 0) {
           await incrementDailyCost(req.user.id, runCost, callCount);
         }
-      } catch(_costErr) { /* non-critical — don't fail run */ }
+      } catch(_costErr) { console.warn('Cost tracking failed:', _costErr.message); }
 
       // Update run state for polling (store lightweight summary, not the full brand object)
       runState.status = 'done';
