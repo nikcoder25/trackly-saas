@@ -3021,6 +3021,7 @@ async function ovAddQuery(){
   const queries = [...(b.queries||[]), q];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     inp.value = '';
@@ -3062,6 +3063,7 @@ async function bulkAddQueries(){
   const queries = [...(b.queries||[]), ...unique];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     el('bulk-query-input').value = '';
@@ -3078,6 +3080,7 @@ async function ovRemoveQuery(i){
   const queries = (b.queries||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x => x.id === b.id);
     brands[idx] = data.brand;
     renderOverview();
@@ -3091,6 +3094,7 @@ async function clearAllQueries(){
   if (!confirm('Clear all ' + b.queries.length + ' queries? This cannot be undone.')) return;
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries: [] });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderOverview();
     toast('All queries cleared', 'ok');
@@ -3155,6 +3159,7 @@ function toggleSelectMode() {
                                                                             const queries = (b.queries||[]).filter((_, idx) => !_selectedQueryIndices.has(idx));
                                                                               try {
                                                                                   const data = await api('PUT', '/api/brands/'+b.id, { queries });
+                                                                                      invalidateCache('/api/brands');
                                                                                       const idx = brands.findIndex(x => x.id === b.id);
                                                                                           brands[idx] = data.brand;
                                                                                               _selectedQueryIndices.clear();
@@ -3202,6 +3207,7 @@ async function aiGenerateQueries(){
     if (!pick) return;
     const queries = [...(b.queries||[]), ...newQs];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     updateBrandInList(result.brand);
     renderOverview();
     toast(newQs.length + ' AI-generated queries added', 'ok');
@@ -3961,6 +3967,7 @@ async function addComp(){
   const competitors = [...(b.competitors||[]), v];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     inp.value = '';
     renderCompetitors();
@@ -3975,6 +3982,7 @@ async function removeComp(i){
   const competitors = (b.competitors||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { competitors });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderCompetitors();
     toast('Competitor removed', 'ok');
