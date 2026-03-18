@@ -51,7 +51,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
 <link rel="dns-prefetch" href="https://accounts.google.com">
 <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
-<link rel="stylesheet" href="/css/styles.min.css?v=11">
+<link rel="stylesheet" href="/css/styles.min.css?v=12">
 </head>
 <body>
 
@@ -985,10 +985,8 @@
           <div class="view-title">Platform Status</div>
           <div class="view-sub">SOV per AI platform and real-time API health.</div>
         </div>
-        <button class="pbtn" onclick="renderPlatformStatus()">Refresh</button>
       </div>
-      <div id="plat-health-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;"></div>
-      <div id="plat-status-container"></div>
+      <div id="plat-status-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
     </div>
 
     <!-- QUERY PERFORMANCE ────────────────── -->
@@ -1013,7 +1011,7 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-title">Competitor Brands</div>
+        <div class="section-title">Competitor Brands</div>
         <div id="comp-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
         <div style="display:flex;gap:8px;">
           <input class="finp" id="comp-input" type="text" placeholder="Add competitor name..." style="flex:1;" onkeydown="if(event.key==='Enter')addComp()">
@@ -1022,12 +1020,12 @@
       </div>
       <div id="comp-comparison" style="margin-top:14px;"></div>
       <div class="card" style="margin-top:14px;">
-        <div class="card-title">Competitor Co-occurrence (30 days)</div>
+        <div class="section-title">Competitor Co-occurrence (30 days)</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
         <div id="comp-cooccurrence"></div>
       </div>
-      <div class="card" style="margin-top:14px;">
-        <div class="card-title">Per-Platform Breakdown</div>
+      <div class="card" id="comp-platform-card" style="margin-top:14px;display:none;">
+        <div class="section-title">Per-Platform Breakdown</div>
         <div id="comp-platform-breakdown"></div>
       </div>
     </div>
@@ -1036,14 +1034,16 @@
     <div id="view-trends" class="view">
       <div class="view-title">SOV Trends</div>
       <div class="view-sub">Share of Voice over time — overall and per platform.</div>
-      <div id="trends-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div id="trends-kpis" style="display:none;"></div>
       <div class="card" style="padding:20px;">
-        <div class="card-title">Overall SOV Trend</div>
-        <canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>
+        <div class="section-title">Overall SOV Trend</div>
+        <div id="sov-bar-container"></div>
+        <canvas id="sov-chart" style="width:100%;max-height:300px;display:none;"></canvas>
       </div>
       <div class="card" style="padding:20px;margin-top:14px;">
-        <div class="card-title">Per-Platform SOV Trend</div>
+        <div class="section-title">Per-Platform SOV Trend</div>
         <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
+        <div id="plat-sov-placeholder" class="pd-chart-placeholder" style="min-height:200px;"><span style="font-family:var(--mono);font-size:10px;">Chart: Multi-line graph per platform (ChatGPT, Perplexity, Claude, etc.)</span></div>
       </div>
     </div>
 
@@ -1053,20 +1053,20 @@
     <!-- ALERTS & NOTIFICATIONS (MERGED) ──────── -->
     <div id="view-alerts" class="view">
       <div class="view-title">Alerts &amp; Notifications <span class="badge-merged">MERGED</span></div>
-      <div class="view-sub">Manage alert rules, webhooks, notification preferences, and report schedules — all in one place.</div>
+      <div class="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
 
       <!-- Alert Rules -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div class="card-title" style="margin:0;">Alert Rules</div>
+          <div class="section-title" style="margin:0;">Alert Rules</div>
           <button class="pbtn" onclick="openAddAlert()" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Add Alert</button>
         </div>
         <div id="alert-rules-list"></div>
       </div>
 
       <!-- Add Alert Form (hidden by default) -->
-      <div id="alert-add-form" class="card" style="margin-top:16px;display:none;border:1px solid var(--primary-border);">
-        <div class="card-title">New Alert Rule</div>
+      <div id="alert-add-form" class="card" style="margin-top:14px;display:none;border:1px solid var(--primary-border);">
+        <div class="section-title">New Alert Rule</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div><label class="flbl">Alert Name</label><input class="finp" id="alert-name" placeholder="e.g. SOV dropped below 20%" style="margin:0;"></div>
           <div><label class="flbl">Condition</label><select class="finp" id="alert-condition" style="margin:0;" onchange="updateAlertParams()">
@@ -1092,53 +1092,50 @@
         </div>
       </div>
 
-      <!-- SOV Change History -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Recent SOV Changes</div>
-        <div id="alert-sov-history"></div>
-      </div>
-
-      <!-- Webhook Configuration -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Webhook URL</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
-          Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
-          We'll POST a JSON payload whenever your SOV changes after a run.
-        </div>
-        <div class="add-query-row">
-          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;border-radius:var(--radius-xs);">
-          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--primary);color:#fff;border:none;font-family:var(--font);font-weight:700;cursor:pointer;border-radius:6px;">SAVE</button>
-        </div>
-        <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
-      </div>
-
-      <!-- Notification Preferences (merged in) -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Email Report Schedule</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Receive periodic email summaries of your brand visibility across AI platforms.
+      <!-- Email Report Schedule -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Email Report Schedule</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Receive periodic email summaries of your brand visibility.
         </div>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <select class="finp" id="notif-report-freq" style="margin:0;width:180px;">
             <option value="off">Off</option>
-            <option value="weekly">Weekly</option>
+            <option value="weekly" selected>Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
           <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;" onclick="saveReportSchedule()">SAVE</button>
           <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Alert Notification Types</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Choose which notification types to receive in-app.
-        </div>
-        <div id="notif-type-toggles" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+      <!-- Notification Types -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Notification Types</div>
+        <div id="notif-type-toggles" style="display:flex;flex-direction:column;"></div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Recent Notifications</div>
+
+      <!-- Webhook URL -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Webhook URL</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+          We'll POST a JSON payload whenever your SOV changes after a run.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." class="finp" style="flex:1;margin:0;">
+          <button onclick="saveWebhook()" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">SAVE</button>
+        </div>
+        <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      </div>
+
+      <!-- Recent Notifications -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Recent Notifications</div>
         <div id="notif-history" style="max-height:400px;overflow-y:auto;">Loading...</div>
       </div>
+
+      <!-- SOV Change History (hidden, used by alerts logic) -->
+      <div id="alert-sov-history" style="display:none;"></div>
     </div>
 
     <!-- BRAND SETUP ─────────────────────── -->
@@ -1207,8 +1204,8 @@
       <div class="view-title">Account &amp; Plan</div>
       <div class="view-sub">Manage your account and subscription.</div>
       <div class="card">
-        <div class="card-title">Account Info</div>
-        <div style="font-family:var(--mono);font-size:12px;line-height:2;">
+        <div class="section-title">Account Info</div>
+        <div style="font-family:var(--mono);font-size:12px;line-height:2.2;">
           <div>Email: <strong id="acct-email"></strong> <span id="acct-email-verify"></span></div>
           <div style="display:flex;align-items:center;gap:8px;">Username: <strong id="acct-username" style="color:var(--primary);">—</strong>
             <button onclick="promptSetUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">SET</button>
@@ -1217,38 +1214,8 @@
           <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Plan Usage</div>
-        <div id="acct-usage"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">AI Model Settings</div>
-        <div class="view-sub" style="margin-bottom:12px;font-size:11px;">Choose which model to use for each AI platform when running queries.</div>
-        <div id="model-settings"></div>
-        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
-          <button class="pbtn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
-          <span id="model-save-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Change Plan</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="acct-plans"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Export Data</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
-          Download your brand data, query results, and SOV history.
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="pbtn" onclick="exportAllData()">EXPORT CURRENT BRAND (JSON)</button>
-          <button class="pbtn" onclick="exportBrandCSV()">EXPORT CURRENT BRAND (CSV)</button>
-          <button class="pbtn" onclick="exportAllBrandsData()">EXPORT ALL BRANDS (JSON)</button>
-          <button class="pbtn" onclick="el('import-brand-file').click()" style="border-color:var(--primary);color:var(--primary);">IMPORT BRAND (JSON)</button>
-          <input type="file" id="import-brand-file" accept=".json" style="display:none;" onchange="importBrandConfig(this)">
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Two-Factor Authentication</div>
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Two-Factor Authentication</div>
         <div id="twofa-status" style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:12px;">Loading...</div>
         <div id="twofa-actions"></div>
         <div id="twofa-setup-form" style="display:none;margin-top:12px;">
@@ -1266,22 +1233,44 @@
         </div>
         <div id="twofa-backup-codes" style="display:none;margin-top:12px;"></div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Change Password</div>
-        <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;margin-top:10px;">
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">AI Model Settings</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Choose which model to use for each AI platform when running queries.</div>
+        <div id="model-settings"></div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+          <button class="pbtn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
+          <span id="model-save-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Export Data</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="pbtn" onclick="exportAllData()">EXPORT BRAND (JSON)</button>
+          <button class="pbtn" onclick="exportBrandCSV()">EXPORT BRAND (CSV)</button>
+          <button class="pbtn" onclick="exportAllBrandsData()">EXPORT ALL (JSON)</button>
+          <button class="pbtn" onclick="el('import-brand-file').click()" style="border-color:var(--primary);color:var(--primary);">IMPORT BRAND</button>
+          <input type="file" id="import-brand-file" accept=".json" style="display:none;" onchange="importBrandConfig(this)">
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Change Password</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;">
           <input class="finp" id="pw-current" type="password" placeholder="Current password">
           <input class="finp" id="pw-new" type="password" placeholder="New password (min 8 characters)">
           <input class="finp" id="pw-confirm" type="password" placeholder="Confirm new password">
-          <button class="pbtn" onclick="changePassword()">UPDATE PASSWORD</button>
+          <button class="pbtn" onclick="changePassword()" style="width:fit-content;">UPDATE PASSWORD</button>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;border-color:var(--red);">
-        <div class="card-title" style="color:var(--red);">Danger Zone</div>
+      <div class="card" style="margin-top:14px;border-color:var(--red);">
+        <div class="section-title" style="color:var(--red);">Danger Zone</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
-          Permanently delete your account and all brands. This cannot be undone.
+          Permanently delete your account. This cannot be undone.
         </div>
         <button onclick="deleteAccount()" style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">DELETE MY ACCOUNT</button>
       </div>
+      <!-- Hidden sections for plan management -->
+      <div id="acct-usage" style="display:none;"></div>
+      <div id="acct-plans" style="display:none;"></div>
     </div>
 
     <!-- ACTIVITY & LOGS (MERGED) ──────────── -->
@@ -1294,16 +1283,16 @@
         <button class="tab-btn" onclick="switchActivityTab(this,'al-tab-keystatus')">API Key Status</button>
       </div>
       <div id="al-tab-activity" class="al-tab-content">
-        <div class="card">
-          <div id="activitylog-content" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
+        <div class="card" style="padding:20px 24px;">
+          <div id="activitylog-content">Loading...</div>
         </div>
       </div>
       <div id="al-tab-apilogs" class="al-tab-content" style="display:none;">
         <div id="apilogs-content"></div>
       </div>
       <div id="al-tab-keystatus" class="al-tab-content" style="display:none;">
-        <div class="card">
-          <div class="card-title">API Key Status</div>
+        <div class="card" style="padding:20px 24px;">
+          <div class="section-title">API Key Status</div>
           <div id="api-key-status-content" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
           <div id="api-key-status-warning" style="margin-top:12px;color:var(--amber);font-family:var(--mono);font-size:10px;"></div>
         </div>
@@ -1352,8 +1341,8 @@
       </div>
       <div id="pd-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
       <div class="ov-grid-2" style="margin-bottom:14px;">
-        <div class="card" style="padding:16px;"><div class="card-title">Visibility Over Time</div><canvas id="pd-visibility-chart" height="150"></canvas></div>
-        <div class="card" style="padding:16px;"><div class="card-title">Competitor Share</div><canvas id="pd-competitor-chart" height="150"></canvas></div>
+        <div class="card" style="padding:16px;"><div class="card-title" style="text-transform:uppercase;font-size:11px;letter-spacing:.5px;color:var(--muted);font-weight:700;">Visibility Over Time</div><canvas id="pd-visibility-chart" height="150"></canvas><div id="pd-vis-placeholder" class="pd-chart-placeholder"><span>Chart: Line graph showing visibility trend</span></div></div>
+        <div class="card" style="padding:16px;"><div class="card-title" style="text-transform:uppercase;font-size:11px;letter-spacing:.5px;color:var(--muted);font-weight:700;">Competitor Share</div><canvas id="pd-competitor-chart" height="150"></canvas><div id="pd-comp-placeholder" class="pd-chart-placeholder"><span>Chart: Pie chart of competitor distribution</span></div></div>
       </div>
       <div class="card" id="pd-platform-table" style="padding:0;overflow:hidden;"></div>
     </div>
@@ -1391,8 +1380,12 @@
         <button class="pbtn" onclick="checkAccuracy()" style="background:var(--primary);color:#fff;border-color:var(--primary);">Check Now</button>
       </div>
       <div id="accuracy-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
-      <div class="card" style="padding:16px;margin-bottom:14px;">
-        <div class="card-title">Canonical Facts</div>
+      <div class="card" style="padding:20px 24px;">
+        <div class="section-title">Recent Accuracy Issues</div>
+        <div id="accuracy-results"></div>
+      </div>
+      <div class="card" style="padding:16px;margin-top:14px;">
+        <div class="section-title">Canonical Facts</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;">Define what's true about your brand. We'll check if AI gets it right.</div>
         <div id="facts-list"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:12px;align-items:end;">
@@ -1401,10 +1394,6 @@
           <div><label class="flbl">Category</label><select class="finp" id="fact-category" style="margin:0;"><option value="general">General</option><option value="pricing">Pricing</option><option value="features">Features</option><option value="company">Company</option></select></div>
           <button class="pbtn" onclick="addFact()" style="font-weight:700;">Add</button>
         </div>
-      </div>
-      <div class="card" style="padding:16px;">
-        <div class="card-title">Detected Mismatches</div>
-        <div id="accuracy-results" style="margin-top:12px;"></div>
       </div>
     </div>
 
@@ -1417,8 +1406,8 @@
         </div>
       </div>
       <div id="citation-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div class="card-title" style="padding:14px 14px 0;">Top Cited Domains</div>
+      <div class="card" style="padding:20px 24px;">
+        <div class="section-title">Top Cited Domains</div>
         <div id="citation-domains"></div>
       </div>
     </div>
@@ -1748,6 +1737,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=17" defer></script>
+<script src="/js/app.min.js?v=18" defer></script>
 </body>
 </html>
