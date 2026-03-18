@@ -1214,8 +1214,12 @@ body:has(#app[style*="display:grid"]){
 .add-brand-box{
   background:var(--bg2);border:1px solid var(--border);
   width:90%;max-width:480px;padding:32px;
+  max-height:90vh;overflow-y:auto;
   border-radius:var(--radius);
   box-shadow:0 20px 60px rgba(0,0,0,.15),0 4px 16px rgba(0,0,0,.08);
+}
+@media(max-height:600px){
+  .add-brand-box{max-height:95vh;padding:20px;}
 }
 .add-brand-title{font-size:18px;font-weight:800;margin-bottom:24px;}
 

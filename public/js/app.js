@@ -78,6 +78,7 @@ let liveRunTime = null;   // Timestamp of current live run
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
+function debounce(fn, ms) { let t; return function(...a){ clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // Safe brand update — avoids brands[-1] corruption when findIndex returns -1
 function updateBrandInList(updatedBrand) {
@@ -684,7 +685,7 @@ async function initApp(){
   const becomeAdminNav = el('nav-become-admin');
   // Show/hide Run Queries button based on role
   const runBtn = el('run-btn');
-  if (runBtn) runBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
+  if (runBtn) runBtn.style.display = '';
 
   if (currentUser.role === 'admin') {
     if (adminNav) adminNav.style.display = 'block';
@@ -4290,6 +4291,9 @@ function openAddBrand(){
   // Reset wizard state
   _wizardComps = [];
   _wizardQueries = [];
+  _wizardNearbyAreas = [];
+  const nearbySection = el('wizard-nearby-section');
+  if (nearbySection) nearbySection.style.display = 'none';
   wizardNext(1);
   openModal('add-brand-modal');
 }
@@ -4388,11 +4392,7 @@ function buildMentionCard(r, runTimeStr) {
 }
 
 async function runQueries(){
-  // Manual runs restricted to admin/owner only
-  if (!currentUser || currentUser.role !== 'admin') {
-    toast('Only admins can trigger manual query runs.', 'err');
-    return;
-  }
+  if (!currentUser) return;
   if (runningQueries) return;
   const b = brand();
   if (!b) { toast('Select a brand first','err'); return; }
@@ -4733,11 +4733,21 @@ async function pollRunStatus(brandId, runId, opts) {
 
   return new Promise((resolve, reject) => {
     let pollErrors = 0;
-    const MAX_POLL_ERRORS = 15; // Stop after 15 consecutive errors (~30s)
-    const pollInterval = setInterval(async () => {
+    const MAX_POLL_ERRORS = 15; // Stop after 15 consecutive errors
+    let pollDelay = 2000; // Start at 2s, backoff to max 10s
+    let pollTimeout = null;
+    function schedulePoll() { pollTimeout = setTimeout(doPoll, pollDelay); }
+    async function doPoll() {
       try {
         const data = await api('GET', `/api/brands/${brandId}/run-status/${runId}`);
         pollErrors = 0; // Reset on success
+        // Reset delay on success (new data arriving = stay responsive)
+        if (data.results && data.results.length > lastResultCount) {
+          pollDelay = 2000; // New data — poll frequently
+        } else {
+          // No new data — back off gradually (2s → 3s → 4.5s → ... max 10s)
+          pollDelay = Math.min(pollDelay * 1.5, 10000);
+        }
 
         // Update progress
         received = data.received || 0;
@@ -4759,7 +4769,6 @@ async function pollRunStatus(brandId, runId, opts) {
         }
 
         if (data.status === 'done' || data.status === 'error') {
-          clearInterval(pollInterval);
           clearInterval(timerInt);
           localStorage.removeItem('trackly_active_run');
 
@@ -4832,12 +4841,15 @@ async function pollRunStatus(brandId, runId, opts) {
             setTimeout(() => { if (prog) prog.style.display = 'none'; if (statusTxt) statusTxt.style.color = ''; if (fill) fill.style.background = ''; renderView(currentView); }, 2000);
             resolve();
           }
+        } else {
+          schedulePoll(); // Schedule next poll with current delay
         }
       } catch(pollErr) {
         pollErrors++;
+        // Exponential backoff on errors: double delay each failure, max 10s
+        pollDelay = Math.min(pollDelay * 2, 10000);
         console.error(`[Poll] Error polling run status (${pollErrors}/${MAX_POLL_ERRORS}):`, pollErr.message);
         if (pollErrors >= MAX_POLL_ERRORS) {
-          clearInterval(pollInterval);
           clearInterval(timerInt);
           localStorage.removeItem('trackly_active_run');
           liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
@@ -4845,9 +4857,12 @@ async function pollRunStatus(brandId, runId, opts) {
           if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
           toast('Lost connection — refresh page to check run status.', 'err');
           resolve();
+        } else {
+          schedulePoll(); // Retry with increased delay
         }
       }
-    }, 2000); // Poll every 2 seconds
+    }
+    schedulePoll(); // Start first poll
   });
 }
 
@@ -6314,6 +6329,68 @@ async function toggleAlertRule(ruleId, enabled){
 // ─── ONBOARDING WIZARD ───────────────────────────────────────────
 let _wizardComps = [];
 let _wizardQueries = [];
+let _wizardNearbyAreas = [];
+
+// Show/hide nearby areas section when city field changes
+document.addEventListener('DOMContentLoaded', () => {
+  const cityInput = el('nb-city');
+  if (cityInput) {
+    cityInput.addEventListener('input', () => {
+      const section = el('wizard-nearby-section');
+      if (section) {
+        if (cityInput.value.trim()) {
+          section.style.display = 'block';
+        } else {
+          section.style.display = 'none';
+          _wizardNearbyAreas = [];
+          renderWizardNearbyTags();
+        }
+      }
+    });
+  }
+});
+
+function renderWizardNearbyTags(){
+  const cont = el('wizard-nearby-tags');
+  if (!cont) return;
+  cont.innerHTML = _wizardNearbyAreas.map((a,i) =>
+    `<span class="query-tag" style="font-size:11px;padding:3px 8px;">${esc(a)} <button onclick="_wizardNearbyAreas.splice(${i},1);renderWizardNearbyTags()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;">&#x2715;</button></span>`
+  ).join('');
+  if (!_wizardNearbyAreas.length) cont.innerHTML = '<div style="color:var(--muted);font-size:11px;">No nearby areas yet.</div>';
+}
+
+function wizardAddNearbyArea(){
+  const inp = el('wizard-nearby-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (_wizardNearbyAreas.some(a => a.toLowerCase() === v.toLowerCase())) { toast('Already added','err'); return; }
+  _wizardNearbyAreas.push(v);
+  inp.value = '';
+  renderWizardNearbyTags();
+}
+
+async function wizardFetchNearbyAreas(){
+  const hasAnyKey = Object.values(keyStatus).some(v => v);
+  if (!hasAnyKey) { toast('Configure API keys in Settings first to use this feature','err'); return; }
+  const city = el('nb-city').value.trim();
+  if (!city) { toast('Enter a city first','err'); return; }
+  const btn = el('wizard-fetch-areas-btn');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+  try {
+    const data = await api('POST', '/api/nearby-areas', { city });
+    const existing = new Set(_wizardNearbyAreas.map(a => a.toLowerCase()));
+    const newAreas = (data.areas || []).filter(a => !existing.has(a.toLowerCase()));
+    if (!newAreas.length) { toast('No new areas found','ok'); return; }
+    _wizardNearbyAreas.push(...newAreas);
+    renderWizardNearbyTags();
+    toast(newAreas.length + ' nearby areas added','ok');
+  } catch(e) { toast(e.message,'err'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch Nearby Areas';
+  }
+}
 
 function wizardNext(step){
   // Validate step 1 before moving forward
@@ -6417,13 +6494,19 @@ async function doAddBrandWizard(){
     toast('Brand name and industry are required','err');
     return;
   }
+  if (!_wizardQueries.length) {
+    el('add-brand-err').textContent = 'Add at least one query before creating the brand.';
+    el('add-brand-err').style.display = 'block';
+    return;
+  }
   try {
     const payload = {
       name, industry,
       website: el('nb-website').value.trim(),
       city: el('nb-city').value.trim(),
       competitors: _wizardComps,
-      queries: _wizardQueries
+      queries: _wizardQueries,
+      nearbyAreas: _wizardNearbyAreas
     };
     const queryCount = _wizardQueries.length;
     const data = await api('POST', '/api/brands', payload);
@@ -6435,8 +6518,13 @@ async function doAddBrandWizard(){
     closeModal('add-brand-modal');
     _wizardComps = [];
     _wizardQueries = [];
+    _wizardNearbyAreas = [];
     renderAll();
     toast('Brand "'+name+'" created with '+queryCount+' queries','ok');
+    // Auto-run queries after brand creation
+    if (queryCount > 0) {
+      setTimeout(() => runQueries(), 500);
+    }
   } catch(e) {
     el('add-brand-err').textContent = e.message;
     el('add-brand-err').style.display = 'block';

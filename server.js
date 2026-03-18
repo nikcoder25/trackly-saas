@@ -208,14 +208,18 @@ const runLimiter = rateLimit({
 });
 app.use('/api/brands/:id/run', runLimiter);
 
-// Static assets — cache CSS/JS for 1 day (they're unversioned, so not too aggressive)
-// HTML has no-cache so users always get the latest SPA shell
+// Static assets — versioned CSS/JS (with ?v= query string) get long cache;
+// HTML has no-cache so users always get the latest SPA shell.
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
+  maxAge: '7d',
   etag: true,
+  immutable: true,
   setHeaders(res, filePath) {
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache');
+    } else if (filePath.endsWith('.min.js') || filePath.endsWith('.min.css')) {
+      // Minified assets are versioned via query string — cache aggressively
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
   }
 }));

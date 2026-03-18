@@ -8,7 +8,7 @@ const { pool, auditLog, logApiCall, refreshPromptRunStats, notify, getDailyCost,
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
-const { queryAI, fetchJSON, resetBatchCount } = require('../lib/ai-platforms');
+const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 const { evaluateAlerts } = require('../lib/alerts');
 
@@ -163,6 +163,8 @@ router.get('/', auth, async (req, res) => {
         ownerName: row.owner_name, ownerEmail: row.owner_email
       };
     });
+    // Short-lived cache: browser can reuse for 30s before revalidating
+    res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
     res.json({ brands, sharedBrands });
   } catch(e) {
     console.error('[Brands GET]', e.message);
@@ -173,7 +175,7 @@ router.get('/', auth, async (req, res) => {
 // Create brand
 router.post('/', auth, async (req, res) => {
   try {
-    const { name, industry, website, city, goal } = req.body;
+    const { name, industry, website, city, goal, competitors, queries, nearbyAreas } = req.body;
     if (!name) return res.status(400).json({ error: 'Brand name required' });
     // Input length validation
     if (typeof name !== 'string' || name.length > 100) return res.status(400).json({ error: 'Brand name must be 100 characters or less' });
@@ -189,22 +191,31 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: brandCount, max: limits.brands });
     }
 
+    // Accept wizard-provided competitors, queries, nearbyAreas — with validation
+    const safeComps = Array.isArray(competitors) ? competitors.filter(c => typeof c === 'string').map(c => c.trim()).filter(Boolean).slice(0, 100) : [];
+    const safeNearby = Array.isArray(nearbyAreas) ? nearbyAreas.filter(a => typeof a === 'string').map(a => a.trim()).filter(Boolean).slice(0, 100) : [];
+    const defaultQueries = city
+      ? [
+        `What is the best ${industry||'service'} company in ${city}?`,
+        `Who are the top ${industry||'service'} providers in ${city}?`,
+        `Best ${industry||'service'} recommendations in ${city}`
+      ]
+      : [
+        `What is the best ${industry||'service'} company?`,
+        `Who are the top ${industry||'service'} providers?`,
+        `Best ${industry||'service'} recommendations`
+      ];
+    const safeQueries = Array.isArray(queries) && queries.length > 0
+      ? queries.filter(q => typeof q === 'string').map(q => q.trim()).filter(Boolean).slice(0, 300)
+      : defaultQueries;
+
     const id = uid();
     const data = {
       name, industry: industry||'', website: website||'', city: city||'',
       goal: goal || 70,
-      competitors: [],
-      queries: city
-        ? [
-          `What is the best ${industry||'service'} company in ${city}?`,
-          `Who are the top ${industry||'service'} providers in ${city}?`,
-          `Best ${industry||'service'} recommendations in ${city}`
-        ]
-        : [
-          `What is the best ${industry||'service'} company?`,
-          `Who are the top ${industry||'service'} providers?`,
-          `Best ${industry||'service'} recommendations`
-        ],
+      competitors: safeComps,
+      nearbyAreas: safeNearby,
+      queries: safeQueries,
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
       citations: {}, notes: {}, schedule: null
     };
@@ -363,11 +374,8 @@ router.post('/:id/force-release', auth, async (req, res) => {
 });
 
 router.post('/:id/run', auth, async (req, res) => {
-  // Manual runs restricted to admin users only — check DB since JWT may not contain role
-  const _roleCheck = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
-  if (!_roleCheck.rows[0] || _roleCheck.rows[0].role !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can trigger manual query runs.' });
-  }
+  // Brand ownership is verified below via getBrand(id, userId).
+  // No admin role required — any user can run queries on their own brands.
   req.setTimeout(600000); // 10 min to match MAX_LOCK_AGE_MS
   const streaming = req.query.stream === '1';
     const forceRun = req.query.force === '1';
@@ -602,7 +610,8 @@ router.post('/:id/run', auth, async (req, res) => {
             locationRelevant: parsed.locationRelevant,
             matchedLocation: parsed.matchedLocation || '',
             competitorMentions: compMentions,
-            listPosition: parsed.listPosition || null
+            listPosition: parsed.listPosition || null,
+            cached: result.cached || false
           };
           allResults.push(resultObj);
           runState.received++;
@@ -850,17 +859,24 @@ router.post('/:id/run', auth, async (req, res) => {
         platformErrors[r.platform].push(r.errorMessage || 'Unknown error');
       });
 
-      const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors };
+      // Count cache hits from this run
+      const cacheHits = allResults.filter(r => r.cached).length;
+      const apiCalls = totalQ - cacheHits - errorCount;
+
+      const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors, cacheHits, apiCalls };
 
       // Track daily cost for budget enforcement
       // Sum cost from api_logs for this run (non-cached results only)
+      let runCost = 0;
       try {
         const costResult = await pool.query(
-          'SELECT COALESCE(SUM(cost), 0) as run_cost, COUNT(*) as call_count FROM api_logs WHERE run_id = $1 AND status = $2',
+          'SELECT COALESCE(SUM(cost), 0) as run_cost, COUNT(*) as call_count, COALESCE(SUM(tokens_in), 0) as total_tokens_in, COALESCE(SUM(tokens_out), 0) as total_tokens_out FROM api_logs WHERE run_id = $1 AND status = $2',
           [runId, 'ok']
         );
-        const runCost = parseFloat(costResult.rows[0]?.run_cost) || 0;
+        runCost = parseFloat(costResult.rows[0]?.run_cost) || 0;
         const callCount = parseInt(costResult.rows[0]?.call_count) || 0;
+        finalResult.runCost = runCost;
+        finalResult.tokensUsed = (parseInt(costResult.rows[0]?.total_tokens_in) || 0) + (parseInt(costResult.rows[0]?.total_tokens_out) || 0);
         if (runCost > 0) {
           await incrementDailyCost(req.user.id, runCost, callCount);
         }
@@ -1404,13 +1420,70 @@ async function runBrandQueries(brand) {
     }
   }
 
-  // Bounded concurrency worker pool (same pattern as main run endpoint)
+  // ── Claude Batch API (50% cheaper for scheduled runs) ──────────
+  // Separate Claude tasks from others. Claude queries that aren't cached
+  // are batched together via the Message Batches API for 50% cost savings.
+  const claudeEnabled = activePlatforms.includes('Claude');
+  const claudeKeyArr = keys.claude || [];
+  const claudeBatchKey = claudeKeyArr.length > 0 ? claudeKeyArr[0] : null;
+  let claudeBatchResults = new Map(); // queryIndex → result
+
+  if (claudeEnabled && claudeBatchKey && queries.length > 0) {
+    // Collect non-cached Claude queries for batching
+    const claudeQueries = []; // { originalQuery, taskIndices[] }
+    const claudeModel = modelPrefs.Claude || 'claude-haiku-4-5-20251001';
+
+    for (let i = 0; i < tasks.length; i++) {
+      if (tasks[i].plat === 'Claude') {
+        claudeQueries.push({ q: tasks[i].q, taskIdx: i });
+      }
+    }
+
+    if (claudeQueries.length > 0) {
+      try {
+        const batchQueries = claudeQueries.map(cq => cq.q);
+        const batchMap = await runClaudeBatch(batchQueries, claudeBatchKey, claudeModel);
+
+        // Map batch results back to task indices
+        for (let bIdx = 0; bIdx < claudeQueries.length; bIdx++) {
+          const batchResult = batchMap.get(bIdx);
+          if (batchResult) {
+            claudeBatchResults.set(claudeQueries[bIdx].taskIdx, batchResult);
+            // Log cost at 50% rate
+            const cost = estimateCost(claudeModel, batchResult.tokensIn, batchResult.tokensOut);
+            const batchCost = cost ? cost * 0.5 : null;
+            logApiCall({
+              userId: brand.userId, brandId: brand.id, platform: 'Claude',
+              query: claudeQueries[bIdx].q, status: 'ok', error: null,
+              keyHint: claudeBatchKey.slice(-6), model: batchResult.model || claudeModel,
+              responseMs: 0, tokensIn: batchResult.tokensIn, tokensOut: batchResult.tokensOut,
+              cost: batchCost
+            });
+          }
+        }
+        console.log(`[Cron] Claude Batch: ${batchMap.size}/${claudeQueries.length} succeeded (50% cost savings)`);
+      } catch (batchErr) {
+        console.error(`[Cron] Claude Batch failed, falling back to individual calls:`, batchErr.message);
+        // Fall through — Claude tasks without batch results will use normal queryAI below
+      }
+    }
+  }
+
+  // Bounded concurrency worker pool — skip Claude tasks that were handled by batch
   const CRON_CONCURRENCY = Math.max(activePlatforms.length, 8);
   let cronNextIdx = 0;
   const cronResults = new Array(tasks.length);
+
+  // Pre-fill batch results for Claude tasks
+  for (const [taskIdx, result] of claudeBatchResults) {
+    cronResults[taskIdx] = { status: 'fulfilled', value: { plat: 'Claude', q: tasks[taskIdx].q, result } };
+  }
+
   async function cronWorker() {
     while (cronNextIdx < tasks.length) {
       const idx = cronNextIdx++;
+      // Skip Claude tasks already handled by batch API
+      if (claudeBatchResults.has(idx)) continue;
       const { plat, q } = tasks[idx];
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
