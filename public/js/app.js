@@ -838,8 +838,11 @@ function go(view){
 }
 
 function switchActivityTab(btn, tabId) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-  document.querySelectorAll('.al-tab-content').forEach(t => t.style.display = 'none');
+  const view = document.getElementById('view-activitylog');
+  if (view) {
+    view.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+    view.querySelectorAll('.al-tab-content').forEach(t => t.style.display = 'none');
+  }
   btn.classList.add('tab-active');
   const tab = document.getElementById(tabId);
   if (tab) tab.style.display = 'block';
@@ -6028,14 +6031,15 @@ async function renderPromptDetail() {
 async function savePromptMetadata() {
   const b = brand();
   if (!b) return;
-  const prompt = el('pd-prompt-select').value;
+  const prompt = el('pd-prompt-select')?.value;
   if (!prompt) return;
-  const tags = el('pd-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const tagsEl = el('pd-tags');
+  const tags = tagsEl ? tagsEl.value.split(',').map(t => t.trim()).filter(Boolean) : [];
   try {
     await api('PUT', `/api/brands/${b.id}/prompt-metadata`, {
       prompt,
-      intent: el('pd-intent').value,
-      funnel_stage: el('pd-funnel').value,
+      intent: el('pd-intent')?.value || '',
+      funnel_stage: el('pd-funnel')?.value || '',
       tags
     });
     toast('Prompt metadata saved', 'ok');
