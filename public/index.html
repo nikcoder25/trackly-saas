@@ -51,7 +51,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
 <link rel="dns-prefetch" href="https://accounts.google.com">
 <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
-<link rel="stylesheet" href="/css/styles.min.css?v=15">
+<link rel="stylesheet" href="/css/styles.min.css?v=16">
 </head>
 <body>
 
@@ -787,29 +787,31 @@
 
     <!-- OVERVIEW ─────────────────────────── -->
     <div id="view-overview" class="view active">
-      <!-- Header Row: Brand name + controls + run button -->
+      <!-- Header Row: Brand name + RUN NOW -->
       <div class="ov-header">
         <div style="min-width:0;">
           <div class="view-title" id="ov-brand-title">Overview</div>
           <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;">
-          <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
-            <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
-          </div>
-          <div class="compare-toggle" id="ov-compare-toggle">
-            <button class="active" onclick="setCompareMode('current')">Current</button>
-            <button onclick="setCompareMode('week')">vs Last Week</button>
-            <button onclick="setCompareMode('month')">vs Last Month</button>
-          </div>
-          <select class="finp" id="ov-preset-select" style="width:150px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
-            <option value="">All Sections</option>
-            <option value="founder">Founder View</option>
-            <option value="seo_manager">SEO Manager</option>
-            <option value="agency_manager">Agency View</option>
-          </select>
-          <div class="ov-header-actions" id="ov-header-actions"></div>
+        <div class="ov-header-actions" id="ov-header-actions"></div>
+      </div>
+
+      <!-- Controls Row: right-aligned -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:flex-end;">
+        <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
+          <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
         </div>
+        <div class="compare-toggle" id="ov-compare-toggle">
+          <button class="active" onclick="setCompareMode('current')">Current</button>
+          <button onclick="setCompareMode('week')">vs Last Week</button>
+          <button onclick="setCompareMode('month')">vs Last Month</button>
+        </div>
+        <select class="finp" id="ov-preset-select" style="width:150px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
+          <option value="">All Sections</option>
+          <option value="founder">Founder View</option>
+          <option value="seo_manager">SEO Manager</option>
+          <option value="agency_manager">Agency View</option>
+        </select>
       </div>
 
       <!-- Recent Alerts Strip -->
@@ -1349,18 +1351,23 @@
 
     <!-- RECOMMENDATIONS ──────────────────── -->
     <div id="view-recommendations" class="view">
-      <div class="view-title">Recommendations <span class="badge-moved">MOVED TO DASHBOARD</span></div>
-      <div class="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
-      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
-        <button class="pbtn" onclick="generateRecommendations()" style="font-weight:700;">Generate Recommendations</button>
-        <select class="brand-select" id="rec-filter-status" style="width:140px;" onchange="renderRecommendations()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Recommendations</div>
+          <div class="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
+        </div>
+        <button class="pbtn" onclick="generateRecommendations()" style="background:var(--primary);color:#fff;border-color:var(--primary);font-weight:700;flex-shrink:0;">Generate</button>
+      </div>
+      <div id="rec-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
+        <select class="finp" id="rec-filter-status" style="width:140px;margin:0;" onchange="renderRecommendations()">
           <option value="">All Status</option>
           <option value="open">Open</option>
           <option value="in_progress">In Progress</option>
           <option value="done">Done</option>
           <option value="ignored">Ignored</option>
         </select>
-        <select class="brand-select" id="rec-filter-severity" style="width:140px;" onchange="renderRecommendations()">
+        <select class="finp" id="rec-filter-severity" style="width:140px;margin:0;" onchange="renderRecommendations()">
           <option value="">All Severity</option>
           <option value="critical">Critical</option>
           <option value="high">High</option>
@@ -1737,6 +1744,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=22" defer></script>
+<script src="/js/app.min.js?v=23" defer></script>
 </body>
 </html>
