@@ -787,30 +787,30 @@
 
     <!-- OVERVIEW ─────────────────────────── -->
     <div id="view-overview" class="view active">
-      <!-- Header Row: Brand name -->
-      <div style="margin-bottom:4px;">
-        <div class="view-title" id="ov-brand-title">Overview</div>
-        <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
+      <!-- Header Row: Brand name + controls on single line -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <div class="view-title" id="ov-brand-title" style="margin-bottom:0;">Overview</div>
+          <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;flex-wrap:wrap;">
+          <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
+            <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
+          </div>
+          <div class="compare-toggle" id="ov-compare-toggle">
+            <button class="active" onclick="setCompareMode('current')">Current</button>
+            <button onclick="setCompareMode('week')">vs Last Week</button>
+            <button onclick="setCompareMode('month')">vs Last Month</button>
+          </div>
+          <select class="finp" id="ov-preset-select" style="width:150px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
+            <option value="">All Sections</option>
+            <option value="founder">Founder View</option>
+            <option value="seo_manager">SEO Manager</option>
+            <option value="agency_manager">Agency View</option>
+          </select>
+        </div>
       </div>
       <div class="ov-header-actions" id="ov-header-actions" style="display:none;"></div>
-
-      <!-- Controls Row: single line, right-aligned -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;justify-content:flex-end;flex-wrap:wrap;">
-        <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
-          <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
-        </div>
-        <div class="compare-toggle" id="ov-compare-toggle">
-          <button class="active" onclick="setCompareMode('current')">Current</button>
-          <button onclick="setCompareMode('week')">vs Last Week</button>
-          <button onclick="setCompareMode('month')">vs Last Month</button>
-        </div>
-        <select class="finp" id="ov-preset-select" style="width:150px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
-          <option value="">All Sections</option>
-          <option value="founder">Founder View</option>
-          <option value="seo_manager">SEO Manager</option>
-          <option value="agency_manager">Agency View</option>
-        </select>
-      </div>
 
       <!-- Recent Alerts Strip -->
       <div class="alerts-strip" id="ov-alerts-strip"></div>
@@ -1742,6 +1742,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=24" defer></script>
+<script src="/js/app.min.js?v=25" defer></script>
 </body>
 </html>
