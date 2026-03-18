@@ -793,7 +793,15 @@
           <div class="view-title" id="ov-brand-title">Overview</div>
           <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
+            <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
+          </div>
+          <div class="compare-toggle" id="ov-compare-toggle">
+            <button class="active" onclick="setCompareMode('current')">Current</button>
+            <button onclick="setCompareMode('week')">vs Last Week</button>
+            <button onclick="setCompareMode('month')">vs Last Month</button>
+          </div>
           <select class="finput" id="ov-preset-select" style="width:180px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
             <option value="">All Sections</option>
             <option value="founder">👔 Founder View</option>
@@ -803,6 +811,9 @@
           <div class="ov-header-actions" id="ov-header-actions"></div>
         </div>
       </div>
+
+      <!-- Recent Alerts Strip -->
+      <div class="alerts-strip" id="ov-alerts-strip"></div>
 
       <!-- Preset-specific banner -->
       <div id="ov-preset-banner"></div>
