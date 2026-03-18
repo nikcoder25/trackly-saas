@@ -1276,7 +1276,8 @@
       <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
       <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
         <button class="al-tab al-tab-active" onclick="switchActivityTab(this,'al-tab-activity')">Account Activity</button>
-        <button class="al-tab" onclick="switchActivityTab(this,'al-tab-apilogs')">API Logs</button>
+        <button class="al-tab" onclick="switchActivityTab(this,'al-tab-apilogs')">API Call Logs</button>
+        <button class="al-tab" onclick="switchActivityTab(this,'al-tab-keystatus')">API Key Status</button>
       </div>
       <div id="al-tab-activity" class="al-tab-content">
         <div class="card">
@@ -1285,6 +1286,13 @@
       </div>
       <div id="al-tab-apilogs" class="al-tab-content" style="display:none;">
         <div id="apilogs-content"></div>
+      </div>
+      <div id="al-tab-keystatus" class="al-tab-content" style="display:none;">
+        <div class="card">
+          <div class="card-title">API Key Status</div>
+          <div id="api-key-status-content" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+          <div id="api-key-status-warning" style="margin-top:12px;color:var(--amber);font-family:var(--mono);font-size:10px;"></div>
+        </div>
       </div>
     </div>
 
@@ -1396,21 +1404,25 @@
 
     <!-- COPILOT ──────────────────────────── -->
     <div id="view-copilot" class="view">
-      <div class="view-title">Trackly Copilot</div>
-      <div class="view-sub">Ask questions about your brand's AI visibility data in natural language.</div>
-      <div class="card" style="padding:16px;margin-bottom:16px;">
-        <div style="display:flex;gap:12px;">
-          <input class="finput" id="copilot-input" placeholder="e.g. Why is my SOV declining? How do I improve visibility?" style="flex:1;margin:0;" onkeydown="if(event.key==='Enter')askCopilot()">
-          <button class="btn-primary" onclick="askCopilot()" style="font-size:12px;padding:8px 16px;">Ask</button>
+      <div class="view-title">Copilot</div>
+      <div class="view-sub">AI-powered assistant for visibility strategy and analysis.</div>
+      <div class="card" style="min-height:400px;display:flex;flex-direction:column;">
+        <div id="copilot-history" style="flex:1;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">&#9672;</div>
+            <div style="background:var(--bg3);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.6;max-width:80%;">
+              Welcome! I can help you analyze your AI visibility data. Try asking:<br>
+              <span class="copilot-suggestion" style="color:var(--primary);cursor:pointer;" onclick="el('copilot-input').value='Why is my SOV so low on some platforms?';askCopilot()">"Why is my SOV so low on some platforms?"</span><br>
+              <span class="copilot-suggestion" style="color:var(--primary);cursor:pointer;" onclick="el('copilot-input').value='How can I improve my recommendation rate?';askCopilot()">"How can I improve my recommendation rate?"</span><br>
+              <span class="copilot-suggestion" style="color:var(--primary);cursor:pointer;" onclick="el('copilot-input').value='Compare my performance across platforms';askCopilot()">"Compare my performance across platforms"</span>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-          <button class="pill-btn" onclick="el('copilot-input').value='What is my current share of voice?';askCopilot()">Current SOV</button>
-          <button class="pill-btn" onclick="el('copilot-input').value='Who are my top competitors?';askCopilot()">Top Competitors</button>
-          <button class="pill-btn" onclick="el('copilot-input').value='How can I improve my visibility?';askCopilot()">How to Improve</button>
-          <button class="pill-btn" onclick="el('copilot-input').value='What is the sentiment about my brand?';askCopilot()">Sentiment</button>
+        <div style="display:flex;gap:8px;border-top:1px solid var(--border);padding-top:12px;">
+          <input class="finput" id="copilot-input" placeholder="Ask about your AI visibility..." style="flex:1;margin:0;padding:10px 14px;" onkeydown="if(event.key==='Enter')askCopilot()">
+          <button style="padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;" onclick="askCopilot()">Send</button>
         </div>
       </div>
-      <div id="copilot-history" style="display:flex;flex-direction:column;gap:12px;"></div>
     </div>
 
     <!-- BILLING ──────────────────────────── -->
@@ -1715,6 +1727,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=12" defer></script>
+<script src="/js/app.min.js?v=13" defer></script>
 </body>
 </html>

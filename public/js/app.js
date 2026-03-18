@@ -812,7 +812,7 @@ function renderView(view){
   const b = brand();
   if (view==='account') { renderAccount(); loadModelSettings(); load2FAStatus(); return; }
   if (view==='admin')   { renderAdmin(); return; }
-  if (view==='activitylog') { renderActivityLog(); renderApiLogs(); return; }
+  if (view==='activitylog') { renderActivityLog(); renderApiLogs(); renderApiKeyStatus(); return; }
   // Redirect old standalone notifications/apilogs to merged views
   if (view==='notifications') { go('alerts'); return; }
   if (view==='apilogs') { go('activitylog'); return; }
@@ -5569,6 +5569,33 @@ function loadKeyStatus() {
   });
 }
 
+function renderApiKeyStatus() {
+  const container = el('api-key-status-content');
+  const warning = el('api-key-status-warning');
+  if (!container) return;
+  container.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</span>';
+  api('GET', '/api/keys/status').then(status => {
+    const counts = status.keyCounts || {};
+    let html = '';
+    Object.entries(counts).forEach(([plat, count]) => {
+      const t = PLAT_THEME[plat] || {};
+      const color = count > 0 ? 'var(--green)' : 'var(--red)';
+      html += `<div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;">
+        <span style="color:${color};font-weight:700;font-size:18px;">${count}</span>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;">${esc(plat)} key${count!==1?'s':''}</div>
+      </div>`;
+    });
+    container.innerHTML = html;
+    if (warning && Object.values(counts).some(c => c === 0)) {
+      warning.textContent = 'Platforms with 0 keys will be skipped during queries. Add keys in Railway environment variables.';
+    } else if (warning) {
+      warning.textContent = '';
+    }
+  }).catch(() => {
+    container.innerHTML = '<span style="color:var(--red);">Failed to load key status.</span>';
+  });
+}
+
 // ─── ADMIN PANEL ──────────────────────────────────────────────
 let adminUsers = [];
 
@@ -6276,21 +6303,30 @@ async function askCopilot() {
   input.value = '';
 
   const historyEl = el('copilot-history');
-  // Add user question
-  historyEl.innerHTML = `
-    <div style="padding:12px 16px;background:var(--bg3);border-radius:8px;align-self:flex-end;max-width:80%;"><div style="font-size:11px;color:var(--muted);margin-bottom:4px;">You</div>${esc(question)}</div>
-  ` + historyEl.innerHTML;
+  // Add user question bubble (right-aligned)
+  historyEl.innerHTML += `
+    <div style="display:flex;gap:10px;align-items:flex-start;flex-direction:row-reverse;">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;">U</div>
+      <div style="background:var(--blue);color:#fff;padding:12px 16px;border-radius:12px 12px 4px 12px;font-size:12px;max-width:80%;">${esc(question)}</div>
+    </div>`;
+  // Scroll to bottom
+  historyEl.scrollTop = historyEl.scrollHeight;
 
   try {
     const data = await api('POST', `/api/brands/${b.id}/copilot`, { question });
-    historyEl.innerHTML = `
-      <div style="padding:12px 16px;background:rgba(79,70,229,0.08);border-radius:8px;max-width:80%;border-left:3px solid var(--primary);">
-        <div style="font-size:11px;color:var(--primary);margin-bottom:4px;">Copilot</div>
-        <div style="font-size:13px;line-height:1.6;">${mdToHtml(data.answer)}</div>
-      </div>
-    ` + historyEl.innerHTML;
+    historyEl.innerHTML += `
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">&#9672;</div>
+        <div style="background:var(--bg3);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.6;max-width:80%;">${mdToHtml(data.answer)}</div>
+      </div>`;
+    historyEl.scrollTop = historyEl.scrollHeight;
   } catch(e) {
-    historyEl.innerHTML = `<div style="padding:12px 16px;background:rgba(239,68,68,0.08);border-radius:8px;max-width:80%;"><div style="font-size:11px;color:var(--red,#ef4444);margin-bottom:4px;">Error</div>${esc(e.message)}</div>` + historyEl.innerHTML;
+    historyEl.innerHTML += `
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:var(--red);">!</div>
+        <div style="background:rgba(239,68,68,.05);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;max-width:80%;border:1px solid rgba(239,68,68,.2);">${esc(e.message)}</div>
+      </div>`;
+    historyEl.scrollTop = historyEl.scrollHeight;
   }
 }
 
