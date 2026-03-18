@@ -685,7 +685,7 @@ async function initApp(){
   const becomeAdminNav = el('nav-become-admin');
   // Show/hide Run Queries button based on role
   const runBtn = el('run-btn');
-  if (runBtn) runBtn.style.display = currentUser.role === 'admin' ? '' : 'none';
+  if (runBtn) runBtn.style.display = '';
 
   if (currentUser.role === 'admin') {
     if (adminNav) adminNav.style.display = 'block';
@@ -4392,11 +4392,7 @@ function buildMentionCard(r, runTimeStr) {
 }
 
 async function runQueries(){
-  // Manual runs restricted to admin/owner only
-  if (!currentUser || currentUser.role !== 'admin') {
-    toast('Only admins can trigger manual query runs.', 'err');
-    return;
-  }
+  if (!currentUser) return;
   if (runningQueries) return;
   const b = brand();
   if (!b) { toast('Select a brand first','err'); return; }
@@ -6341,7 +6337,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cityInput) {
     cityInput.addEventListener('input', () => {
       const section = el('wizard-nearby-section');
-      if (section) section.style.display = cityInput.value.trim() ? 'block' : 'none';
+      if (section) {
+        if (cityInput.value.trim()) {
+          section.style.display = 'block';
+        } else {
+          section.style.display = 'none';
+          _wizardNearbyAreas = [];
+          renderWizardNearbyTags();
+        }
+      }
     });
   }
 });
@@ -6366,6 +6370,8 @@ function wizardAddNearbyArea(){
 }
 
 async function wizardFetchNearbyAreas(){
+  const hasAnyKey = Object.values(keyStatus).some(v => v);
+  if (!hasAnyKey) { toast('Configure API keys in Settings first to use this feature','err'); return; }
   const city = el('nb-city').value.trim();
   if (!city) { toast('Enter a city first','err'); return; }
   const btn = el('wizard-fetch-areas-btn');
@@ -6486,6 +6492,11 @@ async function doAddBrandWizard(){
   const industry = el('nb-industry').value.trim();
   if (!name || !industry) {
     toast('Brand name and industry are required','err');
+    return;
+  }
+  if (!_wizardQueries.length) {
+    el('add-brand-err').textContent = 'Add at least one query before creating the brand.';
+    el('add-brand-err').style.display = 'block';
     return;
   }
   try {
