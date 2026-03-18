@@ -1508,12 +1508,16 @@ function setupLiveMentions() {
 function setupLiveProof() {
   const cont = el('proof-container');
   if (!cont) return;
-  cont.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
-    <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
-    <span style="color:var(--green);font-weight:700;">${liveResults.filter(r=>r.mentioned).length} found</span>
-    <span style="color:var(--muted);">·</span>
-    <span style="color:var(--muted);">${liveResults.length} results streaming</span>
-  </div><div id="live-proof-cards" class="proof-grid"></div>`;
+  const summaryEl = el('proof-summary-strip');
+  if (summaryEl) {
+    summaryEl.innerHTML = `<div class="proof-summary">
+      <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+      <div class="proof-stat-sep"></div>
+      <div class="proof-stat" style="color:var(--green);border-color:rgba(16,185,129,.25);"><span class="proof-stat-dot" style="background:var(--green);"></span><span id="live-proof-found">${liveResults.filter(r=>r.mentioned).length}</span> found</div>
+      <div class="proof-stat"><span class="proof-stat-dot" style="background:var(--blue);"></span><span id="live-proof-total">${liveResults.length}</span> results streaming</div>
+    </div>`;
+  }
+  cont.innerHTML = '<div id="live-proof-cards" class="proof-grid"></div>';
   const cardsEl = el('live-proof-cards');
   if (cardsEl) {
     liveResults.forEach(r => appendLiveProofCard(r));
@@ -1751,10 +1755,15 @@ function appendLiveProofCard(result) {
     // Set up live proof container if not exists (only runs once per view switch)
     const proofCont = el('proof-container');
     if (!proofCont) return;
-    proofCont.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
-      <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
-      <span style="color:var(--muted);">Results appear as they arrive</span>
-    </div><div id="live-proof-cards" class="proof-grid"></div>`;
+    const summaryEl = el('proof-summary-strip');
+    if (summaryEl) {
+      summaryEl.innerHTML = `<div class="proof-summary">
+        <div class="ov-live-badge"><span class="ov-live-dot"></span>LIVE</div>
+        <div class="proof-stat-sep"></div>
+        <div class="proof-stat"><span class="proof-stat-dot" style="background:var(--blue);"></span>Results appear as they arrive</div>
+      </div>`;
+    }
+    proofCont.innerHTML = '<div id="live-proof-cards" class="proof-grid"></div>';
     cont = el('live-proof-cards');
   }
   if (!cont) return;
@@ -1774,7 +1783,7 @@ function appendLiveProofCard(result) {
   const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
   const cardBorder = isMentioned ? (t.color||'var(--border)')+'40' : 'var(--border)';
 
-  const card = `<div class="proof-card proof-card-live" style="background:var(--bg2);border:1px solid ${cardBorder};">
+  const card = `<div class="proof-card proof-card-live" style="border-color:${cardBorder};">
     <div class="proof-card-header" style="background:${t.bg||'var(--bg)'};border-bottom:1px solid ${cardBorder};">
       <div class="proof-card-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</div>
       <div class="proof-card-name">${result.platform}</div>
@@ -1783,17 +1792,24 @@ function appendLiveProofCard(result) {
     <div class="proof-card-body">
       <div class="proof-card-query">"${esc(result.query)}"<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(result.query))},this)" title="Copy keyword">&#x2398;</button></div>
       ${isError
-        ? `<div class="proof-not-found" style="color:var(--amber);">${esc(friendlyError(result.errorMessage))}</div>`
-        : `<div class="proof-card-resp" style="color:var(--text);max-height:200px;overflow:hidden;">${displayResp}${preview.length >= 300 ? '...' : ''}</div>`
+        ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-size:16px;margin-bottom:4px;">⚠</div>${esc(friendlyError(result.errorMessage))}</div>`
+        : `<div class="proof-card-resp" style="max-height:180px;overflow:hidden;">${displayResp}${preview.length >= 300 ? '...' : ''}</div>`
       }
     </div>
     <div class="proof-card-footer">
-      <span class="badge ${sentBadge}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
-      ${result.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-      ${result.model?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(result.model)}</span>`:''}
+      <div class="proof-card-meta">
+        <span class="badge ${sentBadge}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
+        ${result.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
+        ${result.model?`<span class="proof-card-tag">${esc(result.model)}</span>`:''}
+      </div>
     </div>
   </div>`;
   cont.insertAdjacentHTML('beforeend', card);
+  // Update live counters
+  const lfc = el('live-proof-found');
+  const ltc = el('live-proof-total');
+  if (lfc) lfc.textContent = liveResults.filter(r=>r.mentioned).length;
+  if (ltc) ltc.textContent = liveResults.length;
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────
@@ -3207,19 +3223,31 @@ function renderProof(){
   const resultQueries = [...new Set(allResults.map(r => r.query))];
   const queries = runQueries.length ? runQueries : (resultQueries.length ? resultQueries : (b.queries||[]));
 
-  // Evidence summary — show run stats at top
+  // Evidence summary — stat pills
   const totalResults = allResults.length;
   const foundCount = allResults.filter(r => r.mentioned).length;
+  const notFoundCount = totalResults - foundCount - allResults.filter(r => r.error).length;
   const errorCount = allResults.filter(r => r.error).length;
   const runDate = new Date(run.time || run.date);
-  let html = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin:16px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:11px;box-shadow:var(--app-shadow);">
-    <span style="color:var(--muted);">RUN: ${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
-    <span style="color:var(--text);font-weight:700;">${totalResults} results</span>
-    <span style="color:var(--green);font-weight:700;">${foundCount} found</span>
-    <span style="color:${errorCount?'var(--amber)':'var(--muted)'}">${errorCount} errors</span>
-    <span style="color:var(--muted);">${queries.length} queries × ${(run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size} platforms</span>
-    <span style="color:var(--text);font-weight:700;">SOV: ${run.sov}%</span>
-  </div>`;
+  const platCount = (run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size;
+  const sovColor = run.sov >= 70 ? 'var(--green)' : run.sov >= 40 ? 'var(--amber)' : 'var(--red)';
+
+  const summaryEl = el('proof-summary-strip');
+  if (summaryEl) {
+    summaryEl.innerHTML = `<div class="proof-summary">
+      <div class="proof-stat"><span class="proof-stat-dot" style="background:var(--blue);"></span>${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="proof-stat-sep"></div>
+      <div class="proof-stat"><span class="proof-stat-dot" style="background:var(--text);"></span>${totalResults} results</div>
+      <div class="proof-stat" style="color:var(--green);border-color:rgba(16,185,129,.25);"><span class="proof-stat-dot" style="background:var(--green);"></span>${foundCount} found</div>
+      <div class="proof-stat" style="color:var(--red);border-color:rgba(239,68,68,.2);"><span class="proof-stat-dot" style="background:var(--red);"></span>${notFoundCount} not found</div>
+      ${errorCount ? `<div class="proof-stat" style="color:var(--amber);border-color:rgba(245,158,11,.25);"><span class="proof-stat-dot" style="background:var(--amber);"></span>${errorCount} errors</div>` : ''}
+      <div class="proof-stat-sep"></div>
+      <div class="proof-stat">${queries.length} queries &times; ${platCount} platforms</div>
+      <div class="proof-stat" style="color:${sovColor};border-color:${sovColor};font-weight:700;">SOV ${run.sov}%</div>
+    </div>`;
+  }
+
+  let html = '';
 
   // Evidence cards — show EXACT AI response as proof for each query+platform
   queries.forEach(q => {
@@ -3272,38 +3300,46 @@ function renderProof(){
         ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
         : `<button class="proof-view-btn" onclick="openFullResult('${escAttr(plat)}','${safeBtoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
 
-      return `<div class="proof-card" style="background:${cardBg};border:1px solid ${cardBorder};">
+      return `<div class="proof-card" style="border-color:${cardBorder};">
         <div class="proof-card-header" style="background:${t.bg||'var(--bg)'};border-bottom:1px solid ${cardBorder};">
           <div class="proof-card-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</div>
           <div class="proof-card-name">${plat}</div>
-          <div class="proof-card-badges">
-            ${statusBadge}
-          </div>
+          <div class="proof-card-badges">${statusBadge}</div>
         </div>
         <div class="proof-card-body">
           <div class="proof-card-query">"${esc(q)}"<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(q))},this)" title="Copy keyword">&#x2398;</button></div>
           ${isError
-            ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-weight:700;margin-bottom:6px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
+            ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-size:16px;margin-bottom:4px;">⚠</div><div style="font-weight:700;margin-bottom:4px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
             : displayResp
-            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${safeBtoa(encodeURIComponent(q)).substring(0,12)}" style="color:var(--text);">${displayResp}</div>`
-            : `<div class="proof-not-found">No response received from this platform.</div>`
+            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${safeBtoa(encodeURIComponent(q)).substring(0,12)}">${displayResp}</div>`
+            : `<div class="proof-not-found"><div style="font-size:16px;margin-bottom:4px;">—</div>No response received from this platform.</div>`
           }
         </div>
         <div class="proof-card-footer">
-          <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
-          ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-          ${matchedLoc?`<span style="font-family:var(--mono);font-size:9px;color:var(--blue);background:rgba(59,130,246,.1);padding:3px 8px;border:1px solid rgba(59,130,246,.2);border-radius:100px;">${esc(matchedLoc)}</span>`:''}
-          ${cites?`<span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${cites} source${cites>1?'s':''}</span>`:''}
-          ${compMentions.length?`<span style="font-family:var(--mono);font-size:9px;color:var(--red);background:rgba(239,68,68,.08);padding:3px 8px;border:1px solid rgba(239,68,68,.2);border-radius:100px;" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
-          ${modelName?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${esc(modelName)}</span>`:''}
-          <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</span>
+          <div class="proof-card-meta">
+            <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
+            ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
+            ${matchedLoc?`<span class="proof-card-tag" style="color:var(--blue);border-color:rgba(59,130,246,.25);">${esc(matchedLoc)}</span>`:''}
+            ${cites?`<span class="proof-card-tag">${cites} source${cites>1?'s':''}</span>`:''}
+            ${compMentions.length?`<span class="proof-card-tag" style="color:var(--red);border-color:rgba(239,68,68,.25);" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
+            ${modelName?`<span class="proof-card-tag">${esc(modelName)}</span>`:''}
+          </div>
           ${viewBtn}
         </div>
       </div>`;
     }).join('');
     if (hasCards && cards.trim()) {
-      html += `<div style="margin-bottom:28px;">
-        <div class="proof-query-header"><span class="q-label">QUERY:</span> ${esc(q)}</div>
+      const qFoundCount = platList.filter(p => {
+        const fr = allResults.find(x => x.platform===p && x.query===q);
+        return fr && fr.mentioned;
+      }).length;
+      const qTotalCount = platList.filter(p => allResults.find(x => x.platform===p && x.query===q)).length;
+      html += `<div style="margin-bottom:32px;">
+        <div class="proof-query-header">
+          <span class="q-icon">Q</span>
+          <span class="q-label">${esc(q)}</span>
+          <span class="q-count">${qFoundCount} / ${qTotalCount} found</span>
+        </div>
         <div class="proof-grid">${cards}</div>
       </div>`;
     }

@@ -938,28 +938,39 @@
 
     <!-- EVIDENCE & PROOF ─────────────────── -->
     <div id="view-proof" class="view">
-      <div class="view-title">Evidence &amp; Proof</div>
-      <div class="view-sub">Full AI responses for any run — shareable client proof.</div>
-      <div class="card" style="padding:12px 16px;">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RUN:</div>
-          <select class="finput" id="proof-run-sel" style="width:220px;margin:0;" onchange="renderProof()"></select>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">PLATFORM:</div>
-          <select class="finput" id="proof-plat-sel" style="width:150px;margin:0;" onchange="renderProof()">
+      <div class="proof-hero">
+        <div class="proof-hero-left">
+          <div class="view-title" style="margin-bottom:4px;">Evidence &amp; Proof</div>
+          <div class="view-sub" style="margin-bottom:0;">Verifiable AI responses — your brand's visibility, proven with real data.</div>
+        </div>
+        <button class="proof-export-btn" onclick="exportProofCSV()">
+          <span class="proof-export-icon">↓</span> Export CSV
+        </button>
+      </div>
+      <div class="proof-toolbar">
+        <div class="proof-filter-group">
+          <label class="proof-filter-label" for="proof-run-sel">Run</label>
+          <select class="finput proof-filter-select proof-filter-run" id="proof-run-sel" onchange="renderProof()"></select>
+        </div>
+        <div class="proof-filter-group">
+          <label class="proof-filter-label" for="proof-plat-sel">Platform</label>
+          <select class="finput proof-filter-select" id="proof-plat-sel" onchange="renderProof()">
             <option value="">All Platforms</option>
             <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
             <option>Gemini</option><option>Grok</option><option>Google AIO</option>
             <option>DeepSeek</option>
           </select>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">RESULT:</div>
-          <select class="finput" id="proof-result-sel" style="width:130px;margin:0;" onchange="renderProof()">
+        </div>
+        <div class="proof-filter-group">
+          <label class="proof-filter-label" for="proof-result-sel">Result</label>
+          <select class="finput proof-filter-select" id="proof-result-sel" onchange="renderProof()">
             <option value="">All Results</option>
             <option value="found">Found</option>
             <option value="notfound">Not Found</option>
           </select>
-          <button onclick="exportProofCSV()" style="padding:7px 14px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:11px;font-family:var(--mono);cursor:pointer;margin-left:auto;letter-spacing:1px;border-radius:var(--radius-xs);">EXPORT CSV</button>
         </div>
       </div>
+      <div id="proof-summary-strip"></div>
       <div id="proof-container"></div>
     </div>
 
