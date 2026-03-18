@@ -838,9 +838,9 @@ function go(view){
 }
 
 function switchActivityTab(btn, tabId) {
-  document.querySelectorAll('.al-tab').forEach(b => b.classList.remove('al-tab-active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
   document.querySelectorAll('.al-tab-content').forEach(t => t.style.display = 'none');
-  btn.classList.add('al-tab-active');
+  btn.classList.add('tab-active');
   const tab = document.getElementById(tabId);
   if (tab) tab.style.display = 'block';
 }
@@ -1019,7 +1019,7 @@ async function loadModelSettings() {
           <span class="toggle-slider"></span>
         </label>
         <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:90px;">${icon} ${platform}</div>
-        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;" ${isEnabled?'':'disabled'}>
+        <select class="finp model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;" ${isEnabled?'':'disabled'}>
           ${models.map(m => `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.label}</option>`).join('')}
         </select>
       </div>`;
@@ -1303,11 +1303,11 @@ async function load2FAStatus() {
     const data = await api('GET', '/api/auth/2fa/status');
     if (data.enabled) {
       statusEl.innerHTML = `<span style="color:var(--green);font-weight:700;">ENABLED</span> <span style="color:var(--muted);">&mdash; ${data.backupCodesRemaining} backup code${data.backupCodesRemaining !== 1 ? 's' : ''} remaining</span>`;
-      actionsEl.innerHTML = '<button class="btn" onclick="el(\'twofa-disable-form\').style.display=el(\'twofa-disable-form\').style.display===\'none\'?\'block\':\'none\'" style="font-size:11px;">DISABLE 2FA</button>';
+      actionsEl.innerHTML = '<button class="pbtn" onclick="el(\'twofa-disable-form\').style.display=el(\'twofa-disable-form\').style.display===\'none\'?\'block\':\'none\'" style="font-size:11px;">DISABLE 2FA</button>';
       el('twofa-setup-form').style.display = 'none';
     } else {
       statusEl.innerHTML = '<span style="color:var(--muted);">Not enabled.</span> <span style="font-size:11px;color:var(--muted);">Add an extra layer of security to your account with an authenticator app.</span>';
-      actionsEl.innerHTML = '<button class="btn-primary" onclick="setup2FA()" style="font-size:11px;">ENABLE 2FA</button>';
+      actionsEl.innerHTML = '<button class="pbtn" onclick="setup2FA()" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;">ENABLE 2FA</button>';
       el('twofa-disable-form').style.display = 'none';
     }
   } catch(e) {
@@ -1358,7 +1358,7 @@ async function verify2FA() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
             ${data.backupCodes.map(c => `<div style="background:var(--bg3);padding:6px 10px;border-radius:var(--radius-xs);font-family:var(--mono);font-size:12px;letter-spacing:1px;text-align:center;">${esc(c)}</div>`).join('')}
           </div>
-          <button class="btn" onclick="navigator.clipboard.writeText('${data.backupCodes.join('\\n')}');toast('Backup codes copied!','ok');" style="font-size:10px;">COPY ALL CODES</button>
+          <button class="pbtn" onclick="navigator.clipboard.writeText('${data.backupCodes.join('\\n')}');toast('Backup codes copied!','ok');" style="font-size:10px;">COPY ALL CODES</button>
         </div>`;
     }
     load2FAStatus();
@@ -1481,7 +1481,7 @@ async function renderTeamMembers() {
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Joined ${joined}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <select class="finput" style="margin:0;width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
+          <select class="finp" style="margin:0;width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
             <option value="viewer" ${m.role==='viewer'?'selected':''}>Viewer</option>
             <option value="editor" ${m.role==='editor'?'selected':''}>Editor</option>
           </select>
@@ -3694,30 +3694,44 @@ async function renderPlatformStatus(){
     if (platformEntries.length) {
       healthDiv.innerHTML = platformEntries.map(([name, p]) => {
         const t = PLAT_THEME[name]||{};
-        const statusClr = p.status === 'green' ? 'var(--green)' : p.status === 'amber' ? 'var(--amber,#f59e0b)' : p.status === 'red' ? 'var(--red)' : 'var(--muted)';
+        const statusClr = p.status === 'green' ? 'var(--green)' : p.status === 'amber' ? 'var(--amber)' : p.status === 'red' ? 'var(--red)' : 'var(--muted)';
         const statusLabel = p.status === 'green' ? 'HEALTHY' : p.status === 'amber' ? 'DEGRADED' : p.status === 'red' ? 'DOWN' : 'NO DATA';
-        return `<div class="card" style="padding:12px;border-left:3px solid ${t.color||'var(--border)'};">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:13px;">${t.logo||''} ${esc(name)}</span>
-            <span class="badge" style="background:${statusClr};color:#fff;font-size:9px;padding:2px 6px;">${statusLabel}</span>
+        const statusBg = p.status === 'green' ? 'rgba(16,185,129,.08)' : p.status === 'amber' ? 'rgba(245,158,11,.08)' : p.status === 'red' ? 'rgba(239,68,68,.08)' : 'var(--bg3)';
+        return `<div class="score-card" style="text-align:left;padding:18px;border-left:3px solid ${t.color||'var(--border)'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:14px;">${t.logo||''} ${esc(name)}</span>
+            <span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 10px;border-radius:100px;background:${statusBg};color:${statusClr};">${statusLabel}</span>
           </div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            Avg latency: ${p.avg_latency_ms ? p.avg_latency_ms+'ms' : '—'}<br>
-            Success rate: ${p.success_rate != null ? p.success_rate+'%' : '—'}<br>
-            Last 24h calls: ${p.total_calls_24h || 0}
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div><div style="font-family:var(--mono);font-size:14px;font-weight:700;">${p.avg_latency_ms ? p.avg_latency_ms+'ms' : '—'}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Latency</div></div>
+            <div><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${p.success_rate >= 95 ? 'var(--green)' : p.success_rate >= 80 ? 'var(--amber)' : 'var(--red)'}">${p.success_rate != null ? p.success_rate+'%' : '—'}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Success</div></div>
+            <div><div style="font-family:var(--mono);font-size:14px;font-weight:700;">${p.total_calls_24h || 0}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">24h Calls</div></div>
           </div>
         </div>`;
       }).join('');
     } else {
-      healthDiv.innerHTML = '';
+      healthDiv.innerHTML = PLATS.map(name => {
+        const t = PLAT_THEME[name]||{};
+        return `<div class="score-card" style="text-align:left;padding:18px;border-left:3px solid ${t.color||'var(--border)'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:14px;">${t.logo||''} ${esc(name)}</span>
+            <span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 10px;border-radius:100px;background:var(--bg3);color:var(--muted);">NO DATA</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);">Run queries to see platform health data.</div>
+        </div>`;
+      }).join('');
     }
   } catch(e) {
-    healthDiv.innerHTML = '';
+    healthDiv.innerHTML = `<div class="card" style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);">Could not load platform health data. <a href="#" onclick="renderPlatformStatus();return false;" style="color:var(--primary);">Retry</a></div>`;
   }
 
   const cont = el('plat-status-container');
   if (!b.runs || !b.runs.length) {
-    cont.innerHTML = '<div class="empty-state"><p>No data yet.</p></div>';
+    cont.innerHTML = `<div class="card" style="text-align:center;padding:32px;">
+      <div style="font-size:28px;margin-bottom:8px;">&#11177;</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Run Data Yet</div>
+      <div style="color:var(--muted);font-size:12px;">Run queries to see per-platform SOV and trend sparklines.</div>
+    </div>`;
     return;
   }
   let html = '<div class="card" style="padding:0;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Last SOV</th><th class="th">Key Status</th><th class="th">Trend (last 7 runs)</th></tr></thead><tbody>';
@@ -3727,14 +3741,15 @@ async function renderPlatformStatus(){
     const hasKey = keyStatus[keyField];
     const recent = b.runs.slice(-7);
     const lastSOV = recent.length ? (recent[recent.length-1].platforms||{})[plat]||0 : 0;
+    const sovColor = lastSOV >= 50 ? 'var(--green)' : lastSOV > 0 ? 'var(--amber)' : 'var(--muted)';
     const bars = recent.map(r => {
       const sov = (r.platforms||{})[plat]||0;
-      return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;opacity:.8;"></div>`;
+      return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;border-radius:2px 2px 0 0;opacity:.8;"></div>`;
     }).join('');
     html += `<tr class="trow">
       <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(plat)}</span></td>
-      <td class="td"><span style="font-family:var(--mono);font-size:18px;font-weight:800;color:${t.color||'var(--green)'}">${lastSOV}%</span></td>
-      <td class="td"><span style="font-family:var(--mono);font-size:10px;font-weight:700;color:${hasKey?'var(--green)':'var(--red)'};padding:2px 8px;background:${hasKey?'rgba(16,185,129,.08)':'rgba(239,68,68,.08)'};border-radius:100px;">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
+      <td class="td"><span style="font-family:var(--mono);font-size:18px;font-weight:800;color:${sovColor}">${lastSOV}%</span></td>
+      <td class="td"><span class="${hasKey?'status-found':'status-notfound'}">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
       <td class="td" style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
     </tr>`;
   });
@@ -3749,7 +3764,17 @@ function renderQPerf(){
   const qs = b.queryStats || {};
   const queries = b.queries || [];
   const cont = el('qperf-container');
-  if (!queries.length) { cont.innerHTML='<div class="empty-state"><div class="icon">◻</div><p>No queries configured. Add queries in Overview or Brand Setup.</p></div>'; return; }
+  const kpis = el('qperf-kpis');
+  if (!queries.length) {
+    kpis.innerHTML = '';
+    cont.innerHTML = `<div class="card" style="text-align:center;padding:32px;">
+      <div style="font-size:28px;margin-bottom:8px;">&#9723;</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Queries Configured</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:12px;">Add queries in Brand Setup to start tracking performance.</div>
+      <button class="pbtn" onclick="go('setup')">Go to Brand Setup</button>
+    </div>`;
+    return;
+  }
 
   const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
   const allResults = lastRun ? (lastRun.allResults || []) : [];
@@ -3769,13 +3794,15 @@ function renderQPerf(){
   const topQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) > 0.6; }).length;
   const lowQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) <= 0.3; }).length;
 
-  // ── Summary Cards (using .score-card for preview consistency) ──
-  let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+  // ── KPI Cards ──
+  kpis.innerHTML = `
     <div class="score-card"><div class="score-val" style="font-size:24px;">${queries.length}</div><div class="score-label">Total Queries</div></div>
     <div class="score-card"><div class="score-val" style="font-size:24px;color:${avgRate > 60 ? 'var(--green)' : avgRate > 30 ? 'var(--amber)' : 'var(--red)'};">${avgRate}%</div><div class="score-label">Avg Mention Rate</div></div>
     <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${topQueries}</div><div class="score-label">Strong (&gt;60%)</div></div>
     <div class="score-card"><div class="score-val" style="font-size:24px;color:${lowQueries > 0 ? 'var(--red)' : 'var(--muted)'};">${lowQueries}</div><div class="score-label">Needs Work (&le;30%)</div></div>
-  </div>`;
+  `;
+
+  let html = '';
 
   // ── Last run info ──
   if (lastRun) {
@@ -3853,13 +3880,16 @@ async function renderCompetitors(){
   const b = brand(); if (!b) return;
   const cont = el('comp-tags');
   cont.innerHTML = '';
+  if (!(b.competitors||[]).length) {
+    cont.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">No competitors added yet. Add competitor names below to track.</div>';
+  }
   (b.competitors||[]).forEach((c,i) => {
     const tag = document.createElement('span');
-    tag.className = 'query-tag';
-    const cText = document.createTextNode(c + ' ');
-    tag.appendChild(cText);
+    tag.className = 'comp-chip';
+    tag.textContent = c + ' ';
     const btn = document.createElement('button');
-    btn.textContent = '\u2715';
+    btn.style.cssText = 'background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;margin-left:4px;';
+    btn.textContent = '\u00d7';
     btn.addEventListener('click', function(){ removeComp(i); });
     tag.appendChild(btn);
     cont.appendChild(tag);
@@ -3870,7 +3900,13 @@ async function renderCompetitors(){
   const competitors = b.competitors || [];
   const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
   if (!competitors.length || !lastRun || !lastRun.allResults) {
-    compDiv.innerHTML = competitors.length ? '<div class="card"><div class="empty-state"><p>Run queries to see competitor comparison data.</p></div></div>' : '';
+    compDiv.innerHTML = competitors.length ? `<div class="card" style="text-align:center;padding:24px;">
+      <div style="font-size:28px;margin-bottom:8px;">&#8856;</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Comparison Data</div>
+      <div style="color:var(--muted);font-size:12px;">Run queries to see how your brand compares against competitors.</div>
+    </div>` : '';
+    el('comp-cooccurrence').innerHTML = '';
+    el('comp-platform-breakdown').innerHTML = '';
     return;
   }
 
@@ -3996,11 +4032,28 @@ let platSovChartInstance = null;
 function renderTrends(){
   const b = brand(); if (!b) return;
 
+  // Render KPI cards for trends
+  const tKpis = el('trends-kpis');
+  if (tKpis) {
+    const history = b.sovHistory || [];
+    const lastSOV = history.length ? history[history.length - 1].overall : 0;
+    const firstSOV = history.length > 1 ? history[0].overall : lastSOV;
+    const change = history.length > 1 ? lastSOV - firstSOV : 0;
+    const maxSOV = history.length ? Math.max(...history.map(h => h.overall)) : 0;
+    const avgSOV = history.length ? Math.round(history.reduce((s, h) => s + h.overall, 0) / history.length) : 0;
+    tKpis.innerHTML = `
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:${lastSOV >= 50 ? 'var(--green)' : lastSOV > 0 ? 'var(--amber)' : 'var(--muted)'};">${lastSOV}%</div><div class="score-label">Current SOV</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:${change >= 0 ? 'var(--green)' : 'var(--red)'};">${change >= 0 ? '+' : ''}${change}%</div><div class="score-label">Overall Change</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--purple);">${maxSOV}%</div><div class="score-label">Peak SOV</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;">${avgSOV}%</div><div class="score-label">Average SOV</div></div>
+    `;
+  }
+
   // Lazy-load Chart.js then render
   ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
     const cont = document.querySelector('#view-trends');
     if (cont && !cont.querySelector('.chartjs-error')) {
-      cont.insertAdjacentHTML('afterbegin', '<div class="empty-state chartjs-error"><p>Failed to load chart library. Please refresh the page.</p></div>');
+      cont.insertAdjacentHTML('afterbegin', '<div class="card" style="text-align:center;padding:24px;color:var(--muted);">Failed to load chart library. <a href="#" onclick="location.reload()" style="color:var(--primary);">Refresh page</a></div>');
     }
   });
 }
@@ -4028,9 +4081,15 @@ function _renderTrendsCharts(b) {
 
   if (!history.length) {
     el('sov-chart').style.display = 'none';
-    sovParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet. Run queries at least twice to see trends.</p></div>');
+    sovParent.querySelector('.card-title').insertAdjacentHTML('afterend', `<div class="trends-empty" style="text-align:center;padding:32px 16px;">
+      <div style="font-size:28px;margin-bottom:8px;">&#9670;</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Trend Data Yet</div>
+      <div style="color:var(--muted);font-size:12px;">Run queries at least twice to see SOV trends over time.</div>
+    </div>`);
     el('plat-sov-chart').style.display = 'none';
-    platParent.querySelector('.card-title').insertAdjacentHTML('afterend', '<div class="empty-state trends-empty"><p>No trend data yet.</p></div>');
+    platParent.querySelector('.card-title').insertAdjacentHTML('afterend', `<div class="trends-empty" style="text-align:center;padding:32px 16px;">
+      <div style="color:var(--muted);font-size:12px;">Per-platform trends will appear after multiple runs.</div>
+    </div>`);
     return;
   }
   el('sov-chart').style.display = '';
@@ -5904,11 +5963,20 @@ let _pdVisChart = null, _pdCompChart = null;
 async function renderPromptDetails() {
   const b = brand();
   if (!b) return;
-  showViewLoading('pd-metrics');
+
+  const queries = b.queries || [];
+  if (!queries.length) {
+    el('pd-metrics').innerHTML = '';
+    el('pd-platform-table').innerHTML = `<div style="text-align:center;padding:32px;">
+      <div style="font-size:28px;margin-bottom:8px;">&#9671;</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Queries Configured</div>
+      <div style="color:var(--muted);font-size:12px;">Add queries in Brand Setup to see prompt-level analytics.</div>
+    </div>`;
+    return;
+  }
 
   // Populate prompt selector
   const sel = el('pd-prompt-select');
-  const queries = b.queries || [];
   sel.innerHTML = queries.map((q, i) => `<option value="${esc(q)}">${esc(q)}</option>`).join('');
 
   // Populate platform filter
@@ -5962,7 +6030,12 @@ async function renderPromptDetail() {
         <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--purple);">${avgRank ? '#' + avgRank.toFixed(1) : '--'}</div><div class="score-label">Avg Position</div></div>
       `;
     } else {
-      metricsEl.innerHTML = '<div class="card" style="padding:16px;grid-column:1/-1;text-align:center;color:var(--muted);">No data yet. Run queries to see prompt-level metrics.</div>';
+      metricsEl.innerHTML = `
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--muted);">—</div><div class="score-label">Visibility</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--muted);">—</div><div class="score-label">Platforms Found</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--muted);">—</div><div class="score-label">Avg Sentiment</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--muted);">—</div><div class="score-label">Avg Position</div></div>
+      `;
     }
 
     // Load history for chart (lazy-load Chart.js in parallel with data fetch)
@@ -6209,42 +6282,82 @@ async function viewPlaybook(playbookId) {
 async function renderAccuracyMonitor() {
   const b = brand();
   if (!b) return;
-  showViewLoading('facts-list');
+  const kpisEl = el('accuracy-kpis');
+  const factsEl = el('facts-list');
+  const resultsEl = el('accuracy-results');
+
+  // Show loading state
+  kpisEl.innerHTML = `
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Accuracy Rate</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Inaccuracies Found</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Claims Verified</div></div>
+  `;
+
   try {
     const data = await api('GET', `/api/brands/${b.id}/facts`);
     const facts = data.facts || [];
 
-    // Populate KPI cards
-    const kpisEl = el('accuracy-kpis');
-    if (kpisEl) {
-      // Try to get accuracy results for KPI stats
-      let accRate = '--', issueCount = 0, claimsChecked = 0;
-      try {
-        const accData = await api('GET', `/api/brands/${b.id}/accuracy`);
-        const mismatches = accData.mismatches || [];
-        claimsChecked = accData.totalChecked || mismatches.length + (accData.matches || 0);
-        issueCount = mismatches.length;
-        accRate = claimsChecked > 0 ? Math.round(((claimsChecked - issueCount) / claimsChecked) * 100) + '%' : '--';
-      } catch(e) {}
-      kpisEl.innerHTML = `
-        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${accRate}</div><div class="score-label">Accuracy Rate</div></div>
-        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--red);">${issueCount}</div><div class="score-label">Inaccuracies Found</div></div>
-        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${claimsChecked || facts.length}</div><div class="score-label">Claims Verified</div></div>
-      `;
-    }
+    // Fetch accuracy results for KPI stats
+    let accRate = '--', issueCount = 0, claimsChecked = 0, mismatches = [];
+    try {
+      const accData = await api('GET', `/api/brands/${b.id}/accuracy`);
+      mismatches = accData.mismatches || [];
+      claimsChecked = accData.totalChecked || mismatches.length + (accData.matches || 0);
+      issueCount = mismatches.length;
+      accRate = claimsChecked > 0 ? Math.round(((claimsChecked - issueCount) / claimsChecked) * 100) + '%' : '--';
+    } catch(e) {}
 
-    const factsEl = el('facts-list');
+    const accColor = accRate === '--' ? 'var(--muted)' : parseInt(accRate) >= 90 ? 'var(--green)' : parseInt(accRate) >= 70 ? 'var(--amber)' : 'var(--red)';
+    kpisEl.innerHTML = `
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:${accColor};">${accRate}</div><div class="score-label">Accuracy Rate</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:${issueCount > 0 ? 'var(--red)' : 'var(--green)'};">${issueCount}</div><div class="score-label">Inaccuracies Found</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${claimsChecked || facts.length}</div><div class="score-label">Claims Verified</div></div>
+    `;
+
+    // Render facts list
     if (facts.length === 0) {
-      factsEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No facts defined yet. Add canonical facts below.</div>';
+      factsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">
+        No facts defined yet. Add your brand's canonical facts below (e.g. founded year, pricing, phone number) to check AI accuracy.
+      </div>`;
     } else {
       factsEl.innerHTML = facts.map(f => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg2);border-radius:6px;margin-bottom:6px;">
-          <div><span style="font-weight:600;font-size:13px;">${esc(f.fact_key)}</span>: <span style="font-size:13px;">${esc(f.fact_value)}</span> <span style="font-size:11px;color:var(--muted);">[${f.category}]</span></div>
-          <button style="background:none;border:none;color:var(--red,#ef4444);cursor:pointer;font-size:14px;" onclick="deleteFact(${f.id})">&times;</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg3);border-radius:var(--radius-xs);margin-bottom:6px;">
+          <div>
+            <span style="font-weight:700;font-size:12px;color:var(--text);">${esc(f.fact_key)}</span>
+            <span style="font-size:12px;color:var(--text);"> = </span>
+            <span style="font-family:var(--mono);font-size:12px;color:var(--text);">${esc(f.fact_value)}</span>
+            <span style="font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:100px;background:var(--bg);color:var(--muted);margin-left:6px;">${esc(f.category)}</span>
+          </div>
+          <button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;" onclick="deleteFact(${f.id})">&times;</button>
         </div>
       `).join('');
     }
-  } catch(e) { console.error('[Accuracy]', e); }
+
+    // Render mismatches in the results section
+    if (resultsEl) {
+      if (mismatches.length > 0) {
+        resultsEl.innerHTML = mismatches.map(m => {
+          const t = PLAT_THEME[m.platform] || {};
+          const severity = m.severity === 'high' ? 'var(--red)' : 'var(--amber)';
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid ${severity};background:${severity === 'var(--red)' ? 'rgba(239,68,68,.03)' : 'rgba(245,158,11,.03)'};border-radius:var(--radius-xs);margin-bottom:10px;">
+            <span style="color:${severity};font-size:14px;">&#9888;</span>
+            <div style="font-size:12px;flex:1;">
+              <strong style="color:${t.color || 'var(--text)'};">${esc(m.platform || 'Unknown')}</strong>
+              ${m.fact_key ? ` says <em>"${esc(m.ai_value || '?')}"</em> for <strong>${esc(m.fact_key)}</strong> — actual value is <strong>"${esc(m.fact_value || '?')}"</strong>` : esc(m.description || 'Mismatch detected')}
+              <span style="color:var(--muted);font-family:var(--mono);font-size:10px;display:block;margin-top:4px;">${m.detected_at ? new Date(m.detected_at).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : ''}</span>
+            </div>
+          </div>`;
+        }).join('');
+      } else if (claimsChecked > 0) {
+        resultsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--green);font-size:12px;font-weight:600;">No mismatches detected. AI platforms are reporting your brand information accurately.</div>`;
+      } else {
+        resultsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Add canonical facts above and click "Check Now" to verify AI accuracy.</div>`;
+      }
+    }
+  } catch(e) {
+    console.error('[Accuracy]', e);
+    factsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);">Could not load accuracy data. <a href="#" onclick="renderAccuracyMonitor();return false;" style="color:var(--primary);">Retry</a></div>`;
+  }
 }
 
 async function addFact() {
@@ -6301,9 +6414,19 @@ async function checkAccuracy() {
 // CITATION ANALYSIS VIEW (Epic 8.2)
 // ═══════════════════════════════════════════════════════════════════
 async function renderCitationAnalysis() {
-  showViewLoading('citation-domains');
   const b = brand();
   if (!b) return;
+  const summaryEl = el('citation-summary');
+  const domainsEl = el('citation-domains');
+
+  // Show loading skeleton
+  summaryEl.innerHTML = `
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Domains Cited</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Total Citations</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Your Domain Cited</div></div>
+  `;
+  domainsEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Loading citations...</div>';
+
   try {
     const data = await api('GET', `/api/brands/${b.id}/citation-analysis`);
     const domains = data.domains || [];
@@ -6312,29 +6435,41 @@ async function renderCitationAnalysis() {
     const bDomain = b.website ? b.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase() : '';
     const ownDomainCites = bDomain ? domains.filter(d => d.domain.includes(bDomain)).reduce((s, d) => s + d.totalCitations, 0) : 0;
 
-    const summaryEl = el('citation-summary');
     summaryEl.innerHTML = `
       <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${domains.length}</div><div class="score-label">Domains Cited</div></div>
       <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${data.totalCitations || 0}</div><div class="score-label">Total Citations</div></div>
       <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--amber);">${ownDomainCites}</div><div class="score-label">Your Domain Cited</div></div>
     `;
 
-    const domainsEl = el('citation-domains');
     if (domains.length === 0) {
-      domainsEl.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">No citations found yet. Run more queries to build citation data.</div>';
+      domainsEl.innerHTML = `<div style="text-align:center;padding:32px 16px;">
+        <div style="font-size:28px;margin-bottom:8px;">&#11044;</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Citations Found</div>
+        <div style="color:var(--muted);font-size:12px;">Run more queries to build citation data. AI platforms cite sources when they reference authoritative content.</div>
+      </div>`;
       return;
     }
+
+    const maxCites = domains[0]?.totalCitations || 1;
     domainsEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead><tr style="background:var(--bg3);"><th class="th">Domain</th><th class="th">Type</th><th class="th">Citations</th><th class="th">Top URLs</th></tr></thead>
-      <tbody>${domains.map(d => `
-        <tr class="trow">
-          <td class="td" style="font-weight:600;">${esc(d.domain)}</td>
-          <td class="td"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${d.type}</span></td>
-          <td class="td" style="font-weight:600;">${d.totalCitations}</td>
-          <td class="td" style="font-size:11px;">${(d.urls || []).slice(0, 2).map(u => `<a href="${safeHref(u.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;">${esc(u.url.substring(0, 50))}...</a> (${u.count})`).join('<br>')}</td>
-        </tr>`).join('')}</tbody>
+      <thead><tr style="background:var(--bg3);"><th class="th">Domain</th><th class="th">Type</th><th class="th">Citations</th><th class="th">Share</th></tr></thead>
+      <tbody>${domains.map(d => {
+        const isOwn = bDomain && d.domain.includes(bDomain);
+        const barW = Math.round(d.totalCitations / maxCites * 100);
+        return `<tr class="trow"${isOwn ? ' style="background:rgba(255,97,84,.03);"' : ''}>
+          <td class="td" style="font-weight:600;">${isOwn ? '<span style="color:var(--primary);">&#9733; </span>' : ''}${esc(d.domain)}</td>
+          <td class="td"><span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:100px;background:var(--bg3);color:var(--muted);">${esc(d.type || 'other')}</span></td>
+          <td class="td" style="font-family:var(--mono);font-weight:700;">${d.totalCitations}</td>
+          <td class="td"><div style="width:100%;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;"><div style="width:${barW}%;height:100%;background:${isOwn ? 'var(--primary)' : 'var(--blue)'};border-radius:2px;"></div></div></td>
+        </tr>`;
+      }).join('')}</tbody>
     </table>`;
-  } catch(e) { toast('Failed to load citations', 'err'); }
+  } catch(e) {
+    summaryEl.innerHTML = '';
+    domainsEl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);">
+      Could not load citation data. <a href="#" onclick="renderCitationAnalysis();return false;" style="color:var(--primary);">Retry</a>
+    </div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -6396,7 +6531,7 @@ async function renderBilling() {
             <div style="font-size:28px;font-weight:700;text-transform:uppercase;color:${planColors[plan]};">${plan}</div>
             <div style="font-size:12px;color:var(--muted);">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
           </div>
-          ${plan !== 'owner' ? '<button class="btn-primary" style="font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
+          ${plan !== 'owner' ? '<button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
         </div>
       </div>`;
 
@@ -6579,7 +6714,7 @@ function openAddAlert(){
 
 function updateAlertParams(){
   const cond = el('alert-condition').value;
-  const threshLabel = el('alert-params-row').querySelector('.flabel');
+  const threshLabel = el('alert-params-row').querySelector('.flbl');
   if (cond === 'brand_disappeared' || cond === 'new_competitor') {
     threshLabel.textContent = 'N/A';
     el('alert-threshold').disabled = true;
