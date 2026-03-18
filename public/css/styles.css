@@ -1441,6 +1441,21 @@ select.finput{appearance:none;}
 .qbar-fill{height:100%;border-radius:3px;}
 .qbar-val{font-family:var(--mono);font-size:11px;font-weight:700;min-width:40px;text-align:right;}
 
+/* ── QUERY PERF HORIZONTAL BAR CHART ── */
+.qperf-bar-row{display:flex;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid var(--bg3);}
+.qperf-bar-row:last-child{border-bottom:none;}
+.qperf-bar-label{font-size:13px;font-weight:500;color:var(--text);min-width:260px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.qperf-bar-track{flex:1;height:10px;background:var(--bg3);border-radius:5px;overflow:hidden;}
+.qperf-bar-fill{height:100%;border-radius:5px;transition:width .5s ease;}
+.qperf-bar-value{font-family:var(--mono);font-size:14px;font-weight:700;min-width:44px;text-align:right;}
+@media(max-width:768px){
+  .qperf-bar-label{min-width:140px;max-width:140px;font-size:11px;}
+  .qperf-bar-value{font-size:12px;min-width:36px;}
+}
+
+/* ── PROMPT DETAILS CHART PLACEHOLDERS ── */
+.pd-chart-placeholder{display:flex;align-items:center;justify-content:center;min-height:150px;background:var(--bg3);border-radius:var(--radius-sm);margin-top:12px;color:var(--muted);font-size:13px;font-style:italic;}
+
 /* ── COMPETITOR CHIPS (preview) ──────── */
 .comp-chip{
   display:inline-flex;align-items:center;gap:6px;

@@ -3794,80 +3794,30 @@ function renderQPerf(){
   const topQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) > 0.6; }).length;
   const lowQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) <= 0.3; }).length;
 
-  // ── KPI Cards ──
-  kpis.innerHTML = `
-    <div class="score-card"><div class="score-val" style="font-size:24px;">${queries.length}</div><div class="score-label">Total Queries</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:${avgRate > 60 ? 'var(--green)' : avgRate > 30 ? 'var(--amber)' : 'var(--red)'};">${avgRate}%</div><div class="score-label">Avg Mention Rate</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${topQueries}</div><div class="score-label">Strong (&gt;60%)</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:${lowQueries > 0 ? 'var(--red)' : 'var(--muted)'};">${lowQueries}</div><div class="score-label">Needs Work (&le;30%)</div></div>
-  `;
+  // Hide KPI row — clean bar chart layout
+  kpis.innerHTML = '';
 
-  let html = '';
-
-  // ── Last run info ──
-  if (lastRun) {
-    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);font-size:11px;color:var(--muted);font-family:var(--mono);">
-      <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>
-      Last run: ${new Date(lastRun.time||lastRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${new Date(lastRun.time||lastRun.date).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
-      <span style="margin-left:auto;">${allResults.length} results across ${[...new Set(allResults.map(r=>r.platform))].length} platforms</span>
-    </div>`;
-  }
-
-  // ── Query Cards ──
-  html += `<div style="display:flex;flex-direction:column;gap:10px;">`;
-  // Sort queries by rate descending for better overview
-  const sortedQueries = [...queries].sort((a, b) => {
+  // Sort queries by rate descending
+  const sortedQueries = [...queries].sort((a, bq) => {
     const ra = qs[a]?.runs ? (qs[a].mentions / qs[a].runs) : 0;
-    const rb = qs[b]?.runs ? (qs[b].mentions / qs[b].runs) : 0;
+    const rb = qs[bq]?.runs ? (qs[bq].mentions / qs[bq].runs) : 0;
     return rb - ra;
   });
+
+  // ── Horizontal Bar Chart ──
+  let html = `<div class="card" style="padding:20px 24px;">`;
 
   sortedQueries.forEach((q, idx) => {
     const stat = qs[q] || { runs: 0, mentions: 0 };
     const rate = stat.runs ? Math.round((stat.mentions / stat.runs) * 100) : 0;
-    const rateColor = rate > 60 ? 'var(--green)' : rate > 30 ? 'var(--amber)' : 'var(--red)';
-    const platResults = resultMap[q] || {};
-    const platCount = Object.keys(platResults).length;
-    const mentionedPlats = Object.values(platResults).filter(r => r.mentioned && !r.error).length;
-    const errorPlats = Object.values(platResults).filter(r => r.error).length;
+    const barColor = rate > 40 ? 'var(--green)' : 'var(--amber)';
 
-    html += `<div class="card" style="padding:14px 16px;animation:fadeIn .2s ease ${Math.min(idx*0.04,.4)}s both;">
-      <div style="display:flex;align-items:flex-start;gap:14px;">
-        <!-- Rate circle -->
-        <div style="min-width:52px;height:52px;border-radius:50%;border:3px solid ${rateColor};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-family:var(--mono);font-weight:800;font-size:14px;color:${rateColor};">${rate}%</span>
-        </div>
-        <!-- Query info -->
-        <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.3;margin-bottom:4px;">${esc(q)}</div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);font-family:var(--mono);">
-            <span>${stat.runs} runs</span>
-            <span>${stat.mentions} mentions</span>
-            ${platCount > 0 ? `<span>${mentionedPlats}/${platCount} platforms</span>` : ''}
-            ${errorPlats > 0 ? `<span style="color:var(--amber);">${errorPlats} error${errorPlats>1?'s':''}</span>` : ''}
-          </div>
-          <!-- Platform pills -->
-          ${platCount > 0 ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
-            ${Object.entries(platResults).map(([p, r]) => {
-              const t = PLAT_THEME[p] || {};
-              if (r.error) return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);background:rgba(245,158,11,.08);color:var(--amber);border:1px solid rgba(245,158,11,.2);" title="${esc(p)}: API error">${t.logo||''} ${p.length>9?p.slice(0,8)+'…':p} ⚠</span>`;
-              if (r.mentioned) {
-                const pos = r.listPosition;
-                const label = pos ? '#'+pos : '✓';
-                return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);background:${t.bg||'var(--bg2)'};color:${t.color||'var(--text)'};border:1px solid ${t.color||'var(--border)'}30;" title="${esc(p)}${pos?' — Ranked #'+pos:' — Mentioned'}">${t.logo||''} ${p.length>9?p.slice(0,8)+'…':p} <strong>${label}</strong>${r.recommended?' ★':''}</span>`;
-              }
-              return `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:var(--mono);background:var(--bg2);color:var(--muted);border:1px solid var(--border);opacity:.6;" title="${esc(p)}: Not mentioned">${t.logo||''} ${p.length>9?p.slice(0,8)+'…':p} ✗</span>`;
-            }).join('')}
-          </div>` : ''}
-        </div>
-        <!-- Progress bar (right side) -->
-        <div style="min-width:80px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
-          <div style="width:80px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
-            <div style="width:${rate}%;height:100%;background:${rateColor};border-radius:3px;transition:width .4s ease;"></div>
-          </div>
-          <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">mention rate</span>
-        </div>
+    html += `<div class="qperf-bar-row" style="animation:fadeIn .25s ease ${Math.min(idx * 0.04, .5)}s both;">
+      <div class="qperf-bar-label" title="${esc(q)}">${esc(q)}</div>
+      <div class="qperf-bar-track">
+        <div class="qperf-bar-fill" style="width:${rate}%;background:${barColor};"></div>
       </div>
+      <div class="qperf-bar-value" style="color:${barColor};">${rate}%</div>
     </div>`;
   });
 
@@ -6047,7 +5997,10 @@ async function renderPromptDetail() {
     // Visibility chart
     if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }
     const canvas = document.getElementById('pd-visibility-chart');
+    const visPlaceholder = document.getElementById('pd-vis-placeholder');
     if (canvas && histData.history && histData.history.length > 0) {
+      if (visPlaceholder) visPlaceholder.style.display = 'none';
+      canvas.style.display = '';
       const grouped = {};
       histData.history.forEach(h => {
         if (!grouped[h.platform]) grouped[h.platform] = [];
@@ -6068,27 +6021,36 @@ async function renderPromptDetail() {
         data: { datasets },
         options: { responsive: true, scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Mention Rate %' } } }, plugins: { legend: { position: 'bottom' } } }
       });
+    } else if (canvas) {
+      canvas.style.display = 'none';
+      if (visPlaceholder) visPlaceholder.style.display = 'flex';
     }
 
     // Competitor chart
     if (_pdCompChart) { _pdCompChart.destroy(); _pdCompChart = null; }
     const compData = await api('GET', `/api/brands/${b.id}/competitor-analysis`);
     const compCanvas = document.getElementById('pd-competitor-chart');
+    const compPlaceholder = document.getElementById('pd-comp-placeholder');
     if (compCanvas && compData.topCompetitors && compData.topCompetitors.length > 0) {
+      if (compPlaceholder) compPlaceholder.style.display = 'none';
+      compCanvas.style.display = '';
       const top = compData.topCompetitors.slice(0, 8);
       _pdCompChart = new Chart(compCanvas.getContext('2d'), {
-        type: 'bar',
+        type: 'pie',
         data: {
           labels: top.map(c => c.competitor),
           datasets: [{
-            label: 'Appearances',
             data: top.map(c => c.total_appearances),
-            backgroundColor: 'rgba(79,70,229,0.6)',
-            borderRadius: 4
+            backgroundColor: ['rgba(79,70,229,0.7)','rgba(16,185,129,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)','rgba(59,130,246,0.7)','rgba(139,92,246,0.7)','rgba(236,72,153,0.7)','rgba(20,184,166,0.7)'],
+            borderWidth: 2,
+            borderColor: '#fff'
           }]
         },
-        options: { responsive: true, indexAxis: 'y', plugins: { legend: { display: false } } }
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
       });
+    } else if (compCanvas) {
+      compCanvas.style.display = 'none';
+      if (compPlaceholder) compPlaceholder.style.display = 'flex';
     }
 
     // Per-Platform Results table (preview design)
@@ -6108,10 +6070,10 @@ async function renderPromptDetail() {
           <td class="td">${found ? '<span class="status-found">YES</span>' : '<span class="status-notfound">NO</span>'}</td>
           <td class="td">${avgR}</td>
           <td class="td" style="color:${domSC};">${domS}</td>
-          <td class="td">${found ? 'Yes' : '—'}</td>
+          <td class="td">${found ? (pData.recommended_count > 0 ? 'Yes' : 'No') : '—'}</td>
         </tr>`;
       });
-      tableEl.innerHTML = `<div class="card-title" style="padding:14px 14px 0;">Per-Platform Results</div>
+      tableEl.innerHTML = `<div style="padding:14px 14px 0;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;">Per-Platform Results</div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Found</th><th class="th">Position</th><th class="th">Sentiment</th><th class="th">Recommended</th></tr></thead>
           <tbody>${tableRows}</tbody>
