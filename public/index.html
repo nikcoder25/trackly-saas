@@ -751,25 +751,25 @@
     <div class="nav-group">Dashboard</div>
     <button class="nav-item active" onclick="go('overview')">◈ Overview</button>
     <button class="nav-item" onclick="go('mentions')">◎ Mentions</button>
-    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations</button>
+    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations <span class="badge-moved">MOVED</span></button>
     <div class="nav-group">Analysis</div>
-    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof</button>
+    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof <span class="badge-moved">MOVED</span></button>
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
-    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
+    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details <span class="badge-moved">MOVED</span></button>
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
-    <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis</button>
-    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor</button>
+    <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor <span class="badge-moved">MOVED</span></button>
     <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
     <div class="nav-group">Tools</div>
     <button class="nav-item" onclick="go('copilot')">◈ Copilot</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
-    <button class="nav-item" onclick="go('alerts')">⚡ Alerts &amp; Notifications</button>
+    <button class="nav-item" onclick="go('alerts')">⚡ Alerts &amp; Notifications <span class="badge-merged">MERGED</span></button>
     <button class="nav-item" id="nav-team" onclick="go('team')" style="display:none;">◎ Team Members</button>
     <button class="nav-item" onclick="go('billing')">◻ Billing</button>
     <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
-    <button class="nav-item" onclick="go('activitylog')">◆ Activity &amp; Logs</button>
+    <button class="nav-item" onclick="go('activitylog')">◆ Activity &amp; Logs <span class="badge-merged">MERGED</span></button>
     <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;color:var(--amber);">⚑ Admin Panel</button>
     <button class="nav-item" id="nav-become-admin" onclick="becomeAdmin()" style="display:none;color:var(--amber);">★ Become Admin</button>
   </div>
@@ -955,7 +955,7 @@
     <div id="view-proof" class="view">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <div class="view-title">Evidence &amp; Proof</div>
+          <div class="view-title">Evidence &amp; Proof <span class="badge-moved">MOVED TO ANALYSIS</span></div>
           <div class="view-sub">Verifiable AI responses — your brand's visibility, proven with real data.</div>
         </div>
         <button class="pbtn" onclick="exportProofCSV()">&#8595; Export CSV</button>
@@ -1038,7 +1038,7 @@
 
     <!-- ALERTS & NOTIFICATIONS (MERGED) ──────── -->
     <div id="view-alerts" class="view">
-      <div class="view-title">Alerts &amp; Notifications</div>
+      <div class="view-title">Alerts &amp; Notifications <span class="badge-merged">MERGED</span></div>
       <div class="view-sub">Manage alert rules, webhooks, notification preferences, and report schedules — all in one place.</div>
 
       <!-- Alert Rules -->
@@ -1272,7 +1272,7 @@
 
     <!-- ACTIVITY & LOGS (MERGED) ──────────── -->
     <div id="view-activitylog" class="view">
-      <div class="view-title">Activity &amp; Logs</div>
+      <div class="view-title">Activity &amp; Logs <span class="badge-merged">MERGED</span></div>
       <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
       <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
         <button class="al-tab al-tab-active" onclick="switchActivityTab(this,'al-tab-activity')">Account Activity</button>
@@ -1325,7 +1325,7 @@
     <div id="view-promptdetails" class="view">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <div class="view-title">Prompt Details</div>
+          <div class="view-title">Prompt Details <span class="badge-moved">MOVED TO ANALYSIS</span></div>
           <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
         </div>
         <button class="pbtn" onclick="exportPromptData()">Export CSV</button>
@@ -1346,7 +1346,7 @@
 
     <!-- RECOMMENDATIONS ──────────────────── -->
     <div id="view-recommendations" class="view">
-      <div class="view-title">Recommendations</div>
+      <div class="view-title">Recommendations <span class="badge-moved">MOVED TO DASHBOARD</span></div>
       <div class="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
       <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
         <button class="pbtn" onclick="generateRecommendations()" style="font-weight:700;">Generate Recommendations</button>
@@ -1369,7 +1369,7 @@
 
     <!-- ACCURACY MONITOR ──────────────────── -->
     <div id="view-accuracy" class="view">
-      <div class="view-title">Accuracy Monitor</div>
+      <div class="view-title">Accuracy Monitor <span class="badge-moved">MOVED TO ANALYSIS</span></div>
       <div class="view-sub">Verify how accurately AI platforms represent your brand information.</div>
       <div id="accuracy-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
       <div class="card" style="padding:16px;margin-bottom:16px;">
@@ -1393,7 +1393,7 @@
 
     <!-- CITATION ANALYSIS ─────────────────── -->
     <div id="view-citations" class="view">
-      <div class="view-title">Citation Analysis</div>
+      <div class="view-title">Citation Analysis <span class="badge-moved">MOVED TO ANALYSIS</span></div>
       <div class="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
       <div id="citation-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
       <div class="card" style="padding:0;overflow:hidden;">

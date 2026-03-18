@@ -32,7 +32,7 @@ async function markWebhookProcessed(eventId, eventType) {
 // ─── CONFIGURATION ──────────────────────────────────────────────
 const DODO_API_KEY        = process.env.DODO_PAYMENTS_API_KEY || '';
 const DODO_WEBHOOK_KEY    = process.env.DODO_PAYMENTS_WEBHOOK_KEY || '';
-const DODO_ENVIRONMENT    = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode'; // 'test_mode' or 'live_mode'
+const DODO_ENVIRONMENT    = process.env.DODO_PAYMENTS_ENVIRONMENT; // 'test_mode' or 'live_mode'
 const DODO_RETURN_URL     = process.env.DODO_PAYMENTS_RETURN_URL || '';
 
 // Product IDs — set these in your DodoPayments dashboard, then configure via env vars

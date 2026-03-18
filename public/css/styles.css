@@ -55,6 +55,12 @@
 html{overflow-x:hidden;}
 body{font-family:var(--font);background:var(--bg-landing);color:var(--text-primary);min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 
+/* ── FOCUS STYLES (accessibility) ────── */
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:var(--radius-xs);}
+button:focus-visible,.nav-item:focus-visible,.land-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:2px;}
+.finput:focus-visible,.finp:focus-visible,.key-item input:focus-visible,.add-query-row input:focus-visible{outline:2px solid var(--primary);outline-offset:0;box-shadow:0 0 0 3px var(--primary-light);}
+
 /* ── LANDING PAGE ──────────────────────── */
 #landing-page{min-height:100vh;background:var(--white);overflow-x:hidden;}
 
@@ -380,6 +386,9 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
   .land-section{padding:56px 20px;}
   .land-social-proof-stats{gap:24px;}
 }
+@media(max-width:600px){
+  .land-pricing{grid-template-columns:1fr;}
+}
 
 /* ── AUTH PAGES (Split-panel layout) ────── */
 #auth-page{
@@ -414,7 +423,7 @@ body{font-family:var(--font);background:var(--bg-landing);color:var(--text-prima
 }
 .auth-feature-title{font-size:14px;font-weight:700;margin-bottom:2px;}
 .auth-feature-desc{font-size:13px;color:rgba(255,255,255,.55);line-height:1.4;}
-.auth-brand-footer{font-size:13px;color:rgba(255,255,255,.4);padding-top:20px;border-top:1px solid rgba(255,255,255,.08);}
+.auth-brand-footer{font-size:13px;color:rgba(255,255,255,.65);padding-top:20px;border-top:1px solid rgba(255,255,255,.08);}
 
 .auth-form-panel{
   flex:1;display:flex;align-items:center;justify-content:center;
@@ -1403,6 +1412,23 @@ select.finput{appearance:none;}
   border-radius:100px;font-size:12px;font-weight:600;margin:3px;
 }
 .comp-count{font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+/* ── NAV BADGES ─────────────────────── */
+.badge-new{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--green);color:#fff;letter-spacing:.5px;
+}
+.badge-moved{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--blue);color:#fff;letter-spacing:.5px;
+}
+.badge-merged{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--purple);color:#fff;letter-spacing:.5px;
+}
 
 /* ── TABLES (preview) ────────────────── */
 .th{padding:10px 14px;text-align:left;font-family:var(--font);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
