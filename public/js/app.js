@@ -2109,6 +2109,19 @@ function appendLiveProofCard(result) {
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────
 
+// Compare toggle state
+let _compareMode = 'current';
+function setCompareMode(mode) {
+  _compareMode = mode;
+  const btns = document.querySelectorAll('#ov-compare-toggle button');
+  btns.forEach(btn => {
+    btn.classList.toggle('active', (mode === 'current' && btn.textContent === 'Current') ||
+      (mode === 'week' && btn.textContent === 'vs Last Week') ||
+      (mode === 'month' && btn.textContent === 'vs Last Month'));
+  });
+  renderOverview();
+}
+
 // Live countdown helpers for "last run" age display
 let _runAgeTimer = null;
 function _fmtRunAge(lastRun) {
@@ -2160,7 +2173,24 @@ function renderOverview(){
   const totalResults = lastRun ? (lastRun.allResults||[]).length : 0;
   const activePlats = lastRun ? Object.keys(lastRun.platforms||{}).length : 0;
   const queries = brands.reduce((s, br) => s + (br.queries||[]).length, 0);
-  const prevRun = b.runs && b.runs.length > 1 ? b.runs[b.runs.length - 2] : null;
+  // Compare mode: pick comparison run based on toggle
+  let compRun = null;
+  if (_compareMode === 'current') {
+    compRun = b.runs && b.runs.length > 1 ? b.runs[b.runs.length - 2] : null;
+  } else {
+    const now = Date.now();
+    const target = _compareMode === 'week' ? 7 * 86400000 : 30 * 86400000;
+    if (b.runs && b.runs.length > 1) {
+      let best = null, bestDiff = Infinity;
+      for (let i = b.runs.length - 2; i >= 0; i--) {
+        const t = new Date(b.runs[i].time || b.runs[i].date).getTime();
+        const d = Math.abs((now - t) - target);
+        if (d < bestDiff) { bestDiff = d; best = b.runs[i]; }
+      }
+      compRun = best;
+    }
+  }
+  const prevRun = compRun;
   const prevSOV = prevRun ? (prevRun.sov || 0) : null;
   const sovDiff = prevSOV !== null ? sov - prevSOV : null;
 
@@ -2181,6 +2211,74 @@ function renderOverview(){
   }
   // Start live countdown ticker for the age displays
   _startRunAgeCountdown(lastRun);
+
+  // ─── Next Run Badge ───────────────────────────────────────────
+  const nextRunBadge = el('ov-next-run-badge');
+  if (nextRunBadge) {
+    if (lastRun && !runningQueries) {
+      const runTime = new Date(lastRun.time || lastRun.date).getTime();
+      // Assume 6-hour interval between runs
+      const nextRunMs = runTime + 6 * 3600 * 1000;
+      const diffMs = nextRunMs - Date.now();
+      if (diffMs > 0) {
+        const h = Math.floor(diffMs / 3600000);
+        const m = Math.floor((diffMs % 3600000) / 60000);
+        el('ov-next-run-text').textContent = 'Next run in ' + h + 'h ' + m + 'm';
+        nextRunBadge.style.display = '';
+      } else {
+        el('ov-next-run-text').textContent = 'Run overdue';
+        nextRunBadge.style.display = '';
+      }
+    } else {
+      nextRunBadge.style.display = 'none';
+    }
+  }
+
+  // ─── Compare Toggle ───────────────────────────────────────────
+  // Toggle buttons are in the HTML; setCompareMode() handles clicks
+
+  // ─── Alerts Strip ─────────────────────────────────────────────
+  const alertsStripEl = el('ov-alerts-strip');
+  if (alertsStripEl) {
+    const alertChips = [];
+    if (b.runs && b.runs.length >= 2) {
+      const cur = b.runs[b.runs.length - 1];
+      const prev = b.runs[b.runs.length - 2];
+      const curSOV = cur.sov || 0;
+      const prevSOV = prev.sov || 0;
+      const runTimeStr = _fmtRunAge(cur).text;
+      // Alert: SOV dropped significantly on any platform
+      if (cur.platforms && prev.platforms) {
+        for (const p of Object.keys(cur.platforms)) {
+          const curPlatSOV = cur.platforms[p] ? cur.platforms[p].sov || 0 : 0;
+          const prevPlatSOV = prev.platforms && prev.platforms[p] ? prev.platforms[p].sov || 0 : 0;
+          if (prevPlatSOV > 0 && curPlatSOV < prevPlatSOV && (prevPlatSOV - curPlatSOV) >= 15) {
+            alertChips.push({ type: 'danger', text: 'SOV dropped below ' + curPlatSOV + '% on ' + p, time: runTimeStr });
+          } else if (prevPlatSOV > 0 && curPlatSOV < prevPlatSOV && (prevPlatSOV - curPlatSOV) >= 8) {
+            alertChips.push({ type: 'warn', text: 'Visibility down ' + (prevPlatSOV - curPlatSOV) + '% on ' + p, time: runTimeStr });
+          }
+        }
+      }
+      // Alert: overall SOV drop
+      if (prevSOV > 0 && curSOV < prevSOV && (prevSOV - curSOV) >= 10 && alertChips.length === 0) {
+        alertChips.push({ type: 'danger', text: 'Overall SOV dropped from ' + prevSOV + '% to ' + curSOV + '%', time: runTimeStr });
+      }
+      // Alert: new competitor detected
+      if (cur.allResults && prev.allResults) {
+        const prevComps = new Set((prev.allResults || []).flatMap(r => r.competitors || []));
+        const newComps = (cur.allResults || []).flatMap(r => r.competitors || []).filter(c => !prevComps.has(c));
+        const uniqueNew = [...new Set(newComps)];
+        if (uniqueNew.length > 0) {
+          alertChips.push({ type: 'info', text: 'New competitor "' + uniqueNew[0] + '" detected', time: runTimeStr });
+        }
+      }
+    }
+    const dotColors = { danger: 'var(--red)', warn: 'var(--amber)', info: 'var(--blue)' };
+    alertsStripEl.innerHTML = alertChips.map(a =>
+      `<div class="alert-chip ${a.type}"><div class="alert-dot" style="background:${dotColors[a.type] || 'var(--muted)'}"></div><div><div class="alert-text">${a.text}</div><div class="alert-time">${a.time}</div></div></div>`
+    ).join('');
+    alertsStripEl.style.display = alertChips.length ? '' : 'none';
+  }
 
   // ─── SOV Hero ────────────────────────────────────────────────
   const sovColor = sov >= 70 ? 'var(--green)' : sov >= 40 ? 'var(--amber)' : sov > 0 ? 'var(--red)' : 'var(--muted)';
