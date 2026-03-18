@@ -602,7 +602,8 @@ router.post('/:id/run', auth, async (req, res) => {
             locationRelevant: parsed.locationRelevant,
             matchedLocation: parsed.matchedLocation || '',
             competitorMentions: compMentions,
-            listPosition: parsed.listPosition || null
+            listPosition: parsed.listPosition || null,
+            cached: result.cached || false
           };
           allResults.push(resultObj);
           runState.received++;
@@ -850,17 +851,24 @@ router.post('/:id/run', auth, async (req, res) => {
         platformErrors[r.platform].push(r.errorMessage || 'Unknown error');
       });
 
-      const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors };
+      // Count cache hits from this run
+      const cacheHits = allResults.filter(r => r.cached).length;
+      const apiCalls = totalQ - cacheHits - errorCount;
+
+      const finalResult = { totalQ, totalM, sov, newMentions: newMentions.length, activePlatforms: activePlatforms.length, skippedPlatforms: totalPlatformCount - activePlatforms.length, errorCount, platformErrors, cacheHits, apiCalls };
 
       // Track daily cost for budget enforcement
       // Sum cost from api_logs for this run (non-cached results only)
+      let runCost = 0;
       try {
         const costResult = await pool.query(
-          'SELECT COALESCE(SUM(cost), 0) as run_cost, COUNT(*) as call_count FROM api_logs WHERE run_id = $1 AND status = $2',
+          'SELECT COALESCE(SUM(cost), 0) as run_cost, COUNT(*) as call_count, COALESCE(SUM(tokens_in), 0) as total_tokens_in, COALESCE(SUM(tokens_out), 0) as total_tokens_out FROM api_logs WHERE run_id = $1 AND status = $2',
           [runId, 'ok']
         );
-        const runCost = parseFloat(costResult.rows[0]?.run_cost) || 0;
+        runCost = parseFloat(costResult.rows[0]?.run_cost) || 0;
         const callCount = parseInt(costResult.rows[0]?.call_count) || 0;
+        finalResult.runCost = runCost;
+        finalResult.tokensUsed = (parseInt(costResult.rows[0]?.total_tokens_in) || 0) + (parseInt(costResult.rows[0]?.total_tokens_out) || 0);
         if (runCost > 0) {
           await incrementDailyCost(req.user.id, runCost, callCount);
         }
