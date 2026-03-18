@@ -877,20 +877,19 @@ body:has(#app[style*="display:grid"]){
 
 /* Per-page selector */
 .mt-perpage{
-  display:flex;align-items:center;gap:6px;
+  display:inline-flex;align-items:center;gap:5px;
   margin-left:auto;white-space:nowrap;
 }
 .mt-perpage-label{
   font-family:var(--mono);font-size:10px;font-weight:600;
-  color:var(--muted);letter-spacing:.5px;
+  color:var(--muted);letter-spacing:.3px;
 }
 .mt-perpage-sel{
-  width:64px !important;min-width:64px !important;
-  margin:0 !important;padding:6px 8px !important;
-  font-size:12px !important;text-align:center;
-}
-.mt-perpage-suffix{
-  font-family:var(--mono);font-size:10px;color:var(--muted);
+  width:50px;padding:4px 4px;margin:0;
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  text-align:center;border:1px solid var(--border);
+  border-radius:var(--radius-xs);background:var(--bg2);
+  color:var(--text);cursor:pointer;
 }
 
 /* Pagination */
@@ -922,8 +921,8 @@ body:has(#app[style*="display:grid"]){
   .mt-detail{grid-template-columns:1fr;}
   .mt-filterbar{flex-direction:column;align-items:stretch;}
   .mt-filter-controls{margin-left:0;flex-wrap:wrap;}
-  .mt-perpage{margin-left:0;}
   .mt-pager{flex-direction:column;gap:10px;}
+  .mt-perpage{margin-left:auto;}
 }
 @media(max-width:600px){
   .mt-item-main{flex-direction:column;align-items:stretch;gap:10px;}

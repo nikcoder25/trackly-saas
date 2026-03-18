@@ -2965,10 +2965,6 @@ function renderMentions(){
     return;
   }
 
-  // Sync per-page selector
-  const ppSel = el('mentions-perpage');
-  if (ppSel && +ppSel.value !== MENTIONS_PER_PAGE) ppSel.value = MENTIONS_PER_PAGE;
-
   const pages = Math.ceil(filtered.length / MENTIONS_PER_PAGE);
   if (mentionsPage >= pages) mentionsPage = pages - 1;
   if (mentionsPage < 0) mentionsPage = 0;
@@ -3058,7 +3054,10 @@ function renderMentions(){
     }
   });
 
-  // ── Pagination ──
+  // ── Per-page selector + Pagination ──
+  const ppOptions = [10,15,25,50,100].map(n => `<option value="${n}"${MENTIONS_PER_PAGE===n?' selected':''}>${n}</option>`).join('');
+  const ppHtml = `<div class="mt-perpage"><span class="mt-perpage-label">Show</span><select class="mt-perpage-sel" onchange="MENTIONS_PER_PAGE=+this.value;mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${ppOptions}</select><span class="mt-perpage-label">per page</span></div>`;
+
   if (pages > 1) {
     const ps = Math.max(0, Math.min(mentionsPage - 2, pages - 5));
     const pe = Math.min(pages - 1, ps + 4);
@@ -3069,9 +3068,9 @@ function renderMentions(){
     for (let p=ps;p<=pe;p++) html += `<button class="mt-pg ${p===mentionsPage?'mt-pg-cur':''}" onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()">${p+1}</button>`;
     if (mentionsPage < pages-1) html += `<button class="mt-pg" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()" title="Next">›</button>`;
     if (mentionsPage < pages-2) html += `<button class="mt-pg" onclick="mentionsPage=${pages-1};mentionsExpandedRow=null;renderMentions()" title="Last page">»</button>`;
-    html += `</div></div>`;
+    html += `</div>${ppHtml}</div>`;
   } else if (filtered.length) {
-    html += `<div class="mt-pager"><span class="mt-pager-info">Showing all ${filtered.length} results</span></div>`;
+    html += `<div class="mt-pager"><span class="mt-pager-info">Showing all ${filtered.length} results</span>${ppHtml}</div>`;
   }
 
   cont.innerHTML = html;
