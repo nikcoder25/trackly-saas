@@ -807,7 +807,6 @@ function closeMobileMenu(){
 function go(view){
   // Clean up chart instances when leaving views to prevent memory leaks
   if (currentView === 'trends') {
-    if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
     if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
   }
   if (currentView === 'overview' && window._ovMiniChart) {
@@ -3955,7 +3954,6 @@ async function removeComp(i){
 }
 
 // ─── SOV TRENDS (Chart.js) ────────────────────────────────────────
-let sovChartInstance = null;
 let platSovChartInstance = null;
 
 function renderTrends(){
@@ -3970,8 +3968,7 @@ function renderTrends(){
 function _renderTrendsCharts(b) {
   const history = b.sovHistory || [];
 
-  // Destroy existing chart instances safely
-  if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
+  // Destroy existing chart instance safely
   if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
 
   const barContainer = el('sov-bar-container');
@@ -4095,29 +4092,6 @@ async function renderAlerts(){
     rulesEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load alert rules.</div>';
   }
 
-  // SOV change history
-  const histEl = el('alert-sov-history');
-  const history = b.sovHistory || [];
-  if (history.length < 2) {
-    histEl.innerHTML = '<div class="empty-state"><p>No SOV changes recorded yet. Run queries at least twice to see changes here.</p></div>';
-    return;
-  }
-  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Date</th><th class="th">SOV</th><th class="th">Change</th><th class="th">Platforms</th></tr></thead><tbody>';
-  for (let i = history.length - 1; i >= 0; i--) {
-    const h = history[i];
-    const prev = i > 0 ? history[i - 1].overall : 0;
-    const change = h.overall - prev;
-    const changeStr = i === 0 ? '—' : (change > 0 ? '+' + change + '%' : change + '%');
-    const changeColor = change > 0 ? 'var(--green)' : change < 0 ? 'var(--red)' : 'var(--muted)';
-    const date = new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const plats = h.platforms ? Object.entries(h.platforms).map(([p, v]) => p + ': ' + v + '%').join(', ') : '—';
-    html += '<tr class="trow"><td class="td" style="font-family:var(--mono);font-size:11px;">' + date + '</td>';
-    html += '<td class="td" style="font-family:var(--mono);font-weight:700;">' + h.overall + '%</td>';
-    html += '<td class="td" style="font-family:var(--mono);color:' + changeColor + ';">' + (i === 0 ? '—' : changeStr) + '</td>';
-    html += '<td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">' + esc(plats) + '</td></tr>';
-  }
-  html += '</tbody></table>';
-  histEl.innerHTML = html;
 }
 
 async function saveWebhook(){
