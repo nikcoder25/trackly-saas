@@ -230,6 +230,45 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
 }
 .comp-count{font-family:var(--mono);font-size:10px;color:var(--muted);}
 
+/* Tables */
+.th{padding:10px 14px;text-align:left;font-family:var(--font);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+.td{padding:10px 14px;border-bottom:1px solid var(--bg3);font-size:12px;}
+.trow:hover{background:var(--bg3);}
+.status-found{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--green);padding:2px 8px;background:rgba(16,185,129,.08);border-radius:100px;}
+.status-notfound{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--red);padding:2px 8px;background:rgba(239,68,68,.08);border-radius:100px;}
+
+/* Platform filters */
+.plat-filter{
+  padding:5px 12px;border:1px solid var(--border);border-radius:100px;
+  font-family:var(--mono);font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;
+  transition:all .15s;
+}
+.plat-filter:hover{border-color:var(--primary);color:var(--primary);}
+.plat-filter.active-filter{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+/* Form elements */
+.form-group{margin-bottom:14px;}
+.flbl{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.finp{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-family:var(--font);font-size:13px;background:var(--bg);color:var(--text);}
+.finp:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light);}
+
+/* Buttons */
+.pbtn{
+  padding:6px 14px;background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);
+  transition:all .15s;
+}
+.pbtn:hover{border-color:var(--primary);color:var(--primary);}
+
+/* Tabs */
+.tab-btn{
+  padding:10px 20px;border:none;background:none;font-family:var(--font);font-size:12px;
+  font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;
+  margin-bottom:-2px;transition:all .15s;
+}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.tab-active{color:var(--primary);border-bottom-color:var(--primary);}
+
 @media(max-width:768px){
   .preview-layout{grid-template-columns:1fr;grid-template-rows:52px auto 1fr;}
   .sidebar{max-height:300px;border-right:none;border-bottom:1px solid var(--border);}
@@ -531,76 +570,614 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
       </div>
     </div>
 
-    <!-- ==================== OTHER VIEWS (placeholder) ==================== -->
+    <!-- ==================== MENTIONS ==================== -->
     <div id="view-mentions" style="display:none;">
-      <div class="view-title">AI Mentions</div>
-      <div class="view-sub">Track how AI platforms mention your brand across all queries.</div>
-      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">Preview — This page already exists in your app. No changes here.</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="view-title">AI Mentions</div>
+          <div class="view-sub">Track how AI platforms mention your brand across all queries.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="brand-select" style="width:140px;"><option>Run #14 — Mar 18</option><option>Run #13 — Mar 16</option></select>
+          <button class="pbtn">&#8595; Export</button>
+        </div>
+      </div>
+      <!-- KPI cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">72%</div><div class="score-label">Mention Rate</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;">18/25</div><div class="score-label">Found / Total</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">6</div><div class="score-label">Platforms</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--purple);">64%</div><div class="score-label">Recommended</div></div>
+      </div>
+      <!-- Filter bar -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <span class="plat-filter active-filter">All</span>
+        <span class="plat-filter">ChatGPT</span><span class="plat-filter">Perplexity</span><span class="plat-filter">Claude</span><span class="plat-filter">Gemini</span><span class="plat-filter">Grok</span><span class="plat-filter">Google AIO</span>
+        <select class="brand-select" style="margin-left:auto;width:140px;"><option>All Results</option><option>Mentioned Only</option><option>Not Mentioned</option></select>
+        <input class="brand-select" placeholder="Filter by keyword..." style="width:160px;">
+      </div>
+      <!-- Results table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Query</th><th class="th">Status</th><th class="th">Sentiment</th><th class="th">Position</th></tr></thead>
+          <tbody>
+            <tr class="trow"><td class="td"><span style="color:#10a37f;font-weight:700;">ChatGPT</span></td><td class="td">Best HVAC company in Austin TX</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--green);">Positive</span></td><td class="td">#1</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#20b8cd;font-weight:700;">Perplexity</span></td><td class="td">Best HVAC company in Austin TX</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--green);">Positive</span></td><td class="td">#1</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#cc9b7a;font-weight:700;">Claude</span></td><td class="td">Best HVAC company in Austin TX</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--muted);">Neutral</span></td><td class="td">#2</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#4285f4;font-weight:700;">Gemini</span></td><td class="td">Best HVAC company in Austin TX</td><td class="td"><span class="status-notfound">NOT FOUND</span></td><td class="td">—</td><td class="td">—</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#10a37f;font-weight:700;">ChatGPT</span></td><td class="td">Top rated AC repair near me</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--green);">Positive</span></td><td class="td">#2</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#1d9bf0;font-weight:700;">Grok</span></td><td class="td">Top rated AC repair near me</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--green);">Positive</span></td><td class="td">#1</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#ea4335;font-weight:700;">Google AIO</span></td><td class="td">Emergency heating repair Austin</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--muted);">Neutral</span></td><td class="td">#3</td></tr>
+            <tr class="trow"><td class="td"><span style="color:#667eea;font-weight:700;">DeepSeek</span></td><td class="td">Emergency heating repair Austin</td><td class="td"><span class="status-notfound">NOT FOUND</span></td><td class="td">—</td><td class="td">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing 8 of 25 results</div>
     </div>
+
+    <!-- ==================== RECOMMENDATIONS ==================== -->
     <div id="view-recommendations" style="display:none;">
-      <div class="view-title">Recommendations</div>
-      <div class="view-sub">AI-powered suggestions to improve your visibility.</div>
-      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">Moved from Advanced to Dashboard — more accessible for daily use.</div>
-    </div>
-    <div id="view-proof" style="display:none;">
-      <div class="view-title">Evidence &amp; Proof</div>
-      <div class="view-sub">Verifiable AI responses with real data.</div>
-      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">Moved from Dashboard to Analysis — it's detailed data analysis, not a quick-glance view.</div>
-    </div>
-    <div id="view-alerts" style="display:none;">
-      <div class="view-title">Alerts &amp; Notifications</div>
-      <div class="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
-      <div class="card">
-        <div class="card-title">Alert Rules</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:12px 0;">SOV Below 20% &middot; Visibility Drop 15% &middot; Brand Disappeared</div>
-      </div>
-      <div class="card" style="margin-top:0;">
-        <div class="card-title">Email Report Schedule</div>
-        <div style="display:flex;gap:12px;align-items:center;margin-top:8px;">
-          <select class="brand-select" style="width:150px;"><option>Weekly</option><option>Monthly</option><option>Off</option></select>
-          <button style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">SAVE</button>
+      <div class="view-title">Recommendations <span class="badge-moved">MOVED TO DASHBOARD</span></div>
+      <div class="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
+      <div class="card" style="border-left:3px solid var(--red);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Fix Gemini Visibility Gap</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">Your brand appears on 6/7 platforms but only 18% SOV on Gemini. Create structured FAQ content and ensure Google Business Profile is complete — Gemini relies heavily on Google's own data sources.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:rgba(239,68,68,.08);color:var(--red);font-weight:700;white-space:nowrap;">HIGH PRIORITY</span>
         </div>
       </div>
-      <div class="card" style="margin-top:0;">
-        <div class="card-title">Recent Notifications</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Notification history would appear here.</div>
-      </div>
-      <div class="card" style="margin-top:0;padding:20px;text-align:center;color:var(--purple);font-family:var(--mono);font-size:11px;border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.03);">
-        Merged: Alerts + Notifications into one unified page.
-      </div>
-    </div>
-    <div id="view-activitylog" style="display:none;">
-      <div class="view-title">Activity &amp; Logs</div>
-      <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
-      <div class="card">
-        <div class="card-title">Account Activity</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Login, password changes, brand modifications, 2FA events...</div>
-      </div>
-      <div class="card" style="margin-top:0;">
-        <div class="card-title">API Call Logs</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:8px 0;">Server-side API logs, errors, response times, costs...</div>
-      </div>
-      <div class="card" style="margin-top:0;">
-        <div class="card-title">API Key Status</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
-          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">2</span> OpenAI keys</div>
-          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">1</span> Perplexity key</div>
-          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">1</span> Claude key</div>
-          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--green);font-weight:700;">1</span> Gemini key</div>
-          <div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);font-size:11px;"><span style="color:var(--red);font-weight:700;">0</span> Grok keys</div>
+      <div class="card" style="border-left:3px solid var(--amber);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Improve Recommendation Rate</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">You're mentioned 72% of the time but only recommended 64%. Add more customer testimonials, case studies, and certifications to your website to boost endorsement signals.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:rgba(245,158,11,.08);color:var(--amber);font-weight:700;white-space:nowrap;">MEDIUM</span>
         </div>
       </div>
-      <div class="card" style="margin-top:0;padding:20px;text-align:center;color:var(--purple);font-family:var(--mono);font-size:11px;border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.03);">
-        Merged: Activity Log + API Logs into one unified page.
+      <div class="card" style="border-left:3px solid var(--blue);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Expand Query Coverage</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">Consider adding "HVAC maintenance plan Austin" and "air duct cleaning near me" — high-intent queries where competitors are already appearing but you're not tracked yet.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:rgba(59,130,246,.08);color:var(--blue);font-weight:700;white-space:nowrap;">SUGGESTION</span>
+        </div>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Maintain Perplexity Dominance</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">You're at 92% SOV on Perplexity — excellent! Keep your website content fresh and ensure citations point to authoritative pages.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:rgba(16,185,129,.08);color:var(--green);font-weight:700;white-space:nowrap;">ON TRACK</span>
+        </div>
       </div>
     </div>
 
-    <!-- Generic placeholder for other views -->
-    <div id="view-generic" style="display:none;">
-      <div class="view-title" id="generic-title">Page</div>
-      <div class="view-sub" id="generic-sub">No changes to this page.</div>
-      <div class="card" style="padding:40px;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;">
-        This page already exists in your app. No layout changes proposed.
+    <!-- ==================== EVIDENCE & PROOF ==================== -->
+    <div id="view-proof" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="view-title">Evidence &amp; Proof <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-sub">Verifiable AI responses — your brand's visibility, proven with real data.</div>
+        </div>
+        <button class="pbtn">&#8595; Export CSV</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;">
+        <select class="brand-select" style="width:150px;"><option>Run #14 — Mar 18</option></select>
+        <select class="brand-select" style="width:140px;"><option>All Platforms</option></select>
+        <select class="brand-select" style="width:130px;"><option>All Results</option><option>Found</option><option>Not Found</option></select>
+      </div>
+      <!-- Summary strip -->
+      <div style="display:flex;gap:12px;margin-bottom:14px;">
+        <div style="flex:1;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+          <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--green);">18</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Found</div>
+        </div>
+        <div style="flex:1;background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+          <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--red);">7</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Not Found</div>
+        </div>
+        <div style="flex:1;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+          <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--blue);">25</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Total</div>
+        </div>
+      </div>
+      <!-- Proof cards -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div><span style="font-weight:700;color:#10a37f;">ChatGPT</span> <span style="color:var(--muted);font-size:11px;">&middot; Best HVAC company in Austin TX</span></div>
+          <span class="status-found">FOUND</span>
+        </div>
+        <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid var(--green);">
+          "For HVAC services in Austin, TX, <strong style="color:var(--green);">Acme HVAC Services</strong> is consistently rated as one of the top companies. They offer 24/7 emergency repairs, routine maintenance plans, and new system installations. Their team is licensed, insured, and has served the Austin area for over 15 years..."
+        </div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: GPT-4o &middot; Position: #1 &middot; Sentiment: Positive &middot; Recommended: Yes</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div><span style="font-weight:700;color:#4285f4;">Gemini</span> <span style="color:var(--muted);font-size:11px;">&middot; Best HVAC company in Austin TX</span></div>
+          <span class="status-notfound">NOT FOUND</span>
+        </div>
+        <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid var(--red);">
+          "Some of the highest-rated HVAC companies in Austin include ABC Cooling Co, Texas Climate Pros, and Stan's Heating & Air Conditioning. These companies are known for their reliability and customer service..."
+        </div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: Gemini 2.0 Flash &middot; Position: — &middot; Sentiment: — &middot; Recommended: No</div>
+      </div>
+      <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing 2 of 25 proof entries</div>
+    </div>
+
+    <!-- ==================== QUERY PERFORMANCE ==================== -->
+    <div id="view-qperf" style="display:none;">
+      <div class="view-title">Query Performance</div>
+      <div class="view-sub">Monitor mention rates and performance for every tracked keyword across AI platforms.</div>
+      <div class="card" id="qperf-full"></div>
+    </div>
+
+    <!-- ==================== PROMPT DETAILS ==================== -->
+    <div id="view-promptdetails" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div class="view-title">Prompt Details <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
+        </div>
+        <button class="pbtn">Export CSV</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <select class="brand-select" style="flex:1;"><option>Best HVAC company in Austin TX</option><option>Top rated AC repair near me</option></select>
+        <select class="brand-select" style="width:150px;"><option>All Platforms</option></select>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--green);">86%</div><div class="score-label">Visibility</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--blue);">6/7</div><div class="score-label">Platforms Found</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--green);">Positive</div><div class="score-label">Avg Sentiment</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--purple);">#1.3</div><div class="score-label">Avg Position</div></div>
+      </div>
+      <div class="ov-grid-2">
+        <div class="card" style="padding:16px;"><div class="card-title">Visibility Over Time</div><div style="height:150px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:10px;">Chart: Line graph showing visibility trend</div></div>
+        <div class="card" style="padding:16px;"><div class="card-title">Competitor Share</div><div style="height:150px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:10px;">Chart: Pie chart of competitor distribution</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Per-Platform Results</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Found</th><th class="th">Position</th><th class="th">Sentiment</th><th class="th">Recommended</th></tr></thead>
+          <tbody>
+            <tr class="trow"><td class="td" style="font-weight:700;color:#10a37f;">ChatGPT</td><td class="td"><span class="status-found">YES</span></td><td class="td">#1</td><td class="td" style="color:var(--green);">Positive</td><td class="td">Yes</td></tr>
+            <tr class="trow"><td class="td" style="font-weight:700;color:#20b8cd;">Perplexity</td><td class="td"><span class="status-found">YES</span></td><td class="td">#1</td><td class="td" style="color:var(--green);">Positive</td><td class="td">Yes</td></tr>
+            <tr class="trow"><td class="td" style="font-weight:700;color:#cc9b7a;">Claude</td><td class="td"><span class="status-found">YES</span></td><td class="td">#2</td><td class="td" style="color:var(--muted);">Neutral</td><td class="td">No</td></tr>
+            <tr class="trow"><td class="td" style="font-weight:700;color:#4285f4;">Gemini</td><td class="td"><span class="status-notfound">NO</span></td><td class="td">—</td><td class="td">—</td><td class="td">—</td></tr>
+            <tr class="trow"><td class="td" style="font-weight:700;color:#1d9bf0;">Grok</td><td class="td"><span class="status-found">YES</span></td><td class="td">#1</td><td class="td" style="color:var(--green);">Positive</td><td class="td">Yes</td></tr>
+            <tr class="trow"><td class="td" style="font-weight:700;color:#ea4335;">Google AIO</td><td class="td"><span class="status-found">YES</span></td><td class="td">#2</td><td class="td" style="color:var(--muted);">Neutral</td><td class="td">No</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ==================== SOV TRENDS ==================== -->
+    <div id="view-trends" style="display:none;">
+      <div class="view-title">SOV Trends</div>
+      <div class="view-sub">Share of Voice over time — overall and per platform.</div>
+      <div class="card" style="padding:20px;">
+        <div class="card-title">Overall SOV Trend</div>
+        <div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:40%;opacity:.4;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:45%;opacity:.45;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:50%;opacity:.5;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:52%;opacity:.55;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:55%;opacity:.6;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:58%;opacity:.65;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:60%;opacity:.7;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:64%;opacity:.75;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:68%;opacity:.8;"></div>
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:72%;"></div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;margin-top:0;">
+        <div class="card-title">Per-Platform SOV Trend</div>
+        <div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;color:var(--muted);font-family:var(--mono);font-size:10px;">Chart: Multi-line graph per platform (ChatGPT, Perplexity, Claude, etc.)</div>
+      </div>
+    </div>
+
+    <!-- ==================== COMPETITORS ==================== -->
+    <div id="view-competitors" style="display:none;">
+      <div class="view-title">Competitors</div>
+      <div class="view-sub">Track mentions alongside your brand.</div>
+      <div class="card">
+        <div class="card-title">Competitor Brands</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+          <span class="comp-chip">ABC Cooling Co <button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;margin-left:4px;">&times;</button></span>
+          <span class="comp-chip">Texas Climate Pros <button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;margin-left:4px;">&times;</button></span>
+          <span class="comp-chip">CoolAir Pro <button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;margin-left:4px;">&times;</button></span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input class="brand-select" placeholder="Add competitor name..." style="flex:1;">
+          <button class="pbtn">+ Add</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">Competitor Comparison</div>
+        <div id="comp-compare"></div>
+      </div>
+      <div class="card" style="margin-top:0;">
+        <div class="card-title">Competitor Co-occurrence (30 days)</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
+        <div id="comp-cooccur"></div>
+      </div>
+    </div>
+
+    <!-- ==================== CITATION ANALYSIS ==================== -->
+    <div id="view-citations" style="display:none;">
+      <div class="view-title">Citation Analysis <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+      <div class="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">8</div><div class="score-label">Domains Cited</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">34</div><div class="score-label">Total Citations</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--amber);">12</div><div class="score-label">Your Domain Cited</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Top Cited Domains</div>
+        <div id="citation-full"></div>
+      </div>
+    </div>
+
+    <!-- ==================== ACCURACY MONITOR ==================== -->
+    <div id="view-accuracy" style="display:none;">
+      <div class="view-title">Accuracy Monitor <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+      <div class="view-sub">Verify how accurately AI platforms represent your brand information.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">91%</div><div class="score-label">Accuracy Rate</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--red);">2</div><div class="score-label">Inaccuracies Found</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">22</div><div class="score-label">Claims Verified</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Recent Accuracy Issues</div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid var(--red);background:rgba(239,68,68,.03);border-radius:var(--radius-xs);margin-bottom:10px;">
+          <span style="color:var(--red);font-size:14px;">&#9888;</span>
+          <div style="font-size:12px;"><strong>Gemini</strong> stated Acme HVAC was "founded in 2020" — actual founding year is 2009. <span style="color:var(--muted);">Detected Mar 18</span></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid var(--amber);background:rgba(245,158,11,.03);border-radius:var(--radius-xs);">
+          <span style="color:var(--amber);font-size:14px;">&#9888;</span>
+          <div style="font-size:12px;"><strong>DeepSeek</strong> listed incorrect phone number "512-555-0000" — correct is 512-555-1234. <span style="color:var(--muted);">Detected Mar 16</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== PLATFORM STATUS ==================== -->
+    <div id="view-platforms" style="display:none;">
+      <div class="view-title">Platform Status</div>
+      <div class="view-sub">SOV per AI platform and real-time API health.</div>
+      <div id="plat-status-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+    </div>
+
+    <!-- ==================== COPILOT ==================== -->
+    <div id="view-copilot" style="display:none;">
+      <div class="view-title">Copilot</div>
+      <div class="view-sub">AI-powered assistant for visibility strategy and analysis.</div>
+      <div class="card" style="min-height:400px;display:flex;flex-direction:column;">
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">&#9672;</div>
+            <div style="background:var(--bg3);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.6;max-width:80%;">
+              Welcome! I can help you analyze your AI visibility data. Try asking:<br>
+              <span style="color:var(--primary);cursor:pointer;">"Why is my Gemini SOV so low?"</span><br>
+              <span style="color:var(--primary);cursor:pointer;">"How can I improve my recommendation rate?"</span><br>
+              <span style="color:var(--primary);cursor:pointer;">"Compare my performance across platforms"</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;flex-direction:row-reverse;">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;">U</div>
+            <div style="background:var(--blue);color:#fff;padding:12px 16px;border-radius:12px 12px 4px 12px;font-size:12px;max-width:80%;">Why is my Gemini SOV so low?</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">&#9672;</div>
+            <div style="background:var(--bg3);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.6;max-width:80%;">
+              Your Gemini SOV is at <strong>18%</strong> compared to your average of <strong>72%</strong>. This is likely because Gemini heavily relies on Google's Knowledge Graph and structured data. Here's what I recommend:<br><br>
+              1. <strong>Optimize Google Business Profile</strong> — ensure hours, services, and reviews are up to date<br>
+              2. <strong>Add structured FAQ schema</strong> to your website<br>
+              3. <strong>Build more Google reviews</strong> — Gemini correlates strongly with review volume
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;border-top:1px solid var(--border);padding-top:12px;">
+          <input class="brand-select" placeholder="Ask about your AI visibility..." style="flex:1;padding:10px 14px;">
+          <button style="padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== BRAND SETUP ==================== -->
+    <div id="view-setup" style="display:none;">
+      <div class="view-title">Brand Setup</div>
+      <div class="view-sub">Configure your brand details.</div>
+      <div class="card">
+        <div class="form-group"><label class="flbl">Brand Name</label><input class="finp" value="Acme HVAC Services"></div>
+        <div class="form-group"><label class="flbl">Industry</label><input class="finp" value="HVAC"></div>
+        <div class="form-group"><label class="flbl">Website</label><input class="finp" value="acmehvac.com"></div>
+        <div class="form-group">
+          <label class="flbl">Alternate Names / Aliases</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+            <span class="comp-chip" style="font-size:11px;">Acme HVAC <span style="color:var(--red);cursor:pointer;margin-left:4px;">&times;</span></span>
+            <span class="comp-chip" style="font-size:11px;">Acme Heating <span style="color:var(--red);cursor:pointer;margin-left:4px;">&times;</span></span>
+            <span class="comp-chip" style="font-size:11px;">acmehvac.com <span style="color:var(--red);cursor:pointer;margin-left:4px;">&times;</span></span>
+          </div>
+        </div>
+        <div class="form-group"><label class="flbl">City / Location</label><input class="finp" value="Austin TX"></div>
+        <div class="form-group"><label class="flbl">SOV Goal (%)</label><input class="finp" value="70" type="number" style="width:100px;"></div>
+        <div class="form-group">
+          <label class="flbl">AI Platforms to Track</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="plat-filter active-filter">ChatGPT</span><span class="plat-filter active-filter">Perplexity</span><span class="plat-filter active-filter">Claude</span><span class="plat-filter active-filter">Gemini</span><span class="plat-filter active-filter">Grok</span><span class="plat-filter active-filter">Google AIO</span><span class="plat-filter">DeepSeek</span>
+          </div>
+        </div>
+        <button style="padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">SAVE CHANGES</button>
+      </div>
+    </div>
+
+    <!-- ==================== ALERTS & NOTIFICATIONS (MERGED) ==================== -->
+    <div id="view-alerts" style="display:none;">
+      <div class="view-title">Alerts &amp; Notifications <span class="badge-merged">MERGED</span></div>
+      <div class="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
+      <!-- Alert Rules -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">Alert Rules</div>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Add Alert</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg3);border-radius:var(--radius-xs);">
+            <div><span style="font-weight:700;font-size:12px;">SOV Below 20%</span> <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">&middot; In-App &middot; 24h cooldown</span></div>
+            <div style="display:flex;gap:6px;"><span style="color:var(--green);font-family:var(--mono);font-size:10px;">ACTIVE</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg3);border-radius:var(--radius-xs);">
+            <div><span style="font-weight:700;font-size:12px;">Visibility Drop 15%</span> <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">&middot; Email &middot; 12h cooldown</span></div>
+            <div style="display:flex;gap:6px;"><span style="color:var(--green);font-family:var(--mono);font-size:10px;">ACTIVE</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg3);border-radius:var(--radius-xs);">
+            <div><span style="font-weight:700;font-size:12px;">Brand Disappeared</span> <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">&middot; Webhook &middot; 6h cooldown</span></div>
+            <div style="display:flex;gap:6px;"><span style="color:var(--green);font-family:var(--mono);font-size:10px;">ACTIVE</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Email Report Schedule -->
+      <div class="card">
+        <div class="card-title">Email Report Schedule</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;">Receive periodic email summaries of your brand visibility.</div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <select class="brand-select" style="width:150px;"><option>Weekly</option><option>Monthly</option><option>Off</option></select>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">SAVE</button>
+        </div>
+      </div>
+      <!-- Notification Types -->
+      <div class="card">
+        <div class="card-title">Notification Types</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);"><div><div style="font-size:12px;font-weight:600;">Visibility Drop Alerts</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">When your brand visibility drops significantly</div></div><span style="color:var(--green);font-family:var(--mono);font-size:10px;">Active</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);"><div><div style="font-size:12px;font-weight:600;">SOV Below Threshold</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">When share of voice falls below your target</div></div><span style="color:var(--green);font-family:var(--mono);font-size:10px;">Active</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);"><div><div style="font-size:12px;font-weight:600;">Negative Sentiment</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">When negative sentiment spikes</div></div><span style="color:var(--green);font-family:var(--mono);font-size:10px;">Active</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;"><div><div style="font-size:12px;font-weight:600;">Team Invitations</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">When you are added to a team</div></div><span style="color:var(--green);font-family:var(--mono);font-size:10px;">Active</span></div>
+        </div>
+      </div>
+      <!-- Webhook -->
+      <div class="card">
+        <div class="card-title">Webhook URL</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">We'll POST a JSON payload whenever your SOV changes after a run.</div>
+        <div style="display:flex;gap:8px;">
+          <input class="brand-select" placeholder="https://hooks.slack.com/services/..." style="flex:1;padding:8px 10px;">
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">SAVE</button>
+        </div>
+      </div>
+      <!-- Recent Notifications -->
+      <div class="card">
+        <div class="card-title">Recent Notifications</div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="width:8px;height:8px;border-radius:50%;background:var(--red);margin-top:5px;flex-shrink:0;"></div><div><div style="font-size:12px;font-weight:700;">SOV dropped below 20% on Gemini</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Gemini SOV is now 18% &middot; 2 hours ago</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="width:8px;height:8px;border-radius:50%;background:var(--amber);margin-top:5px;flex-shrink:0;"></div><div><div style="font-size:12px;font-weight:700;">Visibility down 15% on Perplexity</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Dropped from 95% to 80% &middot; 5 hours ago</div></div></div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;"><div style="width:8px;height:8px;border-radius:50%;background:var(--border);margin-top:5px;flex-shrink:0;"></div><div><div style="font-size:12px;opacity:.6;">New competitor "CoolAir Pro" detected</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">1 day ago &middot; read</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TEAM MEMBERS ==================== -->
+    <div id="view-team" style="display:none;">
+      <div class="view-title">Team Members</div>
+      <div class="view-sub">Manage who has access to your workspace. Available on Agency+ plans.</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div class="card-title" style="margin:0;">Members (2)</div>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Invite</button>
+        </div>
+        <!-- Invite form -->
+        <div style="margin-bottom:16px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-xs);display:flex;gap:8px;align-items:center;">
+          <input class="brand-select" placeholder="user@example.com" style="flex:1;padding:8px 10px;">
+          <select class="brand-select" style="width:110px;"><option>Viewer</option><option>Editor</option></select>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">SEND INVITE</button>
+        </div>
+        <!-- Team list -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
+            <div><div style="font-size:13px;font-weight:600;">sarah@acmehvac.com</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Joined Dec 14, 2025</div></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <select class="brand-select" style="width:100px;font-size:10px;padding:4px 6px;"><option>Editor</option><option>Viewer</option></select>
+              <button style="background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:9px;padding:4px 8px;cursor:pointer;border-radius:var(--radius-xs);">REMOVE</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
+            <div><div style="font-size:13px;font-weight:600;">mike@marketing.co</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Joined Jan 22, 2026</div></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <select class="brand-select" style="width:100px;font-size:10px;padding:4px 6px;"><option selected>Viewer</option><option>Editor</option></select>
+              <button style="background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:9px;padding:4px 8px;cursor:pointer;border-radius:var(--radius-xs);">REMOVE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== BILLING ==================== -->
+    <div id="view-billing" style="display:none;">
+      <div class="view-title">Billing</div>
+      <div class="view-sub">Manage your subscription and payment method.</div>
+      <div class="card">
+        <div class="card-title">Current Plan</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <span style="font-family:var(--mono);font-size:20px;font-weight:800;color:var(--primary);">OWNER</span>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">Unlimited access to all features</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div style="border:1px solid var(--border);padding:16px;border-radius:var(--radius-xs);text-align:center;">
+            <div style="font-weight:700;margin-bottom:4px;">Free</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:800;">$0</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">1 brand &middot; 3 queries</div>
+          </div>
+          <div style="border:1px solid var(--primary-border);padding:16px;border-radius:var(--radius-xs);text-align:center;background:var(--primary-light);">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--primary);">Pro</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:800;">$35</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">5 brands &middot; 25 queries</div>
+          </div>
+          <div style="border:1px solid var(--border);padding:16px;border-radius:var(--radius-xs);text-align:center;">
+            <div style="font-weight:700;margin-bottom:4px;">Agency</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:800;">$89</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">20 brands &middot; 100 queries</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ACCOUNT & PLAN ==================== -->
+    <div id="view-account" style="display:none;">
+      <div class="view-title">Account &amp; Plan</div>
+      <div class="view-sub">Manage your account and subscription.</div>
+      <div class="card">
+        <div class="card-title">Account Info</div>
+        <div style="font-family:var(--mono);font-size:12px;line-height:2.2;">
+          <div>Email: <strong>owner@acmehvac.com</strong> <span style="color:var(--green);font-size:10px;">&#10004; verified</span></div>
+          <div>Username: <strong style="color:var(--primary);">acme_owner</strong></div>
+          <div>Plan: <strong style="text-transform:uppercase;">OWNER</strong></div>
+          <div>Member since: <span style="color:var(--muted);">October 2025</span></div>
+        </div>
+      </div>
+      <!-- 2FA Card -->
+      <div class="card">
+        <div class="card-title">Two-Factor Authentication</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="color:var(--green);font-family:var(--mono);font-weight:700;font-size:12px;">ENABLED</span>
+          <span style="color:var(--muted);font-family:var(--mono);font-size:11px;">&mdash; 6 backup codes remaining</span>
+        </div>
+        <button class="pbtn">DISABLE 2FA</button>
+      </div>
+      <!-- Model Settings -->
+      <div class="card">
+        <div class="card-title">AI Model Settings</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;">Choose which model to use for each AI platform when running queries.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg3);border-radius:var(--radius-xs);"><span style="font-weight:600;font-size:12px;color:#10a37f;">ChatGPT</span><select class="brand-select" style="width:140px;font-size:10px;"><option>GPT-4o</option><option>GPT-4o mini</option></select></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg3);border-radius:var(--radius-xs);"><span style="font-weight:600;font-size:12px;color:#20b8cd;">Perplexity</span><select class="brand-select" style="width:140px;font-size:10px;"><option>Sonar Large</option></select></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg3);border-radius:var(--radius-xs);"><span style="font-weight:600;font-size:12px;color:#cc9b7a;">Claude</span><select class="brand-select" style="width:140px;font-size:10px;"><option>Claude Sonnet 4</option></select></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg3);border-radius:var(--radius-xs);"><span style="font-weight:600;font-size:12px;color:#4285f4;">Gemini</span><select class="brand-select" style="width:140px;font-size:10px;"><option>Gemini 2.0 Flash</option></select></div>
+        </div>
+        <button style="margin-top:12px;padding:8px 16px;background:var(--bg2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">SAVE MODEL SETTINGS</button>
+      </div>
+      <!-- Export Data -->
+      <div class="card">
+        <div class="card-title">Export Data</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="pbtn">EXPORT BRAND (JSON)</button>
+          <button class="pbtn">EXPORT BRAND (CSV)</button>
+          <button class="pbtn">EXPORT ALL (JSON)</button>
+          <button class="pbtn" style="border-color:var(--primary);color:var(--primary);">IMPORT BRAND</button>
+        </div>
+      </div>
+      <!-- Change Password -->
+      <div class="card">
+        <div class="card-title">Change Password</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;">
+          <input class="finp" type="password" placeholder="Current password">
+          <input class="finp" type="password" placeholder="New password (min 8 characters)">
+          <input class="finp" type="password" placeholder="Confirm new password">
+          <button class="pbtn" style="width:fit-content;">UPDATE PASSWORD</button>
+        </div>
+      </div>
+      <!-- Danger zone -->
+      <div class="card" style="border-color:var(--red);">
+        <div class="card-title" style="color:var(--red);">Danger Zone</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">Permanently delete your account. This cannot be undone.</div>
+        <button style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">DELETE MY ACCOUNT</button>
+      </div>
+    </div>
+
+    <!-- ==================== ACTIVITY & LOGS (MERGED) ==================== -->
+    <div id="view-activitylog" style="display:none;">
+      <div class="view-title">Activity &amp; Logs <span class="badge-merged">MERGED</span></div>
+      <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
+        <button class="tab-btn tab-active" onclick="switchLogTab(this,'log-activity')">Account Activity</button>
+        <button class="tab-btn" onclick="switchLogTab(this,'log-api')">API Call Logs</button>
+        <button class="tab-btn" onclick="switchLogTab(this,'log-keys')">API Key Status</button>
+      </div>
+      <!-- Activity tab -->
+      <div id="log-activity" class="log-tab">
+        <div class="card">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="font-size:16px;width:24px;text-align:center;">&#128273;</span>
+              <div style="flex:1;"><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">Login</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Mar 18, 2026 2:45 PM</span></div><div style="color:var(--muted);font-family:var(--mono);font-size:9px;margin-top:2px;">IP: 192.168.1.42</div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="font-size:16px;width:24px;text-align:center;">&#9654;</span>
+              <div style="flex:1;"><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">Run Queries</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Mar 18, 2026 12:30 PM</span></div><div style="color:var(--muted);font-size:11px;margin-top:2px;">&mdash; Acme HVAC Services</div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="font-size:16px;width:24px;text-align:center;">&#128274;</span>
+              <div style="flex:1;"><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">2FA Enabled</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Mar 17, 2026 9:15 AM</span></div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="font-size:16px;width:24px;text-align:center;">&#9997;</span>
+              <div style="flex:1;"><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">Update Brand</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Mar 16, 2026 4:20 PM</span></div><div style="color:var(--muted);font-size:11px;margin-top:2px;">&mdash; Acme HVAC Services</div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
+              <span style="font-size:16px;width:24px;text-align:center;">&#128101;</span>
+              <div style="flex:1;"><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">Team Invite</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Mar 15, 2026 11:00 AM</span></div><div style="color:var(--muted);font-size:11px;margin-top:2px;">&mdash; mike@marketing.co (role: viewer)</div></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;font-size:12px;">
+              <span style="font-size:16px;width:24px;text-align:center;">&#128273;</span>
+              <div style="flex:1;"><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">Login</span><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Mar 15, 2026 10:55 AM</span></div><div style="color:var(--muted);font-family:var(--mono);font-size:9px;margin-top:2px;">IP: 192.168.1.42</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- API logs tab -->
+      <div id="log-api" class="log-tab" style="display:none;">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead><tr style="background:var(--bg3);"><th class="th">Time</th><th class="th">Platform</th><th class="th">Model</th><th class="th">Query</th><th class="th">Status</th><th class="th">Time</th><th class="th">Cost</th></tr></thead>
+            <tbody>
+              <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:45 PM</td><td class="td" style="color:#10a37f;font-weight:700;">ChatGPT</td><td class="td" style="font-family:var(--mono);font-size:9px;">GPT-4o</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">1.2s</td><td class="td" style="font-family:var(--mono);">$0.003</td></tr>
+              <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:45 PM</td><td class="td" style="color:#20b8cd;font-weight:700;">Perplexity</td><td class="td" style="font-family:var(--mono);font-size:9px;">Sonar Large</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">2.1s</td><td class="td" style="font-family:var(--mono);">$0.005</td></tr>
+              <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:45 PM</td><td class="td" style="color:#cc9b7a;font-weight:700;">Claude</td><td class="td" style="font-family:var(--mono);font-size:9px;">Sonnet 4</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">1.8s</td><td class="td" style="font-family:var(--mono);">$0.004</td></tr>
+              <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:46 PM</td><td class="td" style="color:#4285f4;font-weight:700;">Gemini</td><td class="td" style="font-family:var(--mono);font-size:9px;">2.0 Flash</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">0.9s</td><td class="td" style="font-family:var(--mono);">$0.001</td></tr>
+              <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:46 PM</td><td class="td" style="color:#667eea;font-weight:700;">DeepSeek</td><td class="td" style="font-family:var(--mono);font-size:9px;">V3</td><td class="td">Best HVAC Austin</td><td class="td"><span style="color:var(--red);font-weight:700;font-size:10px;">429</span></td><td class="td">—</td><td class="td" style="font-family:var(--mono);">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing 5 of 84 API calls</div>
+      </div>
+      <!-- API keys tab -->
+      <div id="log-keys" class="log-tab" style="display:none;">
+        <div class="card">
+          <div class="card-title">API Key Status</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">2</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">OpenAI keys</div></div>
+            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Perplexity key</div></div>
+            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Claude key</div></div>
+            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Gemini key</div></div>
+            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Grok key</div></div>
+            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--red);font-weight:700;font-size:18px;">0</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">DeepSeek keys</div></div>
+          </div>
+          <div style="margin-top:12px;color:var(--amber);font-family:var(--mono);font-size:10px;">Platforms with 0 keys will be skipped during queries. Add keys in Railway environment variables.</div>
+        </div>
       </div>
     </div>
 
@@ -681,43 +1258,93 @@ sovData.forEach((v, i) => {
   document.getElementById('bar' + (i+1)).style.height = (v / 100 * 120) + 'px';
 });
 
+// Render full query perf
+const qperfFull = document.getElementById('qperf-full');
+const allQueries = [
+  { q: 'Best HVAC company in Austin TX', pct: 92 },
+  { q: 'Top rated AC repair near me', pct: 83 },
+  { q: 'Emergency heating repair Austin', pct: 75 },
+  { q: 'HVAC installation cost Texas', pct: 67 },
+  { q: 'Who fixes air conditioning Austin', pct: 58 },
+  { q: 'Affordable furnace repair', pct: 42 },
+  { q: 'Best central heating Austin TX', pct: 83 },
+  { q: 'AC not cooling Austin help', pct: 75 },
+  { q: 'HVAC company near Round Rock', pct: 58 },
+  { q: 'Residential HVAC service Texas', pct: 50 },
+  { q: 'Heat pump installation Austin', pct: 33 },
+  { q: 'Commercial HVAC contractor', pct: 25 },
+];
+allQueries.forEach(q => {
+  const c = q.pct >= 50 ? 'var(--green)' : q.pct > 0 ? 'var(--amber)' : 'var(--red)';
+  qperfFull.innerHTML += '<div class="qbar-row"><span class="qbar-label">' + q.q + '</span><div class="qbar-track"><div class="qbar-fill" style="width:' + q.pct + '%;background:' + c + ';"></div></div><span class="qbar-val" style="color:' + c + ';">' + q.pct + '%</span></div>';
+});
+
+// Render competitor comparison
+const compCompare = document.getElementById('comp-compare');
+const compData = [
+  { name: 'Acme HVAC (You)', pct: 72, color: 'var(--primary)' },
+  { name: 'ABC Cooling Co', pct: 56, color: 'var(--blue)' },
+  { name: 'Texas Climate Pros', pct: 44, color: 'var(--purple)' },
+  { name: 'CoolAir Pro', pct: 36, color: 'var(--amber)' },
+];
+compData.forEach(c => {
+  compCompare.innerHTML += '<div class="qbar-row"><span class="qbar-label" style="font-weight:' + (c.name.includes('You') ? '700' : '400') + ';">' + c.name + '</span><div class="qbar-track"><div class="qbar-fill" style="width:' + c.pct + '%;background:' + c.color + ';"></div></div><span class="qbar-val" style="color:' + c.color + ';">' + c.pct + '%</span></div>';
+});
+
+// Render co-occurrence
+const cooccur = document.getElementById('comp-cooccur');
+const coData = [
+  { name: 'ABC Cooling Co', count: 14, max: 14 },
+  { name: 'Texas Climate Pros', count: 11, max: 14 },
+  { name: 'CoolAir Pro', count: 9, max: 14 },
+  { name: 'Reliable HVAC', count: 7, max: 14 },
+  { name: 'AirFlow Masters', count: 5, max: 14 },
+];
+coData.forEach(c => {
+  cooccur.innerHTML += '<div class="qbar-row"><span class="qbar-label">' + c.name + '</span><div class="qbar-track"><div class="qbar-fill" style="width:' + (c.count/c.max*100) + '%;background:var(--purple);"></div></div><span class="qbar-val" style="color:var(--muted);">' + c.count + 'x</span></div>';
+});
+
+// Render citation full
+const citFull = document.getElementById('citation-full');
+const citesAll = [
+  { domain: 'acmehvac.com', count: 12, own: true },
+  { domain: 'yelp.com', count: 8 },
+  { domain: 'bbb.org', count: 5 },
+  { domain: 'homeadvisor.com', count: 4 },
+  { domain: 'angi.com', count: 3 },
+  { domain: 'reddit.com', count: 2 },
+  { domain: 'trustpilot.com', count: 2 },
+  { domain: 'austin360.com', count: 1 },
+];
+citesAll.forEach(c => {
+  const pct = (c.count / 12 * 100);
+  citFull.innerHTML += '<div class="qbar-row"><span class="qbar-label">' + (c.own ? '<span style="color:var(--amber);">★</span> ' : '') + c.domain + '</span><div class="qbar-track"><div class="qbar-fill" style="width:' + pct + '%;background:' + (c.own ? 'var(--amber)' : 'var(--blue)') + ';"></div></div><span class="qbar-val" style="color:var(--muted);">' + c.count + '</span></div>';
+});
+
+// Render platform status cards
+const platStatus = document.getElementById('plat-status-cards');
+platforms.forEach(p => {
+  const barColor = p.sov >= 50 ? 'var(--green)' : p.sov > 0 ? 'var(--amber)' : 'var(--bg4)';
+  platStatus.innerHTML += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span style="font-weight:700;color:' + p.color + ';">' + p.name + '</span><span style="font-family:var(--mono);font-size:10px;color:' + (p.active ? 'var(--green)' : 'var(--red)') + ';">' + (p.active ? '● ACTIVE' : '○ INACTIVE') + '</span></div><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-family:var(--mono);font-size:10px;color:var(--muted);">SOV</span><span style="font-family:var(--mono);font-size:14px;font-weight:800;color:' + p.color + ';">' + p.sov + '%</span></div><div class="ov-plat-bar" style="height:6px;"><div class="ov-plat-bar-fill" style="width:' + p.sov + '%;background:' + barColor + ';"></div></div><div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--muted);">API: <span style="color:var(--green);">Healthy</span> &middot; Avg response: 1.4s &middot; Cost: $0.012/run</div></div>';
+});
+
+// Tab switcher for Activity & Logs
+function switchLogTab(btn, tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+  document.querySelectorAll('.log-tab').forEach(t => t.style.display = 'none');
+  btn.classList.add('tab-active');
+  document.getElementById(tabId).style.display = 'block';
+}
+
 // View switching
-const viewDescriptions = {
-  qperf: ['Query Performance', 'Monitor mention rates for every tracked keyword.'],
-  promptdetails: ['Prompt Details', 'Deep analytics per query — moved from Advanced to Analysis.'],
-  trends: ['SOV Trends', 'Share of Voice over time.'],
-  competitors: ['Competitors', 'Track competitor mentions alongside your brand.'],
-  citations: ['Citation Analysis', 'Which sources AI cites — moved from Advanced to Analysis.'],
-  accuracy: ['Accuracy Monitor', 'Verify AI response accuracy — moved from Advanced to Analysis.'],
-  platforms: ['Platform Status', 'SOV per platform and API health.'],
-  copilot: ['Copilot', 'AI assistant for visibility strategy.'],
-  setup: ['Brand Setup', 'Configure brand details.'],
-  team: ['Team Members', 'Manage team access.'],
-  billing: ['Billing', 'Manage subscription.'],
-  account: ['Account & Plan', 'Account info, 2FA, model settings, export.'],
-};
-
 function showView(view) {
-  // Hide all views
   document.querySelectorAll('[id^="view-"]').forEach(v => v.style.display = 'none');
-  // Deactivate nav
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  // Activate clicked nav
-  event.target.classList.add('active');
+  event.target.closest('.nav-item').classList.add('active');
 
-  const specific = document.getElementById('view-' + view);
-  if (specific) {
-    specific.style.display = 'block';
-  } else if (viewDescriptions[view]) {
-    const g = document.getElementById('view-generic');
-    document.getElementById('generic-title').textContent = viewDescriptions[view][0];
-    document.getElementById('generic-sub').textContent = viewDescriptions[view][1];
-    g.style.display = 'block';
-  } else {
-    const g = document.getElementById('view-generic');
-    document.getElementById('generic-title').textContent = view.charAt(0).toUpperCase() + view.slice(1);
-    document.getElementById('generic-sub').textContent = 'No changes to this page.';
-    g.style.display = 'block';
+  const el = document.getElementById('view-' + view);
+  if (el) {
+    el.style.display = 'block';
   }
   document.getElementById('main-content').scrollTop = 0;
 }
