@@ -78,6 +78,7 @@ let liveRunTime = null;   // Timestamp of current live run
 
 // ─── UTILS ────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
+function debounce(fn, ms) { let t; return function(...a){ clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 // Safe brand update — avoids brands[-1] corruption when findIndex returns -1
 function updateBrandInList(updatedBrand) {
@@ -4733,11 +4734,21 @@ async function pollRunStatus(brandId, runId, opts) {
 
   return new Promise((resolve, reject) => {
     let pollErrors = 0;
-    const MAX_POLL_ERRORS = 15; // Stop after 15 consecutive errors (~30s)
-    const pollInterval = setInterval(async () => {
+    const MAX_POLL_ERRORS = 15; // Stop after 15 consecutive errors
+    let pollDelay = 2000; // Start at 2s, backoff to max 10s
+    let pollTimeout = null;
+    function schedulePoll() { pollTimeout = setTimeout(doPoll, pollDelay); }
+    async function doPoll() {
       try {
         const data = await api('GET', `/api/brands/${brandId}/run-status/${runId}`);
         pollErrors = 0; // Reset on success
+        // Reset delay on success (new data arriving = stay responsive)
+        if (data.results && data.results.length > lastResultCount) {
+          pollDelay = 2000; // New data — poll frequently
+        } else {
+          // No new data — back off gradually (2s → 3s → 4.5s → ... max 10s)
+          pollDelay = Math.min(pollDelay * 1.5, 10000);
+        }
 
         // Update progress
         received = data.received || 0;
@@ -4759,7 +4770,6 @@ async function pollRunStatus(brandId, runId, opts) {
         }
 
         if (data.status === 'done' || data.status === 'error') {
-          clearInterval(pollInterval);
           clearInterval(timerInt);
           localStorage.removeItem('trackly_active_run');
 
@@ -4832,12 +4842,15 @@ async function pollRunStatus(brandId, runId, opts) {
             setTimeout(() => { if (prog) prog.style.display = 'none'; if (statusTxt) statusTxt.style.color = ''; if (fill) fill.style.background = ''; renderView(currentView); }, 2000);
             resolve();
           }
+        } else {
+          schedulePoll(); // Schedule next poll with current delay
         }
       } catch(pollErr) {
         pollErrors++;
+        // Exponential backoff on errors: double delay each failure, max 10s
+        pollDelay = Math.min(pollDelay * 2, 10000);
         console.error(`[Poll] Error polling run status (${pollErrors}/${MAX_POLL_ERRORS}):`, pollErr.message);
         if (pollErrors >= MAX_POLL_ERRORS) {
-          clearInterval(pollInterval);
           clearInterval(timerInt);
           localStorage.removeItem('trackly_active_run');
           liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
@@ -4845,9 +4858,12 @@ async function pollRunStatus(brandId, runId, opts) {
           if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
           toast('Lost connection — refresh page to check run status.', 'err');
           resolve();
+        } else {
+          schedulePoll(); // Retry with increased delay
         }
       }
-    }, 2000); // Poll every 2 seconds
+    }
+    schedulePoll(); // Start first poll
   });
 }
 

@@ -163,6 +163,8 @@ router.get('/', auth, async (req, res) => {
         ownerName: row.owner_name, ownerEmail: row.owner_email
       };
     });
+    // Short-lived cache: browser can reuse for 30s before revalidating
+    res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
     res.json({ brands, sharedBrands });
   } catch(e) {
     console.error('[Brands GET]', e.message);

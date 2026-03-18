@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build": "npm run build:js && npm run build:css",
+    "build:js": "terser public/js/app.js -o public/js/app.min.js -c -m --source-map",
+    "build:css": "cleancss -o public/css/styles.min.css public/css/styles.css"
   },
   "dependencies": {
     "@dodopayments/express": "^0.2.6",
@@ -20,5 +23,9 @@
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
     "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "clean-css-cli": "^5.6.3",
+    "terser": "^5.46.1"
   }
 }
