@@ -2250,27 +2250,31 @@ function renderOverview(){
       // Alert: SOV dropped significantly on any platform
       if (cur.platforms && prev.platforms) {
         for (const p of Object.keys(cur.platforms)) {
-          const curPlatSOV = cur.platforms[p] ? cur.platforms[p].sov || 0 : 0;
-          const prevPlatSOV = prev.platforms && prev.platforms[p] ? prev.platforms[p].sov || 0 : 0;
-          if (prevPlatSOV > 0 && curPlatSOV < prevPlatSOV && (prevPlatSOV - curPlatSOV) >= 15) {
+          const curPlatSOV = typeof cur.platforms[p] === 'number' ? cur.platforms[p] : 0;
+          const prevPlatSOV = typeof prev.platforms[p] === 'number' ? prev.platforms[p] : 0;
+          if (prevPlatSOV > 0 && curPlatSOV < prevPlatSOV && (prevPlatSOV - curPlatSOV) >= 10) {
             alertChips.push({ type: 'danger', text: 'SOV dropped below ' + curPlatSOV + '% on ' + p, time: runTimeStr });
-          } else if (prevPlatSOV > 0 && curPlatSOV < prevPlatSOV && (prevPlatSOV - curPlatSOV) >= 8) {
+          } else if (prevPlatSOV > 0 && curPlatSOV < prevPlatSOV && (prevPlatSOV - curPlatSOV) >= 5) {
             alertChips.push({ type: 'warn', text: 'Visibility down ' + (prevPlatSOV - curPlatSOV) + '% on ' + p, time: runTimeStr });
           }
         }
       }
       // Alert: overall SOV drop
-      if (prevSOV > 0 && curSOV < prevSOV && (prevSOV - curSOV) >= 10 && alertChips.length === 0) {
+      if (prevSOV > 0 && curSOV < prevSOV && (prevSOV - curSOV) >= 5 && alertChips.length === 0) {
         alertChips.push({ type: 'danger', text: 'Overall SOV dropped from ' + prevSOV + '% to ' + curSOV + '%', time: runTimeStr });
       }
-      // Alert: new competitor detected
+      // Alert: new competitor detected (from competitorMentions field)
       if (cur.allResults && prev.allResults) {
-        const prevComps = new Set((prev.allResults || []).flatMap(r => r.competitors || []));
-        const newComps = (cur.allResults || []).flatMap(r => r.competitors || []).filter(c => !prevComps.has(c));
-        const uniqueNew = [...new Set(newComps)];
+        const prevComps = new Set((prev.allResults || []).flatMap(r => (r.competitorMentions || []).map(c => c.name || c)));
+        const curComps = (cur.allResults || []).flatMap(r => (r.competitorMentions || []).map(c => c.name || c));
+        const uniqueNew = [...new Set(curComps.filter(c => !prevComps.has(c)))];
         if (uniqueNew.length > 0) {
           alertChips.push({ type: 'info', text: 'New competitor "' + uniqueNew[0] + '" detected', time: runTimeStr });
         }
+      }
+      // Alert: SOV improved significantly (positive alert)
+      if (prevSOV > 0 && curSOV > prevSOV && (curSOV - prevSOV) >= 5 && alertChips.length === 0) {
+        alertChips.push({ type: 'info', text: 'SOV improved from ' + prevSOV + '% to ' + curSOV + '%', time: runTimeStr });
       }
     }
     const dotColors = { danger: 'var(--red)', warn: 'var(--amber)', info: 'var(--blue)' };
@@ -2520,8 +2524,8 @@ function renderOverview(){
   const catRow = el('ov-category-row');
   const catSection = el('ov-category-section');
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
-    const chatSOV = _ovChatTotal > 0 ? Math.round(_ovChatMentioned / _ovChatTotal * 100) : null;
-    const searchSOV = _ovSearchTotal > 0 ? Math.round(_ovSearchMentioned / _ovSearchTotal * 100) : null;
+    const chatSOV = _ovChatTotal > 0 ? Math.round(_ovChatMentioned / _ovChatTotal * 100) : 0;
+    const searchSOV = _ovSearchTotal > 0 ? Math.round(_ovSearchMentioned / _ovSearchTotal * 100) : 0;
 
     const platEntries = Object.entries(lastRun.platforms || {});
     const best = platEntries.length ? platEntries.reduce((a, b) => b[1] > a[1] ? b : a) : null;
@@ -2529,22 +2533,18 @@ function renderOverview(){
     function catColor(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
 
     let catHtml = '';
-    if (chatSOV !== null) {
-      catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(chatSOV)};">
-        <div class="ov-cat-label">💬 Chat AI</div>
-        <div class="ov-cat-val" style="color:${catColor(chatSOV)};">${chatSOV}%</div>
-        <div class="ov-cat-detail">Mentioned in ${_ovChatMentioned} of ${_ovChatTotal} responses</div>
-        <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
-      </div>`;
-    }
-    if (searchSOV !== null) {
-      catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(searchSOV)};">
-        <div class="ov-cat-label">🔍 Search AI</div>
-        <div class="ov-cat-val" style="color:${catColor(searchSOV)};">${searchSOV}%</div>
-        <div class="ov-cat-detail">Mentioned in ${_ovSearchMentioned} of ${_ovSearchTotal} responses</div>
-        <div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div>
-      </div>`;
-    }
+    catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(chatSOV)};">
+      <div class="ov-cat-label">💬 Chat AI SOV</div>
+      <div class="ov-cat-val" style="color:${catColor(chatSOV)};">${chatSOV}%</div>
+      <div class="ov-cat-detail">Mentioned in ${_ovChatMentioned} of ${_ovChatTotal} responses</div>
+      <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
+    </div>`;
+    catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${catColor(searchSOV)};">
+      <div class="ov-cat-label">🔍 Search AI SOV</div>
+      <div class="ov-cat-val" style="color:${catColor(searchSOV)};">${searchSOV}%</div>
+      <div class="ov-cat-detail">Mentioned in ${_ovSearchMentioned} of ${_ovSearchTotal} responses</div>
+      <div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div>
+    </div>`;
     if (best) {
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid var(--green);">
         <div class="ov-cat-label">🏆 Best Platform</div>
@@ -2554,7 +2554,7 @@ function renderOverview(){
     }
     catRow.innerHTML = catHtml;
     catRow.classList.add('ov-animate-stagger');
-    catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null, !!best].filter(Boolean).length}, 1fr)`;
+    catRow.style.gridTemplateColumns = `repeat(3, 1fr)`;
     if (catSection) catSection.style.display = '';
   } else {
     catRow.innerHTML = '';
@@ -2696,9 +2696,10 @@ function renderOverview(){
     if (sorted.length > 0) {
       const qpTitle = _activePreset === 'seo_manager' ? 'Query Rankings & Performance' : 'Query Performance';
       const avgRate = Math.round(sorted.reduce((sum, s) => sum + s.rate, 0) / sorted.length);
-      const qpSub = _activePreset === 'seo_manager' ? `${sorted.length} queries · avg ${avgRate}% mention rate` : `${sorted.length} queries`;
+      const qpSub = `${sorted.length} queries · Avg ${avgRate}%`;
       let qpHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${qpTitle}</div><div class="ov-card-sub">${qpSub}</div></div>`;
-      sorted.forEach((s, i) => {
+      const topSorted = sorted.slice(0, 6);
+      topSorted.forEach((s, i) => {
         const barColor = s.rate >= 50 ? 'var(--green)' : s.rate > 0 ? 'var(--amber)' : 'var(--red)';
         if (_activePreset === 'seo_manager') {
           // SEO: Show rank number and found/total counts
@@ -2780,8 +2781,9 @@ function renderOverview(){
   if (lastRun && lastRun.allResults && lastRun.allResults.length > 0) {
     const allCites = [];
     lastRun.allResults.forEach(r => {
-      if (r.cites && r.cites.length) {
-        r.cites.forEach(url => allCites.push(url));
+      const citeArr = r.citations || r.cites || [];
+      if (citeArr.length) {
+        citeArr.forEach(url => allCites.push(url));
       }
     });
     if (allCites.length > 0) {
@@ -2925,20 +2927,21 @@ function renderOverview(){
       if (!canvas) return;
       const mCtx = canvas.getContext('2d');
       const chartColor = _activePreset === 'founder' ? '#818cf8' : '#FF6154';
-      const chartBg = _activePreset === 'founder' ? 'rgba(129,140,248,0.08)' : 'rgba(255,97,84,0.08)';
+      const chartBg = _activePreset === 'founder' ? 'rgba(129,140,248,0.6)' : 'rgba(255,97,84,0.6)';
+      const chartBgHover = _activePreset === 'founder' ? 'rgba(129,140,248,0.85)' : 'rgba(255,97,84,0.85)';
       window._ovMiniChart = new Chart(mCtx, {
-        type: 'line',
+        type: 'bar',
         data: {
           labels: miniLabels,
           datasets: [{
             label: 'SOV %',
             data: miniData,
-            borderColor: chartColor,
             backgroundColor: chartBg,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 3,
-            pointBackgroundColor: chartColor
+            hoverBackgroundColor: chartBgHover,
+            borderColor: chartColor,
+            borderWidth: 1,
+            borderRadius: 4,
+            borderSkipped: false
           }]
         },
         options: {
@@ -2946,7 +2949,7 @@ function renderOverview(){
           maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { color: '#1a1e25' } },
+            x: { ticks: { color: '#7a8194', font: { size: 9 } }, grid: { display: false } },
             y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { size: 9 }, callback: v => v + '%' }, grid: { color: '#1a1e25' } }
           }
         }
