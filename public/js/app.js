@@ -1883,27 +1883,27 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
 
     scoresRow.innerHTML = `
       <div class="ov-score-card ov-card-updating">
-        <div class="ov-score-icon" style="color:${geoColor};">◎</div>
         <div class="ov-score-body">
+          <div class="ov-score-val" style="color:${geoColor};">${geoScore}</div>
           <div class="ov-score-label">GEO Score</div>
-          <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${geoScore}%;background:${geoColor};"></div></div>
           <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
         </div>
       </div>
       <div class="ov-score-card ov-card-updating">
-        <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
         <div class="ov-score-body">
+          <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}</div>
           <div class="ov-score-label">AI Sentiment</div>
-          <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
+          <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${sentimentScore}%;background:${sentColor};"></div></div>
           <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
         </div>
       </div>
       <div class="ov-score-card ov-card-updating">
-        <div class="ov-score-icon" style="color:${recColor};">★</div>
         <div class="ov-score-body">
-          <div class="ov-score-label">Recommended</div>
           <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
-          <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+          <div class="ov-score-label">AI Recommends You</div>
+          <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${recPct}%;background:${recColor};"></div></div>
+          <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Moderate' : 'Not yet'}</div>
         </div>
       </div>
     `;
@@ -1929,12 +1929,9 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
       const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
       const div = document.createElement('div');
       div.className = 'ov-plat-card' + (hasResults ? ' ov-plat-card-flash' : '');
-      div.innerHTML = `<div class="ov-plat-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-        <div class="ov-plat-info">
-          <div class="ov-plat-name">${plat}</div>
-          <div class="ov-plat-status" style="color:${hasResults ? 'var(--green)' : active ? 'var(--green)' : 'var(--muted)'}">${hasResults ? '● STREAMING' : active ? '● ACTIVE' : '○ INACTIVE'}</div>
-          <div class="ov-plat-bar"><div class="ov-plat-bar-fill" style="width:${pSov}%;background:${barColor};"></div></div>
-        </div>
+      div.innerHTML = `<div class="ov-plat-name" style="color:${t.color||'var(--text)'}">${plat}</div>
+        <div class="ov-plat-status" style="color:${hasResults ? 'var(--green)' : active ? 'var(--green)' : 'var(--muted)'}">${hasResults ? '● STREAMING' : active ? '● ACTIVE' : '○ INACTIVE'}</div>
+        <div class="ov-plat-bar"><div class="ov-plat-bar-fill" style="width:${pSov}%;background:${barColor};"></div></div>
         <div class="ov-plat-sov" style="color:${pSov > 0 ? t.color || 'var(--green)' : 'var(--muted)'}">${pSov}%</div>`;
       pg.appendChild(div);
     });
@@ -2362,60 +2359,57 @@ function renderOverview(){
     const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
 
     if (_activePreset === 'founder') {
-      // Founder view: Large centered score cards with progress indicators
+      // Founder view: Large centered score cards with progress bars
       scoresRow.innerHTML = `
         <div class="ov-score-card">
-          <div class="ov-score-icon" style="color:${geoColor};">◎</div>
           <div class="ov-score-body">
+            <div class="ov-score-val" style="color:${geoColor};">${geoScore}</div>
             <div class="ov-score-label">GEO Score</div>
-            <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
-            <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${geoScore}%;background:${geoColor};border-radius:2px;transition:width .6s ease;"></div></div>
-            <div class="ov-score-tag" style="color:${geoColor};margin-top:6px;">${geoLabel} — ${geoScore >= 70 ? 'Excellent AI visibility' : geoScore >= 40 ? 'Growing steadily' : geoScore > 0 ? 'Needs improvement' : 'Not visible yet'}</div>
+            <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${geoScore}%;background:${geoColor};"></div></div>
+            <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
           </div>
         </div>
         <div class="ov-score-card">
-          <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
           <div class="ov-score-body">
+            <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}</div>
             <div class="ov-score-label">Brand Perception</div>
-            <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
-            <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${sentimentScore}%;background:${sentColor};border-radius:2px;transition:width .6s ease;"></div></div>
-            <div class="ov-score-breakdown" style="margin-top:6px;"><span style="color:var(--green);">+${posCount} positive</span> <span style="color:var(--muted);">~${neuCount} neutral</span> <span style="color:var(--red);">-${negCount} negative</span></div>
+            <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${sentimentScore}%;background:${sentColor};"></div></div>
+            <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount} positive</span> <span style="color:var(--muted);">~${neuCount} neutral</span> <span style="color:var(--red);">-${negCount} negative</span></div>
           </div>
         </div>
         <div class="ov-score-card">
-          <div class="ov-score-icon" style="color:${recColor};">★</div>
           <div class="ov-score-body">
-            <div class="ov-score-label">AI Recommends You</div>
             <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
-            <div style="height:4px;background:var(--bg3);border-radius:2px;margin-top:8px;overflow:hidden;"><div style="height:100%;width:${recPct}%;background:${recColor};border-radius:2px;transition:width .6s ease;"></div></div>
-            <div class="ov-score-tag" style="color:${recColor};margin-top:6px;">${recPct >= 50 ? 'Strong endorsement rate' : recPct > 0 ? 'Room to grow' : 'Not yet recommended'}</div>
+            <div class="ov-score-label">AI Recommends You</div>
+            <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${recPct}%;background:${recColor};"></div></div>
+            <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement rate' : recPct > 0 ? 'Room to grow' : 'Not yet recommended'}</div>
           </div>
         </div>
       `;
     } else {
       scoresRow.innerHTML = `
         <div class="ov-score-card">
-          <div class="ov-score-icon" style="color:${geoColor};">◎</div>
           <div class="ov-score-body">
+            <div class="ov-score-val" style="color:${geoColor};">${geoScore}</div>
             <div class="ov-score-label">GEO Score</div>
-            <div class="ov-score-val" style="color:${geoColor};">${geoScore}<span class="ov-score-unit">/100</span></div>
+            <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${geoScore}%;background:${geoColor};"></div></div>
             <div class="ov-score-tag" style="color:${geoColor};">${geoLabel}</div>
           </div>
         </div>
         <div class="ov-score-card">
-          <div class="ov-score-icon" style="color:${sentColor};">${sentimentScore >= 60 ? '◕' : sentimentScore > 0 ? '◑' : '○'}</div>
           <div class="ov-score-body">
+            <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}</div>
             <div class="ov-score-label">AI Sentiment</div>
-            <div class="ov-score-val" style="color:${sentColor};">${sentimentScore}<span class="ov-score-unit">/100</span></div>
-            <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount}</span> <span style="color:var(--muted);">~${neuCount}</span> <span style="color:var(--red);">-${negCount}</span></div>
+            <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${sentimentScore}%;background:${sentColor};"></div></div>
+            <div class="ov-score-breakdown"><span style="color:var(--green);">+${posCount} positive</span> <span style="color:var(--muted);">~${neuCount} neutral</span> <span style="color:var(--red);">-${negCount} negative</span></div>
           </div>
         </div>
         <div class="ov-score-card">
-          <div class="ov-score-icon" style="color:${recColor};">★</div>
           <div class="ov-score-body">
-            <div class="ov-score-label">Recommended</div>
             <div class="ov-score-val" style="color:${recColor};">${recPct}<span class="ov-score-unit">%</span></div>
-            <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Occasional' : 'Not yet'}</div>
+            <div class="ov-score-label">AI Recommends You</div>
+            <div class="ov-score-bar"><div class="ov-score-bar-fill" style="width:${recPct}%;background:${recColor};"></div></div>
+            <div class="ov-score-tag" style="color:${recColor};">${recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Moderate endorsement' : 'Not yet'}</div>
           </div>
         </div>
       `;
@@ -2583,12 +2577,9 @@ function renderOverview(){
     const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
     const div = document.createElement('div');
     div.className = 'ov-plat-card';
-    div.innerHTML = `<div class="ov-plat-logo" style="color:${t.color||'#fff'}">${t.logo||'?'}</div>
-      <div class="ov-plat-info">
-        <div class="ov-plat-name">${plat}</div>
-        <div class="ov-plat-status" style="color:${active ? 'var(--green)' : 'var(--muted)'}">${active ? '● ACTIVE' : '○ INACTIVE'}</div>
-        <div class="ov-plat-bar"><div class="ov-plat-bar-fill" style="width:${pSov}%;background:${barColor};"></div></div>
-      </div>
+    div.innerHTML = `<div class="ov-plat-name" style="color:${t.color||'var(--text)'}">${plat}</div>
+      <div class="ov-plat-status" style="color:${active ? 'var(--green)' : 'var(--muted)'}">${active ? '● ACTIVE' : '○ INACTIVE'}</div>
+      <div class="ov-plat-bar"><div class="ov-plat-bar-fill" style="width:${pSov}%;background:${barColor};"></div></div>
       <div class="ov-plat-sov" style="color:${pSov > 0 ? t.color || 'var(--green)' : 'var(--muted)'}">${pSov}%</div>`;
     pg.appendChild(div);
   });
