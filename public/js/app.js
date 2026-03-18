@@ -3298,47 +3298,21 @@ function renderMentions(){
   const sovPct = ok.length ? Math.round(found.length / ok.length * 100) : 0;
   const recPct = ok.length ? Math.round(rec.length / ok.length * 100) : 0;
 
-  // ── Score cards (3 cards) ──
-  kpis.innerHTML = `<div class="mt-scores">
-    <div class="mt-score">
-      <div class="mt-score-ring">
-        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--green)" stroke-width="3" stroke-dasharray="${sovPct} ${100-sovPct}" stroke-dashoffset="25" stroke-linecap="round" style="transition:stroke-dasharray .6s ease;"/></svg>
-        <span class="mt-score-pct">${sovPct}%</span>
-      </div>
-      <div>
-        <div class="mt-score-title">Share of Voice</div>
-        <div class="mt-score-detail"><span style="color:var(--green);font-weight:700;">${found.length}</span> mentioned out of ${ok.length} queries</div>
-      </div>
-    </div>
-    <div class="mt-score">
-      <div class="mt-score-ring">
-        <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="18" cy="18" r="15.91" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="${recPct} ${100-recPct}" stroke-dashoffset="25" stroke-linecap="round" style="transition:stroke-dasharray .6s ease;"/></svg>
-        <span class="mt-score-pct">${recPct}%</span>
-      </div>
-      <div>
-        <div class="mt-score-title">Recommendation Rate</div>
-        <div class="mt-score-detail"><span style="color:var(--accent);font-weight:700;">${rec.length}</span> of ${ok.length} recommend your brand</div>
-      </div>
-    </div>
-    <div class="mt-score mt-score-breakdown">
-      <div class="mt-score-title" style="margin-bottom:8px;">Breakdown</div>
-      <div class="mt-breakdown-grid">
-        <div class="mt-bd"><span class="mt-bd-dot" style="background:var(--green);"></span>Positive <strong>${pos.length}</strong></div>
-        <div class="mt-bd"><span class="mt-bd-dot" style="background:var(--red);"></span>Negative <strong>${neg.length}</strong></div>
-        <div class="mt-bd"><span class="mt-bd-dot" style="background:var(--muted);"></span>Neutral <strong>${found.length - pos.length - neg.length}</strong></div>
-        ${errs.length ? `<div class="mt-bd"><span class="mt-bd-dot" style="background:var(--amber);"></span>Errors <strong>${errs.length}</strong></div>` : ''}
-      </div>
-    </div>
-  </div>`;
-
-  // ── Platform chips ──
+  // ── Platform counts ──
   const pc = {};
   all.forEach(r => { if (!pc[r.platform]) pc[r.platform]={t:0,f:0}; pc[r.platform].t++; if(r.mentioned)pc[r.platform].f++; });
-  let chips = `<button class="mt-chip ${mentionsPlatFilter==='all'?'mt-chip-active':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All <span class="mt-chip-n">${all.length}</span></button>`;
+
+  // ── KPI Cards (4 cards matching preview) ──
+  kpis.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${sovPct}%</div><div class="score-label">Mention Rate</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;">${found.length}/${ok.length}</div><div class="score-label">Found / Total</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${Object.keys(pc).length}</div><div class="score-label">Platforms</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--purple);">${recPct}%</div><div class="score-label">Recommended</div></div>
+  </div>`;
+  let chips = `<span class="plat-filter ${mentionsPlatFilter==='all'?'active-filter':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All</span>`;
   Object.entries(pc).sort((a,b)=>b[1].f-a[1].f).forEach(([p,c])=>{
-    const t=PLAT_THEME[p]||{};
     const on=mentionsPlatFilter===p;
-    chips+=`<button class="mt-chip ${on?'mt-chip-active':''}" onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()" style="${on?'border-color:'+t.color+';background:'+t.bg+';color:'+t.color+';':''}"><span style="color:${t.color||'#888'}">${t.logo||'?'}</span> ${esc(p)} <span class="mt-chip-n">${c.f}/${c.t}</span></button>`;
+    chips+=`<span class="plat-filter ${on?'active-filter':''}" onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${esc(p)}</span>`;
   });
   platFilters.innerHTML = chips;
 
@@ -3366,106 +3340,51 @@ function renderMentions(){
   const from = mentionsPage * MENTIONS_PER_PAGE;
   const slice = filtered.slice(from, from + MENTIONS_PER_PAGE);
 
-  // ── Result list ──
-  const runTimeObj = new Date(run.time || run.date);
-  const runDateTimeStr = runTimeObj.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + runTimeObj.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-
-  let html = '';
+  // ── Results table (preview design) ──
+  let html = `<div class="card" style="padding:0;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Query</th><th class="th">Status</th><th class="th">Sentiment</th><th class="th">Position</th></tr></thead>
+      <tbody>`;
   slice.forEach((r, i) => {
     const t = PLAT_THEME[r.platform]||{};
-    const gi = from + i;
-    const open = mentionsExpandedRow === gi;
     const isErr = r.error;
     const sent = r.sentiment||'neutral';
-    const preview = isErr ? friendlyError(r.errorMessage) : (r.raw||r.context||'').replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0,180);
-
-    // Status
-    let statusHtml, borderClr;
-    if (isErr) { statusHtml = '<span class="mt-tag mt-tag-err">Error</span>'; borderClr = 'var(--amber)'; }
-    else if (r.mentioned) { statusHtml = '<span class="mt-tag mt-tag-yes">Mentioned</span>'; borderClr = 'var(--green)'; }
-    else { statusHtml = '<span class="mt-tag mt-tag-no">Not Found</span>'; borderClr = 'var(--red)'; }
-
-    // Sentiment + rec
-    let metaHtml = '';
-    if (!isErr) {
-      if (sent==='positive') metaHtml += '<span class="mt-tag mt-tag-pos">Positive</span>';
-      else if (sent==='negative') metaHtml += '<span class="mt-tag mt-tag-neg">Negative</span>';
-      if (r.recommended) metaHtml += '<span class="mt-tag mt-tag-rec">Recommended</span>';
-    }
-
-    html += `<div class="mt-item ${open?'mt-item-open':''}" style="--accent-clr:${borderClr};animation:fadeIn .2s ease ${Math.min(i*0.03,.25)}s both;">
-      <div class="mt-item-main" onclick="toggleMentionRow(${gi})">
-        <div class="mt-item-left">
-          <div class="mt-item-plat" style="background:${t.bg||'var(--bg3)'};border-color:${(t.color||'var(--border)')}25;">
-            <span style="color:${t.color||'#888'};font-size:15px;">${t.logo||'?'}</span>
-          </div>
-          <div class="mt-item-text">
-            <div class="mt-item-query">${esc(r.query)}<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(r.query))},this)" title="Copy keyword">&#x2398;</button></div>
-            <div class="mt-item-meta">
-              <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
-              <span class="mt-item-model">${esc(r.model||'')}</span>
-              <span class="mt-item-time" style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:4px;">${runDateTimeStr}</span>
-            </div>
-          </div>
-        </div>
-        <div class="mt-item-right">
-          <div class="mt-item-tags">${statusHtml}${metaHtml}</div>
-          ${isErr ? `<button class="mt-retry-btn" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" title="Retry this query">↻ Retry</button>` : `<button class="mt-retry-btn" onclick="event.stopPropagation();recheckQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" title="Recheck this query for mention changes">⟳ Recheck</button>`}
-          <span class="mt-item-chevron">${open?'▾':'▸'}</span>
-        </div>
-      </div>
-      ${!open ? `<div class="mt-item-preview">${esc(preview)}${preview.length>=180?'…':''}</div>` : ''}
-    </div>`;
-
-    // ── Expanded detail ──
-    if (open) {
+    const statusHtml = isErr ? '<span style="color:var(--amber);font-family:var(--mono);font-size:10px;font-weight:700;">ERROR</span>'
+      : r.mentioned ? '<span class="status-found">FOUND</span>'
+      : '<span class="status-notfound">NOT FOUND</span>';
+    const sentColor = sent==='positive' ? 'var(--green)' : sent==='negative' ? 'var(--red)' : 'var(--muted)';
+    const sentLabel = isErr || !r.mentioned ? '—' : `<span style="color:${sentColor};">${sent.charAt(0).toUpperCase()+sent.slice(1)}</span>`;
+    const posLabel = r.mentioned && r.listPosition ? '#'+r.listPosition : '—';
+    html += `<tr class="trow" style="cursor:pointer;" onclick="toggleMentionRow(${from+i})">
+      <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${esc(r.platform)}</span></td>
+      <td class="td">${esc(r.query)}</td>
+      <td class="td">${statusHtml}</td>
+      <td class="td">${sentLabel}</td>
+      <td class="td">${posLabel}</td>
+    </tr>`;
+    // Expanded detail row
+    if (mentionsExpandedRow === from + i) {
       const full = isErr ? friendlyError(r.errorMessage) : (r.raw||r.context||'');
       const hre = brandHighlightRe(b);
       const hlHtml = hre ? mdToHtml(full).replace(hre, (m) => '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">'+esc(m)+'</mark>') : mdToHtml(full);
-
-      html += `<div class="mt-detail" style="animation:slideDown .2s ease;">
-        <div class="mt-detail-body">
-          <div class="mt-detail-label">AI Response</div>
-          <div class="mt-detail-text">${hlHtml}</div>
-        </div>
-        <div class="mt-detail-aside">
-          <div class="mt-detail-card">
-            <div class="mt-dc-row"><span>Platform</span><strong style="color:${t.color||'var(--text)'};">${t.logo||''} ${esc(r.platform)}</strong></div>
-            <div class="mt-dc-row"><span>Model</span><strong>${esc(r.model||'—')}</strong></div>
-            <div class="mt-dc-row"><span>Status</span><strong style="color:${borderClr};">${isErr?'Error':r.mentioned?'Mentioned':'Not Found'}</strong></div>
-            ${!isErr?`<div class="mt-dc-row"><span>Sentiment</span><strong>${sent}</strong></div>`:''}
-            <div class="mt-dc-row"><span>Recommended</span><strong>${r.recommended?'<span style="color:var(--green);">Yes</span>':'No'}</strong></div>
-            ${r.matchedLocation?`<div class="mt-dc-row"><span>Location</span><strong>${esc(r.matchedLocation)}</strong></div>`:''}
-            ${r.cites?`<div class="mt-dc-row"><span>Cited</span><strong style="color:var(--green);">Yes</strong></div>`:''}
-            <div class="mt-dc-row"><span>Captured</span><strong style="font-size:10px;">${runDateTimeStr}</strong></div>
-          </div>
-          ${isErr
-            ? `<button class="mt-retry-btn mt-retry-lg" onclick="event.stopPropagation();retryQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)">↻ Retry This Query</button>`
-            : `<button class="mt-retry-btn mt-retry-lg" onclick="event.stopPropagation();recheckQuery('${escAttr(runId)}','${escAttr(r.platform)}','${escAttr(r.query)}',this)" style="margin-bottom:6px;">⟳ Recheck Mention</button>
-               <button onclick="event.stopPropagation();openResultFromRun('${escAttr(runId)}','${escAttr(r.platform)}','${safeBtoa(encodeURIComponent(r.query))}')" class="mt-btn-view">View Full Response →</button>`
-          }
-        </div>
-      </div>`;
+      html += `<tr><td colspan="5" style="padding:16px;background:var(--bg);border-bottom:1px solid var(--bg3);">
+        <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid ${r.mentioned?'var(--green)':'var(--red)'};">${hlHtml}</div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: ${esc(r.model||'—')} &middot; Position: ${posLabel} &middot; Sentiment: ${sent} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
+      </td></tr>`;
     }
   });
+  html += `</tbody></table></div>`;
+  html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing ${from+1}–${Math.min(from+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results</div>`;
 
-  // ── Per-page selector + Pagination ──
-  const ppOptions = [10,15,25,50,100].map(n => `<option value="${n}"${MENTIONS_PER_PAGE===n?' selected':''}>${n}</option>`).join('');
-  const ppHtml = `<div class="mt-perpage"><span class="mt-perpage-label">Show</span><select class="mt-perpage-sel" onchange="MENTIONS_PER_PAGE=+this.value;mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${ppOptions}</select><span class="mt-perpage-label">per page</span></div>`;
-
+  // Pagination
   if (pages > 1) {
     const ps = Math.max(0, Math.min(mentionsPage - 2, pages - 5));
     const pe = Math.min(pages - 1, ps + 4);
-    html += `<div class="mt-pager">
-      <span class="mt-pager-info">Showing ${from+1}–${Math.min(from+MENTIONS_PER_PAGE,filtered.length)} of ${filtered.length} results</span>
-      <div class="mt-pager-btns">`;
-    if (mentionsPage > 0) html += `<button class="mt-pg" onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()" title="Previous">‹</button>`;
-    for (let p=ps;p<=pe;p++) html += `<button class="mt-pg ${p===mentionsPage?'mt-pg-cur':''}" onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()">${p+1}</button>`;
-    if (mentionsPage < pages-1) html += `<button class="mt-pg" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()" title="Next">›</button>`;
-    if (mentionsPage < pages-2) html += `<button class="mt-pg" onclick="mentionsPage=${pages-1};mentionsExpandedRow=null;renderMentions()" title="Last page">»</button>`;
-    html += `</div>${ppHtml}</div>`;
-  } else if (filtered.length) {
-    html += `<div class="mt-pager"><span class="mt-pager-info">Showing all ${filtered.length} results</span>${ppHtml}</div>`;
+    html += `<div style="display:flex;justify-content:center;gap:4px;margin-top:8px;">`;
+    if (mentionsPage > 0) html += `<button class="pbtn" onclick="mentionsPage--;mentionsExpandedRow=null;renderMentions()">‹</button>`;
+    for (let p=ps;p<=pe;p++) html += `<button class="pbtn" style="${p===mentionsPage?'background:var(--primary);color:#fff;border-color:var(--primary);':''}" onclick="mentionsPage=${p};mentionsExpandedRow=null;renderMentions()">${p+1}</button>`;
+    if (mentionsPage < pages-1) html += `<button class="pbtn" onclick="mentionsPage++;mentionsExpandedRow=null;renderMentions()">›</button>`;
+    html += `</div>`;
   }
 
   cont.innerHTML = html;
@@ -3634,119 +3553,63 @@ function renderProof(){
   const platCount = (run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size;
   const sovColor = run.sov >= 70 ? 'var(--green)' : run.sov >= 40 ? 'var(--amber)' : 'var(--red)';
 
+  // Summary strip — 3 colored stat boxes (preview design)
   const summaryEl = el('proof-summary-strip');
   if (summaryEl) {
-    summaryEl.innerHTML = `<div class="proof-summary">
-      <div class="proof-stat"><span class="proof-stat-dot" style="background:var(--blue);"></span>${runDate.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runDate.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}</div>
-      <div class="proof-stat-sep"></div>
-      <div class="proof-stat"><span class="proof-stat-dot" style="background:var(--text);"></span>${totalResults} results</div>
-      <div class="proof-stat" style="color:var(--green);border-color:rgba(16,185,129,.25);"><span class="proof-stat-dot" style="background:var(--green);"></span>${foundCount} found</div>
-      <div class="proof-stat" style="color:var(--red);border-color:rgba(239,68,68,.2);"><span class="proof-stat-dot" style="background:var(--red);"></span>${notFoundCount} not found</div>
-      ${errorCount ? `<div class="proof-stat" style="color:var(--amber);border-color:rgba(245,158,11,.25);"><span class="proof-stat-dot" style="background:var(--amber);"></span>${errorCount} errors</div>` : ''}
-      <div class="proof-stat-sep"></div>
-      <div class="proof-stat">${queries.length} queries &times; ${platCount} platforms</div>
-      <div class="proof-stat" style="color:${sovColor};border-color:${sovColor};font-weight:700;">SOV ${run.sov}%</div>
+    summaryEl.innerHTML = `<div style="display:flex;gap:12px;margin-bottom:14px;">
+      <div style="flex:1;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--green);">${foundCount}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Found</div>
+      </div>
+      <div style="flex:1;background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--red);">${notFoundCount}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Not Found</div>
+      </div>
+      <div style="flex:1;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--blue);">${totalResults}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Total</div>
+      </div>
     </div>`;
   }
 
+  // Proof cards — flat list matching preview design
   let html = '';
+  let proofCount = 0;
+  const proofHre = brandHighlightRe(b);
+  allResults.forEach(r => {
+    if (platFilter && r.platform !== platFilter) return;
+    if (resultFilter === 'found' && !r.mentioned) return;
+    if (resultFilter === 'notfound' && (r.mentioned || r.error)) return;
+    proofCount++;
+    const t = PLAT_THEME[r.platform]||{};
+    const isErr = r.error;
+    const isMentioned = r.mentioned;
+    const responseText = isErr ? '' : (r.raw || r.context || '');
+    const excerpt = responseText.replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0, 300);
+    const highlighted = proofHre ? esc(excerpt).replace(proofHre, (m) => '<strong style="color:var(--green);">'+m+'</strong>') : esc(excerpt);
+    const statusHtml = isErr
+      ? '<span style="color:var(--amber);font-family:var(--mono);font-size:10px;font-weight:700;">ERROR</span>'
+      : isMentioned ? '<span class="status-found">FOUND</span>' : '<span class="status-notfound">NOT FOUND</span>';
+    const borderColor = isMentioned ? 'var(--green)' : 'var(--red)';
+    const modelName = r.model || r.platform;
+    const sentiment = r.sentiment || 'neutral';
+    const posLabel = isMentioned && r.listPosition ? '#' + r.listPosition : '—';
 
-  // Evidence cards — show EXACT AI response as proof for each query+platform
-  queries.forEach(q => {
-    // Use platforms from run data, not just PLATS constant
-    const runPlatforms = run.activePlatforms || [...new Set(allResults.map(r => r.platform))];
-    const platList = platFilter ? [platFilter] : (runPlatforms.length ? runPlatforms : PLATS);
-    let hasCards = false;
-    const cards = platList.map(plat => {
-      const m = mentions.find(x => x.platform===plat && x.query===q);
-      const fullResult = allResults.find(x => x.platform===plat && x.query===q);
-      const isMentionedResult = m || (fullResult && fullResult.mentioned);
-      if (resultFilter==='found' && !isMentionedResult) return '';
-      if (resultFilter==='notfound' && isMentionedResult) return '';
-      if (!fullResult && !m) return ''; // No data for this platform+query combo
-      hasCards = true;
-      const t = PLAT_THEME[plat]||{};
-      const isError = fullResult && fullResult.error;
-      const isMentioned = !!(m || (fullResult && fullResult.mentioned));
-      // Always prefer fullResult.raw (full AI response) as the authoritative source
-      // Fall back to mention data only if fullResult is missing
-      const responseText = isError
-        ? ''
-        : (fullResult ? (fullResult.raw || fullResult.context || '') : (m ? (m.raw || m.context || '') : ''));
-      const renderedResp = mdToHtml(responseText);
-      const proofHre = brandHighlightRe(b);
-      // Highlight brand name in ALL responses (not just mentioned) so user can verify
-      const displayResp = proofHre
-        ? renderedResp.replace(proofHre, (m) => '<mark>'+esc(m)+'</mark>')
-        : renderedResp;
-      const modelName = (m && m.model) || (fullResult && fullResult.model) || '';
-      const sentiment = (m && m.sentiment) || (fullResult && fullResult.sentiment) || 'neutral';
-      const sentBadge = sentiment==='positive'?'pos':sentiment==='negative'?'neg':'neu';
-      const cites = ((m && m.citations) || (fullResult && fullResult.citations) || []).length;
-      const recommended = (m && m.recommended) || (fullResult && fullResult.recommended) || false;
-      const locRelevant = (m && m.locationRelevant) || (fullResult && fullResult.locationRelevant);
-      const matchedLoc = (m && m.matchedLocation) || (fullResult && fullResult.matchedLocation) || '';
-      const compMentions = (fullResult && fullResult.competitorMentions) || [];
-
-      // Status badge — clear FOUND / NOT FOUND / ERROR
-      const statusBadge = isError
-        ? `<div class="proof-card-badge" style="color:var(--amber);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);font-weight:700;border-radius:var(--radius-full);">⚠ ERROR</div>`
-        : isMentioned
-        ? `<div class="proof-card-badge" style="color:var(--green);background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);font-weight:700;border-radius:var(--radius-full);">&#x2713; FOUND</div>`
-        : `<div class="proof-card-badge" style="color:var(--red);background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);font-weight:700;border-radius:var(--radius-full);">&#x2717; NOT FOUND</div>`;
-
-      const cardBg = 'var(--bg2)';
-      const cardBorder = isMentioned ? (t.color||'var(--border)')+'40' : 'var(--border)';
-      const mid = m ? m.id : null;
-      const viewBtn = mid
-        ? `<button class="proof-view-btn" onclick="openResp('${mid}')">VIEW FULL &#x2197;</button>`
-        : `<button class="proof-view-btn" onclick="openFullResult('${escAttr(plat)}','${safeBtoa(encodeURIComponent(q))}')">VIEW FULL &#x2197;</button>`;
-
-      return `<div class="proof-card" style="border-color:${cardBorder};">
-        <div class="proof-card-header" style="background:${t.bg||'var(--bg)'};border-bottom:1px solid ${cardBorder};">
-          <div class="proof-card-logo" style="color:${t.color||'var(--muted)'}">${t.logo||'?'}</div>
-          <div class="proof-card-name">${plat}</div>
-          <div class="proof-card-badges">${statusBadge}</div>
-        </div>
-        <div class="proof-card-body">
-          <div class="proof-card-query">"${esc(q)}"<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(q))},this)" title="Copy keyword">&#x2398;</button></div>
-          ${isError
-            ? `<div class="proof-not-found" style="color:var(--amber);"><div style="font-size:16px;margin-bottom:4px;">⚠</div><div style="font-weight:700;margin-bottom:4px;">API Error</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${friendlyError(fullResult.errorMessage)}</div></div>`
-            : displayResp
-            ? `<div class="proof-card-resp" id="proof-resp-${plat.replace(/\s/g,'')}-${safeBtoa(encodeURIComponent(q)).substring(0,12)}">${displayResp}</div>`
-            : `<div class="proof-not-found"><div style="font-size:16px;margin-bottom:4px;">—</div>No response received from this platform.</div>`
-          }
-        </div>
-        <div class="proof-card-footer">
-          <div class="proof-card-meta">
-            <span class="badge ${sentBadge}" title="${sentiment==='positive'?'AI spoke favorably':sentiment==='negative'?'AI expressed concerns':'Neutral mention'}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
-            ${recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-            ${matchedLoc?`<span class="proof-card-tag" style="color:var(--blue);border-color:rgba(59,130,246,.25);">${esc(matchedLoc)}</span>`:''}
-            ${cites?`<span class="proof-card-tag">${cites} source${cites>1?'s':''}</span>`:''}
-            ${compMentions.length?`<span class="proof-card-tag" style="color:var(--red);border-color:rgba(239,68,68,.25);" title="${esc(compMentions.join(', '))}">${compMentions.length} competitor${compMentions.length>1?'s':''}</span>`:''}
-            ${modelName?`<span class="proof-card-tag">${esc(modelName)}</span>`:''}
-          </div>
-          ${viewBtn}
-        </div>
-      </div>`;
-    }).join('');
-    if (hasCards && cards.trim()) {
-      const qFoundCount = platList.filter(p => {
-        const fr = allResults.find(x => x.platform===p && x.query===q);
-        return fr && fr.mentioned;
-      }).length;
-      const qTotalCount = platList.filter(p => allResults.find(x => x.platform===p && x.query===q)).length;
-      html += `<div style="margin-bottom:32px;">
-        <div class="proof-query-header">
-          <span class="q-icon">Q</span>
-          <span class="q-label">${esc(q)}</span>
-          <span class="q-count">${qFoundCount} / ${qTotalCount} found</span>
-        </div>
-        <div class="proof-grid">${cards}</div>
-      </div>`;
-    }
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div><span style="font-weight:700;color:${t.color||'#888'};">${esc(r.platform)}</span> <span style="color:var(--muted);font-size:11px;">&middot; ${esc(r.query)}</span></div>
+        ${statusHtml}
+      </div>
+      <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid ${borderColor};">
+        ${isErr ? esc(friendlyError(r.errorMessage)) : '"' + highlighted + (excerpt.length >= 300 ? '...' : '') + '"'}
+      </div>
+      <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: ${esc(modelName)} &middot; Position: ${posLabel} &middot; Sentiment: ${sentiment.charAt(0).toUpperCase()+sentiment.slice(1)} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
+    </div>`;
   });
-  cont.innerHTML = html || '<div class="empty-state"><p>No results match your filters.</p></div>';
+  if (proofCount > 0) {
+    html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing ${proofCount} of ${totalResults} proof entries</div>`;
+  }
+  cont.innerHTML = html || '<div style="text-align:center;color:var(--muted);padding:32px;">No results match your filters.</div>';
 }
 
 
@@ -6005,27 +5868,7 @@ async function renderPromptDetail() {
       const rankedPlatforms = platforms.filter(p => p.avg_rank);
       const avgRank = rankedPlatforms.length > 0 ? rankedPlatforms.reduce((s, p) => s + parseFloat(p.avg_rank), 0) / rankedPlatforms.length : 0;
 
-      metricsEl.innerHTML = `
-        <div class="card" style="padding:14px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;">${avgRate}%</div>
-          <div style="font-size:11px;color:var(--muted);">Mention Rate</div>
-        </div>
-        <div class="card" style="padding:14px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;">${totalRuns}</div>
-          <div style="font-size:11px;color:var(--muted);">Total Runs</div>
-        </div>
-        <div class="card" style="padding:14px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;">${totalMentions}</div>
-          <div style="font-size:11px;color:var(--muted);">Mentions</div>
-        </div>
-        <div class="card" style="padding:14px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;">${avgRank ? '#' + avgRank.toFixed(1) : '--'}</div>
-          <div style="font-size:11px;color:var(--muted);">Avg Rank</div>
-        </div>
-      `;
-
-      // Sentiment distribution
-      const sentEl = el('pd-sentiment-dist');
+      // Compute dominant sentiment
       let totalSent = 0;
       const sentAgg = { positive: 0, neutral: 0, negative: 0 };
       platforms.forEach(p => {
@@ -6035,11 +5878,16 @@ async function renderPromptDetail() {
         sentAgg.negative += (dist.negative || 0);
       });
       totalSent = sentAgg.positive + sentAgg.neutral + sentAgg.negative;
-      sentEl.innerHTML = ['positive', 'neutral', 'negative'].map(s => {
-        const pct = totalSent > 0 ? (sentAgg[s] / totalSent * 100).toFixed(0) : 0;
-        const colors = { positive: 'var(--green)', neutral: 'var(--muted)', negative: 'var(--red,#ef4444)' };
-        return `<div style="flex:1;text-align:center;"><div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${colors[s]};border-radius:4px;"></div></div><div style="font-size:11px;margin-top:4px;color:${colors[s]};">${s}: ${pct}% (${sentAgg[s]})</div></div>`;
-      }).join('');
+      const domSent = sentAgg.positive >= sentAgg.negative ? 'Positive' : 'Negative';
+      const domSentColor = domSent === 'Positive' ? 'var(--green)' : 'var(--red)';
+      const platFoundCount = platforms.filter(p => (p.mention_count || 0) > 0).length;
+
+      metricsEl.innerHTML = `
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--green);">${avgRate}%</div><div class="score-label">Visibility</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--blue);">${platFoundCount}/${platforms.length}</div><div class="score-label">Platforms Found</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:${domSentColor};">${domSent}</div><div class="score-label">Avg Sentiment</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:20px;color:var(--purple);">${avgRank ? '#' + avgRank.toFixed(1) : '--'}</div><div class="score-label">Avg Position</div></div>
+      `;
     } else {
       metricsEl.innerHTML = '<div class="card" style="padding:16px;grid-column:1/-1;text-align:center;color:var(--muted);">No data yet. Run queries to see prompt-level metrics.</div>';
     }
@@ -6097,53 +5945,31 @@ async function renderPromptDetail() {
       });
     }
 
-    // Diagnostics
-    const diagData = await api('GET', `/api/brands/${b.id}/diagnostics`);
-    const diagEl = el('pd-diagnostics');
-    if (diagData.events && diagData.events.length > 0) {
-      diagEl.innerHTML = diagData.events.map(ev => {
-        const sevColors = { high: '#ef4444', critical: '#dc2626', medium: '#f59e0b', info: '#3b82f6' };
-        return `<div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid ${sevColors[ev.severity] || '#888'};margin-bottom:8px;">
-          <div style="font-weight:600;font-size:13px;">${esc(ev.message)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Type: ${ev.type} | Severity: ${ev.severity}</div>
-        </div>`;
-      }).join('');
-    } else {
-      diagEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No diagnostic events detected. Everything looks stable.</div>';
-    }
-
-    // Load prompt metadata
-    const metaData = await api('GET', `/api/brands/${b.id}/prompt-metadata`);
-    const meta = (metaData.metadata || []).find(m => m.prompt === prompt);
-    if (meta) {
-      el('pd-intent').value = meta.intent || 'awareness';
-      el('pd-funnel').value = meta.funnel_stage || 'tofu';
-      el('pd-tags').value = (meta.tags || []).join(', ');
-    } else {
-      el('pd-intent').value = 'awareness';
-      el('pd-funnel').value = 'tofu';
-      el('pd-tags').value = '';
-    }
-
-    // Sample responses
-    const runsData = await api('GET', `/api/brands/${b.id}/prompt-runs?prompt=${encodeURIComponent(prompt)}&limit=5${platform ? '&platform=' + platform : ''}`);
-    const samplesEl = el('pd-sample-responses');
-    if (runsData.runs && runsData.runs.length > 0) {
-      samplesEl.innerHTML = runsData.runs.map(r => `
-        <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;margin-bottom:8px;cursor:pointer;" onclick="viewPromptRun('${b.id}','${r.id}')">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div><span style="font-weight:600;">${esc(r.platform)}</span> <span style="color:var(--muted);font-size:11px;">${r.model || ''}</span></div>
-            <div style="font-size:11px;color:var(--muted);">${new Date(r.created_at).toLocaleString()}</div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:4px;">
-            <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${r.mentioned ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.1)'};color:${r.mentioned ? 'var(--green)' : 'var(--red,#ef4444)'};">${r.mentioned ? 'Mentioned' : 'Not mentioned'}</span>
-            <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${r.sentiment}</span>
-            ${r.list_position ? `<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">#${r.list_position}</span>` : ''}
-          </div>
-        </div>
-      `).join('');
-    } else {
-      samplesEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No sample responses yet.</div>';
+    // Per-Platform Results table (preview design)
+    const tableEl = el('pd-platform-table');
+    if (tableEl && promptData) {
+      let tableRows = '';
+      Object.entries(promptData.platforms).forEach(([plat, pData]) => {
+        if (platform && plat !== platform) return;
+        const t = PLAT_THEME[plat]||{};
+        const found = (pData.mention_count || 0) > 0;
+        const sent = pData.sentiment_distribution || {};
+        const domS = (sent.positive||0) >= (sent.negative||0) ? (sent.positive ? 'Positive' : '—') : 'Negative';
+        const domSC = domS === 'Positive' ? 'var(--green)' : domS === 'Negative' ? 'var(--red)' : '';
+        const avgR = pData.avg_rank ? '#' + parseFloat(pData.avg_rank).toFixed(0) : '—';
+        tableRows += `<tr class="trow">
+          <td class="td" style="font-weight:700;color:${t.color||'#888'};">${esc(plat)}</td>
+          <td class="td">${found ? '<span class="status-found">YES</span>' : '<span class="status-notfound">NO</span>'}</td>
+          <td class="td">${avgR}</td>
+          <td class="td" style="color:${domSC};">${domS}</td>
+          <td class="td">${found ? 'Yes' : '—'}</td>
+        </tr>`;
+      });
+      tableEl.innerHTML = `<div class="card-title" style="padding:14px 14px 0;">Per-Platform Results</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Found</th><th class="th">Position</th><th class="th">Sentiment</th><th class="th">Recommended</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>`;
     }
   } catch(e) {
     console.error('[PromptDetails]', e);
@@ -6230,31 +6056,31 @@ async function renderRecommendations() {
       return;
     }
 
+    const sevColors = { critical: 'var(--red)', high: 'var(--red)', medium: 'var(--amber)', low: 'var(--blue)' };
+    const sevLabels = { critical: 'HIGH PRIORITY', high: 'HIGH PRIORITY', medium: 'MEDIUM', low: 'SUGGESTION' };
+    const sevBgs = { critical: 'rgba(239,68,68,.08)', high: 'rgba(239,68,68,.08)', medium: 'rgba(245,158,11,.08)', low: 'rgba(59,130,246,.08)' };
     listEl.innerHTML = recs.map(r => {
-      const sevColors = { critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
-      const statusIcons = { open: '○', in_progress: '◐', done: '●', ignored: '⊘' };
       const isDone = r.status === 'done';
-      return `<div class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid ${isDone ? 'var(--green)' : sevColors[r.severity] || '#888'};${isDone ? 'opacity:0.6;' : ''}">
-        <div style="display:flex;justify-content:space-between;align-items:start;">
-          <div style="flex:1;">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
-              <span style="font-size:14px;">${statusIcons[r.status] || '○'}</span>
-              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${sevColors[r.severity]}22;color:${sevColors[r.severity]};font-weight:600;text-transform:uppercase;">${r.severity}</span>
-              <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--muted);">${r.type}</span>
+      const color = isDone ? 'var(--green)' : (sevColors[r.severity] || 'var(--blue)');
+      const label = isDone ? 'ON TRACK' : (sevLabels[r.severity] || 'SUGGESTION');
+      const bg = isDone ? 'rgba(16,185,129,.08)' : (sevBgs[r.severity] || 'rgba(59,130,246,.08)');
+      return `<div class="card" style="border-left:3px solid ${color};${isDone ? 'opacity:0.7;' : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px;${isDone ? 'text-decoration:line-through;' : ''}">${esc(r.title)}</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">${esc(r.description || '')}</div>
+            ${r.playbook_id ? `<button class="pbtn" style="font-size:10px;margin-top:8px;" onclick="viewPlaybook('${r.playbook_id}')">View Playbook</button>` : ''}
+            <div style="display:flex;gap:6px;margin-top:8px;">
+              ${r.status !== 'done' ? `<button onclick="updateRecommendation('${r.id}','done')" style="font-family:var(--mono);font-size:9px;background:none;border:1px solid var(--green);color:var(--green);padding:3px 8px;cursor:pointer;border-radius:100px;white-space:nowrap;">&#10003; Done</button>` : ''}
+              <select class="brand-select" style="width:100px;font-size:10px;padding:2px 6px;" onchange="updateRecommendation('${r.id}',this.value)">
+                <option value="open" ${r.status==='open'?'selected':''}>Open</option>
+                <option value="in_progress" ${r.status==='in_progress'?'selected':''}>In Progress</option>
+                <option value="done" ${r.status==='done'?'selected':''}>Done</option>
+                <option value="ignored" ${r.status==='ignored'?'selected':''}>Ignored</option>
+              </select>
             </div>
-            <div style="font-weight:600;font-size:14px;margin-bottom:4px;${isDone ? 'text-decoration:line-through;' : ''}">${esc(r.title)}</div>
-            <div style="font-size:13px;color:var(--muted);">${esc(r.description || '')}</div>
-            ${r.playbook_id ? `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:8px;" onclick="viewPlaybook('${r.playbook_id}')">View Playbook</button>` : ''}
           </div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            ${r.status !== 'done' ? `<button onclick="updateRecommendation('${r.id}','done')" style="font-family:var(--mono);font-size:10px;background:none;border:1px solid var(--green);color:var(--green);padding:4px 10px;cursor:pointer;border-radius:var(--radius-xs);white-space:nowrap;" title="Mark as completed">&#10003; Done</button>` : ''}
-            <select class="finput" style="width:110px;margin:0;font-size:11px;padding:4px 8px;" onchange="updateRecommendation('${r.id}',this.value)">
-              <option value="open" ${r.status==='open'?'selected':''}>Open</option>
-              <option value="in_progress" ${r.status==='in_progress'?'selected':''}>In Progress</option>
-              <option value="done" ${r.status==='done'?'selected':''}>Done</option>
-              <option value="ignored" ${r.status==='ignored'?'selected':''}>Ignored</option>
-            </select>
-          </div>
+          <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:${bg};color:${color};font-weight:700;white-space:nowrap;">${label}</span>
         </div>
       </div>`;
     }).join('');
@@ -6314,6 +6140,26 @@ async function renderAccuracyMonitor() {
   try {
     const data = await api('GET', `/api/brands/${b.id}/facts`);
     const facts = data.facts || [];
+
+    // Populate KPI cards
+    const kpisEl = el('accuracy-kpis');
+    if (kpisEl) {
+      // Try to get accuracy results for KPI stats
+      let accRate = '--', issueCount = 0, claimsChecked = 0;
+      try {
+        const accData = await api('GET', `/api/brands/${b.id}/accuracy`);
+        const mismatches = accData.mismatches || [];
+        claimsChecked = accData.totalChecked || mismatches.length + (accData.matches || 0);
+        issueCount = mismatches.length;
+        accRate = claimsChecked > 0 ? Math.round(((claimsChecked - issueCount) / claimsChecked) * 100) + '%' : '--';
+      } catch(e) {}
+      kpisEl.innerHTML = `
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${accRate}</div><div class="score-label">Accuracy Rate</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--red);">${issueCount}</div><div class="score-label">Inaccuracies Found</div></div>
+        <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${claimsChecked || facts.length}</div><div class="score-label">Claims Verified</div></div>
+      `;
+    }
+
     const factsEl = el('facts-list');
     if (facts.length === 0) {
       factsEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No facts defined yet. Add canonical facts below.</div>';
@@ -6360,18 +6206,20 @@ async function checkAccuracy() {
   try {
     const data = await api('GET', `/api/brands/${b.id}/accuracy`);
     const el2 = el('accuracy-results');
+    // Re-render KPIs
+    renderAccuracyMonitor();
     if (data.mismatches && data.mismatches.length > 0) {
-      el2.innerHTML = `<div style="margin-bottom:8px;font-size:12px;color:var(--muted);">Checked ${data.totalChecked} responses against ${data.factCount} facts</div>` +
-        data.mismatches.map(m => `
-        <div style="padding:10px 14px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;margin-bottom:8px;">
-          <div style="font-weight:600;font-size:13px;color:var(--red,#ef4444);">Mismatch: "${esc(m.fact_key)}"</div>
-          <div style="font-size:12px;margin-top:4px;">Expected: <strong>${esc(m.expected_value)}</strong></div>
-          <div style="font-size:12px;margin-top:2px;">Platform: ${esc(m.platform)} | Prompt: "${esc(m.prompt)}"</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px;">${new Date(m.date).toLocaleString()}</div>
-        </div>
-      `).join('');
+      el2.innerHTML = data.mismatches.map((m, i) => {
+        const color = i === 0 ? 'var(--red)' : 'var(--amber)';
+        const bg = i === 0 ? 'rgba(239,68,68,.03)' : 'rgba(245,158,11,.03)';
+        const dateStr = new Date(m.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid ${color};background:${bg};border-radius:var(--radius-xs);margin-bottom:10px;">
+          <span style="color:${color};font-size:14px;">&#9888;</span>
+          <div style="font-size:12px;"><strong>${esc(m.platform)}</strong> stated incorrect "${esc(m.fact_key)}" — expected: ${esc(m.expected_value)} <span style="color:var(--muted);">Detected ${dateStr}</span></div>
+        </div>`;
+      }).join('');
     } else {
-      el2.innerHTML = `<div style="padding:16px;text-align:center;color:var(--green);">All AI responses match your canonical facts. Checked ${data.totalChecked} responses.</div>`;
+      el2.innerHTML = `<div style="padding:16px;text-align:center;color:var(--green);">All AI responses match your canonical facts. Checked ${data.totalChecked || 0} responses.</div>`;
     }
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 }
@@ -6387,24 +6235,15 @@ async function renderCitationAnalysis() {
     const data = await api('GET', `/api/brands/${b.id}/citation-analysis`);
     const domains = data.domains || [];
 
+    // Brand domain citation count
+    const bDomain = b.website ? b.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase() : '';
+    const ownDomainCites = bDomain ? domains.filter(d => d.domain.includes(bDomain)).reduce((s, d) => s + d.totalCitations, 0) : 0;
+
     const summaryEl = el('citation-summary');
-    const typeCount = {};
-    domains.forEach(d => { typeCount[d.type] = (typeCount[d.type] || 0) + d.totalCitations; });
     summaryEl.innerHTML = `
-      <div class="card" style="padding:14px;text-align:center;">
-        <div style="font-size:24px;font-weight:700;">${data.totalCitations || 0}</div>
-        <div style="font-size:11px;color:var(--muted);">Total Citations</div>
-      </div>
-      <div class="card" style="padding:14px;text-align:center;">
-        <div style="font-size:24px;font-weight:700;">${domains.length}</div>
-        <div style="font-size:11px;color:var(--muted);">Unique Domains</div>
-      </div>
-      ${Object.entries(typeCount).slice(0, 3).map(([type, count]) => `
-        <div class="card" style="padding:14px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;">${count}</div>
-          <div style="font-size:11px;color:var(--muted);">${type.replace('_', ' ')}</div>
-        </div>
-      `).join('')}
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--blue);">${domains.length}</div><div class="score-label">Domains Cited</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--green);">${data.totalCitations || 0}</div><div class="score-label">Total Citations</div></div>
+      <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--amber);">${ownDomainCites}</div><div class="score-label">Your Domain Cited</div></div>
     `;
 
     const domainsEl = el('citation-domains');
@@ -6412,19 +6251,14 @@ async function renderCitationAnalysis() {
       domainsEl.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">No citations found yet. Run more queries to build citation data.</div>';
       return;
     }
-    domainsEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;">
-      <thead><tr style="border-bottom:1px solid var(--bg3);">
-        <th style="text-align:left;padding:8px;">Domain</th>
-        <th style="text-align:center;padding:8px;">Type</th>
-        <th style="text-align:center;padding:8px;">Citations</th>
-        <th style="text-align:left;padding:8px;">Top URLs</th>
-      </tr></thead>
+    domainsEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:var(--bg3);"><th class="th">Domain</th><th class="th">Type</th><th class="th">Citations</th><th class="th">Top URLs</th></tr></thead>
       <tbody>${domains.map(d => `
-        <tr style="border-bottom:1px solid var(--bg3);">
-          <td style="padding:8px;font-weight:600;">${esc(d.domain)}</td>
-          <td style="padding:8px;text-align:center;"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${d.type}</span></td>
-          <td style="padding:8px;text-align:center;font-weight:600;">${d.totalCitations}</td>
-          <td style="padding:8px;font-size:11px;">${(d.urls || []).slice(0, 2).map(u => `<a href="${safeHref(u.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;">${esc(u.url.substring(0, 50))}...</a> (${u.count})`).join('<br>')}</td>
+        <tr class="trow">
+          <td class="td" style="font-weight:600;">${esc(d.domain)}</td>
+          <td class="td"><span style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg3);">${d.type}</span></td>
+          <td class="td" style="font-weight:600;">${d.totalCitations}</td>
+          <td class="td" style="font-size:11px;">${(d.urls || []).slice(0, 2).map(u => `<a href="${safeHref(u.url)}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;">${esc(u.url.substring(0, 50))}...</a> (${u.count})`).join('<br>')}</td>
         </tr>`).join('')}</tbody>
     </table>`;
   } catch(e) { toast('Failed to load citations', 'err'); }
