@@ -787,17 +787,15 @@
 
     <!-- OVERVIEW ─────────────────────────── -->
     <div id="view-overview" class="view active">
-      <!-- Header Row: Brand name + RUN NOW -->
-      <div class="ov-header">
-        <div style="min-width:0;">
-          <div class="view-title" id="ov-brand-title">Overview</div>
-          <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
-        </div>
-        <div class="ov-header-actions" id="ov-header-actions"></div>
+      <!-- Header Row: Brand name -->
+      <div style="margin-bottom:4px;">
+        <div class="view-title" id="ov-brand-title">Overview</div>
+        <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
       </div>
+      <div class="ov-header-actions" id="ov-header-actions" style="display:none;"></div>
 
-      <!-- Controls Row: right-aligned -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;justify-content:flex-end;">
+      <!-- Controls Row: single line, right-aligned -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;justify-content:flex-end;flex-wrap:wrap;">
         <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
           <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
         </div>
@@ -1744,6 +1742,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=23" defer></script>
+<script src="/js/app.min.js?v=24" defer></script>
 </body>
 </html>
