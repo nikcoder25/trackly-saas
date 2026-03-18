@@ -3688,7 +3688,7 @@ async function renderPlatformStatus(){
   // Fetch platform health from API
   const healthDiv = el('plat-health-cards');
   try {
-    const hData = await api('GET', '/api/meta/platforms');
+    const hData = await cachedApi('GET', '/api/meta/platforms', null, 60000);
     const platformsObj = hData.platforms || {};
     const platformEntries = Object.entries(platformsObj);
     if (platformEntries.length) {
@@ -4172,6 +4172,7 @@ async function saveWebhook(){
   const url = el('alert-webhook-url').value.trim();
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { webhookUrl: url });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAlerts();
     toast(url ? 'Webhook saved' : 'Webhook removed', 'ok');
@@ -4201,6 +4202,7 @@ async function loadQuerySuggestions(){
     if (!pick) return;
     const queries = [...(b.queries || []), ...newSuggestions];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
     updateBrandInList(result.brand);
     renderAll();
     toast(newSuggestions.length + ' queries added', 'ok');
@@ -4387,6 +4389,7 @@ async function addAlias(){
   if (!aliases.some(a => a.toLowerCase() === val.toLowerCase())) aliases.push(val);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     inp.value = '';
     renderAliasTags();
@@ -4401,6 +4404,7 @@ async function removeAlias(i){
   const aliases = (b.aliases||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAliasTags();
     toast('Alias removed', 'ok');
@@ -4419,6 +4423,7 @@ async function autoGenerateAliases(){
   });
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { aliases: newAliases });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAliasTags();
     toast(generated.length + ' aliases generated', 'ok');
@@ -4450,6 +4455,7 @@ async function addArea(){
   if (!nearbyAreas.some(a => a.toLowerCase() === val.toLowerCase())) nearbyAreas.push(val);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     inp.value = '';
     renderAreaTags();
@@ -4464,6 +4470,7 @@ async function removeArea(i){
   const nearbyAreas = (b.nearbyAreas||[]).filter((_,idx)=>idx!==i);
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { nearbyAreas });
+    invalidateCache('/api/brands');
     updateBrandInList(data.brand);
     renderAreaTags();
     toast('Area removed', 'ok');
@@ -4488,6 +4495,7 @@ async function autoFetchNearbyAreas(){
 
     const nearbyAreas = [...(b.nearbyAreas || []), ...newAreas];
     const saveData = await api('PUT', '/api/brands/' + b.id, { nearbyAreas });
+    invalidateCache('/api/brands');
     updateBrandInList(saveData.brand);
     renderAreaTags();
     toast(newAreas.length + ' nearby areas added', 'ok');
@@ -4560,6 +4568,7 @@ async function saveBrandSetup(){
       aliases: b.aliases || [],
       nearbyAreas: b.nearbyAreas || []
     });
+    invalidateCache('/api/brands');
     const idx = brands.findIndex(x=>x.id===b.id);
     if (idx >= 0) brands[idx] = data.brand;
     renderBrandSelect();
@@ -4862,6 +4871,7 @@ async function runQueries(){
 
     // Reload fresh brand data from API (the done event only contains result summary
     // to avoid sending massive payloads that freeze the browser)
+    invalidateCache('/api/brands');
     try {
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
@@ -4957,6 +4967,7 @@ async function runQueries(){
     });
 
     // Reload brand data (emergency save may have stored partial results)
+    invalidateCache('/api/brands');
     try {
       const freshData = await api('GET', '/api/brands');
       if (freshData.brands) {
@@ -5066,6 +5077,7 @@ async function pollRunStatus(brandId, runId, opts) {
             if (statusTxt) statusTxt.style.color = '';
 
             // Reload fresh brand data
+            invalidateCache('/api/brands');
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) {
@@ -5116,6 +5128,7 @@ async function pollRunStatus(brandId, runId, opts) {
             if (fill) { fill.style.width = '0%'; fill.style.background = 'var(--red)'; }
 
             // Reload brand data (emergency save may have stored partial results)
+            invalidateCache('/api/brands');
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
@@ -5195,6 +5208,7 @@ async function checkActiveRun() {
     } else {
       // Run already finished while we were away — just clear and reload
       localStorage.removeItem('trackly_active_run');
+      invalidateCache('/api/brands');
       try {
         const freshData = await api('GET', '/api/brands');
         if (freshData.brands) {
@@ -6600,6 +6614,7 @@ async function saveAlertRule(){
   };
   try {
     await api('POST', '/api/brands/'+b.id+'/alerts', rule);
+    invalidateCache('/api/brands');
     el('alert-add-form').style.display = 'none';
     toast('Alert rule created','ok');
     renderAlerts();
