@@ -6270,19 +6270,21 @@ async function renderAccuracyMonitor() {
         resultsEl.innerHTML = mismatches.map(m => {
           const t = PLAT_THEME[m.platform] || {};
           const severity = m.severity === 'high' ? 'var(--red)' : 'var(--amber)';
-          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid ${severity};background:${severity === 'var(--red)' ? 'rgba(239,68,68,.03)' : 'rgba(245,158,11,.03)'};border-radius:var(--radius-xs);margin-bottom:10px;">
-            <span style="color:${severity};font-size:14px;">&#9888;</span>
-            <div style="font-size:12px;flex:1;">
-              <strong style="color:${t.color || 'var(--text)'};">${esc(m.platform || 'Unknown')}</strong>
-              ${m.fact_key ? ` says <em>"${esc(m.ai_value || '?')}"</em> for <strong>${esc(m.fact_key)}</strong> — actual value is <strong>"${esc(m.fact_value || '?')}"</strong>` : esc(m.description || 'Mismatch detected')}
-              <span style="color:var(--muted);font-family:var(--mono);font-size:10px;display:block;margin-top:4px;">${m.detected_at ? new Date(m.detected_at).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : ''}</span>
+          const bgColor = severity === 'var(--red)' ? 'rgba(239,68,68,.03)' : 'rgba(245,158,11,.03)';
+          const dateStr = m.detected_at ? 'Detected ' + new Date(m.detected_at).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-left:3px solid ${severity};background:${bgColor};border-radius:var(--radius-xs);margin-bottom:10px;">
+            <span style="color:${severity};font-size:14px;flex-shrink:0;">&#9888;</span>
+            <div style="font-size:12px;line-height:1.6;">
+              <strong>${esc(m.platform || 'Unknown')}</strong>
+              ${m.fact_key ? ` stated ${esc(m.fact_key)} "${esc(m.ai_value || '?')}" — actual ${esc(m.fact_key)} is ${esc(m.fact_value || '?')}.` : esc(m.description || 'Mismatch detected')}
+              ${dateStr ? ` <span style="color:var(--muted);">${dateStr}</span>` : ''}
             </div>
           </div>`;
         }).join('');
       } else if (claimsChecked > 0) {
         resultsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--green);font-size:12px;font-weight:600;">No mismatches detected. AI platforms are reporting your brand information accurately.</div>`;
       } else {
-        resultsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Add canonical facts above and click "Check Now" to verify AI accuracy.</div>`;
+        resultsEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Add canonical facts below and click "Check Now" to verify AI accuracy.</div>`;
       }
     }
   } catch(e) {
@@ -6382,19 +6384,16 @@ async function renderCitationAnalysis() {
     }
 
     const maxCites = domains[0]?.totalCitations || 1;
-    domainsEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;">
-      <thead><tr style="background:var(--bg3);"><th class="th">Domain</th><th class="th">Type</th><th class="th">Citations</th><th class="th">Share</th></tr></thead>
-      <tbody>${domains.map(d => {
-        const isOwn = bDomain && d.domain.includes(bDomain);
-        const barW = Math.round(d.totalCitations / maxCites * 100);
-        return `<tr class="trow"${isOwn ? ' style="background:rgba(255,97,84,.03);"' : ''}>
-          <td class="td" style="font-weight:600;">${isOwn ? '<span style="color:var(--primary);">&#9733; </span>' : ''}${esc(d.domain)}</td>
-          <td class="td"><span style="font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:100px;background:var(--bg3);color:var(--muted);">${esc(d.type || 'other')}</span></td>
-          <td class="td" style="font-family:var(--mono);font-weight:700;">${d.totalCitations}</td>
-          <td class="td"><div style="width:100%;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;"><div style="width:${barW}%;height:100%;background:${isOwn ? 'var(--primary)' : 'var(--blue)'};border-radius:2px;"></div></div></td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table>`;
+    domainsEl.innerHTML = domains.map(d => {
+      const isOwn = bDomain && d.domain.includes(bDomain);
+      const barW = Math.round(d.totalCitations / maxCites * 100);
+      const barColor = isOwn ? 'var(--amber)' : 'var(--blue)';
+      return `<div class="qperf-bar-row">
+        <div class="qperf-bar-label">${isOwn ? '<span style="color:var(--amber);">&#9733; </span>' : ''}${esc(d.domain)}</div>
+        <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${barW}%;background:${barColor};"></div></div>
+        <div class="qperf-bar-value" style="color:var(--text);">${d.totalCitations}</div>
+      </div>`;
+    }).join('');
   } catch(e) {
     summaryEl.innerHTML = '';
     domainsEl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--muted);">

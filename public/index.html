@@ -1393,8 +1393,12 @@
         <button class="pbtn" onclick="checkAccuracy()" style="background:var(--primary);color:#fff;border-color:var(--primary);">Check Now</button>
       </div>
       <div id="accuracy-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
-      <div class="card" style="padding:16px;margin-bottom:14px;">
-        <div class="card-title">Canonical Facts</div>
+      <div class="card" style="padding:20px 24px;">
+        <div class="section-title">Recent Accuracy Issues</div>
+        <div id="accuracy-results"></div>
+      </div>
+      <div class="card" style="padding:16px;margin-top:14px;">
+        <div class="section-title">Canonical Facts</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:10px;">Define what's true about your brand. We'll check if AI gets it right.</div>
         <div id="facts-list"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;margin-top:12px;align-items:end;">
@@ -1403,10 +1407,6 @@
           <div><label class="flbl">Category</label><select class="finp" id="fact-category" style="margin:0;"><option value="general">General</option><option value="pricing">Pricing</option><option value="features">Features</option><option value="company">Company</option></select></div>
           <button class="pbtn" onclick="addFact()" style="font-weight:700;">Add</button>
         </div>
-      </div>
-      <div class="card" style="padding:16px;">
-        <div class="card-title">Detected Mismatches</div>
-        <div id="accuracy-results" style="margin-top:12px;"></div>
       </div>
     </div>
 
@@ -1419,8 +1419,8 @@
         </div>
       </div>
       <div id="citation-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;"></div>
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div class="card-title" style="padding:14px 14px 0;">Top Cited Domains</div>
+      <div class="card" style="padding:20px 24px;">
+        <div class="section-title">Top Cited Domains</div>
         <div id="citation-domains"></div>
       </div>
     </div>
