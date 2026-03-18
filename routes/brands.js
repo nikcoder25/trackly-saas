@@ -8,7 +8,7 @@ const { pool, auditLog, logApiCall, refreshPromptRunStats, notify, getDailyCost,
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
-const { queryAI, fetchJSON, resetBatchCount } = require('../lib/ai-platforms');
+const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 const { evaluateAlerts } = require('../lib/alerts');
 
@@ -1412,13 +1412,70 @@ async function runBrandQueries(brand) {
     }
   }
 
-  // Bounded concurrency worker pool (same pattern as main run endpoint)
+  // ── Claude Batch API (50% cheaper for scheduled runs) ──────────
+  // Separate Claude tasks from others. Claude queries that aren't cached
+  // are batched together via the Message Batches API for 50% cost savings.
+  const claudeEnabled = activePlatforms.includes('Claude');
+  const claudeKeyArr = keys.claude || [];
+  const claudeBatchKey = claudeKeyArr.length > 0 ? claudeKeyArr[0] : null;
+  let claudeBatchResults = new Map(); // queryIndex → result
+
+  if (claudeEnabled && claudeBatchKey && queries.length > 0) {
+    // Collect non-cached Claude queries for batching
+    const claudeQueries = []; // { originalQuery, taskIndices[] }
+    const claudeModel = modelPrefs.Claude || 'claude-haiku-4-5-20251001';
+
+    for (let i = 0; i < tasks.length; i++) {
+      if (tasks[i].plat === 'Claude') {
+        claudeQueries.push({ q: tasks[i].q, taskIdx: i });
+      }
+    }
+
+    if (claudeQueries.length > 0) {
+      try {
+        const batchQueries = claudeQueries.map(cq => cq.q);
+        const batchMap = await runClaudeBatch(batchQueries, claudeBatchKey, claudeModel);
+
+        // Map batch results back to task indices
+        for (let bIdx = 0; bIdx < claudeQueries.length; bIdx++) {
+          const batchResult = batchMap.get(bIdx);
+          if (batchResult) {
+            claudeBatchResults.set(claudeQueries[bIdx].taskIdx, batchResult);
+            // Log cost at 50% rate
+            const cost = estimateCost(claudeModel, batchResult.tokensIn, batchResult.tokensOut);
+            const batchCost = cost ? cost * 0.5 : null;
+            logApiCall({
+              userId: brand.userId, brandId: brand.id, platform: 'Claude',
+              query: claudeQueries[bIdx].q, status: 'ok', error: null,
+              keyHint: claudeBatchKey.slice(-6), model: batchResult.model || claudeModel,
+              responseMs: 0, tokensIn: batchResult.tokensIn, tokensOut: batchResult.tokensOut,
+              cost: batchCost
+            });
+          }
+        }
+        console.log(`[Cron] Claude Batch: ${batchMap.size}/${claudeQueries.length} succeeded (50% cost savings)`);
+      } catch (batchErr) {
+        console.error(`[Cron] Claude Batch failed, falling back to individual calls:`, batchErr.message);
+        // Fall through — Claude tasks without batch results will use normal queryAI below
+      }
+    }
+  }
+
+  // Bounded concurrency worker pool — skip Claude tasks that were handled by batch
   const CRON_CONCURRENCY = Math.max(activePlatforms.length, 8);
   let cronNextIdx = 0;
   const cronResults = new Array(tasks.length);
+
+  // Pre-fill batch results for Claude tasks
+  for (const [taskIdx, result] of claudeBatchResults) {
+    cronResults[taskIdx] = { status: 'fulfilled', value: { plat: 'Claude', q: tasks[taskIdx].q, result } };
+  }
+
   async function cronWorker() {
     while (cronNextIdx < tasks.length) {
       const idx = cronNextIdx++;
+      // Skip Claude tasks already handled by batch API
+      if (claudeBatchResults.has(idx)) continue;
       const { plat, q } = tasks[idx];
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
