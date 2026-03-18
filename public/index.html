@@ -1013,7 +1013,7 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-title">Competitor Brands</div>
+        <div class="section-title">Competitor Brands</div>
         <div id="comp-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
         <div style="display:flex;gap:8px;">
           <input class="finp" id="comp-input" type="text" placeholder="Add competitor name..." style="flex:1;" onkeydown="if(event.key==='Enter')addComp()">
@@ -1022,12 +1022,12 @@
       </div>
       <div id="comp-comparison" style="margin-top:14px;"></div>
       <div class="card" style="margin-top:14px;">
-        <div class="card-title">Competitor Co-occurrence (30 days)</div>
+        <div class="section-title">Competitor Co-occurrence (30 days)</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">How often competitors appear in AI responses across all prompts and platforms.</div>
         <div id="comp-cooccurrence"></div>
       </div>
-      <div class="card" style="margin-top:14px;">
-        <div class="card-title">Per-Platform Breakdown</div>
+      <div class="card" id="comp-platform-card" style="margin-top:14px;display:none;">
+        <div class="section-title">Per-Platform Breakdown</div>
         <div id="comp-platform-breakdown"></div>
       </div>
     </div>
@@ -1036,14 +1036,16 @@
     <div id="view-trends" class="view">
       <div class="view-title">SOV Trends</div>
       <div class="view-sub">Share of Voice over time — overall and per platform.</div>
-      <div id="trends-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;"></div>
+      <div id="trends-kpis" style="display:none;"></div>
       <div class="card" style="padding:20px;">
-        <div class="card-title">Overall SOV Trend</div>
-        <canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>
+        <div class="section-title">Overall SOV Trend</div>
+        <div id="sov-bar-container"></div>
+        <canvas id="sov-chart" style="width:100%;max-height:300px;display:none;"></canvas>
       </div>
       <div class="card" style="padding:20px;margin-top:14px;">
-        <div class="card-title">Per-Platform SOV Trend</div>
+        <div class="section-title">Per-Platform SOV Trend</div>
         <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
+        <div id="plat-sov-placeholder" class="pd-chart-placeholder" style="min-height:200px;"><span style="font-family:var(--mono);font-size:10px;">Chart: Multi-line graph per platform (ChatGPT, Perplexity, Claude, etc.)</span></div>
       </div>
     </div>
 

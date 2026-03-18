@@ -3826,6 +3826,8 @@ function renderQPerf(){
 }
 
 // ─── COMPETITORS ──────────────────────────────────────────────────
+const COMP_BAR_COLORS = ['var(--primary)', '#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1'];
+
 async function renderCompetitors(){
   const b = brand(); if (!b) return;
   const cont = el('comp-tags');
@@ -3861,7 +3863,6 @@ async function renderCompetitors(){
   }
 
   const allResults = lastRun.allResults || [];
-  // Count brand vs competitor mentions
   const brandMentions = allResults.filter(r => r.mentioned).length;
   const compStats = {};
   competitors.forEach(c => { compStats[c] = 0; });
@@ -3870,34 +3871,33 @@ async function renderCompetitors(){
     cm.forEach(c => { if (compStats[c] !== undefined) compStats[c]++; });
   });
 
-  let html = '<div class="card" style="padding:0;overflow:hidden;"><div class="card-title" style="padding:14px 14px 0;">Mention Comparison (Last Run)</div>';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Brand</th><th class="th">Mentions</th><th class="th">Share</th><th class="th">Bar</th></tr></thead><tbody>';
-
-  // Your brand row
   const total = allResults.length;
   const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
-  html += `<tr class="trow" style="background:rgba(255,97,84,.05);">
-    <td class="td"><strong style="color:var(--green);">${esc(b.name)}</strong> <span style="font-size:9px;color:var(--muted);font-family:var(--mono);">YOU</span></td>
-    <td class="td" style="font-family:var(--mono)">${brandMentions}/${total}</td>
-    <td class="td" style="font-family:var(--mono);color:var(--green);font-weight:700;">${brandPct}%</td>
-    <td class="td"><div class="sov-bar-wrap"><div class="sov-bar" style="width:${brandPct}%;background:var(--green);"></div></div></td>
-  </tr>`;
+
+  // Build horizontal bar chart for comparison
+  let html = `<div class="card"><div class="section-title">Competitor Comparison</div>`;
+
+  // Brand row (always first, red/primary color)
+  html += `<div class="qperf-bar-row">
+    <div class="qperf-bar-label" style="font-weight:700;">${esc(b.name)} <span style="font-size:10px;color:var(--muted);font-weight:400;">(You)</span></div>
+    <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${brandPct}%;background:var(--primary);"></div></div>
+    <div class="qperf-bar-value" style="color:var(--primary);">${brandPct}%</div>
+  </div>`;
 
   // Competitor rows sorted by mention count
   const sorted = competitors.slice().sort((a,b2) => (compStats[b2]||0) - (compStats[a]||0));
-  sorted.forEach(c => {
+  sorted.forEach((c, i) => {
     const cnt = compStats[c] || 0;
     const pct = total ? Math.round((cnt / total) * 100) : 0;
-    const clr = cnt > brandMentions ? 'var(--red)' : cnt === brandMentions ? 'var(--amber,#f59e0b)' : 'var(--muted)';
-    html += `<tr class="trow">
-      <td class="td">${esc(c)}</td>
-      <td class="td" style="font-family:var(--mono)">${cnt}/${total}</td>
-      <td class="td" style="font-family:var(--mono);color:${clr};font-weight:700;">${pct}%</td>
-      <td class="td"><div class="sov-bar-wrap"><div class="sov-bar" style="width:${pct}%;background:${clr};"></div></div></td>
-    </tr>`;
+    const clr = COMP_BAR_COLORS[(i + 1) % COMP_BAR_COLORS.length];
+    html += `<div class="qperf-bar-row">
+      <div class="qperf-bar-label">${esc(c)}</div>
+      <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${clr};"></div></div>
+      <div class="qperf-bar-value" style="color:${clr};">${pct}%</div>
+    </div>`;
   });
 
-  html += '</tbody></table></div>';
+  html += `</div>`;
   compDiv.innerHTML = html;
 
   // Fetch co-occurrence data from prompt_runs
@@ -3907,38 +3907,42 @@ async function renderCompetitors(){
     const coData = await api('GET', '/api/brands/'+b.id+'/competitor-analysis');
     const topComps = coData.topCompetitors || [];
     if (topComps.length) {
-      let coHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Competitor</th><th class="th">Appearances</th><th class="th">Prompts</th><th class="th">Platforms</th></tr></thead><tbody>';
-      topComps.forEach(c => {
-        coHtml += `<tr class="trow">
-          <td class="td" style="font-weight:600;">${esc(c.competitor)}</td>
-          <td class="td" style="font-family:var(--mono);">${c.total_appearances}</td>
-          <td class="td" style="font-family:var(--mono);">${c.prompt_count}</td>
-          <td class="td" style="font-family:var(--mono);">${c.platform_count}</td>
-        </tr>`;
+      const maxApp = Math.max(...topComps.map(c => c.total_appearances), 1);
+      let coHtml = '';
+      topComps.forEach((c, i) => {
+        const pct = (c.total_appearances / maxApp) * 100;
+        const clr = COMP_BAR_COLORS[(i + 1) % COMP_BAR_COLORS.length];
+        coHtml += `<div class="qperf-bar-row">
+          <div class="qperf-bar-label">${esc(c.competitor)}</div>
+          <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${clr};"></div></div>
+          <div class="qperf-bar-value" style="color:var(--text);">${c.total_appearances}x</div>
+        </div>`;
       });
-      coHtml += '</tbody></table>';
       cooccDiv.innerHTML = coHtml;
     } else {
       cooccDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">No co-occurrence data yet. Run more queries to build up data.</div>';
     }
 
-    // Platform breakdown
+    // Platform breakdown (keep but hide if empty)
     const byPlat = coData.byPlatform || [];
+    const platCard = el('comp-platform-card');
     if (byPlat.length) {
-      let pbHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Competitor</th><th class="th">Appearances</th><th class="th">Co-mentioned</th></tr></thead><tbody>';
-      byPlat.forEach(p => {
+      if (platCard) platCard.style.display = '';
+      let pbHtml = '';
+      byPlat.forEach((p, i) => {
         const t = PLAT_THEME[p.platform]||{};
-        pbHtml += `<tr class="trow">
-          <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(p.platform)}</span></td>
-          <td class="td">${esc(p.competitor)}</td>
-          <td class="td" style="font-family:var(--mono);">${p.appearances}</td>
-          <td class="td" style="font-family:var(--mono);">${p.co_mentioned_with_brand}</td>
-        </tr>`;
+        const maxPlatApp = Math.max(...byPlat.map(x => x.appearances), 1);
+        const pct = (p.appearances / maxPlatApp) * 100;
+        pbHtml += `<div class="qperf-bar-row">
+          <div class="qperf-bar-label"><span style="color:${t.color||'#888'};font-weight:600;">${t.logo||''} ${esc(p.platform)}</span> — ${esc(p.competitor)}</div>
+          <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${t.color||'#888'};"></div></div>
+          <div class="qperf-bar-value" style="color:var(--text);">${p.appearances}x</div>
+        </div>`;
       });
-      pbHtml += '</tbody></table>';
       platBreakDiv.innerHTML = pbHtml;
     } else {
-      platBreakDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">No platform breakdown data available.</div>';
+      if (platCard) platCard.style.display = 'none';
+      platBreakDiv.innerHTML = '';
     }
   } catch(e) {
     cooccDiv.innerHTML = '<div style="color:var(--muted);font-size:12px;">Could not load co-occurrence data.</div>';
@@ -3982,29 +3986,10 @@ let platSovChartInstance = null;
 function renderTrends(){
   const b = brand(); if (!b) return;
 
-  // Render KPI cards for trends
-  const tKpis = el('trends-kpis');
-  if (tKpis) {
-    const history = b.sovHistory || [];
-    const lastSOV = history.length ? history[history.length - 1].overall : 0;
-    const firstSOV = history.length > 1 ? history[0].overall : lastSOV;
-    const change = history.length > 1 ? lastSOV - firstSOV : 0;
-    const maxSOV = history.length ? Math.max(...history.map(h => h.overall)) : 0;
-    const avgSOV = history.length ? Math.round(history.reduce((s, h) => s + h.overall, 0) / history.length) : 0;
-    tKpis.innerHTML = `
-      <div class="score-card"><div class="score-val" style="font-size:24px;color:${lastSOV >= 50 ? 'var(--green)' : lastSOV > 0 ? 'var(--amber)' : 'var(--muted)'};">${lastSOV}%</div><div class="score-label">Current SOV</div></div>
-      <div class="score-card"><div class="score-val" style="font-size:24px;color:${change >= 0 ? 'var(--green)' : 'var(--red)'};">${change >= 0 ? '+' : ''}${change}%</div><div class="score-label">Overall Change</div></div>
-      <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--purple);">${maxSOV}%</div><div class="score-label">Peak SOV</div></div>
-      <div class="score-card"><div class="score-val" style="font-size:24px;">${avgSOV}%</div><div class="score-label">Average SOV</div></div>
-    `;
-  }
-
   // Lazy-load Chart.js then render
   ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
-    const cont = document.querySelector('#view-trends');
-    if (cont && !cont.querySelector('.chartjs-error')) {
-      cont.insertAdjacentHTML('afterbegin', '<div class="card" style="text-align:center;padding:24px;color:var(--muted);">Failed to load chart library. <a href="#" onclick="location.reload()" style="color:var(--primary);">Refresh page</a></div>');
-    }
+    // Fallback: still render bar chart (doesn't need Chart.js)
+    _renderTrendsCharts(b);
   });
 }
 function _renderTrendsCharts(b) {
@@ -4014,103 +3999,87 @@ function _renderTrendsCharts(b) {
   if (sovChartInstance) { sovChartInstance.destroy(); sovChartInstance = null; }
   if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
 
-  // Ensure canvas elements exist (recreate if previously destroyed)
-  const cards = document.querySelectorAll('#view-trends .card');
-  const sovParent = el('sov-chart') ? el('sov-chart').parentElement : (cards[0] || null);
-  if (!el('sov-chart') && sovParent) {
-    sovParent.innerHTML = '<div class="card-title">Overall SOV Trend</div><canvas id="sov-chart" style="width:100%;max-height:300px;"></canvas>';
-  }
-  const platParent = el('plat-sov-chart') ? el('plat-sov-chart').parentElement : (cards[1] || null);
-  if (!el('plat-sov-chart') && platParent) {
-    platParent.innerHTML = '<div class="card-title">Per-Platform SOV Trend</div><canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>';
-  }
-  if (!el('sov-chart') || !el('plat-sov-chart')) return;
+  const barContainer = el('sov-bar-container');
+  const platCanvas = el('plat-sov-chart');
+  const platPlaceholder = el('plat-sov-placeholder');
 
-  // Remove any previous empty-state messages (must happen before both branches)
+  // Remove any previous empty-state messages
   document.querySelectorAll('.trends-empty').forEach(e => e.remove());
 
   if (!history.length) {
-    el('sov-chart').style.display = 'none';
-    sovParent.querySelector('.card-title').insertAdjacentHTML('afterend', `<div class="trends-empty" style="text-align:center;padding:32px 16px;">
-      <div style="font-size:28px;margin-bottom:8px;">&#9670;</div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Trend Data Yet</div>
-      <div style="color:var(--muted);font-size:12px;">Run queries at least twice to see SOV trends over time.</div>
-    </div>`);
-    el('plat-sov-chart').style.display = 'none';
-    platParent.querySelector('.card-title').insertAdjacentHTML('afterend', `<div class="trends-empty" style="text-align:center;padding:32px 16px;">
-      <div style="color:var(--muted);font-size:12px;">Per-platform trends will appear after multiple runs.</div>
-    </div>`);
+    // Show placeholder bar chart (static design from preview)
+    if (barContainer) {
+      let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">';
+      const heights = [40, 45, 50, 52, 55, 58, 60, 64, 68, 72];
+      const opacities = [0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 1.0];
+      heights.forEach((h, i) => {
+        barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${h}%;opacity:${opacities[i]};"></div>`;
+      });
+      barHtml += '</div>';
+      barContainer.innerHTML = barHtml;
+    }
+    if (platCanvas) platCanvas.style.display = 'none';
+    if (platPlaceholder) platPlaceholder.style.display = 'flex';
     return;
   }
-  el('sov-chart').style.display = '';
-  el('plat-sov-chart').style.display = '';
 
-  const labels = history.map(h => {
-    const d = new Date(h.date);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  });
-  const sovData = history.map(h => h.overall);
+  // ── Overall SOV bar chart (CSS bars matching screenshot) ──
+  if (barContainer) {
+    const maxSOV = Math.max(...history.map(h => h.overall), 1);
+    let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">';
+    history.forEach((h, i) => {
+      const pct = Math.max((h.overall / 100) * 100, 4);
+      const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
+      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
+    });
+    barHtml += '</div>';
+    barContainer.innerHTML = barHtml;
+  }
 
-  // Overall SOV chart
-  const ctx = el('sov-chart').getContext('2d');
-  sovChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Overall SOV %',
-        data: sovData,
-        borderColor: '#FF6154',
-        backgroundColor: 'rgba(255,97,84,0.1)',
-        fill: true,
-        tension: 0.3,
-        pointBackgroundColor: '#FF6154',
-        pointRadius: 4,
-        pointHoverRadius: 6
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 11 } } } },
-      scales: {
-        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
-        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
-      }
-    }
-  });
-
-  // Per-platform SOV chart
+  // ── Per-platform SOV line chart (Chart.js) ──
   const allPlatforms = new Set();
   history.forEach(h => { if (h.platforms) Object.keys(h.platforms).forEach(p => allPlatforms.add(p)); });
-  const datasets = [...allPlatforms].map(plat => {
-    const t = PLAT_THEME[plat] || {};
-    return {
-      label: plat,
-      data: history.map(h => (h.platforms || {})[plat] || 0),
-      borderColor: t.color || '#888',
-      backgroundColor: 'transparent',
-      tension: 0.3,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      borderWidth: 2
-    };
-  });
 
-  const ctx2 = el('plat-sov-chart').getContext('2d');
-  platSovChartInstance = new Chart(ctx2, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
-      scales: {
-        x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
-        y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
+  if (allPlatforms.size > 0 && platCanvas && typeof Chart !== 'undefined') {
+    if (platPlaceholder) platPlaceholder.style.display = 'none';
+    platCanvas.style.display = '';
+
+    const labels = history.map(h => {
+      const d = new Date(h.date);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    const datasets = [...allPlatforms].map(plat => {
+      const t = PLAT_THEME[plat] || {};
+      return {
+        label: plat,
+        data: history.map(h => (h.platforms || {})[plat] || 0),
+        borderColor: t.color || '#888',
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2
+      };
+    });
+
+    const ctx2 = platCanvas.getContext('2d');
+    platSovChartInstance = new Chart(ctx2, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } } },
+        scales: {
+          x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } }, grid: { color: 'rgba(0,0,0,.06)' } },
+          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
+        }
       }
-    }
-  });
+    });
+  } else {
+    if (platCanvas) platCanvas.style.display = 'none';
+    if (platPlaceholder) platPlaceholder.style.display = 'flex';
+  }
 }
 
 // ─── ALERTS ──────────────────────────────────────────────────────
