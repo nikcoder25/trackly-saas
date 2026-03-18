@@ -1391,6 +1391,23 @@ select.finput{appearance:none;}
 }
 .comp-count{font-family:var(--mono);font-size:10px;color:var(--muted);}
 
+/* ── NAV BADGES ─────────────────────── */
+.badge-new{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--green);color:#fff;letter-spacing:.5px;
+}
+.badge-moved{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--blue);color:#fff;letter-spacing:.5px;
+}
+.badge-merged{
+  display:inline-block;font-family:var(--mono);font-size:8px;font-weight:700;
+  padding:2px 6px;border-radius:100px;margin-left:6px;vertical-align:middle;
+  background:var(--purple);color:#fff;letter-spacing:.5px;
+}
+
 /* ── TABLES (preview) ────────────────── */
 .th{padding:10px 14px;text-align:left;font-family:var(--font);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
 .td{padding:10px 14px;border-bottom:1px solid var(--bg3);font-size:12px;}
