@@ -5186,8 +5186,6 @@ async function renderApiLogs(){
     const data = await api('GET', '/api/api-logs?limit=200' + brandParam);
     const logs = data.logs || [];
     const stats = data.stats || {};
-    window._apiLogs = logs;
-
     if (!logs.length) {
       container.innerHTML = errBanner + `<div class="card" style="text-align:center;padding:32px;">
         <div style="font-size:28px;margin-bottom:8px;">&#128225;</div>
@@ -5309,92 +5307,6 @@ async function renderApiLogs(){
   } catch(e) {
     container.innerHTML = errBanner + `<div style="color:var(--red);font-family:var(--mono);font-size:11px;padding:16px;">Failed to load logs: ${esc(e.message)}</div>`;
   }
-}
-
-// Copy full error detail to clipboard for sharing with developers
-function copyErrorLog(errIdx) {
-  const errors = getStoredRunErrors();
-  const err = errors[errIdx];
-  if (!err) return;
-  const dt = new Date(err.time);
-  const dateStr = dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  let text = `--- Trackly Error Report ---\n`;
-  text += `Time: ${dateStr}\n`;
-  text += `Type: ${err.type === 'crash' ? 'CRASH' : 'PARTIAL ERRORS'}\n`;
-  text += `Error: ${err.error}\n`;
-  if (err.brand) text += `Brand: ${err.brand}\n`;
-  if (err.brandId) text += `Brand ID: ${err.brandId}\n`;
-  if (err.platforms) text += `Platforms: ${err.platforms}\n`;
-  if (err.queries) text += `Queries: ${err.queries}\n`;
-  if (err.totalExpected) text += `Progress: ${err.received || 0}/${err.totalExpected} (${err.foundCount || 0} found, ${err.errorCount || 0} errors)\n`;
-  if (err.endpoint) text += `Endpoint: ${err.endpoint}\n`;
-  if (err.userAgent) text += `Browser: ${err.userAgent}\n`;
-  if (err.platformErrors && Object.keys(err.platformErrors).length) {
-    text += `\nPlatform Errors:\n`;
-    Object.entries(err.platformErrors).forEach(([plat, msgs]) => {
-      const uniqueMsgs = [...new Set(msgs)];
-      text += `  ${plat}: ${uniqueMsgs.join('; ')}\n`;
-    });
-  }
-  if (err.stack) text += `\nStack Trace:\n${err.stack}\n`;
-  text += `---`;
-  navigator.clipboard.writeText(text).then(() => toast('Error details copied to clipboard', 'ok')).catch(() => {
-    // Fallback for older browsers
-    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    toast('Error details copied to clipboard', 'ok');
-  });
-}
-
-// Copy a single API log row detail for debugging
-function copyApiLogRow(logData) {
-  let text = `--- Trackly API Log ---\n`;
-  text += `Time: ${logData.time}\n`;
-  text += `Platform: ${logData.platform}\n`;
-  text += `Model: ${logData.model || '—'}\n`;
-  text += `Query: ${logData.query || '—'}\n`;
-  text += `Status: ${logData.status}\n`;
-  if (logData.error) text += `Error: ${logData.error}\n`;
-  text += `Response Time: ${logData.response_ms ? logData.response_ms + 'ms' : '—'}\n`;
-  text += `Tokens: In ${logData.tokens_in || 0} / Out ${logData.tokens_out || 0}\n`;
-  text += `Cost: $${(parseFloat(logData.cost) || 0).toFixed(4)}\n`;
-  text += `Key: ...${logData.key_hint || '?'}\n`;
-  if (logData.run_id) text += `Run ID: ${logData.run_id}\n`;
-  text += `---`;
-  navigator.clipboard.writeText(text).then(() => toast('Log entry copied to clipboard', 'ok')).catch(() => {
-    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    toast('Log entry copied to clipboard', 'ok');
-  });
-}
-
-async function clearApiLogs() {
-  if (!confirm('Clear all API logs? This cannot be undone.')) return;
-  try {
-    await api('DELETE', '/api/api-logs');
-    clearStoredRunErrors();
-    toast('All logs cleared', 'ok');
-    renderApiLogs();
-  } catch(e) { toast(e.message, 'err'); }
-}
-
-function loadKeyStatus() {
-  api('GET', '/api/keys/status').then(status => {
-    const ksEl = el('apilogs-key-status');
-    if (!ksEl) return;
-    const counts = status.keyCounts || {};
-    let ksHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
-    Object.entries(counts).forEach(([plat, count]) => {
-      const color = count > 0 ? 'var(--green)' : 'var(--red)';
-      ksHtml += `<div style="border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius-xs);"><span style="color:${color};font-weight:700;">${count}</span> <span style="text-transform:capitalize;">${plat}</span> key${count!==1?'s':''}</div>`;
-    });
-    ksHtml += '</div>';
-    if (Object.values(counts).some(c => c === 0)) {
-      ksHtml += `<div style="margin-top:8px;color:var(--amber);font-size:10px;">Platforms with 0 keys will be skipped. Add keys in Railway variables.</div>`;
-    }
-    ksEl.innerHTML = ksHtml;
-  }).catch(() => {
-    const ksEl = el('apilogs-key-status');
-    if (ksEl) ksEl.innerHTML = '<span style="color:var(--red);">Failed to load key status.</span>';
-  });
 }
 
 function renderApiKeyStatus() {
