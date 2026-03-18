@@ -687,6 +687,10 @@ async function initApp(){
   const runBtn = el('run-btn');
   if (runBtn) runBtn.style.display = '';
 
+  // Show API Logs nav for owners/admins only
+  const apiLogsNav = el('nav-apilogs');
+  if (apiLogsNav) apiLogsNav.style.display = (currentUser.role === 'admin' || currentUser.plan === 'owner') ? 'block' : 'none';
+
   if (currentUser.role === 'admin') {
     if (adminNav) adminNav.style.display = 'block';
     if (becomeAdminNav) becomeAdminNav.style.display = 'none';
