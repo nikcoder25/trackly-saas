@@ -753,11 +753,9 @@
     <button class="nav-item" onclick="go('mentions')">◎ Mentions</button>
     <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof</button>
     <div class="nav-group">Analysis</div>
-    <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
-    <button class="nav-item" onclick="go('apilogs')">⚠ API Logs</button>
     <div class="nav-group">Advanced</div>
     <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
     <button class="nav-item" onclick="go('recommendations')">✦ Recommendations</button>
@@ -766,9 +764,14 @@
     <button class="nav-item" onclick="go('copilot')">◈ Copilot</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
+    <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
     <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
+    <button class="nav-item" onclick="go('notifications')">◈ Notifications</button>
+    <button class="nav-item" id="nav-team" onclick="go('team')" style="display:none;">◎ Team Members</button>
     <button class="nav-item" onclick="go('billing')">◻ Billing</button>
     <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
+    <button class="nav-item" onclick="go('activitylog')">◆ Activity Log</button>
+    <button class="nav-item" id="nav-apilogs" onclick="go('apilogs')" style="display:none;">⚠ API Logs</button>
     <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;">⚑ Admin Panel</button>
     <button class="nav-item" id="nav-become-admin" onclick="becomeAdmin()" style="display:none;color:var(--amber);">★ Become Admin</button>
   </div>
@@ -1215,6 +1218,25 @@
         </div>
       </div>
       <div class="card" style="margin-top:16px;">
+        <div class="card-title">Two-Factor Authentication</div>
+        <div id="twofa-status" style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:12px;">Loading...</div>
+        <div id="twofa-actions"></div>
+        <div id="twofa-setup-form" style="display:none;margin-top:12px;">
+          <div id="twofa-qr-area" style="margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;max-width:400px;">
+            <input class="finput" id="twofa-verify-code" type="text" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" style="margin:0;flex:1;">
+            <button class="btn-primary" onclick="verify2FA()" style="white-space:nowrap;">VERIFY</button>
+          </div>
+        </div>
+        <div id="twofa-disable-form" style="display:none;margin-top:12px;">
+          <div style="display:flex;gap:8px;align-items:center;max-width:400px;">
+            <input class="finput" id="twofa-disable-pw" type="password" placeholder="Enter password to confirm" style="margin:0;flex:1;">
+            <button class="btn" onclick="disable2FA()" style="border-color:var(--red);color:var(--red);white-space:nowrap;">DISABLE 2FA</button>
+          </div>
+        </div>
+        <div id="twofa-backup-codes" style="display:none;margin-top:12px;"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
         <div class="card-title">Change Password</div>
         <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;margin-top:10px;">
           <input class="finput" id="pw-current" type="password" placeholder="Current password">
@@ -1229,6 +1251,70 @@
           Permanently delete your account and all brands. This cannot be undone.
         </div>
         <button onclick="deleteAccount()" style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">DELETE MY ACCOUNT</button>
+      </div>
+    </div>
+
+    <!-- ACTIVITY LOG ──────────────────────── -->
+    <div id="view-activitylog" class="view">
+      <div class="view-title">Activity Log</div>
+      <div class="view-sub">Recent account activity — logins, changes, and actions.</div>
+      <div class="card">
+        <div id="activitylog-content" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATION PREFERENCES ──────── -->
+    <div id="view-notifications" class="view">
+      <div class="view-title">Notification Preferences</div>
+      <div class="view-sub">Configure how and when you receive notifications.</div>
+      <div class="card">
+        <div class="card-title">Email Report Schedule</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
+          Receive periodic email summaries of your brand visibility across AI platforms.
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <select class="finput" id="notif-report-freq" style="margin:0;width:180px;">
+            <option value="off">Off</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <button class="btn-primary" onclick="saveReportSchedule()" style="font-size:11px;">SAVE</button>
+          <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Alert Notification Types</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
+          Choose which notification types to receive in-app.
+        </div>
+        <div id="notif-type-toggles" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Recent Notifications</div>
+        <div id="notif-history" style="max-height:400px;overflow-y:auto;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- TEAM MEMBERS ──────────────────── -->
+    <div id="view-team" class="view">
+      <div class="view-title">Team Members</div>
+      <div class="view-sub">Manage who has access to your workspace.</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">Members</div>
+          <button class="btn-primary" onclick="toggleTeamInvite()" style="font-size:11px;padding:6px 14px;">+ Invite</button>
+        </div>
+        <div id="team-invite-form" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input class="finput" id="team-invite-email" type="email" placeholder="user@example.com" style="margin:0;flex:1;min-width:200px;">
+            <select class="finput" id="team-invite-role" style="margin:0;width:120px;">
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
+            </select>
+            <button class="btn-primary" onclick="sendTeamInvite()" style="font-size:11px;white-space:nowrap;">SEND INVITE</button>
+          </div>
+        </div>
+        <div id="team-members-list"></div>
       </div>
     </div>
 
