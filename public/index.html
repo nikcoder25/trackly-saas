@@ -51,7 +51,7 @@
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
 <link rel="dns-prefetch" href="https://accounts.google.com">
 <link rel="prefetch" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js">
-<link rel="stylesheet" href="/css/styles.min.css?v=10">
+<link rel="stylesheet" href="/css/styles.min.css?v=11">
 </head>
 <body>
 
@@ -598,12 +598,12 @@
       <!-- LOGIN PANEL -->
       <div id="panel-login" class="auth-panel active">
         <form onsubmit="event.preventDefault(); doLogin();">
-          <label class="flabel" for="login-email">Email or Username</label>
-          <input class="finput" id="login-email" type="text" placeholder="you@example.com or username" autocomplete="username" required>
+          <label class="flbl" for="login-email">Email or Username</label>
+          <input class="finp" id="login-email" type="text" placeholder="you@example.com or username" autocomplete="username" required>
 
-          <label class="flabel" for="login-pass">Password</label>
+          <label class="flbl" for="login-pass">Password</label>
           <div class="pw-input-wrap">
-            <input class="finput" id="login-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password" required>
+            <input class="finp" id="login-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="current-password" required>
             <button type="button" class="pw-toggle" onclick="togglePasswordVisibility('login-pass', this)" aria-label="Toggle password visibility">
               <svg class="pw-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="pw-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -612,12 +612,12 @@
 
           <!-- 2FA code input (hidden by default, shown when server requires it) -->
           <div id="login-2fa-wrap" style="display:none;">
-            <label class="flabel" for="login-totp">Two-Factor Authentication Code</label>
-            <input class="finput" id="login-totp" type="text" placeholder="Enter 6-digit code" autocomplete="one-time-code" maxlength="10" inputmode="numeric" style="text-align:center;letter-spacing:4px;font-size:18px;">
+            <label class="flbl" for="login-totp">Two-Factor Authentication Code</label>
+            <input class="finp" id="login-totp" type="text" placeholder="Enter 6-digit code" autocomplete="one-time-code" maxlength="10" inputmode="numeric" style="text-align:center;letter-spacing:4px;font-size:18px;">
             <p style="font-size:11px;color:var(--text-muted);margin:4px 0 8px;">Enter the code from your authenticator app, or a backup code.</p>
           </div>
 
-          <button type="submit" class="btn-primary" id="login-btn">Log In</button>
+          <button type="submit" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);" id="login-btn">Log In</button>
         </form>
 
         <div style="text-align:center;margin-top:12px;">
@@ -637,10 +637,10 @@
       <div id="panel-forgot" class="auth-panel">
         <form onsubmit="event.preventDefault(); doForgotPassword();">
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">Enter your email address and we'll send you a password reset link.</p>
-          <label class="flabel" for="forgot-email">Email</label>
-          <input class="finput" id="forgot-email" type="email" placeholder="you@example.com" autocomplete="email" required>
+          <label class="flbl" for="forgot-email">Email</label>
+          <input class="finp" id="forgot-email" type="email" placeholder="you@example.com" autocomplete="email" required>
           <div id="forgot-msg" style="display:none;padding:10px 12px;font-size:12px;margin-bottom:14px;border:1px solid var(--success);color:var(--success);background:var(--success-light);border-radius:6px;"></div>
-          <button type="submit" class="btn-primary">Send Reset Link</button>
+          <button type="submit" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">Send Reset Link</button>
         </form>
         <div style="text-align:center;margin-top:12px;">
           <button onclick="authTab('login')" style="background:none;border:none;color:var(--text-muted);font-family:var(--font);font-size:12px;cursor:pointer;text-decoration:underline;">Back to login</button>
@@ -651,42 +651,42 @@
       <div id="panel-reset" class="auth-panel">
         <form onsubmit="event.preventDefault(); doResetPassword();">
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">Enter your new password below.</p>
-          <label class="flabel" for="reset-pass">New Password (min 8 chars)</label>
+          <label class="flbl" for="reset-pass">New Password (min 8 chars)</label>
           <div class="pw-input-wrap">
-            <input class="finput" id="reset-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="new-password" required>
+            <input class="finp" id="reset-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="new-password" required>
             <button type="button" class="pw-toggle" onclick="togglePasswordVisibility('reset-pass', this)" aria-label="Toggle password visibility">
               <svg class="pw-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="pw-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             </button>
           </div>
-          <label class="flabel" for="reset-pass-confirm">Confirm Password</label>
+          <label class="flbl" for="reset-pass-confirm">Confirm Password</label>
           <div class="pw-input-wrap">
-            <input class="finput" id="reset-pass-confirm" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="new-password" required>
+            <input class="finp" id="reset-pass-confirm" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="new-password" required>
             <button type="button" class="pw-toggle" onclick="togglePasswordVisibility('reset-pass-confirm', this)" aria-label="Toggle password visibility">
               <svg class="pw-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="pw-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             </button>
           </div>
           <div id="reset-msg" style="display:none;padding:10px 12px;font-size:12px;font-family:var(--mono);margin-bottom:14px;"></div>
-          <button type="submit" class="btn-primary">Reset Password</button>
+          <button type="submit" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">Reset Password</button>
         </form>
       </div>
 
       <!-- REGISTER PANEL -->
       <div id="panel-register" class="auth-panel">
         <form onsubmit="event.preventDefault(); doRegister();">
-          <label class="flabel" for="reg-name">Name</label>
-          <input class="finput" id="reg-name" type="text" placeholder="Your name" autocomplete="name">
+          <label class="flbl" for="reg-name">Name</label>
+          <input class="finp" id="reg-name" type="text" placeholder="Your name" autocomplete="name">
 
-          <label class="flabel" for="reg-username">Username <span style="color:var(--text-muted);font-size:10px;">(optional — used for login)</span></label>
-          <input class="finput" id="reg-username" type="text" placeholder="e.g. johndoe" autocomplete="username" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
+          <label class="flbl" for="reg-username">Username <span style="color:var(--text-muted);font-size:10px;">(optional — used for login)</span></label>
+          <input class="finp" id="reg-username" type="text" placeholder="e.g. johndoe" autocomplete="username" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
 
-          <label class="flabel" for="reg-email">Email</label>
-          <input class="finput" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" required>
+          <label class="flbl" for="reg-email">Email</label>
+          <input class="finp" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" required>
 
-          <label class="flabel" for="reg-pass">Password (min 8 chars)</label>
+          <label class="flbl" for="reg-pass">Password (min 8 chars)</label>
           <div class="pw-input-wrap">
-            <input class="finput" id="reg-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="new-password" required oninput="updatePasswordStrength(this.value)">
+            <input class="finp" id="reg-pass" type="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" autocomplete="new-password" required oninput="updatePasswordStrength(this.value)">
             <button type="button" class="pw-toggle" onclick="togglePasswordVisibility('reg-pass', this)" aria-label="Toggle password visibility">
               <svg class="pw-eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg class="pw-eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -702,7 +702,7 @@
             <span id="pw-strength-text" style="color:var(--text-muted);"></span>
           </div>
 
-          <button type="submit" class="btn-primary">Create Account</button>
+          <button type="submit" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">Create Account</button>
         </form>
 
         <div id="google-divider-register" class="auth-divider"><span>or</span></div>
@@ -802,7 +802,7 @@
             <button onclick="setCompareMode('week')">vs Last Week</button>
             <button onclick="setCompareMode('month')">vs Last Month</button>
           </div>
-          <select class="finput" id="ov-preset-select" style="width:180px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
+          <select class="finp" id="ov-preset-select" style="width:180px;margin:0;font-size:11px;padding:4px 8px;" onchange="applyDashboardPreset(this.value)">
             <option value="">All Sections</option>
             <option value="founder">👔 Founder View</option>
             <option value="seo_manager">🔍 SEO Manager</option>
@@ -917,7 +917,7 @@
         <div id="bulk-query-box" style="display:none;margin-top:12px;">
           <textarea id="bulk-query-input" placeholder="Paste multiple queries here — one per line&#10;&#10;Example:&#10;Best HVAC company in Austin TX&#10;Top rated AC repair near me&#10;Who is the best plumber in Dallas" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:10px;resize:vertical;box-sizing:border-box;border-radius:var(--radius-xs);"></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-            <button onclick="bulkAddQueries()" class="btn-primary" style="padding:8px 16px;font-size:11px;">ADD ALL QUERIES</button>
+            <button onclick="bulkAddQueries()" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);padding:8px 16px;font-size:11px;">ADD ALL QUERIES</button>
             <span style="font-family:var(--mono);font-size:9px;color:var(--muted);" id="bulk-count-hint">One query per line</span>
           </div>
         </div>
@@ -1059,7 +1059,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="card-title" style="margin:0;">Alert Rules</div>
-          <button class="btn-primary" onclick="openAddAlert()" style="font-size:11px;padding:6px 14px;">+ Add Alert</button>
+          <button class="pbtn" onclick="openAddAlert()" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Add Alert</button>
         </div>
         <div id="alert-rules-list"></div>
       </div>
@@ -1068,8 +1068,8 @@
       <div id="alert-add-form" class="card" style="margin-top:16px;display:none;border:1px solid var(--primary-border);">
         <div class="card-title">New Alert Rule</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div><label class="flabel">Alert Name</label><input class="finput" id="alert-name" placeholder="e.g. SOV dropped below 20%" style="margin:0;"></div>
-          <div><label class="flabel">Condition</label><select class="finput" id="alert-condition" style="margin:0;" onchange="updateAlertParams()">
+          <div><label class="flbl">Alert Name</label><input class="finp" id="alert-name" placeholder="e.g. SOV dropped below 20%" style="margin:0;"></div>
+          <div><label class="flbl">Condition</label><select class="finp" id="alert-condition" style="margin:0;" onchange="updateAlertParams()">
             <option value="visibility_drop">Visibility Drop (%)</option>
             <option value="sov_below">SOV Below Threshold</option>
             <option value="brand_disappeared">Brand Disappeared</option>
@@ -1078,16 +1078,16 @@
           </select></div>
         </div>
         <div id="alert-params-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div><label class="flabel">Threshold (%)</label><input class="finput" id="alert-threshold" type="number" value="10" min="1" max="100" style="margin:0;"></div>
-          <div><label class="flabel">Action</label><select class="finput" id="alert-action" style="margin:0;">
+          <div><label class="flbl">Threshold (%)</label><input class="finp" id="alert-threshold" type="number" value="10" min="1" max="100" style="margin:0;"></div>
+          <div><label class="flbl">Action</label><select class="finp" id="alert-action" style="margin:0;">
             <option value="in_app">In-App Notification</option>
             <option value="email">Email</option>
             <option value="webhook">Webhook</option>
           </select></div>
-          <div><label class="flabel">Cooldown (hours)</label><input class="finput" id="alert-cooldown" type="number" value="24" min="1" max="168" style="margin:0;"></div>
+          <div><label class="flbl">Cooldown (hours)</label><input class="finp" id="alert-cooldown" type="number" value="24" min="1" max="168" style="margin:0;"></div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn-primary" onclick="saveAlertRule()" style="font-size:12px;padding:8px 16px;">Save Alert</button>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:12px;padding:8px 16px;" onclick="saveAlertRule()">Save Alert</button>
           <button class="btn-secondary" onclick="el('alert-add-form').style.display='none'" style="font-size:12px;padding:8px 16px;">Cancel</button>
         </div>
       </div>
@@ -1119,12 +1119,12 @@
           Receive periodic email summaries of your brand visibility across AI platforms.
         </div>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <select class="finput" id="notif-report-freq" style="margin:0;width:180px;">
+          <select class="finp" id="notif-report-freq" style="margin:0;width:180px;">
             <option value="off">Off</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          <button class="btn-primary" onclick="saveReportSchedule()" style="font-size:11px;">SAVE</button>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;" onclick="saveReportSchedule()">SAVE</button>
           <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
@@ -1146,20 +1146,20 @@
       <div class="view-title">Brand Setup</div>
       <div class="view-sub">Configure your brand details.</div>
       <div class="card">
-        <div class="form-row">
-          <label class="flabel">Brand Name</label>
-          <input class="finput" id="s-name" type="text" placeholder="Your Brand Name">
+        <div class="form-group">
+          <label class="flbl">Brand Name</label>
+          <input class="finp" id="s-name" type="text" placeholder="Your Brand Name">
         </div>
-        <div class="form-row">
-          <label class="flabel">Industry</label>
-          <input class="finput" id="s-industry" type="text" placeholder="e.g. HVAC, Plumbing, Landscaping">
+        <div class="form-group">
+          <label class="flbl">Industry</label>
+          <input class="finp" id="s-industry" type="text" placeholder="e.g. HVAC, Plumbing, Landscaping">
         </div>
-        <div class="form-row">
-          <label class="flabel">Website</label>
-          <input class="finput" id="s-website" type="text" placeholder="yourbrand.com">
+        <div class="form-group">
+          <label class="flbl">Website</label>
+          <input class="finp" id="s-website" type="text" placeholder="yourbrand.com">
         </div>
-        <div class="form-row">
-          <label class="flabel">Alternate Names / Aliases</label>
+        <div class="form-group">
+          <label class="flbl">Alternate Names / Aliases</label>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
             AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br>
             Auto-generated from brand name &amp; website — add more if needed.
@@ -1171,12 +1171,12 @@
             <button onclick="autoGenerateAliases()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">AUTO-GENERATE</button>
           </div>
         </div>
-        <div class="form-row">
-          <label class="flabel">City / Location</label>
-          <input class="finput" id="s-city" type="text" placeholder="e.g. Austin TX">
+        <div class="form-group">
+          <label class="flbl">City / Location</label>
+          <input class="finp" id="s-city" type="text" placeholder="e.g. Austin TX">
         </div>
-        <div class="form-row">
-          <label class="flabel">Nearby Areas</label>
+        <div class="form-group">
+          <label class="flbl">Nearby Areas</label>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
             Add state, nearby cities, and service areas. When a query has no location, these areas will also be checked in AI responses.
           </div>
@@ -1187,16 +1187,16 @@
             <button id="auto-fetch-areas-btn" onclick="autoFetchNearbyAreas()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">AUTO-FETCH</button>
           </div>
         </div>
-        <div class="form-row">
-          <label class="flabel">SOV Goal (%)</label>
-          <input class="finput" id="s-goal" type="number" min="1" max="100" placeholder="70">
+        <div class="form-group">
+          <label class="flbl">SOV Goal (%)</label>
+          <input class="finp" id="s-goal" type="number" min="1" max="100" placeholder="70">
         </div>
-        <div class="form-row">
-          <label class="flabel">AI Platforms to Track</label>
+        <div class="form-group">
+          <label class="flbl">AI Platforms to Track</label>
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">Select which AI models to query when running keyword tracking.</div>
           <div id="setup-plat-list" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
         </div>
-        <button class="btn-primary" onclick="saveBrandSetup()">SAVE CHANGES</button>
+        <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);" onclick="saveBrandSetup()">SAVE CHANGES</button>
         <button onclick="deleteBrand()" style="width:100%;padding:10px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;border-radius:var(--radius-xs);">DELETE BRAND</button>
       </div>
     </div>
@@ -1226,7 +1226,7 @@
         <div class="view-sub" style="margin-bottom:12px;font-size:11px;">Choose which model to use for each AI platform when running queries.</div>
         <div id="model-settings"></div>
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
-          <button class="btn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
+          <button class="pbtn" onclick="saveModelSettings()" id="btn-save-models">SAVE MODEL SETTINGS</button>
           <span id="model-save-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
@@ -1240,10 +1240,10 @@
           Download your brand data, query results, and SOV history.
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn" onclick="exportAllData()">EXPORT CURRENT BRAND (JSON)</button>
-          <button class="btn" onclick="exportBrandCSV()">EXPORT CURRENT BRAND (CSV)</button>
-          <button class="btn" onclick="exportAllBrandsData()">EXPORT ALL BRANDS (JSON)</button>
-          <button class="btn" onclick="el('import-brand-file').click()" style="background:var(--bg3);border-color:var(--primary-border);color:var(--primary);">IMPORT BRAND (JSON)</button>
+          <button class="pbtn" onclick="exportAllData()">EXPORT CURRENT BRAND (JSON)</button>
+          <button class="pbtn" onclick="exportBrandCSV()">EXPORT CURRENT BRAND (CSV)</button>
+          <button class="pbtn" onclick="exportAllBrandsData()">EXPORT ALL BRANDS (JSON)</button>
+          <button class="pbtn" onclick="el('import-brand-file').click()" style="border-color:var(--primary);color:var(--primary);">IMPORT BRAND (JSON)</button>
           <input type="file" id="import-brand-file" accept=".json" style="display:none;" onchange="importBrandConfig(this)">
         </div>
       </div>
@@ -1254,14 +1254,14 @@
         <div id="twofa-setup-form" style="display:none;margin-top:12px;">
           <div id="twofa-qr-area" style="margin-bottom:12px;"></div>
           <div style="display:flex;gap:8px;align-items:center;max-width:400px;">
-            <input class="finput" id="twofa-verify-code" type="text" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" style="margin:0;flex:1;">
-            <button class="btn-primary" onclick="verify2FA()" style="white-space:nowrap;">VERIFY</button>
+            <input class="finp" id="twofa-verify-code" type="text" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" style="margin:0;flex:1;">
+            <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;" onclick="verify2FA()">VERIFY</button>
           </div>
         </div>
         <div id="twofa-disable-form" style="display:none;margin-top:12px;">
           <div style="display:flex;gap:8px;align-items:center;max-width:400px;">
-            <input class="finput" id="twofa-disable-pw" type="password" placeholder="Enter password to confirm" style="margin:0;flex:1;">
-            <button class="btn" onclick="disable2FA()" style="border-color:var(--red);color:var(--red);white-space:nowrap;">DISABLE 2FA</button>
+            <input class="finp" id="twofa-disable-pw" type="password" placeholder="Enter password to confirm" style="margin:0;flex:1;">
+            <button class="pbtn" onclick="disable2FA()" style="border-color:var(--red);color:var(--red);white-space:nowrap;">DISABLE 2FA</button>
           </div>
         </div>
         <div id="twofa-backup-codes" style="display:none;margin-top:12px;"></div>
@@ -1269,10 +1269,10 @@
       <div class="card" style="margin-top:16px;">
         <div class="card-title">Change Password</div>
         <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;margin-top:10px;">
-          <input class="finput" id="pw-current" type="password" placeholder="Current password">
-          <input class="finput" id="pw-new" type="password" placeholder="New password (min 8 characters)">
-          <input class="finput" id="pw-confirm" type="password" placeholder="Confirm new password">
-          <button class="btn" onclick="changePassword()">UPDATE PASSWORD</button>
+          <input class="finp" id="pw-current" type="password" placeholder="Current password">
+          <input class="finp" id="pw-new" type="password" placeholder="New password (min 8 characters)">
+          <input class="finp" id="pw-confirm" type="password" placeholder="Confirm new password">
+          <button class="pbtn" onclick="changePassword()">UPDATE PASSWORD</button>
         </div>
       </div>
       <div class="card" style="margin-top:16px;border-color:var(--red);">
@@ -1289,9 +1289,9 @@
       <div class="view-title">Activity &amp; Logs <span class="badge-merged">MERGED</span></div>
       <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
       <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
-        <button class="al-tab al-tab-active" onclick="switchActivityTab(this,'al-tab-activity')">Account Activity</button>
-        <button class="al-tab" onclick="switchActivityTab(this,'al-tab-apilogs')">API Call Logs</button>
-        <button class="al-tab" onclick="switchActivityTab(this,'al-tab-keystatus')">API Key Status</button>
+        <button class="tab-btn tab-active" onclick="switchActivityTab(this,'al-tab-activity')">Account Activity</button>
+        <button class="tab-btn" onclick="switchActivityTab(this,'al-tab-apilogs')">API Call Logs</button>
+        <button class="tab-btn" onclick="switchActivityTab(this,'al-tab-keystatus')">API Key Status</button>
       </div>
       <div id="al-tab-activity" class="al-tab-content">
         <div class="card">
@@ -1319,16 +1319,16 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="card-title" style="margin:0;">Members</div>
-          <button class="btn-primary" onclick="toggleTeamInvite()" style="font-size:11px;padding:6px 14px;">+ Invite</button>
+          <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;padding:6px 14px;" onclick="toggleTeamInvite()">+ Invite</button>
         </div>
         <div id="team-invite-form" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xs);">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <input class="finput" id="team-invite-email" type="email" placeholder="user@example.com" style="margin:0;flex:1;min-width:200px;">
-            <select class="finput" id="team-invite-role" style="margin:0;width:120px;">
+            <input class="finp" id="team-invite-email" type="email" placeholder="user@example.com" style="margin:0;flex:1;min-width:200px;">
+            <select class="finp" id="team-invite-role" style="margin:0;width:120px;">
               <option value="viewer">Viewer</option>
               <option value="editor">Editor</option>
             </select>
-            <button class="btn-primary" onclick="sendTeamInvite()" style="font-size:11px;white-space:nowrap;">SEND INVITE</button>
+            <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;white-space:nowrap;" onclick="sendTeamInvite()">SEND INVITE</button>
           </div>
         </div>
         <div id="team-members-list"></div>
@@ -1440,7 +1440,7 @@
           </div>
         </div>
         <div style="display:flex;gap:8px;border-top:1px solid var(--border);padding-top:12px;">
-          <input class="finput" id="copilot-input" placeholder="Ask about your AI visibility..." style="flex:1;margin:0;padding:10px 14px;" onkeydown="if(event.key==='Enter')askCopilot()">
+          <input class="finp" id="copilot-input" placeholder="Ask about your AI visibility..." style="flex:1;margin:0;padding:10px 14px;" onkeydown="if(event.key==='Enter')askCopilot()">
           <button style="padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;" onclick="askCopilot()">Send</button>
         </div>
       </div>
@@ -1475,18 +1475,18 @@
             <button onclick="openAdminAddUser()" style="background:var(--primary);border:none;color:#fff;font-family:var(--font);font-size:11px;padding:7px 14px;cursor:pointer;font-weight:700;border-radius:6px;">+ ADD USER</button>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <select class="finput" id="admin-filter-plan" style="width:120px;margin:0;padding:6px 10px;font-size:11px;font-family:var(--mono);" onchange="filterAdminUsers()">
+            <select class="finp" id="admin-filter-plan" style="width:120px;margin:0;padding:6px 10px;font-size:11px;font-family:var(--mono);" onchange="filterAdminUsers()">
               <option value="">All Plans</option>
               <option value="free">Free</option>
               <option value="pro">Pro</option>
               <option value="agency">Agency</option>
             </select>
-            <select class="finput" id="admin-filter-role" style="width:120px;margin:0;padding:6px 10px;font-size:11px;font-family:var(--mono);" onchange="filterAdminUsers()">
+            <select class="finp" id="admin-filter-role" style="width:120px;margin:0;padding:6px 10px;font-size:11px;font-family:var(--mono);" onchange="filterAdminUsers()">
               <option value="">All Roles</option>
               <option value="admin">Admin</option>
               <option value="user">User</option>
             </select>
-            <input class="finput" id="admin-search" type="text" placeholder="Search by name or email..." style="margin:0;width:260px;padding:6px 10px;font-size:12px;" oninput="debouncedFilterAdmin()">
+            <input class="finp" id="admin-search" type="text" placeholder="Search by name or email..." style="margin:0;width:260px;padding:6px 10px;font-size:12px;" oninput="debouncedFilterAdmin()">
             <div style="font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;" id="admin-user-count"></div>
           </div>
         </div>
@@ -1504,27 +1504,27 @@
         <div style="padding:20px;" id="admin-edit-body">
           <input type="hidden" id="admin-edit-id">
 
-          <label class="flabel">Email</label>
-          <input class="finput" id="admin-edit-email" type="email" placeholder="user@example.com">
+          <label class="flbl">Email</label>
+          <input class="finp" id="admin-edit-email" type="email" placeholder="user@example.com">
 
-          <label class="flabel">Username</label>
-          <input class="finput" id="admin-edit-username" type="text" placeholder="e.g. johndoe" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
+          <label class="flbl">Username</label>
+          <input class="finp" id="admin-edit-username" type="text" placeholder="e.g. johndoe" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
 
-          <label class="flabel">Name</label>
-          <input class="finput" id="admin-edit-name" type="text" placeholder="Full name">
+          <label class="flbl">Name</label>
+          <input class="finp" id="admin-edit-name" type="text" placeholder="Full name">
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
-              <label class="flabel">Plan</label>
-              <select class="finput" id="admin-edit-plan">
+              <label class="flbl">Plan</label>
+              <select class="finp" id="admin-edit-plan">
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
                 <option value="agency">Agency</option>
               </select>
             </div>
             <div>
-              <label class="flabel">Role</label>
-              <select class="finput" id="admin-edit-role">
+              <label class="flbl">Role</label>
+              <select class="finp" id="admin-edit-role">
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
@@ -1546,7 +1546,7 @@
           <div style="margin-top:8px;padding:14px;background:var(--bg3);border:1px solid var(--border);">
             <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">Reset Password</div>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input class="finput" id="admin-edit-password" type="text" placeholder="New password (min 8 chars)" style="margin:0;flex:1;font-size:11px;">
+              <input class="finp" id="admin-edit-password" type="text" placeholder="New password (min 8 chars)" style="margin:0;flex:1;font-size:11px;">
               <button onclick="adminResetPassword()" style="background:var(--amber);border:none;color:#000;font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;font-weight:700;white-space:nowrap;border-radius:var(--radius-xs);">RESET</button>
             </div>
           </div>
@@ -1570,33 +1570,33 @@
           <button class="modal-close" onclick="closeAdminAddUser()">&times;</button>
         </div>
         <div style="padding:20px;">
-          <label class="flabel">Email *</label>
-          <input class="finput" id="admin-add-email" type="email" placeholder="user@example.com">
+          <label class="flbl">Email *</label>
+          <input class="finp" id="admin-add-email" type="email" placeholder="user@example.com">
 
-          <label class="flabel">Username <span style="color:var(--muted);font-size:10px;">(optional)</span></label>
-          <input class="finput" id="admin-add-username" type="text" placeholder="e.g. johndoe" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
+          <label class="flbl">Username <span style="color:var(--muted);font-size:10px;">(optional)</span></label>
+          <input class="finp" id="admin-add-username" type="text" placeholder="e.g. johndoe" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
 
-          <label class="flabel">Name</label>
-          <input class="finput" id="admin-add-name" type="text" placeholder="Full name">
+          <label class="flbl">Name</label>
+          <input class="finp" id="admin-add-name" type="text" placeholder="Full name">
 
-          <label class="flabel">Password *</label>
+          <label class="flbl">Password *</label>
           <div style="display:flex;gap:8px;align-items:center;">
-            <input class="finput" id="admin-add-password" type="text" placeholder="Min 8 characters" style="margin:0;flex:1;">
+            <input class="finp" id="admin-add-password" type="text" placeholder="Min 8 characters" style="margin:0;flex:1;">
             <button onclick="generateRandomPassword()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;white-space:nowrap;border-radius:var(--radius-xs);">GENERATE</button>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
             <div>
-              <label class="flabel">Plan</label>
-              <select class="finput" id="admin-add-plan">
+              <label class="flbl">Plan</label>
+              <select class="finp" id="admin-add-plan">
                 <option value="free">Free</option>
                 <option value="pro">Pro</option>
                 <option value="agency">Agency</option>
               </select>
             </div>
             <div>
-              <label class="flabel">Role</label>
-              <select class="finput" id="admin-add-role">
+              <label class="flbl">Role</label>
+              <select class="finp" id="admin-add-role">
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
@@ -1693,17 +1693,17 @@
     <div id="add-brand-err" style="display:none;background:rgba(239,68,68,.06);border:1px solid var(--red);color:var(--red);padding:8px 12px;font-size:11px;font-family:var(--mono);margin-bottom:12px;border-radius:var(--radius-xs);"></div>
     <!-- Step 1: Brand Info -->
     <div id="wizard-step-1">
-      <label class="flabel">Brand Name *</label>
-      <input class="finput" id="nb-name" type="text" placeholder="Your Brand Name">
-      <label class="flabel">Industry *</label>
-      <input class="finput" id="nb-industry" type="text" placeholder="e.g. HVAC, Plumbing, SaaS">
-      <label class="flabel">Website</label>
-      <input class="finput" id="nb-website" type="text" placeholder="yourbrand.com">
-      <label class="flabel">City / Location</label>
-      <input class="finput" id="nb-city" type="text" placeholder="e.g. Austin TX (optional for non-local)">
+      <label class="flbl">Brand Name *</label>
+      <input class="finp" id="nb-name" type="text" placeholder="Your Brand Name">
+      <label class="flbl">Industry *</label>
+      <input class="finp" id="nb-industry" type="text" placeholder="e.g. HVAC, Plumbing, SaaS">
+      <label class="flbl">Website</label>
+      <input class="finp" id="nb-website" type="text" placeholder="yourbrand.com">
+      <label class="flbl">City / Location</label>
+      <input class="finp" id="nb-city" type="text" placeholder="e.g. Austin TX (optional for non-local)">
       <div id="wizard-nearby-section" style="display:none;margin-top:8px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <label class="flabel" style="margin-bottom:0;">Nearby Areas</label>
+          <label class="flbl" style="margin-bottom:0;">Nearby Areas</label>
           <button type="button" id="wizard-fetch-areas-btn" onclick="wizardFetchNearbyAreas()" class="btn-secondary" style="font-size:10px;padding:4px 10px;">Fetch Nearby Areas</button>
         </div>
         <div id="wizard-nearby-tags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;max-height:120px;overflow-y:auto;"></div>
@@ -1712,7 +1712,7 @@
           <button onclick="wizardAddNearbyArea()">+ Add</button>
         </div>
       </div>
-      <button class="btn-primary" onclick="wizardNext(2)" style="width:100%;margin-top:8px;">Next: Add Competitors</button>
+      <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);width:100%;margin-top:8px;" onclick="wizardNext(2)">Next: Add Competitors</button>
       <button class="btn-secondary" onclick="doAddBrand()" style="width:100%;margin-top:6px;font-size:11px;">Skip wizard &amp; create now</button>
     </div>
     <!-- Step 2: Competitors -->
@@ -1725,7 +1725,7 @@
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn-secondary" onclick="wizardNext(1)" style="flex:1;">Back</button>
-        <button class="btn-primary" onclick="wizardNext(3)" style="flex:1;">Next: Set Queries</button>
+        <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);flex:1;" onclick="wizardNext(3)">Next: Set Queries</button>
       </div>
     </div>
     <!-- Step 3: Queries -->
@@ -1739,7 +1739,7 @@
       <button class="btn-secondary" onclick="wizardLoadSuggestions()" style="width:100%;margin-bottom:8px;font-size:11px;">Load AI-Generated Suggestions</button>
       <div style="display:flex;gap:8px;">
         <button class="btn-secondary" onclick="wizardNext(2)" style="flex:1;">Back</button>
-        <button class="btn-primary" onclick="doAddBrandWizard()" style="flex:1;">Create Brand &amp; Run</button>
+        <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);flex:1;" onclick="doAddBrandWizard()">Create Brand &amp; Run</button>
       </div>
     </div>
   </div>
@@ -1748,6 +1748,6 @@
 <div id="toast"></div>
 <div id="live-notifs"></div>
 
-<script src="/js/app.min.js?v=16" defer></script>
+<script src="/js/app.min.js?v=17" defer></script>
 </body>
 </html>

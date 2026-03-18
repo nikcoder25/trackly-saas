@@ -838,9 +838,9 @@ function go(view){
 }
 
 function switchActivityTab(btn, tabId) {
-  document.querySelectorAll('.al-tab').forEach(b => b.classList.remove('al-tab-active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
   document.querySelectorAll('.al-tab-content').forEach(t => t.style.display = 'none');
-  btn.classList.add('al-tab-active');
+  btn.classList.add('tab-active');
   const tab = document.getElementById(tabId);
   if (tab) tab.style.display = 'block';
 }
@@ -1019,7 +1019,7 @@ async function loadModelSettings() {
           <span class="toggle-slider"></span>
         </label>
         <div style="font-family:var(--mono);font-size:11px;font-weight:700;min-width:90px;">${icon} ${platform}</div>
-        <select class="finput model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;" ${isEnabled?'':'disabled'}>
+        <select class="finp model-select" data-platform="${platform}" style="margin:0;flex:1;font-size:11px;padding:4px 8px;height:28px;" ${isEnabled?'':'disabled'}>
           ${models.map(m => `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.label}</option>`).join('')}
         </select>
       </div>`;
@@ -1303,11 +1303,11 @@ async function load2FAStatus() {
     const data = await api('GET', '/api/auth/2fa/status');
     if (data.enabled) {
       statusEl.innerHTML = `<span style="color:var(--green);font-weight:700;">ENABLED</span> <span style="color:var(--muted);">&mdash; ${data.backupCodesRemaining} backup code${data.backupCodesRemaining !== 1 ? 's' : ''} remaining</span>`;
-      actionsEl.innerHTML = '<button class="btn" onclick="el(\'twofa-disable-form\').style.display=el(\'twofa-disable-form\').style.display===\'none\'?\'block\':\'none\'" style="font-size:11px;">DISABLE 2FA</button>';
+      actionsEl.innerHTML = '<button class="pbtn" onclick="el(\'twofa-disable-form\').style.display=el(\'twofa-disable-form\').style.display===\'none\'?\'block\':\'none\'" style="font-size:11px;">DISABLE 2FA</button>';
       el('twofa-setup-form').style.display = 'none';
     } else {
       statusEl.innerHTML = '<span style="color:var(--muted);">Not enabled.</span> <span style="font-size:11px;color:var(--muted);">Add an extra layer of security to your account with an authenticator app.</span>';
-      actionsEl.innerHTML = '<button class="btn-primary" onclick="setup2FA()" style="font-size:11px;">ENABLE 2FA</button>';
+      actionsEl.innerHTML = '<button class="pbtn" onclick="setup2FA()" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;">ENABLE 2FA</button>';
       el('twofa-disable-form').style.display = 'none';
     }
   } catch(e) {
@@ -1358,7 +1358,7 @@ async function verify2FA() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;">
             ${data.backupCodes.map(c => `<div style="background:var(--bg3);padding:6px 10px;border-radius:var(--radius-xs);font-family:var(--mono);font-size:12px;letter-spacing:1px;text-align:center;">${esc(c)}</div>`).join('')}
           </div>
-          <button class="btn" onclick="navigator.clipboard.writeText('${data.backupCodes.join('\\n')}');toast('Backup codes copied!','ok');" style="font-size:10px;">COPY ALL CODES</button>
+          <button class="pbtn" onclick="navigator.clipboard.writeText('${data.backupCodes.join('\\n')}');toast('Backup codes copied!','ok');" style="font-size:10px;">COPY ALL CODES</button>
         </div>`;
     }
     load2FAStatus();
@@ -1481,7 +1481,7 @@ async function renderTeamMembers() {
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">Joined ${joined}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <select class="finput" style="margin:0;width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
+          <select class="finp" style="margin:0;width:100px;font-size:10px;padding:4px 6px;" onchange="updateTeamRole('${esc(m.user_id)}',this.value)">
             <option value="viewer" ${m.role==='viewer'?'selected':''}>Viewer</option>
             <option value="editor" ${m.role==='editor'?'selected':''}>Editor</option>
           </select>
@@ -6531,7 +6531,7 @@ async function renderBilling() {
             <div style="font-size:28px;font-weight:700;text-transform:uppercase;color:${planColors[plan]};">${plan}</div>
             <div style="font-size:12px;color:var(--muted);">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
           </div>
-          ${plan !== 'owner' ? '<button class="btn-primary" style="font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
+          ${plan !== 'owner' ? '<button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
         </div>
       </div>`;
 
@@ -6714,7 +6714,7 @@ function openAddAlert(){
 
 function updateAlertParams(){
   const cond = el('alert-condition').value;
-  const threshLabel = el('alert-params-row').querySelector('.flabel');
+  const threshLabel = el('alert-params-row').querySelector('.flbl');
   if (cond === 'brand_disappeared' || cond === 'new_competitor') {
     threshLabel.textContent = 'N/A';
     el('alert-threshold').disabled = true;
