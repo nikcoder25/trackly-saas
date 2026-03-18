@@ -476,7 +476,7 @@ async function doLogin(){
   const totpInput = el('login-totp');
   const totpCode = totpInput ? totpInput.value.trim() : '';
   el('auth-err').style.display = 'none';
-  const btn = document.querySelector('#panel-login .btn-primary');
+  const btn = document.querySelector('#panel-login .pbtn');
   if (!email || !password) {
     el('auth-err').textContent = 'Email/username and password are required.';
     el('auth-err').style.display = 'block';
@@ -539,7 +539,7 @@ async function doRegister(){
     el('auth-err').style.display = 'block';
     return;
   }
-  const btn = document.querySelector('#panel-register .btn-primary');
+  const btn = document.querySelector('#panel-register .pbtn');
   btn.disabled = true; btn.textContent = 'CREATING ACCOUNT...';
   try {
     const data = await api('POST', '/api/auth/register', { name, username: username || undefined, email, password });
@@ -564,7 +564,7 @@ async function doForgotPassword(){
   const email = el('forgot-email').value.trim();
   const msgEl = el('forgot-msg');
   if (!email) { msgEl.textContent = 'Please enter your email.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
-  const btn = document.querySelector('#panel-forgot .btn-primary');
+  const btn = document.querySelector('#panel-forgot .pbtn');
   btn.disabled = true; btn.textContent = 'SENDING...';
   try {
     const data = await api('POST', '/api/auth/forgot-password', { email });
@@ -588,7 +588,7 @@ async function doResetPassword(){
   const params = new URLSearchParams(window.location.search);
   const resetToken = params.get('token');
   if (!resetToken || resetToken.length < 32) { msgEl.textContent = 'Invalid or malformed reset link.'; msgEl.style.borderColor = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.style.display = 'block'; return; }
-  const btn = document.querySelector('#panel-reset .btn-primary');
+  const btn = document.querySelector('#panel-reset .pbtn');
   btn.disabled = true; btn.textContent = 'RESETTING...';
   try {
     const data = await api('POST', '/api/auth/reset-password', { token: resetToken, newPassword: pw });
