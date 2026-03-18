@@ -985,10 +985,8 @@
           <div class="view-title">Platform Status</div>
           <div class="view-sub">SOV per AI platform and real-time API health.</div>
         </div>
-        <button class="pbtn" onclick="renderPlatformStatus()">Refresh</button>
       </div>
-      <div id="plat-health-cards" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;"></div>
-      <div id="plat-status-container"></div>
+      <div id="plat-status-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
     </div>
 
     <!-- QUERY PERFORMANCE ────────────────── -->
@@ -1055,20 +1053,20 @@
     <!-- ALERTS & NOTIFICATIONS (MERGED) ──────── -->
     <div id="view-alerts" class="view">
       <div class="view-title">Alerts &amp; Notifications <span class="badge-merged">MERGED</span></div>
-      <div class="view-sub">Manage alert rules, webhooks, notification preferences, and report schedules — all in one place.</div>
+      <div class="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
 
       <!-- Alert Rules -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div class="card-title" style="margin:0;">Alert Rules</div>
+          <div class="section-title" style="margin:0;">Alert Rules</div>
           <button class="pbtn" onclick="openAddAlert()" style="background:var(--primary);color:#fff;border-color:var(--primary);">+ Add Alert</button>
         </div>
         <div id="alert-rules-list"></div>
       </div>
 
       <!-- Add Alert Form (hidden by default) -->
-      <div id="alert-add-form" class="card" style="margin-top:16px;display:none;border:1px solid var(--primary-border);">
-        <div class="card-title">New Alert Rule</div>
+      <div id="alert-add-form" class="card" style="margin-top:14px;display:none;border:1px solid var(--primary-border);">
+        <div class="section-title">New Alert Rule</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div><label class="flbl">Alert Name</label><input class="finp" id="alert-name" placeholder="e.g. SOV dropped below 20%" style="margin:0;"></div>
           <div><label class="flbl">Condition</label><select class="finp" id="alert-condition" style="margin:0;" onchange="updateAlertParams()">
@@ -1094,53 +1092,50 @@
         </div>
       </div>
 
-      <!-- SOV Change History -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Recent SOV Changes</div>
-        <div id="alert-sov-history"></div>
-      </div>
-
-      <!-- Webhook Configuration -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Webhook URL</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;line-height:1.6;">
-          Enter a webhook URL (e.g. Slack incoming webhook, Zapier, Make, or any HTTP endpoint).<br>
-          We'll POST a JSON payload whenever your SOV changes after a run.
-        </div>
-        <div class="add-query-row">
-          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;font-size:12px;font-family:var(--font);outline:none;border-radius:var(--radius-xs);">
-          <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--primary);color:#fff;border:none;font-family:var(--font);font-weight:700;cursor:pointer;border-radius:6px;">SAVE</button>
-        </div>
-        <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
-      </div>
-
-      <!-- Notification Preferences (merged in) -->
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Email Report Schedule</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Receive periodic email summaries of your brand visibility across AI platforms.
+      <!-- Email Report Schedule -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Email Report Schedule</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+          Receive periodic email summaries of your brand visibility.
         </div>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <select class="finp" id="notif-report-freq" style="margin:0;width:180px;">
             <option value="off">Off</option>
-            <option value="weekly">Weekly</option>
+            <option value="weekly" selected>Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
           <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:11px;" onclick="saveReportSchedule()">SAVE</button>
           <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
         </div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Alert Notification Types</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Choose which notification types to receive in-app.
-        </div>
-        <div id="notif-type-toggles" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+      <!-- Notification Types -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Notification Types</div>
+        <div id="notif-type-toggles" style="display:flex;flex-direction:column;"></div>
       </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Recent Notifications</div>
+
+      <!-- Webhook URL -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Webhook URL</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+          We'll POST a JSON payload whenever your SOV changes after a run.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input id="alert-webhook-url" type="url" placeholder="https://hooks.slack.com/services/..." class="finp" style="flex:1;margin:0;">
+          <button onclick="saveWebhook()" class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);">SAVE</button>
+        </div>
+        <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      </div>
+
+      <!-- Recent Notifications -->
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">Recent Notifications</div>
         <div id="notif-history" style="max-height:400px;overflow-y:auto;">Loading...</div>
       </div>
+
+      <!-- SOV Change History (hidden, used by alerts logic) -->
+      <div id="alert-sov-history" style="display:none;"></div>
     </div>
 
     <!-- BRAND SETUP ─────────────────────── -->

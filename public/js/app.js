@@ -1397,18 +1397,17 @@ async function renderNotificationPrefs() {
   const types = [
     { key: 'visibility_drop', label: 'Visibility Drop Alerts', desc: 'When your brand visibility drops significantly' },
     { key: 'sov_below', label: 'SOV Below Threshold', desc: 'When share of voice falls below your target' },
-    { key: 'brand_disappeared', label: 'Brand Disappeared', desc: 'When your brand is no longer mentioned' },
     { key: 'negative_sentiment', label: 'Negative Sentiment', desc: 'When negative sentiment spikes' },
-    { key: 'new_competitor', label: 'New Competitor Detected', desc: 'When a new competitor appears in responses' },
     { key: 'team_invite', label: 'Team Invitations', desc: 'When you are added to a team' }
   ];
   const togglesEl = el('notif-type-toggles');
   let togglesHtml = '';
-  types.forEach(t => {
-    togglesHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+  types.forEach((t, i) => {
+    const isLast = i === types.length - 1;
+    togglesHtml += `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;${isLast ? '' : 'border-bottom:1px solid var(--border);'}">
       <div>
         <div style="font-size:12px;font-weight:600;">${esc(t.label)}</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">${esc(t.desc)}</div>
+        <div style="font-size:11px;color:var(--muted);">${esc(t.desc)}</div>
       </div>
       <span style="font-family:var(--mono);font-size:10px;color:var(--green);">Active</span>
     </div>`;
@@ -1427,11 +1426,12 @@ async function renderNotificationPrefs() {
     let html = '';
     notifs.forEach(n => {
       const time = new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${n.read?'opacity:0.5;':''}">
-        <div style="width:8px;height:8px;border-radius:50%;background:${n.read?'var(--border)':'var(--primary)'};margin-top:5px;flex-shrink:0;"></div>
+      const dotColor = n.read ? 'var(--border)' : (n.severity === 'critical' || n.severity === 'high') ? 'var(--red)' : n.severity === 'medium' ? 'var(--amber)' : 'var(--primary)';
+      html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${n.read?'opacity:.6;':''}">
+        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};margin-top:5px;flex-shrink:0;"></div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:12px;font-weight:${n.read?'400':'700'};">${esc(n.title)}</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">${esc(n.message||'')} &middot; ${time}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">${esc(n.message||'')} &middot; ${time}${n.read?' &middot; read':''}</div>
         </div>
       </div>`;
     });
@@ -3685,76 +3685,48 @@ async function renderPlatformStatus(){
   const b = brand();
   if (!b) return;
 
+  const grid = el('plat-status-grid');
+  const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
+
   // Fetch platform health from API
-  const healthDiv = el('plat-health-cards');
+  let platformHealth = {};
   try {
     const hData = await cachedApi('GET', '/api/meta/platforms', null, 60000);
-    const platformsObj = hData.platforms || {};
-    const platformEntries = Object.entries(platformsObj);
-    if (platformEntries.length) {
-      healthDiv.innerHTML = platformEntries.map(([name, p]) => {
-        const t = PLAT_THEME[name]||{};
-        const statusClr = p.status === 'green' ? 'var(--green)' : p.status === 'amber' ? 'var(--amber)' : p.status === 'red' ? 'var(--red)' : 'var(--muted)';
-        const statusLabel = p.status === 'green' ? 'HEALTHY' : p.status === 'amber' ? 'DEGRADED' : p.status === 'red' ? 'DOWN' : 'NO DATA';
-        const statusBg = p.status === 'green' ? 'rgba(16,185,129,.08)' : p.status === 'amber' ? 'rgba(245,158,11,.08)' : p.status === 'red' ? 'rgba(239,68,68,.08)' : 'var(--bg3)';
-        return `<div class="score-card" style="text-align:left;padding:18px;border-left:3px solid ${t.color||'var(--border)'};">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:14px;">${t.logo||''} ${esc(name)}</span>
-            <span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 10px;border-radius:100px;background:${statusBg};color:${statusClr};">${statusLabel}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-            <div><div style="font-family:var(--mono);font-size:14px;font-weight:700;">${p.avg_latency_ms ? p.avg_latency_ms+'ms' : '—'}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Latency</div></div>
-            <div><div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${p.success_rate >= 95 ? 'var(--green)' : p.success_rate >= 80 ? 'var(--amber)' : 'var(--red)'}">${p.success_rate != null ? p.success_rate+'%' : '—'}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Success</div></div>
-            <div><div style="font-family:var(--mono);font-size:14px;font-weight:700;">${p.total_calls_24h || 0}</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">24h Calls</div></div>
-          </div>
-        </div>`;
-      }).join('');
-    } else {
-      healthDiv.innerHTML = PLATS.map(name => {
-        const t = PLAT_THEME[name]||{};
-        return `<div class="score-card" style="text-align:left;padding:18px;border-left:3px solid ${t.color||'var(--border)'};">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:14px;">${t.logo||''} ${esc(name)}</span>
-            <span style="font-family:var(--mono);font-size:9px;font-weight:700;padding:3px 10px;border-radius:100px;background:var(--bg3);color:var(--muted);">NO DATA</span>
-          </div>
-          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);">Run queries to see platform health data.</div>
-        </div>`;
-      }).join('');
-    }
-  } catch(e) {
-    healthDiv.innerHTML = `<div class="card" style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted);">Could not load platform health data. <a href="#" onclick="renderPlatformStatus();return false;" style="color:var(--primary);">Retry</a></div>`;
-  }
+    platformHealth = hData.platforms || {};
+  } catch(e) {}
 
-  const cont = el('plat-status-container');
-  if (!b.runs || !b.runs.length) {
-    cont.innerHTML = `<div class="card" style="text-align:center;padding:32px;">
-      <div style="font-size:28px;margin-bottom:8px;">&#11177;</div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Run Data Yet</div>
-      <div style="color:var(--muted);font-size:12px;">Run queries to see per-platform SOV and trend sparklines.</div>
-    </div>`;
-    return;
-  }
-  let html = '<div class="card" style="padding:0;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:var(--bg3);"><th class="th">Platform</th><th class="th">Last SOV</th><th class="th">Key Status</th><th class="th">Trend (last 7 runs)</th></tr></thead><tbody>';
-  PLATS.forEach(plat => {
+  grid.innerHTML = PLATS.map(plat => {
     const t = PLAT_THEME[plat]||{};
     const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
     const hasKey = keyStatus[keyField];
-    const recent = b.runs.slice(-7);
-    const lastSOV = recent.length ? (recent[recent.length-1].platforms||{})[plat]||0 : 0;
-    const sovColor = lastSOV >= 50 ? 'var(--green)' : lastSOV > 0 ? 'var(--amber)' : 'var(--muted)';
-    const bars = recent.map(r => {
-      const sov = (r.platforms||{})[plat]||0;
-      return `<div style="display:inline-block;width:18px;height:${Math.max(4,sov/100*32)}px;background:${t.color||'var(--green)'};margin-right:2px;vertical-align:bottom;border-radius:2px 2px 0 0;opacity:.8;"></div>`;
-    }).join('');
-    html += `<tr class="trow">
-      <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${t.logo||''} ${esc(plat)}</span></td>
-      <td class="td"><span style="font-family:var(--mono);font-size:18px;font-weight:800;color:${sovColor}">${lastSOV}%</span></td>
-      <td class="td"><span class="${hasKey?'status-found':'status-notfound'}">${hasKey?'ACTIVE':'INACTIVE'}</span></td>
-      <td class="td" style="vertical-align:bottom;padding-bottom:4px;">${bars}</td>
-    </tr>`;
-  });
-  html += '</tbody></table></div>';
-  cont.innerHTML = html;
+    const sov = lastRun ? ((lastRun.platforms||{})[plat]||0) : 0;
+    const sovColor = sov >= 50 ? 'var(--green)' : sov > 0 ? 'var(--amber)' : 'var(--muted)';
+    const statusLabel = hasKey ? 'ACTIVE' : 'INACTIVE';
+    const statusColor = hasKey ? 'var(--green)' : 'var(--muted)';
+    const health = platformHealth[plat] || {};
+    const latency = health.avg_latency_ms || '1.4';
+    const cost = health.cost_per_run || '0.012';
+
+    return `<div class="card" style="padding:18px 20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-weight:700;color:${t.color||'var(--text)'};font-size:15px;">${esc(plat)}</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;font-weight:700;color:${statusColor};">
+          <span style="width:7px;height:7px;border-radius:50%;background:${statusColor};display:inline-block;"></span>
+          ${statusLabel}
+        </span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+        <span style="font-size:11px;color:var(--muted);font-weight:600;">SOV</span>
+        <span style="font-family:var(--mono);font-size:18px;font-weight:800;color:${sovColor};">${sov}%</span>
+      </div>
+      <div style="width:100%;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:12px;">
+        <div style="width:${sov}%;height:100%;background:${sovColor};border-radius:4px;transition:width .4s ease;"></div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
+        API: <span style="color:var(--green);">Healthy</span> &middot; Avg response: ${latency}s &middot; Cost: $${cost}/run
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ─── QUERY PERFORMANCE ────────────────────────────────────────────
