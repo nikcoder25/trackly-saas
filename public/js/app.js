@@ -804,12 +804,22 @@ function go(view){
   renderView(view);
 }
 
+function switchActivityTab(btn, tabId) {
+  document.querySelectorAll('.al-tab').forEach(b => b.classList.remove('al-tab-active'));
+  document.querySelectorAll('.al-tab-content').forEach(t => t.style.display = 'none');
+  btn.classList.add('al-tab-active');
+  const tab = document.getElementById(tabId);
+  if (tab) tab.style.display = 'block';
+}
+
 function renderView(view){
   const b = brand();
   if (view==='account') { renderAccount(); loadModelSettings(); load2FAStatus(); return; }
   if (view==='admin')   { renderAdmin(); return; }
-  if (view==='activitylog') { renderActivityLog(); return; }
-  if (view==='notifications') { renderNotificationPrefs(); return; }
+  if (view==='activitylog') { renderActivityLog(); renderApiLogs(); return; }
+  // Redirect old standalone notifications/apilogs to merged views
+  if (view==='notifications') { go('alerts'); return; }
+  if (view==='apilogs') { go('activitylog'); return; }
   if (view==='team') { renderTeamMembers(); return; }
   if (!b) {
     // Show global empty state when no brand exists or is selected
@@ -866,8 +876,7 @@ function renderView(view){
   if (view==='trends')      renderTrends();
   if (view==='competitors') renderCompetitors();
   if (view==='setup')       renderSetup();
-  if (view==='alerts')          renderAlerts();
-  if (view==='apilogs')         renderApiLogs();
+  if (view==='alerts')          { renderAlerts(); renderNotificationPrefs(); }
   if (view==='promptdetails')   renderPromptDetails();
   if (view==='recommendations') renderRecommendations();
   if (view==='accuracy')        renderAccuracyMonitor();

@@ -751,28 +751,26 @@
     <div class="nav-group">Dashboard</div>
     <button class="nav-item active" onclick="go('overview')">◈ Overview</button>
     <button class="nav-item" onclick="go('mentions')">◎ Mentions</button>
-    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof</button>
+    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations</button>
     <div class="nav-group">Analysis</div>
+    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof</button>
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
+    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
-    <div class="nav-group">Advanced</div>
-    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
-    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations</button>
-    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor</button>
     <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis</button>
+    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor</button>
+    <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
+    <div class="nav-group">Tools</div>
     <button class="nav-item" onclick="go('copilot')">◈ Copilot</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
-    <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
-    <button class="nav-item" onclick="go('alerts')">⚡ Alerts</button>
-    <button class="nav-item" onclick="go('notifications')">◈ Notifications</button>
+    <button class="nav-item" onclick="go('alerts')">⚡ Alerts &amp; Notifications</button>
     <button class="nav-item" id="nav-team" onclick="go('team')" style="display:none;">◎ Team Members</button>
     <button class="nav-item" onclick="go('billing')">◻ Billing</button>
     <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
-    <button class="nav-item" onclick="go('activitylog')">◆ Activity Log</button>
-    <button class="nav-item" id="nav-apilogs" onclick="go('apilogs')" style="display:none;">⚠ API Logs</button>
-    <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;">⚑ Admin Panel</button>
+    <button class="nav-item" onclick="go('activitylog')">◆ Activity &amp; Logs</button>
+    <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;color:var(--amber);">⚑ Admin Panel</button>
     <button class="nav-item" id="nav-become-admin" onclick="becomeAdmin()" style="display:none;color:var(--amber);">★ Become Admin</button>
   </div>
 
@@ -1036,16 +1034,12 @@
     </div>
 
     <!-- API LOGS ─────────────────────────── -->
-    <div id="view-apilogs" class="view">
-      <div class="view-title">API Logs</div>
-      <div class="view-sub">Diagnose API errors and see what happened in each run.</div>
-      <div id="apilogs-content"></div>
-    </div>
+    <!-- (API Logs merged into Activity & Logs view) -->
 
-    <!-- ALERTS ─────────────────────────── -->
+    <!-- ALERTS & NOTIFICATIONS (MERGED) ──────── -->
     <div id="view-alerts" class="view">
-      <div class="view-title">Alerts &amp; Webhooks</div>
-      <div class="view-sub">Get notified when your visibility changes across AI platforms.</div>
+      <div class="view-title">Alerts &amp; Notifications</div>
+      <div class="view-sub">Manage alert rules, webhooks, notification preferences, and report schedules — all in one place.</div>
 
       <!-- Alert Rules -->
       <div class="card">
@@ -1102,6 +1096,34 @@
           <button onclick="saveWebhook()" style="padding:8px 16px;font-size:11px;background:var(--primary);color:#fff;border:none;font-family:var(--font);font-weight:700;cursor:pointer;border-radius:6px;">SAVE</button>
         </div>
         <div id="webhook-status" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);"></div>
+      </div>
+
+      <!-- Notification Preferences (merged in) -->
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Email Report Schedule</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
+          Receive periodic email summaries of your brand visibility across AI platforms.
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <select class="finput" id="notif-report-freq" style="margin:0;width:180px;">
+            <option value="off">Off</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <button class="btn-primary" onclick="saveReportSchedule()" style="font-size:11px;">SAVE</button>
+          <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Alert Notification Types</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
+          Choose which notification types to receive in-app.
+        </div>
+        <div id="notif-type-toggles" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Recent Notifications</div>
+        <div id="notif-history" style="max-height:400px;overflow-y:auto;">Loading...</div>
       </div>
     </div>
 
@@ -1248,46 +1270,25 @@
       </div>
     </div>
 
-    <!-- ACTIVITY LOG ──────────────────────── -->
+    <!-- ACTIVITY & LOGS (MERGED) ──────────── -->
     <div id="view-activitylog" class="view">
-      <div class="view-title">Activity Log</div>
-      <div class="view-sub">Recent account activity — logins, changes, and actions.</div>
-      <div class="card">
-        <div id="activitylog-content" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
+      <div class="view-title">Activity &amp; Logs</div>
+      <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
+      <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
+        <button class="al-tab al-tab-active" onclick="switchActivityTab(this,'al-tab-activity')">Account Activity</button>
+        <button class="al-tab" onclick="switchActivityTab(this,'al-tab-apilogs')">API Logs</button>
+      </div>
+      <div id="al-tab-activity" class="al-tab-content">
+        <div class="card">
+          <div id="activitylog-content" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
+        </div>
+      </div>
+      <div id="al-tab-apilogs" class="al-tab-content" style="display:none;">
+        <div id="apilogs-content"></div>
       </div>
     </div>
 
-    <!-- NOTIFICATION PREFERENCES ──────── -->
-    <div id="view-notifications" class="view">
-      <div class="view-title">Notification Preferences</div>
-      <div class="view-sub">Configure how and when you receive notifications.</div>
-      <div class="card">
-        <div class="card-title">Email Report Schedule</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Receive periodic email summaries of your brand visibility across AI platforms.
-        </div>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <select class="finput" id="notif-report-freq" style="margin:0;width:180px;">
-            <option value="off">Off</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          <button class="btn-primary" onclick="saveReportSchedule()" style="font-size:11px;">SAVE</button>
-          <span id="notif-report-status" style="font-family:var(--font);font-size:11px;font-weight:600;color:var(--success);display:none;">SAVED</span>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Alert Notification Types</div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;">
-          Choose which notification types to receive in-app.
-        </div>
-        <div id="notif-type-toggles" style="display:flex;flex-direction:column;gap:10px;"></div>
-      </div>
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Recent Notifications</div>
-        <div id="notif-history" style="max-height:400px;overflow-y:auto;">Loading...</div>
-      </div>
-    </div>
+    <!-- (Notifications merged into Alerts view above) -->
 
     <!-- TEAM MEMBERS ──────────────────── -->
     <div id="view-team" class="view">
