@@ -16,7 +16,32 @@ const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email'
 const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = require('../lib/totp');
 const crypto = require('crypto');
 
-// ─── Cookie helper — sets httpOnly tokens alongside JSON response ──
+// ─── Auto-generate username from name or email ─────────────────
+// Creates a clean, unique username like "john.doe" or "john.doe42"
+async function generateUsername(nameOrEmail) {
+  // Extract base: prefer name, fall back to email prefix
+  let base = (nameOrEmail || '').trim().toLowerCase();
+  if (base.includes('@')) base = base.split('@')[0]; // email prefix
+  // Clean: only letters, numbers, dots, dashes, underscores
+  base = base.replace(/\s+/g, '.').replace(/[^a-z0-9_.-]/g, '').replace(/\.{2,}/g, '.').replace(/^[._-]+|[._-]+$/g, '');
+  if (base.length < 3) base = 'user' + base;
+  if (base.length > 25) base = base.substring(0, 25);
+
+  // Check if base username is available
+  const exists = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [base]);
+  if (!exists.rows.length) return base;
+
+  // Append random suffix until unique (max 5 attempts, then use random)
+  for (let i = 0; i < 5; i++) {
+    const suffix = Math.floor(Math.random() * 900) + 100; // 100-999
+    const candidate = (base.substring(0, 25) + suffix).substring(0, 30);
+    const dup = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [candidate]);
+    if (!dup.rows.length) return candidate;
+  }
+  // Fallback: base + random hex
+  return (base.substring(0, 20) + crypto.randomBytes(3).toString('hex')).substring(0, 30);
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 function setTokenCookies(res, accessToken, refreshToken) {
   const cookieOpts = {
@@ -109,8 +134,8 @@ router.post('/register', async (req, res) => {
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (password.length > 128) return res.status(400).json({ error: 'Password too long' });
   if (name && (typeof name !== 'string' || name.length > 100)) return res.status(400).json({ error: 'Name must be 100 characters or less' });
-  // Username validation
-  const trimmedUsername = username ? username.trim().toLowerCase() : null;
+  // Username validation — if user provides one, validate it; otherwise auto-generate
+  let trimmedUsername = username ? username.trim().toLowerCase() : null;
   if (trimmedUsername) {
     if (trimmedUsername.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
     if (trimmedUsername.length > 30) return res.status(400).json({ error: 'Username must be 30 characters or less' });
@@ -122,6 +147,11 @@ router.post('/register', async (req, res) => {
     if (trimmedUsername) {
       const existingUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
       if (existingUser.rows.length) return res.status(400).json({ error: 'Username already taken' });
+    }
+
+    // Auto-generate username if not provided
+    if (!trimmedUsername) {
+      trimmedUsername = await generateUsername(name || email);
     }
 
     const hash = await bcrypt.hash(password, 12);
@@ -583,13 +613,14 @@ router.post('/google', async (req, res) => {
         user.avatar_url = user.avatar_url || avatarUrl;
         user.email_verified = true;
       } else {
-        // Case 3: Brand new user
+        // Case 3: Brand new user — auto-generate username from Google name/email
         const id = uid();
+        const autoUsername = await generateUsername(name || email);
         const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
         await pool.query(
-          `INSERT INTO users (id, email, name, password_hash, plan, google_id, avatar_url, email_verified)
-           VALUES ($1, $2, $3, $4, 'free', $5, $6, TRUE)`,
-          [id, email, name, dummyHash, googleId, avatarUrl]
+          `INSERT INTO users (id, email, username, name, password_hash, plan, google_id, avatar_url, email_verified)
+           VALUES ($1, $2, $3, $4, $5, 'free', $6, $7, TRUE)`,
+          [id, email, autoUsername, name, dummyHash, googleId, avatarUrl]
         );
         user = (await pool.query(
           'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE id = $1',
