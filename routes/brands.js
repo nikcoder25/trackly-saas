@@ -8,7 +8,7 @@ const { pool, auditLog, logApiCall, refreshPromptRunStats, notify, getDailyCost,
 const { auth } = require('../middleware/auth');
 const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
-const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, estimateCost } = require('../lib/ai-platforms');
+const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, runOpenAIBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 const { evaluateAlerts } = require('../lib/alerts');
 
@@ -565,6 +565,11 @@ router.post('/:id/run', auth, async (req, res) => {
   const platFailCount = {};
   const FAIL_THRESHOLD = 3; // Skip remaining queries after 3 consecutive failures
 
+  // Detect stable queries — reuse cached results for queries unchanged across 3+ runs
+  // Same optimization as cron path, saves ~20-40% API calls for brands with frequent runs
+  const stableQueries = getStableQueries(brand);
+  let stableSkipCount = 0;
+
   // Build interleaved list — query-first order spreads requests across platforms
   // so concurrent workers naturally hit different APIs (reducing rate limit waits)
   const tasks = [];
@@ -581,7 +586,7 @@ router.post('/:id/run', auth, async (req, res) => {
   // Fire-and-forget: execution continues even if response ends
   const executionPromise = (async () => {
     try {
-      console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls): ${activePlatforms.join(', ')} (runId: ${runId})`);
+      console.log(`[Run] Starting ${queries.length} queries on ${activePlatforms.length} platforms (${tasks.length} total calls, ${stableQueries.size} stable): ${activePlatforms.join(', ')} (runId: ${runId})`);
 
       // Run tasks with bounded concurrency. Each worker processes and streams
       // results immediately as they arrive (real-time SSE to the frontend).
@@ -667,6 +672,16 @@ router.post('/:id/run', auth, async (req, res) => {
         while (nextIdx < tasks.length) {
           const idx = nextIdx++;
           const { plat, q } = tasks[idx];
+
+          // Skip stable queries — reuse last result without API call
+          const stableKey = `${q}::${plat}`;
+          const stableResult = stableQueries.get(stableKey);
+          if (stableResult) {
+            stableSkipCount++;
+            processResult(plat, q, { text: stableResult.context || '', model: stableResult.model, simulated: false, citations: stableResult.citations || [], cached: true, tokensIn: 0, tokensOut: 0 });
+            continue;
+          }
+
           try {
             if (platFailCount[plat] >= FAIL_THRESHOLD) {
               throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
@@ -682,6 +697,9 @@ router.post('/:id/run', auth, async (req, res) => {
       }
 
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => runWorker()));
+      if (stableSkipCount > 0) {
+        console.log(`[Run] Skipped ${stableSkipCount}/${tasks.length} stable queries (reused cached results)`);
+      }
       // Calculate per-platform SOV
       for (const plat of activePlatforms) {
         platSOV[plat] = queries.length > 0 ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;
@@ -1049,16 +1067,34 @@ router.get('/:id/cost-estimate', auth, async (req, res) => {
       totalEstimate += costPerQuery * queries.length;
     }
 
+    // Estimate cache hit rate from recent runs (stable queries + response cache)
+    const stableQueries = getStableQueries(brand);
+    const totalCalls = queries.length * activePlatforms.length;
+    const stableCount = stableQueries.size;
+    // Also estimate response cache hits from last run's data
+    const lastRun = (brand.runs || []).slice(-1)[0];
+    const lastRunCacheHits = lastRun ? (lastRun.allResults || []).filter(r => r.cached).length : 0;
+    const lastRunTotal = lastRun ? (lastRun.allResults || []).length : 0;
+    const responseCacheRate = lastRunTotal > 0 ? lastRunCacheHits / lastRunTotal : 0;
+    // Combined: stable skips + remaining queries that may hit response cache
+    const estimatedSkips = Math.min(stableCount + Math.round((totalCalls - stableCount) * responseCacheRate), totalCalls);
+    const estimatedApiCalls = totalCalls - estimatedSkips;
+    const estimatedCost = totalCalls > 0 ? totalEstimate * (estimatedApiCalls / totalCalls) : totalEstimate;
+
     // Get daily spend
     const dailyCostData = await getDailyCost(req.user.id);
     const DAILY_COST_BUDGETS = { free: 0.50, pro: 2.00, agency: 8.00, enterprise: 50.00, owner: 9999 };
 
     res.json({
-      estimatedRunCost: Math.round(totalEstimate * 100000) / 100000,
+      estimatedRunCost: Math.round(estimatedCost * 100000) / 100000,
+      estimatedFullCost: Math.round(totalEstimate * 100000) / 100000,
       platformCosts,
       queryCount: queries.length,
       platformCount: activePlatforms.length,
-      totalApiCalls: queries.length * activePlatforms.length,
+      totalApiCalls: totalCalls,
+      estimatedApiCalls,
+      estimatedCacheHits: estimatedSkips,
+      cacheHitRate: totalCalls > 0 ? Math.round((estimatedSkips / totalCalls) * 100) : 0,
       dailySpent: parseFloat(dailyCostData.total_cost) || 0,
       dailyBudget: DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.free,
       dailyQueriesUsed: parseInt(dailyCostData.query_count) || 0,
@@ -1512,21 +1548,68 @@ async function runBrandQueries(brand) {
     }
   }
 
-  // Bounded concurrency worker pool — skip Claude tasks that were handled by batch
+  // ── OpenAI Batch API (50% cheaper for scheduled runs) ──────────
+  // Same pattern as Claude Batch — separate ChatGPT tasks for batch processing.
+  const openaiEnabled = activePlatforms.includes('ChatGPT');
+  const openaiKeyArr = keys.openai || [];
+  const openaiBatchKey = openaiKeyArr.length > 0 ? openaiKeyArr[0] : null;
+  let openaiBatchResults = new Map();
+
+  if (openaiEnabled && openaiBatchKey && queries.length > 0) {
+    const openaiQueries = [];
+    const openaiModel = modelPrefs.ChatGPT || 'gpt-5-search-api';
+
+    for (let i = 0; i < tasks.length; i++) {
+      if (tasks[i].plat === 'ChatGPT') {
+        openaiQueries.push({ q: tasks[i].q, taskIdx: i });
+      }
+    }
+
+    if (openaiQueries.length > 0) {
+      try {
+        const batchQueries = openaiQueries.map(oq => oq.q);
+        const batchMap = await runOpenAIBatch(batchQueries, openaiBatchKey, openaiModel, brand);
+
+        for (let bIdx = 0; bIdx < openaiQueries.length; bIdx++) {
+          const batchResult = batchMap.get(bIdx);
+          if (batchResult) {
+            openaiBatchResults.set(openaiQueries[bIdx].taskIdx, batchResult);
+            const cost = estimateCost(openaiModel, batchResult.tokensIn, batchResult.tokensOut);
+            const batchCost = cost ? cost * 0.5 : null;
+            logApiCall({
+              userId: brand.userId, brandId: brand.id, platform: 'ChatGPT',
+              query: openaiQueries[bIdx].q, status: 'ok', error: null,
+              keyHint: openaiBatchKey.slice(-6), model: batchResult.model || openaiModel,
+              responseMs: 0, tokensIn: batchResult.tokensIn, tokensOut: batchResult.tokensOut,
+              cost: batchCost
+            });
+          }
+        }
+        console.log(`[Cron] OpenAI Batch: ${batchMap.size}/${openaiQueries.length} succeeded (50% cost savings)`);
+      } catch (batchErr) {
+        console.error(`[Cron] OpenAI Batch failed, falling back to individual calls:`, batchErr.message);
+      }
+    }
+  }
+
+  // Bounded concurrency worker pool — skip batch-handled tasks
   const CRON_CONCURRENCY = Math.max(activePlatforms.length, 8);
   let cronNextIdx = 0;
   const cronResults = new Array(tasks.length);
 
-  // Pre-fill batch results for Claude tasks
+  // Pre-fill batch results for Claude and OpenAI tasks
   for (const [taskIdx, result] of claudeBatchResults) {
     cronResults[taskIdx] = { status: 'fulfilled', value: { plat: 'Claude', q: tasks[taskIdx].q, result } };
+  }
+  for (const [taskIdx, result] of openaiBatchResults) {
+    cronResults[taskIdx] = { status: 'fulfilled', value: { plat: 'ChatGPT', q: tasks[taskIdx].q, result } };
   }
 
   async function cronWorker() {
     while (cronNextIdx < tasks.length) {
       const idx = cronNextIdx++;
-      // Skip Claude tasks already handled by batch API
-      if (claudeBatchResults.has(idx)) continue;
+      // Skip tasks already handled by batch APIs
+      if (claudeBatchResults.has(idx) || openaiBatchResults.has(idx)) continue;
       const { plat, q } = tasks[idx];
 
       // Skip stable queries — reuse last result without API call
