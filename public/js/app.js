@@ -3630,6 +3630,14 @@ function openFullResult(platform, encodedQuery){
 }
 
 // ─── EVIDENCE & PROOF ─────────────────────────────────────────────
+let _proofView = 'grouped';
+function setProofView(mode){
+  _proofView = mode;
+  el('proof-view-grouped').classList.toggle('active', mode==='grouped');
+  el('proof-view-flat').classList.toggle('active', mode==='flat');
+  renderProof();
+}
+
 function renderProof(){
   const b = brand();
   if (!b) return;
@@ -3653,89 +3661,151 @@ function renderProof(){
 
   if (!run) {
     cont.innerHTML = '<div class="empty-state"><div class="icon">◆</div><p>No runs yet. Click Run Queries to start.</p></div>';
+    el('proof-summary-strip').innerHTML = '';
     return;
   }
 
   const platFilter = el('proof-plat-sel').value;
   const resultFilter = el('proof-result-sel').value;
-  const mentions = run.mentions||[];
 
   // Build a lookup for ALL results per platform+query (including not-mentioned)
   const allResults = run.allResults || [];
 
   // CRITICAL: Use queries FROM THE RUN, not current brand queries.
-  // If user changed queries after running, evidence must still show original run results.
-  // Derive unique queries from run data (allResults + run.queries fallback + brand queries)
   const runQueries = run.queries || [];
   const resultQueries = [...new Set(allResults.map(r => r.query))];
   const queries = runQueries.length ? runQueries : (resultQueries.length ? resultQueries : (b.queries||[]));
 
-  // Evidence summary — stat pills
+  // Stats
   const totalResults = allResults.length;
   const foundCount = allResults.filter(r => r.mentioned).length;
   const notFoundCount = totalResults - foundCount - allResults.filter(r => r.error).length;
   const errorCount = allResults.filter(r => r.error).length;
-  const runDate = new Date(run.time || run.date);
   const platCount = (run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size;
-  const sovColor = run.sov >= 70 ? 'var(--green)' : run.sov >= 40 ? 'var(--amber)' : 'var(--red)';
+  const sovPct = run.sov || 0;
+  const sovColor = sovPct >= 70 ? 'var(--green)' : sovPct >= 40 ? 'var(--amber)' : 'var(--red)';
 
-  // Summary strip — 3 colored stat boxes (preview design)
+  // KPI strip — 5 metrics
   const summaryEl = el('proof-summary-strip');
   if (summaryEl) {
-    summaryEl.innerHTML = `<div style="display:flex;gap:12px;margin-bottom:14px;">
-      <div style="flex:1;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
-        <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--green);">${foundCount}</div>
-        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Found</div>
+    summaryEl.innerHTML = `<div class="proof-kpi-grid">
+      <div class="proof-kpi">
+        <div class="proof-kpi-val" style="color:${sovColor};">${sovPct}%</div>
+        <div class="proof-kpi-lbl">Share of Voice</div>
       </div>
-      <div style="flex:1;background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
-        <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--red);">${notFoundCount}</div>
-        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Not Found</div>
+      <div class="proof-kpi">
+        <div class="proof-kpi-val" style="color:var(--green);">${foundCount}</div>
+        <div class="proof-kpi-lbl">Found</div>
       </div>
-      <div style="flex:1;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.2);padding:12px;border-radius:var(--radius-xs);text-align:center;">
-        <div style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--blue);">${totalResults}</div>
-        <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;">Total</div>
+      <div class="proof-kpi">
+        <div class="proof-kpi-val" style="color:var(--red);">${notFoundCount}</div>
+        <div class="proof-kpi-lbl">Not Found</div>
+      </div>
+      <div class="proof-kpi">
+        <div class="proof-kpi-val" style="color:var(--amber);">${errorCount}</div>
+        <div class="proof-kpi-lbl">Errors</div>
+      </div>
+      <div class="proof-kpi">
+        <div class="proof-kpi-val" style="color:var(--blue);">${totalResults}</div>
+        <div class="proof-kpi-lbl">Total Checks</div>
       </div>
     </div>`;
   }
 
-  // Proof cards — flat list matching preview design
-  let html = '';
-  let proofCount = 0;
+  // Filter results
+  const filtered = allResults.filter(r => {
+    if (platFilter && r.platform !== platFilter) return false;
+    if (resultFilter === 'found' && !r.mentioned) return false;
+    if (resultFilter === 'notfound' && (r.mentioned || r.error)) return false;
+    return true;
+  });
+
   const proofHre = brandHighlightRe(b);
-  allResults.forEach(r => {
-    if (platFilter && r.platform !== platFilter) return;
-    if (resultFilter === 'found' && !r.mentioned) return;
-    if (resultFilter === 'notfound' && (r.mentioned || r.error)) return;
-    proofCount++;
+
+  function buildResultRow(r) {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
     const isMentioned = r.mentioned;
     const responseText = isErr ? '' : (r.raw || r.context || '');
     const excerpt = responseText.replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0, 300);
     const highlighted = proofHre ? esc(excerpt).replace(proofHre, (m) => '<strong style="color:var(--green);">'+m+'</strong>') : esc(excerpt);
-    const statusHtml = isErr
-      ? '<span style="color:var(--amber);font-family:var(--mono);font-size:10px;font-weight:700;">ERROR</span>'
-      : isMentioned ? '<span class="status-found">FOUND</span>' : '<span class="status-notfound">NOT FOUND</span>';
-    const borderColor = isMentioned ? 'var(--green)' : 'var(--red)';
+    const statusClass = isErr ? 'proof-status-error' : isMentioned ? 'proof-status-found' : 'proof-status-notfound';
+    const statusText = isErr ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
+    const excerptClass = isErr ? 'proof-excerpt-error' : isMentioned ? 'proof-excerpt-found' : 'proof-excerpt-notfound';
     const modelName = r.model || r.platform;
     const sentiment = r.sentiment || 'neutral';
     const posLabel = isMentioned && r.listPosition ? '#' + r.listPosition : '—';
 
-    html += `<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div><span style="font-weight:700;color:${t.color||'#888'};">${esc(r.platform)}</span> <span style="color:var(--muted);font-size:11px;">&middot; ${esc(r.query)}</span></div>
-        ${statusHtml}
+    return `<div class="proof-row">
+      <div class="proof-plat-cell">
+        <span class="proof-plat-tag" style="color:${t.color||'#888'};">${t.logo||''} ${esc(r.platform)}</span>
       </div>
-      <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid ${borderColor};">
-        ${isErr ? esc(friendlyError(r.errorMessage)) : '"' + highlighted + (excerpt.length >= 300 ? '...' : '') + '"'}
+      <div class="proof-content-cell">
+        <div class="proof-excerpt ${excerptClass}">
+          ${isErr ? esc(friendlyError(r.errorMessage)) : '"' + highlighted + (excerpt.length >= 300 ? '...' : '') + '"'}
+        </div>
+        <div class="proof-meta">
+          <span class="proof-meta-item">Model: ${esc(modelName)}</span>
+          <span class="proof-meta-item">Position: ${posLabel}</span>
+          <span class="proof-meta-item">Sentiment: ${sentiment.charAt(0).toUpperCase()+sentiment.slice(1)}</span>
+          ${r.recommended ? '<span class="proof-meta-item" style="color:var(--green);">★ Recommended</span>' : ''}
+        </div>
       </div>
-      <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: ${esc(modelName)} &middot; Position: ${posLabel} &middot; Sentiment: ${sentiment.charAt(0).toUpperCase()+sentiment.slice(1)} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
+      <div class="proof-status-cell">
+        <span class="proof-status ${statusClass}">${statusText}</span>
+      </div>
     </div>`;
-  });
-  if (proofCount > 0) {
-    html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px;">Showing ${proofCount} of ${totalResults} proof entries</div>`;
   }
-  cont.innerHTML = html || '<div style="text-align:center;color:var(--muted);padding:32px;">No results match your filters.</div>';
+
+  let html = '';
+
+  if (_proofView === 'grouped') {
+    // Group by query
+    const queryOrder = [];
+    const queryMap = {};
+    filtered.forEach(r => {
+      if (!queryMap[r.query]) { queryMap[r.query] = []; queryOrder.push(r.query); }
+      queryMap[r.query].push(r);
+    });
+
+    queryOrder.forEach((q, gi) => {
+      const results = queryMap[q];
+      const qFound = results.filter(r => r.mentioned).length;
+      const qTotal = results.length;
+      const qErrors = results.filter(r => r.error).length;
+      const qSov = qTotal > 0 ? Math.round((qFound / qTotal) * 100) : 0;
+      const qSovColor = qSov >= 70 ? 'var(--green)' : qSov >= 40 ? 'var(--amber)' : 'var(--red)';
+
+      html += `<div class="proof-query-group">
+        <div class="proof-query-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:20px;">#${gi+1}</span>
+            <span class="proof-query-title">${esc(q)}</span>
+          </div>
+          <div class="proof-query-badges">
+            <span class="proof-query-badge" style="background:rgba(16,185,129,.08);color:var(--green);">${qFound} found</span>
+            ${qErrors ? '<span class="proof-query-badge" style="background:rgba(245,158,11,.08);color:var(--amber);">' + qErrors + ' error</span>' : ''}
+            <span class="proof-query-badge" style="background:rgba(59,130,246,.06);color:${qSovColor};border:1px solid ${qSovColor};">${qSov}% SOV</span>
+          </div>
+        </div>
+        <div class="proof-query-body">
+          ${results.map(r => buildResultRow(r)).join('')}
+        </div>
+      </div>`;
+    });
+  } else {
+    // Flat view
+    if (filtered.length) {
+      html += `<div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">`;
+      filtered.forEach(r => { html += buildResultRow(r); });
+      html += `</div>`;
+    }
+  }
+
+  if (filtered.length > 0) {
+    html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:12px;">Showing ${filtered.length} of ${totalResults} results</div>`;
+  }
+  cont.innerHTML = html || '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">No results match your filters.</div>';
 }
 
 

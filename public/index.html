@@ -953,22 +953,28 @@
 
     <!-- EVIDENCE & PROOF ─────────────────── -->
     <div id="view-proof" class="view">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div class="proof-header">
         <div>
-          <div class="view-title">Evidence &amp; Proof <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-title">Evidence &amp; Proof</div>
           <div class="view-sub">Verifiable AI responses — your brand's visibility, proven with real data.</div>
         </div>
-        <button class="pbtn" onclick="exportProofCSV()">&#8595; Export CSV</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div class="proof-view-toggle">
+            <button class="active" onclick="setProofView('grouped')" id="proof-view-grouped">Grouped</button>
+            <button onclick="setProofView('flat')" id="proof-view-flat">Flat</button>
+          </div>
+          <button class="pbtn" onclick="exportProofCSV()">&#8595; Export CSV</button>
+        </div>
       </div>
-      <div style="display:flex;gap:12px;margin-bottom:14px;">
-        <select class="brand-select" id="proof-run-sel" style="width:180px;" onchange="renderProof()"></select>
-        <select class="brand-select" id="proof-plat-sel" style="width:140px;" onchange="renderProof()">
+      <div class="proof-filters">
+        <select class="finp proof-filter-select" id="proof-run-sel" onchange="renderProof()"></select>
+        <select class="finp proof-filter-select" id="proof-plat-sel" onchange="renderProof()">
           <option value="">All Platforms</option>
           <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
           <option>Gemini</option><option>Grok</option><option>Google AIO</option>
           <option>DeepSeek</option>
         </select>
-        <select class="brand-select" id="proof-result-sel" style="width:130px;" onchange="renderProof()">
+        <select class="finp proof-filter-select" id="proof-result-sel" onchange="renderProof()">
           <option value="">All Results</option>
           <option value="found">Found</option>
           <option value="notfound">Not Found</option>
@@ -1050,9 +1056,9 @@
     <!-- API LOGS ─────────────────────────── -->
     <!-- (API Logs merged into Activity & Logs view) -->
 
-    <!-- ALERTS & NOTIFICATIONS (MERGED) ──────── -->
+    <!-- ALERTS & NOTIFICATIONS ──────────── -->
     <div id="view-alerts" class="view">
-      <div class="view-title">Alerts &amp; Notifications <span class="badge-merged">MERGED</span></div>
+      <div class="view-title">Alerts &amp; Notifications</div>
       <div class="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
 
       <!-- Alert Rules -->
@@ -1311,9 +1317,9 @@
       <div id="acct-plans" style="display:none;"></div>
     </div>
 
-    <!-- ACTIVITY & LOGS (MERGED) ──────────── -->
+    <!-- ACTIVITY & LOGS ────────────────── -->
     <div id="view-activitylog" class="view">
-      <div class="view-title">Activity &amp; Logs <span class="badge-merged">MERGED</span></div>
+      <div class="view-title">Activity &amp; Logs</div>
       <div class="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
       <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border);">
         <button class="tab-btn tab-active" onclick="switchActivityTab(this,'al-tab-activity')">Account Activity</button>
@@ -1366,7 +1372,7 @@
     <div id="view-promptdetails" class="view">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <div class="view-title">Prompt Details <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-title">Prompt Details</div>
           <div class="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
         </div>
         <button class="pbtn" onclick="exportPromptData()">Export CSV</button>
@@ -1417,7 +1423,7 @@
     <div id="view-accuracy" class="view">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
         <div>
-          <div class="view-title">Accuracy Monitor <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-title">Accuracy Monitor</div>
           <div class="view-sub">Verify how accurately AI platforms represent your brand information.</div>
         </div>
         <button class="pbtn" onclick="checkAccuracy()" style="background:var(--primary);color:#fff;border-color:var(--primary);">Check Now</button>
@@ -1444,7 +1450,7 @@
     <div id="view-citations" class="view">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
         <div>
-          <div class="view-title">Citation Analysis <span class="badge-moved">MOVED TO ANALYSIS</span></div>
+          <div class="view-title">Citation Analysis</div>
           <div class="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
         </div>
       </div>
