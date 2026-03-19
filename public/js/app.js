@@ -3648,23 +3648,22 @@ function renderProof(){
     const opt = document.createElement('option');
     opt.value = r.id;
     const d = new Date(r.time || r.date || 0);
-    const dateStr = isNaN(d.getTime()) ? 'Unknown date' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    opt.textContent = dateStr + ' \u2014 ' + (r.mentions||[]).length + ' mentions, SOV '+r.sov+'%';
+    const dateStr = isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    opt.textContent = dateStr + ' \u2014 SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
 
-  const selectedRunId = sel.value;
-  const run = (b.runs||[]).find(r => r.id === selectedRunId);
+  const run = (b.runs||[]).find(r => r.id === sel.value);
   const cont = el('proof-container');
   const summaryEl = el('proof-summary-strip');
 
   if (!run) {
     if (summaryEl) summaryEl.innerHTML = '';
-    cont.innerHTML = `<div style="text-align:center;padding:80px 20px;">
-      <div style="width:64px;height:64px;margin:0 auto 16px;border-radius:18px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:28px;opacity:.4;">&#9670;</div>
-      <div style="font-weight:700;font-size:16px;margin-bottom:6px;color:var(--text);">No runs yet</div>
-      <div style="color:var(--muted);font-size:13px;max-width:300px;margin:0 auto;">Click <strong style="color:var(--primary);">Run Queries</strong> to see how AI platforms respond to your brand.</div>
+    cont.innerHTML = `<div style="text-align:center;padding:70px 20px;">
+      <div style="font-size:36px;opacity:.25;margin-bottom:12px;">&#9670;</div>
+      <div style="font-weight:700;font-size:15px;color:var(--text);margin-bottom:4px;">No runs yet</div>
+      <div style="color:var(--muted);font-size:12px;">Click <strong style="color:var(--primary);">Run Queries</strong> to start.</div>
     </div>`;
     return;
   }
@@ -3676,7 +3675,6 @@ function renderProof(){
   const resultQueries = [...new Set(allResults.map(r => r.query))];
   const queries = runQueries.length ? runQueries : (resultQueries.length ? resultQueries : (b.queries||[]));
 
-  // Stats
   const totalResults = allResults.length;
   const foundCount = allResults.filter(r => r.mentioned).length;
   const notFoundCount = totalResults - foundCount - allResults.filter(r => r.error).length;
@@ -3687,27 +3685,25 @@ function renderProof(){
   const sovPct = run.sov || 0;
   const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';
   const foundPct = totalResults > 0 ? Math.round((foundCount/totalResults)*100) : 0;
+  const nfPct = totalResults > 0 ? Math.round((notFoundCount/totalResults)*100) : 0;
 
-  // Sentiment
   const sentPos = allResults.filter(r => r.sentiment === 'positive').length;
   const sentNeg = allResults.filter(r => r.sentiment === 'negative').length;
-  const sentNeu = allResults.filter(r => !r.sentiment || r.sentiment === 'neutral').length;
+  const sentNeu = totalResults - sentPos - sentNeg;
 
-  // Per-query stats
+  // Per-query & per-platform stats
   const qStats = {};
   allResults.forEach(r => {
     if (!qStats[r.query]) qStats[r.query] = {found:0,total:0};
     qStats[r.query].total++;
     if (r.mentioned) qStats[r.query].found++;
   });
-  let bestQuery = '', worstQuery = '', bestSov = -1, worstSov = 101;
+  let bestQ = '', worstQ = '', bestS = -1, worstS = 101;
   Object.entries(qStats).forEach(([q,s]) => {
-    const sov = s.total > 0 ? Math.round((s.found/s.total)*100) : 0;
-    if (sov > bestSov) { bestSov = sov; bestQuery = q; }
-    if (sov < worstSov) { worstSov = sov; worstQuery = q; }
+    const sv = s.total > 0 ? Math.round((s.found/s.total)*100) : 0;
+    if (sv > bestS) { bestS = sv; bestQ = q; }
+    if (sv < worstS) { worstS = sv; worstQ = q; }
   });
-
-  // Per-platform stats
   const platStats = {};
   allResults.forEach(r => {
     if (!platStats[r.platform]) platStats[r.platform] = {found:0,total:0};
@@ -3715,99 +3711,118 @@ function renderProof(){
     if (r.mentioned) platStats[r.platform].found++;
   });
 
-  // SOV ring math
-  const sovDash = Math.round((sovPct / 100) * 251.3);
-
-  // ── HERO BANNER ──
-  let summaryHtml = `<div class="proof-hero">
-    <div class="proof-hero-sov">
-      <svg viewBox="0 0 90 90">
-        <circle cx="45" cy="45" r="40" fill="none" stroke="var(--bg3)" stroke-width="6"/>
-        <circle cx="45" cy="45" r="40" fill="none" stroke="${sovColor}" stroke-width="6"
-          stroke-dasharray="251.3" stroke-dashoffset="${251.3 - sovDash}"
-          stroke-linecap="round" transform="rotate(-90 45 45)"
-          style="transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1);"/>
+  // ── SCORE BANNER ──
+  const sovDash = Math.round((sovPct / 100) * 226.2);
+  let sh = `<div class="ep-banner">
+    <div class="ep-banner-ring">
+      <svg viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="36" fill="none" stroke="var(--bg3)" stroke-width="5"/>
+        <circle cx="40" cy="40" r="36" fill="none" stroke="${sovColor}" stroke-width="5"
+          stroke-dasharray="226.2" stroke-dashoffset="${226.2 - sovDash}" stroke-linecap="round"
+          transform="rotate(-90 40 40)" style="transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1);"/>
       </svg>
-      <div class="proof-hero-sov-label">
-        <span class="proof-hero-sov-pct" style="color:${sovColor};">${sovPct}%</span>
-        <span class="proof-hero-sov-sub">SOV</span>
+      <div class="ep-banner-ring-lbl">
+        <span class="ep-banner-ring-pct" style="color:${sovColor};">${sovPct}%</span>
+        <span class="ep-banner-ring-sub">SOV</span>
       </div>
     </div>
-    <div class="proof-hero-stats">
-      <div class="proof-hero-stat stat-found">
-        <div class="proof-hero-stat-val" style="color:var(--green);">${foundCount}</div>
-        <div class="proof-hero-stat-lbl">Found</div>
-        <div class="proof-hero-stat-bar"><div class="proof-hero-stat-bar-fill" style="width:${foundPct}%;background:var(--green);"></div></div>
+    <div class="ep-banner-metrics">
+      <div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--green);">${foundCount}</div>
+        <div class="ep-banner-metric-lbl">Found</div>
+        <div class="ep-banner-metric-bar"><div style="width:${foundPct}%;background:var(--green);"></div></div>
       </div>
-      <div class="proof-hero-stat stat-notfound">
-        <div class="proof-hero-stat-val" style="color:var(--red);">${notFoundCount}</div>
-        <div class="proof-hero-stat-lbl">Not Found</div>
-        <div class="proof-hero-stat-bar"><div class="proof-hero-stat-bar-fill" style="width:${totalResults ? Math.round(notFoundCount/totalResults*100) : 0}%;background:var(--red);"></div></div>
+      <div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--red);">${notFoundCount}</div>
+        <div class="ep-banner-metric-lbl">Not Found</div>
+        <div class="ep-banner-metric-bar"><div style="width:${nfPct}%;background:var(--red);"></div></div>
       </div>
-      <div class="proof-hero-stat stat-queries">
-        <div class="proof-hero-stat-val" style="color:var(--text);">${queryCount}</div>
-        <div class="proof-hero-stat-lbl">Queries Tracked</div>
+      <div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--text);">${queryCount}</div>
+        <div class="ep-banner-metric-lbl">Queries</div>
       </div>
-      <div class="proof-hero-stat stat-plats">
-        <div class="proof-hero-stat-val" style="color:var(--blue);">${platCount}</div>
-        <div class="proof-hero-stat-lbl">AI Platforms</div>
+      <div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--blue);">${platCount}</div>
+        <div class="ep-banner-metric-lbl">Platforms</div>
       </div>
-      <div class="proof-hero-stat stat-sentiment">
-        <div style="display:flex;gap:8px;align-items:baseline;">
-          <span style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--green);">${sentPos}</span>
-          <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--muted);">${sentNeu}</span>
-          <span style="font-family:var(--mono);font-size:16px;font-weight:800;color:var(--red);">${sentNeg}</span>
+      <div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--text);">${totalResults}</div>
+        <div class="ep-banner-metric-lbl">Total Checks</div>
+      </div>
+      <div class="ep-banner-metric">
+        <div style="display:flex;gap:6px;align-items:center;justify-content:center;">
+          <span style="font-family:var(--mono);font-size:14px;font-weight:800;color:var(--green);">${sentPos}</span>
+          <span style="font-family:var(--mono);font-size:12px;color:var(--muted);">${sentNeu}</span>
+          <span style="font-family:var(--mono);font-size:14px;font-weight:800;color:var(--red);">${sentNeg}</span>
         </div>
-        <div class="proof-hero-stat-lbl">Pos / Neu / Neg</div>
+        <div class="ep-banner-metric-lbl">Sentiment</div>
       </div>
-      ${errorCount ? `<div class="proof-hero-stat stat-errors">
-        <div class="proof-hero-stat-val" style="color:var(--amber);">${errorCount}</div>
-        <div class="proof-hero-stat-lbl">Errors</div>
-      </div>` : `<div class="proof-hero-stat stat-queries">
-        <div class="proof-hero-stat-val" style="color:var(--text);">${totalResults}</div>
-        <div class="proof-hero-stat-lbl">Total Checks</div>
+      ${errorCount ? `<div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--amber);">${errorCount}</div>
+        <div class="ep-banner-metric-lbl">Errors</div>
+      </div>` : `<div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="color:var(--green);">${foundPct}%</div>
+        <div class="ep-banner-metric-lbl">Hit Rate</div>
       </div>`}
+      <div class="ep-banner-metric">
+        <div class="ep-banner-metric-val" style="font-size:14px;color:var(--text);">${run.durationMs ? (run.durationMs/1000).toFixed(1)+'s' : '\u2014'}</div>
+        <div class="ep-banner-metric-lbl">Run Time</div>
+      </div>
     </div>
   </div>`;
 
-  // ── INSIGHTS STRIP ──
-  if (bestQuery && Object.keys(qStats).length > 1) {
-    summaryHtml += `<div class="proof-insights">
-      <div class="proof-insight best">
-        <div class="proof-insight-icon">&#9650;</div>
-        <div>
-          <div class="proof-insight-label">Best Performing</div>
-          <div class="proof-insight-val">${esc(bestQuery)} <span style="color:var(--green);">${bestSov}%</span></div>
-        </div>
+  // ── PLATFORM CARDS ──
+  sh += `<div class="ep-plat-row">`;
+  uniquePlats.forEach(p => {
+    const t = PLAT_THEME[p]||{};
+    const ps = platStats[p]||{found:0,total:0};
+    const pPct = ps.total > 0 ? Math.round((ps.found/ps.total)*100) : 0;
+    const pColor = pPct >= 70 ? 'var(--green)' : pPct >= 40 ? 'var(--amber)' : 'var(--red)';
+    const ringDash = Math.round((pPct/100)*62.8);
+    sh += `<div class="ep-plat-card">
+      <span class="ep-plat-dot" style="background:${t.color||'#888'};"></span>
+      <div class="ep-plat-info">
+        <div class="ep-plat-name">${esc(p)}</div>
+        <div class="ep-plat-score" style="color:${pColor};">${ps.found}/${ps.total} found</div>
       </div>
-      <div class="proof-insight worst">
-        <div class="proof-insight-icon">&#9660;</div>
-        <div>
-          <div class="proof-insight-label">Needs Attention</div>
-          <div class="proof-insight-val">${esc(worstQuery)} <span style="color:var(--red);">${worstSov}%</span></div>
+      <div class="ep-plat-minibar">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="var(--bg3)" stroke-width="2.5"/>
+          <circle cx="12" cy="12" r="10" fill="none" stroke="${pColor}" stroke-width="2.5"
+            stroke-dasharray="62.8" stroke-dashoffset="${62.8-ringDash}" stroke-linecap="round"
+            transform="rotate(-90 12 12)"/>
+        </svg>
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8px;font-weight:800;color:${pColor};">${pPct}%</span>
+      </div>
+    </div>`;
+  });
+  sh += `</div>`;
+
+  // ── INSIGHTS ──
+  if (bestQ && Object.keys(qStats).length > 1) {
+    sh += `<div class="ep-insights">
+      <div class="ep-insight-card">
+        <div class="ep-insight-badge" style="background:rgba(16,185,129,.08);color:var(--green);">&#9650;</div>
+        <div class="ep-insight-text">
+          <div class="ep-insight-label" style="color:var(--green);">Best Query</div>
+          <div class="ep-insight-query">${esc(bestQ)}</div>
         </div>
+        <div class="ep-insight-pct" style="color:var(--green);">${bestS}%</div>
+      </div>
+      <div class="ep-insight-card">
+        <div class="ep-insight-badge" style="background:rgba(239,68,68,.08);color:var(--red);">&#9660;</div>
+        <div class="ep-insight-text">
+          <div class="ep-insight-label" style="color:var(--red);">Needs Work</div>
+          <div class="ep-insight-query">${esc(worstQ)}</div>
+        </div>
+        <div class="ep-insight-pct" style="color:var(--red);">${worstS}%</div>
       </div>
     </div>`;
   }
 
-  // ── PLATFORM CHIPS ──
-  summaryHtml += `<div class="proof-plat-summary">`;
-  uniquePlats.forEach(plat => {
-    const t = PLAT_THEME[plat]||{};
-    const ps = platStats[plat]||{found:0,total:0};
-    const pSov = ps.total > 0 ? Math.round((ps.found/ps.total)*100) : 0;
-    const pColor = pSov >= 70 ? 'var(--green)' : pSov >= 40 ? 'var(--amber)' : 'var(--red)';
-    summaryHtml += `<div class="proof-plat-chip">
-      <span class="proof-plat-chip-dot" style="background:${t.color||'#888'};"></span>
-      <span class="proof-plat-chip-name">${esc(plat)}</span>
-      <span class="proof-plat-chip-score" style="color:${pColor};">${ps.found}/${ps.total}</span>
-    </div>`;
-  });
-  summaryHtml += `</div>`;
+  if (summaryEl) summaryEl.innerHTML = sh;
 
-  if (summaryEl) summaryEl.innerHTML = summaryHtml;
-
-  // ── FILTER RESULTS ──
+  // ── FILTER ──
   const filtered = allResults.filter(r => {
     if (platFilter && r.platform !== platFilter) return false;
     if (resultFilter === 'found' && !r.mentioned) return false;
@@ -3817,40 +3832,42 @@ function renderProof(){
 
   const proofHre = brandHighlightRe(b);
 
-  function buildResultCard(r, showQuery) {
+  function buildRow(r, showQ) {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
     const isMentioned = r.mentioned;
-    const responseText = isErr ? '' : (r.raw || r.context || '');
-    const excerpt = responseText.replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0, 280);
-    const highlighted = proofHre ? esc(excerpt).replace(proofHre, (m) => '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:1px 4px;border-radius:4px;font-weight:700;">'+m+'</mark>') : esc(excerpt);
-    const statusCls = isErr ? 'error' : isMentioned ? 'found' : 'notfound';
-    const statusText = isErr ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
-    const modelName = r.model || '';
-    const sentiment = r.sentiment || 'neutral';
-    const sentDotColor = sentiment === 'positive' ? 'var(--green)' : sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
-    const posLabel = isMentioned && r.listPosition ? '#' + r.listPosition : '';
+    const txt = isErr ? '' : (r.raw || r.context || '');
+    const excerpt = txt.replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0, 260);
+    const hl = proofHre ? esc(excerpt).replace(proofHre, m => '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:0 3px;border-radius:3px;font-weight:700;">'+m+'</mark>') : esc(excerpt);
+    const cls = isErr ? 'error' : isMentioned ? 'found' : 'notfound';
+    const label = isErr ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
+    const model = r.model || '';
+    const sent = r.sentiment || 'neutral';
+    const sentC = sent==='positive' ? 'var(--green)' : sent==='negative' ? 'var(--red)' : 'var(--muted)';
+    const pos = isMentioned && r.listPosition ? '#'+r.listPosition : '';
 
-    return `<div class="proof-result">
-      ${showQuery ? '<div class="proof-result-query">' + esc(r.query) + '</div>' : ''}
-      <div class="proof-result-top">
-        <div class="proof-result-plat">
-          <span class="proof-result-plat-badge">
-            <span class="proof-result-plat-dot" style="background:${t.color||'#888'};"></span>
-            <span class="proof-result-plat-name" style="color:${t.color||'#888'};">${esc(r.platform)}</span>
-          </span>
-          ${modelName ? '<span class="proof-result-model">' + esc(modelName) + '</span>' : ''}
+    return `<div class="ep-row">
+      <div class="ep-row-left">
+        <div class="ep-row-plat">
+          <span class="ep-row-plat-dot" style="background:${t.color||'#888'};"></span>
+          <span class="ep-row-plat-name" style="color:${t.color||'#888'};">${esc(r.platform)}</span>
         </div>
-        <span class="proof-result-status ${statusCls}">${statusText}</span>
+        ${model ? '<div class="ep-row-model">'+esc(model)+'</div>' : ''}
       </div>
-      <div class="proof-result-excerpt ${statusCls}">
-        ${isErr ? '<span style="color:var(--amber);">' + esc(friendlyError(r.errorMessage)) + '</span>' : '\u201c' + highlighted + (excerpt.length >= 280 ? '...' : '') + '\u201d'}
+      <div class="ep-row-mid">
+        ${showQ ? '<div class="ep-flat .ep-row-query" style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px;font-family:var(--mono);">'+esc(r.query)+'</div>' : ''}
+        <div class="ep-row-excerpt ${cls}">
+          ${isErr ? '<span style="color:var(--amber);">'+esc(friendlyError(r.errorMessage))+'</span>' : '\u201c'+hl+(excerpt.length>=260?'...':'')+'\u201d'}
+        </div>
+        <div class="ep-row-tags">
+          ${pos ? '<span class="ep-tag"><span class="ep-tag-dot" style="background:var(--blue);"></span>Rank '+pos+'</span>' : ''}
+          <span class="ep-tag"><span class="ep-tag-dot" style="background:${sentC};"></span>${sent.charAt(0).toUpperCase()+sent.slice(1)}</span>
+          ${r.recommended ? '<span class="ep-tag" style="color:var(--green);"><span class="ep-tag-dot" style="background:var(--green);"></span>Recommended</span>' : ''}
+          ${isMentioned && r.competitorMentions && r.competitorMentions.length ? '<span class="ep-tag">'+r.competitorMentions.length+' competitor'+(r.competitorMentions.length>1?'s':'')+'</span>' : ''}
+        </div>
       </div>
-      <div class="proof-result-details">
-        ${posLabel ? `<span class="proof-result-tag"><span class="proof-result-tag-dot" style="background:var(--blue);"></span> Rank ${posLabel}</span>` : ''}
-        <span class="proof-result-tag"><span class="proof-result-tag-dot" style="background:${sentDotColor};"></span> ${sentiment.charAt(0).toUpperCase()+sentiment.slice(1)}</span>
-        ${r.recommended ? '<span class="proof-result-tag" style="color:var(--green);border-color:rgba(16,185,129,.2);"><span class="proof-result-tag-dot" style="background:var(--green);"></span> Recommended</span>' : ''}
-        ${isMentioned && r.competitorMentions && r.competitorMentions.length ? '<span class="proof-result-tag"><span class="proof-result-tag-dot" style="background:var(--purple);"></span> ' + r.competitorMentions.length + ' competitor' + (r.competitorMentions.length>1?'s':'') + '</span>' : ''}
+      <div class="ep-row-right">
+        <span class="ep-row-status ${cls}">${label}</span>
       </div>
     </div>`;
   }
@@ -3858,70 +3875,61 @@ function renderProof(){
   let html = '';
 
   if (_proofView === 'grouped') {
-    const queryOrder = [];
-    const queryMap = {};
+    const qOrder = [];
+    const qMap = {};
     filtered.forEach(r => {
-      if (!queryMap[r.query]) { queryMap[r.query] = []; queryOrder.push(r.query); }
-      queryMap[r.query].push(r);
+      if (!qMap[r.query]) { qMap[r.query] = []; qOrder.push(r.query); }
+      qMap[r.query].push(r);
     });
 
-    queryOrder.forEach((q, gi) => {
-      const results = queryMap[q];
-      const qFound = results.filter(r => r.mentioned).length;
-      const qTotal = results.length;
-      const qSov = qTotal > 0 ? Math.round((qFound / qTotal) * 100) : 0;
-      const qSovColor = qSov >= 70 ? '#10b981' : qSov >= 40 ? '#f59e0b' : '#ef4444';
-      const qProgressPct = qTotal > 0 ? Math.round((qFound / qTotal) * 100) : 0;
+    qOrder.forEach((q, gi) => {
+      const res = qMap[q];
+      const qF = res.filter(r => r.mentioned).length;
+      const qT = res.length;
+      const qSov = qT > 0 ? Math.round((qF/qT)*100) : 0;
+      const qC = qSov >= 70 ? 'var(--green)' : qSov >= 40 ? 'var(--amber)' : 'var(--red)';
 
-      // Platform mini-grid: colored squares showing found/not-found per platform
-      const platGrid = results.map(r => {
-        const bg = r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'rgba(239,68,68,.35)';
-        return `<span class="proof-qcard-platgrid-cell" style="background:${bg};" title="${esc(r.platform)}: ${r.error?'Error':r.mentioned?'Found':'Not Found'}"></span>`;
+      // Platform dots: tiny colored squares per platform
+      const dots = res.map(r => {
+        const t = PLAT_THEME[r.platform]||{};
+        const bg = r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
+        const letter = (r.platform||'?')[0];
+        return `<span class="ep-qcard-dot" style="background:${bg};" title="${esc(r.platform)}: ${r.mentioned?'Found':'Not Found'}">${letter}</span>`;
       }).join('');
 
-      // Subtitle: which platforms found it
-      const foundPlats = results.filter(r => r.mentioned).map(r => r.platform);
-      const subtitle = foundPlats.length
-        ? 'Found on ' + foundPlats.join(', ')
-        : 'Not found on any platform';
+      const foundOn = res.filter(r => r.mentioned).map(r => r.platform);
+      const sub = foundOn.length ? foundOn.join(', ') : 'Not found on any platform';
 
-      html += `<div class="proof-qcard">
-        <div class="proof-qcard-head" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
-          <div class="proof-qcard-left">
-            <div class="proof-qcard-num">${gi+1}</div>
-            <div class="proof-qcard-info">
-              <div class="proof-qcard-title">${esc(q)}</div>
-              <div class="proof-qcard-subtitle">${subtitle}</div>
-            </div>
+      html += `<div class="ep-qcard">
+        <div class="ep-qcard-head" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
+          <div class="ep-qcard-idx">${gi+1}</div>
+          <div class="ep-qcard-mid">
+            <div class="ep-qcard-title">${esc(q)}</div>
+            <div class="ep-qcard-sub">${sub}</div>
           </div>
-          <div class="proof-qcard-right">
-            <div class="proof-qcard-platgrid">${platGrid}</div>
-            <div class="proof-qcard-progress">
-              <div class="proof-qcard-progress-bar"><div class="proof-qcard-progress-fill" style="width:${qProgressPct}%;background:${qSovColor};"></div></div>
-              <span class="proof-qcard-progress-text" style="color:${qSovColor};">${qFound}/${qTotal}</span>
-            </div>
-            <span class="proof-qcard-arrow">&#9662;</span>
-          </div>
+          <div class="ep-qcard-dots">${dots}</div>
+          <div class="ep-qcard-stat" style="color:${qC};">${qF}/${qT}</div>
+          <div class="ep-qcard-chevron">&#9662;</div>
         </div>
-        <div class="proof-qcard-body">
-          ${results.map(r => buildResultCard(r, false)).join('')}
+        <div class="ep-qcard-body">
+          ${res.map(r => buildRow(r, false)).join('')}
         </div>
       </div>`;
     });
   } else {
     if (filtered.length) {
-      html += `<div class="proof-flat-card">`;
-      filtered.forEach(r => { html += buildResultCard(r, true); });
+      html += `<div class="ep-flat">`;
+      filtered.forEach(r => { html += buildRow(r, true); });
       html += `</div>`;
     }
   }
 
   if (filtered.length > 0) {
-    html += `<div class="proof-footer">Showing ${filtered.length} of ${totalResults} results across ${platCount} platform${platCount!==1?'s':''}</div>`;
+    html += `<div class="ep-footer">Showing ${filtered.length} of ${totalResults} results across ${platCount} platform${platCount!==1?'s':''}</div>`;
   }
   cont.innerHTML = html || `<div style="text-align:center;padding:60px 20px;">
-    <div style="width:56px;height:56px;margin:0 auto 14px;border-radius:16px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:24px;opacity:.4;">&#9671;</div>
-    <div style="font-weight:600;color:var(--muted);font-size:13px;">No results match your filters.</div>
+    <div style="font-size:28px;opacity:.25;margin-bottom:10px;">&#9671;</div>
+    <div style="color:var(--muted);font-size:12px;">No results match your filters.</div>
   </div>`;
 }
 
