@@ -678,8 +678,8 @@
           <label class="flbl" for="reg-name">Name</label>
           <input class="finp" id="reg-name" type="text" placeholder="Your name" autocomplete="name">
 
-          <label class="flbl" for="reg-username">Username <span style="color:var(--text-muted);font-size:10px;">(optional — used for login)</span></label>
-          <input class="finp" id="reg-username" type="text" placeholder="e.g. johndoe" autocomplete="username" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
+          <label class="flbl" for="reg-username">Username <span style="color:var(--text-muted);font-size:10px;">(auto-generated if left blank — you can change it later)</span></label>
+          <input class="finp" id="reg-username" type="text" placeholder="Leave blank to auto-generate" autocomplete="username" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')">
 
           <label class="flbl" for="reg-email">Email</label>
           <input class="finp" id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" required>
@@ -777,7 +777,7 @@
   <!-- Main -->
   <div class="main">
 
-    <div id="run-progress" class="run-progress" style="margin:4px 24px 0;display:none;max-width:1052px;">
+    <div id="run-progress" class="run-progress" style="display:none;max-width:1052px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="run-status-text">Running queries...</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;" id="run-timer"></div>
@@ -787,13 +787,13 @@
 
     <!-- OVERVIEW ─────────────────────────── -->
     <div id="view-overview" class="view active">
-      <!-- Header Row: Brand name + controls on single line -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;flex-wrap:wrap;">
-        <div style="min-width:0;">
+      <!-- Header Row: Brand name + controls -->
+      <div class="ov-header">
+        <div class="ov-header-left">
           <div class="view-title" id="ov-brand-title" style="margin-bottom:0;">Overview</div>
           <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;flex-wrap:wrap;">
+        <div class="ov-header-right">
           <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
             <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
           </div>
@@ -1207,8 +1207,10 @@
         <div class="section-title">Account Info</div>
         <div style="font-family:var(--mono);font-size:12px;line-height:2.2;">
           <div>Email: <strong id="acct-email"></strong> <span id="acct-email-verify"></span></div>
-          <div style="display:flex;align-items:center;gap:8px;">Username: <strong id="acct-username" style="color:var(--primary);">—</strong>
-            <button onclick="promptSetUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">SET</button>
+          <div style="display:flex;align-items:center;gap:8px;">Username:
+            <strong id="acct-username" style="color:var(--primary);">—</strong>
+            <input id="acct-username-input" class="finp" type="text" style="display:none;margin:0;padding:2px 8px;width:180px;font-size:12px;" maxlength="30" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')" onkeydown="if(event.key==='Enter'){event.preventDefault();saveUsername();}if(event.key==='Escape'){el('acct-username-input').style.display='none';el('acct-username').style.display='';el('acct-username-btn').textContent='EDIT';}">
+            <button id="acct-username-btn" onclick="toggleEditUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">EDIT</button>
           </div>
           <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
           <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
