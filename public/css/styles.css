@@ -1548,14 +1548,6 @@ select.finput{appearance:none;}
 .pd-trend-down{color:var(--red);font-weight:700;font-family:var(--mono);font-size:11px;}
 .pd-trend-flat{color:var(--muted);font-weight:600;font-family:var(--mono);font-size:11px;}
 
-/* Metadata Panel */
-.pd-meta-card{padding:16px 20px;margin-bottom:16px;}
-.pd-meta-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-.pd-meta-fields{display:grid;grid-template-columns:1fr 1fr 2fr;gap:14px;align-items:end;}
-.pd-meta-field{display:flex;flex-direction:column;gap:4px;}
-.pd-meta-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
-.pd-meta-tags-field{min-width:0;}
-
 /* Charts */
 .pd-charts-row{margin-bottom:16px;}
 .pd-chart-card{padding:18px 20px;}
@@ -1593,6 +1585,10 @@ select.finput{appearance:none;}
 .pd-mention-rate-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;max-width:80px;}
 .pd-mention-rate-fill{height:100%;border-radius:3px;transition:width .5s ease;}
 .pd-mention-rate-val{font-family:var(--mono);font-size:11px;font-weight:700;min-width:36px;}
+
+/* Detail Modal Labels */
+.pd-meta-field{display:flex;flex-direction:column;gap:4px;}
+.pd-meta-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
 
 /* Recent Runs */
 .pd-runs-card{padding:0;overflow:hidden;}
@@ -2059,7 +2055,6 @@ input.brand-select{padding:7px 10px;}
   .pd-toolbar{flex-direction:column;gap:10px;padding:12px 14px;}
   .pd-toolbar-plat,.pd-toolbar-days{width:100%;}
   .pd-metrics-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
-  .pd-meta-fields{grid-template-columns:1fr;}
   .pd-run-row{grid-template-columns:90px 1fr 60px 60px;font-size:11px;padding:8px 14px;}
   .pd-run-model,.pd-run-pos{display:none;}
 }

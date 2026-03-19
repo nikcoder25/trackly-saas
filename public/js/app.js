@@ -6134,13 +6134,11 @@ async function renderPromptDetails() {
   const metricsEl = el('pd-metrics');
   const tableEl = el('pd-platform-table');
   const runsEl = el('pd-recent-runs');
-  const metaPanel = el('pd-meta-panel');
   const countEl = el('pd-query-count');
 
   if (!queries.length) {
     metricsEl.innerHTML = '';
     if (countEl) countEl.textContent = '0 queries';
-    if (metaPanel) metaPanel.style.display = 'none';
     if (runsEl) runsEl.style.display = 'none';
     tableEl.innerHTML = `<div style="text-align:center;padding:48px 24px;">
       <div style="font-size:36px;margin-bottom:12px;opacity:.3;">&#9671;</div>
@@ -6161,9 +6159,6 @@ async function renderPromptDetails() {
 
   // Show query count
   if (countEl) countEl.textContent = queries.length + ' quer' + (queries.length === 1 ? 'y' : 'ies');
-
-  // Show metadata panel
-  if (metaPanel) metaPanel.style.display = '';
 
   renderPromptDetail();
 }
@@ -6283,17 +6278,6 @@ async function renderPromptDetail() {
         </div>`;
       }).join('');
     }
-
-    // ── LOAD METADATA ──
-    try {
-      const metaRes = await api('GET', `/api/brands/${b.id}/prompt-metadata?prompt=${encodeURIComponent(prompt)}`);
-      if (metaRes && metaRes.metadata) {
-        const m = metaRes.metadata;
-        if (el('pd-intent')) el('pd-intent').value = m.intent || '';
-        if (el('pd-funnel')) el('pd-funnel').value = m.funnel_stage || '';
-        if (el('pd-tags')) el('pd-tags').value = (m.tags || []).join(', ');
-      }
-    } catch(_) { /* metadata may not exist yet */ }
 
     // ── VISIBILITY CHART ──
     if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }
@@ -6464,24 +6448,6 @@ async function renderPromptDetail() {
     console.error('[PromptDetails]', e);
     if (loadingEl) loadingEl.style.display = 'none';
   }
-}
-
-async function savePromptMetadata() {
-  const b = brand();
-  if (!b) return;
-  const prompt = el('pd-prompt-select')?.value;
-  if (!prompt) return;
-  const tagsEl = el('pd-tags');
-  const tags = tagsEl ? tagsEl.value.split(',').map(t => t.trim()).filter(Boolean) : [];
-  try {
-    await api('PUT', `/api/brands/${b.id}/prompt-metadata`, {
-      prompt,
-      intent: el('pd-intent')?.value || '',
-      funnel_stage: el('pd-funnel')?.value || '',
-      tags
-    });
-    toast('Prompt metadata saved', 'ok');
-  } catch(e) { toast('Failed to save metadata', 'err'); }
 }
 
 async function viewPromptRun(brandId, runId) {
