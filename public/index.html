@@ -956,29 +956,27 @@
       <div class="proof-header">
         <div>
           <div class="view-title">Evidence &amp; Proof</div>
-          <div class="view-sub">See exactly what AI platforms say about your brand — every response, verified.</div>
+          <div class="view-sub">Every AI response about your brand — verified and organized.</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div class="proof-view-toggle">
-            <button class="active" onclick="setProofView('grouped')" id="proof-view-grouped">By Query</button>
-            <button onclick="setProofView('flat')" id="proof-view-flat">All Results</button>
-          </div>
-          <button class="pbtn" onclick="exportProofCSV()" style="border-radius:var(--radius-full);">&#8595; Export</button>
-        </div>
+        <button class="pbtn" onclick="exportProofCSV()" style="border-radius:10px;">&#8595; Export CSV</button>
       </div>
-      <div class="proof-filters">
-        <select class="finp proof-filter-select" id="proof-run-sel" onchange="renderProof()"></select>
-        <select class="finp proof-filter-select" id="proof-plat-sel" onchange="renderProof()">
+      <div class="proof-toolbar">
+        <select id="proof-run-sel" onchange="renderProof()"></select>
+        <select id="proof-plat-sel" onchange="renderProof()">
           <option value="">All Platforms</option>
           <option>ChatGPT</option><option>Perplexity</option><option>Claude</option>
           <option>Gemini</option><option>Grok</option><option>Google AIO</option>
           <option>DeepSeek</option>
         </select>
-        <select class="finp proof-filter-select" id="proof-result-sel" onchange="renderProof()">
+        <select id="proof-result-sel" onchange="renderProof()">
           <option value="">All Results</option>
           <option value="found">Found Only</option>
           <option value="notfound">Not Found Only</option>
         </select>
+        <div class="proof-vtoggle">
+          <button class="active" onclick="setProofView('grouped')" id="proof-view-grouped">By Query</button>
+          <button onclick="setProofView('flat')" id="proof-view-flat">All</button>
+        </div>
       </div>
       <div id="proof-summary-strip"></div>
       <div id="proof-container"></div>
