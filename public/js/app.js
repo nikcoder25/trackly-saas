@@ -3641,7 +3641,6 @@ function setProofView(mode){
 function renderProof(){
   const b = brand();
   if (!b) return;
-  // Populate run selector
   const sel = el('proof-run-sel');
   const curVal = sel.value;
   sel.innerHTML = '';
@@ -3660,18 +3659,20 @@ function renderProof(){
   const cont = el('proof-container');
 
   if (!run) {
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◆</div><p>No runs yet. Click Run Queries to start.</p></div>';
+    cont.innerHTML = `<div style="text-align:center;padding:60px 20px;">
+      <div style="font-size:48px;margin-bottom:12px;opacity:.3;">&#9670;</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:6px;color:var(--text);">No runs yet</div>
+      <div style="color:var(--muted);font-size:13px;">Click <strong>Run Queries</strong> to start tracking your brand visibility.</div>
+    </div>`;
     el('proof-summary-strip').innerHTML = '';
     return;
   }
 
   const platFilter = el('proof-plat-sel').value;
   const resultFilter = el('proof-result-sel').value;
-
-  // Build a lookup for ALL results per platform+query (including not-mentioned)
   const allResults = run.allResults || [];
 
-  // CRITICAL: Use queries FROM THE RUN, not current brand queries.
+  // Use queries FROM THE RUN
   const runQueries = run.queries || [];
   const resultQueries = [...new Set(allResults.map(r => r.query))];
   const queries = runQueries.length ? runQueries : (resultQueries.length ? resultQueries : (b.queries||[]));
@@ -3681,35 +3682,90 @@ function renderProof(){
   const foundCount = allResults.filter(r => r.mentioned).length;
   const notFoundCount = totalResults - foundCount - allResults.filter(r => r.error).length;
   const errorCount = allResults.filter(r => r.error).length;
+  const queryCount = queries.length;
   const platCount = (run.activePlatforms||[]).length || new Set(allResults.map(r=>r.platform)).size;
   const sovPct = run.sov || 0;
-  const sovColor = sovPct >= 70 ? 'var(--green)' : sovPct >= 40 ? 'var(--amber)' : 'var(--red)';
+  const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';
+  const foundPct = totalResults > 0 ? Math.round((foundCount/totalResults)*100) : 0;
+  const notFoundPct = totalResults > 0 ? Math.round((notFoundCount/totalResults)*100) : 0;
 
-  // KPI strip — 5 metrics
+  // Sentiment breakdown
+  const sentPos = allResults.filter(r => r.sentiment === 'positive').length;
+  const sentNeg = allResults.filter(r => r.sentiment === 'negative').length;
+  const sentNeu = allResults.filter(r => !r.sentiment || r.sentiment === 'neutral').length;
+
+  // Best & worst queries
+  const qStats = {};
+  allResults.forEach(r => {
+    if (!qStats[r.query]) qStats[r.query] = {found:0,total:0};
+    qStats[r.query].total++;
+    if (r.mentioned) qStats[r.query].found++;
+  });
+  let bestQuery = '', worstQuery = '', bestSov = -1, worstSov = 101;
+  Object.entries(qStats).forEach(([q,s]) => {
+    const sov = s.total > 0 ? Math.round((s.found/s.total)*100) : 0;
+    if (sov > bestSov) { bestSov = sov; bestQuery = q; }
+    if (sov < worstSov) { worstSov = sov; worstQuery = q; }
+  });
+
+  // KPI Hero Cards
   const summaryEl = el('proof-summary-strip');
   if (summaryEl) {
-    summaryEl.innerHTML = `<div class="proof-kpi-grid">
-      <div class="proof-kpi">
+    const sovRingDash = Math.round((sovPct / 100) * 113);
+    summaryEl.innerHTML = `<div class="proof-kpi-strip">
+      <div class="proof-kpi-card kpi-sov">
+        <div class="proof-kpi-icon" style="background:rgba(255,97,84,.1);">&#9673;</div>
         <div class="proof-kpi-val" style="color:${sovColor};">${sovPct}%</div>
         <div class="proof-kpi-lbl">Share of Voice</div>
+        <div class="proof-kpi-bar"><div class="proof-kpi-bar-fill" style="width:${sovPct}%;background:${sovColor};"></div></div>
       </div>
-      <div class="proof-kpi">
-        <div class="proof-kpi-val" style="color:var(--green);">${foundCount}</div>
-        <div class="proof-kpi-lbl">Found</div>
+      <div class="proof-kpi-card kpi-found">
+        <div class="proof-kpi-icon" style="background:rgba(16,185,129,.1);">&#10003;</div>
+        <div class="proof-kpi-val" style="color:var(--green);">${foundCount}<span style="font-size:14px;color:var(--muted);font-weight:600;">/${totalResults}</span></div>
+        <div class="proof-kpi-lbl">Brand Found</div>
+        <div class="proof-kpi-bar"><div class="proof-kpi-bar-fill" style="width:${foundPct}%;background:var(--green);"></div></div>
       </div>
-      <div class="proof-kpi">
-        <div class="proof-kpi-val" style="color:var(--red);">${notFoundCount}</div>
+      <div class="proof-kpi-card kpi-notfound">
+        <div class="proof-kpi-icon" style="background:rgba(239,68,68,.1);">&#10007;</div>
+        <div class="proof-kpi-val" style="color:var(--red);">${notFoundCount}${errorCount ? '<span style="font-size:14px;color:var(--amber);font-weight:600;"> +'+errorCount+' err</span>' : ''}</div>
         <div class="proof-kpi-lbl">Not Found</div>
+        <div class="proof-kpi-bar"><div class="proof-kpi-bar-fill" style="width:${notFoundPct}%;background:var(--red);"></div></div>
       </div>
-      <div class="proof-kpi">
-        <div class="proof-kpi-val" style="color:var(--amber);">${errorCount}</div>
-        <div class="proof-kpi-lbl">Errors</div>
+      <div class="proof-kpi-card kpi-total">
+        <div class="proof-kpi-icon" style="background:rgba(99,102,241,.1);">&#9733;</div>
+        <div style="display:flex;gap:16px;align-items:baseline;">
+          <div>
+            <div class="proof-kpi-val" style="color:var(--text);">${queryCount}</div>
+            <div class="proof-kpi-lbl">Queries</div>
+          </div>
+          <div>
+            <div class="proof-kpi-val" style="color:var(--blue);font-size:20px;">${platCount}</div>
+            <div class="proof-kpi-lbl">Platforms</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--muted);display:flex;gap:10px;">
+          <span style="color:var(--green);">&#9679; ${sentPos} pos</span>
+          <span>&#9679; ${sentNeu} neu</span>
+          <span style="color:var(--red);">&#9679; ${sentNeg} neg</span>
+        </div>
       </div>
-      <div class="proof-kpi">
-        <div class="proof-kpi-val" style="color:var(--blue);">${totalResults}</div>
-        <div class="proof-kpi-lbl">Total Checks</div>
+    </div>
+    ${bestQuery ? `<div style="display:flex;gap:12px;margin-bottom:20px;">
+      <div style="flex:1;background:rgba(16,185,129,.04);border:1px solid rgba(16,185,129,.15);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:16px;">&#9650;</span>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Best Performing Query</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px;">${esc(bestQuery)} <span style="color:var(--green);font-family:var(--mono);font-size:11px;font-weight:800;">${bestSov}%</span></div>
+        </div>
       </div>
-    </div>`;
+      <div style="flex:1;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:16px;">&#9660;</span>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--red);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Needs Attention</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-top:2px;">${esc(worstQuery)} <span style="color:var(--red);font-family:var(--mono);font-size:11px;font-weight:800;">${worstSov}%</span></div>
+        </div>
+      </div>
+    </div>` : ''}`;
   }
 
   // Filter results
@@ -3722,37 +3778,38 @@ function renderProof(){
 
   const proofHre = brandHighlightRe(b);
 
-  function buildResultRow(r) {
+  function buildResultCard(r, showQuery) {
     const t = PLAT_THEME[r.platform]||{};
     const isErr = r.error;
     const isMentioned = r.mentioned;
     const responseText = isErr ? '' : (r.raw || r.context || '');
-    const excerpt = responseText.replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0, 300);
-    const highlighted = proofHre ? esc(excerpt).replace(proofHre, (m) => '<strong style="color:var(--green);">'+m+'</strong>') : esc(excerpt);
-    const statusClass = isErr ? 'proof-status-error' : isMentioned ? 'proof-status-found' : 'proof-status-notfound';
+    const excerpt = responseText.replace(/[#*_~`]/g,'').replace(/\n/g,' ').substring(0, 250);
+    const highlighted = proofHre ? esc(excerpt).replace(proofHre, (m) => '<strong style="color:var(--green);background:rgba(16,185,129,.1);padding:1px 3px;border-radius:3px;">'+m+'</strong>') : esc(excerpt);
+    const statusCls = isErr ? 'error' : isMentioned ? 'found' : 'notfound';
     const statusText = isErr ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
-    const excerptClass = isErr ? 'proof-excerpt-error' : isMentioned ? 'proof-excerpt-found' : 'proof-excerpt-notfound';
-    const modelName = r.model || r.platform;
+    const modelName = r.model || '';
     const sentiment = r.sentiment || 'neutral';
-    const posLabel = isMentioned && r.listPosition ? '#' + r.listPosition : '—';
+    const sentColor = sentiment === 'positive' ? 'var(--green)' : sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
+    const posLabel = isMentioned && r.listPosition ? '#' + r.listPosition : '';
 
-    return `<div class="proof-row">
-      <div class="proof-plat-cell">
-        <span class="proof-plat-tag" style="color:${t.color||'#888'};">${t.logo||''} ${esc(r.platform)}</span>
-      </div>
-      <div class="proof-content-cell">
-        <div class="proof-excerpt ${excerptClass}">
-          ${isErr ? esc(friendlyError(r.errorMessage)) : '"' + highlighted + (excerpt.length >= 300 ? '...' : '') + '"'}
+    return `<div class="proof-result">
+      ${showQuery ? '<div class="proof-result-query">&#8594; ' + esc(r.query) + '</div>' : ''}
+      <div class="proof-result-top">
+        <div class="proof-result-plat">
+          <span class="proof-result-plat-dot" style="background:${t.color||'#888'};"></span>
+          <span class="proof-result-plat-name" style="color:${t.color||'#888'};">${esc(r.platform)}</span>
+          ${modelName ? '<span class="proof-result-model">' + esc(modelName) + '</span>' : ''}
         </div>
-        <div class="proof-meta">
-          <span class="proof-meta-item">Model: ${esc(modelName)}</span>
-          <span class="proof-meta-item">Position: ${posLabel}</span>
-          <span class="proof-meta-item">Sentiment: ${sentiment.charAt(0).toUpperCase()+sentiment.slice(1)}</span>
-          ${r.recommended ? '<span class="proof-meta-item" style="color:var(--green);">★ Recommended</span>' : ''}
-        </div>
+        <span class="proof-result-status ${statusCls}">${statusText}</span>
       </div>
-      <div class="proof-status-cell">
-        <span class="proof-status ${statusClass}">${statusText}</span>
+      <div class="proof-result-excerpt ${statusCls}">
+        ${isErr ? '<span style="color:var(--amber);">' + esc(friendlyError(r.errorMessage)) + '</span>' : '"' + highlighted + (excerpt.length >= 250 ? '...' : '') + '"'}
+      </div>
+      <div class="proof-result-details">
+        ${posLabel ? '<span class="proof-result-detail"><span class="proof-result-detail-icon">&#9632;</span> Position ' + posLabel + '</span>' : ''}
+        <span class="proof-result-detail"><span class="proof-result-detail-icon" style="color:${sentColor};">&#9679;</span> ${sentiment.charAt(0).toUpperCase()+sentiment.slice(1)}</span>
+        ${r.recommended ? '<span class="proof-result-detail" style="color:var(--green);"><span class="proof-result-detail-icon">&#9733;</span> Recommended</span>' : ''}
+        ${isMentioned && r.competitorMentions && r.competitorMentions.length ? '<span class="proof-result-detail"><span class="proof-result-detail-icon">&#9673;</span> ' + r.competitorMentions.length + ' competitors</span>' : ''}
       </div>
     </div>`;
   }
@@ -3760,7 +3817,6 @@ function renderProof(){
   let html = '';
 
   if (_proofView === 'grouped') {
-    // Group by query
     const queryOrder = [];
     const queryMap = {};
     filtered.forEach(r => {
@@ -3774,38 +3830,55 @@ function renderProof(){
       const qTotal = results.length;
       const qErrors = results.filter(r => r.error).length;
       const qSov = qTotal > 0 ? Math.round((qFound / qTotal) * 100) : 0;
-      const qSovColor = qSov >= 70 ? 'var(--green)' : qSov >= 40 ? 'var(--amber)' : 'var(--red)';
+      const qSovColor = qSov >= 70 ? '#10b981' : qSov >= 40 ? '#f59e0b' : '#ef4444';
+      const sovDash = Math.round((qSov / 100) * 69.1);
 
-      html += `<div class="proof-query-group">
-        <div class="proof-query-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);min-width:20px;">#${gi+1}</span>
-            <span class="proof-query-title">${esc(q)}</span>
+      // Platform dots for this query
+      const platDots = results.map(r => {
+        const t = PLAT_THEME[r.platform]||{};
+        const dotColor = r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
+        return `<span class="proof-qcard-plat-dot" style="background:${dotColor};" title="${esc(r.platform)}: ${r.mentioned?'Found':'Not Found'}"></span>`;
+      }).join('');
+
+      html += `<div class="proof-qcard">
+        <div class="proof-qcard-head" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
+          <div class="proof-qcard-left">
+            <div class="proof-qcard-num">${gi+1}</div>
+            <div class="proof-qcard-title">${esc(q)}</div>
           </div>
-          <div class="proof-query-badges">
-            <span class="proof-query-badge" style="background:rgba(16,185,129,.08);color:var(--green);">${qFound} found</span>
-            ${qErrors ? '<span class="proof-query-badge" style="background:rgba(245,158,11,.08);color:var(--amber);">' + qErrors + ' error</span>' : ''}
-            <span class="proof-query-badge" style="background:rgba(59,130,246,.06);color:${qSovColor};border:1px solid ${qSovColor};">${qSov}% SOV</span>
+          <div class="proof-qcard-right">
+            <div class="proof-qcard-plats">${platDots}</div>
+            <span class="proof-qcard-pill" style="background:rgba(16,185,129,.08);color:var(--green);">${qFound}/${qTotal}</span>
+            <div class="proof-qcard-sov">
+              <svg class="proof-qcard-sov-ring" viewBox="0 0 26 26">
+                <circle cx="13" cy="13" r="11" fill="none" stroke="var(--bg3)" stroke-width="2.5"/>
+                <circle cx="13" cy="13" r="11" fill="none" stroke="${qSovColor}" stroke-width="2.5" stroke-dasharray="69.1" stroke-dashoffset="${69.1 - sovDash}" stroke-linecap="round" transform="rotate(-90 13 13)"/>
+              </svg>
+              <span class="proof-qcard-sov-pct" style="color:${qSovColor};">${qSov}%</span>
+            </div>
+            <span class="proof-qcard-arrow">&#9662;</span>
           </div>
         </div>
-        <div class="proof-query-body">
-          ${results.map(r => buildResultRow(r)).join('')}
+        <div class="proof-qcard-body">
+          ${results.map(r => buildResultCard(r, false)).join('')}
         </div>
       </div>`;
     });
   } else {
-    // Flat view
     if (filtered.length) {
-      html += `<div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">`;
-      filtered.forEach(r => { html += buildResultRow(r); });
+      html += `<div class="proof-flat-card">`;
+      filtered.forEach(r => { html += buildResultCard(r, true); });
       html += `</div>`;
     }
   }
 
   if (filtered.length > 0) {
-    html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:12px;">Showing ${filtered.length} of ${totalResults} results</div>`;
+    html += `<div style="text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:14px;">Showing ${filtered.length} of ${totalResults} results across ${platCount} platforms</div>`;
   }
-  cont.innerHTML = html || '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">No results match your filters.</div>';
+  cont.innerHTML = html || `<div style="text-align:center;padding:48px 20px;">
+    <div style="font-size:32px;margin-bottom:8px;opacity:.3;">&#9671;</div>
+    <div style="color:var(--muted);font-size:13px;">No results match your filters.</div>
+  </div>`;
 }
 
 
