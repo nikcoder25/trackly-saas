@@ -4598,7 +4598,12 @@ async function doAddBrand(){
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
     renderAll();
-    toast('Brand "'+name+'" created', 'ok');
+    toast('Brand "'+name+'" created — running first scan...', 'ok');
+    // Auto-run queries after brand creation so new users see results immediately
+    const queryCount = (data.brand.queries || []).length;
+    if (queryCount > 0) {
+      setTimeout(() => runQueries(), 500);
+    }
   } catch(e) {
     el('add-brand-err').textContent = e.message;
     el('add-brand-err').style.display = 'block';
