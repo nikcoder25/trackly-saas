@@ -777,7 +777,7 @@
   <!-- Main -->
   <div class="main">
 
-    <div id="run-progress" class="run-progress" style="margin:4px 24px 0;display:none;max-width:1052px;">
+    <div id="run-progress" class="run-progress" style="display:none;max-width:1052px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="run-status-text">Running queries...</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;" id="run-timer"></div>
@@ -787,13 +787,13 @@
 
     <!-- OVERVIEW ─────────────────────────── -->
     <div id="view-overview" class="view active">
-      <!-- Header Row: Brand name + controls on single line -->
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;flex-wrap:wrap;">
-        <div style="min-width:0;">
+      <!-- Header Row: Brand name + controls -->
+      <div class="ov-header">
+        <div class="ov-header-left">
           <div class="view-title" id="ov-brand-title" style="margin-bottom:0;">Overview</div>
           <div class="view-sub" id="ov-sub" style="margin-bottom:0;">Select a brand and queries run automatically on schedule.</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;flex-wrap:wrap;">
+        <div class="ov-header-right">
           <div class="next-run-badge" id="ov-next-run-badge" style="display:none;">
             <span>&#9200;</span> <span id="ov-next-run-text">Next run in --</span>
           </div>
