@@ -587,6 +587,7 @@ async function doRegister(){
     currentUser = data.user;
     localStorage.setItem('trackly_session', '1');
     await initApp();
+    if (currentUser.username) toast('Your username is @' + currentUser.username + ' — you can change it in Account settings', 'ok');
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';
@@ -1146,19 +1147,43 @@ async function changePassword() {
   } catch(e) { toast(e.message, 'err'); }
 }
 
-async function promptSetUsername(){
-  const current = currentUser.username || '';
-  const newUsername = prompt('Enter your username (letters, numbers, dots, dashes, underscores):', current);
-  if (newUsername === null) return;
-  const trimmed = newUsername.trim().toLowerCase();
+function toggleEditUsername(){
+  const display = el('acct-username');
+  const input = el('acct-username-input');
+  const btn = el('acct-username-btn');
+  if (input.style.display === 'none') {
+    // Enter edit mode
+    input.value = currentUser.username || '';
+    input.style.display = '';
+    display.style.display = 'none';
+    btn.textContent = 'SAVE';
+    input.focus();
+  } else {
+    // Save
+    saveUsername();
+  }
+}
+
+async function saveUsername(){
+  const input = el('acct-username-input');
+  const display = el('acct-username');
+  const btn = el('acct-username-btn');
+  const trimmed = input.value.trim().toLowerCase();
   if (trimmed && trimmed.length < 3) { toast('Username must be at least 3 characters', 'err'); return; }
+  btn.disabled = true; btn.textContent = 'SAVING...';
   try {
     const data = await api('PUT', '/api/auth/username', { username: trimmed || null });
     currentUser.username = data.username;
-    el('acct-username').textContent = data.username ? '@' + data.username : '—';
+    display.textContent = data.username ? '@' + data.username : '—';
     toast(data.username ? 'Username set to @' + data.username : 'Username removed', 'ok');
+    input.style.display = 'none';
+    display.style.display = '';
+    btn.textContent = 'EDIT';
   } catch(e) {
     toast('Failed: ' + e.message, 'err');
+    btn.textContent = 'SAVE';
+  } finally {
+    btn.disabled = false;
   }
 }
 
