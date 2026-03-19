@@ -4555,6 +4555,265 @@ function renderSetup(){
     }
     cont.appendChild(lbl);
   });
+
+  // Render queries in setup
+  renderSetupQueries();
+}
+
+// ─── SETUP PAGE QUERY MANAGEMENT ──────────────────────────────────
+let _setupSelectMode = false;
+let _setupSelectedIndices = new Set();
+
+function renderSetupQueries(){
+  const b = brand(); if (!b) return;
+  const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+  const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+
+  const countEl = el('setup-query-count');
+  if (countEl) {
+    const atLimit = totalPrompts >= promptLimit;
+    countEl.textContent = totalPrompts + ' / ' + promptLimit + ' prompts';
+    countEl.style.color = atLimit ? 'var(--amber)' : 'var(--muted)';
+  }
+  const limitMsg = el('setup-query-limit-msg');
+  if (limitMsg) {
+    if (totalPrompts >= promptLimit) {
+      limitMsg.textContent = 'Prompt limit reached (' + totalPrompts + '/' + promptLimit + '). Remove a query or upgrade your plan.';
+      limitMsg.style.display = 'block';
+    } else {
+      limitMsg.style.display = 'none';
+    }
+  }
+
+  const container = el('setup-query-tags');
+  if (!container) return;
+  container.innerHTML = '';
+  (b.queries||[]).forEach((q, i) => {
+    const tag = document.createElement('span');
+    tag.className = 'query-tag';
+    if (_setupSelectMode) {
+      tag.classList.add('query-tag-selectable');
+      if (_setupSelectedIndices.has(i)) tag.classList.add('query-tag-selected');
+      tag.addEventListener('click', function(){ setupToggleQuerySelection(i); });
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = _setupSelectedIndices.has(i);
+      cb.className = 'query-select-cb';
+      cb.addEventListener('click', function(e){ e.stopPropagation(); setupToggleQuerySelection(i); });
+      tag.insertBefore(cb, tag.firstChild);
+    }
+    tag.appendChild(document.createTextNode(q + ' '));
+    if (!_setupSelectMode) {
+      const btn = document.createElement('button');
+      btn.textContent = '\u2715';
+      btn.addEventListener('click', function(){ setupRemoveQuery(i); });
+      tag.appendChild(btn);
+    }
+    container.appendChild(tag);
+  });
+
+  if (!(b.queries||[]).length) {
+    container.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">No queries yet. Add queries below.</span>';
+  }
+}
+
+async function setupAddQuery(){
+  const inp = el('setup-query-input');
+  const q = inp.value.trim();
+  if (!q) return;
+  const b = brand(); if (!b) return;
+  const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+  const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+  if (totalPrompts >= promptLimit) {
+    toast('Prompt limit reached (' + totalPrompts + '/' + promptLimit + '). Upgrade your plan.', 'err');
+    return;
+  }
+  const existing = new Set((b.queries||[]).map(x => x.toLowerCase()));
+  if (existing.has(q.toLowerCase())) { toast('Query already exists', 'err'); return; }
+  const queries = [...(b.queries||[]), q];
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    inp.value = '';
+    renderSetupQueries();
+    toast('Query added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function setupRemoveQuery(i){
+  const b = brand();
+  const q = (b.queries||[])[i];
+  if (!confirm('Remove query "' + (q || '') + '"?')) return;
+  const queries = (b.queries||[]).filter((_,idx)=>idx!==i);
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    renderSetupQueries();
+    toast('Query removed', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+function setupToggleBulkAdd(){
+  const box = el('setup-bulk-query-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') {
+    el('setup-bulk-query-input').focus();
+    el('setup-bulk-query-input').oninput = function(){
+      const lines = this.value.split('\n').filter(l => l.trim());
+      el('setup-bulk-count-hint').textContent = lines.length + ' quer' + (lines.length===1?'y':'ies') + ' detected';
+    };
+  }
+}
+
+async function setupBulkAddQueries(){
+  const b = brand(); if (!b) return;
+  const raw = el('setup-bulk-query-input').value;
+  const newQs = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (!newQs.length) { toast('No queries entered', 'err'); return; }
+  const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+  const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
+  if (!unique.length) { toast('All queries already exist', 'err'); return; }
+  const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+  const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+  if (totalPrompts + unique.length > promptLimit) {
+    const allowed = promptLimit - totalPrompts;
+    if (allowed <= 0) { toast('Prompt limit reached. Upgrade your plan.', 'err'); return; }
+    unique.splice(allowed);
+    toast('Only ' + allowed + ' prompts added (plan limit: ' + promptLimit + ')', 'warn');
+  }
+  const queries = [...(b.queries||[]), ...unique];
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    el('setup-bulk-query-input').value = '';
+    el('setup-bulk-query-box').style.display = 'none';
+    renderSetupQueries();
+    toast(unique.length + ' quer' + (unique.length===1?'y':'ies') + ' added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function setupClearAllQueries(){
+  const b = brand(); if (!b) return;
+  if (!(b.queries||[]).length) { toast('No queries to clear', 'warn'); return; }
+  if (!confirm('Clear all ' + b.queries.length + ' queries? This cannot be undone.')) return;
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries: [] });
+    invalidateCache('/api/brands');
+    updateBrandInList(data.brand);
+    renderSetupQueries();
+    toast('All queries cleared', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+function setupToggleSelectMode(){
+  _setupSelectMode = !_setupSelectMode;
+  _setupSelectedIndices.clear();
+  const btn = el('setup-select-mode-btn');
+  const delBtn = el('setup-delete-selected-btn');
+  const selAllBtn = el('setup-select-all-btn');
+  const deselAllBtn = el('setup-deselect-all-btn');
+  if (btn) btn.textContent = _setupSelectMode ? '✓ SELECTING' : '☐ SELECT';
+  if (delBtn) delBtn.style.display = _setupSelectMode ? '' : 'none';
+  if (selAllBtn) selAllBtn.style.display = _setupSelectMode ? '' : 'none';
+  if (deselAllBtn) deselAllBtn.style.display = _setupSelectMode ? '' : 'none';
+  setupUpdateSelectedCount();
+  renderSetupQueries();
+}
+
+function setupToggleQuerySelection(i){
+  if (_setupSelectedIndices.has(i)) _setupSelectedIndices.delete(i);
+  else _setupSelectedIndices.add(i);
+  setupUpdateSelectedCount();
+  renderSetupQueries();
+}
+
+function setupSelectAllQueries(){
+  const b = brand();
+  (b.queries||[]).forEach((_, i) => _setupSelectedIndices.add(i));
+  setupUpdateSelectedCount();
+  renderSetupQueries();
+}
+
+function setupDeselectAllQueries(){
+  _setupSelectedIndices.clear();
+  setupUpdateSelectedCount();
+  renderSetupQueries();
+}
+
+function setupUpdateSelectedCount(){
+  const countEl = el('setup-selected-count');
+  if (countEl) countEl.textContent = _setupSelectedIndices.size;
+  const delBtn = el('setup-delete-selected-btn');
+  if (delBtn) delBtn.disabled = _setupSelectedIndices.size === 0;
+}
+
+async function setupDeleteSelectedQueries(){
+  const b = brand(); if (!b) return;
+  const count = _setupSelectedIndices.size;
+  if (count === 0) { toast('No queries selected', 'warn'); return; }
+  if (!confirm('Delete ' + count + ' selected quer' + (count===1?'y':'ies') + '? This cannot be undone.')) return;
+  const queries = (b.queries||[]).filter((_, idx) => !_setupSelectedIndices.has(idx));
+  try {
+    const data = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
+    const idx = brands.findIndex(x => x.id === b.id);
+    brands[idx] = data.brand;
+    _setupSelectedIndices.clear();
+    _setupSelectMode = false;
+    const btn = el('setup-select-mode-btn');
+    const delBtn = el('setup-delete-selected-btn');
+    const selAllBtn = el('setup-select-all-btn');
+    const deselAllBtn = el('setup-deselect-all-btn');
+    if (btn) { btn.textContent = '☐ SELECT'; }
+    if (delBtn) delBtn.style.display = 'none';
+    if (selAllBtn) selAllBtn.style.display = 'none';
+    if (deselAllBtn) deselAllBtn.style.display = 'none';
+    renderSetupQueries();
+    toast(count + ' quer' + (count===1?'y':'ies') + ' removed', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function setupAiGenerateQueries(){
+  const b = brand(); if (!b) return;
+  if (!b.name) { toast('Set brand name first', 'err'); return; }
+  if (!b.industry) { toast('Set industry first', 'err'); return; }
+  const btn = el('setup-ai-gen-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'GENERATING...';
+  btn.disabled = true;
+  try {
+    const data = await api('POST', '/api/ai-generate-queries', {
+      brandName: b.name,
+      industry: b.industry,
+      city: b.city || '',
+      existingQueries: b.queries || []
+    });
+    const suggestions = data.queries || [];
+    if (!suggestions.length) { toast('AI could not generate queries. Try again.', 'warn'); return; }
+    const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+    let newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
+    if (!newQs.length) { toast('All generated queries already exist!', 'ok'); return; }
+    const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
+    const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
+    const remaining = promptLimit - totalPrompts;
+    if (remaining <= 0) { toast('Prompt limit reached. Upgrade your plan.', 'err'); return; }
+    if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
+    const pick = confirm('Add ' + newQs.length + ' AI-generated queries?\n\n' + newQs.join('\n'));
+    if (!pick) return;
+    const queries = [...(b.queries||[]), ...newQs];
+    const result = await api('PUT', '/api/brands/'+b.id, { queries });
+    invalidateCache('/api/brands');
+    updateBrandInList(result.brand);
+    renderSetupQueries();
+    toast(newQs.length + ' AI-generated queries added', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+  finally { btn.textContent = origText; btn.disabled = false; }
 }
 
 async function saveBrandSetup(){

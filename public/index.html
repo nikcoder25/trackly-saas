@@ -751,25 +751,25 @@
     <div class="nav-group">Dashboard</div>
     <button class="nav-item active" onclick="go('overview')">◈ Overview</button>
     <button class="nav-item" onclick="go('mentions')">◎ Mentions</button>
-    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="go('recommendations')">✦ Recommendations</button>
     <div class="nav-group">Analysis</div>
-    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="go('proof')">◆ Evidence &amp; Proof</button>
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
-    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
-    <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis <span class="badge-moved">MOVED</span></button>
-    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor <span class="badge-moved">MOVED</span></button>
+    <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis</button>
+    <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor</button>
     <button class="nav-item" onclick="go('platforms')">⬡ Platform Status</button>
     <div class="nav-group">Tools</div>
     <button class="nav-item" onclick="go('copilot')">◈ Copilot</button>
     <div class="nav-group">Settings</div>
     <button class="nav-item" onclick="go('setup')">⚙ Brand Setup</button>
-    <button class="nav-item" onclick="go('alerts')">⚡ Alerts &amp; Notifications <span class="badge-merged">MERGED</span></button>
+    <button class="nav-item" onclick="go('alerts')">⚡ Alerts &amp; Notifications</button>
     <button class="nav-item" id="nav-team" onclick="go('team')" style="display:none;">◎ Team Members</button>
     <button class="nav-item" onclick="go('billing')">◻ Billing</button>
     <button class="nav-item" onclick="go('account')">◉ Account &amp; Plan</button>
-    <button class="nav-item" onclick="go('activitylog')">◆ Activity &amp; Logs <span class="badge-merged">MERGED</span></button>
+    <button class="nav-item" onclick="go('activitylog')">◆ Activity &amp; Logs</button>
     <button class="nav-item" id="nav-admin" onclick="go('admin')" style="display:none;color:var(--amber);">⚑ Admin Panel</button>
     <button class="nav-item" id="nav-become-admin" onclick="becomeAdmin()" style="display:none;color:var(--amber);">★ Become Admin</button>
   </div>
@@ -1184,6 +1184,42 @@
             <button id="auto-fetch-areas-btn" onclick="autoFetchNearbyAreas()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">AUTO-FETCH</button>
           </div>
         </div>
+        <!-- Manage Queries Section -->
+        <div class="form-group">
+          <label class="flbl">Manage Queries</label>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.6;">
+            Add, remove, or bulk-manage the queries tracked for this brand.
+            <span id="setup-query-count" style="margin-left:6px;font-weight:700;"></span>
+          </div>
+          <div id="setup-query-limit-msg" style="display:none;font-family:var(--mono);font-size:10px;color:var(--amber);margin-bottom:8px;"></div>
+          <div id="setup-query-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+          <!-- Action buttons row -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <button id="setup-select-mode-btn" onclick="setupToggleSelectMode()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">☐ SELECT</button>
+            <button id="setup-select-all-btn" onclick="setupSelectAllQueries()" style="display:none;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">Select All</button>
+            <button id="setup-deselect-all-btn" onclick="setupDeselectAllQueries()" style="display:none;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">Deselect All</button>
+            <button id="setup-delete-selected-btn" onclick="setupDeleteSelectedQueries()" style="display:none;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);" disabled>DELETE SELECTED (<span id="setup-selected-count">0</span>)</button>
+            <button onclick="setupClearAllQueries()" style="background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">CLEAR ALL</button>
+          </div>
+          <!-- Add single query -->
+          <div class="add-query-row">
+            <input id="setup-query-input" type="text" placeholder="Add a query..." onkeydown="if(event.key==='Enter')setupAddQuery()">
+            <button onclick="setupAddQuery()">+ Add</button>
+          </div>
+          <!-- Bulk add -->
+          <div style="margin-top:8px;">
+            <button onclick="setupToggleBulkAdd()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">BULK ADD</button>
+            <button id="setup-ai-gen-btn" onclick="setupAiGenerateQueries()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);margin-left:4px;">AI GENERATE</button>
+          </div>
+          <div id="setup-bulk-query-box" style="display:none;margin-top:8px;">
+            <textarea id="setup-bulk-query-input" class="finp" rows="5" placeholder="Paste queries, one per line..."></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+              <span id="setup-bulk-count-hint" style="font-family:var(--mono);font-size:10px;color:var(--muted);">0 queries detected</span>
+              <button onclick="setupBulkAddQueries()" style="background:var(--green);border:none;color:#fff;font-family:var(--mono);font-size:10px;padding:6px 16px;cursor:pointer;border-radius:var(--radius-xs);font-weight:700;">ADD ALL</button>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label class="flbl">SOV Goal (%)</label>
           <input class="finp" id="s-goal" type="number" min="1" max="100" placeholder="70">
