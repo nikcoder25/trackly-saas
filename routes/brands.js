@@ -1371,6 +1371,45 @@ async function sendWebhookAlert(brand, run, previousSOV) {
   }
 }
 
+// ── Stable query detection for scheduled runs ──────────────────
+// If a query has had the same mention result for STABLE_RUN_THRESHOLD consecutive
+// runs on a given platform, skip the API call and reuse the last result.
+// Saves ~30-60% of scheduled run costs for brands with many stable queries.
+const STABLE_RUN_THRESHOLD = 3;
+
+function getStableQueries(brand) {
+  const stable = new Map(); // key: "query::platform" → lastResult
+  const runs = brand.runs || [];
+  if (runs.length < STABLE_RUN_THRESHOLD) return stable;
+
+  // Check last N runs for each query+platform combo
+  const recentRuns = runs.slice(-STABLE_RUN_THRESHOLD);
+  const queries = brand.queries || [];
+
+  for (const q of queries) {
+    // Collect results across recent runs for this query, grouped by platform
+    const byPlatform = {};
+    for (const run of recentRuns) {
+      for (const r of (run.allResults || [])) {
+        if (r.query === q && !r.error) {
+          if (!byPlatform[r.platform]) byPlatform[r.platform] = [];
+          byPlatform[r.platform].push(r);
+        }
+      }
+    }
+    // If all recent results for a query+platform have the same mention status, it's stable
+    for (const [plat, results] of Object.entries(byPlatform)) {
+      if (results.length >= STABLE_RUN_THRESHOLD) {
+        const allSame = results.every(r => r.mentioned === results[0].mentioned);
+        if (allSame) {
+          stable.set(`${q}::${plat}`, results[results.length - 1]);
+        }
+      }
+    }
+  }
+  return stable;
+}
+
 // Scheduled run helper (exported for cron)
 async function runBrandQueries(brand) {
   const keys = getServerKeys();
@@ -1407,6 +1446,10 @@ async function runBrandQueries(brand) {
   const matcher = buildBrandMatcher(brand);
   const platFailCount = {};
   const FAIL_THRESHOLD = 3;
+
+  // Detect stable queries — skip API calls for queries with unchanged results
+  const stableQueries = getStableQueries(brand);
+  let stableSkipCount = 0;
 
   // Build interleaved task list with bounded concurrency (prevents API flooding)
   const tasks = [];
@@ -1485,6 +1528,17 @@ async function runBrandQueries(brand) {
       // Skip Claude tasks already handled by batch API
       if (claudeBatchResults.has(idx)) continue;
       const { plat, q } = tasks[idx];
+
+      // Skip stable queries — reuse last result without API call
+      const stableKey = `${q}::${plat}`;
+      const stableResult = stableQueries.get(stableKey);
+      if (stableResult) {
+        stableSkipCount++;
+        // Reuse the last result as-is (mark as cached for cost tracking)
+        cronResults[idx] = { status: 'fulfilled', value: { plat, q, result: { text: stableResult.context || '', model: stableResult.model, simulated: false, citations: stableResult.citations || [], cached: true, tokensIn: 0, tokensOut: 0 } } };
+        continue;
+      }
+
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
         const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
@@ -1562,9 +1616,16 @@ async function runBrandQueries(brand) {
     platSOV[plat] = queries.length ? Math.round(((platMentionCount[plat] || 0) / queries.length) * 100) : 0;
   }
 
+  if (stableSkipCount > 0) {
+    console.log(`[Cron] Skipped ${stableSkipCount}/${tasks.length} stable queries for brand "${brand.name}" (reused cached results)`);
+  }
+
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   if (!brand.runs) brand.runs = [];
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), durationMs: Date.now() - cronStartTime, mentions: newMentions, allResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  // Strip raw text from allResults before storing in brand JSON — full raw text
+  // is in prompt_runs table. Prevents brand object from growing 20-100MB+ over time.
+  const lightResults = allResults.map(r => { const { raw, ...rest } = r; return rest; });
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), durationMs: Date.now() - cronStartTime, mentions: newMentions, allResults: lightResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
 
   // Archive old runs
   if (brand.runs.length > 30) {
@@ -1581,8 +1642,10 @@ async function runBrandQueries(brand) {
   }
 
   if (!brand.mentions) brand.mentions = [];
+  // Strip raw text from mentions before storing in brand JSON
+  const lightMentions = newMentions.map(m => { const { raw, ...rest } = m; return rest; });
   const existKeys = new Set(brand.mentions.map(m => m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0]));
-  brand.mentions = [...newMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0])), ...brand.mentions].slice(0,500);
+  brand.mentions = [...lightMentions.filter(m => !existKeys.has(m.platform+'|'+m.query+'|'+(m.time||'').split('T')[0])), ...brand.mentions].slice(0,500);
 
   const qsNew = {};
   queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
@@ -1613,23 +1676,34 @@ async function runBrandQueries(brand) {
   brand.sovHistory.push({ date: today, overall: sov, platforms: platSOV });
   if (brand.sovHistory.length > 90) brand.sovHistory = brand.sovHistory.slice(-90);
 
-  // Persist individual prompt runs (Epic 1.1)
+  // Persist prompt runs in batches (instead of individual INSERTs)
   const cronBatchId = brand.runs[brand.runs.length - 1]?.id || uid();
-  for (const r of allResults) {
+  const PR_BATCH = 20;
+  for (let i = 0; i < allResults.length; i += PR_BATCH) {
+    const batch = allResults.slice(i, i + PR_BATCH);
+    const values = [];
+    const params = [];
+    let pi = 1;
+    for (const r of batch) {
+      const id = uid();
+      values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14},$${pi+15},$${pi+16},$${pi+17},$${pi+18})`);
+      params.push(id, brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
+        JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
+        r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+        r.listPosition || null, JSON.stringify(r.citations || []),
+        JSON.stringify(r.competitorMentions || []), null, !r.error,
+        r.errorMessage || null, JSON.stringify({}), cronBatchId);
+      pi += 19;
+    }
     try {
       await pool.query(
         `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, run_index, response_raw, response_parsed,
          mentioned, sentiment, recommended, list_position, citations, competitor_mentions, latency_ms, success,
          error_message, meta, batch_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-        [uid(), brand.id, r.query, r.platform, r.model || null, 0, r.raw || null,
-         JSON.stringify({ context: r.context, locationRelevant: r.locationRelevant, matchedLocation: r.matchedLocation }),
-         r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
-         r.listPosition || null, JSON.stringify(r.citations || []),
-         JSON.stringify(r.competitorMentions || []), null, !r.error,
-         r.errorMessage || null, JSON.stringify({}), cronBatchId]
+         VALUES ${values.join(',')}`,
+        params
       );
-    } catch(prErr) { /* ignore */ }
+    } catch(prErr) { /* ignore batch insert errors */ }
   }
 
   // Compute new competitors from this run
