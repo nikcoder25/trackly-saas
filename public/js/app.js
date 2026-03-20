@@ -748,7 +748,8 @@ async function initApp(){
       if (window.location.pathname !== '/dashboard') history.replaceState(null, '', '/dashboard');
 
   // Update topbar
-  el('user-email-badge').textContent = currentUser.email;
+  const emailBadge = el('user-email-badge');
+  if (emailBadge) emailBadge.textContent = currentUser.email;
   const pb = el('plan-badge');
   pb.textContent = (currentUser.plan||'free').toUpperCase();
   pb.className = 'plan-badge ' + (currentUser.plan||'free');
@@ -864,15 +865,15 @@ function go(view){
   currentView = view;
   closeMobileMenu();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.remove('active');
+    if (n.getAttribute('onclick') === "go('"+view+"')") n.classList.add('active');
+  });
   const v = el('view-'+view);
   if (v) v.classList.add('active');
   // Scroll main content to top when switching tabs
   const mainEl = document.querySelector('.main');
   if (mainEl) mainEl.scrollTop = 0;
-  document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.getAttribute('onclick') === "go('"+view+"')") n.classList.add('active');
-  });
   renderView(view);
 }
 
@@ -1003,7 +1004,8 @@ function renderAccount(){
       ${usageBar('Competitors', compCount, limits.competitors)}
     </div>
   `;
-  el('acct-usage').innerHTML = usageHtml;
+  const acctUsageEl = el('acct-usage');
+  if (acctUsageEl) acctUsageEl.innerHTML = usageHtml;
 
   // Plan cards
   const planData = [
@@ -1714,8 +1716,10 @@ function _flushNotifQueue() {
 
     const notif = document.createElement('div');
     notif.className = 'live-notif';
+    notif.setAttribute('role', 'status');
+    notif.setAttribute('aria-live', 'polite');
     notif.innerHTML = `
-      <div class="live-notif-icon" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
+      <div class="live-notif-icon" aria-hidden="true" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
       <div class="live-notif-body">
         <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
         <div class="live-notif-sub">${esc(queryShort)}</div>
@@ -6534,8 +6538,12 @@ async function viewPromptRun(brandId, runId) {
           <div style="background:var(--bg3);padding:14px 16px;border-radius:var(--radius-sm);font-size:13px;max-height:400px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;border:1px solid var(--border);">${r.response_raw ? esc(r.response_raw) : '<span style="color:var(--muted);font-style:italic;">(response not stored)</span>'}</div>
         </div>
       </div>`;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    const closeBtn = modal.querySelector('.modal-close');
+    if (closeBtn) closeBtn.focus();
   } catch(e) { toast('Failed to load response', 'err'); }
 }
 
@@ -6654,8 +6662,12 @@ async function viewPlaybook(playbookId) {
           ${pb.steps.map((s, i) => `<div style="padding:8px 12px;background:var(--bg2);border-radius:6px;margin-bottom:6px;font-size:13px;"><span style="font-weight:700;margin-right:8px;">${i + 1}.</span>${esc(s)}</div>`).join('')}
         </div>
       </div>`;
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    const closeBtn = modal.querySelector('.modal-close');
+    if (closeBtn) closeBtn.focus();
   } catch(e) { toast('Failed to load playbook', 'err'); }
 }
 
