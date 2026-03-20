@@ -18,6 +18,9 @@
 <meta property="og:description" content="See how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overview mention your brand. Get real AI responses as proof, measure share of voice, and outrank competitors.">
 <meta property="og:site_name" content="Trackly">
 <meta property="og:image" content="https://trackly.so/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Trackly — AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok and Google AIO">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
@@ -39,7 +42,66 @@
   "offers": [
     { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
     { "@type": "Offer", "name": "Pro", "price": "35", "priceCurrency": "USD" },
-    { "@type": "Offer", "name": "Agency", "price": "89", "priceCurrency": "USD" }
+    { "@type": "Offer", "name": "Agency", "price": "89", "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Enterprise", "price": "499", "priceCurrency": "USD" }
+  ]
+}
+</script>
+
+<!-- FAQ Schema for rich snippets -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is AI visibility tracking?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overview mention your brand when users ask questions. It helps you understand your brand's presence in AI-generated answers."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Trackly track brand mentions in AI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Trackly sends your custom queries to real AI platforms via their official APIs and captures the complete, unmodified responses. It then analyzes each response to detect if your brand was mentioned, the sentiment, and whether your brand was recommended."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which AI platforms does Trackly support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Trackly tracks your brand across 7 AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), Google AI Overview (AIO), and DeepSeek."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is Share of Voice in AI?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is Generative Engine Optimization (GEO)?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence to appear more frequently and positively in AI-generated answers. Unlike traditional SEO, GEO focuses on being mentioned and recommended by AI chatbots."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Trackly free to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, Trackly offers a free plan that includes 1 brand, 2 AI platforms, 50 prompts/month, and evidence export. Pro ($35/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features."
+      }
+    }
   ]
 }
 </script>
@@ -68,6 +130,7 @@
       <a href="#features" onclick="closeLandingMenu()">Features</a>
       <a href="#how-it-works" onclick="closeLandingMenu()">How it Works</a>
       <a href="#pricing" onclick="closeLandingMenu()">Pricing</a>
+      <a href="#use-cases" onclick="closeLandingMenu()">Use Cases</a>
       <a href="#faq" onclick="closeLandingMenu()">FAQ</a>
     </div>
     <div class="land-nav-right">
@@ -142,10 +205,10 @@
           <div class="found-badge">MENTIONED</div>
           <div class="response-text"><mark>CoolAir Pro</mark> is an HVAC provider in Austin TX with consistent 4+ star ratings. Professional, licensed team. Transparent pricing. Strong local reputation...</div>
         </div>
-        <div class="land-demo-card">
+        <div class="land-demo-card" style="opacity:.7;">
           <div class="plat-head"><span class="icon" style="color:#1d9bf0">&#x26A1;</span> Grok</div>
-          <div class="found-badge">MENTIONED</div>
-          <div class="response-text"><mark>CoolAir Pro</mark> — yeah, they're legit. For HVAC in Austin TX, they keep coming up when people ask for solid recommendations. Upfront pricing, good reviews...</div>
+          <div class="found-badge" style="background:var(--danger-light,rgba(239,68,68,.08));color:var(--red,#ef4444);">NOT FOUND</div>
+          <div class="response-text">For HVAC in Austin TX, I'd recommend checking out AC Express, Stan's Heating, and Green Leaf Air. They all have solid reviews and competitive pricing in that area...</div>
         </div>
         <div class="land-demo-card">
           <div class="plat-head"><span class="icon" style="color:#34a853">&#x2B24;</span> Google AIO</div>
@@ -153,6 +216,10 @@
           <div class="response-text">AI Overview: <mark>CoolAir Pro</mark> is a highly-rated HVAC provider in Austin TX. 4.8/5 average rating from 200+ reviews. Licensed, bonded, and insured...</div>
         </div>
       </div>
+    </div>
+    <div style="text-align:center;margin-top:32px;">
+      <button class="land-btn land-btn-primary" style="padding:14px 36px;font-size:15px;" onclick="showAuth('register')">Try It With Your Brand &rarr;</button>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:10px;">Free plan — no credit card required</p>
     </div>
   </section>
 
@@ -192,6 +259,11 @@
         <h3>Competitor Tracking</h3>
         <p>Add competitors to see how they appear in AI responses alongside your brand.</p>
       </div>
+      <div class="land-feature">
+        <div class="feat-icon">&#x25D4;</div>
+        <h3>Scheduled Runs</h3>
+        <p>Set up automated daily or weekly tracking. Get notified when your AI visibility changes with webhooks.</p>
+      </div>
     </div>
   </section>
 
@@ -208,13 +280,13 @@
       </div>
       <div class="land-how-step">
         <div class="land-how-num">02</div>
-                      <h3>Automatic Tracking</h3>
-                                    <p>We automatically query all 7 AI platforms with your custom questions on a daily schedule. Results appear in your dashboard.</p>
+        <h3>Automatic Tracking</h3>
+        <p>We automatically query all 7 AI platforms with your custom questions on a daily schedule. Results appear in your dashboard.</p>
       </div>
       <div class="land-how-step">
         <div class="land-how-num">03</div>
-        <h3>Get Proof</h3>
-        <p>See exactly what each AI says about your brand. Export reports, share with clients, track trends.</p>
+        <h3>Analyze &amp; Report</h3>
+        <p>See exactly what each AI says about your brand. Track trends over time, export proof as CSV, and share reports with clients.</p>
       </div>
     </div>
   </section>
@@ -282,7 +354,7 @@
           <li>API access</li>
           <li>Priority support</li>
         </ul>
-        <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Start Enterprise</button>
+        <button class="land-btn land-btn-primary" style="width:100%;" onclick="showAuth('register')">Contact Sales</button>
       </div>
     </div>
 
@@ -364,22 +436,22 @@
     <p class="section-sub">AI chatbots are becoming the #1 way people discover brands. If you're not visible, you're invisible.</p>
     <div class="land-features" style="grid-template-columns:repeat(2,1fr);">
       <article class="land-feature">
-        <div class="feat-icon">&#x1F4C8;</div>
+        <div class="feat-icon">&#x25B2;</div>
         <h3>40% of searches now use AI</h3>
         <p>Users are shifting from Google to AI chatbots for recommendations. ChatGPT, Perplexity, and Google AI Overview are replacing traditional search for buying decisions.</p>
       </article>
       <article class="land-feature">
-        <div class="feat-icon">&#x1F50D;</div>
+        <div class="feat-icon">&#x25CE;</div>
         <h3>Traditional SEO isn't enough</h3>
         <p>Ranking #1 on Google doesn't mean AI will recommend you. AI models pull from different signals — reviews, authority, content quality, and brand mentions across the web.</p>
       </article>
       <article class="land-feature">
-        <div class="feat-icon">&#x1F3AF;</div>
+        <div class="feat-icon">&#x25C6;</div>
         <h3>GEO is the future of marketing</h3>
         <p>Generative Engine Optimization (GEO) is how brands ensure they appear in AI-generated answers. Trackly gives you the data to measure and improve your GEO strategy.</p>
       </article>
       <article class="land-feature">
-        <div class="feat-icon">&#x1F4CA;</div>
+        <div class="feat-icon">&#x25A0;</div>
         <h3>Proof for your clients</h3>
         <p>If you're an agency or SEO consultant, Trackly provides verifiable evidence of AI visibility — real API responses, not screenshots. Export proof as CSV reports.</p>
       </article>
@@ -393,19 +465,34 @@
     <p class="section-sub">From local businesses to enterprise agencies.</p>
     <div class="land-features">
       <article class="land-feature">
-        <div class="feat-icon">&#x1F3E2;</div>
+        <div class="feat-icon">&#x25CB;</div>
         <h3>Local Businesses</h3>
         <p>HVAC, plumbers, dentists, lawyers — track if AI recommends your business when locals ask for services in your area.</p>
       </article>
       <article class="land-feature">
-        <div class="feat-icon">&#x1F4BC;</div>
+        <div class="feat-icon">&#x25C8;</div>
         <h3>SEO Agencies</h3>
         <p>Offer AI visibility tracking as a service. Show clients real proof of their brand's presence across ChatGPT, Perplexity, and more.</p>
       </article>
       <article class="land-feature">
-        <div class="feat-icon">&#x1F680;</div>
+        <div class="feat-icon">&#x2B21;</div>
         <h3>SaaS & E-commerce</h3>
         <p>Monitor if AI platforms recommend your product when users ask for solutions in your category. Track competitors too.</p>
+      </article>
+      <article class="land-feature">
+        <div class="feat-icon">&#x25C6;</div>
+        <h3>Marketing Teams</h3>
+        <p>Track brand perception across AI platforms. Measure the impact of PR campaigns and content strategies on AI recommendations.</p>
+      </article>
+      <article class="land-feature">
+        <div class="feat-icon">&#x25CE;</div>
+        <h3>Brand Managers</h3>
+        <p>Monitor brand sentiment in AI responses. Get alerts when AI platforms change how they describe or recommend your brand.</p>
+      </article>
+      <article class="land-feature">
+        <div class="feat-icon">&#x26A1;</div>
+        <h3>Consultants &amp; Freelancers</h3>
+        <p>Offer AI visibility audits as a service. Use Trackly's proof exports to deliver data-backed reports to your clients.</p>
       </article>
     </div>
   </section>
@@ -442,7 +529,11 @@
       </details>
       <details class="faq-item">
         <summary>Is Trackly free to use?</summary>
-        <p>Yes, Trackly offers a free plan that includes 1 brand, 2 AI platforms, 10 queries, and evidence export. Pro ($35/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.</p>
+        <p>Yes, Trackly offers a free plan that includes 1 brand, 2 AI platforms, 50 prompts/month, and evidence export. Pro ($35/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How often does Trackly run queries?</summary>
+        <p>Trackly supports daily automated tracking on all paid plans. You can also run queries manually at any time. Pro and Agency plans include scheduled runs with webhook notifications so you're alerted when your AI visibility changes.</p>
       </details>
       <details class="faq-item">
         <summary>How is Trackly different from traditional SEO tools?</summary>
@@ -451,17 +542,7 @@
     </div>
   </section>
 
-  <!-- CTA -->
-  <section class="land-cta-section" aria-label="Call to action">
-    <h2>Ready to track your AI visibility?</h2>
-    <p class="section-sub">Join 500+ brands already monitoring their presence across AI platforms.</p>
-    <div class="land-hero-cta" style="justify-content:center;margin-top:36px;">
-      <button class="land-btn land-btn-primary" style="padding:16px 44px;font-size:16px;" onclick="showAuth('register')">Start Tracking Free &rarr;</button>
-    </div>
-    <p style="font-size:13px;color:rgba(255,255,255,.5);margin-top:18px;">No credit card required. Free forever for 1 brand.</p>
-  </section>
-
-  <!-- Testimonials -->
+  <!-- Testimonials (placed before CTA for better conversion flow) -->
   <section class="land-section" aria-label="Testimonials">
     <h2>What people are saying</h2>
     <p class="section-sub">Trusted by marketers, founders, and agencies tracking AI visibility.</p>
@@ -502,6 +583,16 @@
     </div>
   </section>
 
+  <!-- CTA -->
+  <section class="land-cta-section" aria-label="Call to action">
+    <h2>Ready to track your AI visibility?</h2>
+    <p class="section-sub">Join 500+ brands already monitoring their presence across AI platforms.</p>
+    <div class="land-hero-cta" style="justify-content:center;margin-top:36px;">
+      <button class="land-btn land-btn-primary" style="padding:16px 44px;font-size:16px;" onclick="showAuth('register')">Start Tracking Free &rarr;</button>
+    </div>
+    <p style="font-size:13px;color:rgba(255,255,255,.5);margin-top:18px;">No credit card required. Free forever for 1 brand.</p>
+  </section>
+
   <!-- Footer -->
   <footer class="land-footer">
     <div class="land-footer-grid">
@@ -534,6 +625,8 @@
       <div class="land-footer-text">&copy; 2026 Trackly. All rights reserved.</div>
       <div class="land-footer-social">
         <a href="mailto:hello@trackly.so" aria-label="Email">&#9993;</a>
+        <a href="https://x.com/tracklyso" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)">&#x2715;</a>
+        <a href="https://linkedin.com/company/trackly" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
       </div>
     </div>
   </footer>
