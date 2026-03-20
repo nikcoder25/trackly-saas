@@ -1061,6 +1061,7 @@ router.get('/brands/:id/accuracy', auth, async (req, res) => {
     `, [req.params.id]);
 
     const mismatches = [];
+    let totalClaims = 0;
     for (const run of runs.rows) {
       if (!run.response_raw) continue;
       const lower = run.response_raw.toLowerCase();
@@ -1068,26 +1069,40 @@ router.get('/brands/:id/accuracy', auth, async (req, res) => {
       for (const fact of facts) {
         if (!fact.fact_key || !fact.fact_value) continue;
         const factLower = fact.fact_value.toLowerCase();
+        const keyLower = fact.fact_key.toLowerCase();
         // Simple check: if the fact key is mentioned but the fact value is not present
-        const keyInResponse = lower.includes(fact.fact_key.toLowerCase());
+        const keyInResponse = lower.includes(keyLower);
         const valueInResponse = lower.includes(factLower);
 
-        if (keyInResponse && !valueInResponse) {
-          mismatches.push({
-            prompt_run_id: run.id,
-            prompt: run.prompt,
-            platform: run.platform,
-            model: run.model,
-            fact_key: fact.fact_key,
-            expected_value: fact.fact_value,
-            snippet: run.response_raw.substring(0, 300),
-            date: run.created_at
-          });
+        if (keyInResponse) {
+          totalClaims++;
+          if (!valueInResponse) {
+            // Try to extract what the AI actually said near the fact key
+            const keyIdx = lower.indexOf(keyLower);
+            const contextStart = Math.max(0, keyIdx);
+            const contextEnd = Math.min(run.response_raw.length, keyIdx + 120);
+            const aiSnippet = run.response_raw.substring(contextStart, contextEnd).trim();
+
+            mismatches.push({
+              prompt_run_id: run.id,
+              prompt: run.prompt,
+              platform: run.platform,
+              model: run.model,
+              fact_key: fact.fact_key,
+              expected_value: fact.fact_value,
+              fact_value: fact.fact_value,
+              ai_value: aiSnippet,
+              severity: 'high',
+              snippet: run.response_raw.substring(0, 300),
+              date: run.created_at,
+              detected_at: run.created_at
+            });
+          }
         }
       }
     }
 
-    res.json({ mismatches, totalChecked: runs.rows.length, factCount: facts.length });
+    res.json({ mismatches, totalChecked: totalClaims, factCount: facts.length });
   } catch(e) {
     res.status(500).json({ error: 'Failed to check accuracy' });
   }
