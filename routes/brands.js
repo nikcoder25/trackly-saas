@@ -319,8 +319,13 @@ router.put('/:id', auth, async (req, res) => {
     if (safeBody.competitors && safeBody.competitors.length > limits.competitors) {
       return res.status(403).json({ error: limits.competitors === 0 ? `Competitor tracking is available on Pro and Agency plans.` : `Your ${plan} plan allows up to ${limits.competitors} competitors. Upgrade for more.`, planLimit: true, limit: 'competitors', max: limits.competitors });
     }
-    if (safeBody.schedule && !limits.scheduledRuns) {
-      return res.status(403).json({ error: `Scheduled runs are available on Pro and Agency plans. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
+    if (safeBody.schedule) {
+      if (!limits.scheduledRuns) {
+        return res.status(403).json({ error: `Scheduled runs are not available on your current plan. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
+      }
+      if (safeBody.schedule < limits.minScheduleHours) {
+        return res.status(403).json({ error: `Your ${plan} plan allows a minimum schedule interval of ${limits.minScheduleHours} hours. Upgrade for shorter intervals.`, planLimit: true, limit: 'minScheduleHours', min: limits.minScheduleHours });
+      }
     }
     if (safeBody.webhookUrl && safeBody.webhookUrl.trim() && !isWebhookUrlSafe(safeBody.webhookUrl.trim())) {
       return res.status(400).json({ error: 'Webhook URL must be HTTPS and cannot target local/private addresses.' });
