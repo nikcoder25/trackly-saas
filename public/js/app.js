@@ -3985,8 +3985,12 @@ async function renderPlatformStatus(){
     const statusLabel = hasKey ? 'ACTIVE' : 'INACTIVE';
     const statusColor = hasKey ? 'var(--green)' : 'var(--muted)';
     const health = platformHealth[plat] || {};
-    const latency = health.avg_latency_ms || '1.4';
-    const cost = health.cost_per_run || '0.012';
+    const latencyMs = health.avg_latency_ms;
+    const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '—';
+    const successRate = health.success_rate != null ? health.success_rate + '%' : '—';
+    const apiStatus = health.status === 'red' ? 'Degraded' : health.status === 'amber' ? 'Slow' : 'Healthy';
+    const apiStatusColor = health.status === 'red' ? 'var(--red)' : health.status === 'amber' ? 'var(--amber)' : 'var(--green)';
+    const calls24h = health.total_calls_24h || 0;
 
     return `<div class="card" style="padding:18px 20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -4004,7 +4008,7 @@ async function renderPlatformStatus(){
         <div style="width:${sov}%;height:100%;background:${sovColor};border-radius:4px;transition:width .4s ease;"></div>
       </div>
       <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
-        API: <span style="color:var(--green);">Healthy</span> &middot; Avg response: ${latency}s &middot; Cost: $${cost}/run
+        API: <span style="color:${apiStatusColor};">${apiStatus}</span> &middot; Avg response: ${latencyStr} &middot; Success: ${successRate}${calls24h > 0 ? ' &middot; ' + calls24h + ' calls/24h' : ''}
       </div>
     </div>`;
   }).join('');
@@ -6697,8 +6701,10 @@ async function renderAccuracyMonitor() {
     try {
       const accData = await api('GET', `/api/brands/${b.id}/accuracy`);
       mismatches = accData.mismatches || [];
-      claimsChecked = accData.totalChecked || mismatches.length + (accData.matches || 0);
       issueCount = mismatches.length;
+      claimsChecked = accData.totalChecked || 0;
+      // If totalChecked is 0 but we have mismatches, use mismatch count as minimum
+      if (claimsChecked === 0 && issueCount > 0) claimsChecked = issueCount;
       accRate = claimsChecked > 0 ? Math.round(((claimsChecked - issueCount) / claimsChecked) * 100) + '%' : '--';
     } catch(e) {}
 
@@ -6735,12 +6741,14 @@ async function renderAccuracyMonitor() {
           const t = PLAT_THEME[m.platform] || {};
           const severity = m.severity === 'high' ? 'var(--red)' : 'var(--amber)';
           const bgColor = severity === 'var(--red)' ? 'rgba(239,68,68,.03)' : 'rgba(245,158,11,.03)';
-          const dateStr = m.detected_at ? 'Detected ' + new Date(m.detected_at).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
+          const mDate = m.detected_at || m.date;
+          const dateStr = mDate ? 'Detected ' + new Date(mDate).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
+          const expectedVal = m.fact_value || m.expected_value || '?';
           return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-left:3px solid ${severity};background:${bgColor};border-radius:var(--radius-xs);margin-bottom:10px;">
             <span style="color:${severity};font-size:14px;flex-shrink:0;">&#9888;</span>
             <div style="font-size:12px;line-height:1.6;">
               <strong>${esc(m.platform || 'Unknown')}</strong>
-              ${m.fact_key ? ` stated ${esc(m.fact_key)} "${esc(m.ai_value || '?')}" — actual ${esc(m.fact_key)} is ${esc(m.fact_value || '?')}.` : esc(m.description || 'Mismatch detected')}
+              ${m.fact_key ? ` stated incorrect <strong>${esc(m.fact_key)}</strong> — expected: <em>${esc(expectedVal)}</em>` : esc(m.description || 'Mismatch detected')}
               ${dateStr ? ` <span style="color:var(--muted);">${dateStr}</span>` : ''}
             </div>
           </div>`;
@@ -6787,23 +6795,10 @@ async function checkAccuracy() {
   const b = brand();
   if (!b) return;
   try {
-    const data = await api('GET', `/api/brands/${b.id}/accuracy`);
-    const el2 = el('accuracy-results');
-    // Re-render KPIs
-    renderAccuracyMonitor();
-    if (data.mismatches && data.mismatches.length > 0) {
-      el2.innerHTML = data.mismatches.map((m, i) => {
-        const color = i === 0 ? 'var(--red)' : 'var(--amber)';
-        const bg = i === 0 ? 'rgba(239,68,68,.03)' : 'rgba(245,158,11,.03)';
-        const dateStr = new Date(m.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid ${color};background:${bg};border-radius:var(--radius-xs);margin-bottom:10px;">
-          <span style="color:${color};font-size:14px;">&#9888;</span>
-          <div style="font-size:12px;"><strong>${esc(m.platform)}</strong> stated incorrect "${esc(m.fact_key)}" — expected: ${esc(m.expected_value)} <span style="color:var(--muted);">Detected ${dateStr}</span></div>
-        </div>`;
-      }).join('');
-    } else {
-      el2.innerHTML = `<div style="padding:16px;text-align:center;color:var(--green);">All AI responses match your canonical facts. Checked ${data.totalChecked || 0} responses.</div>`;
-    }
+    toast('Checking accuracy...', 'ok');
+    // Just re-render the full monitor which already fetches and displays everything
+    await renderAccuracyMonitor();
+    toast('Accuracy check complete', 'ok');
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 }
 

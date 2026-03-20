@@ -346,6 +346,8 @@ async function initDB() {
     // Add unique index on username (only for non-null values)
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;`);
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;`);
+    // Add index for api_logs.run_id lookups (cost tracking queries)
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_api_logs_run_id ON api_logs(run_id) WHERE run_id IS NOT NULL;`);
     log.info('PostgreSQL tables ready');
   } finally {
     client.release();
