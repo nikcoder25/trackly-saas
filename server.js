@@ -289,6 +289,7 @@ app.use('/', seoRoutes);
 
 // ─── SCHEDULED RUNS (cron) ───────────────────────────────────────
 const { runBrandQueries } = require('./routes/brands');
+const { getUserPlan, getPlanLimits } = require('./lib/plans');
 
 // Cron concurrency — process up to 5 brands simultaneously to avoid
 // sequential bottleneck at scale (300+ users with scheduled brands).
@@ -335,13 +336,23 @@ cron.schedule('0 * * * *', async () => {
     log.info(`Found ${result.rows.length} brands with active schedules`);
     const now = Date.now();
 
-    // Filter to brands that are due for a run
+    // Filter to brands that are due for a run (enforce plan-based minimum schedule)
     const dueBrands = [];
+    const planCache = {}; // cache user plans to avoid repeated DB queries
     for (const row of result.rows) {
       const brand = { id: row.id, userId: row.user_id, ...row.data };
       if (!brand.schedule) continue;
+
+      // Enforce plan-based minimum schedule interval
+      if (!planCache[brand.userId]) {
+        const userPlan = await getUserPlan(brand.userId);
+        planCache[brand.userId] = getPlanLimits(userPlan);
+      }
+      const limits = planCache[brand.userId];
+      const effectiveSchedule = Math.max(brand.schedule, limits.minScheduleHours || 168);
+
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
-      const intervalMs = brand.schedule * 3600 * 1000;
+      const intervalMs = effectiveSchedule * 3600 * 1000;
       if (now - lastRun >= intervalMs) {
         dueBrands.push(brand);
       }
