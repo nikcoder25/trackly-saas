@@ -198,6 +198,27 @@ function getStoredRunErrors() {
 function clearStoredRunErrors() {
   localStorage.removeItem('trackly_run_errors');
 }
+function copyLogError(btn, json) {
+  navigator.clipboard.writeText(json).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 1500);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy Error'; }, 1500);
+  });
+}
 
 // SOV color helper (green >= 40%, amber > 0%, red = 0%)
 function sovColor(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
@@ -3425,7 +3446,14 @@ function renderMentions(){
     <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--purple);">${recPct}%</div><div class="score-label">Recommended</div></div>
   </div>`;
   let chips = `<span class="plat-filter ${mentionsPlatFilter==='all'?'active-filter':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All</span>`;
-  Object.entries(pc).sort((a,b)=>b[1].f-a[1].f).forEach(([p,c])=>{
+  PLATS.forEach(p=>{
+    const on=mentionsPlatFilter===p;
+    const c=pc[p]||{t:0,f:0};
+    const dim=c.t===0?' style="opacity:.45"':'';
+    chips+=`<span class="plat-filter ${on?'active-filter':''}"${dim} onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${esc(p)}</span>`;
+  });
+  // Also include any platforms from data not in PLATS
+  Object.keys(pc).filter(p=>!PLATS.includes(p)).forEach(p=>{
     const on=mentionsPlatFilter===p;
     chips+=`<span class="plat-filter ${on?'active-filter':''}" onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${esc(p)}</span>`;
   });
@@ -5824,6 +5852,10 @@ async function renderApiLogs(){
       const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
+      const errMsg = isErr && log.error ? log.error : '';
+      const errId = isErr && errMsg ? 'err-' + (log.id || Math.random().toString(36).slice(2)) : '';
+      const copyErrJson = isErr && errMsg ? JSON.stringify({platform:log.platform,model:log.model||'',query:log.query||'',status:log.http_status||'ERR',error:log.error,time:log.created_at}) : '';
+
       tbl += `<tr class="trow"${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.04);' : ''}">
         <td class="td" style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
         <td class="td" style="color:${t.color || 'var(--text)'};font-weight:700;font-size:11px;">${esc(log.platform)}</td>
@@ -5833,6 +5865,16 @@ async function renderApiLogs(){
         <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${respTime}</td>
         <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:600;">${costStr}</td>
       </tr>`;
+      if (isErr && errMsg) {
+        tbl += `<tr${dataAttr} style="${item.runId ? 'display:none;' : ''}background:rgba(239,68,68,.04);">
+          <td class="td" colspan="7" style="padding:6px 16px 10px ${item.runId ? '24px' : '16px'};">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <div style="flex:1;font-family:var(--mono);font-size:10px;color:var(--red);line-height:1.5;word-break:break-all;" id="${errId}">${esc(errMsg)}</div>
+              <button onclick="copyLogError(this, \`${escAttr(copyErrJson)}\`)" style="flex-shrink:0;background:none;border:1px solid rgba(239,68,68,.3);color:var(--red);font-size:9px;padding:3px 10px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);white-space:nowrap;" title="Copy full error details">Copy Error</button>
+            </div>
+          </td>
+        </tr>`;
+      }
     });
 
     tbl += '</tbody></table></div></div>';
@@ -6455,6 +6497,26 @@ async function renderPromptDetail() {
   } catch(e) {
     console.error('[PromptDetails]', e);
     if (loadingEl) loadingEl.style.display = 'none';
+  }
+}
+
+async function savePromptMetadata() {
+  const b = brand();
+  if (!b) return;
+  const prompt = el('pd-prompt-select')?.value;
+  if (!prompt) return;
+  const tagsEl = el('pd-tags');
+  const tags = tagsEl ? tagsEl.value.split(',').map(t => t.trim()).filter(Boolean) : [];
+  try {
+    await api('PUT', `/api/brands/${b.id}/prompt-metadata`, {
+      prompt,
+      intent: el('pd-intent')?.value || '',
+      funnel_stage: el('pd-funnel')?.value || '',
+      tags
+    });
+    toast('Prompt metadata saved', 'ok');
+  } catch(e) {
+    toast('Failed to save metadata', 'err');
   }
 }
 
