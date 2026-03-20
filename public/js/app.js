@@ -3425,7 +3425,14 @@ function renderMentions(){
     <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--purple);">${recPct}%</div><div class="score-label">Recommended</div></div>
   </div>`;
   let chips = `<span class="plat-filter ${mentionsPlatFilter==='all'?'active-filter':''}" onclick="mentionsPlatFilter='all';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">All</span>`;
-  Object.entries(pc).sort((a,b)=>b[1].f-a[1].f).forEach(([p,c])=>{
+  PLATS.forEach(p=>{
+    const on=mentionsPlatFilter===p;
+    const c=pc[p]||{t:0,f:0};
+    const dim=c.t===0?' style="opacity:.45"':'';
+    chips+=`<span class="plat-filter ${on?'active-filter':''}"${dim} onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${esc(p)}</span>`;
+  });
+  // Also include any platforms from data not in PLATS
+  Object.keys(pc).filter(p=>!PLATS.includes(p)).forEach(p=>{
     const on=mentionsPlatFilter===p;
     chips+=`<span class="plat-filter ${on?'active-filter':''}" onclick="mentionsPlatFilter='${escAttr(p)}';mentionsPage=0;mentionsExpandedRow=null;renderMentions()">${esc(p)}</span>`;
   });
