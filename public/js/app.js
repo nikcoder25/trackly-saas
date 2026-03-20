@@ -3985,8 +3985,12 @@ async function renderPlatformStatus(){
     const statusLabel = hasKey ? 'ACTIVE' : 'INACTIVE';
     const statusColor = hasKey ? 'var(--green)' : 'var(--muted)';
     const health = platformHealth[plat] || {};
-    const latency = health.avg_latency_ms || '1.4';
-    const cost = health.cost_per_run || '0.012';
+    const latencyMs = health.avg_latency_ms;
+    const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '—';
+    const successRate = health.success_rate != null ? health.success_rate + '%' : '—';
+    const apiStatus = health.status === 'red' ? 'Degraded' : health.status === 'amber' ? 'Slow' : 'Healthy';
+    const apiStatusColor = health.status === 'red' ? 'var(--red)' : health.status === 'amber' ? 'var(--amber)' : 'var(--green)';
+    const calls24h = health.total_calls_24h || 0;
 
     return `<div class="card" style="padding:18px 20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -4004,7 +4008,7 @@ async function renderPlatformStatus(){
         <div style="width:${sov}%;height:100%;background:${sovColor};border-radius:4px;transition:width .4s ease;"></div>
       </div>
       <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
-        API: <span style="color:var(--green);">Healthy</span> &middot; Avg response: ${latency}s &middot; Cost: $${cost}/run
+        API: <span style="color:${apiStatusColor};">${apiStatus}</span> &middot; Avg response: ${latencyStr} &middot; Success: ${successRate}${calls24h > 0 ? ' &middot; ' + calls24h + ' calls/24h' : ''}
       </div>
     </div>`;
   }).join('');
