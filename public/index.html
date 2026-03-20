@@ -1506,6 +1506,41 @@
       <!-- KPI Metrics Row -->
       <div id="pd-metrics" class="pd-metrics-grid"></div>
 
+      <!-- Prompt Classification -->
+      <div class="card" style="padding:20px 24px;margin-bottom:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;">
+            <div class="card-title" style="margin-bottom:14px;">Prompt Classification</div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:180px;">
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Search Intent</label>
+                <select id="pd-intent" class="finp" style="width:100%;">
+                  <option value="">— Select —</option>
+                  <option value="awareness">Awareness</option>
+                  <option value="comparison">Comparison</option>
+                  <option value="commercial">Commercial Investigation</option>
+                  <option value="navigational">Navigational</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:180px;">
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Funnel Stage</label>
+                <select id="pd-funnel" class="finp" style="width:100%;">
+                  <option value="">— Select —</option>
+                  <option value="tofu">Awareness (TOFU)</option>
+                  <option value="mofu">Consideration (MOFU)</option>
+                  <option value="bofu">Decision (BOFU)</option>
+                </select>
+              </div>
+              <div style="flex:1;min-width:180px;">
+                <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Tags</label>
+                <input id="pd-tags" type="text" class="finp" placeholder="Comma-separated tags" style="width:100%;">
+              </div>
+            </div>
+          </div>
+          <button class="pbtn" onclick="savePromptMetadata()" style="background:var(--primary);color:#fff;border-color:var(--primary);font-weight:700;margin-left:18px;margin-top:24px;flex-shrink:0;">Save</button>
+        </div>
+      </div>
+
       <!-- Charts Row -->
       <div class="ov-grid-2 pd-charts-row">
         <div class="card pd-chart-card">

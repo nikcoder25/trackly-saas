@@ -6458,6 +6458,26 @@ async function renderPromptDetail() {
   }
 }
 
+async function savePromptMetadata() {
+  const b = brand();
+  if (!b) return;
+  const prompt = el('pd-prompt-select')?.value;
+  if (!prompt) return;
+  const tagsEl = el('pd-tags');
+  const tags = tagsEl ? tagsEl.value.split(',').map(t => t.trim()).filter(Boolean) : [];
+  try {
+    await api('PUT', `/api/brands/${b.id}/prompt-metadata`, {
+      prompt,
+      intent: el('pd-intent')?.value || '',
+      funnel_stage: el('pd-funnel')?.value || '',
+      tags
+    });
+    toast('Prompt metadata saved', 'ok');
+  } catch(e) {
+    toast('Failed to save metadata', 'err');
+  }
+}
+
 async function viewPromptRun(brandId, runId) {
   try {
     const data = await api('GET', `/api/brands/${brandId}/prompt-runs/${runId}`);
