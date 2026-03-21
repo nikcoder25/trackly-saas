@@ -9,6 +9,7 @@ const { pool } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { safeUser } = require('../lib/helpers');
 const { createLogger } = require('../lib/logger');
+const { API_ENDPOINTS, TIMEOUTS } = require('../config/constants');
 const log = createLogger('Payments');
 
 // Webhook idempotency — prevent duplicate event processing
@@ -81,8 +82,8 @@ router.post('/checkout', auth, async (req, res) => {
     }
 
     const baseUrl = DODO_ENVIRONMENT === 'live_mode'
-      ? 'https://live.dodopayments.com'
-      : 'https://test.dodopayments.com';
+      ? API_ENDPOINTS.dodopayments.live
+      : API_ENDPOINTS.dodopayments.test;
 
     const returnUrl = DODO_RETURN_URL || `${req.protocol}://${req.get('host')}`;
 
@@ -111,7 +112,7 @@ router.post('/checkout', auth, async (req, res) => {
           'Authorization': `Bearer ${DODO_API_KEY}`,
           'Content-Length': Buffer.byteLength(body)
         },
-        timeout: 15000
+        timeout: TIMEOUTS.paymentApi
       };
 
       const apiReq = https.request(`${baseUrl}/checkouts`, reqOpts, (apiRes) => {
@@ -345,8 +346,8 @@ async function cancelDodoSubscription(subscriptionId) {
   if (!DODO_API_KEY || !subscriptionId) return false;
   const https = require('https');
   const baseUrl = DODO_ENVIRONMENT === 'live_mode'
-    ? 'https://live.dodopayments.com'
-    : 'https://test.dodopayments.com';
+    ? API_ENDPOINTS.dodopayments.live
+    : API_ENDPOINTS.dodopayments.test;
 
   return new Promise((resolve) => {
     const reqOpts = {
@@ -355,7 +356,7 @@ async function cancelDodoSubscription(subscriptionId) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${DODO_API_KEY}`,
       },
-      timeout: 15000
+      timeout: TIMEOUTS.paymentApi
     };
     const body = JSON.stringify({ status: 'cancelled' });
     reqOpts.headers['Content-Length'] = Buffer.byteLength(body);

@@ -11,6 +11,7 @@ const { uid, getBrandWithAccess } = require('../lib/helpers');
 const { wilsonInterval, descriptiveStats, trendAnalysis, detectDiagnosticEvents } = require('../lib/statistics');
 const { generateRecommendations, getPlaybook, getAllPlaybooks } = require('../lib/recommendations');
 const { getPlanLimits, getUserPlan, PLAN_LIMITS } = require('../lib/plans');
+const { ANALYTICS } = require('../config/constants');
 
 // ═══════════════════════════════════════════════════════════
 // Epic 1.3: Methodology & Platform Meta
@@ -49,7 +50,7 @@ router.get('/meta/platforms', auth, async (req, res) => {
       const failureRate = stat.total_calls > 0 ? stat.failures / stat.total_calls : 0;
       platforms[name] = {
         ...config,
-        status: failureRate > 0.5 ? 'red' : failureRate > 0.2 ? 'amber' : 'green',
+        status: failureRate > ANALYTICS.failureRateRed ? 'red' : failureRate > ANALYTICS.failureRateAmber ? 'amber' : 'green',
         total_calls_24h: stat.total_calls || 0,
         success_rate: stat.total_calls > 0 ? Math.round((stat.successes / stat.total_calls) * 100) : null,
         avg_latency_ms: stat.avg_latency || null,

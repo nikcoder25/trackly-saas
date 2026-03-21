@@ -14,6 +14,7 @@ const { uid, safeUser } = require('../lib/helpers');
 const { getPlanLimits } = require('../lib/plans');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../lib/email');
 const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = require('../lib/totp');
+const { RATE_LIMITS, AUTH, API_ENDPOINTS } = require('../config/constants');
 const crypto = require('crypto');
 
 // ─── Auto-generate username from name or email ─────────────────
@@ -50,8 +51,8 @@ function setTokenCookies(res, accessToken, refreshToken) {
     sameSite: 'strict',
     path: '/'
   };
-  res.cookie('trackly_token', accessToken, { ...cookieOpts, maxAge: 15 * 60 * 1000 }); // 15 min
-  res.cookie('trackly_refresh', refreshToken, { ...cookieOpts, maxAge: 30 * 24 * 60 * 60 * 1000 }); // 30 days
+  res.cookie('trackly_token', accessToken, { ...cookieOpts, maxAge: AUTH.accessTokenMaxAge });
+  res.cookie('trackly_refresh', refreshToken, { ...cookieOpts, maxAge: AUTH.refreshTokenMaxAge });
 }
 
 function clearTokenCookies(res) {
@@ -63,8 +64,8 @@ function clearTokenCookies(res) {
 // Per-account brute force protection — 10 failed attempts per 15 min per email/username
 // Prevents distributed attacks targeting a single account from many IPs
 const loginAccountLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: RATE_LIMITS.loginAccount.windowMs,
+  max: RATE_LIMITS.loginAccount.max,
   message: { error: 'Too many login attempts for this account. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -75,8 +76,8 @@ const loginAccountLimiter = rateLimit({
 
 // Stricter rate limit for 2FA attempts — 5 attempts per 15 minutes per IP
 const twoFALimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: RATE_LIMITS.twoFA.windowMs,
+  max: RATE_LIMITS.twoFA.max,
   message: { error: 'Too many 2FA attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -87,8 +88,8 @@ const twoFALimiter = rateLimit({
 
 // Rate limit for forgot-password — 5 requests per hour per IP
 const forgotPasswordLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
+  windowMs: RATE_LIMITS.forgotPassword.windowMs,
+  max: RATE_LIMITS.forgotPassword.max,
   message: { error: 'Too many password reset requests. Please try again in 1 hour.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -97,8 +98,8 @@ const forgotPasswordLimiter = rateLimit({
 
 // Rate limit for reset-password — 10 attempts per hour per IP
 const resetPasswordLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 10,
+  windowMs: RATE_LIMITS.resetPassword.windowMs,
+  max: RATE_LIMITS.resetPassword.max,
   message: { error: 'Too many password reset attempts. Please try again in 1 hour.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -107,8 +108,8 @@ const resetPasswordLimiter = rateLimit({
 
 // Rate limit for email verification — 20 attempts per hour per IP
 const verifyEmailLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 20,
+  windowMs: RATE_LIMITS.verifyEmail.windowMs,
+  max: RATE_LIMITS.verifyEmail.max,
   message: { error: 'Too many verification attempts. Please try again in 1 hour.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -117,8 +118,8 @@ const verifyEmailLimiter = rateLimit({
 
 // Rate limit for 2FA setup/verify — 10 attempts per 15 minutes per user
 const twoFASetupLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: RATE_LIMITS.twoFASetup.windowMs,
+  max: RATE_LIMITS.twoFASetup.max,
   message: { error: 'Too many 2FA setup attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -398,7 +399,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     if (!result.rows.length) return res.json({ message: 'If an account exists with that email, a reset link has been generated.' });
     const user = result.rows[0];
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hour expiry
+    const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
     // Delete any existing tokens for this user, then insert new one
     await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
     await pool.query(
@@ -571,7 +572,7 @@ router.post('/google', async (req, res) => {
       // OAuth2 access token flow — verify by calling Google's userinfo API server-side
       const https = require('https');
       const userInfo = await new Promise((resolve, reject) => {
-        const url = 'https://www.googleapis.com/oauth2/v3/userinfo';
+        const url = API_ENDPOINTS.google.userinfo;
         const gReq = https.get(url, { headers: { 'Authorization': 'Bearer ' + access_token } }, (resp) => {
           let data = '';
           resp.on('data', chunk => data += chunk);
@@ -598,7 +599,7 @@ router.post('/google', async (req, res) => {
       // Legacy ID token flow — verify via tokeninfo API
       const https = require('https');
       const googlePayload = await new Promise((resolve, reject) => {
-        const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
+        const url = `${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential)}`;
         https.get(url, (resp) => {
           let data = '';
           resp.on('data', chunk => data += chunk);

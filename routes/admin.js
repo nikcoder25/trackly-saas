@@ -12,11 +12,12 @@ const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { cancelDodoSubscription } = require('./payments');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 const rateLimit = require('express-rate-limit');
+const { RATE_LIMITS } = require('../config/constants');
 
 // Rate limit for data exports — 10 requests per minute per user
 const exportLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
+  windowMs: RATE_LIMITS.api.windowMs,
+  max: RATE_LIMITS.admin.max,
   message: { error: 'Too many export requests. Please try again in 1 minute.' },
   standardHeaders: true,
   legacyHeaders: false,

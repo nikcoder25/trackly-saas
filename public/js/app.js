@@ -7,12 +7,12 @@ function ensureChartJs() {
   if (_chartJsLoaded || typeof Chart != 'undefined') { _chartJsLoaded = true; return Promise.resolve(); }
   if (_chartJsPromise) return _chartJsPromise;
   _chartJsPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
-    s.crossOrigin = 'anonymous';
-    s.onload = () => { _chartJsLoaded = true; resolve(); };
-    s.onerror = () => { _chartJsPromise = null; reject(new Error('Failed to load Chart.js')); };
-    document.head.appendChild(s);
+    const scriptEl = document.createElement('script');
+    scriptEl.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+    scriptEl.crossOrigin = 'anonymous';
+    scriptEl.onload = () => { _chartJsLoaded = true; resolve(); };
+    scriptEl.onerror = () => { _chartJsPromise = null; reject(new Error('Failed to load Chart.js')); };
+    document.head.appendChild(scriptEl);
   });
   return _chartJsPromise;
 }
@@ -86,13 +86,13 @@ const CLIENT_MODEL_PRICING = {
 };
 function clientEstimateCost(model, tokensIn, tokensOut) {
   if (!model || (!tokensIn && !tokensOut)) return 0;
-  let p = CLIENT_MODEL_PRICING[model];
-  if (!p) {
+  let pricing = CLIENT_MODEL_PRICING[model];
+  if (!pricing) {
     const key = Object.keys(CLIENT_MODEL_PRICING).find(k => model.startsWith(k) || k.startsWith(model));
-    if (key) p = CLIENT_MODEL_PRICING[key];
+    if (key) pricing = CLIENT_MODEL_PRICING[key];
   }
-  if (!p) return 0;
-  return ((tokensIn || 0) * p.i + (tokensOut || 0) * p.o) / 1_000_000;
+  if (!pricing) return 0;
+  return ((tokensIn || 0) * pricing.i + (tokensOut || 0) * pricing.o) / 1_000_000;
 }
 
 // ─── STATE ────────────────────────────────────────────────────────
@@ -224,21 +224,21 @@ function copyLogError(btn, json) {
 function sovColor(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; }
 
 // Format milliseconds to human-readable time
-function fmtTime(ms) { const s = Math.floor(ms/1000); return s >= 60 ? Math.floor(s/60) + 'm ' + (s%60) + 's' : s + 's'; }
+function fmtTime(ms) { const totalSec = Math.floor(ms/1000); return totalSec >= 60 ? Math.floor(totalSec/60) + 'm ' + (totalSec%60) + 's' : totalSec + 's'; }
 
 // Friendly error message for display
 function friendlyError(msg){
   if (!msg) return 'Unknown error';
-  const m = msg.toLowerCase();
-  if (m.includes('rate limit') || m.includes('rate_limit') || m.includes('too many requests'))
+  const msgLower = msg.toLowerCase();
+  if (msgLower.includes('rate limit') || msgLower.includes('rate_limit') || msgLower.includes('too many requests'))
     return 'Rate limited — too many requests. Retried automatically but limit persists. Try again in a few minutes.';
-  if (m.includes('exceed') && m.includes('rate'))
+  if (msgLower.includes('exceed') && msgLower.includes('rate'))
     return 'Rate limited — request limit exceeded. Try again in a few minutes.';
-  if (m.includes('credit') || m.includes('billing') || m.includes('quota') || m.includes('insufficient'))
+  if (msgLower.includes('credit') || msgLower.includes('billing') || msgLower.includes('quota') || msgLower.includes('insufficient'))
     return 'No credits / quota exceeded. Check your API billing.';
-  if (m.includes('invalid') && (m.includes('key') || m.includes('auth')))
+  if (msgLower.includes('invalid') && (msgLower.includes('key') || msgLower.includes('auth')))
     return 'Invalid API key. Check your key in Settings.';
-  if (m.includes('timeout'))
+  if (msgLower.includes('timeout'))
     return 'Request timed out. The API took too long to respond.';
   return msg.length > 100 ? msg.substring(0, 100) + '...' : msg;
 }
@@ -262,13 +262,13 @@ function brandHighlightRe(b){
   return new RegExp('('+patterns.join('|')+')', 'gi');
 }
 function toast(msg, type='ok'){
-  const t = el('toast');
-  t.textContent = msg; t.className = type;
-  t.style.display = 'block';
-  setTimeout(() => t.style.display='none', 3000);
+  const toastEl = el('toast');
+  toastEl.textContent = msg; toastEl.className = type;
+  toastEl.style.display = 'block';
+  setTimeout(() => toastEl.style.display='none', 3000);
 }
-function show(id){ const e=el(id); if(e) e.style.display='block'; }
-function hide(id){ const e=el(id); if(e) e.style.display='none'; }
+function show(id){ const elem=el(id); if(elem) elem.style.display='block'; }
+function hide(id){ const elem=el(id); if(elem) elem.style.display='none'; }
 // ─── MODAL FOCUS TRAP ─────────────────────────────────────────────
 let _prevFocus = null;
 const _focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -341,9 +341,9 @@ function copyFallback(text) {
     ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
     document.body.appendChild(ta);
     ta.select();
-    const ok = document.execCommand('copy');
+    const copySuccess = document.execCommand('copy');
     document.body.removeChild(ta);
-    return ok;
+    return copySuccess;
   } catch(_) { return false; }
 }
 
