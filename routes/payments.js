@@ -216,7 +216,7 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
 
-          if (!['pro', 'agency'].includes(plan)) return;
+          if (!['pro', 'agency', 'enterprise'].includes(plan)) return;
 
           // Store subscription ID for future reference
           const subscriptionId = data.subscription_id;
@@ -280,11 +280,14 @@ if (DODO_WEBHOOK_KEY) {
       onSubscriptionExpired: async (payload) => {
         try {
           const data = payload.data || payload;
+          const eventId = data.subscription_id || data.id || payload.id;
+          if (await isWebhookProcessed('sub_expired_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           if (!userId) return;
           await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
           log.info(`Subscription expired, downgraded user ${userId} to free`);
+          await markWebhookProcessed('sub_expired_' + eventId, 'subscription.expired');
         } catch(e) {
           log.error('subscription.expired error', { error: e.message });
         }
