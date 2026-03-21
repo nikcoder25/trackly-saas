@@ -1017,7 +1017,8 @@ function renderAccount(){
   const planData = [
           { id: 'free', name: 'Free', price: '$0', features: '1 brand, 2 platforms, 50 prompts/month' },
                 { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 7 platforms, 500 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 2000 prompts/month, 20 competitors, sentiment' }
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 2000 prompts/month, 20 competitors, sentiment' },
+                      { id: 'enterprise', name: 'Enterprise', price: '$249/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
@@ -1652,16 +1653,18 @@ async function doUpgrade(plan) {
   const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
-    const data = await api('POST', '/api/upgrade', { plan });
-    // Handle payment required response
-    if (data.requiresPayment) {
-      if (data.checkoutUrl) {
-        window.open(data.checkoutUrl + '?price=' + data.priceId, '_blank');
+    // Upgrades go through payment checkout; downgrades are self-service
+    if (action === 'upgrade') {
+      const data = await api('POST', '/api/payments/checkout', { plan });
+      if (data.checkout_url) {
+        window.open(data.checkout_url, '_blank');
+        toast('Redirecting to payment...', 'ok');
       } else {
-        toast('Payment integration coming soon. Contact support to upgrade.', 'warn');
+        toast('Failed to create checkout session. Contact support.', 'err');
       }
       return;
     }
+    const data = await api('POST', '/api/upgrade', { plan });
     currentUser = data.user;
     const pb = el('plan-badge');
     pb.textContent = plan.toUpperCase();
