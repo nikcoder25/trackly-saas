@@ -126,6 +126,7 @@ const BATCH = {
   promptRunInsert: 20,   // PR_BATCH — prompt runs per INSERT batch
   citationInsert: 30,    // CIT_BATCH — citations per INSERT batch
   cronBatchSize: 5,      // brands processed in parallel during cron
+  costMultiplier: 0.5,   // batch API discount (50% of standard cost)
 };
 
 // ─── BRAND RUN SETTINGS ─────────────────────────────────────────
@@ -161,6 +162,9 @@ const THRESHOLDS = {
   poorRankPosition: 5,            // average rank > 5 = low
   poorRankMinMentionRate: 0.2,    // only flag if mention rate > 20%
   queryBlindSpotMinRuns: 3,       // need 3+ runs to flag blind spot
+  visibilityDropMultiplier: 0.7,  // drop detected below 70% of baseline
+  visibilityGainMultiplier: 1.3,  // gain detected above 130% of baseline
+  visibilityGainAbsoluteMin: 0.1, // minimum absolute gain to flag
 };
 
 // ─── ANALYTICS ──────────────────────────────────────────────────

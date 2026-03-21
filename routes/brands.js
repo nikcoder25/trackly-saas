@@ -1535,7 +1535,7 @@ async function runBrandQueries(brand) {
             claudeBatchResults.set(claudeQueries[bIdx].taskIdx, batchResult);
             // Log cost at 50% rate
             const cost = estimateCost(claudeModel, batchResult.tokensIn, batchResult.tokensOut);
-            const batchCost = cost ? cost * 0.5 : null;
+            const batchCost = cost ? cost * BATCH.costMultiplier : null;
             logApiCall({
               userId: brand.userId, brandId: brand.id, platform: 'Claude',
               query: claudeQueries[bIdx].q, status: 'ok', error: null,
@@ -1580,7 +1580,7 @@ async function runBrandQueries(brand) {
           if (batchResult) {
             openaiBatchResults.set(openaiQueries[bIdx].taskIdx, batchResult);
             const cost = estimateCost(openaiModel, batchResult.tokensIn, batchResult.tokensOut);
-            const batchCost = cost ? cost * 0.5 : null;
+            const batchCost = cost ? cost * BATCH.costMultiplier : null;
             logApiCall({
               userId: brand.userId, brandId: brand.id, platform: 'ChatGPT',
               query: openaiQueries[bIdx].q, status: 'ok', error: null,
