@@ -231,14 +231,19 @@ if (DODO_WEBHOOK_KEY) {
         }
       },
 
-      // Subscription renewed — keep plan active
+      // Subscription renewed — re-confirm the plan is active
       onSubscriptionRenewed: async (payload) => {
         try {
           const data = payload.data || payload;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
-          if (userId) {
-            log.info(`Subscription renewed for user ${userId}`);
+          const productId = data.product_id;
+          const plan = metadata.plan || planFromProductId(productId);
+          if (userId && plan && ['pro', 'agency', 'enterprise'].includes(plan)) {
+            await pool.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
+            log.info(`Subscription renewed for user ${userId}, confirmed plan: ${plan}`);
+          } else if (userId) {
+            log.info(`Subscription renewed for user ${userId} (no plan to confirm)`);
           }
         } catch(e) {
           log.error('subscription.renewed error', { error: e.message });
@@ -330,6 +335,46 @@ if (DODO_WEBHOOK_KEY) {
   });
 }
 
+// ─── CANCEL SUBSCRIPTION — Called during self-service downgrade ─
+async function cancelDodoSubscription(subscriptionId) {
+  if (!DODO_API_KEY || !subscriptionId) return false;
+  const https = require('https');
+  const baseUrl = DODO_ENVIRONMENT === 'live_mode'
+    ? 'https://live.dodopayments.com'
+    : 'https://test.dodopayments.com';
+
+  return new Promise((resolve) => {
+    const reqOpts = {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DODO_API_KEY}`,
+      },
+      timeout: 15000
+    };
+    const body = JSON.stringify({ status: 'cancelled' });
+    reqOpts.headers['Content-Length'] = Buffer.byteLength(body);
+
+    const apiReq = https.request(`${baseUrl}/subscriptions/${subscriptionId}`, reqOpts, (apiRes) => {
+      let data = '';
+      apiRes.on('data', chunk => { data += chunk; });
+      apiRes.on('end', () => {
+        if (apiRes.statusCode < 300) {
+          log.info(`Cancelled DodoPayments subscription ${subscriptionId}`);
+          resolve(true);
+        } else {
+          log.error(`Failed to cancel subscription ${subscriptionId}`, { status: apiRes.statusCode, body: data });
+          resolve(false);
+        }
+      });
+    });
+    apiReq.on('timeout', () => { apiReq.destroy(); resolve(false); });
+    apiReq.on('error', (e) => { log.error('Subscription cancel request failed', { error: e.message }); resolve(false); });
+    apiReq.write(body);
+    apiReq.end();
+  });
+}
+
 // ─── PAYMENT STATUS — Check if DodoPayments is configured ──────
 router.get('/payment-status', auth, (req, res) => {
   res.json({
@@ -344,3 +389,4 @@ router.get('/payment-status', auth, (req, res) => {
 });
 
 module.exports = router;
+module.exports.cancelDodoSubscription = cancelDodoSubscription;

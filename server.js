@@ -336,9 +336,10 @@ cron.schedule('0 * * * *', async () => {
     log.info(`Found ${result.rows.length} brands with active schedules`);
     const now = Date.now();
 
-    // Filter to brands that are due for a run (enforce plan-based minimum schedule)
+    // Filter to brands that are due for a run (enforce plan-based minimum schedule + brand count limit)
     const dueBrands = [];
     const planCache = {}; // cache user plans to avoid repeated DB queries
+    const userBrandCounts = {}; // track how many brands per user we'll allow to run
     for (const row of result.rows) {
       const brand = { id: row.id, userId: row.user_id, ...row.data };
       if (!brand.schedule) continue;
@@ -347,8 +348,16 @@ cron.schedule('0 * * * *', async () => {
       if (!planCache[brand.userId]) {
         const userPlan = await getUserPlan(brand.userId);
         planCache[brand.userId] = getPlanLimits(userPlan);
+        userBrandCounts[brand.userId] = 0;
       }
       const limits = planCache[brand.userId];
+
+      // Enforce brand count limit — skip brands beyond the plan's allowed count
+      userBrandCounts[brand.userId] = (userBrandCounts[brand.userId] || 0) + 1;
+      if (userBrandCounts[brand.userId] > limits.brands) {
+        continue;
+      }
+
       const effectiveSchedule = Math.max(brand.schedule, limits.minScheduleHours || 168);
 
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
