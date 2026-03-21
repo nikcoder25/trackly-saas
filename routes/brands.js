@@ -11,6 +11,7 @@ const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, runOpenAIBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 const { evaluateAlerts } = require('../lib/alerts');
+const { BATCH, RUN } = require('../config/constants');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -28,7 +29,7 @@ const activeRuns = new Map(); // runId → { status, received, totalExpected, re
 // NOTE: In-memory locks work for single-instance only. For multi-instance deployments,
 // acquireBrandLock() also attempts a PostgreSQL advisory lock as a distributed guard.
 const brandRunLocks = new Map();
-const MAX_LOCK_AGE_MS = 10 * 60 * 1000; // 10 min — auto-release stuck locks
+const MAX_LOCK_AGE_MS = RUN.maxLockAgeMs;
 
 // Attempt to acquire a PostgreSQL advisory lock for a brand run.
 // Uses a hash of the brand ID as the lock key. Returns true if acquired.
@@ -566,7 +567,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
   // Track consecutive failures per platform for early-abort
   const platFailCount = {};
-  const FAIL_THRESHOLD = 3; // Skip remaining queries after 3 consecutive failures
+  const FAIL_THRESHOLD = RUN.failThreshold;
 
   // Detect stable queries — reuse cached results for queries unchanged across 3+ runs
   // Same optimization as cron path, saves ~20-40% API calls for brands with frequent runs
@@ -790,9 +791,8 @@ router.post('/:id/run', auth, async (req, res) => {
 
       // Persist prompt runs in batches (instead of 80+ individual INSERTs)
       const batchId = runId;
-      const PR_BATCH = 20;
-      for (let i = 0; i < allResults.length; i += PR_BATCH) {
-        const batch = allResults.slice(i, i + PR_BATCH);
+      for (let i = 0; i < allResults.length; i += BATCH.promptRunInsert) {
+        const batch = allResults.slice(i, i + BATCH.promptRunInsert);
         const values = [];
         const params = [];
         let pi = 1;
@@ -834,8 +834,7 @@ router.post('/:id/run', auth, async (req, res) => {
           } catch(_) { /* skip invalid URLs */ }
         }
       }
-      const CIT_BATCH = 30;
-      for (let i = 0; i < citRows.length; i += CIT_BATCH) {
+      for (let i = 0; i < citRows.length; i += BATCH.citationInsert) {
         const batch = citRows.slice(i, i + CIT_BATCH);
         const values = [];
         const params = [];
@@ -1387,9 +1386,8 @@ async function sendWebhookAlert(brand, run, previousSOV) {
     summary: `${brand.name} SOV ${direction}: ${previousSOV}% → ${sov}% (${change > 0 ? '+' : ''}${change}%)`
   };
 
-  const MAX_RETRIES = 3;
   const bodyStr = JSON.stringify(payload);
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= RUN.webhookMaxRetries; attempt++) {
     try {
       await fetchJSON(url, {
         method: 'POST',
@@ -1399,16 +1397,16 @@ async function sendWebhookAlert(brand, run, previousSOV) {
       console.log(`[Webhook] Alert sent for ${brand.name} to ${url}${attempt > 0 ? ` (attempt ${attempt + 1})` : ''}`);
       return;
     } catch(e) {
-      if (attempt < MAX_RETRIES) {
+      if (attempt < RUN.webhookMaxRetries) {
         const delayMs = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
         console.warn(`[Webhook] Attempt ${attempt + 1} failed for ${brand.name}: ${e.message}, retrying in ${delayMs}ms`);
         await new Promise(r => setTimeout(r, delayMs));
       } else {
-        console.error(`[Webhook] All ${MAX_RETRIES + 1} attempts failed for ${brand.name}:`, e.message);
+        console.error(`[Webhook] All ${RUN.webhookMaxRetries + 1} attempts failed for ${brand.name}:`, e.message);
         // Notify user that their webhook is failing
         try {
           notify(brand.userId, 'webhook_failed', 'Webhook Failed',
-            `Webhook delivery to ${url} failed after ${MAX_RETRIES + 1} attempts for brand "${brand.name}": ${e.message}`,
+            `Webhook delivery to ${url} failed after ${RUN.webhookMaxRetries + 1} attempts for brand "${brand.name}": ${e.message}`,
             { brandId: brand.id, webhookUrl: url });
         } catch(_) { /* ignore notification errors */ }
       }
@@ -1420,7 +1418,7 @@ async function sendWebhookAlert(brand, run, previousSOV) {
 // If a query has had the same mention result for STABLE_RUN_THRESHOLD consecutive
 // runs on a given platform, skip the API call and reuse the last result.
 // Saves ~30-60% of scheduled run costs for brands with many stable queries.
-const STABLE_RUN_THRESHOLD = 3;
+const STABLE_RUN_THRESHOLD = RUN.stableRunThreshold;
 
 function getStableQueries(brand) {
   const stable = new Map(); // key: "query::platform" → lastResult
@@ -1770,9 +1768,8 @@ async function runBrandQueries(brand) {
 
   // Persist prompt runs in batches (instead of individual INSERTs)
   const cronBatchId = brand.runs[brand.runs.length - 1]?.id || uid();
-  const PR_BATCH = 20;
-  for (let i = 0; i < allResults.length; i += PR_BATCH) {
-    const batch = allResults.slice(i, i + PR_BATCH);
+  for (let i = 0; i < allResults.length; i += BATCH.promptRunInsert) {
+    const batch = allResults.slice(i, i + BATCH.promptRunInsert);
     const values = [];
     const params = [];
     let pi = 1;

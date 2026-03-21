@@ -1,0 +1,537 @@
+// ═══════════════════════════════════════════════════════════════════
+async function renderBilling() {
+  try {
+    const data = await api('GET', '/api/billing');
+    const plan = data.plan;
+    const usage = data.usage || {};
+
+    // Plan card
+    const planEl = el('billing-plan-card');
+    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
+    planEl.innerHTML = `
+      <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Current Plan</div>
+            <div style="font-size:28px;font-weight:700;text-transform:uppercase;color:${planColors[plan]};">${plan}</div>
+            <div style="font-size:12px;color:var(--muted);">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
+          </div>
+          ${plan !== 'owner' ? '<button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
+        </div>
+      </div>`;
+
+    // Usage meters
+    const usageEl = el('billing-usage');
+    const meters = [
+      { label: 'Brands', ...usage.brands },
+      { label: 'Runs Today', ...usage.runsToday },
+      { label: 'Queries', ...usage.queries },
+      { label: 'Platforms', ...usage.platforms }
+    ];
+    usageEl.innerHTML = meters.map(m => {
+      const pct = m.limit > 0 ? Math.min((m.used / m.limit) * 100, 100) : 0;
+      const color = pct > 90 ? 'var(--red,#ef4444)' : pct > 70 ? '#f59e0b' : 'var(--green)';
+      return `<div class="card" style="padding:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+          <span>${m.label}</span><span style="font-weight:600;">${m.used} / ${m.limit >= 9999 ? '∞' : m.limit}</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.3s;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Warnings
+    const warningsEl = el('billing-warnings');
+    if (data.warnings && data.warnings.length) {
+      warningsEl.innerHTML = data.warnings.map(w => `
+        <div style="padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;margin-bottom:8px;font-size:13px;">
+          ⚠ ${esc(w.message)}
+        </div>
+      `).join('');
+    } else {
+      warningsEl.innerHTML = '';
+    }
+
+    // Plan comparison
+    const plansEl = el('billing-plans');
+    const allPlans = data.allPlans || {};
+    plansEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:12px;">
+      <thead><tr style="border-bottom:2px solid var(--bg3);">
+        <th style="text-align:left;padding:8px;">Feature</th>
+        ${Object.keys(allPlans).map(p => `<th style="text-align:center;padding:8px;${p === plan ? 'color:var(--primary);font-weight:700;' : ''}">${p.toUpperCase()}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Total Prompts</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prompts >= 9999 ? '∞' : l.prompts}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Brands</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.brands >= 9999 ? '∞' : l.brands}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Competitors</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.competitors >= 9999 ? '∞' : l.competitors}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Platforms</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.platforms}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Sentiment</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.sentiment ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">API Access</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.apiAccess ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr><td style="padding:8px;">Priority Support</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prioritySupport ? '✓' : '—'}</td>`).join('')}</tr>
+      </tbody>
+    </table>`;
+  } catch(e) { toast('Failed to load billing', 'err'); }
+}
+
+// ─── ADVANCED EXPORTS ─────────────────────────────────────────────
+async function exportPromptData(){
+  const b = brand(); if (!b) return;
+  try {
+    const res = await fetch(API + `/api/export/prompts?brandId=${b.id}&format=csv`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const csv = await res.text();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${b.name}_prompts.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast('Downloaded prompt data', 'ok');
+  } catch(e) { toast('Export failed: ' + e.message, 'err'); }
+}
+
+async function exportRecommendations(){
+  const b = brand(); if (!b) return;
+  try {
+    const res = await fetch(API + `/api/export/recommendations?brandId=${b.id}&format=csv`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const csv = await res.text();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${b.name}_recommendations.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast('Downloaded recommendations', 'ok');
+  } catch(e) { toast('Export failed: ' + e.message, 'err'); }
+}
+
+// ─── DASHBOARD PRESETS ────────────────────────────────────────────
+let _activePreset = '';
+
+const _presetMeta = {
+  founder: {
+    icon: '👔',
+    title: 'Founder Overview',
+    desc: 'High-level KPIs and trends for executive decision-making. Focus on what matters most — growth trajectory, brand sentiment, and competitive position.',
+    className: 'preset-founder'
+  },
+  seo_manager: {
+    icon: '🔍',
+    title: 'SEO Manager Dashboard',
+    desc: 'Technical analytics for optimizing AI visibility. Deep-dive into platform performance, query rankings, and citation sources.',
+    className: 'preset-seo_manager'
+  },
+  agency_manager: {
+    icon: '📊',
+    title: 'Agency Overview',
+    desc: 'Client reporting dashboard with platform health, competitive landscape, and performance status at a glance.',
+    className: 'preset-agency_manager'
+  }
+};
+
+function applyDashboardPreset(preset){
+  _activePreset = preset || '';
+  // Section IDs on the overview page that can be toggled
+  const allSections = ['ov-hero','ov-api-health','ov-scores-row','ov-category-row','ov-plat-grid','ov-mini-trend','ov-query-perf','ov-competitors','ov-citations','ov-last-run-summary','ov-location-viz','ov-insights','ov-query-section'];
+  // Define which sections each preset shows
+  const presetSections = {
+    '': allSections, // Custom = show all
+    founder: ['ov-hero','ov-scores-row','ov-mini-trend','ov-competitors','ov-insights','ov-last-run-summary'],
+    seo_manager: ['ov-hero','ov-api-health','ov-scores-row','ov-plat-grid','ov-query-perf','ov-citations','ov-category-row'],
+    agency_manager: ['ov-hero','ov-api-health','ov-category-row','ov-plat-grid','ov-last-run-summary','ov-competitors']
+  };
+  const visible = new Set(presetSections[preset] || allSections);
+  allSections.forEach(id => {
+    const section = el(id);
+    if (section) section.style.display = visible.has(id) ? '' : 'none';
+  });
+
+  // Apply preset-specific CSS class to the overview container
+  const ovContainer = el('view-overview');
+  if (ovContainer) {
+    // Remove all preset classes
+    ovContainer.classList.remove('preset-founder', 'preset-seo_manager', 'preset-agency_manager');
+    // Add the active preset class
+    const meta = _presetMeta[preset];
+    if (meta) ovContainer.classList.add(meta.className);
+  }
+
+  // Render preset banner
+  const bannerEl = el('ov-preset-banner');
+  if (bannerEl) {
+    const meta = _presetMeta[preset];
+    if (meta) {
+      bannerEl.innerHTML = `<div class="ov-preset-banner">
+        <div class="ov-preset-banner-icon">${meta.icon}</div>
+        <div class="ov-preset-banner-text">
+          <div class="ov-preset-banner-title">${meta.title}</div>
+          <div class="ov-preset-banner-desc">${meta.desc}</div>
+        </div>
+      </div>`;
+    } else {
+      bannerEl.innerHTML = '';
+    }
+  }
+
+  // Re-render overview to populate visible sections
+  if (currentView === 'overview') renderOverview();
+  const label = el('ov-preset-select')?.selectedOptions[0]?.text || 'Custom View';
+  toast('Switched to ' + label, 'ok');
+}
+
+// ─── LOADING STATE HELPER ─────────────────────────────────────────
+function showViewLoading(containerId){
+  const cont = el(containerId);
+  if (cont) cont.innerHTML = skeletonHTML(3);
+}
+function hideViewLoading(containerId){
+  const cont = el(containerId);
+  if (cont && cont.querySelector('.skeleton')) cont.innerHTML = '';
+}
+
+// ─── ALERTS CRUD ──────────────────────────────────────────────────
+function openAddAlert(){
+  el('alert-add-form').style.display = 'block';
+  el('alert-name').value = '';
+  el('alert-condition').value = 'visibility_drop';
+  el('alert-threshold').value = '10';
+  el('alert-action').value = 'in_app';
+  updateAlertParams();
+}
+
+function updateAlertParams(){
+  const cond = el('alert-condition').value;
+  const threshLabel = el('alert-params-row').querySelector('.flbl');
+  if (cond === 'brand_disappeared' || cond === 'new_competitor') {
+    threshLabel.textContent = 'N/A';
+    el('alert-threshold').disabled = true;
+    el('alert-threshold').value = '0';
+  } else if (cond === 'sov_below') {
+    threshLabel.textContent = 'SOV Threshold (%)';
+    el('alert-threshold').disabled = false;
+    el('alert-threshold').value = '20';
+  } else if (cond === 'negative_sentiment') {
+    threshLabel.textContent = 'Spike Threshold (%)';
+    el('alert-threshold').disabled = false;
+    el('alert-threshold').value = '30';
+  } else {
+    threshLabel.textContent = 'Threshold (%)';
+    el('alert-threshold').disabled = false;
+    el('alert-threshold').value = '10';
+  }
+}
+
+async function saveAlertRule(){
+  const b = brand(); if (!b) return;
+  const name = el('alert-name').value.trim();
+  if (!name) { toast('Alert name is required','err'); return; }
+  const condType = el('alert-condition').value;
+  const threshold = parseFloat(el('alert-threshold').value) || 0;
+  const rule = {
+    name,
+    condition_type: condType,
+    condition_params: { threshold },
+    action_type: el('alert-action').value,
+    cooldown_hours: parseInt(el('alert-cooldown').value) || 24
+  };
+  try {
+    await api('POST', '/api/brands/'+b.id+'/alerts', rule);
+    invalidateCache('/api/brands');
+    el('alert-add-form').style.display = 'none';
+    toast('Alert rule created','ok');
+    renderAlerts();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function deleteAlertRule(ruleId){
+  if (!confirm('Delete this alert rule?')) return;
+  try {
+    await api('DELETE', '/api/alerts/'+ruleId);
+    toast('Alert rule deleted','ok');
+    renderAlerts();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function toggleAlertRule(ruleId, enabled){
+  try {
+    await api('PUT', '/api/alerts/'+ruleId, { enabled: !enabled });
+    renderAlerts();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ─── ONBOARDING WIZARD ───────────────────────────────────────────
+let _wizardComps = [];
+let _wizardQueries = [];
+let _wizardNearbyAreas = [];
+
+// Show/hide nearby areas section when city field changes
+document.addEventListener('DOMContentLoaded', () => {
+  const cityInput = el('nb-city');
+  if (cityInput) {
+    cityInput.addEventListener('input', () => {
+      const section = el('wizard-nearby-section');
+      if (section) {
+        if (cityInput.value.trim()) {
+          section.style.display = 'block';
+        } else {
+          section.style.display = 'none';
+          _wizardNearbyAreas = [];
+          renderWizardNearbyTags();
+        }
+      }
+    });
+  }
+});
+
+function renderWizardNearbyTags(){
+  const cont = el('wizard-nearby-tags');
+  if (!cont) return;
+  cont.innerHTML = _wizardNearbyAreas.map((a,i) =>
+    `<span class="query-tag" style="font-size:11px;padding:3px 8px;">${esc(a)} <button onclick="_wizardNearbyAreas.splice(${i},1);renderWizardNearbyTags()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:0 2px;">&#x2715;</button></span>`
+  ).join('');
+  if (!_wizardNearbyAreas.length) cont.innerHTML = '<div style="color:var(--muted);font-size:11px;">No nearby areas yet.</div>';
+}
+
+function wizardAddNearbyArea(){
+  const inp = el('wizard-nearby-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (_wizardNearbyAreas.some(a => a.toLowerCase() === v.toLowerCase())) { toast('Already added','err'); return; }
+  _wizardNearbyAreas.push(v);
+  inp.value = '';
+  renderWizardNearbyTags();
+}
+
+async function wizardFetchNearbyAreas(){
+  const hasAnyKey = Object.values(keyStatus).some(v => v);
+  if (!hasAnyKey) { toast('Configure API keys in Settings first to use this feature','err'); return; }
+  const city = el('nb-city').value.trim();
+  if (!city) { toast('Enter a city first','err'); return; }
+  const btn = el('wizard-fetch-areas-btn');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+  try {
+    const data = await api('POST', '/api/nearby-areas', { city });
+    const existing = new Set(_wizardNearbyAreas.map(a => a.toLowerCase()));
+    const newAreas = (data.areas || []).filter(a => !existing.has(a.toLowerCase()));
+    if (!newAreas.length) { toast('No new areas found','ok'); return; }
+    _wizardNearbyAreas.push(...newAreas);
+    renderWizardNearbyTags();
+    toast(newAreas.length + ' nearby areas added','ok');
+  } catch(e) { toast(e.message,'err'); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = 'Fetch Nearby Areas';
+  }
+}
+
+function wizardNext(step){
+  // Validate step 1 before moving forward
+  if (step === 2) {
+    const name = el('nb-name').value.trim();
+    const industry = el('nb-industry').value.trim();
+    if (!name || !industry) {
+      el('add-brand-err').textContent = 'Brand name and industry are required.';
+      el('add-brand-err').style.display = 'block';
+      return;
+    }
+    el('add-brand-err').style.display = 'none';
+    // Auto-generate query suggestions for step 3
+    if (!_wizardQueries.length) {
+      const city = el('nb-city').value.trim();
+      _wizardQueries = generateWizardQueries(name, industry, city);
+    }
+  }
+  // Show target step, hide others
+  for (let i = 1; i <= 3; i++) {
+    const s = el('wizard-step-'+i);
+    if (s) s.style.display = i === step ? 'block' : 'none';
+  }
+  // Update step indicators
+  document.querySelectorAll('.wizard-step').forEach(ws => {
+    const wsStep = parseInt(ws.getAttribute('data-step'));
+    ws.classList.toggle('active', wsStep === step);
+    ws.classList.toggle('done', wsStep < step);
+  });
+  // Render step content
+  if (step === 2) renderWizardComps();
+  if (step === 3) renderWizardQueries();
+}
+
+function generateWizardQueries(name, industry, city){
+  const qs = [];
+  const loc = city ? ' in '+city : '';
+  qs.push('What is the best '+industry+' company'+loc+'?');
+  qs.push('Top '+industry+' services'+loc);
+  qs.push('Compare '+industry+' companies'+loc);
+  qs.push('Is '+name+' a good '+industry+' company?');
+  if (city) qs.push('Best '+industry+' near '+city);
+  return qs;
+}
+
+function renderWizardComps(){
+  const cont = el('wizard-comp-tags');
+  cont.innerHTML = _wizardComps.map((c,i) =>
+    `<span class="query-tag">${esc(c)} <button onclick="_wizardComps.splice(${i},1);renderWizardComps()">&#x2715;</button></span>`
+  ).join('');
+}
+
+function wizardAddComp(){
+  const inp = el('wizard-comp-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (_wizardComps.includes(v)) { toast('Already added','err'); return; }
+  _wizardComps.push(v);
+  inp.value = '';
+  renderWizardComps();
+}
+
+function renderWizardQueries(){
+  const cont = el('wizard-query-list');
+  cont.innerHTML = _wizardQueries.map((q,i) =>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <span class="query-tag" style="flex:1;">${esc(q)}</span>
+      <button onclick="_wizardQueries.splice(${i},1);renderWizardQueries()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;">&#x2715;</button>
+    </div>`
+  ).join('');
+  if (!_wizardQueries.length) cont.innerHTML = '<div style="color:var(--muted);font-size:12px;">No queries yet. Add custom ones or load suggestions.</div>';
+}
+
+function wizardAddQuery(){
+  const inp = el('wizard-query-input');
+  const v = inp.value.trim();
+  if (!v) return;
+  _wizardQueries.push(v);
+  inp.value = '';
+  renderWizardQueries();
+}
+
+async function wizardLoadSuggestions(){
+  const industry = el('nb-industry').value.trim();
+  const city = el('nb-city').value.trim();
+  if (!industry) { toast('Set industry in Step 1 first','err'); return; }
+  try {
+    const data = await api('GET', '/api/query-suggestions?industry='+encodeURIComponent(industry)+'&city='+encodeURIComponent(city));
+    const suggestions = data.suggestions || [];
+    const existing = new Set(_wizardQueries.map(q => q.toLowerCase()));
+    suggestions.forEach(s => { if (!existing.has(s.toLowerCase())) _wizardQueries.push(s); });
+    renderWizardQueries();
+    toast(suggestions.length+' suggestions loaded','ok');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function doAddBrandWizard(){
+  const name = el('nb-name').value.trim();
+  const industry = el('nb-industry').value.trim();
+  if (!name || !industry) {
+    toast('Brand name and industry are required','err');
+    return;
+  }
+  if (!_wizardQueries.length) {
+    el('add-brand-err').textContent = 'Add at least one query before creating the brand.';
+    el('add-brand-err').style.display = 'block';
+    return;
+  }
+  try {
+    const payload = {
+      name, industry,
+      website: el('nb-website').value.trim(),
+      city: el('nb-city').value.trim(),
+      competitors: _wizardComps,
+      queries: _wizardQueries,
+      nearbyAreas: _wizardNearbyAreas
+    };
+    const queryCount = _wizardQueries.length;
+    const data = await api('POST', '/api/brands', payload);
+    invalidateCache('/api/brands');
+    brands.push(data.brand);
+    currentBrandId = data.brand.id;
+    localStorage.setItem('trackly_brand', currentBrandId);
+    renderBrandSelect();
+    el('brand-select').value = currentBrandId;
+    closeModal('add-brand-modal');
+    _wizardComps = [];
+    _wizardQueries = [];
+    _wizardNearbyAreas = [];
+    renderAll();
+    toast('Brand "'+name+'" created with '+queryCount+' queries','ok');
+    // Auto-run queries after brand creation
+    if (queryCount > 0) {
+      setTimeout(() => runQueries(), 500);
+    }
+  } catch(e) {
+    el('add-brand-err').textContent = e.message;
+    el('add-brand-err').style.display = 'block';
+  }
+}
+
+// ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') {
+    document.querySelectorAll('.overlay.open').forEach(o => {
+      if (o.id !== 'add-brand-modal' || brands.length > 0) o.classList.remove('open');
+    });
+  }
+});
+
+// ─── AUTO-LOGIN ───────────────────────────────────────────────────
+(async function(){
+  // Load public config (Google Client ID etc.) with 5s timeout
+  try {
+    const cfgCtrl = new AbortController();
+    const cfgTimeout = setTimeout(() => cfgCtrl.abort(), 5000);
+    const cfg = await fetch('/api/config', { signal: cfgCtrl.signal }).then(r => r.json());
+    clearTimeout(cfgTimeout);
+    if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
+  } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
+  // Show Google landing button only when configured
+  if (window.__GOOGLE_CLIENT_ID) {
+    const lg = document.getElementById('land-google-signin');
+    if (lg) lg.style.display = '';
+  }
+  // Check for password reset token in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('token') && window.location.pathname === '/reset-password') {
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
+    document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    el('panel-reset').classList.add('active');
+    return;
+  }
+  // Direct /login or /signup URL — show auth form immediately (skip landing page)
+  if ((window.location.pathname === '/login' || window.location.pathname === '/signup') && !_hasSession) {
+    el('landing-page').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    el('app').style.display = 'none';
+    authTab(window.location.pathname === '/signup' ? 'register' : 'login');
+    return;
+  }
+  if (!_hasSession) {
+    el('landing-page').style.display = 'block';
+    el('auth-page').style.display = 'none';
+    el('app').style.display = 'none';
+    return;
+  }
+  // Try auto-login via httpOnly cookie
+  el('landing-page').style.display = 'none';
+  try {
+    const data = await cachedApi('GET', '/api/auth/me', null, 30000);
+    currentUser = data.user;
+    await initApp();
+  } catch(e) {
+    // Cookie invalid or expired — show login page directly (not landing)
+    localStorage.removeItem('trackly_session');
+    token = '';
+    el('landing-page').style.display = 'none';
+    el('app').style.display = 'none';
+    el('auth-page').style.display = 'flex';
+    authTab('login');
+    // Show helpful message
+    el('auth-err').textContent = 'Session expired. Please log in again.';
+    el('auth-err').style.display = 'block';
+  }
+})();

@@ -40,6 +40,7 @@ const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cl
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 const { createLogger }  = require('./lib/logger');
+const { RATE_LIMITS, TIMEOUTS } = require('./config/constants');
 const log = createLogger('Server');
 
 // Route modules
@@ -174,11 +175,10 @@ function userOrIpKey(prefix) {
 }
 
 // Rate limiting — auth endpoints (prevent brute force)
-const AUTH_WINDOW = 15 * 60 * 1000;
 const authLimiter = rateLimit({
-  windowMs: AUTH_WINDOW, // 15 minutes
-  max: 20, // 20 attempts per window
-  handler: rateLimitHandler(AUTH_WINDOW),
+  windowMs: RATE_LIMITS.auth.windowMs,
+  max: RATE_LIMITS.auth.max,
+  handler: rateLimitHandler(RATE_LIMITS.auth.windowMs),
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false }
@@ -187,11 +187,10 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
 // Rate limiting — API endpoints (general, excludes long-running run endpoint)
-const API_WINDOW = 60 * 1000;
 const apiLimiter = rateLimit({
-  windowMs: API_WINDOW, // 1 minute
-  max: 120, // 120 requests per minute
-  handler: rateLimitHandler(API_WINDOW),
+  windowMs: RATE_LIMITS.api.windowMs,
+  max: RATE_LIMITS.api.max,
+  handler: rateLimitHandler(RATE_LIMITS.api.windowMs),
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false, keyGeneratorIpFallback: false },
@@ -201,11 +200,10 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 
 // Rate limiting — run endpoint (prevent abuse of expensive AI queries)
-const RUN_WINDOW = 60 * 1000;
 const runLimiter = rateLimit({
-  windowMs: RUN_WINDOW, // 1 minute
-  max: 5, // 5 runs per minute per user
-  handler: rateLimitHandler(RUN_WINDOW),
+  windowMs: RATE_LIMITS.run.windowMs,
+  max: RATE_LIMITS.run.max,
+  handler: rateLimitHandler(RATE_LIMITS.run.windowMs),
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false, xForwardedForHeader: false, keyGeneratorIpFallback: false },
@@ -288,6 +286,9 @@ app.get('/methodology', (req, res) => {
 app.use('/', seoRoutes);
 
 // ─── SCHEDULED RUNS (cron) ───────────────────────────────────────
+// In cluster mode, only worker 1 runs cron jobs to prevent duplicates.
+// The advisory lock is a second safety net for multi-instance deployments.
+const IS_CRON_WORKER = !process.env.CLUSTER_WORKER_ID || process.env.CLUSTER_WORKER_ID === '1';
 const { runBrandQueries } = require('./routes/brands');
 const { getUserPlan, getPlanLimits } = require('./lib/plans');
 
@@ -324,7 +325,7 @@ async function withCronLock(lockId, fn) {
   }
 }
 
-cron.schedule('0 * * * *', async () => {
+IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
   await withCronLock(1001, async () => {
   try {
     // Only fetch brands that have a schedule configured (avoid full table scan)
@@ -397,8 +398,8 @@ cron.schedule('0 * * * *', async () => {
 // ─── SCHEDULED REPORTS (cron — every Monday 8am and 1st of month 8am) ──
 const { sendReportEmail, isEmailConfigured } = require('./lib/email');
 
-cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly').catch(e => log.error('Weekly report cron failed', { error: e.message })));   // Monday 8am
-cron.schedule('0 8 1 * *', () => sendScheduledReports('monthly').catch(e => log.error('Monthly report cron failed', { error: e.message }))); // 1st of month 8am
+IS_CRON_WORKER && cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly').catch(e => log.error('Weekly report cron failed', { error: e.message })));   // Monday 8am
+IS_CRON_WORKER && cron.schedule('0 8 1 * *', () => sendScheduledReports('monthly').catch(e => log.error('Monthly report cron failed', { error: e.message }))); // 1st of month 8am
 
 async function sendScheduledReports(frequency) {
   if (!isEmailConfigured()) return;
@@ -545,7 +546,7 @@ const server = app.listen(PORT, () => {
     cleanupDailyCosts();
   };
   runAllCleanups();
-  setInterval(runAllCleanups, 24 * 60 * 60 * 1000);
+  setInterval(runAllCleanups, TIMEOUTS.cleanupInterval);
 });
 
 // ─── GRACEFUL SHUTDOWN ───────────────────────────────────────────
@@ -553,9 +554,9 @@ function shutdown(signal) {
   log.info(`${signal} received. Shutting down gracefully...`);
   server.close(() => {
     const poolCloseTimeout = setTimeout(() => {
-      log.warn('Database pool close timed out after 5s, forcing exit.');
+      log.warn('Database pool close timed out, forcing exit.');
       process.exit(1);
-    }, 5000);
+    }, TIMEOUTS.gracefulShutdownDb);
     pool.end().then(() => {
       clearTimeout(poolCloseTimeout);
       log.info('Database connections closed.');
@@ -566,8 +567,8 @@ function shutdown(signal) {
       process.exit(1);
     });
   });
-  // Force exit after 10s if graceful shutdown fails
-  setTimeout(() => { process.exit(1); }, 10000);
+  // Force exit if graceful shutdown fails
+  setTimeout(() => { process.exit(1); }, TIMEOUTS.gracefulShutdownMax);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
