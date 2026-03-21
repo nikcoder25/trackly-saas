@@ -162,6 +162,7 @@ if (DODO_WEBHOOK_KEY) {
         try {
           const data = payload.data || payload;
           const eventId = data.payment_id || data.id || payload.id;
+          if (!eventId) { log.warn('payment.succeeded missing event ID'); return; }
           if (await isWebhookProcessed(eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
@@ -205,6 +206,7 @@ if (DODO_WEBHOOK_KEY) {
         try {
           const data = payload.data || payload;
           const eventId = data.subscription_id || data.id || payload.id;
+          if (!eventId) { log.warn('subscription.active missing event ID'); return; }
           if (await isWebhookProcessed('sub_active_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
@@ -255,6 +257,7 @@ if (DODO_WEBHOOK_KEY) {
         try {
           const data = payload.data || payload;
           const eventId = data.subscription_id || data.id || payload.id;
+          if (!eventId) { log.warn('subscription.cancelled missing event ID'); return; }
           if (await isWebhookProcessed('sub_cancel_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
@@ -286,6 +289,7 @@ if (DODO_WEBHOOK_KEY) {
         try {
           const data = payload.data || payload;
           const eventId = data.subscription_id || data.id || payload.id;
+          if (!eventId) { log.warn('subscription.expired missing event ID'); return; }
           if (await isWebhookProcessed('sub_expired_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
@@ -310,6 +314,7 @@ if (DODO_WEBHOOK_KEY) {
         try {
           const data = payload.data || payload;
           const eventId = data.refund_id || data.payment_id || data.id || payload.id;
+          if (!eventId) { log.warn('refund.succeeded missing event ID'); return; }
           if (await isWebhookProcessed('refund_' + eventId)) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
