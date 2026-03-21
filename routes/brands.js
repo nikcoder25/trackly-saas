@@ -992,7 +992,8 @@ router.get('/:id/run-status/:runId', auth, async (req, res) => {
   const runState = activeRuns.get(req.params.runId);
   if (!runState) {
     // Run not in memory — check if it completed and was saved to DB
-    const brand = await getBrand(req.params.id, req.user.id);
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    const brand = access ? access.brand : null;
     if (brand) {
       const run = (brand.runs || []).find(r => r.id === req.params.runId);
       if (run) {
@@ -1034,10 +1035,11 @@ router.get('/:id/run-status/:runId', auth, async (req, res) => {
 // Returns estimated cost for running queries on a brand + daily spend so far
 router.get('/:id/cost-estimate', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = access.brand;
 
-    const plan = await getUserPlan(req.user.id);
+    const plan = await getUserPlan(brand.userId);
     const limits = getPlanLimits(plan);
     const keys = getServerKeys();
     const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
