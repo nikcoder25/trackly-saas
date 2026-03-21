@@ -7,7 +7,7 @@ const router = express.Router();
 
 const { pool, refreshPromptRunStats } = require('../config/db');
 const { auth } = require('../middleware/auth');
-const { uid, getBrand } = require('../lib/helpers');
+const { uid, getBrand, getBrandWithAccess } = require('../lib/helpers');
 const { wilsonInterval, descriptiveStats, trendAnalysis, detectDiagnosticEvents } = require('../lib/statistics');
 const { generateRecommendations, getPlaybook, getAllPlaybooks } = require('../lib/recommendations');
 const { getPlanLimits, getUserPlan, PLAN_LIMITS } = require('../lib/plans');
@@ -364,6 +364,10 @@ router.get('/brands/:id/diagnostics', auth, async (req, res) => {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    const hasCompetitors = limits.competitors > 0;
+
     // Current period (last 7 days) vs baseline (8-30 days ago)
     const current = await pool.query(`
       SELECT
@@ -386,20 +390,23 @@ router.get('/brands/:id/diagnostics', auth, async (req, res) => {
         AND created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '7 days'
     `, [req.params.id]);
 
-    // Detect new competitors
-    const currentComps = await pool.query(`
-      SELECT DISTINCT jsonb_array_elements_text(competitor_mentions) AS comp
-      FROM prompt_runs WHERE brand_id = $1 AND success = TRUE AND created_at > NOW() - INTERVAL '7 days'
-    `, [req.params.id]);
-    const baselineComps = await pool.query(`
-      SELECT DISTINCT jsonb_array_elements_text(competitor_mentions) AS comp
-      FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
-        AND created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '7 days'
-    `, [req.params.id]);
+    // Detect new competitors (only for plans with competitor tracking)
+    let newCompetitors = [];
+    if (hasCompetitors) {
+      const currentComps = await pool.query(`
+        SELECT DISTINCT jsonb_array_elements_text(competitor_mentions) AS comp
+        FROM prompt_runs WHERE brand_id = $1 AND success = TRUE AND created_at > NOW() - INTERVAL '7 days'
+      `, [req.params.id]);
+      const baselineComps = await pool.query(`
+        SELECT DISTINCT jsonb_array_elements_text(competitor_mentions) AS comp
+        FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
+          AND created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '7 days'
+      `, [req.params.id]);
 
-    const currentCompSet = new Set(currentComps.rows.map(r => r.comp));
-    const baselineCompSet = new Set(baselineComps.rows.map(r => r.comp));
-    const newCompetitors = [...currentCompSet].filter(c => !baselineCompSet.has(c));
+      const currentCompSet = new Set(currentComps.rows.map(r => r.comp));
+      const baselineCompSet = new Set(baselineComps.rows.map(r => r.comp));
+      newCompetitors = [...currentCompSet].filter(c => !baselineCompSet.has(c));
+    }
 
     const c = current.rows[0] || { total: 0, mentions: 0, avg_rank: null, sentiment_score: null };
     const b = baseline.rows[0] || { total: 0, mentions: 0, avg_rank: null, sentiment_score: null };
@@ -450,6 +457,12 @@ router.get('/brands/:id/recommendations', auth, async (req, res) => {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    if (!limits.sentiment) {
+      return res.status(403).json({ error: 'Recommendations are available on Pro plans and above. Upgrade to access.', planLimit: true, limit: 'recommendations' });
+    }
+
     const { status, severity } = req.query;
     let query = 'SELECT * FROM recommendations WHERE brand_id = $1';
     const params = [req.params.id];
@@ -472,6 +485,12 @@ router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
   try {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    if (!limits.sentiment) {
+      return res.status(403).json({ error: 'Recommendations are available on Pro plans and above. Upgrade to access.', planLimit: true, limit: 'recommendations' });
+    }
 
     // Gather analytics data for the recommendation engine
     const stats = await pool.query(`
@@ -872,11 +891,31 @@ router.delete('/alerts/:id', auth, async (req, res) => {
 // Epic 6.3: Comments
 // ═══════════════════════════════════════════════════════════
 
+// Verify the user has access to the target being commented on
+async function verifyCommentAccess(userId, targetType, targetId) {
+  if (targetType === 'brand') {
+    return !!(await getBrandWithAccess(targetId, userId));
+  } else if (targetType === 'recommendation') {
+    const rec = await pool.query('SELECT brand_id FROM recommendations WHERE id = $1', [targetId]);
+    if (!rec.rows.length) return false;
+    return !!(await getBrandWithAccess(rec.rows[0].brand_id, userId));
+  } else if (targetType === 'prompt') {
+    const pr = await pool.query('SELECT brand_id FROM prompt_runs WHERE id = $1', [targetId]);
+    if (!pr.rows.length) return false;
+    return !!(await getBrandWithAccess(pr.rows[0].brand_id, userId));
+  }
+  return false;
+}
+
 // GET /api/comments — list comments for a target
 router.get('/comments', auth, async (req, res) => {
   try {
     const { target_type, target_id } = req.query;
     if (!target_type || !target_id) return res.status(400).json({ error: 'target_type and target_id required' });
+
+    // Verify user has access to the target resource
+    const hasAccess = await verifyCommentAccess(req.user.id, target_type, target_id);
+    if (!hasAccess) return res.status(404).json({ error: 'Target not found' });
 
     const result = await pool.query(`
       SELECT c.*, u.name AS user_name, u.email AS user_email
@@ -900,6 +939,10 @@ router.post('/comments', auth, async (req, res) => {
 
     const validTypes = ['prompt', 'recommendation', 'brand'];
     if (!validTypes.includes(target_type)) return res.status(400).json({ error: 'Invalid target type' });
+
+    // Verify user has access to the target resource
+    const hasAccess = await verifyCommentAccess(req.user.id, target_type, target_id);
+    if (!hasAccess) return res.status(404).json({ error: 'Target not found' });
 
     const result = await pool.query(
       'INSERT INTO comments (user_id, target_type, target_id, content) VALUES ($1, $2, $3, $4) RETURNING *',
