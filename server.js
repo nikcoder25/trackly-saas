@@ -90,7 +90,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://accounts.google.com"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com"],
       frameSrc: ["https://accounts.google.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],

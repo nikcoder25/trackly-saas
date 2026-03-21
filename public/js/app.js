@@ -483,23 +483,54 @@ async function initGoogleSignIn() {
 }
 
 async function triggerGoogleSignIn() {
-  if (!googleClientId && !window.__GOOGLE_CLIENT_ID) {
+  const clientId = googleClientId || window.__GOOGLE_CLIENT_ID;
+  if (!clientId) {
     el('auth-err').textContent = 'Google Sign-In is not configured. Please use email and password to sign in.';
     el('auth-err').style.display = 'block';
     return;
   }
-  if (!window.google) {
+
+  if (!window.google || !google.accounts) {
+    loadGoogleScript();
     el('auth-err').textContent = 'Google Sign-In is loading. Please try again in a moment.';
     el('auth-err').style.display = 'block';
-    loadGoogleScript();
     return;
   }
 
-  google.accounts.id.initialize({
-    client_id: googleClientId || window.__GOOGLE_CLIENT_ID,
-    callback: handleGoogleCredential
+  el('auth-err').style.display = 'none';
+
+  // Use OAuth2 token flow — opens a proper Google account chooser popup
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'openid email profile',
+    callback: async (tokenResponse) => {
+      if (tokenResponse.error) {
+        el('auth-err').textContent = 'Google sign-in was cancelled or failed.';
+        el('auth-err').style.display = 'block';
+        return;
+      }
+      // Exchange access token for user info, then authenticate with backend
+      try {
+        const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { 'Authorization': 'Bearer ' + tokenResponse.access_token }
+        }).then(r => r.json());
+
+        const data = await api('POST', '/api/auth/google', {
+          access_token: tokenResponse.access_token,
+          google_user: userInfo
+        });
+        token = data.token;
+        refreshToken = data.refreshToken || '';
+        currentUser = data.user;
+        localStorage.setItem('trackly_session', '1');
+        await initApp();
+      } catch(e) {
+        el('auth-err').textContent = e.message || 'Google sign-in failed. Please try again.';
+        el('auth-err').style.display = 'block';
+      }
+    }
   });
-  google.accounts.id.prompt();
+  tokenClient.requestAccessToken();
 }
 
 async function handleGoogleCredential(response) {
@@ -694,51 +725,8 @@ showAuth = function(tab){
 };
 
 async function doGoogleLogin(){
-  el('auth-err').style.display = 'none';
-
-  try {
-    // Wait for Google script to load
-    if (typeof google === 'undefined' || !google.accounts) {
-      loadGoogleScript();
-      await new Promise((resolve, reject) => {
-        let attempts = 0;
-        const check = setInterval(() => {
-          attempts++;
-          if (typeof google !== 'undefined' && google.accounts) { clearInterval(check); resolve(); }
-          else if (attempts > 50) { clearInterval(check); reject(new Error('Google Sign-In failed to load. Please try again.')); }
-        }, 100);
-      });
-    }
-
-    // Use Google One Tap / popup
-    const credential = await new Promise((resolve, reject) => {
-      google.accounts.id.initialize({
-        client_id: window.__GOOGLE_CLIENT_ID || googleClientId || '',
-        callback: (response) => {
-          if (response.credential) resolve(response.credential);
-          else reject(new Error('Google sign-in was cancelled.'));
-        },
-        auto_select: false,
-        cancel_on_tap_outside: false
-      });
-      google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback: use the button flow with popup
-          google.accounts.oauth2 ? reject(new Error('Google popup blocked. Allow popups and try again.')) : reject(new Error('Google Sign-In not available. Check your browser settings.'));
-        }
-      });
-    });
-
-    const data = await api('POST', '/api/auth/google', { credential });
-    token = data.token;
-    refreshToken = data.refreshToken || '';
-    currentUser = data.user;
-    localStorage.setItem('trackly_session', '1');
-    await initApp();
-  } catch(e) {
-    el('auth-err').textContent = e.message || 'Google sign-in failed. Please try again.';
-    el('auth-err').style.display = 'block';
-  }
+  // Delegate to the unified triggerGoogleSignIn flow
+  triggerGoogleSignIn();
 }
 
 function doLogout(){

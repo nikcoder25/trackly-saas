@@ -559,38 +559,69 @@ router.get('/2fa/status', auth, async (req, res) => {
 
 // ─── Google Sign-In ─────────────────────────────────────
 router.post('/google', async (req, res) => {
-  const { credential } = req.body;
-  if (!credential) return res.status(400).json({ error: 'Google credential required' });
+  const { credential, access_token } = req.body;
+  if (!credential && !access_token) return res.status(400).json({ error: 'Google credential required' });
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) return res.status(400).json({ error: 'Google Sign-In is not configured' });
 
   try {
-    // Verify Google ID token via Google's tokeninfo API
-    const https = require('https');
-    const googlePayload = await new Promise((resolve, reject) => {
-      const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
-      https.get(url, (resp) => {
-        let data = '';
-        resp.on('data', chunk => data += chunk);
-        resp.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (resp.statusCode !== 200) return reject(new Error(parsed.error_description || 'Invalid token'));
-            resolve(parsed);
-          } catch(e) { reject(new Error('Failed to parse Google response')); }
+    let googleId, email, name, avatarUrl;
+
+    if (access_token) {
+      // OAuth2 access token flow — verify by calling Google's userinfo API server-side
+      const https = require('https');
+      const userInfo = await new Promise((resolve, reject) => {
+        const url = 'https://www.googleapis.com/oauth2/v3/userinfo';
+        const gReq = https.get(url, { headers: { 'Authorization': 'Bearer ' + access_token } }, (resp) => {
+          let data = '';
+          resp.on('data', chunk => data += chunk);
+          resp.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (resp.statusCode !== 200) return reject(new Error(parsed.error_description || parsed.error || 'Invalid access token'));
+              resolve(parsed);
+            } catch(e) { reject(new Error('Failed to parse Google response')); }
+          });
         });
-      }).on('error', reject);
-    });
+        gReq.on('error', reject);
+      });
 
-    // Verify audience matches our client ID
-    if (googlePayload.aud !== clientId) {
-      return res.status(400).json({ error: 'Token audience mismatch' });
+      googleId = userInfo.sub;
+      email = userInfo.email?.toLowerCase();
+      name = userInfo.name || email?.split('@')[0];
+      avatarUrl = userInfo.picture || null;
+
+      if (!userInfo.email_verified) {
+        return res.status(400).json({ error: 'Google email is not verified' });
+      }
+    } else {
+      // Legacy ID token flow — verify via tokeninfo API
+      const https = require('https');
+      const googlePayload = await new Promise((resolve, reject) => {
+        const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`;
+        https.get(url, (resp) => {
+          let data = '';
+          resp.on('data', chunk => data += chunk);
+          resp.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (resp.statusCode !== 200) return reject(new Error(parsed.error_description || 'Invalid token'));
+              resolve(parsed);
+            } catch(e) { reject(new Error('Failed to parse Google response')); }
+          });
+        }).on('error', reject);
+      });
+
+      // Verify audience matches our client ID
+      if (googlePayload.aud !== clientId) {
+        return res.status(400).json({ error: 'Token audience mismatch' });
+      }
+
+      googleId = googlePayload.sub;
+      email = googlePayload.email?.toLowerCase();
+      name = googlePayload.name || email?.split('@')[0];
+      avatarUrl = googlePayload.picture || null;
     }
-
-    const googleId = googlePayload.sub;
-    const email = googlePayload.email?.toLowerCase();
-    const name = googlePayload.name || email?.split('@')[0];
-    const avatarUrl = googlePayload.picture || null;
 
     if (!email) return res.status(400).json({ error: 'Google account has no email' });
 
