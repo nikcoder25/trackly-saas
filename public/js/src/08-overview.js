@@ -117,7 +117,11 @@ function renderOverview(){
         el('ov-next-run-text').textContent = 'Next run in ' + h + 'h ' + m + 'm';
         nextRunBadge.style.display = '';
       } else {
-        el('ov-next-run-text').textContent = 'Run overdue';
+        const overdueMs = Math.abs(diffMs);
+        const oh = Math.floor(overdueMs / 3600000);
+        const om = Math.floor((overdueMs % 3600000) / 60000);
+        const overdueText = oh > 0 ? oh + 'h ' + om + 'm' : om + 'm';
+        el('ov-next-run-text').textContent = 'Overdue by ' + overdueText + ' — waiting for next scheduled run';
         nextRunBadge.style.display = '';
       }
     } else {

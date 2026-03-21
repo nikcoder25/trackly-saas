@@ -624,7 +624,7 @@ function renderProof(){
       const sub = foundOn.length ? foundOn.join(', ') : 'Not found on any platform';
 
       html += `<div class="ep-qcard">
-        <div class="ep-qcard-head" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
+        <div class="ep-qcard-head collapsed" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
           <div class="ep-qcard-idx">${gi+1}</div>
           <div class="ep-qcard-mid">
             <div class="ep-qcard-title">${esc(q)}</div>
@@ -634,7 +634,7 @@ function renderProof(){
           <div class="ep-qcard-stat" style="color:${qC};">${qF}/${qT}</div>
           <div class="ep-qcard-chevron">&#9662;</div>
         </div>
-        <div class="ep-qcard-body">
+        <div class="ep-qcard-body" style="display:none;">
           ${res.map(r => buildRow(r, false)).join('')}
         </div>
       </div>`;
