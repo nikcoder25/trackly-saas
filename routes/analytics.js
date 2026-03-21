@@ -7,7 +7,7 @@ const router = express.Router();
 
 const { pool, refreshPromptRunStats } = require('../config/db');
 const { auth } = require('../middleware/auth');
-const { uid, getBrand, getBrandWithAccess } = require('../lib/helpers');
+const { uid, getBrandWithAccess } = require('../lib/helpers');
 const { wilsonInterval, descriptiveStats, trendAnalysis, detectDiagnosticEvents } = require('../lib/statistics');
 const { generateRecommendations, getPlaybook, getAllPlaybooks } = require('../lib/recommendations');
 const { getPlanLimits, getUserPlan, PLAN_LIMITS } = require('../lib/plans');
@@ -89,8 +89,9 @@ router.get('/meta/methodology', (req, res) => {
 // GET /api/brands/:id/prompt-runs — list individual runs for a prompt (Epic 1.5)
 router.get('/brands/:id/prompt-runs', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const { prompt, platform, limit = 20, offset = 0 } = req.query;
     let query = 'SELECT id, prompt, platform, model, mentioned, sentiment, recommended, list_position, latency_ms, success, error_message, batch_id, created_at FROM prompt_runs WHERE brand_id = $1';
@@ -119,8 +120,9 @@ router.get('/brands/:id/prompt-runs', auth, async (req, res) => {
 // GET /api/brands/:id/prompt-runs/:runId — single run with full response (Epic 1.5)
 router.get('/brands/:id/prompt-runs/:runId', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const result = await pool.query(
       'SELECT * FROM prompt_runs WHERE id = $1 AND brand_id = $2',
@@ -141,8 +143,9 @@ router.get('/brands/:id/prompt-runs/:runId', auth, async (req, res) => {
 // GET /api/brands/:id/prompt-metadata — list all prompt metadata
 router.get('/brands/:id/prompt-metadata', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const result = await pool.query(
       'SELECT * FROM prompt_metadata WHERE brand_id = $1 ORDER BY prompt',
@@ -157,8 +160,10 @@ router.get('/brands/:id/prompt-metadata', auth, async (req, res) => {
 // PUT /api/brands/:id/prompt-metadata — upsert prompt metadata
 router.put('/brands/:id/prompt-metadata', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    if (_access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot modify prompt metadata.' });
+    const brand = _access.brand;
 
     const { prompt, intent, funnel_stage, tags, language } = req.body;
     if (!prompt) return res.status(400).json({ error: 'Prompt text is required' });
@@ -190,8 +195,9 @@ router.put('/brands/:id/prompt-metadata', auth, async (req, res) => {
 // GET /api/brands/:id/prompt-visibility — SOV per prompt per platform with CIs
 router.get('/brands/:id/prompt-visibility', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     // Refresh stats first
     await refreshPromptRunStats(req.params.id);
@@ -227,8 +233,9 @@ router.get('/brands/:id/prompt-visibility', auth, async (req, res) => {
 // GET /api/brands/:id/prompt-history — time series for a specific prompt
 router.get('/brands/:id/prompt-history', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const { prompt, platform, days = 30 } = req.query;
     if (!prompt) return res.status(400).json({ error: 'Prompt parameter is required' });
@@ -284,8 +291,9 @@ router.get('/brands/:id/prompt-history', auth, async (req, res) => {
 // GET /api/brands/:id/competitor-analysis — co-occurrence data
 router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     // Plan enforcement — competitor analysis requires a plan with competitors > 0
     const plan = await getUserPlan(req.user.id);
@@ -361,8 +369,9 @@ router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
 // GET /api/brands/:id/diagnostics — diagnostic events (Epic 2.3)
 router.get('/brands/:id/diagnostics', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
@@ -454,8 +463,9 @@ router.get('/brands/:id/diagnostics', auth, async (req, res) => {
 // GET /api/brands/:id/recommendations
 router.get('/brands/:id/recommendations', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
@@ -483,8 +493,10 @@ router.get('/brands/:id/recommendations', auth, async (req, res) => {
 // POST /api/brands/:id/recommendations/generate — trigger generation
 router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    if (_access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot generate recommendations.' });
+    const brand = _access.brand;
 
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
@@ -784,8 +796,9 @@ router.get('/export/recommendations', auth, async (req, res) => {
 // GET /api/brands/:id/webhooks — list webhook subscriptions
 router.get('/brands/:id/webhooks', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
     // Webhook URL is stored in brand data for now
     res.json({ webhookUrl: brand.webhookUrl || null });
   } catch(e) {
@@ -800,8 +813,9 @@ router.get('/brands/:id/webhooks', auth, async (req, res) => {
 // GET /api/brands/:id/alerts — list alert rules
 router.get('/brands/:id/alerts', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const result = await pool.query(
       'SELECT * FROM alert_rules WHERE brand_id = $1 AND user_id = $2 ORDER BY created_at DESC',
@@ -816,8 +830,10 @@ router.get('/brands/:id/alerts', auth, async (req, res) => {
 // POST /api/brands/:id/alerts — create alert rule
 router.post('/brands/:id/alerts', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    if (_access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot create alerts.' });
+    const brand = _access.brand;
 
     const { name, condition_type, condition_params, action_type, action_params, cooldown_hours } = req.body;
     if (!name || !condition_type) return res.status(400).json({ error: 'Name and condition type are required' });
@@ -1034,8 +1050,9 @@ router.get('/billing', auth, async (req, res) => {
 // GET /api/brands/:id/facts — canonical facts
 router.get('/brands/:id/facts', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const result = await pool.query(
       'SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key',
@@ -1050,8 +1067,10 @@ router.get('/brands/:id/facts', auth, async (req, res) => {
 // PUT /api/brands/:id/facts — upsert canonical facts
 router.put('/brands/:id/facts', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    if (_access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot modify facts.' });
+    const brand = _access.brand;
 
     const { facts } = req.body;
     if (!facts || !Array.isArray(facts)) return res.status(400).json({ error: 'Facts array required' });
@@ -1080,8 +1099,10 @@ router.put('/brands/:id/facts', auth, async (req, res) => {
 // DELETE /api/brands/:id/facts/:factId — delete a fact
 router.delete('/brands/:id/facts/:factId', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    if (_access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot delete facts.' });
+    const brand = _access.brand;
 
     await pool.query('DELETE FROM brand_facts WHERE id = $1 AND brand_id = $2', [req.params.factId, req.params.id]);
     res.json({ success: true });
@@ -1093,8 +1114,9 @@ router.delete('/brands/:id/facts/:factId', auth, async (req, res) => {
 // GET /api/brands/:id/accuracy — check AI responses against canonical facts
 router.get('/brands/:id/accuracy', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     // Get canonical facts
     const factsResult = await pool.query(
@@ -1167,8 +1189,9 @@ router.get('/brands/:id/accuracy', auth, async (req, res) => {
 // GET /api/brands/:id/citation-analysis — citation domain analysis
 router.get('/brands/:id/citation-analysis', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     // Aggregate citations from prompt_runs
     const result = await pool.query(`
@@ -1252,8 +1275,9 @@ function estimateDomainAuthority(domain) {
 // POST /api/brands/:id/copilot — ask questions about brand data
 router.post('/brands/:id/copilot', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+    const brand = _access.brand;
 
     const { question } = req.body;
     if (!question || question.length > 500) return res.status(400).json({ error: 'Question required (max 500 chars)' });
