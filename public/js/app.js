@@ -873,7 +873,10 @@ function go(view){
   }
   currentView = view;
   closeMobileMenu();
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => {
+    v.classList.remove('active');
+    v.style.display = ''; // Clear any inline display overrides so CSS classes take effect
+  });
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.remove('active');
     if (n.getAttribute('onclick') === "go('"+view+"')") n.classList.add('active');
@@ -909,10 +912,8 @@ function renderView(view){
   if (!b) {
     // Show global empty state when no brand exists or is selected
     const noBrands = !brands.length;
-    // Hide all view sections to avoid blank space
-    document.querySelectorAll('.view').forEach(v => {
-      if (v.style) v.style.display = 'none';
-    });
+    // Remove .active from all views so CSS hides them (display:none)
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     // Show or create the global empty state
     let emptyEl = document.getElementById('global-no-brand');
     if (!emptyEl) {
@@ -939,10 +940,6 @@ function renderView(view){
   document.querySelectorAll('.no-brand-msg').forEach(m => m.remove());
   const _globalEmpty = document.getElementById('global-no-brand');
   if (_globalEmpty) _globalEmpty.style.display = 'none';
-  // Restore view sections visibility
-  document.querySelectorAll('.view').forEach(v => {
-    v.style.display = '';
-  });
   if (view==='overview') {
     renderOverview();
     if (runningQueries) setupLiveFeed();
@@ -1615,7 +1612,7 @@ function usageBar(label, current, max) {
   return `<div>
     <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);">
       <span>${label}</span>
-      <span style="color:${color};font-weight:700;">${current}/${max}</span>
+      <span style="color:${color};font-weight:700;">${current}/${max >= 9999 ? '∞' : max}</span>
     </div>
     <div class="plan-limit-bar"><div class="plan-limit-fill" style="width:${pct}%;background:${color};"></div></div>
   </div>`;
@@ -2442,7 +2439,7 @@ function renderOverview(){
     heroStatsEl.innerHTML = `
       <div class="ov-hero-stat"><div class="ov-hero-stat-val">${mentions} / ${totalResults}</div><div class="ov-hero-stat-lbl">Mentions / Responses</div></div>
       <div class="ov-hero-stat"><div class="ov-hero-stat-val">${activePlats} / ${PLATS.length}</div><div class="ov-hero-stat-lbl">Platforms Active</div></div>
-      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${queries} / ${qLimit}</div><div class="ov-hero-stat-lbl">Queries / Limit</div></div>
+      <div class="ov-hero-stat"><div class="ov-hero-stat-val">${queries} / ${qLimit >= 9999 ? '∞' : qLimit}</div><div class="ov-hero-stat-lbl">Queries / Limit</div></div>
       <div class="ov-hero-stat"><div class="ov-hero-stat-val">${durText}</div><div class="ov-hero-stat-lbl">Crawl Duration</div></div>
       <div class="ov-hero-stat"><div class="ov-hero-stat-val" id="ov-last-run-age">${runAgeText}</div><div class="ov-hero-stat-lbl">Data Freshness</div></div>`;
   } else if (heroStatsEl && _activePreset === 'agency_manager') {
@@ -2459,8 +2456,8 @@ function renderOverview(){
     el('ov-mentions').textContent = mentions + ' / ' + totalResults;
     el('ov-platforms').textContent = activePlats + ' / ' + PLATS.length;
     const qLimit = getUserLimits().queries;
-    el('ov-queries').textContent = queries + ' / ' + qLimit;
-    el('ov-queries').style.color = queries >= qLimit ? 'var(--red)' : '';
+    el('ov-queries').textContent = queries + ' / ' + (qLimit >= 9999 ? '∞' : qLimit);
+    el('ov-queries').style.color = (qLimit < 9999 && queries >= qLimit) ? 'var(--red)' : '';
     el('ov-last-run-age').textContent = runAgeText;
     el('ov-last-run-age').style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
 
@@ -2985,7 +2982,7 @@ function renderOverview(){
   const qCountEl = el('ov-query-count');
   if (qCountEl) {
     const atLimit = totalPrompts >= promptLimit;
-    qCountEl.textContent = totalPrompts + ' / ' + promptLimit + ' prompts';
+    qCountEl.textContent = totalPrompts + ' / ' + (promptLimit >= 9999 ? '∞' : promptLimit) + ' prompts';
     qCountEl.style.color = atLimit ? 'var(--amber)' : 'var(--muted)';
   }
   const limitMsg = el('ov-query-limit-msg');
@@ -4791,7 +4788,7 @@ function renderSetupQueries(){
   const countEl = el('setup-query-count');
   if (countEl) {
     const atLimit = totalPrompts >= promptLimit;
-    countEl.textContent = totalPrompts + ' / ' + promptLimit + ' prompts';
+    countEl.textContent = totalPrompts + ' / ' + (promptLimit >= 9999 ? '∞' : promptLimit) + ' prompts';
     countEl.style.color = atLimit ? 'var(--amber)' : 'var(--muted)';
   }
   const limitMsg = el('setup-query-limit-msg');
