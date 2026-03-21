@@ -9,6 +9,7 @@ const { pool, auditLog, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { uid, safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
+const { cancelDodoSubscription } = require('./payments');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
 const rateLimit = require('express-rate-limit');
 
@@ -114,20 +115,29 @@ router.post('/upgrade', auth, async (req, res) => {
     return res.status(400).json({ error: 'Invalid plan' });
   }
   try {
-    const currentUser = await pool.query('SELECT plan, role FROM users WHERE id = $1', [req.user.id]);
+    const currentUser = await pool.query('SELECT plan, role, settings FROM users WHERE id = $1', [req.user.id]);
     if (!currentUser.rows.length) return res.status(404).json({ error: 'User not found' });
     const currentPlan = currentUser.rows[0].plan || 'free';
+    const settings = currentUser.rows[0].settings || {};
     const tiers = { free: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
     // Block any upgrade attempt — upgrades must go through DodoPayments checkout
     if ((tiers[plan] || 0) > (tiers[currentPlan] || 0)) {
       return res.status(403).json({ error: 'Payment required for plan upgrades. Use the upgrade button to proceed with payment.' });
+    }
+    // Cancel active DodoPayments subscription on downgrade
+    const subscriptionId = settings.dodo_subscription_id;
+    if (subscriptionId && (tiers[plan] || 0) < (tiers[currentPlan] || 0)) {
+      const cancelled = await cancelDodoSubscription(subscriptionId);
+      if (!cancelled) {
+        return res.status(500).json({ error: 'Failed to cancel your subscription with the payment provider. Please contact support or try again.' });
+      }
     }
     const result = await pool.query(
       'UPDATE users SET plan = $1 WHERE id = $2 RETURNING *',
       [plan, req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
-    auditLog(req.user.id, 'plan_change', 'user', req.user.id, { from: currentPlan, to: plan }, req.ip);
+    auditLog(req.user.id, 'plan_change', 'user', req.user.id, { from: currentPlan, to: plan, subscriptionCancelled: !!subscriptionId }, req.ip);
     res.json({ user: safeUser(result.rows[0]), message: `Plan updated to ${plan}` });
   } catch(e) {
     res.status(500).json({ error: 'Failed to update plan' });
