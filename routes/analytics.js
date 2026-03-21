@@ -287,6 +287,13 @@ router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
     const brand = await getBrand(req.params.id, req.user.id);
     if (!brand) return res.status(404).json({ error: 'Brand not found' });
 
+    // Plan enforcement — competitor analysis requires a plan with competitors > 0
+    const plan = await getUserPlan(req.user.id);
+    const limits = getPlanLimits(plan);
+    if (limits.competitors === 0) {
+      return res.status(403).json({ error: 'Competitor analysis is available on Pro plans and above. Upgrade to access.', planLimit: true, limit: 'competitors' });
+    }
+
     // Aggregate from prompt_runs
     const result = await pool.query(`
       SELECT
