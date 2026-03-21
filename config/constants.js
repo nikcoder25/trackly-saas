@@ -209,6 +209,15 @@ const BRANDING = {
   themeColor: '#FF6154',
 };
 
+// ─── DAILY COST BUDGETS (per plan, USD) ────────────────────────
+const DAILY_COST_BUDGETS = {
+  free: 0.50,
+  pro: 2.00,
+  agency: 8.00,
+  enterprise: 50.00,
+  owner: 9999,
+};
+
 // ─── TOTP / 2FA ────────────────────────────────────────────────
 const TOTP = {
   period: 30,   // seconds
@@ -231,5 +240,6 @@ module.exports = {
   PLATFORM_COLORS,
   EMAIL_COLORS,
   BRANDING,
+  DAILY_COST_BUDGETS,
   TOTP,
 };

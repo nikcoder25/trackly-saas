@@ -11,7 +11,7 @@ const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, runOpenAIBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 const { evaluateAlerts } = require('../lib/alerts');
-const { BATCH, RUN } = require('../config/constants');
+const { BATCH, RUN, DAILY_COST_BUDGETS } = require('../config/constants');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -425,7 +425,6 @@ router.post('/:id/run', auth, async (req, res) => {
 
     // ── Daily cost budget check ─────────────────────────────────
     // Prevents runaway costs. Budget scales with plan tier.
-    const DAILY_COST_BUDGETS = { free: 0.50, pro: 2.00, agency: 8.00, enterprise: 50.00, owner: 9999 };
     const dailyBudget = DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.free;
     const dailyCostData = await getDailyCost(req.user.id);
     const currentDailyCost = parseFloat(dailyCostData.total_cost) || 0;
@@ -835,7 +834,7 @@ router.post('/:id/run', auth, async (req, res) => {
         }
       }
       for (let i = 0; i < citRows.length; i += BATCH.citationInsert) {
-        const batch = citRows.slice(i, i + CIT_BATCH);
+        const batch = citRows.slice(i, i + BATCH.citationInsert);
         const values = [];
         const params = [];
         let pi = 1;
@@ -1087,7 +1086,6 @@ router.get('/:id/cost-estimate', auth, async (req, res) => {
 
     // Get daily spend
     const dailyCostData = await getDailyCost(req.user.id);
-    const DAILY_COST_BUDGETS = { free: 0.50, pro: 2.00, agency: 8.00, enterprise: 50.00, owner: 9999 };
 
     res.json({
       estimatedRunCost: Math.round(estimatedCost * 100000) / 100000,
@@ -1488,7 +1486,7 @@ async function runBrandQueries(brand) {
   // Pre-compile brand matcher once for all parse calls
   const matcher = buildBrandMatcher(brand);
   const platFailCount = {};
-  const FAIL_THRESHOLD = 3;
+  const FAIL_THRESHOLD = RUN.failThreshold;
 
   // Detect stable queries — skip API calls for queries with unchanged results
   const stableQueries = getStableQueries(brand);

@@ -3,6 +3,7 @@
  */
 const { Pool } = require('pg');
 const { createLogger } = require('../lib/logger');
+const { RETENTION } = require('./constants');
 const log = createLogger('DB');
 
 // Railway (and many PaaS providers) use self-signed certs for managed PostgreSQL.
@@ -399,7 +400,7 @@ async function logApiCall(entry) {
 // Cleanup old api_logs (keep last 7 days) — call periodically
 async function cleanupApiLogs() {
   try {
-    await pool.query("DELETE FROM api_logs WHERE created_at < NOW() - INTERVAL '7 days'");
+    await pool.query(`DELETE FROM api_logs WHERE created_at < NOW() - INTERVAL '${RETENTION.apiLogsDays} days'`);
   } catch(e) {
     log.error('API log cleanup failed', { error: e.message });
   }
@@ -408,7 +409,7 @@ async function cleanupApiLogs() {
 // Cleanup old read notifications (keep last 30 days)
 async function cleanupNotifications() {
   try {
-    await pool.query("DELETE FROM notifications WHERE read = TRUE AND created_at < NOW() - INTERVAL '30 days'");
+    await pool.query(`DELETE FROM notifications WHERE read = TRUE AND created_at < NOW() - INTERVAL '${RETENTION.notificationsDays} days'`);
   } catch(e) {
     log.error('Notification cleanup failed', { error: e.message });
   }
@@ -426,7 +427,7 @@ async function cleanupResetTokens() {
 // Cleanup old webhook events (keep 30 days for dedup window)
 async function cleanupWebhookEvents() {
   try {
-    await pool.query("DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '30 days'");
+    await pool.query(`DELETE FROM webhook_events WHERE processed_at < NOW() - INTERVAL '${RETENTION.webhookEventsDays} days'`);
   } catch(e) {
     log.error('Webhook event cleanup failed', { error: e.message });
   }
@@ -435,7 +436,7 @@ async function cleanupWebhookEvents() {
 // Cleanup old prompt_runs (keep last 90 days)
 async function cleanupPromptRuns() {
   try {
-    await pool.query("DELETE FROM prompt_runs WHERE created_at < NOW() - INTERVAL '90 days'");
+    await pool.query(`DELETE FROM prompt_runs WHERE created_at < NOW() - INTERVAL '${RETENTION.promptRunsDays} days'`);
   } catch(e) {
     log.error('Prompt runs cleanup failed', { error: e.message });
   }
@@ -557,7 +558,7 @@ async function incrementDailyCost(userId, cost, queryCount) {
 // Cleanup old daily cost records (keep 90 days for analytics)
 async function cleanupDailyCosts() {
   try {
-    await pool.query("DELETE FROM daily_cost_tracker WHERE cost_date < CURRENT_DATE - INTERVAL '90 days'");
+    await pool.query(`DELETE FROM daily_cost_tracker WHERE cost_date < CURRENT_DATE - INTERVAL '${RETENTION.dailyCostsDays} days'`);
   } catch(e) {
     log.error('Daily cost cleanup failed', { error: e.message });
   }
