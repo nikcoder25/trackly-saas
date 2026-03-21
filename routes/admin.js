@@ -766,8 +766,8 @@ router.post('/team/invite', auth, async (req, res) => {
   const { email, role } = req.body;
   if (!email) return res.status(400).json({ error: 'Email required' });
   const plan = await require('../lib/plans').getUserPlan(req.user.id);
-  if (plan !== 'agency' && plan !== 'owner') {
-    return res.status(403).json({ error: 'Team members are available on Agency and Owner plans.' });
+  if (!['agency', 'enterprise', 'owner'].includes(plan)) {
+    return res.status(403).json({ error: 'Team members are available on Agency, Enterprise, and Owner plans.' });
   }
   try {
     const userResult = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);

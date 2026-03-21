@@ -6,7 +6,7 @@ const router  = express.Router();
 
 const { pool, auditLog, logApiCall, refreshPromptRunStats, notify, getDailyCost, incrementDailyCost } = require('../config/db');
 const { auth } = require('../middleware/auth');
-const { uid, getBrand, saveBrand, getServerKeys } = require('../lib/helpers');
+const { uid, getBrand, getBrandWithAccess, saveBrand, getServerKeys } = require('../lib/helpers');
 const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, runOpenAIBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
@@ -234,22 +234,9 @@ router.post('/', auth, async (req, res) => {
 // Get single brand (includes team access)
 router.get('/:id', auth, async (req, res) => {
   try {
-    let brand = await getBrand(req.params.id, req.user.id);
-    // If not own brand, check team membership
-    if (!brand) {
-      const teamCheck = await pool.query(
-        `SELECT b.*, tm.role AS team_role FROM brands b
-         JOIN team_members tm ON b.user_id = tm.owner_id
-         WHERE b.id = $1 AND tm.member_id = $2`,
-        [req.params.id, req.user.id]
-      );
-      if (teamCheck.rows.length) {
-        const row = teamCheck.rows[0];
-        brand = { id: row.id, userId: row.user_id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at, shared: true, teamRole: row.team_role };
-      }
-    }
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
-    res.json({ brand });
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+    res.json({ brand: access.brand });
   } catch(e) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -258,10 +245,13 @@ router.get('/:id', auth, async (req, res) => {
 // Update brand
 router.put('/:id', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+    if (access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot edit brands. Ask the owner to upgrade your role to editor.' });
+    const brand = access.brand;
 
-    const plan = await getUserPlan(req.user.id);
+    // Use brand owner's plan for limit checks (not the team member's plan)
+    const plan = await getUserPlan(brand.userId);
     const limits = getPlanLimits(plan);
 
     const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
@@ -379,8 +369,7 @@ router.post('/:id/force-release', auth, async (req, res) => {
 });
 
 router.post('/:id/run', auth, async (req, res) => {
-  // Brand ownership is verified below via getBrand(id, userId).
-  // No admin role required — any user can run queries on their own brands.
+  // Brand access verified below — owners and team editors can run queries.
   req.setTimeout(600000); // 10 min to match MAX_LOCK_AGE_MS
   const streaming = req.query.stream === '1';
     const forceRun = req.query.force === '1';
@@ -389,7 +378,16 @@ router.post('/:id/run', auth, async (req, res) => {
   let brand, plan, limits, keys, queries, activePlatforms, totalExpected, runId;
   let userSettings, modelPrefs;
   try {
-    brand = await getBrand(req.params.id, req.user.id);
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) {
+      if (streaming) return sseError(res, 'Brand not found');
+      return res.status(404).json({ error: 'Brand not found' });
+    }
+    if (access.role === 'viewer') {
+      if (streaming) return sseError(res, 'Viewers cannot run queries. Ask the owner to upgrade your role to editor.');
+      return res.status(403).json({ error: 'Viewers cannot run queries. Ask the owner to upgrade your role to editor.' });
+    }
+    brand = access.brand;
     if (!brand) return streaming ? sseError(res, 'Brand not found') : res.status(404).json({ error: 'Brand not found' });
 
     plan = await getUserPlan(req.user.id);
@@ -1114,8 +1112,10 @@ router.get('/:id/cost-estimate', auth, async (req, res) => {
 // Re-run one query on one platform and replace the error result in an existing run
 router.post('/:id/retry-query', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+    if (access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot retry queries.' });
+    const brand = access.brand;
 
     const { runId, platform, query } = req.body;
     if (!runId || !platform || !query) return res.status(400).json({ error: 'Missing runId, platform, or query' });
@@ -1197,8 +1197,10 @@ router.post('/:id/retry-query', auth, async (req, res) => {
 // Re-run one query on one platform and replace the existing result
 router.post('/:id/recheck-query', auth, async (req, res) => {
   try {
-    const brand = await getBrand(req.params.id, req.user.id);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+    if (access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot recheck queries.' });
+    const brand = access.brand;
 
     const { runId, platform, query } = req.body;
     if (!runId || !platform || !query) return res.status(400).json({ error: 'Missing runId, platform, or query' });

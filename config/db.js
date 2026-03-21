@@ -117,6 +117,7 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
       CREATE INDEX IF NOT EXISTS idx_team_members_owner ON team_members(owner_id);
       CREATE INDEX IF NOT EXISTS idx_team_members_member ON team_members(member_id);
+      CREATE INDEX IF NOT EXISTS idx_team_members_member_owner ON team_members(member_id, owner_id);
       CREATE INDEX IF NOT EXISTS idx_api_logs_user_id ON api_logs(user_id);
       CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at);
       CREATE INDEX IF NOT EXISTS idx_api_logs_brand_id ON api_logs(brand_id);
