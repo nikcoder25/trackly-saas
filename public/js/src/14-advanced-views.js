@@ -239,6 +239,7 @@ async function renderPromptDetail() {
         },
         options: {
           responsive: true,
+          maintainAspectRatio: true,
           cutout: '55%',
           plugins: {
             legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11 } } },

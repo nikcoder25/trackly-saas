@@ -1552,7 +1552,8 @@ select.finput{appearance:none;}
 .pd-charts-row{margin-bottom:16px;}
 .pd-chart-card{padding:18px 20px;}
 .pd-chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-.pd-chart-wrap{position:relative;}
+.pd-chart-wrap{position:relative;max-height:220px;display:flex;align-items:center;justify-content:center;}
+.pd-chart-wrap canvas{max-height:200px;}
 .pd-chart-placeholder{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   min-height:180px;background:var(--bg3);border-radius:var(--radius-sm);
