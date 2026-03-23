@@ -1168,14 +1168,14 @@
 
       <!-- Keyword table header -->
       <div class="kt-table-header">
-        <div class="kt-col kt-col-kw">Keyword</div>
-        <div class="kt-col kt-col-vis">Visibility</div>
-        <div class="kt-col kt-col-change">Change</div>
-        <div class="kt-col kt-col-runs">Runs</div>
-        <div class="kt-col kt-col-plats">Platforms</div>
-        <div class="kt-col kt-col-pos">Avg Position</div>
+        <div class="kt-col kt-col-kw kt-sortable" onclick="ktSort('keyword')">Keyword <span class="kt-sort-icon" id="kt-sort-keyword"></span></div>
+        <div class="kt-col kt-col-vis kt-sortable" onclick="ktSort('mentionRate')">Visibility <span class="kt-sort-icon" id="kt-sort-mentionRate"></span></div>
+        <div class="kt-col kt-col-change kt-sortable" onclick="ktSort('change')">Change <span class="kt-sort-icon" id="kt-sort-change"></span></div>
+        <div class="kt-col kt-col-runs kt-sortable" onclick="ktSort('totalRuns')">Runs <span class="kt-sort-icon" id="kt-sort-totalRuns"></span></div>
+        <div class="kt-col kt-col-plats kt-sortable" onclick="ktSort('platformCount')">Platforms <span class="kt-sort-icon" id="kt-sort-platformCount"></span></div>
+        <div class="kt-col kt-col-pos kt-sortable" onclick="ktSort('avgPosition')">Avg Position <span class="kt-sort-icon" id="kt-sort-avgPosition"></span></div>
         <div class="kt-col kt-col-spark">Movement</div>
-        <div class="kt-col kt-col-updated">Updated</div>
+        <div class="kt-col kt-col-updated kt-sortable" onclick="ktSort('lastUpdated')">Updated <span class="kt-sort-icon" id="kt-sort-lastUpdated"></span></div>
       </div>
 
       <!-- Keyword rows container -->

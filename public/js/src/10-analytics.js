@@ -378,6 +378,8 @@ function _renderTrendsCharts(b) {
 let _ktData = null;
 let _ktPeriod = 'day';
 let _ktExpandedKeyword = null;
+let _ktSortField = null;
+let _ktSortDir = 'asc'; // 'asc' or 'desc'
 window._ktExpandedChart = null;
 
 async function renderKeywordTracker() {
@@ -411,6 +413,7 @@ async function renderKeywordTracker() {
     }
 
     _ktRenderRows(_ktData.keywords);
+    _ktUpdateSortIcons();
   } catch(e) {
     if (loadingEl) loadingEl.style.display = 'none';
     if (listEl) listEl.innerHTML = `<div class="card" style="padding:24px;text-align:center;color:var(--red);">Failed to load keyword data.</div>`;
@@ -420,6 +423,8 @@ async function renderKeywordTracker() {
 function ktSwitchPeriod(period, btn) {
   _ktPeriod = period;
   _ktExpandedKeyword = null;
+  _ktSortField = null;
+  _ktSortDir = 'asc';
   if (window._ktExpandedChart) { window._ktExpandedChart.destroy(); window._ktExpandedChart = null; }
   document.querySelectorAll('.kt-period-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -494,10 +499,64 @@ function ktToggleExpand(keyword) {
   _ktRenderRows(_ktFilteredKeywords());
 }
 
+function ktSort(field) {
+  if (_ktSortField === field) {
+    _ktSortDir = _ktSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _ktSortField = field;
+    _ktSortDir = field === 'keyword' ? 'asc' : 'desc'; // numbers default high-to-low, text A-Z
+  }
+  _ktUpdateSortIcons();
+  _ktRenderRows(_ktFilteredKeywords());
+}
+
+function _ktUpdateSortIcons() {
+  const fields = ['keyword','mentionRate','change','totalRuns','platformCount','avgPosition','lastUpdated'];
+  fields.forEach(f => {
+    const icon = document.getElementById('kt-sort-' + f);
+    if (!icon) return;
+    if (f === _ktSortField) {
+      icon.innerHTML = _ktSortDir === 'asc' ? '&#9650;' : '&#9660;';
+      icon.style.color = 'var(--primary)';
+    } else {
+      icon.innerHTML = '&#8597;';
+      icon.style.color = '';
+    }
+  });
+}
+
 function _ktFilteredKeywords() {
   if (!_ktData || !_ktData.keywords) return [];
   const q = (el('kt-filter-input')?.value || '').toLowerCase();
-  return q ? _ktData.keywords.filter(k => k.keyword.toLowerCase().includes(q)) : _ktData.keywords;
+  let list = q ? _ktData.keywords.filter(k => k.keyword.toLowerCase().includes(q)) : [..._ktData.keywords];
+
+  if (_ktSortField) {
+    const dir = _ktSortDir === 'asc' ? 1 : -1;
+    list.sort((a, b) => {
+      let va = a[_ktSortField];
+      let vb = b[_ktSortField];
+
+      // Handle nulls — push to bottom
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+
+      // String comparison for keyword
+      if (_ktSortField === 'keyword') {
+        return dir * va.localeCompare(vb);
+      }
+
+      // Date comparison for lastUpdated
+      if (_ktSortField === 'lastUpdated') {
+        return dir * (new Date(va) - new Date(vb));
+      }
+
+      // Numeric comparison for everything else
+      return dir * (va - vb);
+    });
+  }
+
+  return list;
 }
 
 function _ktRenderExpandedChart(kw, idx) {
