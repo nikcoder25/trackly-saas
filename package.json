@@ -1,5 +1,5 @@
 {
-  "name": "livesov-saas",
+  "name": "trackly-saas",
   "version": "1.0.0",
   "description": "AI Visibility Tracker - SaaS Platform",
   "main": "server.js",

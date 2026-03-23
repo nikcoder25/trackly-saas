@@ -179,7 +179,7 @@ async function runQueries(){
           activeRunId = evt.runId || null;
           // Save active run to localStorage so we can resume after page reload
           if (activeRunId) {
-            localStorage.setItem('livesov_active_run', JSON.stringify({
+            localStorage.setItem('trackly_active_run', JSON.stringify({
               runId: activeRunId, brandId: b.id, startedAt: Date.now()
             }));
           }
@@ -208,7 +208,7 @@ async function runQueries(){
     }
 
     // Clear active run from localStorage
-    localStorage.removeItem('livesov_active_run');
+    localStorage.removeItem('trackly_active_run');
 
     clearInterval(timerInt);
     fill.style.width = '100%';
@@ -223,7 +223,7 @@ async function runQueries(){
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-    } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
+    } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
@@ -319,9 +319,9 @@ async function runQueries(){
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-    } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
+    } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
-    localStorage.removeItem('livesov_active_run');
+    localStorage.removeItem('trackly_active_run');
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
@@ -407,7 +407,7 @@ async function pollRunStatus(brandId, runId, opts) {
 
         if (data.status === 'done' || data.status === 'error') {
           clearInterval(timerInt);
-          localStorage.removeItem('livesov_active_run');
+          localStorage.removeItem('trackly_active_run');
 
           if (data.status === 'done') {
             if (fill) { fill.style.width = '100%'; fill.style.background = ''; }
@@ -422,7 +422,7 @@ async function pollRunStatus(brandId, runId, opts) {
                 renderBrandSelect();
                 if (currentBrandId) el('brand-select').value = currentBrandId;
               }
-            } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
+            } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
             const elapsed = fmtTime(Date.now()-startTime);
             if (timerEl) timerEl.textContent = elapsed;
@@ -469,7 +469,7 @@ async function pollRunStatus(brandId, runId, opts) {
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
-            } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
+            } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
 
             liveResults = [];
             liveRunTime = null;
@@ -490,7 +490,7 @@ async function pollRunStatus(brandId, runId, opts) {
         console.error(`[Poll] Error polling run status (${pollErrors}/${MAX_POLL_ERRORS}):`, pollErr.message);
         if (pollErrors >= MAX_POLL_ERRORS) {
           clearInterval(timerInt);
-          localStorage.removeItem('livesov_active_run');
+          localStorage.removeItem('trackly_active_run');
           liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
           if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
           if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
@@ -507,14 +507,14 @@ async function pollRunStatus(brandId, runId, opts) {
 
 // ─── RESUME ACTIVE RUN ON PAGE LOAD ─────────────────────────────
 async function checkActiveRun() {
-  const stored = localStorage.getItem('livesov_active_run');
+  const stored = localStorage.getItem('trackly_active_run');
   if (!stored) return;
   let runInfo;
-  try { runInfo = JSON.parse(stored); } catch(_) { localStorage.removeItem('livesov_active_run'); return; }
+  try { runInfo = JSON.parse(stored); } catch(_) { localStorage.removeItem('trackly_active_run'); return; }
 
   // Discard runs older than 10 minutes (server cleans up after 10 min too)
   if (Date.now() - runInfo.startedAt > 10 * 60 * 1000) {
-    localStorage.removeItem('livesov_active_run');
+    localStorage.removeItem('trackly_active_run');
     return;
   }
 
@@ -544,7 +544,7 @@ async function checkActiveRun() {
       });
     } else {
       // Run already finished while we were away — just clear and reload
-      localStorage.removeItem('livesov_active_run');
+      localStorage.removeItem('trackly_active_run');
       invalidateCache('/api/brands');
       try {
         const freshData = await api('GET', '/api/brands');
@@ -563,14 +563,14 @@ async function checkActiveRun() {
           if (proofSel) proofSel.value = '';
           renderView(currentView);
         }
-      } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
+      } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
       if (data.status === 'done') {
         toast('Query run completed while you were away. Results are ready!', 'ok');
       }
     }
   } catch(_) {
     // Run not found — probably already cleaned up, just clear localStorage
-    localStorage.removeItem('livesov_active_run');
+    localStorage.removeItem('trackly_active_run');
   }
 }
 

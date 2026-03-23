@@ -8,7 +8,7 @@
 
 ## Summary
 
-Livesov SaaS has been fully reviewed for production deployment readiness. All 19 modules load successfully, all 16 unit tests pass, and zero npm security vulnerabilities were found. The platform is architecturally sound and ready for deployment.
+Trackly SaaS has been fully reviewed for production deployment readiness. All 19 modules load successfully, all 16 unit tests pass, and zero npm security vulnerabilities were found. The platform is architecturally sound and ready for deployment.
 
 ---
 
@@ -85,7 +85,7 @@ Livesov SaaS has been fully reviewed for production deployment readiness. All 19
 
 ### Required (server will not start without these)
 ```
-DATABASE_URL=postgresql://user:pass@host:5432/livesov
+DATABASE_URL=postgresql://user:pass@host:5432/trackly
 JWT_SECRET=<random string, minimum 32 characters>
 ```
 
@@ -140,7 +140,7 @@ npm run build
 node server.js
 
 # Or with PM2 for production
-pm2 start server.js --name livesov
+pm2 start server.js --name trackly
 ```
 
 ---

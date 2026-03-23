@@ -1,4 +1,4 @@
-# Livesov - AI Visibility Tracker SaaS
+# Trackly - AI Visibility Tracker SaaS
 
 Track where your brand appears in ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews.
 
@@ -35,17 +35,17 @@ sudo apt-get install -y nodejs
 ### 3. Upload your files
 ```bash
 # From your local machine
-scp -r livesov-saas/ root@YOUR_SERVER_IP:/var/www/livesov
+scp -r trackly-saas/ root@YOUR_SERVER_IP:/var/www/trackly
 ```
 
 ### 4. Install PM2 (keeps server running)
 ```bash
 npm install -g pm2
-cd /var/www/livesov
+cd /var/www/trackly
 npm install
 cp .env.example .env
 nano .env   # set JWT_SECRET and PORT=3000
-pm2 start server.js --name livesov
+pm2 start server.js --name trackly
 pm2 save
 pm2 startup
 ```
@@ -53,7 +53,7 @@ pm2 startup
 ### 5. Set up Nginx as reverse proxy
 ```bash
 sudo apt install nginx
-sudo nano /etc/nginx/sites-available/livesov
+sudo nano /etc/nginx/sites-available/trackly
 ```
 
 Paste this config (replace yourdomain.com):
@@ -73,7 +73,7 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/livesov /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/trackly /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -148,7 +148,7 @@ All AI queries run server-side through your Node.js server.
 ## File Structure
 
 ```
-livesov-saas/
+trackly-saas/
 ├── server.js          # Express server, all API routes, AI query logic
 ├── package.json
 ├── .env.example       # Copy to .env

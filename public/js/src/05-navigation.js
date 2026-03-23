@@ -82,7 +82,7 @@ function renderBrandSelect(){
 
 function switchBrand(id){
   currentBrandId = id;
-  localStorage.setItem('livesov_brand', id);
+  localStorage.setItem('trackly_brand', id);
   // Clear live results to prevent mixing data from different brands
   if (!runningQueries) {
     liveResults = [];
@@ -178,7 +178,7 @@ function renderView(view){
     emptyEl.style.display = 'flex';
     if (noBrands) {
       emptyEl.innerHTML = '<div class=\"global-empty-icon\">🚀</div>' +
-        '<h2 class=\"global-empty-title\">Welcome to Livesov!</h2>' +
+        '<h2 class=\"global-empty-title\">Welcome to Trackly!</h2>' +
         '<p class=\"global-empty-desc\">Start by adding your first brand to track how AI platforms mention your business across ChatGPT, Perplexity, Claude, Gemini, and more.</p>' +
         '<button class=\"global-empty-btn\" onclick=\"openAddBrand()\">+ Add Your First Brand</button>';
     } else {

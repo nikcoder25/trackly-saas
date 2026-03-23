@@ -1,5 +1,5 @@
 /**
- * Livesov - AI Visibility Tracker SaaS Server
+ * Trackly - AI Visibility Tracker SaaS Server
  * Stack: Node.js + Express + PostgreSQL + JWT auth
  */
 
@@ -139,7 +139,7 @@ app.use((req, res, next) => {
   if (!origin) {
     // In production, reject state-changing requests without Origin header
     // unless they come with a valid Authorization header (API/server-to-server calls)
-    const hasAuth = req.headers.authorization || req.cookies?.livesov_token;
+    const hasAuth = req.headers.authorization || req.cookies?.trackly_token;
     if (!hasAuth) return res.status(403).json({ error: 'Forbidden — missing origin header' });
     return next();
   }
@@ -521,7 +521,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => {
   console.log(`
   ╔══════════════════════════════════════════╗
-  ║  Livesov SaaS Server Running             ║
+  ║  Trackly SaaS Server Running             ║
   ║  http://localhost:${PORT}                  ║
   ║                                          ║
   ║  Database: PostgreSQL                    ║

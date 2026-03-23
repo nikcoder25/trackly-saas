@@ -77,7 +77,7 @@ async function triggerGoogleSignIn() {
         token = data.token;
         refreshToken = data.refreshToken || '';
         currentUser = data.user;
-        localStorage.setItem('livesov_session', '1');
+        localStorage.setItem('trackly_session', '1');
         await initApp();
       } catch(e) {
         el('auth-err').textContent = e.message || 'Google sign-in failed. Please try again.';
@@ -96,7 +96,7 @@ async function handleGoogleCredential(response) {
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('livesov_session', '1');
+    localStorage.setItem('trackly_session', '1');
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -144,7 +144,7 @@ async function doLogin(){
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('livesov_session', '1');
+    localStorage.setItem('trackly_session', '1');
     // Reset 2FA UI on successful login
     const wrap = el('login-2fa-wrap');
     if (wrap) wrap.style.display = 'none';
@@ -192,7 +192,7 @@ async function doRegister(){
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('livesov_session', '1');
+    localStorage.setItem('trackly_session', '1');
     await initApp();
     if (currentUser.username) toast('Your username is @' + currentUser.username + ' — you can change it in Account settings', 'ok');
   } catch(e) {
@@ -294,8 +294,8 @@ function doLogout(){
   currentUser = null;
   brands = [];
   currentBrandId = '';
-  localStorage.removeItem('livesov_session');
-  localStorage.removeItem('livesov_brand');
+  localStorage.removeItem('trackly_session');
+  localStorage.removeItem('trackly_brand');
   // Close all open overlays/modals
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
   el('app').style.display = 'none';

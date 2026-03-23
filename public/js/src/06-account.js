@@ -234,7 +234,7 @@ async function deleteAccount() {
   if (!confirm('Are you sure? This will permanently delete your account and all brands. This cannot be undone.')) return;
   try {
     await api('DELETE', '/api/auth/account', { password: pw });
-    localStorage.removeItem('livesov_session');
+    localStorage.removeItem('trackly_session');
     location.reload();
   } catch(e) { toast(e.message, 'err'); }
 }
@@ -258,15 +258,15 @@ async function _downloadViaFetch(url, filename) {
 function exportAllData() {
   const b = brand();
   if (!b) { toast('No brand selected', 'err'); return; }
-  _downloadViaFetch(API + '/api/export/brand/' + b.id, `livesov-${b.name || 'brand'}-export.json`);
+  _downloadViaFetch(API + '/api/export/brand/' + b.id, `trackly-${b.name || 'brand'}-export.json`);
 }
 function exportAllBrandsData() {
-  _downloadViaFetch(API + '/api/export/all', 'livesov-full-export.json');
+  _downloadViaFetch(API + '/api/export/all', 'trackly-full-export.json');
 }
 function exportBrandCSV() {
   const b = brand();
   if (!b) { toast('No brand selected', 'err'); return; }
-  _downloadViaFetch(API + '/api/export/brand/' + b.id + '/csv', `livesov-${b.name || 'brand'}-data.csv`);
+  _downloadViaFetch(API + '/api/export/brand/' + b.id + '/csv', `trackly-${b.name || 'brand'}-data.csv`);
 }
 
 // ── Brand Import ──────────────────────────────────────
@@ -292,7 +292,7 @@ async function importBrandConfig(fileInput){
     invalidateCache('/api/brands');
     brands.push(result.brand);
     currentBrandId = result.brand.id;
-    localStorage.setItem('livesov_brand', currentBrandId);
+    localStorage.setItem('trackly_brand', currentBrandId);
     renderBrandSelect();
     el('brand-select').value = currentBrandId;
     renderAll();
