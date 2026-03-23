@@ -316,10 +316,17 @@ function showScreen(name){
 }
 
 async function becomeAdmin(){
-  const secret = prompt('Enter the ADMIN_SECRET to become admin:');
-  if (!secret) return;
   try{
-    const data = await api('POST','/api/admin/make-first-admin', null, { 'X-Admin-Key': secret });
+    let data;
+    try {
+      data = await api('POST','/api/admin/make-first-admin');
+    } catch(e) {
+      if (e.message && e.message.toLowerCase().includes('admin secret')) {
+        const secret = prompt('Enter the ADMIN_SECRET to become admin:');
+        if (!secret) return;
+        data = await api('POST','/api/admin/make-first-admin', null, { 'X-Admin-Key': secret });
+      } else { throw e; }
+    }
     if(data.success){
       toast('You are now admin!','ok');
       currentAdmin.role='admin';
