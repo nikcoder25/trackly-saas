@@ -2343,7 +2343,11 @@ function renderOverview(){
         el('ov-next-run-text').textContent = 'Next run in ' + h + 'h ' + m + 'm';
         nextRunBadge.style.display = '';
       } else {
-        el('ov-next-run-text').textContent = 'Run overdue';
+        const overdueMs = Math.abs(diffMs);
+        const oh = Math.floor(overdueMs / 3600000);
+        const om = Math.floor((overdueMs % 3600000) / 60000);
+        const overdueText = oh > 0 ? oh + 'h ' + om + 'm' : om + 'm';
+        el('ov-next-run-text').textContent = 'Overdue by ' + overdueText + ' — waiting for next scheduled run';
         nextRunBadge.style.display = '';
       }
     } else {
@@ -3921,7 +3925,7 @@ function renderProof(){
       const sub = foundOn.length ? foundOn.join(', ') : 'Not found on any platform';
 
       html += `<div class="ep-qcard">
-        <div class="ep-qcard-head" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
+        <div class="ep-qcard-head collapsed" onclick="this.classList.toggle('collapsed');this.nextElementSibling.style.display=this.classList.contains('collapsed')?'none':'block';">
           <div class="ep-qcard-idx">${gi+1}</div>
           <div class="ep-qcard-mid">
             <div class="ep-qcard-title">${esc(q)}</div>
@@ -3931,7 +3935,7 @@ function renderProof(){
           <div class="ep-qcard-stat" style="color:${qC};">${qF}/${qT}</div>
           <div class="ep-qcard-chevron">&#9662;</div>
         </div>
-        <div class="ep-qcard-body">
+        <div class="ep-qcard-body" style="display:none;">
           ${res.map(r => buildRow(r, false)).join('')}
         </div>
       </div>`;
@@ -4254,31 +4258,192 @@ async function removeComp(i){
 
 // ─── SOV TRENDS (Chart.js) ────────────────────────────────────────
 let platSovChartInstance = null;
+let sovBarChartInstance = null;
 
 function renderTrends(){
   const b = brand(); if (!b) return;
-
-  // Lazy-load Chart.js then render
-  ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
-    // Fallback: still render bar chart (doesn't need Chart.js)
-    _renderTrendsCharts(b);
+  // Use API-based rendering if brand has an id
+  if (b.id) {
+    renderTrendsWithApi();
+    return;
+  }
+  // Fallback to legacy sovHistory data
+  ensureChartJs().then(() => _renderTrendsCharts(b.sovHistory || [], 'day')).catch(() => {
+    _renderTrendsCharts(b.sovHistory || [], 'day');
   });
 }
-function _renderTrendsCharts(b) {
-  const history = b.sovHistory || [];
 
-  // Destroy existing chart instance safely
+async function renderTrendsWithApi() {
+  const b = brand(); if (!b) return;
+  const days = el('trends-days-filter')?.value || '30';
+  const granularity = el('trends-granularity-filter')?.value || 'day';
+
+  try {
+    const [sovData] = await Promise.all([
+      api('GET', `/api/brands/${b.id}/sov-history?days=${days}&granularity=${granularity}`),
+      ensureChartJs()
+    ]);
+    _renderTrendsFromApi(sovData, granularity);
+  } catch(e) {
+    // Fallback to cached sovHistory
+    ensureChartJs().then(() => _renderTrendsCharts(b.sovHistory || [], granularity)).catch(() => {
+      _renderTrendsCharts(b.sovHistory || [], granularity);
+    });
+  }
+}
+
+function _formatDateLabel(dateStr, granularity) {
+  const d = new Date(dateStr);
+  if (granularity === 'month') return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  if (granularity === 'week') return 'W' + _getWeekNum(d) + ' ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function _getWeekNum(d) {
+  const oneJan = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
+}
+
+function _renderTrendsFromApi(sovData, granularity) {
   if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
+  if (sovBarChartInstance) { sovBarChartInstance.destroy(); sovBarChartInstance = null; }
+
+  const barContainer = el('sov-bar-container');
+  const platCanvas = el('plat-sov-chart');
+  const platPlaceholder = el('plat-sov-placeholder');
+  const trendBadge = el('trends-overall-trend');
+
+  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
+
+  const overall = sovData.overall || [];
+  const byPlatform = sovData.byPlatform || {};
+
+  if (!overall.length) {
+    if (barContainer) {
+      let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;">';
+      barHtml += '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">No data for selected period. Run queries to generate trend data.</span>';
+      barHtml += '</div>';
+      barContainer.innerHTML = barHtml;
+    }
+    if (platCanvas) platCanvas.style.display = 'none';
+    if (platPlaceholder) platPlaceholder.style.display = 'flex';
+    if (trendBadge) trendBadge.innerHTML = '';
+    return;
+  }
+
+  // ── Overall SOV bar chart ──
+  if (barContainer && typeof Chart !== 'undefined') {
+    barContainer.innerHTML = '<canvas id="sov-bar-canvas" style="width:100%;max-height:220px;"></canvas>';
+    const barCanvas = document.getElementById('sov-bar-canvas');
+    const labels = overall.map(h => _formatDateLabel(h.date, granularity));
+    const data = overall.map(h => h.mentionRate);
+    const barColors = data.map((v) => v >= 40 ? 'rgba(16,185,129,0.75)' : v > 0 ? 'rgba(245,158,11,0.75)' : 'rgba(122,129,148,0.3)');
+
+    sovBarChartInstance = new Chart(barCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Overall SOV %',
+          data,
+          backgroundColor: barColors,
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 40
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(26,26,46,.9)', padding: 12, cornerRadius: 8,
+            callbacks: { label: ctx => ctx.parsed.y + '% mention rate (' + overall[ctx.dataIndex].mentions + '/' + overall[ctx.dataIndex].total + ' runs)' }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 45 } },
+          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
+        }
+      }
+    });
+  }
+
+  // ── Trend badge ──
+  if (trendBadge && sovData.trend) {
+    const t = sovData.trend;
+    const dir = t.direction || 'flat';
+    trendBadge.className = 'pd-trend-badge ' + dir;
+    trendBadge.innerHTML = dir === 'up' ? '&#9650; +' + Math.abs(t.changePercent||0).toFixed(1) + '%' :
+      dir === 'down' ? '&#9660; ' + Math.abs(t.changePercent||0).toFixed(1) + '%' : '&#8212; Stable';
+  }
+
+  // ── Per-platform SOV line chart ──
+  const platforms = Object.keys(byPlatform);
+  if (platforms.length > 0 && platCanvas && typeof Chart !== 'undefined') {
+    if (platPlaceholder) platPlaceholder.style.display = 'none';
+    platCanvas.style.display = '';
+
+    // Build unified date labels from all platforms
+    const dateSet = new Set();
+    platforms.forEach(p => byPlatform[p].forEach(d => dateSet.add(d.date)));
+    const sortedDates = [...dateSet].sort();
+    const labels = sortedDates.map(d => _formatDateLabel(d, granularity));
+
+    const datasets = platforms.map(plat => {
+      const t = PLAT_THEME[plat] || {};
+      const dataMap = {};
+      byPlatform[plat].forEach(d => { dataMap[d.date] = d.mentionRate; });
+      return {
+        label: plat,
+        data: sortedDates.map(d => dataMap[d] ?? null),
+        borderColor: t.color || '#888',
+        backgroundColor: 'transparent',
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+        spanGaps: true
+      };
+    });
+
+    const ctx2 = platCanvas.getContext('2d');
+    platSovChartInstance = new Chart(ctx2, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } },
+          tooltip: { backgroundColor: 'rgba(26,26,46,.9)', padding: 12, cornerRadius: 8 }
+        },
+        scales: {
+          x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(0,0,0,.06)' } },
+          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
+        }
+      }
+    });
+  } else {
+    if (platCanvas) platCanvas.style.display = 'none';
+    if (platPlaceholder) platPlaceholder.style.display = 'flex';
+  }
+}
+
+// Legacy fallback for sovHistory data (used when API is not available)
+function _renderTrendsCharts(history, granularity) {
+  if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
+  if (sovBarChartInstance) { sovBarChartInstance.destroy(); sovBarChartInstance = null; }
 
   const barContainer = el('sov-bar-container');
   const platCanvas = el('plat-sov-chart');
   const platPlaceholder = el('plat-sov-placeholder');
 
-  // Remove any previous empty-state messages
   document.querySelectorAll('.trends-empty').forEach(e => e.remove());
 
   if (!history.length) {
-    // Show placeholder bar chart (static design from preview)
     if (barContainer) {
       let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">';
       const heights = [40, 45, 50, 52, 55, 58, 60, 64, 68, 72];
@@ -4294,14 +4459,13 @@ function _renderTrendsCharts(b) {
     return;
   }
 
-  // ── Overall SOV bar chart (CSS bars matching screenshot) ──
+  // ── Overall SOV bar chart (CSS bars) ──
   if (barContainer) {
-    const maxSOV = Math.max(...history.map(h => h.overall), 1);
     let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">';
     history.forEach((h, i) => {
       const pct = Math.max((h.overall / 100) * 100, 4);
       const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
-      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
+      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${_formatDateLabel(h.date, granularity)}"></div>`;
     });
     barHtml += '</div>';
     barContainer.innerHTML = barHtml;
@@ -4315,10 +4479,7 @@ function _renderTrendsCharts(b) {
     if (platPlaceholder) platPlaceholder.style.display = 'none';
     platCanvas.style.display = '';
 
-    const labels = history.map(h => {
-      const d = new Date(h.date);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    });
+    const labels = history.map(h => _formatDateLabel(h.date, granularity));
     const datasets = [...allPlatforms].map(plat => {
       const t = PLAT_THEME[plat] || {};
       return {
@@ -6212,6 +6373,7 @@ async function renderPromptDetail() {
   const prompt = el('pd-prompt-select').value;
   const platform = el('pd-platform-filter').value;
   const days = el('pd-days-filter')?.value || '30';
+  const granularity = el('pd-granularity-filter')?.value || 'day';
   if (!prompt) return;
 
   // Show loading
@@ -6223,7 +6385,7 @@ async function renderPromptDetail() {
     const [visData, histData, compData, runsData] = await Promise.all([
       api('GET', `/api/brands/${b.id}/prompt-visibility`),
       Promise.all([
-        api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=${days}${platform ? '&platform=' + platform : ''}`),
+        api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=${days}&granularity=${granularity}${platform ? '&platform=' + platform : ''}`),
         ensureChartJs()
       ]).then(([h]) => h),
       api('GET', `/api/brands/${b.id}/competitor-analysis`),
@@ -6400,6 +6562,7 @@ async function renderPromptDetail() {
         },
         options: {
           responsive: true,
+          maintainAspectRatio: true,
           cutout: '55%',
           plugins: {
             legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11 } } },

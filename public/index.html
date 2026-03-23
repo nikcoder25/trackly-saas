@@ -1131,9 +1131,35 @@
     <div id="view-trends" class="view">
       <div class="view-title">SOV Trends</div>
       <div class="view-sub">Share of Voice over time — overall and per platform.</div>
+
+      <!-- Time filter toolbar -->
+      <div class="pd-toolbar" style="margin-bottom:16px;">
+        <div class="pd-toolbar-select-wrap pd-toolbar-days">
+          <label class="pd-toolbar-label" for="trends-days-filter">Period</label>
+          <select class="finp pd-select" id="trends-days-filter" onchange="renderTrendsWithApi()">
+            <option value="7">Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="60">Last 60 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+        <div class="pd-toolbar-select-wrap pd-toolbar-gran">
+          <label class="pd-toolbar-label" for="trends-granularity-filter">Group by</label>
+          <select class="finp pd-select" id="trends-granularity-filter" onchange="renderTrendsWithApi()">
+            <option value="day" selected>Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
+          </select>
+        </div>
+      </div>
+
       <div id="trends-kpis" style="display:none;"></div>
       <div class="card" style="padding:20px;">
-        <div class="section-title">Overall SOV Trend</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="section-title" style="margin-bottom:0;">Overall SOV Trend</div>
+          <div id="trends-overall-trend" class="pd-trend-badge" style="font-size:11px;"></div>
+        </div>
         <div id="sov-bar-container"></div>
         <canvas id="sov-chart" style="width:100%;max-height:300px;display:none;"></canvas>
       </div>
@@ -1493,6 +1519,14 @@
             <option value="30" selected>Last 30 days</option>
             <option value="60">Last 60 days</option>
             <option value="90">Last 90 days</option>
+          </select>
+        </div>
+        <div class="pd-toolbar-select-wrap pd-toolbar-gran">
+          <label class="pd-toolbar-label" for="pd-granularity-filter">Group by</label>
+          <select class="finp pd-select" id="pd-granularity-filter" onchange="renderPromptDetail()">
+            <option value="day" selected>Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
           </select>
         </div>
         <div class="pd-query-count" id="pd-query-count"></div>
