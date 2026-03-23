@@ -2371,6 +2371,10 @@ input.brand-select{padding:7px 10px;}
 }
 .kt-filter-input:focus{border-color:var(--primary);outline:none;box-shadow:0 0 0 3px rgba(79,70,229,.12);}
 
+.kt-sortable{cursor:pointer;user-select:none;display:flex;align-items:center;gap:4px;transition:color .15s;}
+.kt-sortable:hover{color:var(--text);}
+.kt-sort-icon{font-size:9px;color:var(--muted);flex-shrink:0;}
+
 .kt-table-header{
   display:grid;
   grid-template-columns:2fr 90px 80px 70px 80px 90px 140px 150px;
