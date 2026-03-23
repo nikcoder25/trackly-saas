@@ -51,6 +51,7 @@ async function renderPromptDetail() {
   const prompt = el('pd-prompt-select').value;
   const platform = el('pd-platform-filter').value;
   const days = el('pd-days-filter')?.value || '30';
+  const granularity = el('pd-granularity-filter')?.value || 'day';
   if (!prompt) return;
 
   // Show loading
@@ -62,7 +63,7 @@ async function renderPromptDetail() {
     const [visData, histData, compData, runsData] = await Promise.all([
       api('GET', `/api/brands/${b.id}/prompt-visibility`),
       Promise.all([
-        api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=${days}${platform ? '&platform=' + platform : ''}`),
+        api('GET', `/api/brands/${b.id}/prompt-history?prompt=${encodeURIComponent(prompt)}&days=${days}&granularity=${granularity}${platform ? '&platform=' + platform : ''}`),
         ensureChartJs()
       ]).then(([h]) => h),
       api('GET', `/api/brands/${b.id}/competitor-analysis`),
