@@ -2377,7 +2377,7 @@ input.brand-select{padding:7px 10px;}
 
 .kt-table-header{
   display:grid;
-  grid-template-columns:2fr 90px 80px 70px 80px 90px 140px 150px;
+  grid-template-columns:2fr 90px 80px 70px 85px 110px 140px 150px;
   gap:0;padding:10px 16px;
   background:var(--bg3);border:1px solid var(--border);
   border-radius:var(--radius) var(--radius) 0 0;
@@ -2396,7 +2396,7 @@ input.brand-select{padding:7px 10px;}
 
 .kt-row{
   display:grid;
-  grid-template-columns:2fr 90px 80px 70px 80px 90px 140px 150px;
+  grid-template-columns:2fr 90px 80px 70px 85px 110px 140px 150px;
   gap:0;padding:12px 16px;
   align-items:center;cursor:pointer;
   font-size:13px;color:var(--text);
