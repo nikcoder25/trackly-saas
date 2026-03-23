@@ -74,7 +74,9 @@ if (process.env.NODE_ENV === 'production') {
       if (allowedHosts.length && !allowedHosts.includes(host)) {
         return res.status(400).json({ error: 'Invalid host' });
       }
-      return res.redirect(301, 'https://' + host + req.url);
+      // Use 308 for non-GET/HEAD to preserve HTTP method (301 converts POST→GET, breaking API calls)
+      const statusCode = (req.method === 'GET' || req.method === 'HEAD') ? 301 : 308;
+      return res.redirect(statusCode, 'https://' + host + req.url);
     }
     // HSTS header — force HTTPS for 1 year
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
@@ -122,7 +124,11 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '2mb' }));
+// Skip JSON body parsing for webhook endpoints — they need the raw body for signature verification
+app.use((req, res, next) => {
+  if (req.path === '/api/payments/webhooks/dodopayments') return next();
+  express.json({ limit: '2mb' })(req, res, next);
+});
 app.use(cookieParser());
 
 // ─── CSRF PROTECTION ─────────────────────────────────────────────
