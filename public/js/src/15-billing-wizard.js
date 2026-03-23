@@ -448,7 +448,7 @@ async function doAddBrandWizard(){
     invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
@@ -524,7 +524,7 @@ document.addEventListener('keydown', e => {
     await initApp();
   } catch(e) {
     // Cookie invalid or expired — show login page directly (not landing)
-    localStorage.removeItem('trackly_session');
+    localStorage.removeItem('livesov_session');
     token = '';
     el('landing-page').style.display = 'none';
     el('app').style.display = 'none';

@@ -18,7 +18,7 @@ function exportMentionsCSV(){
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download = `trackly-mentions-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `livesov-mentions-${new Date().toISOString().slice(0,10)}.csv`;
   a.click(); toast('CSV exported');
 }
 
@@ -676,7 +676,7 @@ function exportProofCSV(){
   const csv = rows.join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv,' + encodeURIComponent(csv);
-  a.download = 'trackly-proof-'+run.date+'.csv';
+  a.download = 'livesov-proof-'+run.date+'.csv';
   a.click();
 }
 
