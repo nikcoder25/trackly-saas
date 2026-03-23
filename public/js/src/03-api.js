@@ -55,6 +55,11 @@ async function api(method, path, data){
       throw new Error('Session expired. Please log in again.');
     }
   }
+  // Validate response is JSON before parsing — HTML responses (e.g. from redirects) cause cryptic errors
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Server returned an unexpected response. Please refresh and try again.');
+  }
   const json = await res.json();
   if (!res.ok) {
     if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register') {
