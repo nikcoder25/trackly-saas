@@ -253,15 +253,14 @@ app.use('/api',          analyticsRoutes);
 
 // ─── Admin panel page (secured with JWT-based admin auth) ───────
 app.get('/admin', async (req, res) => {
-  // Support both legacy ADMIN_SECRET and JWT auth via cookie/header
   const secret = process.env.ADMIN_SECRET;
   if (!secret) return res.status(404).json({ error: 'Not found' });
-  // Accept secret via X-Admin-Key header only (query param removed for security — secrets in URLs leak via logs, referrer headers, and browser history)
-  const provided = req.headers['x-admin-key'] || '';
-  // Use timing-safe comparison to prevent timing attacks
+  // Accept secret via X-Admin-Key header or ?key= query param (for browser navigation)
+  const provided = req.headers['x-admin-key'] || req.query.key || '';
   if (typeof provided !== 'string') {
     return res.status(404).json({ error: 'Not found' });
   }
+  // Use timing-safe comparison to prevent timing attacks
   try {
     const crypto = require('crypto');
     const providedBuf = Buffer.from(provided);
@@ -272,7 +271,20 @@ app.get('/admin', async (req, res) => {
   } catch(e) {
     return res.status(404).json({ error: 'Not found' });
   }
-  // Set Cache-Control to prevent caching of admin page with secret in URL
+  // If secret was passed via query param, redirect to clean URL to strip it from browser history/logs
+  if (req.query.key) {
+    // Set a short-lived cookie so the admin page loads without the secret in the URL
+    res.cookie('_admin_verified', '1', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', maxAge: 60000 });
+    return res.redirect('/admin');
+  }
+  // Also accept the verification cookie (valid for 60s after query-param redirect)
+  if (!req.headers['x-admin-key'] && !req.query.key) {
+    if (!req.cookies || req.cookies._admin_verified !== '1') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    // Clear the one-time cookie after use
+    res.clearCookie('_admin_verified');
+  }
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
