@@ -429,7 +429,20 @@ async function adminResetPassword(){
 async function becomeAdmin(){
   if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
   try {
-    const data = await api('POST', '/api/admin/make-first-admin');
+    // Try without secret first (works when ADMIN_SECRET is not configured)
+    let data;
+    try {
+      data = await api('POST', '/api/admin/make-first-admin');
+    } catch(e) {
+      // If server requires admin secret, prompt for it
+      if (e.message && e.message.toLowerCase().includes('admin secret')) {
+        const secret = prompt('Enter the ADMIN_SECRET to become admin:');
+        if (!secret) return;
+        data = await api('POST', '/api/admin/make-first-admin', null, { 'X-Admin-Key': secret });
+      } else {
+        throw e;
+      }
+    }
     if (data.success) {
       currentUser.role = 'admin';
       el('nav-admin').style.display = 'block';

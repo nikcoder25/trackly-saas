@@ -593,6 +593,9 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
 .wizard-step.active span{background:var(--primary);color:#fff;}
 .wizard-step.done{color:var(--green);border-color:var(--green);}
 .wizard-step.done span{background:var(--green);color:#fff;}
+.wizard-primary{background:var(--primary);color:#fff;border-color:var(--primary);width:100%;margin-top:8px;padding:12px 24px;font-size:14px;font-weight:700;border-radius:var(--radius-sm);}
+.wizard-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,97,84,.25);color:#fff;}
+.wizard-skip{width:100%;margin-top:6px;font-size:12px;padding:10px 16px;}
 .auth-err{
   background:var(--danger-light);
   border:1px solid rgba(239,68,68,.2);
