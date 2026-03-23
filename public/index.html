@@ -850,6 +850,7 @@
     <button class="nav-item" onclick="go('qperf')">◻ Query Performance</button>
     <button class="nav-item" onclick="go('promptdetails')">◇ Prompt Details</button>
     <button class="nav-item" onclick="go('trends')">◆ SOV Trends</button>
+    <button class="nav-item" onclick="go('keywordtracker')">◈ Keyword Tracker</button>
     <button class="nav-item" onclick="go('competitors')">⊘ Competitors</button>
     <button class="nav-item" onclick="go('citations')">⬤ Citation Analysis</button>
     <button class="nav-item" onclick="go('accuracy')">◎ Accuracy Monitor</button>
@@ -1131,35 +1132,9 @@
     <div id="view-trends" class="view">
       <div class="view-title">SOV Trends</div>
       <div class="view-sub">Share of Voice over time — overall and per platform.</div>
-
-      <!-- Time filter toolbar -->
-      <div class="pd-toolbar" style="margin-bottom:16px;">
-        <div class="pd-toolbar-select-wrap pd-toolbar-days">
-          <label class="pd-toolbar-label" for="trends-days-filter">Period</label>
-          <select class="finp pd-select" id="trends-days-filter" onchange="renderTrendsWithApi()">
-            <option value="7">Last 7 days</option>
-            <option value="14">Last 14 days</option>
-            <option value="30" selected>Last 30 days</option>
-            <option value="60">Last 60 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
-        </div>
-        <div class="pd-toolbar-select-wrap pd-toolbar-gran">
-          <label class="pd-toolbar-label" for="trends-granularity-filter">Group by</label>
-          <select class="finp pd-select" id="trends-granularity-filter" onchange="renderTrendsWithApi()">
-            <option value="day" selected>Daily</option>
-            <option value="week">Weekly</option>
-            <option value="month">Monthly</option>
-          </select>
-        </div>
-      </div>
-
       <div id="trends-kpis" style="display:none;"></div>
       <div class="card" style="padding:20px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div class="section-title" style="margin-bottom:0;">Overall SOV Trend</div>
-          <div id="trends-overall-trend" class="pd-trend-badge" style="font-size:11px;"></div>
-        </div>
+        <div class="section-title">Overall SOV Trend</div>
         <div id="sov-bar-container"></div>
         <canvas id="sov-chart" style="width:100%;max-height:300px;display:none;"></canvas>
       </div>
@@ -1168,6 +1143,49 @@
         <canvas id="plat-sov-chart" style="width:100%;max-height:300px;"></canvas>
         <div id="plat-sov-placeholder" class="pd-chart-placeholder" style="min-height:200px;"><span style="font-family:var(--mono);font-size:10px;">Chart: Multi-line graph per platform (ChatGPT, Perplexity, Claude, etc.)</span></div>
       </div>
+    </div>
+
+    <!-- KEYWORD TRACKER ───────────────────── -->
+    <div id="view-keywordtracker" class="view">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <div>
+          <div class="view-title">Keyword Tracker</div>
+          <div class="view-sub">Track visibility and rank changes for each keyword across AI platforms over time.</div>
+        </div>
+      </div>
+
+      <!-- Period tabs: Day / Week / Month -->
+      <div class="kt-period-tabs">
+        <button class="kt-period-tab active" data-period="day" onclick="ktSwitchPeriod('day',this)">Day</button>
+        <button class="kt-period-tab" data-period="week" onclick="ktSwitchPeriod('week',this)">Week</button>
+        <button class="kt-period-tab" data-period="month" onclick="ktSwitchPeriod('month',this)">Month</button>
+      </div>
+
+      <!-- Filter input -->
+      <div class="kt-filter-row">
+        <input type="text" class="finp kt-filter-input" id="kt-filter-input" placeholder="Type to filter keywords" oninput="ktFilterKeywords()">
+      </div>
+
+      <!-- Keyword table header -->
+      <div class="kt-table-header">
+        <div class="kt-col kt-col-kw">Keyword</div>
+        <div class="kt-col kt-col-vis">Visibility</div>
+        <div class="kt-col kt-col-change">Change</div>
+        <div class="kt-col kt-col-runs">Runs</div>
+        <div class="kt-col kt-col-plats">Platforms</div>
+        <div class="kt-col kt-col-pos">Avg Position</div>
+        <div class="kt-col kt-col-spark">Movement</div>
+        <div class="kt-col kt-col-updated">Updated</div>
+      </div>
+
+      <!-- Keyword rows container -->
+      <div id="kt-keyword-list"></div>
+
+      <!-- Loading / empty states -->
+      <div id="kt-loading" class="kt-loading" style="display:none;">
+        <div class="spinner"></div> <span>Loading keyword data...</span>
+      </div>
+      <div id="kt-empty" style="display:none;"></div>
     </div>
 
     <!-- API LOGS ─────────────────────────── -->
@@ -1519,14 +1537,6 @@
             <option value="30" selected>Last 30 days</option>
             <option value="60">Last 60 days</option>
             <option value="90">Last 90 days</option>
-          </select>
-        </div>
-        <div class="pd-toolbar-select-wrap pd-toolbar-gran">
-          <label class="pd-toolbar-label" for="pd-granularity-filter">Group by</label>
-          <select class="finp pd-select" id="pd-granularity-filter" onchange="renderPromptDetail()">
-            <option value="day" selected>Daily</option>
-            <option value="week">Weekly</option>
-            <option value="month">Monthly</option>
           </select>
         </div>
         <div class="pd-query-count" id="pd-query-count"></div>

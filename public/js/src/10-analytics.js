@@ -275,192 +275,31 @@ async function removeComp(i){
 
 // ─── SOV TRENDS (Chart.js) ────────────────────────────────────────
 let platSovChartInstance = null;
-let sovBarChartInstance = null;
 
 function renderTrends(){
   const b = brand(); if (!b) return;
-  // Use API-based rendering if brand has an id
-  if (b.id) {
-    renderTrendsWithApi();
-    return;
-  }
-  // Fallback to legacy sovHistory data
-  ensureChartJs().then(() => _renderTrendsCharts(b.sovHistory || [], 'day')).catch(() => {
-    _renderTrendsCharts(b.sovHistory || [], 'day');
+
+  // Lazy-load Chart.js then render
+  ensureChartJs().then(() => _renderTrendsCharts(b)).catch(() => {
+    // Fallback: still render bar chart (doesn't need Chart.js)
+    _renderTrendsCharts(b);
   });
 }
+function _renderTrendsCharts(b) {
+  const history = b.sovHistory || [];
 
-async function renderTrendsWithApi() {
-  const b = brand(); if (!b) return;
-  const days = el('trends-days-filter')?.value || '30';
-  const granularity = el('trends-granularity-filter')?.value || 'day';
-
-  try {
-    const [sovData] = await Promise.all([
-      api('GET', `/api/brands/${b.id}/sov-history?days=${days}&granularity=${granularity}`),
-      ensureChartJs()
-    ]);
-    _renderTrendsFromApi(sovData, granularity);
-  } catch(e) {
-    // Fallback to cached sovHistory
-    ensureChartJs().then(() => _renderTrendsCharts(b.sovHistory || [], granularity)).catch(() => {
-      _renderTrendsCharts(b.sovHistory || [], granularity);
-    });
-  }
-}
-
-function _formatDateLabel(dateStr, granularity) {
-  const d = new Date(dateStr);
-  if (granularity === 'month') return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  if (granularity === 'week') return 'W' + _getWeekNum(d) + ' ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function _getWeekNum(d) {
-  const oneJan = new Date(d.getFullYear(), 0, 1);
-  return Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7);
-}
-
-function _renderTrendsFromApi(sovData, granularity) {
+  // Destroy existing chart instance safely
   if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
-  if (sovBarChartInstance) { sovBarChartInstance.destroy(); sovBarChartInstance = null; }
-
-  const barContainer = el('sov-bar-container');
-  const platCanvas = el('plat-sov-chart');
-  const platPlaceholder = el('plat-sov-placeholder');
-  const trendBadge = el('trends-overall-trend');
-
-  document.querySelectorAll('.trends-empty').forEach(e => e.remove());
-
-  const overall = sovData.overall || [];
-  const byPlatform = sovData.byPlatform || {};
-
-  if (!overall.length) {
-    if (barContainer) {
-      let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;">';
-      barHtml += '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">No data for selected period. Run queries to generate trend data.</span>';
-      barHtml += '</div>';
-      barContainer.innerHTML = barHtml;
-    }
-    if (platCanvas) platCanvas.style.display = 'none';
-    if (platPlaceholder) platPlaceholder.style.display = 'flex';
-    if (trendBadge) trendBadge.innerHTML = '';
-    return;
-  }
-
-  // ── Overall SOV bar chart ──
-  if (barContainer && typeof Chart !== 'undefined') {
-    barContainer.innerHTML = '<canvas id="sov-bar-canvas" style="width:100%;max-height:220px;"></canvas>';
-    const barCanvas = document.getElementById('sov-bar-canvas');
-    const labels = overall.map(h => _formatDateLabel(h.date, granularity));
-    const data = overall.map(h => h.mentionRate);
-    const barColors = data.map((v) => v >= 40 ? 'rgba(16,185,129,0.75)' : v > 0 ? 'rgba(245,158,11,0.75)' : 'rgba(122,129,148,0.3)');
-
-    sovBarChartInstance = new Chart(barCanvas.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Overall SOV %',
-          data,
-          backgroundColor: barColors,
-          borderRadius: 4,
-          borderSkipped: false,
-          maxBarThickness: 40
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            backgroundColor: 'rgba(26,26,46,.9)', padding: 12, cornerRadius: 8,
-            callbacks: { label: ctx => ctx.parsed.y + '% mention rate (' + overall[ctx.dataIndex].mentions + '/' + overall[ctx.dataIndex].total + ' runs)' }
-          }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 45 } },
-          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
-        }
-      }
-    });
-  }
-
-  // ── Trend badge ──
-  if (trendBadge && sovData.trend) {
-    const t = sovData.trend;
-    const dir = t.direction || 'flat';
-    trendBadge.className = 'pd-trend-badge ' + dir;
-    trendBadge.innerHTML = dir === 'up' ? '&#9650; +' + Math.abs(t.changePercent||0).toFixed(1) + '%' :
-      dir === 'down' ? '&#9660; ' + Math.abs(t.changePercent||0).toFixed(1) + '%' : '&#8212; Stable';
-  }
-
-  // ── Per-platform SOV line chart ──
-  const platforms = Object.keys(byPlatform);
-  if (platforms.length > 0 && platCanvas && typeof Chart !== 'undefined') {
-    if (platPlaceholder) platPlaceholder.style.display = 'none';
-    platCanvas.style.display = '';
-
-    // Build unified date labels from all platforms
-    const dateSet = new Set();
-    platforms.forEach(p => byPlatform[p].forEach(d => dateSet.add(d.date)));
-    const sortedDates = [...dateSet].sort();
-    const labels = sortedDates.map(d => _formatDateLabel(d, granularity));
-
-    const datasets = platforms.map(plat => {
-      const t = PLAT_THEME[plat] || {};
-      const dataMap = {};
-      byPlatform[plat].forEach(d => { dataMap[d.date] = d.mentionRate; });
-      return {
-        label: plat,
-        data: sortedDates.map(d => dataMap[d] ?? null),
-        borderColor: t.color || '#888',
-        backgroundColor: 'transparent',
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        borderWidth: 2,
-        spanGaps: true
-      };
-    });
-
-    const ctx2 = platCanvas.getContext('2d');
-    platSovChartInstance = new Chart(ctx2, {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 } } },
-          tooltip: { backgroundColor: 'rgba(26,26,46,.9)', padding: 12, cornerRadius: 8 }
-        },
-        scales: {
-          x: { ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(0,0,0,.06)' } },
-          y: { min: 0, max: 100, ticks: { color: '#7a8194', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,.06)' } }
-        }
-      }
-    });
-  } else {
-    if (platCanvas) platCanvas.style.display = 'none';
-    if (platPlaceholder) platPlaceholder.style.display = 'flex';
-  }
-}
-
-// Legacy fallback for sovHistory data (used when API is not available)
-function _renderTrendsCharts(history, granularity) {
-  if (platSovChartInstance) { platSovChartInstance.destroy(); platSovChartInstance = null; }
-  if (sovBarChartInstance) { sovBarChartInstance.destroy(); sovBarChartInstance = null; }
 
   const barContainer = el('sov-bar-container');
   const platCanvas = el('plat-sov-chart');
   const platPlaceholder = el('plat-sov-placeholder');
 
+  // Remove any previous empty-state messages
   document.querySelectorAll('.trends-empty').forEach(e => e.remove());
 
   if (!history.length) {
+    // Show placeholder bar chart (static design from preview)
     if (barContainer) {
       let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">';
       const heights = [40, 45, 50, 52, 55, 58, 60, 64, 68, 72];
@@ -476,13 +315,14 @@ function _renderTrendsCharts(history, granularity) {
     return;
   }
 
-  // ── Overall SOV bar chart (CSS bars) ──
+  // ── Overall SOV bar chart (CSS bars matching screenshot) ──
   if (barContainer) {
+    const maxSOV = Math.max(...history.map(h => h.overall), 1);
     let barHtml = '<div style="height:200px;background:var(--bg3);border-radius:var(--radius-xs);display:flex;align-items:end;gap:4px;padding:16px;">';
     history.forEach((h, i) => {
       const pct = Math.max((h.overall / 100) * 100, 4);
       const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
-      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${_formatDateLabel(h.date, granularity)}"></div>`;
+      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
     });
     barHtml += '</div>';
     barContainer.innerHTML = barHtml;
@@ -496,7 +336,10 @@ function _renderTrendsCharts(history, granularity) {
     if (platPlaceholder) platPlaceholder.style.display = 'none';
     platCanvas.style.display = '';
 
-    const labels = history.map(h => _formatDateLabel(h.date, granularity));
+    const labels = history.map(h => {
+      const d = new Date(h.date);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
     const datasets = [...allPlatforms].map(plat => {
       const t = PLAT_THEME[plat] || {};
       return {
@@ -529,6 +372,252 @@ function _renderTrendsCharts(history, granularity) {
     if (platCanvas) platCanvas.style.display = 'none';
     if (platPlaceholder) platPlaceholder.style.display = 'flex';
   }
+}
+
+// ─── KEYWORD TRACKER ─────────────────────────────────────────────
+let _ktData = null;
+let _ktPeriod = 'day';
+let _ktExpandedKeyword = null;
+window._ktExpandedChart = null;
+
+async function renderKeywordTracker() {
+  const b = brand(); if (!b) return;
+  const listEl = el('kt-keyword-list');
+  const loadingEl = el('kt-loading');
+  const emptyEl = el('kt-empty');
+
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (listEl) listEl.innerHTML = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  try {
+    await ensureChartJs();
+  } catch(e) {}
+
+  try {
+    _ktData = await api('GET', `/api/brands/${b.id}/keyword-tracker?period=${_ktPeriod}`);
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    if (!_ktData.keywords || !_ktData.keywords.length) {
+      if (emptyEl) {
+        emptyEl.style.display = 'block';
+        emptyEl.innerHTML = `<div class="card" style="text-align:center;padding:48px 24px;">
+          <div style="font-size:36px;margin-bottom:12px;opacity:.3;">&#9671;</div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px;">No Keyword Data Yet</div>
+          <div style="color:var(--muted);font-size:12px;max-width:340px;margin:0 auto;">Run queries from <a href="#" onclick="go('setup');return false;" style="color:var(--primary);font-weight:600;">Brand Setup</a> to start tracking keyword visibility over time.</div>
+        </div>`;
+      }
+      return;
+    }
+
+    _ktRenderRows(_ktData.keywords);
+  } catch(e) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (listEl) listEl.innerHTML = `<div class="card" style="padding:24px;text-align:center;color:var(--red);">Failed to load keyword data.</div>`;
+  }
+}
+
+function ktSwitchPeriod(period, btn) {
+  _ktPeriod = period;
+  _ktExpandedKeyword = null;
+  if (window._ktExpandedChart) { window._ktExpandedChart.destroy(); window._ktExpandedChart = null; }
+  document.querySelectorAll('.kt-period-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderKeywordTracker();
+}
+
+function ktFilterKeywords() {
+  if (!_ktData || !_ktData.keywords) return;
+  const q = (el('kt-filter-input')?.value || '').toLowerCase();
+  const filtered = q ? _ktData.keywords.filter(k => k.keyword.toLowerCase().includes(q)) : _ktData.keywords;
+  _ktRenderRows(filtered);
+}
+
+function _ktRenderRows(keywords) {
+  const listEl = el('kt-keyword-list');
+  if (!listEl) return;
+
+  let html = '';
+  keywords.forEach((kw, idx) => {
+    const rateColor = kw.mentionRate >= 40 ? 'var(--green)' : kw.mentionRate > 0 ? 'var(--amber)' : 'var(--muted)';
+    const changeStr = kw.change != null ? (kw.change > 0 ? '+' + kw.change : kw.change.toString()) : '-';
+    const changeColor = kw.change > 0 ? 'var(--green)' : kw.change < 0 ? 'var(--red)' : 'var(--muted)';
+    const changeArrow = kw.change > 0 ? '&#9650; ' : kw.change < 0 ? '&#9660; ' : '';
+    const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '-';
+    const updatedStr = kw.lastUpdated ? _ktFormatDate(kw.lastUpdated) : '-';
+    const sparkSvg = _ktSparkline(kw.sparkline);
+    const isExpanded = _ktExpandedKeyword === kw.keyword;
+
+    html += `<div class="kt-row-wrap${isExpanded ? ' kt-expanded' : ''}" data-kw="${esc(kw.keyword)}">
+      <div class="kt-row" onclick="ktToggleExpand('${esc(kw.keyword).replace(/'/g, "\\'")}')">
+        <div class="kt-col kt-col-kw">
+          <span class="kt-expand-icon">${isExpanded ? '&#9660;' : '&#9654;'}</span>
+          <span class="kt-kw-text">${esc(kw.keyword)}</span>
+        </div>
+        <div class="kt-col kt-col-vis"><span style="color:${rateColor};font-weight:700;">${kw.mentionRate}%</span></div>
+        <div class="kt-col kt-col-change"><span style="color:${changeColor};font-weight:600;">${changeArrow}${changeStr}</span></div>
+        <div class="kt-col kt-col-runs">${kw.totalRuns}</div>
+        <div class="kt-col kt-col-plats">${kw.platformCount}</div>
+        <div class="kt-col kt-col-pos" style="font-weight:700;color:var(--purple);">${posStr}</div>
+        <div class="kt-col kt-col-spark">${sparkSvg}</div>
+        <div class="kt-col kt-col-updated">${updatedStr}</div>
+      </div>
+      <div class="kt-graph-panel" id="kt-graph-${idx}" style="display:${isExpanded ? 'block' : 'none'};">
+        <canvas id="kt-chart-${idx}" height="280"></canvas>
+      </div>
+    </div>`;
+  });
+
+  listEl.innerHTML = html;
+
+  // Re-render expanded chart if any
+  if (_ktExpandedKeyword) {
+    const kwIdx = keywords.findIndex(k => k.keyword === _ktExpandedKeyword);
+    if (kwIdx >= 0) _ktRenderExpandedChart(keywords[kwIdx], kwIdx);
+  }
+}
+
+function ktToggleExpand(keyword) {
+  if (!_ktData) return;
+
+  // Destroy previous chart
+  if (window._ktExpandedChart) { window._ktExpandedChart.destroy(); window._ktExpandedChart = null; }
+
+  if (_ktExpandedKeyword === keyword) {
+    // Collapse
+    _ktExpandedKeyword = null;
+    _ktRenderRows(_ktFilteredKeywords());
+    return;
+  }
+
+  _ktExpandedKeyword = keyword;
+  _ktRenderRows(_ktFilteredKeywords());
+}
+
+function _ktFilteredKeywords() {
+  if (!_ktData || !_ktData.keywords) return [];
+  const q = (el('kt-filter-input')?.value || '').toLowerCase();
+  return q ? _ktData.keywords.filter(k => k.keyword.toLowerCase().includes(q)) : _ktData.keywords;
+}
+
+function _ktRenderExpandedChart(kw, idx) {
+  const canvas = document.getElementById('kt-chart-' + idx);
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  // Group history by platform
+  const byPlatform = {};
+  (kw.history || []).forEach(h => {
+    if (!byPlatform[h.platform]) byPlatform[h.platform] = [];
+    byPlatform[h.platform].push(h);
+  });
+
+  // Build unified date labels
+  const dateSet = new Set();
+  Object.values(byPlatform).forEach(arr => arr.forEach(h => dateSet.add(h.date)));
+  const sortedDates = [...dateSet].sort();
+
+  const periodLabel = _ktPeriod === 'month' ? 'month' : _ktPeriod === 'week' ? 'week' : 'day';
+  const labels = sortedDates.map(d => {
+    const dt = new Date(d);
+    if (_ktPeriod === 'month') return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+
+  const datasets = Object.keys(byPlatform).map(plat => {
+    const t = PLAT_THEME[plat] || {};
+    const dataMap = {};
+    byPlatform[plat].forEach(h => {
+      const key = h.date;
+      if (!dataMap[key]) dataMap[key] = { total: 0, mentions: 0 };
+      dataMap[key].total += h.total;
+      dataMap[key].mentions += h.mentions;
+    });
+    return {
+      label: plat,
+      data: sortedDates.map(d => {
+        const dm = dataMap[d];
+        return dm ? (dm.total > 0 ? Math.round((dm.mentions / dm.total) * 100) : 0) : null;
+      }),
+      borderColor: t.color || '#888',
+      backgroundColor: (t.color || '#888') + '15',
+      tension: 0.35,
+      fill: true,
+      pointRadius: 4,
+      pointHoverRadius: 7,
+      pointBackgroundColor: t.color || '#888',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      borderWidth: 2.5,
+      spanGaps: true
+    };
+  });
+
+  window._ktExpandedChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 11, family: "'JetBrains Mono', monospace" }, color: '#7a8194' }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(26,26,46,.95)',
+          padding: 14,
+          cornerRadius: 10,
+          titleFont: { size: 12, family: "'JetBrains Mono', monospace" },
+          bodyFont: { size: 11 },
+          callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + (ctx.parsed.y != null ? ctx.parsed.y + '% visibility' : 'No data') }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#7a8194', font: { size: 10, family: "'JetBrains Mono', monospace" }, maxRotation: 45 }
+        },
+        y: {
+          beginAtZero: true,
+          max: 100,
+          title: { display: true, text: 'Visibility %', font: { size: 11 }, color: '#7a8194' },
+          ticks: { color: '#7a8194', font: { size: 10, family: "'JetBrains Mono', monospace" }, callback: v => v + '%' },
+          grid: { color: 'rgba(0,0,0,.04)' }
+        }
+      }
+    }
+  });
+}
+
+function _ktSparkline(data) {
+  if (!data || data.length < 2) return '<span style="color:var(--muted);font-size:10px;">—</span>';
+  const values = data.map(d => d.mentionRate);
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const w = 120, h = 32, pad = 2;
+
+  const points = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  // Color based on trend (last vs first)
+  const trend = values[values.length - 1] - values[0];
+  const color = trend > 0 ? '#10b981' : trend < 0 ? '#ef4444' : '#7a8194';
+
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;">
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${points.split(' ').pop().split(',')[0]}" cy="${points.split(' ').pop().split(',')[1]}" r="2.5" fill="${color}"/>
+  </svg>`;
+}
+
+function _ktFormatDate(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 // ─── ALERTS ──────────────────────────────────────────────────────
