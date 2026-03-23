@@ -1502,7 +1502,6 @@ select.finput{appearance:none;}
 .pd-toolbar-select-wrap:first-child{flex:1;min-width:0;}
 .pd-toolbar-plat{width:170px;flex-shrink:0;}
 .pd-toolbar-days{width:150px;flex-shrink:0;}
-.pd-toolbar-gran{width:130px;flex-shrink:0;}
 .pd-toolbar-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
 .pd-select{margin:0;font-size:13px;}
 .pd-select-sm{margin:0;font-size:12px;padding:7px 12px;}
@@ -2055,7 +2054,7 @@ input.brand-select{padding:7px 10px;}
   .pd-header{flex-direction:column;gap:10px;}
   .pd-header-actions{width:100%;justify-content:flex-end;}
   .pd-toolbar{flex-direction:column;gap:10px;padding:12px 14px;}
-  .pd-toolbar-plat,.pd-toolbar-days,.pd-toolbar-gran{width:100%;}
+  .pd-toolbar-plat,.pd-toolbar-days{width:100%;}
   .pd-metrics-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
   .pd-run-row{grid-template-columns:90px 1fr 60px 60px;font-size:11px;padding:8px 14px;}
   .pd-run-model,.pd-run-pos{display:none;}

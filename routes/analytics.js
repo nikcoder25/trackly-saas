@@ -238,19 +238,12 @@ router.get('/brands/:id/prompt-history', auth, async (req, res) => {
     if (!_access) return res.status(404).json({ error: 'Brand not found' });
     const brand = _access.brand;
 
-    const { prompt, platform, days = 30, granularity = 'day' } = req.query;
+    const { prompt, platform, days = 30 } = req.query;
     if (!prompt) return res.status(400).json({ error: 'Prompt parameter is required' });
-
-    const validGranularity = ['day', 'week', 'month'].includes(granularity) ? granularity : 'day';
-    const dateExpr = validGranularity === 'week'
-      ? "DATE_TRUNC('week', created_at)::date"
-      : validGranularity === 'month'
-        ? "DATE_TRUNC('month', created_at)::date"
-        : 'DATE(created_at)';
 
     let query = `
       SELECT
-        ${dateExpr} AS date,
+        DATE(created_at) AS date,
         platform,
         COUNT(*)::int AS total,
         COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS mentions,
@@ -267,7 +260,7 @@ router.get('/brands/:id/prompt-history', auth, async (req, res) => {
       params.push(platform);
     }
 
-    query += ` GROUP BY ${dateExpr}, platform ORDER BY date`;
+    query += ' GROUP BY DATE(created_at), platform ORDER BY date';
 
     const result = await pool.query(query, params);
 
@@ -286,80 +279,9 @@ router.get('/brands/:id/prompt-history', auth, async (req, res) => {
     const mentionSeries = series.map(s => ({ date: s.date, value: s.mentionRate }));
     const trend = trendAnalysis(mentionSeries);
 
-    res.json({ history: series, trend, granularity: validGranularity });
+    res.json({ history: series, trend });
   } catch(e) {
     res.status(500).json({ error: 'Failed to load prompt history' });
-  }
-});
-
-// GET /api/brands/:id/sov-history — SOV time series with granularity support
-router.get('/brands/:id/sov-history', auth, async (req, res) => {
-  try {
-    const _access = await getBrandWithAccess(req.params.id, req.user.id);
-    if (!_access) return res.status(404).json({ error: 'Brand not found' });
-
-    const { days = 30, granularity = 'day' } = req.query;
-    const safeDays = Math.min(parseInt(days) || 30, 90);
-    const validGranularity = ['day', 'week', 'month'].includes(granularity) ? granularity : 'day';
-    const dateExpr = validGranularity === 'week'
-      ? "DATE_TRUNC('week', created_at)::date"
-      : validGranularity === 'month'
-        ? "DATE_TRUNC('month', created_at)::date"
-        : 'DATE(created_at)';
-
-    const result = await pool.query(`
-      SELECT
-        ${dateExpr} AS date,
-        platform,
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS mentions
-      FROM prompt_runs
-      WHERE brand_id = $1 AND success = TRUE
-        AND created_at > NOW() - ($2 || ' days')::INTERVAL
-      GROUP BY ${dateExpr}, platform
-      ORDER BY date
-    `, [req.params.id, safeDays]);
-
-    // Also get overall (across all platforms) per date bucket
-    const overallResult = await pool.query(`
-      SELECT
-        ${dateExpr} AS date,
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS mentions
-      FROM prompt_runs
-      WHERE brand_id = $1 AND success = TRUE
-        AND created_at > NOW() - ($2 || ' days')::INTERVAL
-      GROUP BY ${dateExpr}
-      ORDER BY date
-    `, [req.params.id, safeDays]);
-
-    // Build per-platform series
-    const byPlatform = {};
-    result.rows.forEach(r => {
-      if (!byPlatform[r.platform]) byPlatform[r.platform] = [];
-      byPlatform[r.platform].push({
-        date: r.date,
-        mentionRate: r.total > 0 ? Math.round((r.mentions / r.total) * 100) : 0,
-        total: r.total,
-        mentions: r.mentions
-      });
-    });
-
-    // Build overall series
-    const overall = overallResult.rows.map(r => ({
-      date: r.date,
-      mentionRate: r.total > 0 ? Math.round((r.mentions / r.total) * 100) : 0,
-      total: r.total,
-      mentions: r.mentions
-    }));
-
-    // Trend analysis on overall
-    const mentionSeries = overall.map(s => ({ date: s.date, value: s.mentionRate }));
-    const trend = trendAnalysis(mentionSeries);
-
-    res.json({ overall, byPlatform, trend, granularity: validGranularity, days: safeDays });
-  } catch(e) {
-    res.status(500).json({ error: 'Failed to load SOV history' });
   }
 });
 
