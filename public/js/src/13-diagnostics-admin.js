@@ -427,7 +427,7 @@ async function adminResetPassword(){
 }
 
 async function becomeAdmin(){
-  if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
+  if (!confirm('This will make you the admin of this Livesov instance. Continue?')) return;
   try {
     const data = await api('POST', '/api/admin/make-first-admin');
     if (data.success) {

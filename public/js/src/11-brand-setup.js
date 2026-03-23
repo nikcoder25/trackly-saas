@@ -740,7 +740,7 @@ async function doAddBrand(){
     invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
@@ -770,7 +770,7 @@ async function deleteBrand(){
     } else {
       currentBrandId = '';
     }
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     if (brands.length === 0) {
       openModal('add-brand-modal');

@@ -209,7 +209,7 @@ const EMAIL_COLORS = {
 
 // ─── SEO / BRANDING ────────────────────────────────────────────
 const BRANDING = {
-  siteUrl: 'https://trackly.so',
+  siteUrl: 'https://livesov.com',
   themeColor: '#FF6154',
 };
 
