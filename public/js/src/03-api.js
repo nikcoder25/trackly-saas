@@ -2,14 +2,14 @@
 // Token refresh lock — prevents multiple simultaneous refresh attempts
 let _refreshPromise = null;
 
-async function api(method, path, data){
+async function api(method, path, data, extraHeaders){
   // Longer timeout for run endpoints (5 min), default 30s for other calls
   const timeoutMs = path.includes('/run') ? 300000 : 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(extraHeaders || {}) },
     signal: controller.signal,
     credentials: 'include'
   };

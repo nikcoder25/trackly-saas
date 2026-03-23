@@ -372,14 +372,14 @@ function updatePasswordStrength(pw){
 // Token refresh lock — prevents multiple simultaneous refresh attempts
 let _refreshPromise = null;
 
-async function api(method, path, data){
+async function api(method, path, data, extraHeaders){
   // Longer timeout for run endpoints (5 min), default 30s for other calls
   const timeoutMs = path.includes('/run') ? 300000 : 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...(extraHeaders || {}) },
     signal: controller.signal,
     credentials: 'include'
   };
@@ -6457,9 +6457,10 @@ async function adminResetPassword(){
 }
 
 async function becomeAdmin(){
-  if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
+  const secret = prompt('Enter the ADMIN_SECRET to become admin:');
+  if (!secret) return;
   try {
-    const data = await api('POST', '/api/admin/make-first-admin');
+    const data = await api('POST', '/api/admin/make-first-admin', null, { 'X-Admin-Key': secret });
     if (data.success) {
       currentUser.role = 'admin';
       el('nav-admin').style.display = 'block';

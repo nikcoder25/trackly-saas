@@ -427,9 +427,10 @@ async function adminResetPassword(){
 }
 
 async function becomeAdmin(){
-  if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
+  const secret = prompt('Enter the ADMIN_SECRET to become admin:');
+  if (!secret) return;
   try {
-    const data = await api('POST', '/api/admin/make-first-admin');
+    const data = await api('POST', '/api/admin/make-first-admin', null, { 'X-Admin-Key': secret });
     if (data.success) {
       currentUser.role = 'admin';
       el('nav-admin').style.display = 'block';
