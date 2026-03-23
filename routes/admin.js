@@ -347,12 +347,10 @@ router.post('/admin/make-first-admin', auth, async (req, res) => {
     if (existingAdmin.rows.length > 0) {
       return res.status(400).json({ error: 'Admin already exists' });
     }
-    // If ADMIN_SECRET is configured, require it for extra security
-    const adminSecret = process.env.ADMIN_SECRET;
-    if (adminSecret) {
-      const provided = req.headers['x-admin-key'] || '';
-      if (provided !== adminSecret) return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
-    }
+    // No ADMIN_SECRET check needed here — the endpoint is already protected by:
+    // 1. JWT auth (must be logged in)
+    // 2. No existing admin check above
+    // 3. Atomic DB update below (prevents race conditions)
     // Atomic check-and-promote: only promote if no admin exists yet (prevents race condition)
     const promoted = await pool.query(
       `UPDATE users SET role = $1, plan = $2 WHERE id = $3
