@@ -115,6 +115,9 @@ function go(view){
     if (_pdVisChart) { _pdVisChart.destroy(); _pdVisChart = null; }
     if (_pdCompChart) { _pdCompChart.destroy(); _pdCompChart = null; }
   }
+  if (currentView === 'keywordtracker' && window._ktExpandedChart) {
+    window._ktExpandedChart.destroy(); window._ktExpandedChart = null;
+  }
   // Clear run age timer when leaving overview to prevent memory leak
   if (currentView === 'overview' && _runAgeTimer) {
     clearInterval(_runAgeTimer);
@@ -212,6 +215,7 @@ function renderView(view){
   if (view==='recommendations') renderRecommendations();
   if (view==='accuracy')        renderAccuracyMonitor();
   if (view==='citations')       renderCitationAnalysis();
+  if (view==='keywordtracker')  renderKeywordTracker();
   if (view==='copilot')         { /* copilot is interactive, no auto-render */ }
   if (view==='billing')         renderBilling();
 }

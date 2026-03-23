@@ -286,6 +286,136 @@ router.get('/brands/:id/prompt-history', auth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════
+// Keyword Tracker — all queries with rank/visibility history
+// ═══════════════════════════════════════════════════════════
+
+// GET /api/brands/:id/keyword-tracker — keyword table + sparkline data
+router.get('/brands/:id/keyword-tracker', auth, async (req, res) => {
+  try {
+    const _access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!_access) return res.status(404).json({ error: 'Brand not found' });
+
+    const { period = 'day' } = req.query;
+    const validPeriod = ['day', 'week', 'month'].includes(period) ? period : 'day';
+    const daysLookback = validPeriod === 'month' ? 90 : validPeriod === 'week' ? 60 : 30;
+    const dateExpr = validPeriod === 'week'
+      ? "DATE_TRUNC('week', created_at)::date"
+      : validPeriod === 'month'
+        ? "DATE_TRUNC('month', created_at)::date"
+        : 'DATE(created_at)';
+
+    // 1) Per-keyword aggregate stats
+    const statsResult = await pool.query(`
+      SELECT
+        prompt,
+        COUNT(*)::int AS total_runs,
+        COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS mentions,
+        AVG(list_position) FILTER (WHERE list_position IS NOT NULL) AS avg_position,
+        COUNT(DISTINCT platform)::int AS platform_count,
+        MAX(created_at) AS last_updated
+      FROM prompt_runs
+      WHERE brand_id = $1 AND success = TRUE
+        AND created_at > NOW() - ($2 || ' days')::INTERVAL
+      GROUP BY prompt
+      ORDER BY prompt
+    `, [req.params.id, daysLookback]);
+
+    // 2) Previous period stats for change calculation
+    const prevResult = await pool.query(`
+      SELECT
+        prompt,
+        COUNT(*)::int AS total_runs,
+        COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS mentions
+      FROM prompt_runs
+      WHERE brand_id = $1 AND success = TRUE
+        AND created_at > NOW() - ($2 || ' days')::INTERVAL
+        AND created_at <= NOW() - ($3 || ' days')::INTERVAL
+      GROUP BY prompt
+    `, [req.params.id, daysLookback * 2, daysLookback]);
+
+    const prevMap = {};
+    prevResult.rows.forEach(r => {
+      prevMap[r.prompt] = {
+        mentionRate: r.total_runs > 0 ? Math.round((r.mentions / r.total_runs) * 100) : 0
+      };
+    });
+
+    // 3) Time series per keyword (for sparklines + expanded chart)
+    const histResult = await pool.query(`
+      SELECT
+        prompt,
+        ${dateExpr} AS date,
+        platform,
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE mentioned = TRUE)::int AS mentions,
+        AVG(list_position) FILTER (WHERE list_position IS NOT NULL) AS avg_rank,
+        AVG(CASE sentiment WHEN 'positive' THEN 1 WHEN 'negative' THEN -1 ELSE 0 END) AS sentiment_score
+      FROM prompt_runs
+      WHERE brand_id = $1 AND success = TRUE
+        AND created_at > NOW() - ($2 || ' days')::INTERVAL
+      GROUP BY prompt, ${dateExpr}, platform
+      ORDER BY prompt, date
+    `, [req.params.id, daysLookback]);
+
+    // Group history by keyword
+    const histByKeyword = {};
+    histResult.rows.forEach(r => {
+      if (!histByKeyword[r.prompt]) histByKeyword[r.prompt] = [];
+      histByKeyword[r.prompt].push({
+        date: r.date,
+        platform: r.platform,
+        total: r.total,
+        mentions: r.mentions,
+        mentionRate: r.total > 0 ? Math.round((r.mentions / r.total) * 100) : 0,
+        avgRank: r.avg_rank ? parseFloat(r.avg_rank) : null,
+        sentimentScore: r.sentiment_score ? parseFloat(r.sentiment_score) : 0
+      });
+    });
+
+    // Build keyword list
+    const keywords = statsResult.rows.map(r => {
+      const mentionRate = r.total_runs > 0 ? Math.round((r.mentions / r.total_runs) * 100) : 0;
+      const prev = prevMap[r.prompt] || {};
+      const change = prev.mentionRate != null ? mentionRate - prev.mentionRate : null;
+
+      // Build sparkline data (aggregate across platforms per date bucket)
+      const history = histByKeyword[r.prompt] || [];
+      const byDate = {};
+      history.forEach(h => {
+        if (!byDate[h.date]) byDate[h.date] = { total: 0, mentions: 0, ranks: [] };
+        byDate[h.date].total += h.total;
+        byDate[h.date].mentions += h.mentions;
+        if (h.avgRank != null) byDate[h.date].ranks.push(h.avgRank);
+      });
+      const sparkline = Object.keys(byDate).sort().map(d => {
+        const bd = byDate[d];
+        return {
+          date: d,
+          mentionRate: bd.total > 0 ? Math.round((bd.mentions / bd.total) * 100) : 0
+        };
+      });
+
+      return {
+        keyword: r.prompt,
+        mentionRate,
+        change,
+        totalRuns: r.total_runs,
+        avgPosition: r.avg_position ? parseFloat(parseFloat(r.avg_position).toFixed(1)) : null,
+        platformCount: r.platform_count,
+        lastUpdated: r.last_updated,
+        sparkline,
+        history
+      };
+    });
+
+    res.json({ keywords, period: validPeriod });
+  } catch(e) {
+    console.error('Keyword tracker error:', e);
+    res.status(500).json({ error: 'Failed to load keyword tracker data' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
 // Epic 2.3: Competitor co-occurrence
 // ═══════════════════════════════════════════════════════════
 
