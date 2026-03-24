@@ -37,6 +37,7 @@ function renderAccount(){
   const todayRuns = b ? (b.runs || []).filter(r => (r.date || '').startsWith(today)).length : 0;
 
   const usageHtml = `
+    <div class="section-title" style="margin-top:14px;">Your Usage</div>
     <div style="display:grid;gap:12px;margin-top:8px;">
       ${usageBar('Brands', brandCount, limits.brands)}
       ${usageBar('Total prompts', brands.reduce((s,br)=>s+(br.queries||[]).length,0), limits.prompts)}
@@ -49,20 +50,27 @@ function renderAccount(){
 
   // Plan cards
   const planData = [
-          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month, weekly tracking' },
-                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 5 platforms, 250 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 5 platforms, 1000 prompts/month, 20 competitors, sentiment' },
-                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 5 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
+    { id: 'starter', name: 'Starter', price: '$9', color: '#f59e0b', features: ['1 brand', '2 platforms', '30 prompts/month', 'Weekly tracking'] },
+    { id: 'pro', name: 'Pro', price: '$29', color: '#4f46e5', popular: true, features: ['5 brands', '5 platforms', '250 prompts/month', 'Competitor tracking', 'Sentiment analysis'] },
+    { id: 'agency', name: 'Agency', price: '$89', color: '#7c3aed', features: ['20 brands', '5 platforms', '1,000 prompts/month', '20 competitors', 'Sentiment analysis'] },
+    { id: 'enterprise', name: 'Enterprise', price: '$499', color: '#b8860b', features: ['100 brands', '5 platforms', '10,000 prompts/month', '100 competitors', 'API access', 'Priority support'] }
   ];
   const current = currentUser.plan || 'free';
-  el('acct-plans').innerHTML = planData.map(p => `
-    <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
-      <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${p.price}</div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">${p.features}</div>
-      <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
+  el('acct-plans').innerHTML = '<div class="plan-grid">' + planData.map(p => `
+    <div class="upgrade-plan-card ${p.id === current ? 'active' : ''} ${p.popular ? 'popular' : ''}" data-plan="${p.id}">
+      ${p.popular ? '<div class="plan-card-badge">MOST POPULAR</div>' : ''}
+      <div class="plan-card-header" style="border-bottom:3px solid ${p.color};">
+        <div class="plan-card-name" style="color:${p.color};">${p.name}</div>
+        <div class="plan-card-price">${p.price}<span>/mo</span></div>
+      </div>
+      <div class="plan-card-body">
+        <ul class="plan-card-features">
+          ${p.features.map(f => `<li><span class="check">&#10003;</span> ${f}</li>`).join('')}
+        </ul>
+        <button class="btn-upgrade ${p.id === current ? 'current' : 'btn-colored'}" style="${p.id !== current ? 'color:' + p.color + ';' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
+      </div>
     </div>
-  `).join('');
+  `).join('') + '</div>';
 }
 
 // ── Subscription Status ──────────────────────────────
