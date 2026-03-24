@@ -597,9 +597,17 @@ router.post('/:id/run', auth, async (req, res) => {
       // Process a single result inline (called from workers for real-time streaming)
       function processResult(plat, q, result) {
         try {
-          if (!result) { totalQ++; runState.received++; return; }
+          if (!result) {
+            console.error(`[${plat}] Null result for query "${q}" — API key may be missing`);
+            processError(plat, q, new Error('No API key available for ' + plat));
+            return;
+          }
           const { text, citations: extraCites, model: modelUsed } = result;
-          if (!text || typeof text !== 'string') { totalQ++; runState.received++; return; }
+          if (!text || typeof text !== 'string') {
+            console.error(`[${plat}] Empty response text for query "${q}"`);
+            processError(plat, q, new Error('Empty response from ' + plat));
+            return;
+          }
           const parsed = parseResponse(text, brand, q, matcher);
           parsed.simulated = false;
           if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
@@ -1630,6 +1638,7 @@ async function runBrandQueries(brand) {
         platFailCount[plat] = 0;
         cronResults[idx] = { status: 'fulfilled', value: { plat, q, result } };
       } catch(err) {
+        platFailCount[plat] = (platFailCount[plat] || 0) + 1;
         cronResults[idx] = { status: 'rejected', reason: err };
       }
     }
@@ -1644,9 +1653,19 @@ async function runBrandQueries(brand) {
     if (s.status === 'fulfilled') {
       try {
         const { result } = s.value;
-        if (!result) { totalQ++; continue; }
+        if (!result) {
+          console.error(`[Cron][${plat}] Null result for query "${q}" — API key may be missing`);
+          logApiCall({ userId: brand.userId, brandId: brand.id, platform: plat, query: q, status: 'error', error: 'No API key available', keyHint: null, model: null, responseMs: 0, tokensIn: 0, tokensOut: 0, cost: null });
+          allResults.push({ platform: plat, query: q, context: '[API Error] No API key available', raw: '', mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: 'No API key available' });
+          totalQ++; continue;
+        }
         const { text, citations: extraCites, model: modelUsed } = result;
-        if (!text || typeof text !== 'string') { totalQ++; continue; }
+        if (!text || typeof text !== 'string') {
+          console.error(`[Cron][${plat}] Empty response text for query "${q}"`);
+          logApiCall({ userId: brand.userId, brandId: brand.id, platform: plat, query: q, status: 'error', error: 'Empty response text', keyHint: null, model: modelUsed || null, responseMs: 0, tokensIn: 0, tokensOut: 0, cost: null });
+          allResults.push({ platform: plat, query: q, context: '[API Error] Empty response', raw: '', mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: 'Empty response text' });
+          totalQ++; continue;
+        }
         const parsed = parseResponse(text, brand, q, matcher);
         if (extraCites && extraCites.length) parsed.cites = [...extraCites, ...parsed.cites].slice(0, 10);
         totalQ++;
