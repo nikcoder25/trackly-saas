@@ -424,6 +424,35 @@ async function cancelDodoSubscription(subscriptionId) {
   });
 }
 
+// ─── DODO API HELPER — GET requests to DodoPayments API ─────────
+function dodoApiGet(path) {
+  if (!DODO_API_KEY) return Promise.resolve(null);
+  const baseUrl = DODO_ENVIRONMENT === 'live_mode'
+    ? API_ENDPOINTS.dodopayments.live
+    : API_ENDPOINTS.dodopayments.test;
+
+  return new Promise((resolve) => {
+    const reqOpts = {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${DODO_API_KEY}` },
+      timeout: TIMEOUTS.paymentApi
+    };
+    const apiReq = https.request(`${baseUrl}${path}`, reqOpts, (apiRes) => {
+      let data = '';
+      apiRes.on('data', chunk => { data += chunk; });
+      apiRes.on('end', () => {
+        try {
+          if (apiRes.statusCode >= 400) { resolve(null); return; }
+          resolve(JSON.parse(data));
+        } catch(e) { resolve(null); }
+      });
+    });
+    apiReq.on('timeout', () => { apiReq.destroy(); resolve(null); });
+    apiReq.on('error', () => resolve(null));
+    apiReq.end();
+  });
+}
+
 // ─── CANCEL SUBSCRIPTION — User self-service cancellation ───────
 router.post('/cancel', auth, async (req, res) => {
   try {
@@ -467,13 +496,119 @@ router.get('/subscription', auth, async (req, res) => {
     const settings = user.settings || {};
     const subscriptionId = settings.dodo_subscription_id;
 
-    res.json({
+    const result = {
       plan: user.plan,
       hasSubscription: !!subscriptionId,
-      subscriptionId: subscriptionId || null
-    });
+      subscriptionId: subscriptionId || null,
+      status: null,
+      nextBillingDate: null,
+      previousBillingDate: null,
+      createdAt: null,
+      cancelAtNextBilling: false
+    };
+
+    // Fetch live subscription details from DodoPayments
+    if (subscriptionId && DODO_API_KEY) {
+      const sub = await dodoApiGet(`/subscriptions/${subscriptionId}`);
+      if (sub) {
+        result.status = sub.status || null;
+        result.nextBillingDate = sub.next_billing_date || null;
+        result.previousBillingDate = sub.previous_billing_date || null;
+        result.createdAt = sub.created_at || null;
+        result.cancelAtNextBilling = !!sub.cancel_at_next_billing_date;
+      }
+    }
+
+    res.json(result);
   } catch(e) {
     res.status(500).json({ error: 'Failed to load subscription info' });
+  }
+});
+
+// ─── PAYMENT HISTORY — List past payments for this user ─────────
+router.get('/history', auth, async (req, res) => {
+  if (!DODO_API_KEY) {
+    return res.status(503).json({ error: 'Payment system not configured.' });
+  }
+  try {
+    const userResult = await pool.query('SELECT email, settings FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const settings = userResult.rows[0].settings || {};
+    const subscriptionId = settings.dodo_subscription_id;
+
+    // Fetch payments — DodoPayments doesn't filter by customer email in list,
+    // so we fetch recent payments and filter by metadata user_id on our side
+    const data = await dodoApiGet('/payments?page_size=50');
+    if (!data) {
+      return res.json({ payments: [] });
+    }
+
+    const items = (data.items || data || []);
+    // Filter payments belonging to this user (by metadata or customer email)
+    const userEmail = userResult.rows[0].email;
+    const userId = req.user.id;
+    const userPayments = items.filter(p => {
+      const meta = p.metadata || {};
+      const custEmail = (p.customer && p.customer.email) || '';
+      return meta.user_id === userId || custEmail.toLowerCase() === userEmail.toLowerCase();
+    }).map(p => ({
+      paymentId: p.payment_id || p.id,
+      amount: p.total_amount || p.amount,
+      currency: p.currency || 'USD',
+      status: p.status,
+      plan: (p.metadata || {}).plan || null,
+      createdAt: p.created_at,
+      paymentMethod: p.payment_method || null
+    }));
+
+    res.json({ payments: userPayments });
+  } catch(e) {
+    log.error('Payment history failed', { error: e.message });
+    res.status(500).json({ error: 'Failed to load payment history' });
+  }
+});
+
+// ─── INVOICE DOWNLOAD — Proxy invoice PDF from DodoPayments ─────
+router.get('/invoice/:paymentId', auth, async (req, res) => {
+  if (!DODO_API_KEY) {
+    return res.status(503).json({ error: 'Payment system not configured.' });
+  }
+  const { paymentId } = req.params;
+  if (!paymentId || typeof paymentId !== 'string' || paymentId.length > 100) {
+    return res.status(400).json({ error: 'Invalid payment ID' });
+  }
+
+  try {
+    const baseUrl = DODO_ENVIRONMENT === 'live_mode'
+      ? API_ENDPOINTS.dodopayments.live
+      : API_ENDPOINTS.dodopayments.test;
+
+    // Proxy the invoice PDF from DodoPayments
+    const reqOpts = {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${DODO_API_KEY}` },
+      timeout: TIMEOUTS.paymentApi
+    };
+
+    const apiReq = https.request(`${baseUrl}/invoices/payments/${paymentId}`, reqOpts, (apiRes) => {
+      if (apiRes.statusCode >= 400) {
+        res.status(apiRes.statusCode).json({ error: 'Invoice not found' });
+        return;
+      }
+      // Forward content type and stream the PDF
+      res.setHeader('Content-Type', apiRes.headers['content-type'] || 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="invoice-${paymentId}.pdf"`);
+      apiRes.pipe(res);
+    });
+    apiReq.on('timeout', () => { apiReq.destroy(); res.status(504).json({ error: 'Invoice request timed out' }); });
+    apiReq.on('error', (e) => {
+      log.error('Invoice download failed', { error: e.message });
+      res.status(500).json({ error: 'Failed to download invoice' });
+    });
+    apiReq.end();
+  } catch(e) {
+    log.error('Invoice endpoint error', { error: e.message });
+    res.status(500).json({ error: 'Failed to download invoice' });
   }
 });
 

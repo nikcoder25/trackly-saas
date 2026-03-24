@@ -1423,7 +1423,15 @@
           <div id="acct-cancel-row" style="display:none;margin-top:8px;">
             <button id="acct-cancel-btn" onclick="cancelSubscription()" style="padding:6px 14px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);letter-spacing:.5px;">CANCEL SUBSCRIPTION</button>
           </div>
+          <div id="acct-sub-details" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--muted);line-height:2;"></div>
         </div>
+      </div>
+      <div class="card" id="acct-billing-card" style="margin-top:14px;display:none;">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          Billing History
+          <a id="acct-portal-link" href="https://customer.dodopayments.com/" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:10px;color:var(--primary);text-decoration:none;letter-spacing:.5px;">MANAGE BILLING &#8594;</a>
+        </div>
+        <div id="acct-billing-history" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
       </div>
       <div class="card" style="margin-top:14px;">
         <div class="section-title">Two-Factor Authentication</div>

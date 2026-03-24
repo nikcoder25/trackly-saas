@@ -69,25 +69,83 @@ function renderAccount(){
 async function loadSubscriptionStatus() {
   const statusEl = el('acct-sub-status');
   const cancelRow = el('acct-cancel-row');
+  const detailsEl = el('acct-sub-details');
+  const billingCard = el('acct-billing-card');
   if (!statusEl || !cancelRow) return;
   const plan = (currentUser && currentUser.plan) || 'free';
   if (plan === 'free') {
     statusEl.innerHTML = '';
     cancelRow.style.display = 'none';
+    if (detailsEl) detailsEl.style.display = 'none';
+    if (billingCard) billingCard.style.display = 'none';
     return;
   }
   try {
     const data = await api('GET', '/api/payments/subscription');
     if (data.hasSubscription) {
-      statusEl.innerHTML = '<span class="badge pos">ACTIVE</span>';
-      cancelRow.style.display = '';
+      const statusMap = { active: 'pos', on_hold: 'neg', cancelled: 'neg' };
+      const statusLabel = (data.status || 'active').toUpperCase().replace('_', ' ');
+      statusEl.innerHTML = `<span class="badge ${statusMap[data.status] || 'pos'}">${statusLabel}</span>`;
+      cancelRow.style.display = data.status === 'cancelled' ? 'none' : '';
+      // Show subscription details
+      if (detailsEl) {
+        let html = '';
+        if (data.nextBillingDate) {
+          html += `<div>Next billing: <strong style="color:var(--text);">${new Date(data.nextBillingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong></div>`;
+        }
+        if (data.previousBillingDate) {
+          html += `<div>Last billed: ${new Date(data.previousBillingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>`;
+        }
+        if (data.cancelAtNextBilling) {
+          html += `<div style="color:var(--amber);">Cancels at end of billing period</div>`;
+        }
+        if (html) { detailsEl.innerHTML = html; detailsEl.style.display = ''; }
+        else { detailsEl.style.display = 'none'; }
+      }
     } else {
       statusEl.innerHTML = '';
       cancelRow.style.display = 'none';
+      if (detailsEl) detailsEl.style.display = 'none';
     }
+    // Load billing history for any paid plan
+    loadBillingHistory();
   } catch(e) {
     statusEl.innerHTML = '';
     cancelRow.style.display = 'none';
+  }
+}
+
+async function loadBillingHistory() {
+  const billingCard = el('acct-billing-card');
+  const historyEl = el('acct-billing-history');
+  if (!billingCard || !historyEl) return;
+  try {
+    const data = await api('GET', '/api/payments/history');
+    const payments = data.payments || [];
+    if (!payments.length) {
+      billingCard.style.display = 'none';
+      return;
+    }
+    billingCard.style.display = '';
+    historyEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">
+        <th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Plan</th><th style="padding:6px 8px;">Amount</th><th style="padding:6px 8px;">Status</th><th style="padding:6px 8px;"></th>
+      </tr></thead>
+      <tbody>${payments.map(p => {
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        const amt = p.amount != null ? ('$' + (p.amount / 100).toFixed(2)) : '—';
+        const statusColor = p.status === 'succeeded' ? 'var(--green)' : p.status === 'failed' ? 'var(--red)' : 'var(--muted)';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:6px 8px;">${date}</td>
+          <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '—'}</td>
+          <td style="padding:6px 8px;">${amt}</td>
+          <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '—'}</td>
+          <td style="padding:6px 8px;">${p.paymentId ? `<a href="/api/payments/invoice/${p.paymentId}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:10px;">INVOICE</a>` : ''}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    billingCard.style.display = 'none';
   }
 }
 
