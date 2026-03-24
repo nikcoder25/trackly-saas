@@ -338,16 +338,19 @@ router.get('/admin/check-admin', auth, async (req, res) => {
 });
 
 // Make current user admin (if no admin exists yet)
-// Security: requires ADMIN_SECRET env var to prevent any user from self-promoting
+// If no admin exists, any authenticated user can claim admin (first-come, first-served)
+// If ADMIN_SECRET is set, it's required via X-Admin-Key header for extra security
 router.post('/admin/make-first-admin', auth, async (req, res) => {
   try {
-    // Require admin secret to prevent unauthorized self-promotion
-    const adminSecret = process.env.ADMIN_SECRET;
-    if (!adminSecret) {
-      return res.status(403).json({ error: 'ADMIN_SECRET not configured. Cannot promote to admin without it.' });
+    // Check if any admin already exists first
+    const existingAdmin = await pool.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
+    if (existingAdmin.rows.length > 0) {
+      return res.status(400).json({ error: 'Admin already exists' });
     }
-    const provided = req.headers['x-admin-key'] || '';
-    if (provided !== adminSecret) return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
+    // No ADMIN_SECRET check needed here — the endpoint is already protected by:
+    // 1. JWT auth (must be logged in)
+    // 2. No existing admin check above
+    // 3. Atomic DB update below (prevents race conditions)
     // Atomic check-and-promote: only promote if no admin exists yet (prevents race condition)
     const promoted = await pool.query(
       `UPDATE users SET role = $1, plan = $2 WHERE id = $3

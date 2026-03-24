@@ -1987,8 +1987,8 @@
           <button onclick="wizardAddNearbyArea()">+ Add</button>
         </div>
       </div>
-      <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);width:100%;margin-top:8px;" onclick="wizardNext(2)">Next: Add Competitors</button>
-      <button class="btn-secondary" onclick="doAddBrand()" style="width:100%;margin-top:6px;font-size:11px;">Skip wizard &amp; create now</button>
+      <button class="pbtn wizard-primary" onclick="wizardNext(2)">Next: Add Competitors</button>
+      <button class="btn-secondary wizard-skip" onclick="doAddBrand()">Skip wizard &amp; create now</button>
     </div>
     <!-- Step 2: Competitors -->
     <div id="wizard-step-2" style="display:none;">
@@ -2000,7 +2000,7 @@
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn-secondary" onclick="wizardNext(1)" style="flex:1;">Back</button>
-        <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);flex:1;" onclick="wizardNext(3)">Next: Set Queries</button>
+        <button class="pbtn wizard-primary" style="flex:1;width:auto;" onclick="wizardNext(3)">Next: Set Queries</button>
       </div>
     </div>
     <!-- Step 3: Queries -->
@@ -2014,7 +2014,7 @@
       <button class="btn-secondary" onclick="wizardLoadSuggestions()" style="width:100%;margin-bottom:8px;font-size:11px;">Load AI-Generated Suggestions</button>
       <div style="display:flex;gap:8px;">
         <button class="btn-secondary" onclick="wizardNext(2)" style="flex:1;">Back</button>
-        <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);flex:1;" onclick="doAddBrandWizard()">Create Brand &amp; Run</button>
+        <button class="pbtn wizard-primary" style="flex:1;width:auto;" onclick="doAddBrandWizard()">Create Brand &amp; Run</button>
       </div>
     </div>
   </div>
