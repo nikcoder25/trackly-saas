@@ -3,9 +3,10 @@
  * Uses @dodopayments/express adapter for Express.js
  */
 const express = require('express');
+const https   = require('https');
 const router  = express.Router();
 
-const { pool } = require('../config/db');
+const { pool, notify } = require('../config/db');
 const { auth } = require('../middleware/auth');
 const { safeUser } = require('../lib/helpers');
 const { createLogger } = require('../lib/logger');
@@ -102,7 +103,6 @@ router.post('/checkout', auth, async (req, res) => {
     };
 
     // Create checkout session via DodoPayments API
-    const https = require('https');
     const body = JSON.stringify(checkoutPayload);
     const checkoutUrl = await new Promise((resolve, reject) => {
       const reqOpts = {
@@ -261,8 +261,8 @@ if (DODO_WEBHOOK_KEY) {
           if (!eventId) { log.warn('subscription.cancelled missing event ID'); return; }
           if (await isWebhookProcessed('sub_cancel_' + eventId)) return;
           const metadata = data.metadata || {};
-          const userId = metadata.user_id;
-          if (!userId) {
+          let targetUserId = metadata.user_id;
+          if (!targetUserId) {
             // Try to find user by subscription ID
             const subscriptionId = data.subscription_id;
             if (subscriptionId) {
@@ -270,15 +270,18 @@ if (DODO_WEBHOOK_KEY) {
                 `SELECT id FROM users WHERE settings->>'dodo_subscription_id' = $1`,
                 [subscriptionId]
               );
-              if (result.rows.length) {
-                await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', result.rows[0].id]);
-                log.info(`Subscription cancelled, downgraded user ${result.rows[0].id} to free`);
-              }
+              if (result.rows.length) targetUserId = result.rows[0].id;
             }
+          }
+          if (!targetUserId) {
+            log.warn('subscription.cancelled — could not resolve user');
             return;
           }
-          await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
-          log.info(`Subscription cancelled, downgraded user ${userId} to free`);
+          await pool.query(
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            [targetUserId]
+          );
+          log.info(`Subscription cancelled, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
         } catch(e) {
           log.error('subscription.cancelled error', { error: e.message });
@@ -293,21 +296,44 @@ if (DODO_WEBHOOK_KEY) {
           if (!eventId) { log.warn('subscription.expired missing event ID'); return; }
           if (await isWebhookProcessed('sub_expired_' + eventId)) return;
           const metadata = data.metadata || {};
-          const userId = metadata.user_id;
-          if (!userId) return;
-          await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
-          log.info(`Subscription expired, downgraded user ${userId} to free`);
+          let targetUserId = metadata.user_id;
+          if (!targetUserId) {
+            const subscriptionId = data.subscription_id;
+            if (subscriptionId) {
+              const result = await pool.query(
+                `SELECT id FROM users WHERE settings->>'dodo_subscription_id' = $1`,
+                [subscriptionId]
+              );
+              if (result.rows.length) targetUserId = result.rows[0].id;
+            }
+          }
+          if (!targetUserId) {
+            log.warn('subscription.expired — could not resolve user');
+            return;
+          }
+          await pool.query(
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            [targetUserId]
+          );
+          log.info(`Subscription expired, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('sub_expired_' + eventId, 'subscription.expired');
         } catch(e) {
           log.error('subscription.expired error', { error: e.message });
         }
       },
 
-      // Subscription on hold — keep plan but log warning
+      // Subscription on hold — keep plan but warn user
       onSubscriptionOnHold: async (payload) => {
         const data = payload.data || payload;
         const metadata = data.metadata || {};
-        log.warn('Subscription on hold', { userId: metadata.user_id || 'unknown' });
+        const userId = metadata.user_id;
+        log.warn('Subscription on hold', { userId: userId || 'unknown' });
+        if (userId) {
+          await notify(userId, 'billing', 'Payment Issue',
+            'Your subscription payment is on hold. Please update your payment method to avoid service interruption.',
+            { type: 'subscription_on_hold', subscription_id: data.subscription_id }
+          );
+        }
       },
 
       // Refund succeeded — downgrade to free
@@ -318,10 +344,26 @@ if (DODO_WEBHOOK_KEY) {
           if (!eventId) { log.warn('refund.succeeded missing event ID'); return; }
           if (await isWebhookProcessed('refund_' + eventId)) return;
           const metadata = data.metadata || {};
-          const userId = metadata.user_id;
-          if (!userId) return;
-          await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
-          log.info(`Refund processed, downgraded user ${userId} to free`);
+          let targetUserId = metadata.user_id;
+          if (!targetUserId) {
+            const subscriptionId = data.subscription_id;
+            if (subscriptionId) {
+              const result = await pool.query(
+                `SELECT id FROM users WHERE settings->>'dodo_subscription_id' = $1`,
+                [subscriptionId]
+              );
+              if (result.rows.length) targetUserId = result.rows[0].id;
+            }
+          }
+          if (!targetUserId) {
+            log.warn('refund.succeeded — could not resolve user');
+            return;
+          }
+          await pool.query(
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            [targetUserId]
+          );
+          log.info(`Refund processed, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('refund_' + eventId, 'refund.succeeded');
         } catch(e) {
           log.error('refund.succeeded error', { error: e.message });
@@ -344,7 +386,6 @@ if (DODO_WEBHOOK_KEY) {
 // ─── CANCEL SUBSCRIPTION — Called during self-service downgrade ─
 async function cancelDodoSubscription(subscriptionId) {
   if (!DODO_API_KEY || !subscriptionId) return false;
-  const https = require('https');
   const baseUrl = DODO_ENVIRONMENT === 'live_mode'
     ? API_ENDPOINTS.dodopayments.live
     : API_ENDPOINTS.dodopayments.test;
