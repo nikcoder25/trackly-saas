@@ -51,14 +51,14 @@ function setTokenCookies(res, accessToken, refreshToken) {
     sameSite: 'strict',
     path: '/'
   };
-  res.cookie('trackly_token', accessToken, { ...cookieOpts, maxAge: AUTH.accessTokenMaxAge });
-  res.cookie('trackly_refresh', refreshToken, { ...cookieOpts, maxAge: AUTH.refreshTokenMaxAge });
+  res.cookie('livesov_token', accessToken, { ...cookieOpts, maxAge: AUTH.accessTokenMaxAge });
+  res.cookie('livesov_refresh', refreshToken, { ...cookieOpts, maxAge: AUTH.refreshTokenMaxAge });
 }
 
 function clearTokenCookies(res) {
   const cookieOpts = { httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/' };
-  res.clearCookie('trackly_token', cookieOpts);
-  res.clearCookie('trackly_refresh', cookieOpts);
+  res.clearCookie('livesov_token', cookieOpts);
+  res.clearCookie('livesov_refresh', cookieOpts);
 }
 
 // Per-account brute force protection — 10 failed attempts per 15 min per email/username
@@ -311,7 +311,7 @@ router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
 // Refresh token — exchange refresh token for new access token
 router.post('/refresh', async (req, res) => {
   // Accept refresh token from request body or httpOnly cookie
-  const refreshToken = req.body.refreshToken || req.cookies?.trackly_refresh;
+  const refreshToken = req.body.refreshToken || req.cookies?.livesov_refresh;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
     // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent
@@ -396,7 +396,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, email FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     // Always return success to prevent email enumeration
-    if (!result.rows.length) return res.json({ message: 'If an account exists with that email, a reset link has been generated.' });
+    if (!result.rows.length) return res.json({ message: 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.' });
     const user = result.rows[0];
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
@@ -406,11 +406,15 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       'INSERT INTO password_reset_tokens (token, user_id, email, expires_at) VALUES ($1, $2, $3, $4)',
       [token, user.id, user.email, expiresAt]
     );
-    // Send password reset email
-    sendPasswordResetEmail(user.email, token).catch(e => {
-      console.error('[ForgotPassword] Failed to send reset email:', e.message);
-    });
-    res.json({ message: 'If an account exists with that email, a reset link has been generated.' });
+    // Send password reset email and verify it was actually sent
+    const emailResult = await sendPasswordResetEmail(user.email, token);
+    if (!emailResult.sent) {
+      console.error('[ForgotPassword] Email not sent:', emailResult.reason);
+      // Clean up the token since email wasn't delivered
+      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+      return res.status(500).json({ error: 'Unable to send reset email. Please try again later or contact support.' });
+    }
+    res.json({ message: 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.' });
   } catch(e) {
     console.error('[Forgot Password]', e.message);
     res.status(500).json({ error: 'Failed to process request' });

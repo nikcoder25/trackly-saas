@@ -1,8 +1,8 @@
-# Trackly - AI Visibility Tracker SaaS
+# Livesov - AI Visibility Tracker SaaS
 
-## What Is Trackly?
+## What Is Livesov?
 
-Trackly is a SaaS platform that monitors how brands appear across AI platforms — ChatGPT, Perplexity, Claude, Gemini, Grok, Google AI Overviews, DeepSeek, and Mistral. It helps marketers and brands understand their **Share of Voice (SOV)** in AI-generated answers, enabling **Generative Engine Optimization (GEO)** and **Answer Engine Optimization (AEO)** strategies.
+Livesov is a SaaS platform that monitors how brands appear across AI platforms — ChatGPT, Perplexity, Claude, Gemini, Grok, Google AI Overviews, DeepSeek, and Mistral. It helps marketers and brands understand their **Share of Voice (SOV)** in AI-generated answers, enabling **Generative Engine Optimization (GEO)** and **Answer Engine Optimization (AEO)** strategies.
 
 ---
 
