@@ -64,10 +64,10 @@ router.get('/meta/platforms', auth, async (req, res) => {
   }
 });
 
-// GET /api/meta/methodology — how Trackly measures (Epic 1.3)
+// GET /api/meta/methodology — how Livesov measures (Epic 1.3)
 router.get('/meta/methodology', (req, res) => {
   res.json({
-    what_we_measure: 'Trackly tracks how your brand appears across 7 AI platforms by submitting configurable search prompts and analyzing the responses.',
+    what_we_measure: 'Livesov tracks how your brand appears across 7 AI platforms by submitting configurable search prompts and analyzing the responses.',
     how_often: 'Runs can be triggered manually or scheduled (hourly to daily depending on your plan).',
     how_we_sample: 'Each prompt is sent to each configured AI platform. Response randomness is inherent to LLMs, so we calculate confidence intervals using the Wilson score method.',
     metrics: {
@@ -834,7 +834,7 @@ router.get('/export/prompts', auth, async (req, res) => {
           r.mention_rate, r.avg_rank || '', r.last_run_at || ''].map(csvField).join(','));
       });
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="trackly-prompt-stats.csv"');
+      res.setHeader('Content-Disposition', 'attachment; filename="livesov-prompt-stats.csv"');
       return res.send(rows.join('\n'));
     }
 
@@ -875,7 +875,7 @@ router.get('/export/visibility', auth, async (req, res) => {
           r.sentiment, r.list_position || '', r.created_at].map(csvField).join(','));
       });
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="trackly-visibility.csv"');
+      res.setHeader('Content-Disposition', 'attachment; filename="livesov-visibility.csv"');
       return res.send(rows.join('\n'));
     }
 
@@ -910,7 +910,7 @@ router.get('/export/recommendations', auth, async (req, res) => {
           r.playbook_id || '', r.created_at].map(csvField).join(','));
       });
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename="trackly-recommendations.csv"');
+      res.setHeader('Content-Disposition', 'attachment; filename="livesov-recommendations.csv"');
       return res.send(rows.join('\n'));
     }
 
@@ -1400,7 +1400,7 @@ function estimateDomainAuthority(domain) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Epic 8.3: Copilot — natural language queries on Trackly data
+// Epic 8.3: Copilot — natural language queries on Livesov data
 // ═══════════════════════════════════════════════════════════
 
 // POST /api/brands/:id/copilot — ask questions about brand data
@@ -1490,7 +1490,7 @@ function buildCopilotPrompt(question, ctx) {
     .map(([p, d]) => `${p}: ${d.mentioned}/${d.total} mentions (${d.total > 0 ? Math.round(d.mentioned/d.total*100) : 0}%)`)
     .join(', ');
 
-  return `You are Trackly Copilot, an AI assistant for the Trackly AI Visibility platform. Answer the user's question about their brand data concisely and helpfully.
+  return `You are Livesov Copilot, an AI assistant for the Livesov AI Visibility platform. Answer the user's question about their brand data concisely and helpfully.
 
 Brand: ${ctx.brandName}
 Industry: ${ctx.industry || 'Not specified'}
