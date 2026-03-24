@@ -50,9 +50,9 @@ function renderAccount(){
   // Plan cards
   const planData = [
           { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month, weekly tracking' },
-                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 7 platforms, 250 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 1000 prompts/month, 20 competitors, sentiment' },
-                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
+                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 5 platforms, 250 prompts/month, competitors, sentiment' },
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 5 platforms, 1000 prompts/month, 20 competitors, sentiment' },
+                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 5 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
@@ -188,8 +188,6 @@ async function loadModelSettings() {
       'Gemini': '<span style="color:#4285f4;">&#9733;</span>',
       'Grok': '<span style="color:#1da1f2;">&#9889;</span>',
       'Perplexity': '<span style="color:#20b2aa;">&#9678;</span>',
-      'DeepSeek': '<span style="color:#6366f1;">&#9673;</span>',
-      'Google AIO': '<span style="color:#ea4335;">&#9733;</span>'
     };
 
     let html = '<div style="display:grid;gap:10px;">';
@@ -210,23 +208,10 @@ async function loadModelSettings() {
       </div>`;
     }
     html += '</div>';
-    html += '<div id="gemini-aio-warning" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:var(--radius);font-size:11px;font-family:var(--mono);color:#eab308;">Note: Gemini and Google AIO use the same API — enabling both doubles your Gemini API costs.</div>';
     container.innerHTML = html;
-    checkGeminiAioOverlap();
   } catch(e) {
     container.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">Failed to load model settings</div>';
   }
-}
-
-function checkGeminiAioOverlap() {
-  const toggles = document.querySelectorAll('.platform-toggle');
-  let geminiOn = false, aioOn = false;
-  toggles.forEach(t => {
-    if (t.dataset.platform === 'Gemini' && t.checked) geminiOn = true;
-    if (t.dataset.platform === 'Google AIO' && t.checked) aioOn = true;
-  });
-  const warning = document.getElementById('gemini-aio-warning');
-  if (warning) warning.style.display = (geminiOn && aioOn) ? 'block' : 'none';
 }
 
 function togglePlatformRow(cb) {

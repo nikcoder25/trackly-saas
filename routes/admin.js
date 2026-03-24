@@ -398,24 +398,12 @@ router.put('/settings', auth, async (req, res) => {
         return res.status(400).json({ error: `Invalid model "${modelId}" for ${platform}` });
       }
     }
-    // Validate Gemini/AIO overlap — both use the same API key
-    const enabledPlatforms = settings.enabledPlatforms || {};
-    let geminiAioWarning = null;
-    if (enabledPlatforms['Gemini'] !== false && enabledPlatforms['Google AIO'] !== false) {
-      const keys = getServerKeys();
-      if (keys.gemini && keys.gemini.length > 0) {
-        geminiAioWarning = 'Gemini and Google AIO both use the same API key. Enabling both will double your Gemini API usage.';
-      }
-    }
-
     const result = await pool.query(
       'UPDATE users SET settings = settings || $1::jsonb WHERE id = $2 RETURNING *',
       [JSON.stringify(settings), req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
-    const response = { settings: result.rows[0].settings || {}, message: 'Settings saved' };
-    if (geminiAioWarning) response.warning = geminiAioWarning;
-    res.json(response);
+    res.json({ settings: result.rows[0].settings || {}, message: 'Settings saved' });
   } catch(e) {
     res.status(500).json({ error: 'Failed to save settings' });
   }
@@ -464,8 +452,8 @@ router.post('/ai-generate-queries', auth, async (req, res) => {
   if (!brandName || !industry) return res.status(400).json({ error: 'Brand name and industry are required' });
 
   const keys = getServerKeys();
-  const platformOrder = ['deepseek', 'gemini', 'openai', 'claude', 'perplexity', 'grok'];
-  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
+  const platformOrder = ['gemini', 'openai', 'claude', 'perplexity', 'grok'];
+  const platformMap = { gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
   let platform = null;
   for (const p of platformOrder) {
     if (keys[p] && keys[p].length > 0) { platform = platformMap[p]; break; }
@@ -526,8 +514,8 @@ router.post('/nearby-areas', auth, async (req, res) => {
 
   const keys = getServerKeys();
   // Pick an available platform (prefer cheaper/faster ones)
-  const platformOrder = ['deepseek', 'gemini', 'openai', 'claude', 'perplexity', 'grok'];
-  const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
+  const platformOrder = ['gemini', 'openai', 'claude', 'perplexity', 'grok'];
+  const platformMap = { gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
   let platform = null;
   let apiKey = null;
   for (const p of platformOrder) {

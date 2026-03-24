@@ -357,7 +357,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     PLATS.forEach(plat => {
       const t = PLAT_THEME[plat]||{};
       const pSov = platSOV[plat]||0;
-      const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini');
+      const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai');
       const active = keyStatus[keyId];
       const hasResults = !!platCounts[plat];
       const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
@@ -389,8 +389,8 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   // Category SOV — computed from incremental counters
   const catRow = el('ov-category-row');
   if (catRow && validCount > 0) {
-    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek'];
-    const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
+    const chatAI = ['ChatGPT', 'Claude', 'Grok'];
+    const searchAI = ['Perplexity', 'Gemini'];
     let chatTotal = 0, chatFound = 0, searchTotal = 0, searchFound = 0;
     for (const p of chatAI) { chatTotal += c.platCounts[p] || 0; chatFound += c.platMentions[p] || 0; }
     for (const p of searchAI) { searchTotal += c.platCounts[p] || 0; searchFound += c.platMentions[p] || 0; }
@@ -398,8 +398,8 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
     const _sc = window.sovColor || function(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; };
     let ch = '';
-    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${_sc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
-    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${_sc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
+    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${_sc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok</div></div>`;
+    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${_sc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Gemini</div></div>`;
     catRow.innerHTML = ch;
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
     const catSec = el('ov-category-section');

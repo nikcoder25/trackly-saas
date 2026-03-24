@@ -468,12 +468,12 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
         <div class="score-card">
           <div class="score-val" style="font-size:24px;color:var(--blue);">68%</div>
           <div class="score-label">Chat AI SOV</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">ChatGPT, Claude, Grok, DeepSeek</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">ChatGPT, Claude, Grok</div>
         </div>
         <div class="score-card">
           <div class="score-val" style="font-size:24px;color:var(--amber);">76%</div>
           <div class="score-label">Search AI SOV</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">Perplexity, Google AIO, Gemini</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">Perplexity, Gemini</div>
         </div>
         <div class="score-card">
           <div class="score-val" style="font-size:24px;color:var(--green);">92%</div>
@@ -597,7 +597,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
       <!-- Filter bar -->
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
         <span class="plat-filter active-filter">All</span>
-        <span class="plat-filter">ChatGPT</span><span class="plat-filter">Perplexity</span><span class="plat-filter">Claude</span><span class="plat-filter">Gemini</span><span class="plat-filter">Grok</span><span class="plat-filter">Google AIO</span>
+        <span class="plat-filter">ChatGPT</span><span class="plat-filter">Perplexity</span><span class="plat-filter">Claude</span><span class="plat-filter">Gemini</span><span class="plat-filter">Grok</span>
         <select class="brand-select" style="margin-left:auto;width:140px;"><option>All Results</option><option>Mentioned Only</option><option>Not Mentioned</option></select>
         <input class="brand-select" placeholder="Filter by keyword..." style="width:160px;">
       </div>
@@ -612,8 +612,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
             <tr class="trow"><td class="td"><span style="color:#4285f4;font-weight:700;">Gemini</span></td><td class="td">Best HVAC company in Austin TX</td><td class="td"><span class="status-notfound">NOT FOUND</span></td><td class="td">—</td><td class="td">—</td></tr>
             <tr class="trow"><td class="td"><span style="color:#10a37f;font-weight:700;">ChatGPT</span></td><td class="td">Top rated AC repair near me</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--green);">Positive</span></td><td class="td">#2</td></tr>
             <tr class="trow"><td class="td"><span style="color:#1d9bf0;font-weight:700;">Grok</span></td><td class="td">Top rated AC repair near me</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--green);">Positive</span></td><td class="td">#1</td></tr>
-            <tr class="trow"><td class="td"><span style="color:#ea4335;font-weight:700;">Google AIO</span></td><td class="td">Emergency heating repair Austin</td><td class="td"><span class="status-found">FOUND</span></td><td class="td"><span style="color:var(--muted);">Neutral</span></td><td class="td">#3</td></tr>
-            <tr class="trow"><td class="td"><span style="color:#667eea;font-weight:700;">DeepSeek</span></td><td class="td">Emergency heating repair Austin</td><td class="td"><span class="status-notfound">NOT FOUND</span></td><td class="td">—</td><td class="td">—</td></tr>
           </tbody>
         </table>
       </div>
@@ -628,7 +626,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
             <div style="font-size:13px;font-weight:700;margin-bottom:4px;">Fix Gemini Visibility Gap</div>
-            <div style="font-size:12px;color:var(--muted);line-height:1.6;">Your brand appears on 6/7 platforms but only 18% SOV on Gemini. Create structured FAQ content and ensure Google Business Profile is complete — Gemini relies heavily on Google's own data sources.</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.6;">Your brand appears on 4/5 platforms but only 18% SOV on Gemini. Create structured FAQ content and ensure Google Business Profile is complete — Gemini relies heavily on Google's own data sources.</div>
           </div>
           <span style="font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:100px;background:rgba(239,68,68,.08);color:var(--red);font-weight:700;white-space:nowrap;">HIGH PRIORITY</span>
         </div>
@@ -755,7 +753,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
             <tr class="trow"><td class="td" style="font-weight:700;color:#cc9b7a;">Claude</td><td class="td"><span class="status-found">YES</span></td><td class="td">#2</td><td class="td" style="color:var(--muted);">Neutral</td><td class="td">No</td></tr>
             <tr class="trow"><td class="td" style="font-weight:700;color:#4285f4;">Gemini</td><td class="td"><span class="status-notfound">NO</span></td><td class="td">—</td><td class="td">—</td><td class="td">—</td></tr>
             <tr class="trow"><td class="td" style="font-weight:700;color:#1d9bf0;">Grok</td><td class="td"><span class="status-found">YES</span></td><td class="td">#1</td><td class="td" style="color:var(--green);">Positive</td><td class="td">Yes</td></tr>
-            <tr class="trow"><td class="td" style="font-weight:700;color:#ea4335;">Google AIO</td><td class="td"><span class="status-found">YES</span></td><td class="td">#2</td><td class="td" style="color:var(--muted);">Neutral</td><td class="td">No</td></tr>
           </tbody>
         </table>
       </div>
@@ -845,7 +842,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
         </div>
         <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border-left:3px solid var(--amber);background:rgba(245,158,11,.03);border-radius:var(--radius-xs);">
           <span style="color:var(--amber);font-size:14px;">&#9888;</span>
-          <div style="font-size:12px;"><strong>DeepSeek</strong> listed incorrect phone number "512-555-0000" — correct is 512-555-1234. <span style="color:var(--muted);">Detected Mar 16</span></div>
+          <div style="font-size:12px;"><strong>ChatGPT</strong> listed incorrect phone number "512-555-0000" — correct is 512-555-1234. <span style="color:var(--muted);">Detected Mar 16</span></div>
         </div>
       </div>
     </div>
@@ -914,7 +911,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
         <div class="form-group">
           <label class="flbl">AI Platforms to Track</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <span class="plat-filter active-filter">ChatGPT</span><span class="plat-filter active-filter">Perplexity</span><span class="plat-filter active-filter">Claude</span><span class="plat-filter active-filter">Gemini</span><span class="plat-filter active-filter">Grok</span><span class="plat-filter active-filter">Google AIO</span><span class="plat-filter">DeepSeek</span>
+            <span class="plat-filter active-filter">ChatGPT</span><span class="plat-filter active-filter">Perplexity</span><span class="plat-filter active-filter">Claude</span><span class="plat-filter active-filter">Gemini</span><span class="plat-filter active-filter">Grok</span>
           </div>
         </div>
         <button style="padding:10px 24px;background:var(--primary);color:#fff;border:none;border-radius:var(--radius-xs);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:8px;">SAVE CHANGES</button>
@@ -1163,7 +1160,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
               <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:45 PM</td><td class="td" style="color:#20b8cd;font-weight:700;">Perplexity</td><td class="td" style="font-family:var(--mono);font-size:9px;">Sonar Large</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">2.1s</td><td class="td" style="font-family:var(--mono);">$0.005</td></tr>
               <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:45 PM</td><td class="td" style="color:#cc9b7a;font-weight:700;">Claude</td><td class="td" style="font-family:var(--mono);font-size:9px;">Sonnet 4</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">1.8s</td><td class="td" style="font-family:var(--mono);">$0.004</td></tr>
               <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:46 PM</td><td class="td" style="color:#4285f4;font-weight:700;">Gemini</td><td class="td" style="font-family:var(--mono);font-size:9px;">2.0 Flash</td><td class="td">Best HVAC Austin</td><td class="td"><span class="status-found">200</span></td><td class="td">0.9s</td><td class="td" style="font-family:var(--mono);">$0.001</td></tr>
-              <tr class="trow"><td class="td" style="font-family:var(--mono);font-size:9px;">2:46 PM</td><td class="td" style="color:#667eea;font-weight:700;">DeepSeek</td><td class="td" style="font-family:var(--mono);font-size:9px;">V3</td><td class="td">Best HVAC Austin</td><td class="td"><span style="color:var(--red);font-weight:700;font-size:10px;">429</span></td><td class="td">—</td><td class="td" style="font-family:var(--mono);">—</td></tr>
             </tbody>
           </table>
         </div>
@@ -1179,7 +1175,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font
             <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Claude key</div></div>
             <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Gemini key</div></div>
             <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--green);font-weight:700;font-size:18px;">1</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">Grok key</div></div>
-            <div style="border:1px solid var(--border);padding:12px 18px;border-radius:var(--radius-xs);text-align:center;"><span style="color:var(--red);font-weight:700;font-size:18px;">0</span><div style="font-size:10px;color:var(--muted);margin-top:4px;">DeepSeek keys</div></div>
           </div>
           <div style="margin-top:12px;color:var(--amber);font-family:var(--mono);font-size:10px;">Platforms with 0 keys will be skipped during queries. Add keys in Railway environment variables.</div>
         </div>

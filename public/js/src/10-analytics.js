@@ -15,7 +15,7 @@ async function renderPlatformStatus(){
 
   grid.innerHTML = PLATS.map(plat => {
     const t = PLAT_THEME[plat]||{};
-    const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
+    const keyField = plat==='ChatGPT'?'openai':plat.toLowerCase();
     const hasKey = keyStatus[keyField];
     const sov = lastRun ? ((lastRun.platforms||{})[plat]||0) : 0;
     const sovColor = sov >= 50 ? 'var(--green)' : sov > 0 ? 'var(--amber)' : 'var(--muted)';

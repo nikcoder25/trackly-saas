@@ -120,7 +120,7 @@ async function renderApiLogs(){
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
       const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
       const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
-      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-)/, '').substring(0, 18);
+      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       const errMsg = isErr && log.error ? log.error : '';
