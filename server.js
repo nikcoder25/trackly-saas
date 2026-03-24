@@ -235,12 +235,30 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // ─── HEALTH CHECK (before auth — accessible to monitoring tools) ──
 app.get('/api/health', async (req, res) => {
+  const checks = { db: false, payments: false };
+  let status = 'ok';
+
+  // Database connectivity
   try {
     await pool.query('SELECT 1');
-    res.json({ status: 'ok', time: new Date().toISOString() });
+    checks.db = true;
   } catch(e) {
-    res.status(503).json({ status: 'error', time: new Date().toISOString() });
+    status = 'degraded';
   }
+
+  // DodoPayments configuration
+  const dodoKey = process.env.DODO_PAYMENTS_API_KEY;
+  const dodoWebhook = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
+  const dodoProducts = [
+    process.env.DODO_PRO_PRODUCT_ID,
+    process.env.DODO_AGENCY_PRODUCT_ID,
+    process.env.DODO_ENTERPRISE_PRODUCT_ID
+  ];
+  checks.payments = !!(dodoKey && dodoWebhook && dodoProducts.every(Boolean));
+  if (!checks.payments) status = status === 'ok' ? 'degraded' : status;
+
+  const code = checks.db ? 200 : 503;
+  res.status(code).json({ status, time: new Date().toISOString(), checks });
 });
 
 // ─── CONFIG ENDPOINT (public — serves non-secret configuration) ──
@@ -544,8 +562,24 @@ const server = app.listen(PORT, () => {
   ║                                          ║
   ║  Database: PostgreSQL                    ║
   ║  JWT_SECRET: ${process.env.JWT_SECRET ? 'SET ✓' : 'NOT SET ✗'}                     ║
+  ║  Payments:  ${process.env.DODO_PAYMENTS_API_KEY ? 'Configured ✓' : 'NOT SET ✗'}                ║
   ╚══════════════════════════════════════════╝
   `);
+  // Validate DodoPayments config
+  const dodoVars = {
+    DODO_PAYMENTS_API_KEY: process.env.DODO_PAYMENTS_API_KEY,
+    DODO_PAYMENTS_WEBHOOK_KEY: process.env.DODO_PAYMENTS_WEBHOOK_KEY,
+    DODO_PRO_PRODUCT_ID: process.env.DODO_PRO_PRODUCT_ID,
+    DODO_AGENCY_PRODUCT_ID: process.env.DODO_AGENCY_PRODUCT_ID,
+    DODO_ENTERPRISE_PRODUCT_ID: process.env.DODO_ENTERPRISE_PRODUCT_ID,
+  };
+  const missingDodo = Object.entries(dodoVars).filter(([, v]) => !v).map(([k]) => k);
+  if (missingDodo.length) {
+    log.warn(`DodoPayments partially configured — missing: ${missingDodo.join(', ')}`);
+    log.warn('Paid plan upgrades will not work until all DODO_* env vars are set');
+  } else {
+    log.info(`DodoPayments ready (${process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode'})`);
+  }
   // Log loaded API key counts for debugging rotation
   const keys = getServerKeys();
   const keyInfo = Object.entries(keys)
