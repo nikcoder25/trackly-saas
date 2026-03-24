@@ -1037,29 +1037,27 @@ function renderAccount(){
   const acctUsageEl = el('acct-usage');
   if (acctUsageEl) acctUsageEl.innerHTML = usageHtml;
 
-  // Plan cards
+  // Plan cards — reuse landing page pricing card classes
   const planData = [
-    { id: 'starter', name: 'Starter', price: '$9', color: '#f59e0b', features: ['1 brand', '2 platforms', '30 prompts/month', 'Weekly tracking'] },
-    { id: 'pro', name: 'Pro', price: '$29', color: '#4f46e5', popular: true, features: ['5 brands', '5 platforms', '250 prompts/month', 'Competitor tracking', 'Sentiment analysis'] },
-    { id: 'agency', name: 'Agency', price: '$89', color: '#7c3aed', features: ['20 brands', '5 platforms', '1,000 prompts/month', '20 competitors', 'Sentiment analysis'] },
-    { id: 'enterprise', name: 'Enterprise', price: '$499', color: '#b8860b', features: ['100 brands', '5 platforms', '10,000 prompts/month', '100 competitors', 'API access', 'Priority support'] }
+    { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking'] },
+    { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', '5 platforms', 'Competitors', 'Sentiment analysis'] },
+    { id: 'agency', name: 'Agency', price: '$89', tagline: 'Scale with confidence', features: ['<strong>1,000</strong> prompts/month', '20 brands', '5 platforms', '20 competitors', 'Sentiment analysis'] },
+    { id: 'enterprise', name: 'Enterprise', price: '$499', tagline: 'Full power', features: ['<strong>10,000</strong> prompts/month', '100 brands', '5 platforms', '100 competitors', 'API access', 'Priority support'] }
   ];
   const current = currentUser.plan || 'free';
-  el('acct-plans').innerHTML = '<div class="plan-grid">' + planData.map(p => `
-    <div class="upgrade-plan-card ${p.id === current ? 'active' : ''} ${p.popular ? 'popular' : ''}" data-plan="${p.id}">
-      ${p.popular ? '<div class="plan-card-badge">MOST POPULAR</div>' : ''}
-      <div class="plan-card-header" style="border-bottom:3px solid ${p.color};">
-        <div class="plan-card-name" style="color:${p.color};">${p.name}</div>
-        <div class="plan-card-price">${p.price}<span>/mo</span></div>
-      </div>
-      <div class="plan-card-body">
-        <ul class="plan-card-features">
-          ${p.features.map(f => `<li><span class="check">&#10003;</span> ${f}</li>`).join('')}
-        </ul>
-        <button class="btn-upgrade ${p.id === current ? 'current' : 'btn-colored'}" style="${p.id !== current ? 'color:' + p.color + ';' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
-      </div>
-    </div>
-  `).join('') + '</div>';
+  el('acct-plans').innerHTML = '<div class="land-pricing" style="margin-top:16px;">' + planData.map(p => {
+    const isCurrent = p.id === current;
+    const disabled = isCurrent ? 'disabled' : '';
+    const btnText = isCurrent ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase();
+    const btnStyle = isCurrent ? 'width:100%;opacity:.5;cursor:default;' : 'width:100%;';
+    return `<div class="land-price-card ${p.featured ? 'featured' : ''}"${p.id === 'enterprise' ? ' style="border-color:var(--purple,#9b72ff);"' : ''}>
+      <h3${p.id === 'enterprise' ? ' style="color:var(--purple,#9b72ff);"' : ''}>${p.name}</h3>
+      <div class="price">${p.price}<span>/mo</span></div>
+      <div class="price-sub">${p.tagline}</div>
+      <ul>${p.features.map(f => '<li>' + f + '</li>').join('')}</ul>
+      <button class="land-btn land-btn-primary" style="${btnStyle}" onclick="doUpgrade('${p.id}')" ${disabled}>${btnText}</button>
+    </div>`;
+  }).join('') + '</div>';
 }
 
 // ── Subscription Status ──────────────────────────────
