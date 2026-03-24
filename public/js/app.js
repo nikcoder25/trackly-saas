@@ -780,8 +780,8 @@ async function initApp(){
   const emailBadge = el('user-email-badge');
   if (emailBadge) emailBadge.textContent = currentUser.email;
   const pb = el('plan-badge');
-  pb.textContent = (currentUser.plan||'starter').toUpperCase();
-  pb.className = 'plan-badge ' + (currentUser.plan||'starter');
+  pb.textContent = (currentUser.plan||'free').toUpperCase();
+  pb.className = 'plan-badge ' + (currentUser.plan||'free');
 
   // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');
@@ -1012,10 +1012,12 @@ function renderAccount(){
     }
   }
   const planEl = el('acct-plan');
-  planEl.textContent = currentUser.plan || 'starter';
-  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+  planEl.textContent = currentUser.plan || 'free';
+  planEl.style.color = currentUser.plan === 'enterprise' ? 'var(--purple)' : currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : currentUser.plan === 'starter' ? 'var(--amber)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
+  // Subscription status + cancel button
+  loadSubscriptionStatus();
 
   // Usage stats
   const limits = getUserLimits();
@@ -1039,12 +1041,12 @@ function renderAccount(){
 
   // Plan cards
   const planData = [
-          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month' },
+          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month, weekly tracking' },
                 { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 7 platforms, 250 prompts/month, competitors, sentiment' },
                       { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 1000 prompts/month, 20 competitors, sentiment' },
                       { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
   ];
-  const current = currentUser.plan || 'starter';
+  const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
     <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
@@ -1053,6 +1055,106 @@ function renderAccount(){
       <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
     </div>
   `).join('');
+}
+
+// ── Subscription Status ──────────────────────────────
+async function loadSubscriptionStatus() {
+  const statusEl = el('acct-sub-status');
+  const cancelRow = el('acct-cancel-row');
+  const detailsEl = el('acct-sub-details');
+  const billingCard = el('acct-billing-card');
+  if (!statusEl || !cancelRow) return;
+  const plan = (currentUser && currentUser.plan) || 'free';
+  if (plan === 'free') {
+    statusEl.innerHTML = '';
+    cancelRow.style.display = 'none';
+    if (detailsEl) detailsEl.style.display = 'none';
+    if (billingCard) billingCard.style.display = 'none';
+    return;
+  }
+  try {
+    const data = await api('GET', '/api/payments/subscription');
+    if (data.hasSubscription) {
+      const statusMap = { active: 'pos', on_hold: 'neg', cancelled: 'neg' };
+      const statusLabel = (data.status || 'active').toUpperCase().replace('_', ' ');
+      statusEl.innerHTML = `<span class="badge ${statusMap[data.status] || 'pos'}">${statusLabel}</span>`;
+      cancelRow.style.display = data.status === 'cancelled' ? 'none' : '';
+      // Show subscription details
+      if (detailsEl) {
+        let html = '';
+        if (data.nextBillingDate) {
+          html += `<div>Next billing: <strong style="color:var(--text);">${new Date(data.nextBillingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong></div>`;
+        }
+        if (data.previousBillingDate) {
+          html += `<div>Last billed: ${new Date(data.previousBillingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>`;
+        }
+        if (data.cancelAtNextBilling) {
+          html += `<div style="color:var(--amber);">Cancels at end of billing period</div>`;
+        }
+        if (html) { detailsEl.innerHTML = html; detailsEl.style.display = ''; }
+        else { detailsEl.style.display = 'none'; }
+      }
+    } else {
+      statusEl.innerHTML = '';
+      cancelRow.style.display = 'none';
+      if (detailsEl) detailsEl.style.display = 'none';
+    }
+    // Load billing history for any paid plan
+    loadBillingHistory();
+  } catch(e) {
+    statusEl.innerHTML = '';
+    cancelRow.style.display = 'none';
+  }
+}
+
+async function loadBillingHistory() {
+  const billingCard = el('acct-billing-card');
+  const historyEl = el('acct-billing-history');
+  if (!billingCard || !historyEl) return;
+  try {
+    const data = await api('GET', '/api/payments/history');
+    const payments = data.payments || [];
+    if (!payments.length) {
+      billingCard.style.display = 'none';
+      return;
+    }
+    billingCard.style.display = '';
+    historyEl.innerHTML = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">
+        <th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Plan</th><th style="padding:6px 8px;">Amount</th><th style="padding:6px 8px;">Status</th><th style="padding:6px 8px;"></th>
+      </tr></thead>
+      <tbody>${payments.map(p => {
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+        const amt = p.amount != null ? ('$' + (p.amount / 100).toFixed(2)) : '—';
+        const statusColor = p.status === 'succeeded' ? 'var(--green)' : p.status === 'failed' ? 'var(--red)' : 'var(--muted)';
+        return `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:6px 8px;">${date}</td>
+          <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '—'}</td>
+          <td style="padding:6px 8px;">${amt}</td>
+          <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '—'}</td>
+          <td style="padding:6px 8px;">${p.paymentId ? `<a href="/api/payments/invoice/${p.paymentId}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:10px;">INVOICE</a>` : ''}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    billingCard.style.display = 'none';
+  }
+}
+
+async function cancelSubscription() {
+  if (!confirm('Are you sure you want to cancel your subscription? You will be downgraded to the free plan immediately.')) return;
+  if (!confirm('This will take effect immediately. Continue?')) return;
+  try {
+    const data = await api('POST', '/api/payments/cancel');
+    currentUser = data.user;
+    const pb = el('plan-badge');
+    pb.textContent = 'FREE';
+    pb.className = 'plan-badge free';
+    toast(data.message || 'Subscription cancelled', 'ok');
+    if (currentView === 'account') renderAccount();
+  } catch(e) {
+    toast(e.message || 'Failed to cancel subscription', 'err');
+  }
 }
 
 // ── Model Settings ────────────────────────────────────
@@ -1652,7 +1754,7 @@ function showUpgradeModal(reason) {
     reasonEl.style.display = 'none';
   }
   // Highlight current plan
-  const current = (currentUser && currentUser.plan) || 'starter';
+  const current = (currentUser && currentUser.plan) || 'free';
   document.querySelectorAll('#upgrade-plans .upgrade-plan-card').forEach(card => {
     const plan = card.dataset.plan;
     card.classList.toggle('active', plan === current);
@@ -1671,9 +1773,9 @@ function showUpgradeModal(reason) {
 }
 
 async function doUpgrade(plan) {
-  const current = (currentUser && currentUser.plan) || 'starter';
+  const current = (currentUser && currentUser.plan) || 'free';
   if (plan === current) return;
-  const tiers = {starter:0, pro:1, agency:2, enterprise:3};
+  const tiers = {free:0, starter:1, pro:2, agency:3, enterprise:4};
   const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
@@ -6261,12 +6363,14 @@ async function renderAdmin(){
 
 function renderAdminStats(users){
   const total = users.length;
+  const free = users.filter(u => u.plan === 'free').length;
   const starter = users.filter(u => u.plan === 'starter').length;
   const pro = users.filter(u => u.plan === 'pro').length;
   const agency = users.filter(u => u.plan === 'agency').length;
   const stats = [
     { label: 'Total Users', value: total, color: 'var(--text)' },
-    { label: 'Starter Plan', value: starter, color: 'var(--muted)' },
+    { label: 'Free Plan', value: free, color: 'var(--muted)' },
+    { label: 'Starter Plan', value: starter, color: 'var(--amber)' },
     { label: 'Pro Plan', value: pro, color: 'var(--green)' },
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];
@@ -6333,7 +6437,7 @@ function openAdminEdit(userId){
   el('admin-edit-email').value = u.email || '';
   el('admin-edit-username').value = u.username || '';
   el('admin-edit-name').value = u.name || '';
-  el('admin-edit-plan').value = u.plan || 'starter';
+  el('admin-edit-plan').value = u.plan || 'free';
   el('admin-edit-role').value = u.role || 'user';
   el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
   // Read-only info
@@ -6403,7 +6507,7 @@ function openAdminAddUser(){
   el('admin-add-username').value = '';
   el('admin-add-name').value = '';
   el('admin-add-password').value = '';
-  el('admin-add-plan').value = 'starter';
+  el('admin-add-plan').value = 'free';
   el('admin-add-role').value = 'user';
   document.getElementById('admin-add-modal').classList.add('open');
 }
@@ -7274,7 +7378,7 @@ async function renderBilling() {
 
     // Plan card
     const planEl = el('billing-plan-card');
-    const planColors = { starter: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
+    const planColors = { free: '#6b7280', starter: '#f59e0b', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
     planEl.innerHTML = `
       <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
         <div style="display:flex;justify-content:space-between;align-items:center;">

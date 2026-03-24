@@ -1125,7 +1125,8 @@ router.get('/billing', auth, async (req, res) => {
     const user = await pool.query('SELECT plan, settings, created_at FROM users WHERE id = $1', [req.user.id]);
     if (!user.rows.length) return res.status(404).json({ error: 'User not found' });
 
-    const plan = user.rows[0].plan || 'starter';
+    const plan = user.rows[0].plan || 'free';
+    const settings = user.rows[0].settings || {};
     const limits = getPlanLimits(plan);
 
     // Current usage
@@ -1167,7 +1168,11 @@ router.get('/billing', auth, async (req, res) => {
       usage,
       warnings,
       allPlans: PLAN_LIMITS,
-      memberSince: user.rows[0].created_at
+      memberSince: user.rows[0].created_at,
+      subscription: {
+        active: plan !== 'free' && !!settings.dodo_subscription_id,
+        subscriptionId: settings.dodo_subscription_id || null
+      }
     });
   } catch(e) {
     res.status(500).json({ error: 'Failed to load billing info' });

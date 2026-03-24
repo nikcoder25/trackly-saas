@@ -250,6 +250,7 @@ app.get('/api/health', async (req, res) => {
   const dodoKey = process.env.DODO_PAYMENTS_API_KEY;
   const dodoWebhook = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
   const dodoProducts = [
+    process.env.DODO_STARTER_PRODUCT_ID,
     process.env.DODO_PRO_PRODUCT_ID,
     process.env.DODO_AGENCY_PRODUCT_ID,
     process.env.DODO_ENTERPRISE_PRODUCT_ID
@@ -569,6 +570,7 @@ const server = app.listen(PORT, () => {
   const dodoVars = {
     DODO_PAYMENTS_API_KEY: process.env.DODO_PAYMENTS_API_KEY,
     DODO_PAYMENTS_WEBHOOK_KEY: process.env.DODO_PAYMENTS_WEBHOOK_KEY,
+    DODO_STARTER_PRODUCT_ID: process.env.DODO_STARTER_PRODUCT_ID,
     DODO_PRO_PRODUCT_ID: process.env.DODO_PRO_PRODUCT_ID,
     DODO_AGENCY_PRODUCT_ID: process.env.DODO_AGENCY_PRODUCT_ID,
     DODO_ENTERPRISE_PRODUCT_ID: process.env.DODO_ENTERPRISE_PRODUCT_ID,

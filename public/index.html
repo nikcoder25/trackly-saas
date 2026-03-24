@@ -1418,9 +1418,20 @@
             <input id="acct-username-input" class="finp" type="text" style="display:none;margin:0;padding:2px 8px;width:180px;font-size:12px;" maxlength="30" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_.-]/g,'')" onkeydown="if(event.key==='Enter'){event.preventDefault();saveUsername();}if(event.key==='Escape'){el('acct-username-input').style.display='none';el('acct-username').style.display='';el('acct-username-btn').textContent='EDIT';}">
             <button id="acct-username-btn" onclick="toggleEditUsername()" style="background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:9px;padding:3px 8px;cursor:pointer;border-radius:var(--radius-xs);">EDIT</button>
           </div>
-          <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong></div>
+          <div>Plan: <strong id="acct-plan" style="text-transform:uppercase;"></strong> <span id="acct-sub-status" style="font-size:10px;"></span></div>
           <div>Member since: <span id="acct-since" style="color:var(--muted);"></span></div>
+          <div id="acct-cancel-row" style="display:none;margin-top:8px;">
+            <button id="acct-cancel-btn" onclick="cancelSubscription()" style="padding:6px 14px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);letter-spacing:.5px;">CANCEL SUBSCRIPTION</button>
+          </div>
+          <div id="acct-sub-details" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--muted);line-height:2;"></div>
         </div>
+      </div>
+      <div class="card" id="acct-billing-card" style="margin-top:14px;display:none;">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+          Billing History
+          <a id="acct-portal-link" href="https://customer.dodopayments.com/" target="_blank" rel="noopener" style="font-family:var(--mono);font-size:10px;color:var(--primary);text-decoration:none;letter-spacing:.5px;">MANAGE BILLING &#8594;</a>
+        </div>
+        <div id="acct-billing-history" style="font-family:var(--mono);font-size:11px;color:var(--muted);">Loading...</div>
       </div>
       <div class="card" style="margin-top:14px;">
         <div class="section-title">Two-Factor Authentication</div>
@@ -1821,9 +1832,11 @@
             <div>
               <label class="flbl">Plan</label>
               <select class="finp" id="admin-edit-plan">
+                <option value="free">Free</option>
                 <option value="starter">Starter</option>
                 <option value="pro">Pro</option>
                 <option value="agency">Agency</option>
+                <option value="enterprise">Enterprise</option>
               </select>
             </div>
             <div>
@@ -1893,9 +1906,11 @@
             <div>
               <label class="flbl">Plan</label>
               <select class="finp" id="admin-add-plan">
+                <option value="free">Free</option>
                 <option value="starter">Starter</option>
                 <option value="pro">Pro</option>
                 <option value="agency">Agency</option>
+                <option value="enterprise">Enterprise</option>
               </select>
             </div>
             <div>
