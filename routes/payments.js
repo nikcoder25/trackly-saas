@@ -92,7 +92,8 @@ router.post('/checkout', auth, async (req, res) => {
     const returnUrl = DODO_RETURN_URL || `${req.protocol}://${req.get('host')}`;
 
     const checkoutPayload = {
-      product_cart: [{ product_id: productId, quantity: 1 }],
+      product_id: productId,
+      quantity: 1,
       payment_link: true,
       return_url: returnUrl,
       customer: {
@@ -105,7 +106,7 @@ router.post('/checkout', auth, async (req, res) => {
       }
     };
 
-    // Create checkout session via DodoPayments API
+    // Create subscription via DodoPayments API
     const body = JSON.stringify(checkoutPayload);
     const checkoutUrl = await new Promise((resolve, reject) => {
       const reqOpts = {
@@ -118,18 +119,20 @@ router.post('/checkout', auth, async (req, res) => {
         timeout: TIMEOUTS.paymentApi
       };
 
-      const apiReq = https.request(`${baseUrl}/checkouts`, reqOpts, (apiRes) => {
+      const apiReq = https.request(`${baseUrl}/v1/subscriptions`, reqOpts, (apiRes) => {
         let data = '';
         apiRes.on('data', chunk => { data += chunk; });
         apiRes.on('end', () => {
           try {
             const parsed = JSON.parse(data);
             if (apiRes.statusCode >= 400) {
-              reject(new Error(parsed.message || parsed.error || 'Checkout creation failed'));
+              log.error('Dodo API error', { status: apiRes.statusCode, response: data, plan });
+              reject(new Error(parsed.message || parsed.error || 'Subscription creation failed'));
             } else {
-              resolve(parsed.checkout_url || parsed.payment_link || parsed.url);
+              resolve(parsed.payment_link || parsed.checkout_url || parsed.url);
             }
           } catch(e) {
+            log.error('Dodo API invalid response', { status: apiRes.statusCode, body: data });
             reject(new Error('Invalid response from payment service'));
           }
         });
@@ -146,7 +149,7 @@ router.post('/checkout', auth, async (req, res) => {
 
     res.json({ checkout_url: checkoutUrl, plan });
   } catch(e) {
-    log.error('Checkout failed', { error: e.message });
+    log.error('Checkout failed', { error: e.message, userId: req.user.id, plan });
     res.status(500).json({ error: 'Failed to create checkout. Please try again.' });
   }
 });
