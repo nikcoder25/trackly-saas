@@ -20,8 +20,8 @@ function renderAccount(){
     }
   }
   const planEl = el('acct-plan');
-  planEl.textContent = currentUser.plan || 'starter';
-  planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
+  planEl.textContent = currentUser.plan || 'free';
+  planEl.style.color = currentUser.plan === 'enterprise' ? 'var(--purple)' : currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : currentUser.plan === 'starter' ? 'var(--amber)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
 
@@ -47,12 +47,12 @@ function renderAccount(){
 
   // Plan cards
   const planData = [
-          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month' },
+          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month, weekly tracking' },
                 { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 7 platforms, 250 prompts/month, competitors, sentiment' },
                       { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 1000 prompts/month, 20 competitors, sentiment' },
                       { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
   ];
-  const current = currentUser.plan || 'starter';
+  const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
     <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
@@ -660,7 +660,7 @@ function showUpgradeModal(reason) {
     reasonEl.style.display = 'none';
   }
   // Highlight current plan
-  const current = (currentUser && currentUser.plan) || 'starter';
+  const current = (currentUser && currentUser.plan) || 'free';
   document.querySelectorAll('#upgrade-plans .upgrade-plan-card').forEach(card => {
     const plan = card.dataset.plan;
     card.classList.toggle('active', plan === current);
@@ -679,9 +679,9 @@ function showUpgradeModal(reason) {
 }
 
 async function doUpgrade(plan) {
-  const current = (currentUser && currentUser.plan) || 'starter';
+  const current = (currentUser && currentUser.plan) || 'free';
   if (plan === current) return;
-  const tiers = {starter:0, pro:1, agency:2, enterprise:3};
+  const tiers = {free:0, starter:1, pro:2, agency:3, enterprise:4};
   const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {

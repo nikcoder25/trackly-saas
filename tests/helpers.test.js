@@ -118,9 +118,9 @@ describe('safeUser', () => {
     expect(safe.google_id).toBeUndefined();
   });
 
-  it('defaults plan to starter when not provided', () => {
+  it('defaults plan to free when not provided', () => {
     const user = { id: '1', email: 'a@b.com', name: 'A', settings: {} };
     const safe = safeUser(user);
-    expect(safe.plan).toBe('starter');
+    expect(safe.plan).toBe('free');
   });
 });

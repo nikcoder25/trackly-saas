@@ -166,7 +166,7 @@ router.post('/register', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (email) DO NOTHING
        RETURNING id`,
-      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'starter', verifyToken]
+      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
     );
     if (!insertResult.rows.length) return res.status(400).json({ error: 'Email already registered' });
 
@@ -181,7 +181,7 @@ router.post('/register', async (req, res) => {
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, req.ip);
     setTokenCookies(res, accessToken, refreshToken);
-    res.json({ token: accessToken, refreshToken, user: { id, email: email.toLowerCase(), username: trimmedUsername, name: userName, plan: 'starter', emailVerified: false, createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('starter') } });
+    res.json({ token: accessToken, refreshToken, user: { id, email: email.toLowerCase(), username: trimmedUsername, name: userName, plan: 'free', emailVerified: false, createdAt: new Date().toISOString(), hasKeys: [], limits: getPlanLimits('free') } });
   } catch(e) {
     console.error('[Register]', e.message);
     res.status(500).json({ error: 'Registration failed' });
@@ -655,7 +655,7 @@ router.post('/google', async (req, res) => {
         const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
         await pool.query(
           `INSERT INTO users (id, email, username, name, password_hash, plan, google_id, avatar_url, email_verified)
-           VALUES ($1, $2, $3, $4, $5, 'starter', $6, $7, TRUE)`,
+           VALUES ($1, $2, $3, $4, $5, 'free', $6, $7, TRUE)`,
           [id, email, autoUsername, name, dummyHash, googleId, avatarUrl]
         );
         user = (await pool.query(

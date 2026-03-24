@@ -9,8 +9,8 @@ async function initApp(){
   const emailBadge = el('user-email-badge');
   if (emailBadge) emailBadge.textContent = currentUser.email;
   const pb = el('plan-badge');
-  pb.textContent = (currentUser.plan||'starter').toUpperCase();
-  pb.className = 'plan-badge ' + (currentUser.plan||'starter');
+  pb.textContent = (currentUser.plan||'free').toUpperCase();
+  pb.className = 'plan-badge ' + (currentUser.plan||'free');
 
   // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');

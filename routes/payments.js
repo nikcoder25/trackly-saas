@@ -76,7 +76,7 @@ router.post('/checkout', auth, async (req, res) => {
     const user = userResult.rows[0];
 
     // Don't allow if already on same or higher plan
-    const tiers = { starter: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
+    const tiers = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4, owner: 5 };
     const currentTier = tiers[user.plan];
     const targetTier = tiers[plan];
     // Guard against unknown plan values (undefined tier would bypass the check)
@@ -280,10 +280,10 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
           await pool.query(
-            `UPDATE users SET plan = 'starter', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
             [targetUserId]
           );
-          log.info(`Subscription cancelled, downgraded user ${targetUserId} to starter`);
+          log.info(`Subscription cancelled, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
         } catch(e) {
           log.error('subscription.cancelled error', { error: e.message });
@@ -314,10 +314,10 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
           await pool.query(
-            `UPDATE users SET plan = 'starter', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
             [targetUserId]
           );
-          log.info(`Subscription expired, downgraded user ${targetUserId} to starter`);
+          log.info(`Subscription expired, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('sub_expired_' + eventId, 'subscription.expired');
         } catch(e) {
           log.error('subscription.expired error', { error: e.message });
@@ -362,10 +362,10 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
           await pool.query(
-            `UPDATE users SET plan = 'starter', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
             [targetUserId]
           );
-          log.info(`Refund processed, downgraded user ${targetUserId} to starter`);
+          log.info(`Refund processed, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('refund_' + eventId, 'refund.succeeded');
         } catch(e) {
           log.error('refund.succeeded error', { error: e.message });

@@ -108,19 +108,19 @@ router.get('/plans', auth, (req, res) => {
   res.json({ plans: PLAN_LIMITS, current: null });
 });
 
-// Self-service plan change (downgrade to starter only; upgrades require DodoPayments)
+// Self-service plan change (downgrade only; upgrades require DodoPayments)
 router.post('/upgrade', auth, async (req, res) => {
   const { plan } = req.body;
   // SECURITY: Never allow self-service upgrade to 'owner' — only admin-assigned
-  if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
+  if (!['free', 'starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
   try {
     const currentUser = await pool.query('SELECT plan, role, settings FROM users WHERE id = $1', [req.user.id]);
     if (!currentUser.rows.length) return res.status(404).json({ error: 'User not found' });
-    const currentPlan = currentUser.rows[0].plan || 'starter';
+    const currentPlan = currentUser.rows[0].plan || 'free';
     const settings = currentUser.rows[0].settings || {};
-    const tiers = { starter: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
+    const tiers = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4, owner: 5 };
     // Block any upgrade attempt — upgrades must go through DodoPayments checkout
     if ((tiers[plan] || 0) > (tiers[currentPlan] || 0)) {
       return res.status(403).json({ error: 'Payment required for plan upgrades. Use the upgrade button to proceed with payment.' });
@@ -191,7 +191,7 @@ router.put('/admin/users/:id', auth, requireAdmin, async (req, res) => {
     let idx = 1;
 
     if (plan !== undefined) {
-      if (!['starter', 'pro', 'agency', 'enterprise', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+      if (!['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
       updates.push(`plan = $${idx++}`);
       values.push(plan);
     }
@@ -248,7 +248,7 @@ router.post('/admin/users', auth, requireAdmin, async (req, res) => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) return res.status(400).json({ error: 'Invalid email format' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    if (plan && !['starter', 'pro', 'agency', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (plan && !['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].includes(plan)) return res.status(400).json({ error: 'Invalid plan' });
     if (role && !['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
     const trimmedUsername = username ? username.trim().toLowerCase() : null;
     if (trimmedUsername) {
@@ -265,7 +265,7 @@ router.post('/admin/users', auth, requireAdmin, async (req, res) => {
     const id = uid();
     const userName = (name || '').trim() || trimmedEmail.split('@')[0];
     const userRole = role === 'admin' ? 'admin' : null;
-    const userPlan = plan || 'starter';
+    const userPlan = plan || 'free';
 
     await pool.query(
       'INSERT INTO users (id, email, username, name, password_hash, plan, role, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)',
@@ -318,7 +318,7 @@ router.put('/admin/users/:id/password', auth, requireAdmin, async (req, res) => 
 // Admin: update user plan (legacy endpoint)
 router.put('/admin/users/:id/plan', auth, requireAdmin, async (req, res) => {
   try {
-    if (!['starter', 'pro', 'agency', 'enterprise', 'owner'].includes(req.body.plan)) return res.status(400).json({ error: 'Invalid plan' });
+    if (!['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].includes(req.body.plan)) return res.status(400).json({ error: 'Invalid plan' });
     const result = await pool.query('UPDATE users SET plan = $1 WHERE id = $2 RETURNING *', [req.body.plan, req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     res.json({ user: safeUser(result.rows[0]) });

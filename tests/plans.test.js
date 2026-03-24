@@ -43,13 +43,21 @@ describe('getPlanLimits', () => {
     expect(limits.prioritySupport).toBe(true);
   });
 
-  it('falls back to starter plan limits for unknown plans', () => {
-    const limits = getPlanLimits('nonexistent');
-    expect(limits).toEqual(PLAN_LIMITS.starter);
+  it('returns correct limits for the free plan', () => {
+    const limits = getPlanLimits('free');
+    expect(limits).toEqual(PLAN_LIMITS.free);
+    expect(limits.brands).toBe(1);
+    expect(limits.prompts).toBe(5);
+    expect(limits.scheduledRuns).toBe(false);
   });
 
-  it('falls back to starter plan limits for undefined input', () => {
+  it('falls back to free plan limits for unknown plans', () => {
+    const limits = getPlanLimits('nonexistent');
+    expect(limits).toEqual(PLAN_LIMITS.free);
+  });
+
+  it('falls back to free plan limits for undefined input', () => {
     const limits = getPlanLimits(undefined);
-    expect(limits).toEqual(PLAN_LIMITS.starter);
+    expect(limits).toEqual(PLAN_LIMITS.free);
   });
 });
