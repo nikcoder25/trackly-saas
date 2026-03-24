@@ -70,7 +70,7 @@ a{color:var(--primary);text-decoration:none;}a:hover{text-decoration:underline;}
 <body>
 <header>
 <nav class="seo-nav" aria-label="Main navigation">
-  <a href="/" class="seo-nav-logo">Track<span>ly</span></a>
+  <a href="/" class="seo-nav-logo">Live<span>sov</span></a>
   <div class="seo-nav-links">
     <a href="/#features">Features</a>
     <a href="/#pricing">Pricing</a>
