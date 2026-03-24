@@ -25,13 +25,8 @@ async function initGoogleSignIn() {
       googleClientId = config.googleClientId;
     }
 
-    // Load Google Identity Services script lazily
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {};
-    document.head.appendChild(script);
+    // Load Google Identity Services script lazily (uses shared promise)
+    loadGoogleScript().catch(() => {});
   } catch(e) {
     // Google Sign-In not available — silently skip
   }
@@ -45,11 +40,24 @@ async function triggerGoogleSignIn() {
     return;
   }
 
+  // Wait for Google script to load if not ready yet
   if (!window.google || !google.accounts) {
-    loadGoogleScript();
-    el('auth-err').textContent = 'Google Sign-In is loading. Please try again in a moment.';
-    el('auth-err').style.display = 'block';
-    return;
+    // Show loading state on the Google button
+    const googleBtns = document.querySelectorAll('.google-signin-btn');
+    googleBtns.forEach(b => { b.disabled = true; b._origText = b.textContent; b.textContent = 'Loading Google Sign-In...'; });
+    el('auth-err').style.display = 'none';
+    try {
+      await loadGoogleScript();
+      // Small delay to let Google initialize after script loads
+      await new Promise(r => setTimeout(r, 100));
+    } catch(e) {
+      el('auth-err').textContent = 'Failed to load Google Sign-In. Please check your connection and try again.';
+      el('auth-err').style.display = 'block';
+      googleBtns.forEach(b => { b.disabled = false; b.textContent = b._origText || 'Continue with Google'; });
+      return;
+    } finally {
+      googleBtns.forEach(b => { b.disabled = false; b.textContent = b._origText || 'Continue with Google'; });
+    }
   }
 
   el('auth-err').style.display = 'none';
@@ -263,14 +271,21 @@ function togglePwVis(btn){
 
 // ─── GOOGLE SIGN-IN ─────────────────────────────────────────────
 let _googleScriptLoaded = false;
+let _googleScriptPromise = null;
 function loadGoogleScript(){
-  if (_googleScriptLoaded) return;
-  _googleScriptLoaded = true;
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client';
-  s.async = true;
-  s.defer = true;
-  document.head.appendChild(s);
+  if (_googleScriptLoaded && window.google && google.accounts) return Promise.resolve();
+  if (_googleScriptPromise) return _googleScriptPromise;
+  _googleScriptPromise = new Promise((resolve, reject) => {
+    if (window.google && google.accounts) { _googleScriptLoaded = true; resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.defer = true;
+    s.onload = () => { _googleScriptLoaded = true; resolve(); };
+    s.onerror = () => { _googleScriptPromise = null; reject(new Error('Failed to load Google Sign-In')); };
+    document.head.appendChild(s);
+  });
+  return _googleScriptPromise;
 }
 // Load Google script when auth page is shown
 const _origShowAuth = showAuth;
