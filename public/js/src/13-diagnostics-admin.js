@@ -212,11 +212,13 @@ async function renderAdmin(){
 function renderAdminStats(users){
   const total = users.length;
   const free = users.filter(u => u.plan === 'free').length;
+  const starter = users.filter(u => u.plan === 'starter').length;
   const pro = users.filter(u => u.plan === 'pro').length;
   const agency = users.filter(u => u.plan === 'agency').length;
   const stats = [
     { label: 'Total Users', value: total, color: 'var(--text)' },
     { label: 'Free Plan', value: free, color: 'var(--muted)' },
+    { label: 'Starter Plan', value: starter, color: 'var(--amber)' },
     { label: 'Pro Plan', value: pro, color: 'var(--green)' },
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];

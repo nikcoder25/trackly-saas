@@ -11,6 +11,7 @@ const { auth } = require('../middleware/auth');
 const { safeUser } = require('../lib/helpers');
 const { createLogger } = require('../lib/logger');
 const { API_ENDPOINTS, TIMEOUTS } = require('../config/constants');
+const { sendPaymentReceiptEmail, sendSubscriptionCancelledEmail } = require('../lib/email');
 const log = createLogger('Payments');
 
 // Webhook idempotency — prevent duplicate event processing
@@ -38,12 +39,14 @@ const DODO_ENVIRONMENT    = process.env.DODO_PAYMENTS_ENVIRONMENT; // 'test_mode
 const DODO_RETURN_URL     = process.env.DODO_PAYMENTS_RETURN_URL || '';
 
 // Product IDs — set these in your DodoPayments dashboard, then configure via env vars
+const DODO_STARTER_PRODUCT_ID    = process.env.DODO_STARTER_PRODUCT_ID || '';
 const DODO_PRO_PRODUCT_ID        = process.env.DODO_PRO_PRODUCT_ID || '';
 const DODO_AGENCY_PRODUCT_ID     = process.env.DODO_AGENCY_PRODUCT_ID || '';
 const DODO_ENTERPRISE_PRODUCT_ID = process.env.DODO_ENTERPRISE_PRODUCT_ID || '';
 
 // Map product IDs to plans
 function planFromProductId(productId) {
+  if (productId === DODO_STARTER_PRODUCT_ID) return 'starter';
   if (productId === DODO_PRO_PRODUCT_ID) return 'pro';
   if (productId === DODO_AGENCY_PRODUCT_ID) return 'agency';
   if (productId === DODO_ENTERPRISE_PRODUCT_ID) return 'enterprise';
@@ -57,11 +60,11 @@ router.post('/checkout', auth, async (req, res) => {
   }
 
   const { plan } = req.body;
-  if (!['pro', 'agency', 'enterprise'].includes(plan)) {
-    return res.status(400).json({ error: 'Invalid plan. Choose pro, agency, or enterprise.' });
+  if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
+    return res.status(400).json({ error: 'Invalid plan. Choose starter, pro, agency, or enterprise.' });
   }
 
-  const productIdMap = { pro: DODO_PRO_PRODUCT_ID, agency: DODO_AGENCY_PRODUCT_ID, enterprise: DODO_ENTERPRISE_PRODUCT_ID };
+  const productIdMap = { starter: DODO_STARTER_PRODUCT_ID, pro: DODO_PRO_PRODUCT_ID, agency: DODO_AGENCY_PRODUCT_ID, enterprise: DODO_ENTERPRISE_PRODUCT_ID };
   const productId = productIdMap[plan];
   if (!productId) {
     return res.status(503).json({ error: 'Payment product not configured for this plan. Contact support.' });
@@ -74,7 +77,7 @@ router.post('/checkout', auth, async (req, res) => {
     const user = userResult.rows[0];
 
     // Don't allow if already on same or higher plan
-    const tiers = { free: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
+    const tiers = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4, owner: 5 };
     const currentTier = tiers[user.plan];
     const targetTier = tiers[plan];
     // Guard against unknown plan values (undefined tier would bypass the check)
@@ -174,7 +177,7 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
 
-          if (!['pro', 'agency', 'enterprise'].includes(plan)) {
+          if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
             log.warn('Invalid plan in metadata', { plan });
             return;
           }
@@ -187,6 +190,14 @@ if (DODO_WEBHOOK_KEY) {
           if (result.rows.length) {
             log.info(`Upgraded user ${result.rows[0].email} to ${plan} plan`);
             await markWebhookProcessed(eventId, 'payment.succeeded');
+            // Send payment receipt email (non-blocking)
+            sendPaymentReceiptEmail(result.rows[0].email, {
+              plan,
+              amount: data.total_amount || data.amount || null,
+              currency: data.currency || 'USD',
+              paymentId: data.payment_id || eventId,
+              date: data.created_at || null
+            }).catch(e => log.error('Receipt email failed', { error: e.message }));
           } else {
             log.warn('User not found for upgrade', { userId });
           }
@@ -219,7 +230,7 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
 
-          if (!['pro', 'agency', 'enterprise'].includes(plan)) return;
+          if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) return;
 
           // Store subscription ID for future reference
           const subscriptionId = data.subscription_id;
@@ -242,7 +253,7 @@ if (DODO_WEBHOOK_KEY) {
           const userId = metadata.user_id;
           const productId = data.product_id;
           const plan = metadata.plan || planFromProductId(productId);
-          if (userId && plan && ['pro', 'agency', 'enterprise'].includes(plan)) {
+          if (userId && plan && ['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
             await pool.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
             log.info(`Subscription renewed for user ${userId}, confirmed plan: ${plan}`);
           } else if (userId) {
@@ -277,12 +288,18 @@ if (DODO_WEBHOOK_KEY) {
             log.warn('subscription.cancelled — could not resolve user');
             return;
           }
-          await pool.query(
-            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+          const cancelResult = await pool.query(
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1 RETURNING email, plan`,
             [targetUserId]
           );
           log.info(`Subscription cancelled, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
+          // Send cancellation email (non-blocking)
+          if (cancelResult.rows.length) {
+            const prevPlan = metadata.plan || 'unknown';
+            sendSubscriptionCancelledEmail(cancelResult.rows[0].email, { plan: prevPlan })
+              .catch(e => log.error('Cancellation email failed', { error: e.message }));
+          }
         } catch(e) {
           log.error('subscription.cancelled error', { error: e.message });
         }
@@ -422,12 +439,204 @@ async function cancelDodoSubscription(subscriptionId) {
   });
 }
 
+// ─── DODO API HELPER — GET requests to DodoPayments API ─────────
+function dodoApiGet(path) {
+  if (!DODO_API_KEY) return Promise.resolve(null);
+  const baseUrl = DODO_ENVIRONMENT === 'live_mode'
+    ? API_ENDPOINTS.dodopayments.live
+    : API_ENDPOINTS.dodopayments.test;
+
+  return new Promise((resolve) => {
+    const reqOpts = {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${DODO_API_KEY}` },
+      timeout: TIMEOUTS.paymentApi
+    };
+    const apiReq = https.request(`${baseUrl}${path}`, reqOpts, (apiRes) => {
+      let data = '';
+      apiRes.on('data', chunk => { data += chunk; });
+      apiRes.on('end', () => {
+        try {
+          if (apiRes.statusCode >= 400) { resolve(null); return; }
+          resolve(JSON.parse(data));
+        } catch(e) { resolve(null); }
+      });
+    });
+    apiReq.on('timeout', () => { apiReq.destroy(); resolve(null); });
+    apiReq.on('error', () => resolve(null));
+    apiReq.end();
+  });
+}
+
+// ─── CANCEL SUBSCRIPTION — User self-service cancellation ───────
+router.post('/cancel', auth, async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT id, plan, settings FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const user = userResult.rows[0];
+    const settings = user.settings || {};
+    const subscriptionId = settings.dodo_subscription_id;
+
+    if (user.plan === 'free') {
+      return res.status(400).json({ error: 'You are already on the free plan.' });
+    }
+
+    // Cancel with DodoPayments if there's an active subscription
+    if (subscriptionId) {
+      const cancelled = await cancelDodoSubscription(subscriptionId);
+      if (!cancelled) {
+        return res.status(500).json({ error: 'Failed to cancel subscription with payment provider. Please contact support or try again.' });
+      }
+    }
+
+    // Downgrade to free
+    const result = await pool.query(
+      `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1 RETURNING *`,
+      [req.user.id]
+    );
+    log.info(`User ${req.user.id} cancelled subscription, downgraded to free`);
+    // Send cancellation email (non-blocking)
+    sendSubscriptionCancelledEmail(result.rows[0].email, { plan: user.plan })
+      .catch(e => log.error('Cancellation email failed', { error: e.message }));
+    res.json({ user: safeUser(result.rows[0]), message: 'Subscription cancelled. You are now on the free plan.' });
+  } catch(e) {
+    log.error('Cancel subscription failed', { error: e.message });
+    res.status(500).json({ error: 'Failed to cancel subscription. Please try again.' });
+  }
+});
+
+// ─── SUBSCRIPTION STATUS — Get current subscription info ────────
+router.get('/subscription', auth, async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT plan, settings FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const user = userResult.rows[0];
+    const settings = user.settings || {};
+    const subscriptionId = settings.dodo_subscription_id;
+
+    const result = {
+      plan: user.plan,
+      hasSubscription: !!subscriptionId,
+      subscriptionId: subscriptionId || null,
+      status: null,
+      nextBillingDate: null,
+      previousBillingDate: null,
+      createdAt: null,
+      cancelAtNextBilling: false
+    };
+
+    // Fetch live subscription details from DodoPayments
+    if (subscriptionId && DODO_API_KEY) {
+      const sub = await dodoApiGet(`/subscriptions/${subscriptionId}`);
+      if (sub) {
+        result.status = sub.status || null;
+        result.nextBillingDate = sub.next_billing_date || null;
+        result.previousBillingDate = sub.previous_billing_date || null;
+        result.createdAt = sub.created_at || null;
+        result.cancelAtNextBilling = !!sub.cancel_at_next_billing_date;
+      }
+    }
+
+    res.json(result);
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load subscription info' });
+  }
+});
+
+// ─── PAYMENT HISTORY — List past payments for this user ─────────
+router.get('/history', auth, async (req, res) => {
+  if (!DODO_API_KEY) {
+    return res.status(503).json({ error: 'Payment system not configured.' });
+  }
+  try {
+    const userResult = await pool.query('SELECT email, settings FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const settings = userResult.rows[0].settings || {};
+    const subscriptionId = settings.dodo_subscription_id;
+
+    // Fetch payments — DodoPayments doesn't filter by customer email in list,
+    // so we fetch recent payments and filter by metadata user_id on our side
+    const data = await dodoApiGet('/payments?page_size=50');
+    if (!data) {
+      return res.json({ payments: [] });
+    }
+
+    const items = (data.items || data || []);
+    // Filter payments belonging to this user (by metadata or customer email)
+    const userEmail = userResult.rows[0].email;
+    const userId = req.user.id;
+    const userPayments = items.filter(p => {
+      const meta = p.metadata || {};
+      const custEmail = (p.customer && p.customer.email) || '';
+      return meta.user_id === userId || custEmail.toLowerCase() === userEmail.toLowerCase();
+    }).map(p => ({
+      paymentId: p.payment_id || p.id,
+      amount: p.total_amount || p.amount,
+      currency: p.currency || 'USD',
+      status: p.status,
+      plan: (p.metadata || {}).plan || null,
+      createdAt: p.created_at,
+      paymentMethod: p.payment_method || null
+    }));
+
+    res.json({ payments: userPayments });
+  } catch(e) {
+    log.error('Payment history failed', { error: e.message });
+    res.status(500).json({ error: 'Failed to load payment history' });
+  }
+});
+
+// ─── INVOICE DOWNLOAD — Proxy invoice PDF from DodoPayments ─────
+router.get('/invoice/:paymentId', auth, async (req, res) => {
+  if (!DODO_API_KEY) {
+    return res.status(503).json({ error: 'Payment system not configured.' });
+  }
+  const { paymentId } = req.params;
+  if (!paymentId || typeof paymentId !== 'string' || paymentId.length > 100) {
+    return res.status(400).json({ error: 'Invalid payment ID' });
+  }
+
+  try {
+    const baseUrl = DODO_ENVIRONMENT === 'live_mode'
+      ? API_ENDPOINTS.dodopayments.live
+      : API_ENDPOINTS.dodopayments.test;
+
+    // Proxy the invoice PDF from DodoPayments
+    const reqOpts = {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${DODO_API_KEY}` },
+      timeout: TIMEOUTS.paymentApi
+    };
+
+    const apiReq = https.request(`${baseUrl}/invoices/payments/${paymentId}`, reqOpts, (apiRes) => {
+      if (apiRes.statusCode >= 400) {
+        res.status(apiRes.statusCode).json({ error: 'Invoice not found' });
+        return;
+      }
+      // Forward content type and stream the PDF
+      res.setHeader('Content-Type', apiRes.headers['content-type'] || 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="invoice-${paymentId}.pdf"`);
+      apiRes.pipe(res);
+    });
+    apiReq.on('timeout', () => { apiReq.destroy(); res.status(504).json({ error: 'Invoice request timed out' }); });
+    apiReq.on('error', (e) => {
+      log.error('Invoice download failed', { error: e.message });
+      res.status(500).json({ error: 'Failed to download invoice' });
+    });
+    apiReq.end();
+  } catch(e) {
+    log.error('Invoice endpoint error', { error: e.message });
+    res.status(500).json({ error: 'Failed to download invoice' });
+  }
+});
+
 // ─── PAYMENT STATUS — Check if DodoPayments is configured ──────
 router.get('/payment-status', auth, (req, res) => {
   res.json({
     configured: !!(DODO_API_KEY && DODO_WEBHOOK_KEY),
     environment: DODO_ENVIRONMENT,
     products: {
+      starter: !!DODO_STARTER_PRODUCT_ID,
       pro: !!DODO_PRO_PRODUCT_ID,
       agency: !!DODO_AGENCY_PRODUCT_ID,
       enterprise: !!DODO_ENTERPRISE_PRODUCT_ID

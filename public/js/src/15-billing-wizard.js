@@ -7,7 +7,7 @@ async function renderBilling() {
 
     // Plan card
     const planEl = el('billing-plan-card');
-    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
+    const planColors = { free: '#6b7280', starter: '#f59e0b', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
     planEl.innerHTML = `
       <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
         <div style="display:flex;justify-content:space-between;align-items:center;">
