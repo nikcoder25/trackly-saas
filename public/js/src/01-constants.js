@@ -72,7 +72,6 @@ const CLIENT_MODEL_PRICING = {
   'claude-haiku-4-5-20251001':{ i: 0.80, o: 4.00 },
   'gemini-2.5-flash':        { i: 0.15, o: 0.60 },
   'gemini-2.5-pro':          { i: 1.25, o: 10.00 },
-  'gemini-2.0-flash':        { i: 0.10, o: 0.40 },
   'grok-3-mini':             { i: 0.30, o: 0.50 },
   'grok-4':                  { i: 3.00, o: 15.00 },
   'grok-4-1-fast':           { i: 2.00, o: 10.00 },
