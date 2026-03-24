@@ -161,6 +161,7 @@ function renderView(view){
   if (view==='notifications') { go('alerts'); return; }
   if (view==='apilogs') { go('activitylog'); return; }
   if (view==='team') { renderTeamMembers(); return; }
+  if (view==='billing') { renderBilling(); return; }
   if (!b) {
     // Show global empty state when no brand exists or is selected
     const noBrands = !brands.length;
