@@ -51,15 +51,13 @@ function closeLandingMenu(){
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const API = '';  // relative URLs - same server
-const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO','DeepSeek'];
+const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok'];
 const PLAT_THEME = {
   'ChatGPT':    {bg:'rgba(25,195,125,.06)',color:'#19c37d',logo:'⬡'},
   'Perplexity': {bg:'rgba(155,114,255,.06)',color:'#9b72ff',logo:'◎'},
   'Claude':     {bg:'rgba(217,119,6,.06)',color:'#d97706',logo:'◈'},
   'Gemini':     {bg:'rgba(66,133,244,.06)',color:'#4285f4',logo:'✦'},
   'Grok':       {bg:'rgba(29,155,240,.06)',color:'#1d9bf0',logo:'⚡'},
-  'Google AIO': {bg:'rgba(52,168,83,.06)',color:'#34a853',logo:'⬤'},
-  'DeepSeek':   {bg:'rgba(74,158,255,.06)',color:'#4a9eff',logo:'◇'},
 };
 
 // ─── CLIENT-SIDE COST ESTIMATION (fallback for logs with no server cost) ──
@@ -81,8 +79,6 @@ const CLIENT_MODEL_PRICING = {
   'sonar-pro':               { i: 3.00, o: 15.00 },
   'sonar':                   { i: 1.00, o: 1.00 },
   'sonar-reasoning-pro':     { i: 3.00, o: 15.00 },
-  'deepseek-chat':           { i: 0.27, o: 1.10 },
-  'deepseek-reasoner':       { i: 0.55, o: 2.19 },
 };
 function clientEstimateCost(model, tokensIn, tokensOut) {
   if (!model || (!tokensIn && !tokensOut)) return 0;

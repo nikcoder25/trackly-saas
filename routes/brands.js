@@ -15,8 +15,7 @@ const { BATCH, RUN, DAILY_COST_BUDGETS } = require('../config/constants');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
-  'Gemini': 'gemini', 'Grok': 'grok', 'Google AIO': 'gemini',
-  'DeepSeek': 'deepseek'
+  'Gemini': 'gemini', 'Grok': 'grok'
 };
 
 // ─── BACKGROUND RUN TRACKING ────────────────────────────────────
@@ -93,8 +92,6 @@ setInterval(() => {
 // Based on default model cost per query (input+output)
 const PLATFORM_COST_ORDER = [
   'Gemini',      // gemini-2.0-flash: $0.10/$0.40
-  'Google AIO',  // gemini-2.0-flash + search: $0.10/$0.40
-  'DeepSeek',    // deepseek-chat: $0.27/$1.10
   'Grok',        // grok-3-mini: $0.30/$0.50
   'Perplexity',  // sonar: $1.00/$1.00
   'Claude',      // claude-haiku: $0.80/$4.00

@@ -28,8 +28,6 @@ var platforms = [
   { name: 'Claude', color: '#cc9b7a', sov: 80, active: true },
   { name: 'Gemini', color: '#4285f4', sov: 18, active: true },
   { name: 'Grok', color: '#1d9bf0', sov: 65, active: true },
-  { name: 'Google AIO', color: '#ea4335', sov: 71, active: true },
-  { name: 'DeepSeek', color: '#667eea', sov: 0, active: false }
 ];
 
 var queryData = [

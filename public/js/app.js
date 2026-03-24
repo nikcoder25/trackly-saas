@@ -51,15 +51,13 @@ function closeLandingMenu(){
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const API = '';  // relative URLs - same server
-const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok','Google AIO','DeepSeek'];
+const PLATS = ['ChatGPT','Perplexity','Claude','Gemini','Grok'];
 const PLAT_THEME = {
   'ChatGPT':    {bg:'rgba(25,195,125,.06)',color:'#19c37d',logo:'⬡'},
   'Perplexity': {bg:'rgba(155,114,255,.06)',color:'#9b72ff',logo:'◎'},
   'Claude':     {bg:'rgba(217,119,6,.06)',color:'#d97706',logo:'◈'},
   'Gemini':     {bg:'rgba(66,133,244,.06)',color:'#4285f4',logo:'✦'},
   'Grok':       {bg:'rgba(29,155,240,.06)',color:'#1d9bf0',logo:'⚡'},
-  'Google AIO': {bg:'rgba(52,168,83,.06)',color:'#34a853',logo:'⬤'},
-  'DeepSeek':   {bg:'rgba(74,158,255,.06)',color:'#4a9eff',logo:'◇'},
 };
 
 // ─── CLIENT-SIDE COST ESTIMATION (fallback for logs with no server cost) ──
@@ -81,8 +79,6 @@ const CLIENT_MODEL_PRICING = {
   'sonar-pro':               { i: 3.00, o: 15.00 },
   'sonar':                   { i: 1.00, o: 1.00 },
   'sonar-reasoning-pro':     { i: 3.00, o: 15.00 },
-  'deepseek-chat':           { i: 0.27, o: 1.10 },
-  'deepseek-reasoner':       { i: 0.55, o: 2.19 },
 };
 function clientEstimateCost(model, tokensIn, tokensOut) {
   if (!model || (!tokensIn && !tokensOut)) return 0;
@@ -1042,9 +1038,9 @@ function renderAccount(){
   // Plan cards
   const planData = [
           { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month, weekly tracking' },
-                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 7 platforms, 250 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 1000 prompts/month, 20 competitors, sentiment' },
-                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
+                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 5 platforms, 250 prompts/month, competitors, sentiment' },
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 5 platforms, 1000 prompts/month, 20 competitors, sentiment' },
+                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 5 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = planData.map(p => `
@@ -1180,8 +1176,6 @@ async function loadModelSettings() {
       'Gemini': '<span style="color:#4285f4;">&#9733;</span>',
       'Grok': '<span style="color:#1da1f2;">&#9889;</span>',
       'Perplexity': '<span style="color:#20b2aa;">&#9678;</span>',
-      'DeepSeek': '<span style="color:#6366f1;">&#9673;</span>',
-      'Google AIO': '<span style="color:#ea4335;">&#9733;</span>'
     };
 
     let html = '<div style="display:grid;gap:10px;">';
@@ -1202,23 +1196,10 @@ async function loadModelSettings() {
       </div>`;
     }
     html += '</div>';
-    html += '<div id="gemini-aio-warning" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:var(--radius);font-size:11px;font-family:var(--mono);color:#eab308;">Note: Gemini and Google AIO use the same API — enabling both doubles your Gemini API costs.</div>';
     container.innerHTML = html;
-    checkGeminiAioOverlap();
   } catch(e) {
     container.innerHTML = '<div style="color:var(--muted);font-family:var(--mono);font-size:10px;">Failed to load model settings</div>';
   }
-}
-
-function checkGeminiAioOverlap() {
-  const toggles = document.querySelectorAll('.platform-toggle');
-  let geminiOn = false, aioOn = false;
-  toggles.forEach(t => {
-    if (t.dataset.platform === 'Gemini' && t.checked) geminiOn = true;
-    if (t.dataset.platform === 'Google AIO' && t.checked) aioOn = true;
-  });
-  const warning = document.getElementById('gemini-aio-warning');
-  if (warning) warning.style.display = (geminiOn && aioOn) ? 'block' : 'none';
 }
 
 function togglePlatformRow(cb) {
@@ -2166,7 +2147,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     PLATS.forEach(plat => {
       const t = PLAT_THEME[plat]||{};
       const pSov = platSOV[plat]||0;
-      const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini');
+      const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai');
       const active = keyStatus[keyId];
       const hasResults = !!platCounts[plat];
       const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
@@ -2198,8 +2179,8 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   // Category SOV — computed from incremental counters
   const catRow = el('ov-category-row');
   if (catRow && validCount > 0) {
-    const chatAI = ['ChatGPT', 'Claude', 'Grok', 'DeepSeek'];
-    const searchAI = ['Perplexity', 'Google AIO', 'Gemini'];
+    const chatAI = ['ChatGPT', 'Claude', 'Grok'];
+    const searchAI = ['Perplexity', 'Gemini'];
     let chatTotal = 0, chatFound = 0, searchTotal = 0, searchFound = 0;
     for (const p of chatAI) { chatTotal += c.platCounts[p] || 0; chatFound += c.platMentions[p] || 0; }
     for (const p of searchAI) { searchTotal += c.platCounts[p] || 0; searchFound += c.platMentions[p] || 0; }
@@ -2207,8 +2188,8 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     const searchSOV = searchTotal > 0 ? Math.round(searchFound / searchTotal * 100) : null;
     const _sc = window.sovColor || function(v) { return v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)'; };
     let ch = '';
-    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${_sc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div></div>`;
-    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${_sc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div></div>`;
+    if (chatSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(chatSOV)};"><div class="ov-cat-label">💬 Chat AI</div><div class="ov-cat-val" style="color:${_sc(chatSOV)};">${chatSOV}%</div><div class="ov-cat-detail">Mentioned in ${chatFound} of ${chatTotal} responses</div><div class="ov-cat-sub">ChatGPT · Claude · Grok</div></div>`;
+    if (searchSOV !== null) ch += `<div class="ov-cat-card" style="border-top:2px solid ${_sc(searchSOV)};"><div class="ov-cat-label">🔍 Search AI</div><div class="ov-cat-val" style="color:${_sc(searchSOV)};">${searchSOV}%</div><div class="ov-cat-detail">Mentioned in ${searchFound} of ${searchTotal} responses</div><div class="ov-cat-sub">Perplexity · Gemini</div></div>`;
     catRow.innerHTML = ch;
     catRow.style.gridTemplateColumns = `repeat(${[chatSOV !== null, searchSOV !== null].filter(Boolean).length}, 1fr)`;
     const catSec = el('ov-category-section');
@@ -2619,8 +2600,8 @@ function renderOverview(){
   let _ovPos = 0, _ovNeg = 0, _ovNeu = 0;
   let _ovLocTotal = 0, _ovLocRelevant = 0;
   const _ovHealthyPlats = new Set(), _ovAllPlats = new Set();
-  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok', 'DeepSeek']);
-  const _ovSearchAI = new Set(['Perplexity', 'Google AIO', 'Gemini']);
+  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok']);
+  const _ovSearchAI = new Set(['Perplexity', 'Gemini']);
   let _ovChatTotal = 0, _ovChatMentioned = 0, _ovSearchTotal = 0, _ovSearchMentioned = 0;
   const _ovNegResults = [];
   const _ovPlatMentions = {};
@@ -2785,13 +2766,13 @@ function renderOverview(){
       <div class="ov-cat-label">💬 Chat AI SOV</div>
       <div class="ov-cat-val" style="color:${_catColor(chatSOV)};">${chatSOV}%</div>
       <div class="ov-cat-detail">Mentioned in ${_ovChatMentioned} of ${_ovChatTotal} responses</div>
-      <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
+      <div class="ov-cat-sub">ChatGPT · Claude · Grok</div>
     </div>`;
     catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${_catColor(searchSOV)};">
       <div class="ov-cat-label">🔍 Search AI SOV</div>
       <div class="ov-cat-val" style="color:${_catColor(searchSOV)};">${searchSOV}%</div>
       <div class="ov-cat-detail">Mentioned in ${_ovSearchMentioned} of ${_ovSearchTotal} responses</div>
-      <div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div>
+      <div class="ov-cat-sub">Perplexity · Gemini</div>
     </div>`;
     if (best) {
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid var(--green);">
@@ -2918,7 +2899,7 @@ function renderOverview(){
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
     const pSov = platSOV[plat]||0;
-    const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini');
+    const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai');
     const active = keyStatus[keyId];
     const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
     const div = document.createElement('div');
@@ -4124,7 +4105,7 @@ async function renderPlatformStatus(){
 
   grid.innerHTML = PLATS.map(plat => {
     const t = PLAT_THEME[plat]||{};
-    const keyField = plat==='ChatGPT'?'openai':plat==='Google AIO'?'gemini':plat.toLowerCase();
+    const keyField = plat==='ChatGPT'?'openai':plat.toLowerCase();
     const hasKey = keyStatus[keyField];
     const sov = lastRun ? ((lastRun.platforms||{})[plat]||0) : 0;
     const sovColor = sov >= 50 ? 'var(--green)' : sov > 0 ? 'var(--amber)' : 'var(--muted)';
@@ -5189,7 +5170,7 @@ function renderSetup(){
   const savedPlats = b.platforms || PLATS; // default: all platforms
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
-    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')];
+    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai')];
     const lbl = document.createElement('label');
     lbl.className = 'plat-check';
     lbl.style.color = t.color||'#fff';
@@ -6272,7 +6253,7 @@ async function renderApiLogs(){
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
       const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
       const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
-      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-|deepseek-)/, '').substring(0, 18);
+      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       const errMsg = isErr && log.error ? log.error : '';

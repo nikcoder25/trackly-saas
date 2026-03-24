@@ -24,8 +24,6 @@ const PLATFORM_CONFIG = {
   Claude:     { collection_method: 'api', endpoint: 'api.anthropic.com', rate_limits: '4k RPM', search_capable: true },
   Gemini:     { collection_method: 'api', endpoint: 'generativelanguage.googleapis.com', rate_limits: '15 RPM (free)', search_capable: false },
   Grok:       { collection_method: 'api', endpoint: 'api.x.ai', rate_limits: '60 RPM', search_capable: true },
-  'Google AIO': { collection_method: 'api', endpoint: 'generativelanguage.googleapis.com', rate_limits: '15 RPM', search_capable: true },
-  DeepSeek:   { collection_method: 'api', endpoint: 'api.deepseek.com', rate_limits: '60 RPM', search_capable: false },
 };
 
 // GET /api/meta/platforms — platform health & methodology (Epic 1.4)
@@ -67,7 +65,7 @@ router.get('/meta/platforms', auth, async (req, res) => {
 // GET /api/meta/methodology — how Livesov measures (Epic 1.3)
 router.get('/meta/methodology', (req, res) => {
   res.json({
-    what_we_measure: 'Livesov tracks how your brand appears across 7 AI platforms by submitting configurable search prompts and analyzing the responses.',
+    what_we_measure: 'Livesov tracks how your brand appears across 5 AI platforms by submitting configurable search prompts and analyzing the responses.',
     how_often: 'Runs can be triggered manually or scheduled (hourly to daily depending on your plan).',
     how_we_sample: 'Each prompt is sent to each configured AI platform. Response randomness is inherent to LLMs, so we calculate confidence intervals using the Wilson score method.',
     metrics: {
@@ -1452,8 +1450,8 @@ router.post('/brands/:id/copilot', auth, async (req, res) => {
     try {
       const { getServerKeys } = require('../lib/helpers');
       const keys = getServerKeys();
-      const platformOrder = ['deepseek', 'gemini', 'openai', 'claude', 'perplexity'];
-      const platformMap = { deepseek: 'DeepSeek', gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity' };
+      const platformOrder = ['gemini', 'openai', 'claude', 'perplexity'];
+      const platformMap = { gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity' };
       let aiPlatform = null;
       for (const p of platformOrder) {
         if (keys[p] && keys[p].length > 0) { aiPlatform = platformMap[p]; break; }

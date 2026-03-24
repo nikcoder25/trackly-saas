@@ -24,9 +24,6 @@ const API_ENDPOINTS = {
     messages: 'https://api.anthropic.com/v1/messages',
     batches: 'https://api.anthropic.com/v1/messages/batches',
   },
-  deepseek: {
-    chat: 'https://api.deepseek.com/chat/completions',
-  },
   google: {
     userinfo: 'https://www.googleapis.com/oauth2/v3/userinfo',
     tokeninfo: 'https://oauth2.googleapis.com/tokeninfo',
@@ -172,7 +169,7 @@ const ANALYTICS = {
   failureRateRed: 0.5,     // platform status = red
   failureRateAmber: 0.2,   // platform status = amber
   defaultPromptRunLimit: 20,
-  totalPlatforms: 7,
+  totalPlatforms: 5,
 };
 
 // ─── UI NOTIFICATION SETTINGS ───────────────────────────────────
@@ -190,8 +187,6 @@ const PLATFORM_COLORS = {
   Claude:       '#d97706',
   Gemini:       '#4285f4',
   Grok:         '#1d9bf0',
-  'Google AIO': '#34a853',
-  DeepSeek:     '#4a9eff',
 };
 
 // ─── EMAIL TEMPLATE COLORS ─────────────────────────────────────

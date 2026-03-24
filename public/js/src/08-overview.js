@@ -267,8 +267,8 @@ function renderOverview(){
   let _ovPos = 0, _ovNeg = 0, _ovNeu = 0;
   let _ovLocTotal = 0, _ovLocRelevant = 0;
   const _ovHealthyPlats = new Set(), _ovAllPlats = new Set();
-  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok', 'DeepSeek']);
-  const _ovSearchAI = new Set(['Perplexity', 'Google AIO', 'Gemini']);
+  const _ovChatAI = new Set(['ChatGPT', 'Claude', 'Grok']);
+  const _ovSearchAI = new Set(['Perplexity', 'Gemini']);
   let _ovChatTotal = 0, _ovChatMentioned = 0, _ovSearchTotal = 0, _ovSearchMentioned = 0;
   const _ovNegResults = [];
   const _ovPlatMentions = {};
@@ -433,13 +433,13 @@ function renderOverview(){
       <div class="ov-cat-label">💬 Chat AI SOV</div>
       <div class="ov-cat-val" style="color:${_catColor(chatSOV)};">${chatSOV}%</div>
       <div class="ov-cat-detail">Mentioned in ${_ovChatMentioned} of ${_ovChatTotal} responses</div>
-      <div class="ov-cat-sub">ChatGPT · Claude · Grok · DeepSeek</div>
+      <div class="ov-cat-sub">ChatGPT · Claude · Grok</div>
     </div>`;
     catHtml += `<div class="ov-cat-card" style="border-top:2px solid ${_catColor(searchSOV)};">
       <div class="ov-cat-label">🔍 Search AI SOV</div>
       <div class="ov-cat-val" style="color:${_catColor(searchSOV)};">${searchSOV}%</div>
       <div class="ov-cat-detail">Mentioned in ${_ovSearchMentioned} of ${_ovSearchTotal} responses</div>
-      <div class="ov-cat-sub">Perplexity · Google AIO · Gemini</div>
+      <div class="ov-cat-sub">Perplexity · Gemini</div>
     </div>`;
     if (best) {
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid var(--green);">
@@ -566,7 +566,7 @@ function renderOverview(){
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
     const pSov = platSOV[plat]||0;
-    const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini');
+    const keyId = plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai');
     const active = keyStatus[keyId];
     const barColor = pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--border)';
     const div = document.createElement('div');

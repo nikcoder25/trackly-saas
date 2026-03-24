@@ -113,7 +113,7 @@ ${content}
 </article>
 <section class="seo-cta" aria-label="Call to action">
   <h2>Ready to track your AI visibility?</h2>
-  <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO & DeepSeek.</p>
+  <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.</p>
   <a class="seo-btn" href="/signup" style="padding:14px 36px;font-size:15px;">Get Started Free</a>
   <p style="font-size:13px;color:var(--muted);margin-top:12px;">No credit card required.</p>
 </section>
@@ -135,7 +135,6 @@ ${content}
     <a href="/gemini-brand-tracking">Gemini Tracking</a>
     <a href="/claude-brand-tracking">Claude Tracking</a>
     <a href="/grok-brand-tracking">Grok Tracking</a>
-    <a href="/deepseek-brand-tracking">DeepSeek Tracking</a>
     <a href="/geo-optimization">GEO Guide</a>
     <a href="/vs/semrush">vs Semrush</a>
     <a href="/vs/ahrefs">vs Ahrefs</a>
@@ -192,7 +191,7 @@ router.get('/chatgpt-brand-tracking', (req, res) => {
 <p><strong>SaaS companies</strong> — Monitor if ChatGPT recommends your product when users ask for solutions in your category.</p>
 
 <h2>Track More AI Platforms</h2>
-<p>ChatGPT is just one platform. Livesov also tracks your brand across <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini & AI Overview</a>, <a href="/claude-brand-tracking">Claude AI</a>, <a href="/grok-brand-tracking">Grok (xAI)</a>, and <a href="/deepseek-brand-tracking">DeepSeek</a>. Learn more about optimizing for all AI platforms in our <a href="/geo-optimization">GEO Optimization Guide</a>.</p>
+<p>ChatGPT is just one platform. Livesov also tracks your brand across <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, and <a href="/grok-brand-tracking">Grok (xAI)</a>. Learn more about optimizing for all AI platforms in our <a href="/geo-optimization">GEO Optimization Guide</a>.</p>
 `
   }));
 });
@@ -236,7 +235,7 @@ router.get('/perplexity-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Don't stop at Perplexity. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/gemini-brand-tracking">Google Gemini & AI Overview</a>, <a href="/claude-brand-tracking">Claude AI</a>, <a href="/grok-brand-tracking">Grok</a>, and <a href="/deepseek-brand-tracking">DeepSeek</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+<p>Don't stop at Perplexity. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, and <a href="/grok-brand-tracking">Grok</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
 `
   }));
 });
@@ -246,35 +245,32 @@ router.get('/gemini-brand-tracking', (req, res) => {
   res.send(seoPage({
     title: 'Google Gemini & AI Overview Brand Tracking — Monitor AI Visibility | Livesov',
     description: 'Track how Google Gemini and Google AI Overview mention your brand. Monitor your visibility in Google\'s AI-powered search with real API responses.',
-    keywords: 'Gemini brand tracking, Google AI Overview tracking, Google AIO monitoring, Gemini brand monitoring, Google AI visibility, AIO brand tracking',
-    h1: 'Track Your Brand in <span>Google Gemini & AI Overview</span>',
-    subtitle: 'Google AI Overview appears above traditional search results. Gemini is Google\'s AI assistant. Track your brand visibility in both.',
+    keywords: 'Gemini brand tracking, Gemini brand monitoring, Google AI visibility, Google Gemini tracking',
+    h1: 'Track Your Brand in <span>Google Gemini</span>',
+    subtitle: 'Gemini is Google\'s AI assistant. Track your brand visibility in Gemini\'s responses.',
     canonical: '/gemini-brand-tracking',
     jsonLd: { "@context": "https://schema.org", "@type": "WebPage", "name": "Google Gemini & AI Overview Brand Tracking", "description": "Track your brand visibility in Google Gemini and Google AI Overview.", "url": "https://livesov.com/gemini-brand-tracking", "isPartOf": { "@type": "WebSite", "name": "Livesov", "url": "https://livesov.com" } },
     content: `
 <h2>Google AI is Changing Search</h2>
-<p>Google AI Overview (AIO) now appears at the top of search results for millions of queries, pushing traditional organic results below the fold. If your brand isn't mentioned in the AI Overview, your organic rankings matter less than ever.</p>
-<p>Livesov tracks both <strong>Google Gemini</strong> (the standalone AI assistant) and <strong>Google AI Overview</strong> (the AI-powered search feature) using Google's official API with search grounding enabled.</p>
+<p>Google Gemini is Google's AI assistant, used by millions for recommendations and research. If your brand isn't mentioned in Gemini's responses, you're missing a growing discovery channel.</p>
+<p>Livesov tracks <strong>Google Gemini</strong> using Google's official API to capture complete AI responses.</p>
 
-<h2>Why Google AIO Tracking is Critical</h2>
+<h2>Why Gemini Tracking is Critical</h2>
 <ul>
-<li>AI Overview appears above all organic results on Google</li>
 <li>Users increasingly rely on AI summaries instead of clicking links</li>
-<li>Your SEO rankings don't guarantee AI Overview mentions</li>
-<li>Gemini with Google Search grounding provides cited answers</li>
-<li>Livesov extracts grounding citations from Gemini responses</li>
+<li>Your SEO rankings don't guarantee Gemini mentions</li>
+<li>Gemini draws from Google's Knowledge Graph and web data</li>
+<li>Livesov captures complete Gemini responses as proof</li>
 </ul>
 
 <h2>What Livesov Tracks</h2>
 <div class="highlight">
 <h3>Google Gemini</h3>
 <p>Queries the Gemini 2.0 Flash model for AI assistant-style responses. Tracks if your brand appears when users ask Gemini for recommendations.</p>
-<h3>Google AI Overview (AIO)</h3>
-<p>Queries Gemini with Google Search grounding enabled — replicating the AI Overview experience. Captures grounding citations and source URLs.</p>
 </div>
 
 <h2>Optimize for Google AI</h2>
-<p>Google's AI pulls from its search index, Knowledge Graph, and web data. To improve your AI Overview visibility:</p>
+<p>Google's AI pulls from its search index, Knowledge Graph, and web data. To improve your Gemini visibility:</p>
 <ul>
 <li>Maintain strong traditional SEO fundamentals</li>
 <li>Get featured in Google's Knowledge Graph</li>
@@ -284,7 +280,7 @@ router.get('/gemini-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Go beyond Google. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/claude-brand-tracking">Claude</a>, <a href="/grok-brand-tracking">Grok</a>, and <a href="/deepseek-brand-tracking">DeepSeek</a>. Learn more in our <a href="/geo-optimization">GEO Guide</a>.</p>
+<p>Go beyond Google. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/claude-brand-tracking">Claude</a>, and <a href="/grok-brand-tracking">Grok</a>. Learn more in our <a href="/geo-optimization">GEO Guide</a>.</p>
 `
   }));
 });
@@ -313,7 +309,7 @@ router.get('/claude-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini & AI Overview</a>, <a href="/grok-brand-tracking">Grok</a>, and <a href="/deepseek-brand-tracking">DeepSeek</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, and <a href="/grok-brand-tracking">Grok</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
 `
   }));
 });
@@ -341,7 +337,7 @@ router.get('/grok-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini & AI Overview</a>, <a href="/claude-brand-tracking">Claude</a>, and <a href="/deepseek-brand-tracking">DeepSeek</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, and <a href="/claude-brand-tracking">Claude</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
 `
   }));
 });
@@ -402,9 +398,9 @@ router.get('/geo-optimization', (req, res) => {
 <p>See which competitors AI recommends for your target keywords. Understand what they're doing differently and adapt your strategy.</p>
 
 <h2>Tools for GEO Optimization</h2>
-<p>Livesov is purpose-built for GEO tracking. It queries 7 AI platforms with your custom keywords and shows you exactly what each AI says about your brand. Features include:</p>
+<p>Livesov is purpose-built for GEO tracking. It queries 5 AI platforms with your custom keywords and shows you exactly what each AI says about your brand. Features include:</p>
 <ul>
-<li>Real API responses from ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO & DeepSeek</li>
+<li>Real API responses from ChatGPT, Perplexity, Claude, Gemini & Grok</li>
 <li>Brand mention detection with alias support</li>
 <li>Share of Voice measurement</li>
 <li>Sentiment and recommendation analysis</li>
@@ -419,7 +415,7 @@ router.get('/geo-optimization', (req, res) => {
 router.get('/vs/semrush', (req, res) => {
   res.send(seoPage({
     title: 'Livesov vs Semrush — AI Visibility Tracking Comparison | Livesov',
-    description: 'Compare Livesov with Semrush for AI visibility tracking. Livesov is purpose-built for GEO with 7 AI platforms, while Semrush focuses on traditional SEO.',
+    description: 'Compare Livesov with Semrush for AI visibility tracking. Livesov is purpose-built for GEO with 5 AI platforms, while Semrush focuses on traditional SEO.',
     keywords: 'Livesov vs Semrush, Semrush alternative, AI visibility tool comparison, Semrush AI tracking, GEO tool comparison',
     h1: 'Livesov vs <span>Semrush</span>',
     subtitle: 'How Livesov compares to Semrush for AI visibility and Generative Engine Optimization tracking.',
@@ -434,7 +430,7 @@ router.get('/vs/semrush', (req, res) => {
 
 <h2>Feature Comparison</h2>
 <div class="highlight">
-<p><strong>AI Platforms Tracked:</strong> Livesov covers 7 AI platforms (ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek). Semrush covers fewer AI platforms.</p>
+<p><strong>AI Platforms Tracked:</strong> Livesov covers 5 AI platforms (ChatGPT, Perplexity, Claude, Gemini, Grok). Semrush covers fewer AI platforms.</p>
 <p><strong>Real API Responses:</strong> Livesov uses real API calls and saves complete responses as proof. Full response text, model name, and timestamp included.</p>
 <p><strong>Pricing:</strong> Livesov starts free. Semrush starts at $129.95/mo for their base SEO plan, with AI features in higher tiers.</p>
 <p><strong>GEO Focus:</strong> Livesov is 100% focused on AI visibility. Semrush has AI visibility as one feature among hundreds.</p>
@@ -473,59 +469,12 @@ router.get('/vs/ahrefs', (req, res) => {
 <p><strong>Custom vs Pre-set Queries:</strong> Livesov lets you track your own keywords. Ahrefs uses a pre-built dataset.</p>
 <p><strong>Real-time vs Monthly:</strong> Livesov runs queries on-demand with real API calls. Ahrefs updates monthly from historical data.</p>
 <p><strong>Full Response as Proof:</strong> Livesov saves the complete AI response. Ahrefs shows aggregated statistics.</p>
-<p><strong>7 AI Platforms:</strong> Livesov tracks ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO & DeepSeek.</p>
+<p><strong>5 AI Platforms:</strong> Livesov tracks ChatGPT, Perplexity, Claude, Gemini & Grok.</p>
 </div>
 
 <h2>When to Use Each</h2>
 <p><strong>Ahrefs Brand Radar</strong> is great for broad market intelligence and seeing macro trends in AI visibility across large datasets.</p>
 <p><strong>Livesov</strong> is better for targeted tracking with your specific keywords, getting real proof of AI responses, and measuring your GEO efforts with custom queries.</p>
-`
-  }));
-});
-
-// DeepSeek landing page
-router.get('/deepseek-brand-tracking', (req, res) => {
-  res.send(seoPage({
-    title: 'DeepSeek Brand Tracking — Monitor Brand Mentions in DeepSeek AI | Livesov',
-    description: 'Track how DeepSeek AI mentions your brand. See real API responses, sentiment analysis, and proof of your brand visibility in DeepSeek answers.',
-    keywords: 'DeepSeek brand tracking, DeepSeek AI monitoring, DeepSeek brand visibility, DeepSeek AI mentions, track brand in DeepSeek',
-    h1: 'Track Your Brand in <span>DeepSeek AI</span>',
-    subtitle: 'DeepSeek is a fast-growing AI platform with advanced reasoning capabilities. See if it mentions and recommends your brand.',
-    canonical: '/deepseek-brand-tracking',
-    jsonLd: { "@context": "https://schema.org", "@type": "WebPage", "name": "DeepSeek Brand Tracking", "description": "Track how DeepSeek AI mentions your brand.", "url": "https://livesov.com/deepseek-brand-tracking", "isPartOf": { "@type": "WebSite", "name": "Livesov", "url": "https://livesov.com" } },
-    content: `
-<h2>Why Track Your Brand in DeepSeek?</h2>
-<p>DeepSeek is one of the fastest-growing AI platforms, known for its advanced reasoning and cost-effective AI models. As more users turn to DeepSeek for recommendations and research, knowing whether it mentions your brand is critical for your AI visibility strategy.</p>
-<p>Livesov monitors your brand's presence in DeepSeek's responses using the official DeepSeek API, capturing complete, unmodified answers as verifiable proof.</p>
-
-<h2>How DeepSeek Tracking Works</h2>
-<div class="highlight">
-<h3>1. Set Your Keywords</h3>
-<p>Enter the questions your customers ask — e.g., "Best project management tool", "Top rated CRM for startups", "Which email marketing platform is best?"</p>
-<h3>2. Query DeepSeek</h3>
-<p>Livesov sends your queries to DeepSeek via their official API and captures the full response including reasoning.</p>
-<h3>3. Analyze Results</h3>
-<p>Each response is analyzed for brand mentions, sentiment, and recommendations. Full responses are saved as evidence.</p>
-</div>
-
-<h2>What You Get</h2>
-<ul>
-<li>Complete DeepSeek API responses saved as evidence</li>
-<li>Brand mention detection across all name variations</li>
-<li>Sentiment analysis (positive, negative, neutral)</li>
-<li>Recommendation detection</li>
-<li>Share of Voice percentage across all platforms</li>
-<li>CSV export for client reporting</li>
-<li>Historical tracking across multiple runs</li>
-</ul>
-
-<h2>DeepSeek's Growing Influence</h2>
-<p>DeepSeek has gained significant attention for delivering high-quality AI responses at a fraction of the cost of competitors. Its models are increasingly used by developers, researchers, and businesses worldwide. As its user base grows, ensuring your brand appears in DeepSeek recommendations becomes an important part of your <a href="/geo-optimization">Generative Engine Optimization (GEO)</a> strategy.</p>
-
-<h2>Who Needs DeepSeek Tracking?</h2>
-<p><strong>SaaS companies</strong> — Monitor if DeepSeek recommends your product when users ask for software solutions.</p>
-<p><strong>SEO agencies</strong> — Add DeepSeek visibility data to your AI tracking reports alongside <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity</a>, and <a href="/gemini-brand-tracking">Gemini</a>.</p>
-<p><strong>E-commerce brands</strong> — See if DeepSeek recommends your products when users ask for buying advice.</p>
 `
   }));
 });
@@ -536,7 +485,7 @@ router.get('/deepseek-brand-tracking', (req, res) => {
 router.get('/about', (req, res) => {
   res.send(seoPage({
     title: 'About Livesov — AI Visibility Tracking Platform | Livesov',
-    description: 'Learn about Livesov, the AI visibility tracking platform that helps brands monitor their presence across ChatGPT, Perplexity, Gemini, Claude, Grok, and DeepSeek.',
+    description: 'Learn about Livesov, the AI visibility tracking platform that helps brands monitor their presence across ChatGPT, Perplexity, Gemini, Claude, and Grok.',
     keywords: 'about Livesov, AI visibility company, brand tracking platform, GEO optimization tool, who is Livesov',
     h1: 'About <span>Livesov</span>',
     subtitle: 'We help brands understand and improve their visibility in AI-generated answers across every major platform.',
@@ -549,13 +498,13 @@ router.get('/about', (req, res) => {
 <h2>The Problem We Solve</h2>
 <p>Traditional SEO tools track Google rankings. But AI assistants don't have rankings — they generate answers from training data, web search, and knowledge graphs. There's no "position #1" in ChatGPT. The only way to know if an AI recommends your brand is to ask it — and that's exactly what Livesov does.</p>
 <div class="highlight">
-<p>Livesov queries 7 AI platforms with your custom keywords, captures the complete responses, and analyzes them for brand mentions, sentiment, and recommendations. Every response is saved as verifiable proof you can share with clients and stakeholders.</p>
+<p>Livesov queries 5 AI platforms with your custom keywords, captures the complete responses, and analyzes them for brand mentions, sentiment, and recommendations. Every response is saved as verifiable proof you can share with clients and stakeholders.</p>
 </div>
 
 <h2>What Makes Us Different</h2>
 <ul>
 <li>Purpose-built for AI visibility — not an add-on to a traditional SEO tool</li>
-<li>Real API responses from 7 platforms: ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO & DeepSeek</li>
+<li>Real API responses from 5 platforms: ChatGPT, Perplexity, Claude, Gemini & Grok</li>
 <li>Complete responses saved as verifiable proof</li>
 <li>Custom keywords — you choose exactly what to track</li>
 <li>Share of Voice measurement across all AI platforms</li>
@@ -575,7 +524,7 @@ router.get('/about', (req, res) => {
 router.get('/pricing', (req, res) => {
   res.send(seoPage({
     title: 'Pricing — AI Visibility Tracking Plans | Livesov',
-    description: 'Simple, transparent pricing for AI visibility tracking. Start free, upgrade as you grow. Track your brand across ChatGPT, Perplexity, Gemini, Claude, Grok, and DeepSeek.',
+    description: 'Simple, transparent pricing for AI visibility tracking. Start free, upgrade as you grow. Track your brand across ChatGPT, Perplexity, Gemini, Claude, and Grok.',
     keywords: 'Livesov pricing, AI visibility pricing, brand tracking pricing, GEO tool pricing, AI monitoring cost',
     h1: 'Simple, Transparent <span>Pricing</span>',
     subtitle: 'Start tracking your AI visibility for free. Upgrade when you need more keywords, platforms, and runs.',
@@ -600,7 +549,7 @@ router.get('/pricing', (req, res) => {
 <h3>$29/month — Most Popular</h3>
 <ul>
 <li>25 keywords</li>
-<li>All 7 AI platforms (ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO, DeepSeek)</li>
+<li>All 5 AI platforms (ChatGPT, Perplexity, Claude, Gemini, Grok)</li>
 <li>Unlimited tracking runs</li>
 <li>Advanced sentiment & recommendation analysis</li>
 <li>Share of Voice measurement</li>
@@ -615,7 +564,7 @@ router.get('/pricing', (req, res) => {
 <h3>$79/month — Built for Teams</h3>
 <ul>
 <li>100 keywords</li>
-<li>All 7 AI platforms</li>
+<li>All 5 AI platforms</li>
 <li>Unlimited tracking runs</li>
 <li>Multiple brand profiles</li>
 <li>White-label reporting</li>
@@ -713,7 +662,6 @@ router.get('/blog', (req, res) => {
 <li><a href="/gemini-brand-tracking">How to Track Your Brand in Google Gemini & AI Overview</a> — Monitor Google's AI-powered search</li>
 <li><a href="/claude-brand-tracking">How to Track Your Brand in Claude AI</a> — See what Anthropic's Claude says about you</li>
 <li><a href="/grok-brand-tracking">How to Track Your Brand in Grok (xAI)</a> — Monitor your visibility on X's AI assistant</li>
-<li><a href="/deepseek-brand-tracking">How to Track Your Brand in DeepSeek</a> — Track mentions in DeepSeek's AI responses</li>
 </ul>
 
 <h2>Comparisons</h2>
@@ -734,12 +682,12 @@ router.get('/blog', (req, res) => {
 router.get('/how-it-works', (req, res) => {
   res.send(seoPage({
     title: 'How It Works — AI Visibility Tracking in 3 Steps | Livesov',
-    description: 'Learn how Livesov tracks your brand across 7 AI platforms. Add keywords, run tracking, and see exactly what AI says about your brand — in 3 simple steps.',
+    description: 'Learn how Livesov tracks your brand across 5 AI platforms. Add keywords, run tracking, and see exactly what AI says about your brand — in 3 simple steps.',
     keywords: 'how Livesov works, AI visibility tracking process, brand tracking steps, how to track AI mentions, AI monitoring how it works',
     h1: 'How <span>Livesov</span> Works',
     subtitle: 'Track your brand\'s AI visibility in 3 simple steps. No technical setup required.',
     canonical: '/how-it-works',
-    jsonLd: { "@context": "https://schema.org", "@type": "HowTo", "name": "How to Track Your Brand in AI Platforms with Livesov", "description": "Track your brand's AI visibility in 3 simple steps.", "url": "https://livesov.com/how-it-works", "step": [{ "@type": "HowToStep", "position": 1, "name": "Add Your Keywords", "text": "Enter the questions your customers ask AI assistants." }, { "@type": "HowToStep", "position": 2, "name": "Run Tracking", "text": "Livesov queries 7 AI platforms with your keywords via official APIs." }, { "@type": "HowToStep", "position": 3, "name": "See Results", "text": "View brand mentions, sentiment, Share of Voice, and full AI responses as proof." }] },
+    jsonLd: { "@context": "https://schema.org", "@type": "HowTo", "name": "How to Track Your Brand in AI Platforms with Livesov", "description": "Track your brand's AI visibility in 3 simple steps.", "url": "https://livesov.com/how-it-works", "step": [{ "@type": "HowToStep", "position": 1, "name": "Add Your Keywords", "text": "Enter the questions your customers ask AI assistants." }, { "@type": "HowToStep", "position": 2, "name": "Run Tracking", "text": "Livesov queries 5 AI platforms with your keywords via official APIs." }, { "@type": "HowToStep", "position": 3, "name": "See Results", "text": "View brand mentions, sentiment, Share of Voice, and full AI responses as proof." }] },
     content: `
 <h2>Step 1: Add Your Keywords</h2>
 <div class="highlight">
@@ -755,15 +703,13 @@ router.get('/how-it-works', (req, res) => {
 
 <h2>Step 2: Run Tracking</h2>
 <div class="highlight">
-<p>Click "Run Tracking" and Livesov queries up to 7 AI platforms simultaneously using their official APIs:</p>
+<p>Click "Run Tracking" and Livesov queries up to 5 AI platforms simultaneously using their official APIs:</p>
 <ul>
 <li><a href="/chatgpt-brand-tracking">ChatGPT</a> (OpenAI API)</li>
 <li><a href="/perplexity-brand-tracking">Perplexity AI</a> (Sonar Pro API with search grounding)</li>
 <li><a href="/gemini-brand-tracking">Google Gemini</a> (Gemini API)</li>
-<li>Google AI Overview (Gemini API with Google Search grounding)</li>
 <li><a href="/claude-brand-tracking">Claude AI</a> (Anthropic API)</li>
 <li><a href="/grok-brand-tracking">Grok</a> (xAI API)</li>
-<li><a href="/deepseek-brand-tracking">DeepSeek</a> (DeepSeek API)</li>
 </ul>
 <p>Each query takes 10-30 seconds. Responses are captured in full — nothing is truncated or modified.</p>
 </div>
@@ -776,7 +722,7 @@ router.get('/how-it-works', (req, res) => {
 <li><strong>Sentiment</strong> — Is the mention positive, negative, or neutral?</li>
 <li><strong>Recommendations</strong> — Does the AI actively recommend your brand?</li>
 <li><strong>Share of Voice</strong> — What percentage of responses mention you vs competitors?</li>
-<li><strong>Citations</strong> — For Perplexity and Google AIO, which sources are cited?</li>
+<li><strong>Citations</strong> — For Perplexity, which sources are cited?</li>
 </ul>
 </div>
 
@@ -823,7 +769,7 @@ router.get('/use-cases', (req, res) => {
 <h2>SEO & Marketing Agencies</h2>
 <div class="highlight">
 <h3>Add AI Visibility to Your Service Offering</h3>
-<p>Your clients are asking about AI visibility. Offer it as a service with Livesov. Track AI mentions across 7 platforms, generate client-ready reports, and prove ROI on GEO campaigns.</p>
+<p>Your clients are asking about AI visibility. Offer it as a service with Livesov. Track AI mentions across 5 platforms, generate client-ready reports, and prove ROI on GEO campaigns.</p>
 <p><strong>How they use Livesov:</strong></p>
 <ul>
 <li>Track AI visibility for multiple clients from one account</li>
@@ -870,13 +816,13 @@ router.get('/use-cases', (req, res) => {
 // Integrations page
 router.get('/integrations', (req, res) => {
   res.send(seoPage({
-    title: 'AI Platform Integrations — 7 Platforms Tracked | Livesov',
-    description: 'Livesov tracks your brand across 7 AI platforms: ChatGPT, Perplexity, Google Gemini, Google AI Overview, Claude, Grok, and DeepSeek. All via official APIs.',
-    keywords: 'AI platform integrations, ChatGPT tracking, Perplexity tracking, Gemini tracking, Claude tracking, Grok tracking, DeepSeek tracking, AI visibility platforms',
-    h1: 'Track <span>7 AI Platforms</span> in One Dashboard',
+    title: 'AI Platform Integrations — 5 Platforms Tracked | Livesov',
+    description: 'Livesov tracks your brand across 5 AI platforms: ChatGPT, Perplexity, Google Gemini, Claude, and Grok. All via official APIs.',
+    keywords: 'AI platform integrations, ChatGPT tracking, Perplexity tracking, Gemini tracking, Claude tracking, Grok tracking, AI visibility platforms',
+    h1: 'Track <span>5 AI Platforms</span> in One Dashboard',
     subtitle: 'Livesov integrates with every major AI assistant via their official APIs. See what each one says about your brand.',
     canonical: '/integrations',
-    jsonLd: { "@context": "https://schema.org", "@type": "WebPage", "name": "Livesov AI Platform Integrations", "description": "Track your brand across 7 AI platforms in one dashboard.", "url": "https://livesov.com/integrations" },
+    jsonLd: { "@context": "https://schema.org", "@type": "WebPage", "name": "Livesov AI Platform Integrations", "description": "Track your brand across 5 AI platforms in one dashboard.", "url": "https://livesov.com/integrations" },
     content: `
 <h2>Supported AI Platforms</h2>
 
@@ -896,11 +842,6 @@ router.get('/integrations', (req, res) => {
 </div>
 
 <div class="highlight">
-<h3>Google AI Overview (AIO)</h3>
-<p>The AI-generated summary that appears above Google search results. Livesov queries Gemini with Google Search grounding enabled, replicating the AI Overview experience. Captures grounding citations and source URLs.</p>
-</div>
-
-<div class="highlight">
 <h3><a href="/claude-brand-tracking">Claude (Anthropic)</a></h3>
 <p>Known for thoughtful, nuanced responses. Livesov uses the official Anthropic API (Claude Sonnet) to track how Claude describes and recommends your brand.</p>
 </div>
@@ -908,11 +849,6 @@ router.get('/integrations', (req, res) => {
 <div class="highlight">
 <h3><a href="/grok-brand-tracking">Grok (xAI)</a></h3>
 <p>Integrated into X (Twitter) with access to real-time social data. Livesov uses the official xAI API (Grok-3-mini) to track your brand's visibility on X's AI assistant.</p>
-</div>
-
-<div class="highlight">
-<h3><a href="/deepseek-brand-tracking">DeepSeek</a></h3>
-<p>Fast-growing AI platform with advanced reasoning capabilities. Livesov uses the official DeepSeek API to monitor brand mentions in DeepSeek's responses.</p>
 </div>
 
 <h2>Why Official APIs Matter</h2>
@@ -953,7 +889,7 @@ router.get('/changelog', (req, res) => {
 <div class="highlight">
 <h3>March 20 — SEO & Content Pages</h3>
 <ul>
-<li>Launched platform-specific landing pages for ChatGPT, Perplexity, Gemini, Claude, Grok, and DeepSeek tracking</li>
+<li>Launched platform-specific landing pages for ChatGPT, Perplexity, Gemini, Claude, and Grok tracking</li>
 <li>Published GEO Optimization Guide</li>
 <li>Added comparison pages: Livesov vs Semrush, Livesov vs Ahrefs Brand Radar</li>
 <li>Added Methodology page explaining our tracking approach</li>
@@ -964,7 +900,7 @@ router.get('/changelog', (req, res) => {
 <div class="highlight">
 <h3>March 15 — Core Platform</h3>
 <ul>
-<li>Multi-platform AI tracking: ChatGPT, Perplexity, Claude, Gemini, Grok, Google AIO & DeepSeek</li>
+<li>Multi-platform AI tracking: ChatGPT, Perplexity, Claude, Gemini & Grok</li>
 <li>Brand mention detection with alias support</li>
 <li>Sentiment analysis (positive, negative, neutral)</li>
 <li>Recommendation detection</li>

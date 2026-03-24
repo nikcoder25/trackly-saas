@@ -398,7 +398,7 @@ function renderSetup(){
   const savedPlats = b.platforms || PLATS; // default: all platforms
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
-    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai').replace('googleaio','gemini')];
+    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai')];
     const lbl = document.createElement('label');
     lbl.className = 'plat-check';
     lbl.style.color = t.color||'#fff';

@@ -41,7 +41,6 @@ Livesov SaaS has been fully reviewed for production deployment readiness. All 19
 ## What Was Fixed
 
 ### .env.example Updates
-- **Added** `DEEPSEEK_API_KEY` - was used in code but missing from template
 - **Added** `DODO_ENTERPRISE_PRODUCT_ID` - was used in code but missing from template
 - **Added** `ALLOWED_ORIGINS` - required in production but not documented
 - **Added** `NODE_ENV` - important production toggle, now documented
@@ -60,9 +59,7 @@ Livesov SaaS has been fully reviewed for production deployment readiness. All 19
 | Claude (Anthropic) | Full | 48h/12h | Per-token | Yes |
 | Gemini (Google) | Full | 48h/12h | Per-token | Yes |
 | Grok (xAI) | Full | 48h/12h | Per-token | Yes |
-| DeepSeek | Full | 48h/12h | Per-token | Yes |
 | Mistral | Full | 48h/12h | Per-token | Yes |
-| Google AIO | Full | 48h/12h | Per-token | Yes |
 
 ---
 
@@ -122,7 +119,6 @@ PERPLEXITY_API_KEY=pplx-...
 CLAUDE_API_KEY=sk-ant-...
 GEMINI_API_KEY=AIza...
 GROK_API_KEY=xai-...
-DEEPSEEK_API_KEY=sk-...
 ```
 
 ---
