@@ -11,6 +11,7 @@ const { auth } = require('../middleware/auth');
 const { safeUser } = require('../lib/helpers');
 const { createLogger } = require('../lib/logger');
 const { API_ENDPOINTS, TIMEOUTS } = require('../config/constants');
+const { sendPaymentReceiptEmail, sendSubscriptionCancelledEmail } = require('../lib/email');
 const log = createLogger('Payments');
 
 // Webhook idempotency — prevent duplicate event processing
@@ -189,6 +190,14 @@ if (DODO_WEBHOOK_KEY) {
           if (result.rows.length) {
             log.info(`Upgraded user ${result.rows[0].email} to ${plan} plan`);
             await markWebhookProcessed(eventId, 'payment.succeeded');
+            // Send payment receipt email (non-blocking)
+            sendPaymentReceiptEmail(result.rows[0].email, {
+              plan,
+              amount: data.total_amount || data.amount || null,
+              currency: data.currency || 'USD',
+              paymentId: data.payment_id || eventId,
+              date: data.created_at || null
+            }).catch(e => log.error('Receipt email failed', { error: e.message }));
           } else {
             log.warn('User not found for upgrade', { userId });
           }
@@ -279,12 +288,18 @@ if (DODO_WEBHOOK_KEY) {
             log.warn('subscription.cancelled — could not resolve user');
             return;
           }
-          await pool.query(
-            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+          const cancelResult = await pool.query(
+            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1 RETURNING email, plan`,
             [targetUserId]
           );
           log.info(`Subscription cancelled, downgraded user ${targetUserId} to free`);
           await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
+          // Send cancellation email (non-blocking)
+          if (cancelResult.rows.length) {
+            const prevPlan = metadata.plan || 'unknown';
+            sendSubscriptionCancelledEmail(cancelResult.rows[0].email, { plan: prevPlan })
+              .catch(e => log.error('Cancellation email failed', { error: e.message }));
+          }
         } catch(e) {
           log.error('subscription.cancelled error', { error: e.message });
         }
@@ -480,6 +495,9 @@ router.post('/cancel', auth, async (req, res) => {
       [req.user.id]
     );
     log.info(`User ${req.user.id} cancelled subscription, downgraded to free`);
+    // Send cancellation email (non-blocking)
+    sendSubscriptionCancelledEmail(result.rows[0].email, { plan: user.plan })
+      .catch(e => log.error('Cancellation email failed', { error: e.message }));
     res.json({ user: safeUser(result.rows[0]), message: 'Subscription cancelled. You are now on the free plan.' });
   } catch(e) {
     log.error('Cancel subscription failed', { error: e.message });
