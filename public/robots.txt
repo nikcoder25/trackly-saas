@@ -3,5 +3,14 @@ Allow: /
 Disallow: /api/
 Disallow: /admin
 Disallow: /preview
+Disallow: /reset-password
+Crawl-delay: 1
+
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /preview
+Disallow: /reset-password
 
 Sitemap: https://livesov.com/sitemap.xml
