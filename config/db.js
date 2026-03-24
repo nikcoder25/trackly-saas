@@ -40,7 +40,7 @@ async function initDB() {
         username TEXT UNIQUE,
         name TEXT,
         password_hash TEXT NOT NULL,
-        plan TEXT DEFAULT 'free',
+        plan TEXT DEFAULT 'starter',
         role TEXT,
         api_keys JSONB DEFAULT '{}',
         settings JSONB DEFAULT '{}',

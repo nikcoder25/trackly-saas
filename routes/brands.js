@@ -425,7 +425,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
     // ── Daily cost budget check ─────────────────────────────────
     // Prevents runaway costs. Budget scales with plan tier.
-    const dailyBudget = DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.free;
+    const dailyBudget = DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.starter;
     const dailyCostData = await getDailyCost(req.user.id);
     const currentDailyCost = parseFloat(dailyCostData.total_cost) || 0;
     if (currentDailyCost >= dailyBudget) {
@@ -1098,7 +1098,7 @@ router.get('/:id/cost-estimate', auth, async (req, res) => {
       estimatedCacheHits: estimatedSkips,
       cacheHitRate: totalCalls > 0 ? Math.round((estimatedSkips / totalCalls) * 100) : 0,
       dailySpent: parseFloat(dailyCostData.total_cost) || 0,
-      dailyBudget: DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.free,
+      dailyBudget: DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.starter,
       dailyQueriesUsed: parseInt(dailyCostData.query_count) || 0,
       plan
     });

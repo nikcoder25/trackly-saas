@@ -13,11 +13,11 @@ beforeAll(() => {
 const { getPlanLimits, PLAN_LIMITS } = await import('../lib/plans.js');
 
 describe('getPlanLimits', () => {
-  it('returns correct limits for the free plan', () => {
-    const limits = getPlanLimits('free');
-    expect(limits).toEqual(PLAN_LIMITS.free);
+  it('returns correct limits for the starter plan', () => {
+    const limits = getPlanLimits('starter');
+    expect(limits).toEqual(PLAN_LIMITS.starter);
     expect(limits.brands).toBe(1);
-    expect(limits.prompts).toBe(50);
+    expect(limits.prompts).toBe(30);
     expect(limits.apiAccess).toBe(false);
   });
 
@@ -25,7 +25,7 @@ describe('getPlanLimits', () => {
     const limits = getPlanLimits('pro');
     expect(limits).toEqual(PLAN_LIMITS.pro);
     expect(limits.brands).toBe(5);
-    expect(limits.prompts).toBe(500);
+    expect(limits.prompts).toBe(250);
     expect(limits.sentiment).toBe(true);
   });
 
@@ -33,7 +33,7 @@ describe('getPlanLimits', () => {
     const limits = getPlanLimits('agency');
     expect(limits).toEqual(PLAN_LIMITS.agency);
     expect(limits.brands).toBe(20);
-    expect(limits.prompts).toBe(2000);
+    expect(limits.prompts).toBe(1000);
   });
 
   it('returns correct limits for the enterprise plan', () => {
@@ -43,13 +43,13 @@ describe('getPlanLimits', () => {
     expect(limits.prioritySupport).toBe(true);
   });
 
-  it('falls back to free plan limits for unknown plans', () => {
+  it('falls back to starter plan limits for unknown plans', () => {
     const limits = getPlanLimits('nonexistent');
-    expect(limits).toEqual(PLAN_LIMITS.free);
+    expect(limits).toEqual(PLAN_LIMITS.starter);
   });
 
-  it('falls back to free plan limits for undefined input', () => {
+  it('falls back to starter plan limits for undefined input', () => {
     const limits = getPlanLimits(undefined);
-    expect(limits).toEqual(PLAN_LIMITS.free);
+    expect(limits).toEqual(PLAN_LIMITS.starter);
   });
 });

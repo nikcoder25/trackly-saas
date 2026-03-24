@@ -159,7 +159,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <input class="finput finput-sm" id="search-input" type="text" placeholder="Search name or email..." style="width:260px;" oninput="applyFilters()">
         <select class="finput finput-sm" id="filter-plan" style="width:120px;" onchange="applyFilters()">
           <option value="">All Plans</option>
-          <option value="free">Free</option>
+          <option value="starter">Starter</option>
           <option value="pro">Pro</option>
           <option value="agency">Agency</option>
         </select>
@@ -195,7 +195,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
         <div>
           <label>Plan</label>
           <select class="finput" id="edit-plan" style="width:100%;">
-            <option value="free">Free</option>
+            <option value="starter">Starter</option>
             <option value="pro">Pro</option>
             <option value="agency">Agency</option>
           </select>
@@ -352,13 +352,13 @@ async function loadUsers(){
 
 function renderStats(){
   const total=allUsers.length;
-  const free=allUsers.filter(u=>u.plan==='free').length;
+  const starter=allUsers.filter(u=>u.plan==='starter').length;
   const pro=allUsers.filter(u=>u.plan==='pro').length;
   const agency=allUsers.filter(u=>u.plan==='agency').length;
   const admins=allUsers.filter(u=>u.role==='admin').length;
   const stats=[
     {label:'Total Users',value:total,color:'var(--text)'},
-    {label:'Free Plan',value:free,color:'var(--muted)'},
+    {label:'Starter Plan',value:starter,color:'var(--muted)'},
     {label:'Pro Plan',value:pro,color:'var(--green)'},
     {label:'Agency Plan',value:agency,color:'var(--purple)'}
   ];
@@ -399,7 +399,7 @@ function renderTable(users){
         <div style="font-weight:600;font-size:13px;">${esc(u.name||'—')}${isMe?' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:1px 5px;border-radius:2px;margin-left:4px;">YOU</span>':''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}</div>
       </td>
-      <td><span class="badge badge-${u.plan}">${(u.plan||'free').toUpperCase()}</span></td>
+      <td><span class="badge badge-${u.plan}">${(u.plan||'starter').toUpperCase()}</span></td>
       <td><span class="badge badge-${u.role==='admin'?'admin':'user'}">${u.role||'user'}</span></td>
       <td style="font-family:var(--mono);font-size:12px;">${u.brandCount!==undefined?u.brandCount:'—'}</td>
       <td style="font-family:var(--mono);font-size:12px;">${u.trackedQueries||0}</td>
@@ -421,7 +421,7 @@ function openEdit(userId){
   $('edit-id').value=u.id;
   $('edit-email').value=u.email||'';
   $('edit-name').value=u.name||'';
-  $('edit-plan').value=u.plan||'free';
+  $('edit-plan').value=u.plan||'starter';
   $('edit-role').value=u.role||'user';
   $('modal-title').textContent='Edit — '+(u.name||u.email);
   const joined=u.createdAt?new Date(u.createdAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';

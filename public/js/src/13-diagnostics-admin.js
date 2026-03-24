@@ -211,12 +211,12 @@ async function renderAdmin(){
 
 function renderAdminStats(users){
   const total = users.length;
-  const free = users.filter(u => u.plan === 'free').length;
+  const starter = users.filter(u => u.plan === 'starter').length;
   const pro = users.filter(u => u.plan === 'pro').length;
   const agency = users.filter(u => u.plan === 'agency').length;
   const stats = [
     { label: 'Total Users', value: total, color: 'var(--text)' },
-    { label: 'Free Plan', value: free, color: 'var(--muted)' },
+    { label: 'Starter Plan', value: starter, color: 'var(--muted)' },
     { label: 'Pro Plan', value: pro, color: 'var(--green)' },
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];
@@ -283,7 +283,7 @@ function openAdminEdit(userId){
   el('admin-edit-email').value = u.email || '';
   el('admin-edit-username').value = u.username || '';
   el('admin-edit-name').value = u.name || '';
-  el('admin-edit-plan').value = u.plan || 'free';
+  el('admin-edit-plan').value = u.plan || 'starter';
   el('admin-edit-role').value = u.role || 'user';
   el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
   // Read-only info
@@ -353,7 +353,7 @@ function openAdminAddUser(){
   el('admin-add-username').value = '';
   el('admin-add-name').value = '';
   el('admin-add-password').value = '';
-  el('admin-add-plan').value = 'free';
+  el('admin-add-plan').value = 'starter';
   el('admin-add-role').value = 'user';
   document.getElementById('admin-add-modal').classList.add('open');
 }

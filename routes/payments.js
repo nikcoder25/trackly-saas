@@ -38,12 +38,14 @@ const DODO_ENVIRONMENT    = process.env.DODO_PAYMENTS_ENVIRONMENT; // 'test_mode
 const DODO_RETURN_URL     = process.env.DODO_PAYMENTS_RETURN_URL || '';
 
 // Product IDs — set these in your DodoPayments dashboard, then configure via env vars
+const DODO_STARTER_PRODUCT_ID    = process.env.DODO_STARTER_PRODUCT_ID || '';
 const DODO_PRO_PRODUCT_ID        = process.env.DODO_PRO_PRODUCT_ID || '';
 const DODO_AGENCY_PRODUCT_ID     = process.env.DODO_AGENCY_PRODUCT_ID || '';
 const DODO_ENTERPRISE_PRODUCT_ID = process.env.DODO_ENTERPRISE_PRODUCT_ID || '';
 
 // Map product IDs to plans
 function planFromProductId(productId) {
+  if (productId === DODO_STARTER_PRODUCT_ID) return 'starter';
   if (productId === DODO_PRO_PRODUCT_ID) return 'pro';
   if (productId === DODO_AGENCY_PRODUCT_ID) return 'agency';
   if (productId === DODO_ENTERPRISE_PRODUCT_ID) return 'enterprise';
@@ -57,11 +59,11 @@ router.post('/checkout', auth, async (req, res) => {
   }
 
   const { plan } = req.body;
-  if (!['pro', 'agency', 'enterprise'].includes(plan)) {
-    return res.status(400).json({ error: 'Invalid plan. Choose pro, agency, or enterprise.' });
+  if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
+    return res.status(400).json({ error: 'Invalid plan. Choose starter, pro, agency, or enterprise.' });
   }
 
-  const productIdMap = { pro: DODO_PRO_PRODUCT_ID, agency: DODO_AGENCY_PRODUCT_ID, enterprise: DODO_ENTERPRISE_PRODUCT_ID };
+  const productIdMap = { starter: DODO_STARTER_PRODUCT_ID, pro: DODO_PRO_PRODUCT_ID, agency: DODO_AGENCY_PRODUCT_ID, enterprise: DODO_ENTERPRISE_PRODUCT_ID };
   const productId = productIdMap[plan];
   if (!productId) {
     return res.status(503).json({ error: 'Payment product not configured for this plan. Contact support.' });
@@ -74,7 +76,7 @@ router.post('/checkout', auth, async (req, res) => {
     const user = userResult.rows[0];
 
     // Don't allow if already on same or higher plan
-    const tiers = { free: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
+    const tiers = { starter: 0, pro: 1, agency: 2, enterprise: 3, owner: 4 };
     const currentTier = tiers[user.plan];
     const targetTier = tiers[plan];
     // Guard against unknown plan values (undefined tier would bypass the check)
@@ -174,7 +176,7 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
 
-          if (!['pro', 'agency', 'enterprise'].includes(plan)) {
+          if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
             log.warn('Invalid plan in metadata', { plan });
             return;
           }
@@ -219,7 +221,7 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
 
-          if (!['pro', 'agency', 'enterprise'].includes(plan)) return;
+          if (!['starter', 'pro', 'agency', 'enterprise'].includes(plan)) return;
 
           // Store subscription ID for future reference
           const subscriptionId = data.subscription_id;
@@ -242,7 +244,7 @@ if (DODO_WEBHOOK_KEY) {
           const userId = metadata.user_id;
           const productId = data.product_id;
           const plan = metadata.plan || planFromProductId(productId);
-          if (userId && plan && ['pro', 'agency', 'enterprise'].includes(plan)) {
+          if (userId && plan && ['starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
             await pool.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
             log.info(`Subscription renewed for user ${userId}, confirmed plan: ${plan}`);
           } else if (userId) {
@@ -278,10 +280,10 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
           await pool.query(
-            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            `UPDATE users SET plan = 'starter', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
             [targetUserId]
           );
-          log.info(`Subscription cancelled, downgraded user ${targetUserId} to free`);
+          log.info(`Subscription cancelled, downgraded user ${targetUserId} to starter`);
           await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
         } catch(e) {
           log.error('subscription.cancelled error', { error: e.message });
@@ -312,10 +314,10 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
           await pool.query(
-            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            `UPDATE users SET plan = 'starter', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
             [targetUserId]
           );
-          log.info(`Subscription expired, downgraded user ${targetUserId} to free`);
+          log.info(`Subscription expired, downgraded user ${targetUserId} to starter`);
           await markWebhookProcessed('sub_expired_' + eventId, 'subscription.expired');
         } catch(e) {
           log.error('subscription.expired error', { error: e.message });
@@ -360,10 +362,10 @@ if (DODO_WEBHOOK_KEY) {
             return;
           }
           await pool.query(
-            `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
+            `UPDATE users SET plan = 'starter', settings = settings - 'dodo_subscription_id' WHERE id = $1`,
             [targetUserId]
           );
-          log.info(`Refund processed, downgraded user ${targetUserId} to free`);
+          log.info(`Refund processed, downgraded user ${targetUserId} to starter`);
           await markWebhookProcessed('refund_' + eventId, 'refund.succeeded');
         } catch(e) {
           log.error('refund.succeeded error', { error: e.message });
@@ -428,6 +430,7 @@ router.get('/payment-status', auth, (req, res) => {
     configured: !!(DODO_API_KEY && DODO_WEBHOOK_KEY),
     environment: DODO_ENVIRONMENT,
     products: {
+      starter: !!DODO_STARTER_PRODUCT_ID,
       pro: !!DODO_PRO_PRODUCT_ID,
       agency: !!DODO_AGENCY_PRODUCT_ID,
       enterprise: !!DODO_ENTERPRISE_PRODUCT_ID
