@@ -46,9 +46,11 @@ router.get('/meta/platforms', auth, async (req, res) => {
     for (const [name, config] of Object.entries(PLATFORM_CONFIG)) {
       const stat = stats.rows.find(s => s.platform === name) || {};
       const failureRate = stat.total_calls > 0 ? stat.failures / stat.total_calls : 0;
+      // Distinguish between "healthy" (calls succeeding) and "no data" (zero calls)
+      const healthStatus = !stat.total_calls ? 'no_data' : failureRate > ANALYTICS.failureRateRed ? 'red' : failureRate > ANALYTICS.failureRateAmber ? 'amber' : 'green';
       platforms[name] = {
         ...config,
-        status: failureRate > ANALYTICS.failureRateRed ? 'red' : failureRate > ANALYTICS.failureRateAmber ? 'amber' : 'green',
+        status: healthStatus,
         total_calls_24h: stat.total_calls || 0,
         success_rate: stat.total_calls > 0 ? Math.round((stat.successes / stat.total_calls) * 100) : null,
         avg_latency_ms: stat.avg_latency || null,

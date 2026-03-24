@@ -25,8 +25,8 @@ async function renderPlatformStatus(){
     const latencyMs = health.avg_latency_ms;
     const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '—';
     const successRate = health.success_rate != null ? health.success_rate + '%' : '—';
-    const apiStatus = health.status === 'red' ? 'Degraded' : health.status === 'amber' ? 'Slow' : 'Healthy';
-    const apiStatusColor = health.status === 'red' ? 'var(--red)' : health.status === 'amber' ? 'var(--amber)' : 'var(--green)';
+    const apiStatus = health.status === 'red' ? 'Degraded' : health.status === 'amber' ? 'Slow' : health.status === 'no_data' ? 'No Data' : 'Healthy';
+    const apiStatusColor = health.status === 'red' ? 'var(--red)' : health.status === 'amber' ? 'var(--amber)' : health.status === 'no_data' ? 'var(--muted)' : 'var(--green)';
     const calls24h = health.total_calls_24h || 0;
 
     return `<div class="card" style="padding:18px 20px;">
