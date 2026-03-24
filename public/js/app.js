@@ -1016,6 +1016,8 @@ function renderAccount(){
   planEl.style.color = currentUser.plan === 'enterprise' ? 'var(--purple)' : currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : currentUser.plan === 'starter' ? 'var(--amber)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
+  // Subscription status + cancel button
+  loadSubscriptionStatus();
 
   // Usage stats
   const limits = getUserLimits();
@@ -1053,6 +1055,48 @@ function renderAccount(){
       <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
     </div>
   `).join('');
+}
+
+// ── Subscription Status ──────────────────────────────
+async function loadSubscriptionStatus() {
+  const statusEl = el('acct-sub-status');
+  const cancelRow = el('acct-cancel-row');
+  if (!statusEl || !cancelRow) return;
+  const plan = (currentUser && currentUser.plan) || 'free';
+  if (plan === 'free') {
+    statusEl.innerHTML = '';
+    cancelRow.style.display = 'none';
+    return;
+  }
+  try {
+    const data = await api('GET', '/api/payments/subscription');
+    if (data.hasSubscription) {
+      statusEl.innerHTML = '<span class="badge pos">ACTIVE</span>';
+      cancelRow.style.display = '';
+    } else {
+      statusEl.innerHTML = '';
+      cancelRow.style.display = 'none';
+    }
+  } catch(e) {
+    statusEl.innerHTML = '';
+    cancelRow.style.display = 'none';
+  }
+}
+
+async function cancelSubscription() {
+  if (!confirm('Are you sure you want to cancel your subscription? You will be downgraded to the free plan immediately.')) return;
+  if (!confirm('This will take effect immediately. Continue?')) return;
+  try {
+    const data = await api('POST', '/api/payments/cancel');
+    currentUser = data.user;
+    const pb = el('plan-badge');
+    pb.textContent = 'FREE';
+    pb.className = 'plan-badge free';
+    toast(data.message || 'Subscription cancelled', 'ok');
+    if (currentView === 'account') renderAccount();
+  } catch(e) {
+    toast(e.message || 'Failed to cancel subscription', 'err');
+  }
 }
 
 // ── Model Settings ────────────────────────────────────

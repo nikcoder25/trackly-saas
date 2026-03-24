@@ -424,6 +424,59 @@ async function cancelDodoSubscription(subscriptionId) {
   });
 }
 
+// ─── CANCEL SUBSCRIPTION — User self-service cancellation ───────
+router.post('/cancel', auth, async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT id, plan, settings FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const user = userResult.rows[0];
+    const settings = user.settings || {};
+    const subscriptionId = settings.dodo_subscription_id;
+
+    if (user.plan === 'free') {
+      return res.status(400).json({ error: 'You are already on the free plan.' });
+    }
+
+    // Cancel with DodoPayments if there's an active subscription
+    if (subscriptionId) {
+      const cancelled = await cancelDodoSubscription(subscriptionId);
+      if (!cancelled) {
+        return res.status(500).json({ error: 'Failed to cancel subscription with payment provider. Please contact support or try again.' });
+      }
+    }
+
+    // Downgrade to free
+    const result = await pool.query(
+      `UPDATE users SET plan = 'free', settings = settings - 'dodo_subscription_id' WHERE id = $1 RETURNING *`,
+      [req.user.id]
+    );
+    log.info(`User ${req.user.id} cancelled subscription, downgraded to free`);
+    res.json({ user: safeUser(result.rows[0]), message: 'Subscription cancelled. You are now on the free plan.' });
+  } catch(e) {
+    log.error('Cancel subscription failed', { error: e.message });
+    res.status(500).json({ error: 'Failed to cancel subscription. Please try again.' });
+  }
+});
+
+// ─── SUBSCRIPTION STATUS — Get current subscription info ────────
+router.get('/subscription', auth, async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT plan, settings FROM users WHERE id = $1', [req.user.id]);
+    if (!userResult.rows.length) return res.status(404).json({ error: 'User not found' });
+    const user = userResult.rows[0];
+    const settings = user.settings || {};
+    const subscriptionId = settings.dodo_subscription_id;
+
+    res.json({
+      plan: user.plan,
+      hasSubscription: !!subscriptionId,
+      subscriptionId: subscriptionId || null
+    });
+  } catch(e) {
+    res.status(500).json({ error: 'Failed to load subscription info' });
+  }
+});
+
 // ─── PAYMENT STATUS — Check if DodoPayments is configured ──────
 router.get('/payment-status', auth, (req, res) => {
   res.json({
