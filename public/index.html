@@ -1490,9 +1490,11 @@
         </div>
         <button onclick="deleteAccount()" style="padding:8px 16px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;border-radius:var(--radius-xs);">DELETE MY ACCOUNT</button>
       </div>
-      <!-- Hidden sections for plan management -->
-      <div id="acct-usage" style="display:none;"></div>
-      <div id="acct-plans" style="display:none;"></div>
+      <div id="acct-usage"></div>
+      <div class="card" style="margin-top:14px;">
+        <div class="section-title">CHOOSE YOUR PLAN</div>
+        <div id="acct-plans"></div>
+      </div>
     </div>
 
     <!-- ACTIVITY & LOGS ────────────────── -->
