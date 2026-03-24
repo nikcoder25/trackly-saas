@@ -396,7 +396,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, email FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     // Always return success to prevent email enumeration
-    if (!result.rows.length) return res.json({ message: 'If an account exists with that email, a reset link has been generated.' });
+    if (!result.rows.length) return res.json({ message: 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.' });
     const user = result.rows[0];
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
@@ -406,11 +406,15 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       'INSERT INTO password_reset_tokens (token, user_id, email, expires_at) VALUES ($1, $2, $3, $4)',
       [token, user.id, user.email, expiresAt]
     );
-    // Send password reset email
-    sendPasswordResetEmail(user.email, token).catch(e => {
-      console.error('[ForgotPassword] Failed to send reset email:', e.message);
-    });
-    res.json({ message: 'If an account exists with that email, a reset link has been generated.' });
+    // Send password reset email and verify it was actually sent
+    const emailResult = await sendPasswordResetEmail(user.email, token);
+    if (!emailResult.sent) {
+      console.error('[ForgotPassword] Email not sent:', emailResult.reason);
+      // Clean up the token since email wasn't delivered
+      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+      return res.status(500).json({ error: 'Unable to send reset email. Please try again later or contact support.' });
+    }
+    res.json({ message: 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.' });
   } catch(e) {
     console.error('[Forgot Password]', e.message);
     res.status(500).json({ error: 'Failed to process request' });
