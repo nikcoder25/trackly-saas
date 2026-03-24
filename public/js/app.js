@@ -780,8 +780,8 @@ async function initApp(){
   const emailBadge = el('user-email-badge');
   if (emailBadge) emailBadge.textContent = currentUser.email;
   const pb = el('plan-badge');
-  pb.textContent = (currentUser.plan||'free').toUpperCase();
-  pb.className = 'plan-badge ' + (currentUser.plan||'free');
+  pb.textContent = (currentUser.plan||'starter').toUpperCase();
+  pb.className = 'plan-badge ' + (currentUser.plan||'starter');
 
   // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');
@@ -1012,7 +1012,7 @@ function renderAccount(){
     }
   }
   const planEl = el('acct-plan');
-  planEl.textContent = currentUser.plan || 'free';
+  planEl.textContent = currentUser.plan || 'starter';
   planEl.style.color = currentUser.plan === 'agency' ? 'var(--purple)' : currentUser.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
   el('acct-since').textContent = currentUser.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
@@ -1039,12 +1039,12 @@ function renderAccount(){
 
   // Plan cards
   const planData = [
-          { id: 'free', name: 'Free', price: '$0', features: '1 brand, 2 platforms, 50 prompts/month' },
-                { id: 'pro', name: 'Pro', price: '$35/mo', features: '5 brands, 7 platforms, 500 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 2000 prompts/month, 20 competitors, sentiment' },
-                      { id: 'enterprise', name: 'Enterprise', price: '$249/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
+          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month' },
+                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 7 platforms, 250 prompts/month, competitors, sentiment' },
+                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 7 platforms, 1000 prompts/month, 20 competitors, sentiment' },
+                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 7 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
   ];
-  const current = currentUser.plan || 'free';
+  const current = currentUser.plan || 'starter';
   el('acct-plans').innerHTML = planData.map(p => `
     <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
@@ -1652,7 +1652,7 @@ function showUpgradeModal(reason) {
     reasonEl.style.display = 'none';
   }
   // Highlight current plan
-  const current = (currentUser && currentUser.plan) || 'free';
+  const current = (currentUser && currentUser.plan) || 'starter';
   document.querySelectorAll('#upgrade-plans .upgrade-plan-card').forEach(card => {
     const plan = card.dataset.plan;
     card.classList.toggle('active', plan === current);
@@ -1671,9 +1671,9 @@ function showUpgradeModal(reason) {
 }
 
 async function doUpgrade(plan) {
-  const current = (currentUser && currentUser.plan) || 'free';
+  const current = (currentUser && currentUser.plan) || 'starter';
   if (plan === current) return;
-  const tiers = {free:0, pro:1, agency:2, enterprise:3};
+  const tiers = {starter:0, pro:1, agency:2, enterprise:3};
   const action = tiers[plan] > tiers[current] ? 'upgrade' : tiers[plan] < tiers[current] ? 'downgrade' : 'switch';
   if (!confirm(`${action === 'downgrade' ? 'Downgrade' : 'Upgrade'} to ${plan.toUpperCase()} plan?`)) return;
   try {
@@ -6261,12 +6261,12 @@ async function renderAdmin(){
 
 function renderAdminStats(users){
   const total = users.length;
-  const free = users.filter(u => u.plan === 'free').length;
+  const starter = users.filter(u => u.plan === 'starter').length;
   const pro = users.filter(u => u.plan === 'pro').length;
   const agency = users.filter(u => u.plan === 'agency').length;
   const stats = [
     { label: 'Total Users', value: total, color: 'var(--text)' },
-    { label: 'Free Plan', value: free, color: 'var(--muted)' },
+    { label: 'Starter Plan', value: starter, color: 'var(--muted)' },
     { label: 'Pro Plan', value: pro, color: 'var(--green)' },
     { label: 'Agency Plan', value: agency, color: 'var(--purple)' }
   ];
@@ -6333,7 +6333,7 @@ function openAdminEdit(userId){
   el('admin-edit-email').value = u.email || '';
   el('admin-edit-username').value = u.username || '';
   el('admin-edit-name').value = u.name || '';
-  el('admin-edit-plan').value = u.plan || 'free';
+  el('admin-edit-plan').value = u.plan || 'starter';
   el('admin-edit-role').value = u.role || 'user';
   el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
   // Read-only info
@@ -6403,7 +6403,7 @@ function openAdminAddUser(){
   el('admin-add-username').value = '';
   el('admin-add-name').value = '';
   el('admin-add-password').value = '';
-  el('admin-add-plan').value = 'free';
+  el('admin-add-plan').value = 'starter';
   el('admin-add-role').value = 'user';
   document.getElementById('admin-add-modal').classList.add('open');
 }
@@ -7274,7 +7274,7 @@ async function renderBilling() {
 
     // Plan card
     const planEl = el('billing-plan-card');
-    const planColors = { free: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
+    const planColors = { starter: '#6b7280', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
     planEl.innerHTML = `
       <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
         <div style="display:flex;justify-content:space-between;align-items:center;">
