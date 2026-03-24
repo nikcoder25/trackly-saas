@@ -597,7 +597,7 @@ router.get('/export/brand/:id', auth, exportLimiter, async (req, res) => {
     const archived = await pool.query('SELECT data FROM archived_runs WHERE brand_id = $1 ORDER BY run_date', [req.params.id]);
     brandData.archivedRuns = archived.rows.map(r => r.data);
     const safeName = (brandData.name || 'brand').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
-    res.setHeader('Content-Disposition', `attachment; filename="trackly-${safeName}-export.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="livesov-${safeName}-export.json"`);
     res.json(brandData);
   } catch(e) {
     res.status(500).json({ error: 'Export failed' });
@@ -611,7 +611,7 @@ router.get('/export/all', auth, exportLimiter, async (req, res) => {
     const brands = result.rows.map(row => ({ id: row.id, ...row.data, createdAt: row.created_at, updatedAt: row.updated_at }));
     const userResult = await pool.query('SELECT email, name, plan, created_at FROM users WHERE id = $1', [req.user.id]);
     const user = userResult.rows[0] || {};
-    res.setHeader('Content-Disposition', 'attachment; filename="trackly-full-export.json"');
+    res.setHeader('Content-Disposition', 'attachment; filename="livesov-full-export.json"');
     res.json({ exportDate: new Date().toISOString(), user: { email: user.email, name: user.name, plan: user.plan, createdAt: user.created_at }, brands });
   } catch(e) {
     res.status(500).json({ error: 'Export failed' });
@@ -639,7 +639,7 @@ router.get('/export/brand/:id/csv', auth, exportLimiter, async (req, res) => {
     });
     res.setHeader('Content-Type', 'text/csv');
     const safeName = (data.name || 'brand').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
-    res.setHeader('Content-Disposition', `attachment; filename="trackly-${safeName}-data.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="livesov-${safeName}-data.csv"`);
     res.send(rows.join('\n'));
   } catch(e) {
     res.status(500).json({ error: 'CSV export failed' });
@@ -821,7 +821,7 @@ router.delete('/team/:memberId', auth, async (req, res) => {
 // ─── API Documentation ───────────────────────────────
 router.get('/docs', (req, res) => {
   res.json({
-    name: 'Trackly API',
+    name: 'Livesov API',
     version: '1.0',
     baseUrl: '/api',
     authentication: 'Bearer token in Authorization header. Obtain via POST /api/auth/login.',

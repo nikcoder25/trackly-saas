@@ -101,9 +101,9 @@ let token = '';
 let refreshToken = '';
 let currentUser = null;
 let brands = [];
-let currentBrandId = localStorage.getItem('trackly_brand') || '';
+let currentBrandId = localStorage.getItem('livesov_brand') || '';
 // Session flag indicates we might be logged in (actual auth is via httpOnly cookie)
-const _hasSession = localStorage.getItem('trackly_session') === '1';
+const _hasSession = localStorage.getItem('livesov_session') === '1';
 let keyStatus = {};
 let runningQueries = false;
 let liveResults = [];     // Accumulates results during streaming
@@ -186,17 +186,17 @@ function mdToHtml(s){
 // Persistent error storage (survives page reloads and brand data refreshes)
 function storeRunError(entry) {
   try {
-    const errors = JSON.parse(localStorage.getItem('trackly_run_errors') || '[]');
+    const errors = JSON.parse(localStorage.getItem('livesov_run_errors') || '[]');
     errors.unshift(entry);
     // Keep last 20 errors
-    localStorage.setItem('trackly_run_errors', JSON.stringify(errors.slice(0, 20)));
-  } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+    localStorage.setItem('livesov_run_errors', JSON.stringify(errors.slice(0, 20)));
+  } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 }
 function getStoredRunErrors() {
-  try { return JSON.parse(localStorage.getItem('trackly_run_errors') || '[]'); } catch(_) { return []; }
+  try { return JSON.parse(localStorage.getItem('livesov_run_errors') || '[]'); } catch(_) { return []; }
 }
 function clearStoredRunErrors() {
-  localStorage.removeItem('trackly_run_errors');
+  localStorage.removeItem('livesov_run_errors');
 }
 function copyLogError(btn, json) {
   navigator.clipboard.writeText(json).then(() => {
@@ -535,7 +535,7 @@ async function triggerGoogleSignIn() {
         token = data.token;
         refreshToken = data.refreshToken || '';
         currentUser = data.user;
-        localStorage.setItem('trackly_session', '1');
+        localStorage.setItem('livesov_session', '1');
         await initApp();
       } catch(e) {
         el('auth-err').textContent = e.message || 'Google sign-in failed. Please try again.';
@@ -554,7 +554,7 @@ async function handleGoogleCredential(response) {
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('trackly_session', '1');
+    localStorage.setItem('livesov_session', '1');
     await initApp();
   } catch(e) {
     el('auth-err').textContent = e.message;
@@ -602,7 +602,7 @@ async function doLogin(){
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('trackly_session', '1');
+    localStorage.setItem('livesov_session', '1');
     // Reset 2FA UI on successful login
     const wrap = el('login-2fa-wrap');
     if (wrap) wrap.style.display = 'none';
@@ -650,7 +650,7 @@ async function doRegister(){
     token = data.token;
     refreshToken = data.refreshToken || '';
     currentUser = data.user;
-    localStorage.setItem('trackly_session', '1');
+    localStorage.setItem('livesov_session', '1');
     await initApp();
     if (currentUser.username) toast('Your username is @' + currentUser.username + ' — you can change it in Account settings', 'ok');
   } catch(e) {
@@ -759,8 +759,8 @@ function doLogout(){
   currentUser = null;
   brands = [];
   currentBrandId = '';
-  localStorage.removeItem('trackly_session');
-  localStorage.removeItem('trackly_brand');
+  localStorage.removeItem('livesov_session');
+  localStorage.removeItem('livesov_brand');
   // Close all open overlays/modals
   document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
   el('app').style.display = 'none';
@@ -853,7 +853,7 @@ function renderBrandSelect(){
 
 function switchBrand(id){
   currentBrandId = id;
-  localStorage.setItem('trackly_brand', id);
+  localStorage.setItem('livesov_brand', id);
   // Clear live results to prevent mixing data from different brands
   if (!runningQueries) {
     liveResults = [];
@@ -949,7 +949,7 @@ function renderView(view){
     emptyEl.style.display = 'flex';
     if (noBrands) {
       emptyEl.innerHTML = '<div class=\"global-empty-icon\">🚀</div>' +
-        '<h2 class=\"global-empty-title\">Welcome to Trackly!</h2>' +
+        '<h2 class=\"global-empty-title\">Welcome to Livesov!</h2>' +
         '<p class=\"global-empty-desc\">Start by adding your first brand to track how AI platforms mention your business across ChatGPT, Perplexity, Claude, Gemini, and more.</p>' +
         '<button class=\"global-empty-btn\" onclick=\"openAddBrand()\">+ Add Your First Brand</button>';
     } else {
@@ -1226,7 +1226,7 @@ async function deleteAccount() {
   if (!confirm('Are you sure? This will permanently delete your account and all brands. This cannot be undone.')) return;
   try {
     await api('DELETE', '/api/auth/account', { password: pw });
-    localStorage.removeItem('trackly_session');
+    localStorage.removeItem('livesov_session');
     location.reload();
   } catch(e) { toast(e.message, 'err'); }
 }
@@ -1250,15 +1250,15 @@ async function _downloadViaFetch(url, filename) {
 function exportAllData() {
   const b = brand();
   if (!b) { toast('No brand selected', 'err'); return; }
-  _downloadViaFetch(API + '/api/export/brand/' + b.id, `trackly-${b.name || 'brand'}-export.json`);
+  _downloadViaFetch(API + '/api/export/brand/' + b.id, `livesov-${b.name || 'brand'}-export.json`);
 }
 function exportAllBrandsData() {
-  _downloadViaFetch(API + '/api/export/all', 'trackly-full-export.json');
+  _downloadViaFetch(API + '/api/export/all', 'livesov-full-export.json');
 }
 function exportBrandCSV() {
   const b = brand();
   if (!b) { toast('No brand selected', 'err'); return; }
-  _downloadViaFetch(API + '/api/export/brand/' + b.id + '/csv', `trackly-${b.name || 'brand'}-data.csv`);
+  _downloadViaFetch(API + '/api/export/brand/' + b.id + '/csv', `livesov-${b.name || 'brand'}-data.csv`);
 }
 
 // ── Brand Import ──────────────────────────────────────
@@ -1284,7 +1284,7 @@ async function importBrandConfig(fileInput){
     invalidateCache('/api/brands');
     brands.push(result.brand);
     currentBrandId = result.brand.id;
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     el('brand-select').value = currentBrandId;
     renderAll();
@@ -3343,7 +3343,7 @@ function exportMentionsCSV(){
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download = `trackly-mentions-${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `livesov-mentions-${new Date().toISOString().slice(0,10)}.csv`;
   a.click(); toast('CSV exported');
 }
 
@@ -4001,7 +4001,7 @@ function exportProofCSV(){
   const csv = rows.join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv,' + encodeURIComponent(csv);
-  a.download = 'trackly-proof-'+run.date+'.csv';
+  a.download = 'livesov-proof-'+run.date+'.csv';
   a.click();
 }
 
@@ -5429,7 +5429,7 @@ async function doAddBrand(){
     invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
@@ -5459,7 +5459,7 @@ async function deleteBrand(){
     } else {
       currentBrandId = '';
     }
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     if (brands.length === 0) {
       openModal('add-brand-modal');
@@ -5652,7 +5652,7 @@ async function runQueries(){
           activeRunId = evt.runId || null;
           // Save active run to localStorage so we can resume after page reload
           if (activeRunId) {
-            localStorage.setItem('trackly_active_run', JSON.stringify({
+            localStorage.setItem('livesov_active_run', JSON.stringify({
               runId: activeRunId, brandId: b.id, startedAt: Date.now()
             }));
           }
@@ -5681,7 +5681,7 @@ async function runQueries(){
     }
 
     // Clear active run from localStorage
-    localStorage.removeItem('trackly_active_run');
+    localStorage.removeItem('livesov_active_run');
 
     clearInterval(timerInt);
     fill.style.width = '100%';
@@ -5696,7 +5696,7 @@ async function runQueries(){
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-    } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+    } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 
     const elapsed = fmtTime(Date.now()-startTime);
     timerEl.textContent = elapsed;
@@ -5792,9 +5792,9 @@ async function runQueries(){
         renderBrandSelect();
         if (currentBrandId) el('brand-select').value = currentBrandId;
       }
-    } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+    } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 
-    localStorage.removeItem('trackly_active_run');
+    localStorage.removeItem('livesov_active_run');
     liveResults = [];
     liveRunTime = null;
     runningQueries = false;
@@ -5880,7 +5880,7 @@ async function pollRunStatus(brandId, runId, opts) {
 
         if (data.status === 'done' || data.status === 'error') {
           clearInterval(timerInt);
-          localStorage.removeItem('trackly_active_run');
+          localStorage.removeItem('livesov_active_run');
 
           if (data.status === 'done') {
             if (fill) { fill.style.width = '100%'; fill.style.background = ''; }
@@ -5895,7 +5895,7 @@ async function pollRunStatus(brandId, runId, opts) {
                 renderBrandSelect();
                 if (currentBrandId) el('brand-select').value = currentBrandId;
               }
-            } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+            } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 
             const elapsed = fmtTime(Date.now()-startTime);
             if (timerEl) timerEl.textContent = elapsed;
@@ -5942,7 +5942,7 @@ async function pollRunStatus(brandId, runId, opts) {
             try {
               const freshData = await api('GET', '/api/brands');
               if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
-            } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+            } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 
             liveResults = [];
             liveRunTime = null;
@@ -5963,7 +5963,7 @@ async function pollRunStatus(brandId, runId, opts) {
         console.error(`[Poll] Error polling run status (${pollErrors}/${MAX_POLL_ERRORS}):`, pollErr.message);
         if (pollErrors >= MAX_POLL_ERRORS) {
           clearInterval(timerInt);
-          localStorage.removeItem('trackly_active_run');
+          localStorage.removeItem('livesov_active_run');
           liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
           if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
           if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
@@ -5980,14 +5980,14 @@ async function pollRunStatus(brandId, runId, opts) {
 
 // ─── RESUME ACTIVE RUN ON PAGE LOAD ─────────────────────────────
 async function checkActiveRun() {
-  const stored = localStorage.getItem('trackly_active_run');
+  const stored = localStorage.getItem('livesov_active_run');
   if (!stored) return;
   let runInfo;
-  try { runInfo = JSON.parse(stored); } catch(_) { localStorage.removeItem('trackly_active_run'); return; }
+  try { runInfo = JSON.parse(stored); } catch(_) { localStorage.removeItem('livesov_active_run'); return; }
 
   // Discard runs older than 10 minutes (server cleans up after 10 min too)
   if (Date.now() - runInfo.startedAt > 10 * 60 * 1000) {
-    localStorage.removeItem('trackly_active_run');
+    localStorage.removeItem('livesov_active_run');
     return;
   }
 
@@ -6017,7 +6017,7 @@ async function checkActiveRun() {
       });
     } else {
       // Run already finished while we were away — just clear and reload
-      localStorage.removeItem('trackly_active_run');
+      localStorage.removeItem('livesov_active_run');
       invalidateCache('/api/brands');
       try {
         const freshData = await api('GET', '/api/brands');
@@ -6036,14 +6036,14 @@ async function checkActiveRun() {
           if (proofSel) proofSel.value = '';
           renderView(currentView);
         }
-      } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+      } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
       if (data.status === 'done') {
         toast('Query run completed while you were away. Results are ready!', 'ok');
       }
     }
   } catch(_) {
     // Run not found — probably already cleaned up, just clear localStorage
-    localStorage.removeItem('trackly_active_run');
+    localStorage.removeItem('livesov_active_run');
   }
 }
 
@@ -6477,7 +6477,7 @@ async function adminResetPassword(){
 }
 
 async function becomeAdmin(){
-  if (!confirm('This will make you the admin of this Trackly instance. Continue?')) return;
+  if (!confirm('This will make you the admin of this Livesov instance. Continue?')) return;
   try {
     // Try without secret first (works when ADMIN_SECRET is not configured)
     let data;
@@ -7715,7 +7715,7 @@ async function doAddBrandWizard(){
     invalidateCache('/api/brands');
     brands.push(data.brand);
     currentBrandId = data.brand.id;
-    localStorage.setItem('trackly_brand', currentBrandId);
+    localStorage.setItem('livesov_brand', currentBrandId);
     renderBrandSelect();
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
@@ -7791,7 +7791,7 @@ document.addEventListener('keydown', e => {
     await initApp();
   } catch(e) {
     // Cookie invalid or expired — show login page directly (not landing)
-    localStorage.removeItem('trackly_session');
+    localStorage.removeItem('livesov_session');
     token = '';
     el('landing-page').style.display = 'none';
     el('app').style.display = 'none';

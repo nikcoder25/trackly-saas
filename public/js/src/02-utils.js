@@ -5,9 +5,9 @@ let token = '';
 let refreshToken = '';
 let currentUser = null;
 let brands = [];
-let currentBrandId = localStorage.getItem('trackly_brand') || '';
+let currentBrandId = localStorage.getItem('livesov_brand') || '';
 // Session flag indicates we might be logged in (actual auth is via httpOnly cookie)
-const _hasSession = localStorage.getItem('trackly_session') === '1';
+const _hasSession = localStorage.getItem('livesov_session') === '1';
 let keyStatus = {};
 let runningQueries = false;
 let liveResults = [];     // Accumulates results during streaming
@@ -90,17 +90,17 @@ function mdToHtml(s){
 // Persistent error storage (survives page reloads and brand data refreshes)
 function storeRunError(entry) {
   try {
-    const errors = JSON.parse(localStorage.getItem('trackly_run_errors') || '[]');
+    const errors = JSON.parse(localStorage.getItem('livesov_run_errors') || '[]');
     errors.unshift(entry);
     // Keep last 20 errors
-    localStorage.setItem('trackly_run_errors', JSON.stringify(errors.slice(0, 20)));
-  } catch(_e) { console.warn('[Trackly]', _e.message || _e); }
+    localStorage.setItem('livesov_run_errors', JSON.stringify(errors.slice(0, 20)));
+  } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 }
 function getStoredRunErrors() {
-  try { return JSON.parse(localStorage.getItem('trackly_run_errors') || '[]'); } catch(_) { return []; }
+  try { return JSON.parse(localStorage.getItem('livesov_run_errors') || '[]'); } catch(_) { return []; }
 }
 function clearStoredRunErrors() {
-  localStorage.removeItem('trackly_run_errors');
+  localStorage.removeItem('livesov_run_errors');
 }
 function copyLogError(btn, json) {
   navigator.clipboard.writeText(json).then(() => {

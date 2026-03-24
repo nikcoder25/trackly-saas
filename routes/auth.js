@@ -51,14 +51,14 @@ function setTokenCookies(res, accessToken, refreshToken) {
     sameSite: 'strict',
     path: '/'
   };
-  res.cookie('trackly_token', accessToken, { ...cookieOpts, maxAge: AUTH.accessTokenMaxAge });
-  res.cookie('trackly_refresh', refreshToken, { ...cookieOpts, maxAge: AUTH.refreshTokenMaxAge });
+  res.cookie('livesov_token', accessToken, { ...cookieOpts, maxAge: AUTH.accessTokenMaxAge });
+  res.cookie('livesov_refresh', refreshToken, { ...cookieOpts, maxAge: AUTH.refreshTokenMaxAge });
 }
 
 function clearTokenCookies(res) {
   const cookieOpts = { httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/' };
-  res.clearCookie('trackly_token', cookieOpts);
-  res.clearCookie('trackly_refresh', cookieOpts);
+  res.clearCookie('livesov_token', cookieOpts);
+  res.clearCookie('livesov_refresh', cookieOpts);
 }
 
 // Per-account brute force protection — 10 failed attempts per 15 min per email/username
@@ -311,7 +311,7 @@ router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
 // Refresh token — exchange refresh token for new access token
 router.post('/refresh', async (req, res) => {
   // Accept refresh token from request body or httpOnly cookie
-  const refreshToken = req.body.refreshToken || req.cookies?.trackly_refresh;
+  const refreshToken = req.body.refreshToken || req.cookies?.livesov_refresh;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
     // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent

@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /admin
+Disallow: /preview
 
-Sitemap: https://trackly.so/sitemap.xml
+Sitemap: https://livesov.com/sitemap.xml
