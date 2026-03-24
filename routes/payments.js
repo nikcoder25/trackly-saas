@@ -96,17 +96,21 @@ router.post('/checkout', auth, async (req, res) => {
       quantity: 1,
       payment_link: true,
       return_url: returnUrl,
+      billing: {
+        country: 'US'
+      },
       customer: {
         email: user.email,
         name: user.name || user.email.split('@')[0]
       },
       metadata: {
-        user_id: user.id,
+        user_id: String(user.id),
         plan: plan
       }
     };
 
-    // Create subscription via DodoPayments API
+    // Create subscription via DodoPayments API (POST /subscriptions)
+    const apiUrl = `${baseUrl}/subscriptions`;
     const body = JSON.stringify(checkoutPayload);
     const checkoutUrl = await new Promise((resolve, reject) => {
       const reqOpts = {
@@ -119,26 +123,43 @@ router.post('/checkout', auth, async (req, res) => {
         timeout: TIMEOUTS.paymentApi
       };
 
-      const apiReq = https.request(`${baseUrl}/v1/subscriptions`, reqOpts, (apiRes) => {
+      log.info('Dodo API request', {
+        url: apiUrl,
+        method: 'POST',
+        authHeader: `Bearer ${DODO_API_KEY.slice(0, 6)}...${DODO_API_KEY.slice(-4)}`,
+        body: checkoutPayload
+      });
+
+      const apiReq = https.request(apiUrl, reqOpts, (apiRes) => {
         let data = '';
         apiRes.on('data', chunk => { data += chunk; });
         apiRes.on('end', () => {
           try {
             const parsed = JSON.parse(data);
             if (apiRes.statusCode >= 400) {
-              log.error('Dodo API error', { status: apiRes.statusCode, response: data, plan });
-              reject(new Error(parsed.message || parsed.error || 'Subscription creation failed'));
+              log.error('Dodo API error', {
+                status: apiRes.statusCode,
+                url: apiUrl,
+                requestBody: checkoutPayload,
+                responseBody: parsed,
+                plan
+              });
+              reject(new Error(parsed.message || parsed.error || `Subscription creation failed (HTTP ${apiRes.statusCode})`));
             } else {
+              log.info('Dodo API success', { status: apiRes.statusCode, subscriptionId: parsed.subscription_id, hasPaymentLink: !!parsed.payment_link });
               resolve(parsed.payment_link || parsed.checkout_url || parsed.url);
             }
           } catch(e) {
-            log.error('Dodo API invalid response', { status: apiRes.statusCode, body: data });
+            log.error('Dodo API invalid response', { status: apiRes.statusCode, url: apiUrl, rawBody: data });
             reject(new Error('Invalid response from payment service'));
           }
         });
       });
       apiReq.on('timeout', () => { apiReq.destroy(); reject(new Error('Payment service timeout')); });
-      apiReq.on('error', reject);
+      apiReq.on('error', (err) => {
+        log.error('Dodo API network error', { url: apiUrl, error: err.message });
+        reject(err);
+      });
       apiReq.write(body);
       apiReq.end();
     });
