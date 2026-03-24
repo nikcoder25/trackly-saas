@@ -928,6 +928,7 @@ function renderView(view){
   if (view==='notifications') { go('alerts'); return; }
   if (view==='apilogs') { go('activitylog'); return; }
   if (view==='team') { renderTeamMembers(); return; }
+  if (view==='billing') { renderBilling(); return; }
   if (!b) {
     // Show global empty state when no brand exists or is selected
     const noBrands = !brands.length;
@@ -1025,6 +1026,7 @@ function renderAccount(){
   const todayRuns = b ? (b.runs || []).filter(r => (r.date || '').startsWith(today)).length : 0;
 
   const usageHtml = `
+    <div class="section-title" style="margin-top:14px;">Your Usage</div>
     <div style="display:grid;gap:12px;margin-top:8px;">
       ${usageBar('Brands', brandCount, limits.brands)}
       ${usageBar('Total prompts', brands.reduce((s,br)=>s+(br.queries||[]).length,0), limits.prompts)}
@@ -1037,20 +1039,27 @@ function renderAccount(){
 
   // Plan cards
   const planData = [
-          { id: 'starter', name: 'Starter', price: '$9/mo', features: '1 brand, 2 platforms, 30 prompts/month, weekly tracking' },
-                { id: 'pro', name: 'Pro', price: '$29/mo', features: '5 brands, 5 platforms, 250 prompts/month, competitors, sentiment' },
-                      { id: 'agency', name: 'Agency', price: '$89/mo', features: '20 brands, 5 platforms, 1000 prompts/month, 20 competitors, sentiment' },
-                      { id: 'enterprise', name: 'Enterprise', price: '$499/mo', features: '100 brands, 5 platforms, 10000 prompts/month, 100 competitors, API access, priority support' }
+    { id: 'starter', name: 'Starter', price: '$9', color: '#f59e0b', features: ['1 brand', '2 platforms', '30 prompts/month', 'Weekly tracking'] },
+    { id: 'pro', name: 'Pro', price: '$29', color: '#4f46e5', popular: true, features: ['5 brands', '5 platforms', '250 prompts/month', 'Competitor tracking', 'Sentiment analysis'] },
+    { id: 'agency', name: 'Agency', price: '$89', color: '#7c3aed', features: ['20 brands', '5 platforms', '1,000 prompts/month', '20 competitors', 'Sentiment analysis'] },
+    { id: 'enterprise', name: 'Enterprise', price: '$499', color: '#b8860b', features: ['100 brands', '5 platforms', '10,000 prompts/month', '100 competitors', 'API access', 'Priority support'] }
   ];
   const current = currentUser.plan || 'free';
-  el('acct-plans').innerHTML = planData.map(p => `
-    <div class="upgrade-plan-card ${p.id === current ? 'active' : ''}" data-plan="${p.id}">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;${p.id==='pro'?'color:var(--green);':p.id==='agency'?'color:var(--purple);':''}">${p.name}</div>
-      <div style="font-size:20px;font-weight:800;margin-bottom:8px;">${p.price}</div>
-      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">${p.features}</div>
-      <button class="btn-upgrade ${p.id === current ? 'current' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
+  el('acct-plans').innerHTML = '<div class="plan-grid">' + planData.map(p => `
+    <div class="upgrade-plan-card ${p.id === current ? 'active' : ''} ${p.popular ? 'popular' : ''}" data-plan="${p.id}">
+      ${p.popular ? '<div class="plan-card-badge">MOST POPULAR</div>' : ''}
+      <div class="plan-card-header" style="border-bottom:3px solid ${p.color};">
+        <div class="plan-card-name" style="color:${p.color};">${p.name}</div>
+        <div class="plan-card-price">${p.price}<span>/mo</span></div>
+      </div>
+      <div class="plan-card-body">
+        <ul class="plan-card-features">
+          ${p.features.map(f => `<li><span class="check">&#10003;</span> ${f}</li>`).join('')}
+        </ul>
+        <button class="btn-upgrade ${p.id === current ? 'current' : 'btn-colored'}" style="${p.id !== current ? 'color:' + p.color + ';' : ''}" onclick="doUpgrade('${p.id}')" ${p.id === current ? 'disabled' : ''}>${p.id === current ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase()}</button>
+      </div>
     </div>
-  `).join('');
+  `).join('') + '</div>';
 }
 
 // ── Subscription Status ──────────────────────────────
@@ -7360,35 +7369,35 @@ async function renderBilling() {
     // Plan card
     const planEl = el('billing-plan-card');
     const planColors = { free: '#6b7280', starter: '#f59e0b', pro: '#4f46e5', agency: '#7c3aed', enterprise: '#9b72ff', owner: '#059669' };
+    const pc = planColors[plan] || '#888';
     planEl.innerHTML = `
-      <div class="card" style="padding:20px;border-left:4px solid ${planColors[plan] || '#888'};">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Current Plan</div>
-            <div style="font-size:28px;font-weight:700;text-transform:uppercase;color:${planColors[plan]};">${plan}</div>
-            <div style="font-size:12px;color:var(--muted);">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
-          </div>
-          ${plan !== 'owner' ? '<button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;" onclick="go(\'account\')">Upgrade Plan</button>' : ''}
+      <div class="card" style="padding:0;overflow:hidden;border:none;">
+        <div style="background:linear-gradient(135deg,${pc},${pc}cc);padding:24px 28px;color:#fff;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:.85;">Current Plan</div>
+          <div style="font-size:32px;font-weight:800;text-transform:uppercase;margin:4px 0;">${plan}</div>
+          <div style="font-size:12px;opacity:.75;">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
         </div>
+        ${plan !== 'owner' ? '<div style="padding:16px 28px;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);"><button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;padding:10px 24px;" onclick="go(\'account\')">Upgrade Plan</button></div>' : ''}
       </div>`;
 
     // Usage meters
     const usageEl = el('billing-usage');
+    const meterColors = ['#4f46e5', '#059669', '#f59e0b', '#7c3aed'];
     const meters = [
       { label: 'Brands', ...usage.brands },
       { label: 'Runs Today', ...usage.runsToday },
       { label: 'Queries', ...usage.queries },
       { label: 'Platforms', ...usage.platforms }
     ];
-    usageEl.innerHTML = meters.map(m => {
+    usageEl.className = 'billing-meters-grid';
+    usageEl.innerHTML = meters.map((m, i) => {
       const pct = m.limit > 0 ? Math.min((m.used / m.limit) * 100, 100) : 0;
-      const color = pct > 90 ? 'var(--red,#ef4444)' : pct > 70 ? '#f59e0b' : 'var(--green)';
-      return `<div class="card" style="padding:14px;">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
-          <span>${m.label}</span><span style="font-weight:600;">${m.used} / ${m.limit >= 9999 ? '∞' : m.limit}</span>
-        </div>
-        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width 0.3s;"></div>
+      const barColor = pct > 90 ? 'var(--red,#ef4444)' : pct > 70 ? '#f59e0b' : meterColors[i];
+      return `<div class="billing-meter-card" style="border-top-color:${meterColors[i]};">
+        <div class="billing-meter-label">${m.label}</div>
+        <div class="billing-meter-value">${m.used} <span style="font-size:13px;font-weight:500;color:var(--muted);">/ ${m.limit >= 9999 ? '∞' : m.limit}</span></div>
+        <div class="billing-meter-bar">
+          <div class="billing-meter-fill" style="width:${pct}%;background:${barColor};"></div>
         </div>
       </div>`;
     }).join('');
@@ -7408,19 +7417,28 @@ async function renderBilling() {
     // Plan comparison
     const plansEl = el('billing-plans');
     const allPlans = data.allPlans || {};
+    const planKeys = Object.keys(allPlans);
+    const colStyle = (p) => p === plan
+      ? 'text-align:center;padding:10px 8px;background:var(--primary-light);font-weight:700;color:var(--primary);'
+      : 'text-align:center;padding:10px 8px;';
+    const headStyle = (p) => p === plan
+      ? 'text-align:center;padding:12px 8px;background:var(--primary-light);color:var(--primary);font-weight:800;font-size:13px;'
+      : 'text-align:center;padding:12px 8px;font-size:13px;';
+    const boolCell = (val, p) => `<td style="${colStyle(p)}">${val ? '<span style="color:var(--green);font-size:15px;font-weight:700;">&#10003;</span>' : '<span style="color:var(--muted);">—</span>'}</td>`;
+    const numCell = (val, p) => `<td style="${colStyle(p)}">${val >= 9999 ? '∞' : val}</td>`;
     plansEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:12px;">
-      <thead><tr style="border-bottom:2px solid var(--bg3);">
-        <th style="text-align:left;padding:8px;">Feature</th>
-        ${Object.keys(allPlans).map(p => `<th style="text-align:center;padding:8px;${p === plan ? 'color:var(--primary);font-weight:700;' : ''}">${p.toUpperCase()}</th>`).join('')}
+      <thead><tr style="border-bottom:2px solid var(--border);">
+        <th style="text-align:left;padding:12px 8px;font-size:13px;">Feature</th>
+        ${planKeys.map(p => `<th style="${headStyle(p)}">${p.toUpperCase()}${p === plan ? ' ★' : ''}</th>`).join('')}
       </tr></thead>
       <tbody>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Total Prompts</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prompts >= 9999 ? '∞' : l.prompts}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Brands</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.brands >= 9999 ? '∞' : l.brands}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Competitors</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.competitors >= 9999 ? '∞' : l.competitors}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Platforms</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.platforms}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">Sentiment</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.sentiment ? '✓' : '—'}</td>`).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--bg3);"><td style="padding:8px;">API Access</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.apiAccess ? '✓' : '—'}</td>`).join('')}</tr>
-        <tr><td style="padding:8px;">Priority Support</td>${Object.values(allPlans).map(l => `<td style="text-align:center;padding:8px;">${l.prioritySupport ? '✓' : '—'}</td>`).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Total Prompts</td>${planKeys.map(p => numCell(allPlans[p].prompts, p)).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Brands</td>${planKeys.map(p => numCell(allPlans[p].brands, p)).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Competitors</td>${planKeys.map(p => numCell(allPlans[p].competitors, p)).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Platforms</td>${planKeys.map(p => numCell(allPlans[p].platforms, p)).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Sentiment</td>${planKeys.map(p => boolCell(allPlans[p].sentiment, p)).join('')}</tr>
+        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">API Access</td>${planKeys.map(p => boolCell(allPlans[p].apiAccess, p)).join('')}</tr>
+        <tr><td style="padding:10px 8px;">Priority Support</td>${planKeys.map(p => boolCell(allPlans[p].prioritySupport, p)).join('')}</tr>
       </tbody>
     </table>`;
   } catch(e) { toast('Failed to load billing', 'err'); }
