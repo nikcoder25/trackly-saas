@@ -16,7 +16,7 @@ async function renderBilling() {
           <div style="font-size:32px;font-weight:800;text-transform:uppercase;margin:4px 0;">${plan}</div>
           <div style="font-size:12px;opacity:.75;">Member since ${new Date(data.memberSince).toLocaleDateString()}</div>
         </div>
-        ${plan !== 'owner' ? '<div style="padding:16px 28px;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);"><button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;padding:10px 24px;" onclick="go(\'account\')">Upgrade Plan</button></div>' : ''}
+        ${plan !== 'owner' ? '<div style="padding:16px 28px;background:var(--bg2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);"><button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);font-size:13px;padding:10px 24px;" onclick="showUpgradeModal()">Upgrade Plan</button></div>' : ''}
       </div>`;
 
     // Usage meters

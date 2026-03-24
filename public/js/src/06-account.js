@@ -752,22 +752,25 @@ function showUpgradeModal(reason) {
   } else {
     reasonEl.style.display = 'none';
   }
-  // Highlight current plan
   const current = (currentUser && currentUser.plan) || 'free';
-  document.querySelectorAll('#upgrade-plans .upgrade-plan-card').forEach(card => {
-    const plan = card.dataset.plan;
-    card.classList.toggle('active', plan === current);
-    const btn = card.querySelector('.btn-upgrade');
-    if (plan === current) {
-      btn.textContent = 'CURRENT PLAN';
-      btn.classList.add('current');
-      btn.disabled = true;
-    } else {
-      btn.textContent = 'SWITCH TO ' + plan.toUpperCase();
-      btn.classList.remove('current');
-      btn.disabled = false;
-    }
-  });
+  const planData = [
+    { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking'] },
+    { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', '5 platforms', 'Competitors', 'Sentiment analysis'] },
+    { id: 'agency', name: 'Agency', price: '$89', tagline: 'Scale with confidence', features: ['<strong>1,000</strong> prompts/month', '20 brands', '5 platforms', '20 competitors', 'Sentiment analysis'] },
+    { id: 'enterprise', name: 'Enterprise', price: '$499', tagline: 'Full power', features: ['<strong>10,000</strong> prompts/month', '100 brands', '5 platforms', '100 competitors', 'API access', 'Priority support'] }
+  ];
+  el('upgrade-plans').innerHTML = '<div class="land-pricing">' + planData.map(p => {
+    const isCurrent = p.id === current;
+    const btnStyle = isCurrent ? 'width:100%;opacity:.5;cursor:default;' : 'width:100%;';
+    const btnText = isCurrent ? 'CURRENT PLAN' : 'SWITCH TO ' + p.name.toUpperCase();
+    return `<div class="land-price-card ${p.featured ? 'featured' : ''}"${p.id === 'enterprise' ? ' style="border-color:var(--purple,#9b72ff);"' : ''}>
+      <h3${p.id === 'enterprise' ? ' style="color:var(--purple,#9b72ff);"' : ''}>${p.name}</h3>
+      <div class="price">${p.price}<span>/mo</span></div>
+      <div class="price-sub">${p.tagline}</div>
+      <ul>${p.features.map(f => '<li>' + f + '</li>').join('')}</ul>
+      <button class="land-btn land-btn-primary" style="${btnStyle}" onclick="doUpgrade('${p.id}')" ${isCurrent ? 'disabled' : ''}>${btnText}</button>
+    </div>`;
+  }).join('') + '</div>';
   openModal('upgrade-modal');
 }
 

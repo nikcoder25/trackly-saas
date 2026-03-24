@@ -1956,47 +1956,14 @@
 
 <!-- Upgrade Modal -->
 <div class="overlay" id="upgrade-modal" role="dialog" aria-modal="true" aria-label="Upgrade Your Plan">
-  <div class="modal" style="max-width:900px;">
+  <div class="modal" style="max-width:1000px;">
     <div class="modal-head">
       <div class="modal-title">Upgrade Your Plan</div>
       <button class="modal-close" onclick="closeModal('upgrade-modal')">&#x2715;</button>
     </div>
     <div class="modal-body">
       <div id="upgrade-reason" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);padding:12px 16px;margin-bottom:20px;font-family:var(--mono);font-size:11px;color:var(--amber);display:none;border-radius:var(--radius-xs);"></div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;" id="upgrade-plans">
-        <div class="upgrade-plan-card" data-plan="starter">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Starter</div>
-          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$9<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            30 prompts<br>1 brand<br>2 AI platforms<br>Weekly tracking<br>SOV tracking
-          </div>
-          <button class="btn-upgrade" onclick="doUpgrade('starter')">CURRENT</button>
-        </div>
-        <div class="upgrade-plan-card featured" data-plan="pro">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--primary);">Pro</div>
-          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$29<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            250 prompts<br>5 brands<br>All 5 platforms<br>Daily tracking<br>Competitors (5)<br>Sentiment analysis
-          </div>
-          <button class="btn-upgrade" onclick="doUpgrade('pro')">UPGRADE TO PRO</button>
-        </div>
-        <div class="upgrade-plan-card" data-plan="agency">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--purple,#9b72ff);">Agency</div>
-          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$89<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            1,000 prompts<br>20 brands<br>All 5 platforms<br>Daily tracking<br>Competitors (20)<br>Sentiment analysis
-          </div>
-          <button class="btn-upgrade" onclick="doUpgrade('agency')">UPGRADE TO AGENCY</button>
-        </div>
-        <div class="upgrade-plan-card" data-plan="enterprise" style="border-color:var(--purple,#9b72ff);">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--purple,#9b72ff);">Enterprise</div>
-          <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:8px;">$499<span style="font-size:12px;color:var(--muted);font-weight:400;">/mo</span></div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
-            10,000 prompts<br>100 brands<br>All 5 platforms<br>Daily tracking<br>Competitors (100)<br>API access<br>Priority support
-          </div>
-          <button class="btn-upgrade" onclick="doUpgrade('enterprise')">UPGRADE TO ENTERPRISE</button>
-        </div>
-      </div>
+      <div id="upgrade-plans"></div>
     </div>
   </div>
 </div>
