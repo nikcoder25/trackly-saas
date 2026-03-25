@@ -20,17 +20,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', display: 'grid', gridTemplateRows: '52px 1fr', gridTemplateColumns: '220px 1fr' }}>
-      {/* Topbar - spans full width */}
-      <div style={{ gridColumn: '1 / -1' }}>
-        <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-      </div>
+    <div style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)' }}>
+      {/* Topbar - full width on top */}
+      <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
 
-      {/* Sidebar */}
+      {/* Sidebar - fixed positioned */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main content */}
-      <main style={{ overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)', padding: '16px 32px 32px' }}>
+      {/* Main content - offset by sidebar width */}
+      <main style={{
+        marginLeft: 220,
+        height: 'calc(100vh - 52px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        background: 'var(--bg)',
+        padding: '16px 32px 32px',
+      }}>
         {children}
       </main>
     </div>
