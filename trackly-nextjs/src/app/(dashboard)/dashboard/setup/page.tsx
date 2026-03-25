@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import NearbyAreas from '@/components/dashboard/NearbyAreas';
 
 interface Brand {
   id: string;
@@ -12,6 +13,7 @@ interface Brand {
   goal: number;
   queries: string[];
   competitors: string[];
+  nearbyAreas?: string[];
   runs?: unknown[];
   [key: string]: unknown;
 }
@@ -80,12 +82,13 @@ function CreateBrandForm({ onCreated }: { onCreated: (brand: Brand) => void }) {
   const [industry, setIndustry] = useState('');
   const [website, setWebsite] = useState('');
   const [city, setCity] = useState('');
+  const [nearbyAreas, setNearbyAreas] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setError('');
-    try { const data = await api('POST', '/api/brands', { name, industry, website, city }); onCreated(data.brand); }
+    try { const data = await api('POST', '/api/brands', { name, industry, website, city, nearbyAreas }); onCreated(data.brand); }
     catch (e) { setError((e as Error).message); }
     setSaving(false);
   };
@@ -105,6 +108,14 @@ function CreateBrandForm({ onCreated }: { onCreated: (brand: Brand) => void }) {
           <div><label className="block text-sm text-[var(--text-muted)] mb-1">City (optional)</label>
             <input value={city} onChange={e => setCity(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--primary)]" placeholder="e.g. San Francisco" /></div>
         </div>
+
+        {/* Nearby Areas - shows when city is entered */}
+        {city.trim() && (
+          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4">
+            <NearbyAreas city={city} areas={nearbyAreas} onChange={setNearbyAreas} />
+          </div>
+        )}
+
         <button type="submit" disabled={saving} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50">{saving ? 'Creating...' : 'Create Brand'}</button>
       </form>
     </div>
@@ -118,6 +129,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
   const [city, setCity] = useState(brand.city || '');
   const [queries, setQueries] = useState((brand.queries || []).join('\n'));
   const [competitors, setCompetitors] = useState((brand.competitors || []).join('\n'));
+  const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -125,7 +137,9 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
   useEffect(() => {
     setName(brand.name); setIndustry(brand.industry || ''); setWebsite(brand.website || '');
     setCity(brand.city || ''); setQueries((brand.queries || []).join('\n'));
-    setCompetitors((brand.competitors || []).join('\n')); setError(''); setMessage('');
+    setCompetitors((brand.competitors || []).join('\n'));
+    setNearbyAreas(brand.nearbyAreas || []);
+    setError(''); setMessage('');
   }, [brand]);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -175,6 +189,12 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
               className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--primary)]"
               placeholder={"Competitor 1\nCompetitor 2"} />
           </div>
+
+          {/* Nearby Areas */}
+          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4">
+            <NearbyAreas city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
+          </div>
+
           <div className="flex gap-3">
             <button type="submit" disabled={saving} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-6 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50">{saving ? 'Saving...' : 'Save Changes'}</button>
             <button type="button" onClick={handleDelete} className="bg-red-900/20 hover:bg-red-900/40 text-red-400 px-4 py-2.5 rounded-lg text-sm transition border border-red-800/50">Delete Brand</button>
