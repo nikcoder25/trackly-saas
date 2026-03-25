@@ -123,7 +123,13 @@ router.post('/checkout', auth, async (req, res) => {
         timeout: TIMEOUTS.paymentApi
       };
 
-      log.info('Dodo checkout request', { url: apiUrl, plan, productId });
+      log.info('Dodo API request', {
+        url: apiUrl,
+        method: 'POST',
+        authHeader: `Bearer ${DODO_API_KEY.substring(0, 6)}...`,
+        body: checkoutPayload
+      });
+
       const apiReq = https.request(apiUrl, reqOpts, (apiRes) => {
         let data = '';
         apiRes.on('data', chunk => { data += chunk; });
@@ -131,20 +137,34 @@ router.post('/checkout', auth, async (req, res) => {
           try {
             const parsed = JSON.parse(data);
             if (apiRes.statusCode >= 400) {
-              log.error('Dodo API error', { url: apiUrl, status: apiRes.statusCode, responseBody: data, plan });
+              log.error('Dodo API error', {
+                url: apiUrl,
+                status: apiRes.statusCode,
+                responseBody: data,
+                requestBody: checkoutPayload,
+                plan
+              });
               reject(new Error(parsed.message || parsed.error || `Checkout creation failed (HTTP ${apiRes.statusCode})`));
             } else {
-              log.info('Dodo API success', { status: apiRes.statusCode, sessionId: parsed.session_id, hasCheckoutUrl: !!parsed.checkout_url });
+              log.info('Dodo API success', { status: apiRes.statusCode, sessionId: parsed.session_id });
               resolve(parsed.checkout_url);
             }
           } catch(e) {
-            log.error('Dodo API invalid response', { url: apiUrl, status: apiRes.statusCode, body: data });
+            log.error('Dodo API invalid response', {
+              url: apiUrl,
+              status: apiRes.statusCode,
+              rawBody: data,
+              parseError: e.message
+            });
             reject(new Error('Invalid response from payment service'));
           }
         });
       });
       apiReq.on('timeout', () => { apiReq.destroy(); reject(new Error('Payment service timeout')); });
-      apiReq.on('error', reject);
+      apiReq.on('error', (e) => {
+        log.error('Dodo API network error', { url: apiUrl, error: e.message });
+        reject(e);
+      });
       apiReq.write(body);
       apiReq.end();
     });
@@ -155,7 +175,7 @@ router.post('/checkout', auth, async (req, res) => {
 
     res.json({ checkout_url: checkoutUrl, plan });
   } catch(e) {
-    log.error('Checkout failed', { error: e.message, userId: req.user.id, plan });
+    log.error('Checkout failed', { error: e.message, stack: e.stack, userId: req.user.id, plan });
     res.status(500).json({ error: 'Failed to create checkout. Please try again.' });
   }
 });
