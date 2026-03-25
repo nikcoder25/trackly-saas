@@ -124,11 +124,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Skip JSON body parsing for webhook endpoints — they need the raw body for signature verification
-app.use((req, res, next) => {
-  if (req.path === '/api/payments/webhooks/dodopayments') return next();
-  express.json({ limit: '2mb' })(req, res, next);
-});
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 // ─── CSRF PROTECTION ─────────────────────────────────────────────
