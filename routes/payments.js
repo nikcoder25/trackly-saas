@@ -141,7 +141,6 @@ if (DODO_WEBHOOK_KEY) {
   const { Webhooks } = require('@dodopayments/express');
 
   router.post('/webhooks/dodopayments',
-    express.raw({ type: 'application/json' }),
     Webhooks({
       webhookKey: DODO_WEBHOOK_KEY,
 
