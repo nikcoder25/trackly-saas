@@ -12,3 +12,5 @@ npm-debug.log*
 *.swo
 coverage/
 dist/
+trackly-nextjs/node_modules/
+trackly-nextjs/.next/
