@@ -84,3 +84,121 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg3); }
 ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #ccc; }
+
+/* Dashboard sidebar */
+.dashboard-sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+}
+.dashboard-topbar {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  height: 52px;
+}
+.nav-group-label {
+  padding: 14px 12px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.nav-link {
+  display: block;
+  width: 100%;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-xs);
+  margin-bottom: 1px;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+.nav-link:hover {
+  color: var(--text-primary);
+  background: var(--bg3);
+}
+.nav-link.active {
+  color: var(--primary);
+  background: var(--primary-light);
+  font-weight: 600;
+}
+.nav-link.admin-link {
+  color: var(--amber);
+}
+.run-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: white;
+  background: var(--primary);
+  border: none;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(255,97,84,.2);
+  transition: all 0.15s;
+}
+.run-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(255,97,84,.3);
+}
+
+/* Cards */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 22px;
+  margin-bottom: 14px;
+  border-radius: var(--radius);
+  box-shadow: var(--app-shadow);
+  transition: all 0.2s;
+}
+.card:hover {
+  box-shadow: var(--app-shadow-lg);
+}
+.card-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+/* Stat cards */
+.stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--app-shadow);
+  transition: all 0.2s;
+}
+.stat-card:hover {
+  box-shadow: var(--app-shadow-lg);
+  transform: translateY(-1px);
+}
+
+/* Main content */
+.main-content {
+  overflow-y: auto;
+  background: var(--bg);
+  padding: 16px 32px 32px;
+}
+.view-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+.view-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
