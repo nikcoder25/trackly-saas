@@ -56,7 +56,7 @@ export default function MentionsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Mentions</h1>
+          <h1 className="text-2xl font-bold text-[var(--text)]">Mentions</h1>
           <p className="text-[var(--text-muted)] mt-1">Track AI mentions across all platforms</p>
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function MentionsPage() {
         <div className="flex gap-2 mb-4 overflow-x-auto">
           {brands.map(b => (
             <button key={b.id} onClick={() => setSelectedBrand(b)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
           ))}
         </div>
       )}
@@ -80,7 +80,7 @@ export default function MentionsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4">
               <p className="text-xs text-[var(--text-muted)]">Total Results</p>
-              <p className="text-xl font-bold text-white">{results.length}</p>
+              <p className="text-xl font-bold text-[var(--text)]">{results.length}</p>
             </div>
             <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4">
               <p className="text-xs text-[var(--text-muted)]">Mentioned</p>
@@ -100,7 +100,7 @@ export default function MentionsPage() {
           <div className="flex gap-2 mb-4">
             {(['all', 'mentioned', 'not_mentioned'] as const).map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${filter === f ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${filter === f ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>
                 {f === 'all' ? 'All' : f === 'mentioned' ? 'Mentioned' : 'Not Mentioned'}
               </button>
             ))}
@@ -112,7 +112,7 @@ export default function MentionsPage() {
               <div key={i} className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg p-4 flex items-center gap-4">
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${m.mentioned ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{m.query}</p>
+                  <p className="text-sm text-[var(--text)] truncate">{m.query}</p>
                   <div className="flex gap-3 mt-1 text-xs text-[var(--text-muted)]">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full" style={{ background: PLATFORM_COLORS[m.platform] || '#666' }} />
