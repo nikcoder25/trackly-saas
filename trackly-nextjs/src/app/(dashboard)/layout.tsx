@@ -17,14 +17,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!user) return null; // middleware handles redirect
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]" style={{ color: 'var(--text)' }}>
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="lg:ml-[220px]">
-        <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="p-4 md:p-8 overflow-x-hidden">
+    <div className="h-screen overflow-hidden bg-[var(--bg)]" style={{ color: 'var(--text)' }}>
+      {/* Topbar spans full width */}
+      <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <div className="flex h-[calc(100vh-52px)]">
+        {/* Sidebar below topbar */}
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        {/* Main content */}
+        <main className="flex-1 lg:ml-[220px] overflow-y-auto overflow-x-hidden p-4 md:p-8 bg-[var(--bg)]">
           {children}
         </main>
       </div>
