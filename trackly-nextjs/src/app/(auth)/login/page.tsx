@@ -81,7 +81,7 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3.5 py-[11px] border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-primary)] bg-white placeholder-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(255,97,84,.1)] transition mb-[18px]"
-              placeholder="you@example.com"
+              placeholder="you@example.com or username"
               required
               autoComplete="username"
             />
@@ -121,7 +121,7 @@ function LoginForm() {
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
               className="w-full px-3.5 py-[11px] border border-[var(--card-border)] rounded-lg text-lg text-[var(--text-primary)] bg-white text-center tracking-[4px] placeholder-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(255,97,84,.1)] transition"
-              placeholder="000000"
+              placeholder="Enter 6-digit code"
               maxLength={10}
               required
               autoComplete="one-time-code"

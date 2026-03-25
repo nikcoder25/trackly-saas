@@ -91,7 +91,7 @@ function StatCard({ label, value, desc, color }: { label: string; value: string;
   return (
     <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] hover:shadow-[var(--app-shadow-lg)] hover:-translate-y-px transition">
       <p className="text-[11px] text-[var(--muted)] uppercase tracking-wider font-semibold">{label}</p>
-      <p className="text-[28px] font-extrabold font-mono mt-1" style={{ color: color || 'var(--text)' }}>{value}</p>
+      <p className="text-[22px] font-extrabold font-mono mt-1" style={{ color: color || 'var(--text)' }}>{value}</p>
       <p className="text-[11px] text-[var(--muted)] mt-1 font-medium">{desc}</p>
     </div>
   );

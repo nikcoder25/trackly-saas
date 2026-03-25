@@ -280,7 +280,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {t.testimonials.items.map(item => (
             <div key={item.name} className="bg-white border border-[var(--card-border)] rounded-xl p-7 hover:shadow-[var(--card-shadow-lg)] hover:-translate-y-0.5 transition">
-              <div className="text-[var(--warning)] text-base tracking-widest mb-3.5">{'\u2733'}{'\u2733'}{'\u2733'}{'\u2733'}{'\u2733'}</div>
+              <div className="text-[var(--warning)] text-base tracking-widest mb-3.5">{'\u2605'}{'\u2605'}{'\u2605'}{'\u2605'}{'\u2605'}</div>
               <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-5 italic">{item.text}</p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-white flex items-center justify-center text-[13px] font-bold shrink-0">{item.initials}</div>
@@ -338,6 +338,8 @@ export default function HomePage() {
           <div className="text-[13px] text-[var(--text-muted)]">&copy; {new Date().getFullYear()} {t.footer.copyright}</div>
           <div className="flex gap-4">
             <a href="mailto:hello@livesov.com" className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] text-base font-bold border border-[var(--card-border)] rounded-full hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition" aria-label="Email">{'\u2709'}</a>
+            <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] text-base font-bold border border-[var(--card-border)] rounded-full hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition" aria-label="X (Twitter)">{'\u2715'}</a>
+            <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] text-base font-bold border border-[var(--card-border)] rounded-full hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition" aria-label="LinkedIn">in</a>
           </div>
         </div>
       </footer>
