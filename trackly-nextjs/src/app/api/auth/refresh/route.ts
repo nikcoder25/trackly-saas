@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
-import { signAccessToken, createTokenCookieHeaders } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
@@ -23,10 +23,7 @@ export async function POST(request: NextRequest) {
     const accessToken = signAccessToken({ id: user.id, email: user.email });
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
-    return Response.json(
-      { token: accessToken, refreshToken: newRefreshToken },
-      { headers: { 'Set-Cookie': cookieHeaders.join(', ') } }
-    );
+    return jsonWithCookies({ token: accessToken, refreshToken: newRefreshToken }, cookieHeaders);
   } catch (e) {
     console.error('[Refresh]', (e as Error).message);
     return Response.json({ error: 'Token refresh failed' }, { status: 500 });

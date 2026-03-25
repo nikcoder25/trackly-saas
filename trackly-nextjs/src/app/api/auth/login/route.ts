@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 import { verifyTOTP } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -91,10 +91,7 @@ export async function POST(request: NextRequest) {
     auditLog(user.id, 'login', 'user', user.id, {}, ip);
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, refreshToken);
-    return Response.json(
-      { token: accessToken, refreshToken, user: safeUser(user) },
-      { headers: { 'Set-Cookie': cookieHeaders.join(', ') } }
-    );
+    return jsonWithCookies({ token: accessToken, refreshToken, user: safeUser(user) }, cookieHeaders);
   } catch (e) {
     console.error('[Login]', (e as Error).message);
     return Response.json({ error: 'Login failed' }, { status: 500 });

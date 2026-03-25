@@ -29,7 +29,7 @@ export interface BrandMatcher {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function buildBrandMatcher(brand: any): BrandMatcher {
-  const name = (brand.name || '').trim();
+  const name = (brand.name || '').trim().slice(0, 200); // Limit length to prevent ReDoS
   const nameLower = name.toLowerCase();
   const nameEsc = nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const exactRe = new RegExp('\\b' + nameEsc + '\\b', 'i');

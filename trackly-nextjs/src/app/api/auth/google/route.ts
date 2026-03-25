@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { uid, safeUser } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 import { API_ENDPOINTS, AUTH } from '@/lib/constants';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
@@ -94,10 +94,7 @@ export async function POST(request: NextRequest) {
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, ip);
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
-    return Response.json(
-      { token: accessToken, refreshToken: newRefreshToken, user: safeUser(user) },
-      { headers: { 'Set-Cookie': cookieHeaders.join(', ') } }
-    );
+    return jsonWithCookies({ token: accessToken, refreshToken: newRefreshToken, user: safeUser(user) }, cookieHeaders);
   } catch (e) {
     console.error('[GoogleAuth]', (e as Error).message);
     return Response.json({ error: 'Google authentication failed' }, { status: 400 });

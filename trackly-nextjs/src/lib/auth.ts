@@ -5,7 +5,14 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { AUTH } from './constants';
 
-const JWT_SECRET = process.env.JWT_SECRET || '';
+function getSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') console.error('[FATAL] JWT_SECRET is not set.');
+    return '';
+  }
+  return secret;
+}
 
 export interface JWTPayload {
   id: string;
@@ -15,12 +22,12 @@ export interface JWTPayload {
 }
 
 export function signAccessToken(payload: { id: string; email: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m', algorithm: 'HS256' });
+  return jwt.sign(payload, getSecret(), { expiresIn: '15m', algorithm: 'HS256' });
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JWTPayload;
+    return jwt.verify(token, getSecret(), { algorithms: ['HS256'] }) as JWTPayload;
   } catch {
     return null;
   }
@@ -53,6 +60,18 @@ export function createClearCookieHeaders(): Array<string> {
     `livesov_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`,
     `livesov_refresh=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`,
   ];
+}
+
+/**
+ * Build a Response with proper multiple Set-Cookie headers.
+ * Using Headers.append() ensures each Set-Cookie is sent separately.
+ */
+export function jsonWithCookies(data: unknown, cookies: string[], status = 200): Response {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  for (const cookie of cookies) {
+    headers.append('Set-Cookie', cookie);
+  }
+  return new Response(JSON.stringify(data), { status, headers });
 }
 
 /**

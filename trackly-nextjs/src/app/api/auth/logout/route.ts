@@ -1,5 +1,5 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth, createClearCookieHeaders } from '@/lib/auth';
+import { verifyRequestAuth, createClearCookieHeaders, jsonWithCookies } from '@/lib/auth';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -12,8 +12,5 @@ export async function POST(request: Request) {
   }
 
   const cookieHeaders = createClearCookieHeaders();
-  return Response.json(
-    { message: 'Logged out' },
-    { headers: { 'Set-Cookie': cookieHeaders.join(', ') } }
-  );
+  return jsonWithCookies({ message: 'Logged out' }, cookieHeaders);
 }

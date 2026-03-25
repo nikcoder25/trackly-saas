@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { uid, safeUser } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 import { getPlanLimits, AUTH } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -85,18 +85,14 @@ export async function POST(request: NextRequest) {
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, ip);
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, refreshToken);
-    return Response.json(
-      {
-        token: accessToken,
-        refreshToken,
-        user: {
-          id, email: email.toLowerCase(), username: trimmedUsername, name: userName,
-          plan: 'free', emailVerified: false, createdAt: new Date().toISOString(),
-          hasKeys: [], limits: getPlanLimits('free'),
-        },
+    return jsonWithCookies({
+      token: accessToken, refreshToken,
+      user: {
+        id, email: email.toLowerCase(), username: trimmedUsername, name: userName,
+        plan: 'free', emailVerified: false, createdAt: new Date().toISOString(),
+        hasKeys: [], limits: getPlanLimits('free'),
       },
-      { headers: { 'Set-Cookie': cookieHeaders.join(', ') } }
-    );
+    }, cookieHeaders);
   } catch (e) {
     console.error('[Register]', (e as Error).message);
     return Response.json({ error: 'Registration failed' }, { status: 500 });
