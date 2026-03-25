@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -14,6 +15,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const verified = searchParams.get('verified');
@@ -43,102 +45,120 @@ function LoginForm() {
 
   return (
     <div>
-      <div className="text-center mb-8">
-        <Link href="/" className="text-2xl font-bold text-white">Livesov</Link>
-        <h1 className="text-xl font-semibold text-white mt-4">Welcome back</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">Sign in to your account</p>
+      <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] text-[var(--text-muted)] hover:text-[var(--primary)] mb-7 transition">
+        &larr; {t.auth.backToHome}
+      </Link>
+
+      {/* Tabs */}
+      <div className="flex gap-0 mb-7 bg-[var(--bg-section)] rounded-[10px] p-1">
+        <div className="flex-1 py-2.5 text-center text-sm font-semibold bg-white text-[var(--text-primary)] rounded-lg shadow-[0_1px_3px_rgba(0,0,0,.08)]">
+          {t.auth.login}
+        </div>
+        <Link href="/signup" className="flex-1 py-2.5 text-center text-sm font-semibold text-[var(--text-muted)] rounded-lg hover:text-[var(--text-primary)] transition">
+          {t.auth.signup}
+        </Link>
       </div>
 
       {verified && (
-        <div className="bg-green-900/20 border border-green-800 text-green-400 text-sm px-4 py-3 rounded-lg mb-4">
-          Email verified successfully! You can now log in.
+        <div className="bg-[var(--success-light)] border border-[rgba(16,185,129,.2)] text-[var(--success)] text-[13px] px-3.5 py-2.5 rounded-md mb-4">
+          {t.auth.emailVerified}
         </div>
       )}
 
       {error && (
-        <div className="bg-red-900/20 border border-red-800 text-red-400 text-sm px-4 py-3 rounded-lg mb-4">
+        <div className="bg-[var(--danger-light)] border border-[rgba(239,68,68,.2)] text-[var(--danger)] text-[13px] px-3.5 py-2.5 rounded-md mb-4">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit}>
         {!needs2FA ? (
           <>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-[var(--text-muted)] mb-1.5">Email or Username</label>
+            <label htmlFor="email" className="block text-[13px] font-semibold text-[var(--text-primary)] mb-1.5">{t.auth.emailOrUsername}</label>
+            <input
+              id="email"
+              type="text"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3.5 py-[11px] border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-primary)] bg-white placeholder-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(255,97,84,.1)] transition mb-[18px]"
+              placeholder="you@example.com"
+              required
+              autoComplete="username"
+            />
+
+            <label htmlFor="password" className="block text-[13px] font-semibold text-[var(--text-primary)] mb-1.5">{t.auth.password}</label>
+            <div className="relative mb-[18px]">
               <input
-                id="email"
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-white placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition"
-                placeholder="you@example.com"
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3.5 py-[11px] pr-10 border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-primary)] bg-white placeholder-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(255,97,84,.1)] transition"
+                placeholder="••••••••"
                 required
-                autoComplete="username"
+                autoComplete="current-password"
               />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-[var(--text-muted)] mb-1.5">Password</label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-white placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition pr-12"
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-white text-sm"
-                  aria-label="Toggle password visibility"
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 transition"
+                aria-label="Toggle password visibility"
+              >
+                {showPassword ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                )}
+              </button>
             </div>
           </>
         ) : (
-          <div>
-            <label htmlFor="totp" className="block text-sm font-medium text-[var(--text-muted)] mb-1.5">2FA Code</label>
+          <div className="mb-[18px]">
+            <label htmlFor="totp" className="block text-[13px] font-semibold text-[var(--text-primary)] mb-1.5">{t.auth.twoFACode}</label>
             <input
               id="totp"
               type="text"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
-              className="w-full bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-white text-center text-lg tracking-widest placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition"
+              className="w-full px-3.5 py-[11px] border border-[var(--card-border)] rounded-lg text-lg text-[var(--text-primary)] bg-white text-center tracking-[4px] placeholder-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(255,97,84,.1)] transition"
               placeholder="000000"
-              maxLength={8}
+              maxLength={10}
               required
               autoComplete="one-time-code"
               autoFocus
             />
-            <p className="text-xs text-[var(--text-muted)] mt-2">Enter the code from your authenticator app, or a backup code.</p>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">{t.auth.enterTotpCode}</p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white py-2.5 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 text-[15px] font-bold text-white bg-[var(--primary)] rounded-lg hover:bg-[var(--primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,97,84,.25)] transition disabled:opacity-50 disabled:cursor-not-allowed mt-1"
         >
-          {loading ? 'Signing in...' : needs2FA ? 'Verify' : 'Sign In'}
+          {loading ? t.auth.signingIn : needs2FA ? t.auth.verify : t.auth.signIn}
         </button>
       </form>
 
-      <div className="mt-4 text-center">
-        <Link href="/reset-password" className="text-sm text-[var(--primary)] hover:underline">
-          Forgot password?
+      <div className="text-center mt-3">
+        <Link href="/reset-password" className="text-xs text-[var(--text-muted)] hover:text-[var(--primary)] underline transition">
+          {t.auth.forgotPassword}
         </Link>
       </div>
 
-      <div className="mt-6 text-center text-sm text-[var(--text-muted)]">
-        Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-[var(--primary)] hover:underline">Sign up</Link>
+      <div className="flex items-center gap-3 my-5 text-[var(--text-muted)] text-xs">
+        <span className="flex-1 h-px bg-[var(--card-border)]" />
+        <span>{t.auth.or}</span>
+        <span className="flex-1 h-px bg-[var(--card-border)]" />
       </div>
+
+      <button
+        type="button"
+        className="w-full py-3 flex items-center justify-center gap-2.5 bg-white text-[var(--text-primary)] border border-[var(--card-border)] rounded-lg text-sm font-semibold hover:bg-[var(--bg-section)] hover:border-[var(--text-muted)] transition"
+      >
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        {t.auth.continueWithGoogle}
+      </button>
     </div>
   );
 }

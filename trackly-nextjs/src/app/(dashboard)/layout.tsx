@@ -20,11 +20,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null; // middleware handles redirect
 
   return (
-    <div className="min-h-screen bg-[var(--bg)]">
+    <div className="min-h-screen bg-[var(--bg)]" style={{ color: 'var(--text)' }}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="lg:ml-64">
+      <div className="lg:ml-[220px]">
         <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="p-6">
+        <main className="p-4 md:p-8 overflow-x-hidden">
           {children}
         </main>
       </div>
