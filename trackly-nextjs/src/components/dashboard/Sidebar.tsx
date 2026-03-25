@@ -43,6 +43,7 @@ const navGroups = [
       { href: '/dashboard/billing', label: 'Billing', icon: '\u25FB' },
       { href: '/dashboard/account', label: 'Account & Plan', icon: '\u25C9' },
       { href: '/dashboard/activity', label: 'Activity & Logs', icon: '\u25C6' },
+      { href: '/dashboard/admin', label: 'Admin Panel', icon: '\u2691', adminOnly: true },
     ],
   },
 ];
@@ -75,6 +76,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   {group.label}
                 </div>
                 {group.items.map((item) => {
+                  if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null;
                   const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
                   return (
                     <Link
