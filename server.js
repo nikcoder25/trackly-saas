@@ -136,6 +136,8 @@ app.use(cookieParser());
 // form submissions. Safe because browsers always send Origin on POST/PUT/DELETE.
 app.use((req, res, next) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+      // Allow webhook endpoints (verified via webhook signature, not origin)
+      if (req.path.startsWith('/api/payments/webhook/')) return next();
   const origin = req.headers.origin;
   const allowed = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
