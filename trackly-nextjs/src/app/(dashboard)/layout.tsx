@@ -11,8 +11,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
-        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -20,17 +20,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div className="h-screen overflow-hidden bg-[var(--bg)]" style={{ color: 'var(--text)' }}>
-      {/* Topbar spans full width */}
-      <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-      <div className="flex h-[calc(100vh-52px)]">
-        {/* Sidebar below topbar */}
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        {/* Main content */}
-        <main className="flex-1 lg:ml-[220px] overflow-y-auto overflow-x-hidden p-4 md:p-8 bg-[var(--bg)]">
-          {children}
-        </main>
+    <div style={{ height: '100vh', overflow: 'hidden', background: 'var(--bg)', color: 'var(--text)', display: 'grid', gridTemplateRows: '52px 1fr', gridTemplateColumns: '220px 1fr' }}>
+      {/* Topbar - spans full width */}
+      <div style={{ gridColumn: '1 / -1' }}>
+        <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       </div>
+
+      {/* Sidebar */}
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Main content */}
+      <main style={{ overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg)', padding: '16px 32px 32px' }}>
+        {children}
+      </main>
     </div>
   );
 }
