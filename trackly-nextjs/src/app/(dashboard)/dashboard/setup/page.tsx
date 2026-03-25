@@ -13,7 +13,9 @@ interface Brand {
   goal: number;
   queries: string[];
   competitors: string[];
+  aliases?: string[];
   nearbyAreas?: string[];
+  selected_platforms?: string[];
   runs?: unknown[];
   [key: string]: unknown;
 }
@@ -26,6 +28,8 @@ async function api(method: string, path: string, body?: unknown) {
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
+
+const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 
 export default function SetupPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -51,23 +55,23 @@ export default function SetupPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text)]">Brand Setup</h1>
-          <p className="text-[var(--text-muted)] mt-1">Configure your brand tracking</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)]">Brand Setup</h1>
+          <p className="text-[var(--muted)] text-[13px] mt-1">Configure your brand details.</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--text)] px-4 py-2 rounded-lg text-sm font-medium transition">+ New Brand</button>
+        <button onClick={() => setShowCreate(true)} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-[0_1px_2px_rgba(255,97,84,.2)]">+ New Brand</button>
       </div>
 
       {brands.length > 0 && (
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {brands.map(b => (
             <button key={b.id} onClick={() => { setSelectedBrand(b); setShowCreate(false); }}
-              className={`shrink-0 px-4 py-2 rounded-lg text-sm transition ${selectedBrand?.id === b.id && !showCreate ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] hover:bg-[var(--bg3)] border border-[var(--border)]'}`}>{b.name}</button>
+              className={`shrink-0 px-4 py-2 rounded-lg text-sm transition ${selectedBrand?.id === b.id && !showCreate ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--muted)] hover:bg-[var(--bg3)] border border-[var(--border)]'}`}>{b.name}</button>
           ))}
         </div>
       )}
 
       {(showCreate || brands.length === 0) ? (
-        <CreateBrandForm onCreated={brand => { setBrands([...brands, brand]); setSelectedBrand(brand); setShowCreate(false); }} />
+        <CreateBrandWizard onCreated={brand => { setBrands([...brands, brand]); setSelectedBrand(brand); setShowCreate(false); }} />
       ) : selectedBrand ? (
         <EditBrandForm brand={selectedBrand}
           onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); }}
@@ -77,58 +81,142 @@ export default function SetupPage() {
   );
 }
 
-function CreateBrandForm({ onCreated }: { onCreated: (brand: Brand) => void }) {
+/* ── 3-STEP CREATION WIZARD ───────────────────── */
+function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void }) {
+  const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
   const [website, setWebsite] = useState('');
   const [city, setCity] = useState('');
   const [nearbyAreas, setNearbyAreas] = useState<string[]>([]);
+  const [competitors, setCompetitors] = useState<string[]>([]);
+  const [compInput, setCompInput] = useState('');
+  const [queries, setQueries] = useState<string[]>([]);
+  const [queryInput, setQueryInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true); setError('');
-    try { const data = await api('POST', '/api/brands', { name, industry, website, city, nearbyAreas }); onCreated(data.brand); }
-    catch (e) { setError((e as Error).message); }
+  const addComp = () => { if (compInput.trim() && !competitors.includes(compInput.trim())) { setCompetitors([...competitors, compInput.trim()]); setCompInput(''); } };
+  const addQuery = () => { if (queryInput.trim() && !queries.includes(queryInput.trim())) { setQueries([...queries, queryInput.trim()]); setQueryInput(''); } };
+
+  const handleCreate = async () => {
+    setSaving(true); setError('');
+    try {
+      const data = await api('POST', '/api/brands', { name, industry, website, city, nearbyAreas, competitors, queries });
+      onCreated(data.brand);
+    } catch (e) { setError((e as Error).message); }
     setSaving(false);
   };
 
   return (
-    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6">
-      <h2 className="text-lg font-semibold text-[var(--text)] mb-4">Create New Brand</h2>
-      {error && <div className="bg-[var(--danger-light)] border border-[rgba(239,68,68,.2)] text-[var(--danger)] text-sm px-4 py-3 rounded-lg mb-4">{error}</div>}
-      <form onSubmit={handleCreate} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label className="block text-sm text-[var(--text-muted)] mb-1">Brand Name *</label>
-            <input value={name} onChange={e => setName(e.target.value)} required className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" placeholder="e.g. Acme Corp" /></div>
-          <div><label className="block text-sm text-[var(--text-muted)] mb-1">Industry</label>
-            <input value={industry} onChange={e => setIndustry(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" placeholder="e.g. CRM Software" /></div>
-          <div><label className="block text-sm text-[var(--text-muted)] mb-1">Website</label>
-            <input value={website} onChange={e => setWebsite(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" placeholder="https://acme.com" /></div>
-          <div><label className="block text-sm text-[var(--text-muted)] mb-1">City (optional)</label>
-            <input value={city} onChange={e => setCity(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" placeholder="e.g. San Francisco" /></div>
-        </div>
+    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6 shadow-[var(--app-shadow)]">
+      <h2 className="text-lg font-bold text-[var(--text)] mb-4">Add New Brand</h2>
 
-        {/* Nearby Areas - shows when city is entered */}
-        {city.trim() && (
-          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4">
-            <NearbyAreas city={city} areas={nearbyAreas} onChange={setNearbyAreas} />
+      {/* Wizard Steps */}
+      <div className="flex gap-1 mb-5">
+        {[{ n: 1, l: 'Brand Info' }, { n: 2, l: 'Competitors' }, { n: 3, l: 'Queries' }].map(s => (
+          <div key={s.n} className={`flex-1 text-center py-2 text-[11px] font-semibold border rounded-md transition ${
+            step === s.n ? 'bg-[var(--primary-light)] text-[var(--primary)] border-[var(--primary-border)]'
+              : step > s.n ? 'bg-[var(--success-light)] text-[var(--green)] border-[var(--green)]'
+                : 'bg-[var(--bg2)] text-[var(--muted)] border-[var(--border)]'
+          }`}>
+            <span className={`inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[10px] mr-1 ${
+              step === s.n ? 'bg-[var(--primary)] text-white' : step > s.n ? 'bg-[var(--green)] text-white' : 'bg-[var(--bg3)] text-[var(--muted)]'
+            }`}>{s.n}</span>
+            {s.l}
           </div>
-        )}
+        ))}
+      </div>
 
-        <button type="submit" disabled={saving} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--text)] px-6 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50">{saving ? 'Creating...' : 'Create Brand'}</button>
-      </form>
+      {error && <div className="bg-[var(--danger-light)] border border-[rgba(239,68,68,.2)] text-[var(--danger)] text-[11px] font-mono px-3 py-2 rounded-md mb-3">{error}</div>}
+
+      {/* Step 1: Brand Info */}
+      {step === 1 && (
+        <div className="space-y-4">
+          <Field label="Brand Name *" value={name} onChange={setName} placeholder="Your Brand Name" />
+          <Field label="Industry *" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, SaaS" />
+          <Field label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
+          <Field label="City / Location" value={city} onChange={setCity} placeholder="e.g. Austin TX (optional for non-local)" />
+          {city.trim() && (
+            <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4">
+              <NearbyAreas city={city} areas={nearbyAreas} onChange={setNearbyAreas} />
+            </div>
+          )}
+          <button onClick={() => setStep(2)} className="w-full py-3 bg-[var(--primary)] text-white font-bold text-sm rounded-lg hover:bg-[var(--primary-hover)] transition">Next: Add Competitors</button>
+          <button onClick={handleCreate} className="w-full py-2.5 bg-[var(--bg3)] text-[var(--muted)] text-xs font-semibold border border-[var(--border)] rounded-lg hover:text-[var(--text)] transition">Skip wizard &amp; create now</button>
+        </div>
+      )}
+
+      {/* Step 2: Competitors */}
+      {step === 2 && (
+        <div className="space-y-4">
+          <p className="text-[13px] text-[var(--muted)]">Add 3-5 competitors you want to track alongside your brand. You can always change these later.</p>
+          <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+            {competitors.map((c, i) => (
+              <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
+                {c} <button onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={compInput} onChange={e => setCompInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addComp()}
+              placeholder="Competitor name..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
+            <button onClick={addComp} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setStep(1)} className="flex-1 py-2.5 bg-[var(--bg3)] text-[var(--muted)] text-sm font-semibold border border-[var(--border)] rounded-lg">Back</button>
+            <button onClick={() => setStep(3)} className="flex-1 py-2.5 bg-[var(--primary)] text-white text-sm font-bold rounded-lg">Next: Set Queries</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Queries */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <p className="text-[13px] text-[var(--muted)]">These queries will be sent to AI platforms to check if your brand is mentioned.</p>
+          <div className="max-h-[40vh] overflow-y-auto space-y-1">
+            {queries.map((q, i) => (
+              <div key={i} className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--border)] rounded-md px-3 py-2 text-sm text-[var(--text)]">
+                <span className="flex-1">{q}</span>
+                <button onClick={() => setQueries(queries.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)] text-xs">&times;</button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input value={queryInput} onChange={e => setQueryInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addQuery()}
+              placeholder="Add custom query..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
+            <button onClick={addQuery} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setStep(2)} className="flex-1 py-2.5 bg-[var(--bg3)] text-[var(--muted)] text-sm font-semibold border border-[var(--border)] rounded-lg">Back</button>
+            <button onClick={handleCreate} disabled={saving} className="flex-1 py-2.5 bg-[var(--primary)] text-white text-sm font-bold rounded-lg disabled:opacity-50">
+              {saving ? 'Creating...' : 'Create Brand & Run'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+/* ── EDIT BRAND FORM (full feature parity) ───────────────────── */
 function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void }) {
   const [name, setName] = useState(brand.name);
   const [industry, setIndustry] = useState(brand.industry || '');
   const [website, setWebsite] = useState(brand.website || '');
   const [city, setCity] = useState(brand.city || '');
-  const [queries, setQueries] = useState((brand.queries || []).join('\n'));
-  const [competitors, setCompetitors] = useState((brand.competitors || []).join('\n'));
+  const [goal, setGoal] = useState(brand.goal || 70);
+  const [aliases, setAliases] = useState<string[]>(brand.aliases || []);
+  const [aliasInput, setAliasInput] = useState('');
+  const [queries, setQueries] = useState<string[]>(brand.queries || []);
+  const [queryInput, setQueryInput] = useState('');
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
+  const [compInput, setCompInput] = useState('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(brand.selected_platforms || ALL_PLATFORMS);
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -136,18 +224,36 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
 
   useEffect(() => {
     setName(brand.name); setIndustry(brand.industry || ''); setWebsite(brand.website || '');
-    setCity(brand.city || ''); setQueries((brand.queries || []).join('\n'));
-    setCompetitors((brand.competitors || []).join('\n'));
+    setCity(brand.city || ''); setGoal(brand.goal || 70);
+    setAliases(brand.aliases || []); setQueries(brand.queries || []);
+    setCompetitors(brand.competitors || []);
+    setSelectedPlatforms(brand.selected_platforms || ALL_PLATFORMS);
     setNearbyAreas(brand.nearbyAreas || []);
     setError(''); setMessage('');
   }, [brand]);
 
+  const addAlias = () => { if (aliasInput.trim() && !aliases.includes(aliasInput.trim())) { setAliases([...aliases, aliasInput.trim()]); setAliasInput(''); } };
+  const autoGenerateAliases = () => {
+    const auto: string[] = [];
+    if (name) { auto.push(name.toLowerCase()); auto.push(name.replace(/\s+/g, '')); }
+    if (website) { const domain = website.replace(/https?:\/\//, '').replace(/\/$/, ''); auto.push(domain); }
+    setAliases([...new Set([...aliases, ...auto])]);
+  };
+  const addQuery = () => { if (queryInput.trim() && !queries.includes(queryInput.trim())) { setQueries([...queries, queryInput.trim()]); setQueryInput(''); } };
+  const addComp = () => { if (compInput.trim() && !competitors.includes(compInput.trim())) { setCompetitors([...competitors, compInput.trim()]); setCompInput(''); } };
+  const bulkAddQueries = () => {
+    const newQ = bulkText.split('\n').map(q => q.trim()).filter(q => q && !queries.includes(q));
+    setQueries([...queries, ...newQ]); setBulkText(''); setShowBulk(false);
+  };
+  const deleteSelected = () => { setQueries(queries.filter((_, i) => !selected.has(i))); setSelected(new Set()); setSelectMode(false); };
+  const togglePlatform = (p: string) => {
+    setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setError(''); setMessage('');
     try {
-      const queryList = queries.split('\n').map(q => q.trim()).filter(Boolean);
-      const compList = competitors.split('\n').map(c => c.trim()).filter(Boolean);
-      const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries: queryList, competitors: compList });
+      const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms });
       onUpdated(data.brand); setMessage('Brand updated!');
     } catch (e) { setError((e as Error).message); }
     setSaving(false);
@@ -160,59 +266,160 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-[var(--text)] mb-4">Edit Brand</h2>
-        {error && <div className="bg-[var(--danger-light)] border border-[rgba(239,68,68,.2)] text-[var(--danger)] text-sm px-4 py-3 rounded-lg mb-4">{error}</div>}
-        {message && <div className="bg-[var(--success-light)] border border-[rgba(16,185,129,.2)] text-[var(--success)] text-sm px-4 py-3 rounded-lg mb-4">{message}</div>}
+    <div className="space-y-4">
+      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6 shadow-[var(--app-shadow)]">
+        {error && <div className="bg-[var(--danger-light)] border border-[rgba(239,68,68,.2)] text-[var(--danger)] text-[11px] font-mono px-3 py-2 rounded-md mb-3">{error}</div>}
+        {message && <div className="bg-[var(--success-light)] border border-[rgba(16,185,129,.2)] text-[var(--success)] text-[11px] font-mono px-3 py-2 rounded-md mb-3">{message}</div>}
         <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className="block text-sm text-[var(--text-muted)] mb-1">Brand Name</label>
-              <input value={name} onChange={e => setName(e.target.value)} required className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" /></div>
-            <div><label className="block text-sm text-[var(--text-muted)] mb-1">Industry</label>
-              <input value={industry} onChange={e => setIndustry(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" /></div>
-            <div><label className="block text-sm text-[var(--text-muted)] mb-1">Website</label>
-              <input value={website} onChange={e => setWebsite(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" /></div>
-            <div><label className="block text-sm text-[var(--text-muted)] mb-1">City</label>
-              <input value={city} onChange={e => setCity(e.target.value)} className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]" /></div>
-          </div>
+          <Field label="Brand Name" value={name} onChange={setName} placeholder="Your Brand Name" />
+          <Field label="Industry" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
+          <Field label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
+
+          {/* Aliases */}
           <div>
-            <label className="block text-sm text-[var(--text-muted)] mb-1">Tracking Queries (one per line)</label>
-            <textarea value={queries} onChange={e => setQueries(e.target.value)} rows={6}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)] font-mono"
-              placeholder={"What is the best CRM software?\nTop CRM tools for small business"} />
-            <p className="text-xs text-[var(--text-muted)] mt-1">{queries.split('\n').filter(Boolean).length} queries</p>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1.5">Alternate Names / Aliases</label>
+            <p className="text-[10px] font-mono text-[var(--muted)] mb-2 leading-relaxed">AI platforms may refer to your brand differently. Add all variations so no mention is missed.</p>
+            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+              {aliases.map((a, i) => (
+                <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
+                  {a} <button type="button" onClick={() => setAliases(aliases.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={aliasInput} onChange={e => setAliasInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAlias())}
+                placeholder="Add alternate name..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
+              <button type="button" onClick={addAlias} className="px-3 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+              <button type="button" onClick={autoGenerateAliases} className="px-3 py-2 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md hover:text-[var(--text)]">AUTO-GENERATE</button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm text-[var(--text-muted)] mb-1">Competitors (one per line)</label>
-            <textarea value={competitors} onChange={e => setCompetitors(e.target.value)} rows={3}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[var(--text)] text-sm focus:outline-none focus:border-[var(--primary)]"
-              placeholder={"Competitor 1\nCompetitor 2"} />
-          </div>
+
+          <Field label="City / Location" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
 
           {/* Nearby Areas */}
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4">
             <NearbyAreas city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
           </div>
 
-          <div className="flex gap-3">
-            <button type="submit" disabled={saving} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--text)] px-6 py-2.5 rounded-lg text-sm font-medium transition disabled:opacity-50">{saving ? 'Saving...' : 'Save Changes'}</button>
-            <button type="button" onClick={handleDelete} className="bg-[var(--danger-light)] hover:bg-red-900/40 text-[var(--danger)] px-4 py-2.5 rounded-lg text-sm transition border border-[rgba(239,68,68,.2)]/50">Delete Brand</button>
+          {/* Manage Queries */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">Manage Queries</label>
+            <p className="text-[10px] font-mono text-[var(--muted)] mb-2">Add, remove, or bulk-manage tracked queries. <span className="font-bold">{queries.length} queries</span></p>
+            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+              {queries.map((q, i) => (
+                <span key={i} onClick={() => { if (selectMode) { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); } }}
+                  className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border cursor-default transition ${
+                    selectMode && selected.has(i) ? 'bg-[var(--primary-light)] border-[var(--primary-border)] text-[var(--primary)]'
+                      : 'bg-[var(--bg3)] border-[var(--border)] text-[var(--text)]'
+                  } ${selectMode ? 'cursor-pointer' : ''}`}>
+                  {selectMode && <span className="text-[10px]">{selected.has(i) ? '\u2611' : '\u2610'}</span>}
+                  {q}
+                  {!selectMode && <button type="button" onClick={() => setQueries(queries.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>}
+                </span>
+              ))}
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              <button type="button" onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">{selectMode ? 'CANCEL' : '\u2610 SELECT'}</button>
+              {selectMode && <>
+                <button type="button" onClick={() => setSelected(new Set(queries.map((_, i) => i)))} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">SELECT ALL</button>
+                <button type="button" onClick={() => setSelected(new Set())} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">DESELECT ALL</button>
+                <button type="button" onClick={deleteSelected} disabled={selected.size === 0} className="px-3 py-1.5 border border-[var(--red)] text-[var(--red)] text-[10px] font-mono rounded-md disabled:opacity-40">DELETE SELECTED ({selected.size})</button>
+              </>}
+              <button type="button" onClick={() => setShowBulk(!showBulk)} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">BULK ADD</button>
+              <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }} className="px-3 py-1.5 border border-[var(--red)] text-[var(--red)] text-[10px] font-mono rounded-md">CLEAR ALL</button>
+            </div>
+
+            <div className="flex gap-2">
+              <input value={queryInput} onChange={e => setQueryInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addQuery())}
+                placeholder="Add a query..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
+              <button type="button" onClick={addQuery} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+            </div>
+
+            {showBulk && (
+              <div className="mt-2">
+                <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={5}
+                  placeholder="Paste queries, one per line..."
+                  className="w-full bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] font-mono text-[11px] p-2.5 rounded-md resize-y" />
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-[10px] font-mono text-[var(--muted)]">{bulkText.split('\n').filter(Boolean).length} queries detected</span>
+                  <button type="button" onClick={bulkAddQueries} className="px-4 py-1.5 bg-[var(--green)] text-white text-[10px] font-mono font-bold rounded-md">ADD ALL</button>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Competitors */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">Competitors</label>
+            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+              {competitors.map((c, i) => (
+                <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
+                  {c} <button type="button" onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input value={compInput} onChange={e => setCompInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addComp())}
+                placeholder="Add competitor name..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
+              <button type="button" onClick={addComp} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+            </div>
+          </div>
+
+          {/* SOV Goal */}
+          <Field label="SOV Goal (%)" value={String(goal)} onChange={v => setGoal(Number(v))} placeholder="70" type="number" />
+
+          {/* AI Platforms to Track */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">AI Platforms to Track</label>
+            <p className="text-[10px] font-mono text-[var(--muted)] mb-2">Select which AI models to query when running keyword tracking.</p>
+            <div className="flex flex-wrap gap-2">
+              {ALL_PLATFORMS.map(p => (
+                <button key={p} type="button" onClick={() => togglePlatform(p)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition ${
+                    selectedPlatforms.includes(p) ? 'bg-[var(--bg3)] border-[var(--text-secondary)] text-[var(--text)]' : 'bg-[var(--bg2)] border-[var(--border)] text-[var(--muted)]'
+                  }`}>
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: PLATFORM_COLORS[p] }} />
+                  {p}
+                  {selectedPlatforms.includes(p) && <span className="text-[var(--green)]">{'\u2713'}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button type="submit" disabled={saving} className="w-full py-3 bg-[var(--primary)] text-white font-bold text-sm rounded-lg hover:bg-[var(--primary-hover)] transition disabled:opacity-50">
+            {saving ? 'SAVING...' : 'SAVE CHANGES'}
+          </button>
+          <button type="button" onClick={handleDelete} className="w-full py-2.5 border border-[var(--red)] text-[var(--red)] text-xs font-bold rounded-lg hover:bg-[var(--danger-light)] transition">
+            DELETE BRAND
+          </button>
         </form>
       </div>
-      {/* Run Queries */}
+
       <RunQueriesButton brandId={brand.id} brandName={brand.name} />
 
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-[var(--text)] mb-3">Brand Stats</h3>
+      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">Brand Stats</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div><p className="text-[var(--text-muted)]">Queries</p><p className="text-[var(--text)] font-semibold">{brand.queries?.length || 0}</p></div>
-          <div><p className="text-[var(--text-muted)]">Competitors</p><p className="text-[var(--text)] font-semibold">{brand.competitors?.length || 0}</p></div>
-          <div><p className="text-[var(--text-muted)]">Runs</p><p className="text-[var(--text)] font-semibold">{Array.isArray(brand.runs) ? brand.runs.length : 0}</p></div>
-          <div><p className="text-[var(--text-muted)]">Platforms</p><div className="flex gap-1 mt-1">{Object.entries(PLATFORM_COLORS).map(([n, c]) => <span key={n} className="w-3 h-3 rounded-full" style={{ background: c }} title={n} />)}</div></div>
+          <div><p className="text-[var(--muted)] text-[11px]">Queries</p><p className="text-[var(--text)] font-bold font-mono">{queries.length}</p></div>
+          <div><p className="text-[var(--muted)] text-[11px]">Competitors</p><p className="text-[var(--text)] font-bold font-mono">{competitors.length}</p></div>
+          <div><p className="text-[var(--muted)] text-[11px]">Runs</p><p className="text-[var(--text)] font-bold font-mono">{Array.isArray(brand.runs) ? brand.runs.length : 0}</p></div>
+          <div><p className="text-[var(--muted)] text-[11px]">Platforms</p><div className="flex gap-1 mt-1">{selectedPlatforms.map(p => <span key={p} className="w-3 h-3 rounded-full" style={{ background: PLATFORM_COLORS[p] }} title={p} />)}</div></div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ── SHARED COMPONENTS ───────────────────── */
+function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1.5">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3.5 py-[11px] rounded-md focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_var(--primary-light)] transition"
+        placeholder={placeholder} />
     </div>
   );
 }
@@ -234,21 +441,21 @@ function RunQueriesButton({ brandId, brandName }: { brandId: string; brandName: 
   };
 
   return (
-    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6">
+    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-[var(--text)]">Run Queries</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Run Queries</h3>
         <button onClick={handleRun} disabled={running}
-          className="bg-[var(--green)] hover:bg-green-600 text-[var(--text)] px-5 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2">
+          className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-5 py-2 rounded-lg text-sm font-bold transition disabled:opacity-50 flex items-center gap-2 shadow-[0_1px_2px_rgba(255,97,84,.2)]">
           {running && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-          {running ? `Running ${brandName}...` : 'Run Queries Now'}
+          {running ? `Running ${brandName}...` : '\u25B6 Run Queries Now'}
         </button>
       </div>
-      {error && <p className="text-sm text-[var(--danger)] mt-2">{error}</p>}
+      {error && <p className="text-[11px] text-[var(--danger)] font-mono mt-2">{error}</p>}
       {result && (
-        <div className="flex gap-6 mt-3 text-sm">
-          <span className="text-[var(--text-muted)]">SOV: <span className={`font-bold ${result.sov && result.sov >= 50 ? 'text-[var(--green)]' : 'text-[var(--amber)]'}`}>{result.sov}%</span></span>
-          <span className="text-[var(--text-muted)]">Queries: <span className="text-[var(--text)] font-medium">{result.totalQ}</span></span>
-          <span className="text-[var(--text-muted)]">Mentions: <span className="text-[var(--text)] font-medium">{result.totalM}</span></span>
+        <div className="flex gap-6 mt-3 text-sm font-mono">
+          <span className="text-[var(--muted)]">SOV: <span className={`font-bold ${result.sov && result.sov >= 50 ? 'text-[var(--green)]' : 'text-[var(--amber)]'}`}>{result.sov}%</span></span>
+          <span className="text-[var(--muted)]">Queries: <span className="text-[var(--text)] font-medium">{result.totalQ}</span></span>
+          <span className="text-[var(--muted)]">Mentions: <span className="text-[var(--text)] font-medium">{result.totalM}</span></span>
         </div>
       )}
     </div>
