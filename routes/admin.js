@@ -452,7 +452,7 @@ router.post('/ai-generate-queries', auth, async (req, res) => {
   if (!brandName || !industry) return res.status(400).json({ error: 'Brand name and industry are required' });
 
   const keys = getServerKeys();
-  const platformOrder = ['gemini', 'openai', 'claude', 'perplexity', 'grok'];
+  const platformOrder = ['claude', 'openai', 'gemini', 'perplexity', 'grok'];
   const platformMap = { gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
   let platform = null;
   for (const p of platformOrder) {
@@ -514,7 +514,7 @@ router.post('/nearby-areas', auth, async (req, res) => {
 
   const keys = getServerKeys();
   // Pick an available platform (prefer cheaper/faster ones)
-  const platformOrder = ['gemini', 'openai', 'claude', 'perplexity', 'grok'];
+  const platformOrder = ['claude', 'openai', 'gemini', 'perplexity', 'grok'];
   const platformMap = { gemini: 'Gemini', openai: 'ChatGPT', claude: 'Claude', perplexity: 'Perplexity', grok: 'Grok' };
   let platform = null;
   let apiKey = null;
