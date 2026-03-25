@@ -34,8 +34,8 @@ export default function TrendsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Trends</h1>
-      <p className="text-[var(--text-muted)] mb-6">Share of Voice trends over time</p>
+      <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)] mb-1">SOV Trends</h1>
+      <p className="text-[13px] text-[var(--muted)] mb-4">Share of Voice over time &mdash; overall and per platform.</p>
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">{brands.map(b => (
           <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
