@@ -181,6 +181,9 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           </div>
         </form>
       </div>
+      {/* Run Queries */}
+      <RunQueriesButton brandId={brand.id} brandName={brand.name} />
+
       <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6">
         <h3 className="text-sm font-semibold text-white mb-3">Brand Stats</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -190,6 +193,44 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           <div><p className="text-[var(--text-muted)]">Platforms</p><div className="flex gap-1 mt-1">{Object.entries(PLATFORM_COLORS).map(([n, c]) => <span key={n} className="w-3 h-3 rounded-full" style={{ background: c }} title={n} />)}</div></div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RunQueriesButton({ brandId, brandName }: { brandId: string; brandName: string }) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ sov?: number; totalQ?: number; totalM?: number } | null>(null);
+  const [error, setError] = useState('');
+
+  const handleRun = async () => {
+    setRunning(true); setError(''); setResult(null);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/run`, { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Run failed');
+      setResult({ sov: data.run?.sov, totalQ: data.run?.totalQ, totalM: data.run?.totalM });
+    } catch (e) { setError((e as Error).message); }
+    setRunning(false);
+  };
+
+  return (
+    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-white">Run Queries</h3>
+        <button onClick={handleRun} disabled={running}
+          className="bg-[var(--green)] hover:bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 flex items-center gap-2">
+          {running && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {running ? `Running ${brandName}...` : 'Run Queries Now'}
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
+      {result && (
+        <div className="flex gap-6 mt-3 text-sm">
+          <span className="text-[var(--text-muted)]">SOV: <span className={`font-bold ${result.sov && result.sov >= 50 ? 'text-[var(--green)]' : 'text-[var(--amber)]'}`}>{result.sov}%</span></span>
+          <span className="text-[var(--text-muted)]">Queries: <span className="text-white font-medium">{result.totalQ}</span></span>
+          <span className="text-[var(--text-muted)]">Mentions: <span className="text-white font-medium">{result.totalM}</span></span>
+        </div>
+      )}
     </div>
   );
 }

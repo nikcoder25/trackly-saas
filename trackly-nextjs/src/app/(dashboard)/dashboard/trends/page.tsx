@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { PLATFORM_COLORS } from '@/lib/constants';
+
+const SovChart = dynamic(() => import('@/components/dashboard/SovChart'), { ssr: false });
 
 interface Brand {
   id: string; name: string;
@@ -20,11 +23,12 @@ export default function TrendsPage() {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Build trend data from sovHistory or runs
   const sovHistory = selectedBrand?.sovHistory || [];
-  const trendData = sovHistory.length > 0
-    ? sovHistory
-    : (selectedBrand?.runs || []).filter(r => r.date && r.sov !== undefined).map(r => ({ date: r.date!, sov: r.sov!, platforms: r.platforms ? Object.fromEntries(Object.entries(r.platforms).map(([k, v]) => [k, v.sov || 0])) : {} }));
+  const trendData = sovHistory.length > 0 ? sovHistory
+    : (selectedBrand?.runs || []).filter(r => r.date && r.sov !== undefined).map(r => ({
+        date: r.date!, sov: r.sov!,
+        platforms: r.platforms ? Object.fromEntries(Object.entries(r.platforms).map(([k, v]) => [k, v.sov || 0])) : {},
+      }));
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -40,8 +44,11 @@ export default function TrendsPage() {
       {trendData.length === 0 ? (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-8 text-center"><p className="text-[var(--text-muted)]">Trend data will appear after multiple query runs.</p></div>
       ) : (
-        <div className="space-y-4">
-          {/* Simple table-based trend view */}
+        <div className="space-y-6">
+          {/* Chart */}
+          <SovChart data={trendData} />
+
+          {/* Table */}
           <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-[var(--border)]">
