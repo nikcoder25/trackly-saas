@@ -12,6 +12,7 @@ const { safeUser } = require('../lib/helpers');
 const { createLogger } = require('../lib/logger');
 const { API_ENDPOINTS, TIMEOUTS } = require('../config/constants');
 const { sendPaymentReceiptEmail, sendSubscriptionCancelledEmail } = require('../lib/email');
+const { createCheckoutSession } = require('@dodopayments/core/checkout');
 const log = createLogger('Payments');
 
 // Webhook idempotency — prevent duplicate event processing
@@ -85,10 +86,6 @@ router.post('/checkout', auth, async (req, res) => {
       return res.status(400).json({ error: `You are already on the ${user.plan} plan.` });
     }
 
-    const baseUrl = DODO_ENVIRONMENT === 'live_mode'
-      ? API_ENDPOINTS.dodopayments.live
-      : API_ENDPOINTS.dodopayments.test;
-
     const returnUrl = DODO_RETURN_URL || `${req.protocol}://${req.get('host')}`;
 
     const checkoutPayload = {
@@ -109,74 +106,32 @@ router.post('/checkout', auth, async (req, res) => {
       }
     };
 
-    // Create checkout session via DodoPayments API
-    const body = JSON.stringify(checkoutPayload);
-    const apiUrl = `${baseUrl}/checkouts`;
-    const checkoutUrl = await new Promise((resolve, reject) => {
-      const reqOpts = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${DODO_API_KEY}`,
-          'Content-Length': Buffer.byteLength(body)
-        },
-        timeout: TIMEOUTS.paymentApi
-      };
-
-      log.info('Dodo API request', {
-        url: apiUrl,
-        method: 'POST',
-        authHeader: `Bearer ${DODO_API_KEY.substring(0, 6)}...`,
-        body: checkoutPayload
-      });
-
-      const apiReq = https.request(apiUrl, reqOpts, (apiRes) => {
-        let data = '';
-        apiRes.on('data', chunk => { data += chunk; });
-        apiRes.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (apiRes.statusCode >= 400) {
-              log.error('Dodo API error', {
-                url: apiUrl,
-                status: apiRes.statusCode,
-                responseBody: data,
-                requestBody: checkoutPayload,
-                plan
-              });
-              reject(new Error(parsed.message || parsed.error || `Checkout creation failed (HTTP ${apiRes.statusCode})`));
-            } else {
-              log.info('Dodo API success', { status: apiRes.statusCode, sessionId: parsed.session_id });
-              resolve(parsed.checkout_url);
-            }
-          } catch(e) {
-            log.error('Dodo API invalid response', {
-              url: apiUrl,
-              status: apiRes.statusCode,
-              rawBody: data,
-              parseError: e.message
-            });
-            reject(new Error('Invalid response from payment service'));
-          }
-        });
-      });
-      apiReq.on('timeout', () => { apiReq.destroy(); reject(new Error('Payment service timeout')); });
-      apiReq.on('error', (e) => {
-        log.error('Dodo API network error', { url: apiUrl, error: e.message });
-        reject(e);
-      });
-      apiReq.write(body);
-      apiReq.end();
+    log.info('Creating checkout session', {
+      environment: DODO_ENVIRONMENT || 'test_mode',
+      hasApiKey: !!DODO_API_KEY,
+      productId,
+      plan
     });
 
-    if (!checkoutUrl) {
+    // Create checkout session via DodoPayments SDK
+    const session = await createCheckoutSession(checkoutPayload, {
+      bearerToken: DODO_API_KEY,
+      environment: DODO_ENVIRONMENT || 'test_mode'
+    });
+
+    if (!session || !session.checkout_url) {
       return res.status(500).json({ error: 'Failed to create checkout session' });
     }
 
-    res.json({ checkout_url: checkoutUrl, plan });
+    log.info('Checkout session created', { sessionId: session.session_id });
+    res.json({ checkout_url: session.checkout_url, plan });
   } catch(e) {
     log.error('Checkout failed', { error: e.message, stack: e.stack, userId: req.user.id, plan });
-    res.status(500).json({ error: 'Failed to create checkout. Please try again.' });
+    // Surface SDK validation errors (e.g. missing product ID) as actionable messages
+    const msg = e.message && e.message.includes('Invalid checkout session payload')
+      ? 'Checkout configuration error. Contact support.'
+      : 'Failed to create checkout. Please try again.';
+    res.status(500).json({ error: msg });
   }
 });
 
