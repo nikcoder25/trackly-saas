@@ -29,7 +29,7 @@ const API_ENDPOINTS = {
     tokeninfo: 'https://oauth2.googleapis.com/tokeninfo',
   },
   dodopayments: {
-    live: 'https://api.dodopayments.com',
+    live: 'https://live.dodopayments.com',
     test: 'https://test.dodopayments.com',
   },
 };

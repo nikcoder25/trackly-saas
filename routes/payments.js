@@ -92,26 +92,26 @@ router.post('/checkout', auth, async (req, res) => {
     const returnUrl = DODO_RETURN_URL || `${req.protocol}://${req.get('host')}`;
 
     const checkoutPayload = {
-      product_id: productId,
-      quantity: 1,
-      payment_link: true,
-      return_url: returnUrl,
+      product_cart: [
+        { product_id: productId, quantity: 1 }
+      ],
       customer: {
         email: user.email,
         name: user.name || user.email.split('@')[0]
       },
-      billing: {
+      billing_address: {
         country: 'US'
       },
+      return_url: returnUrl,
       metadata: {
         user_id: String(user.id),
         plan: plan
       }
     };
 
-    // Create subscription via DodoPayments API
+    // Create checkout session via DodoPayments API
     const body = JSON.stringify(checkoutPayload);
-    const apiUrl = `${baseUrl}/subscriptions`;
+    const apiUrl = `${baseUrl}/checkouts`;
     const checkoutUrl = await new Promise((resolve, reject) => {
       const reqOpts = {
         method: 'POST',
@@ -123,7 +123,7 @@ router.post('/checkout', auth, async (req, res) => {
         timeout: TIMEOUTS.paymentApi
       };
 
-      log.info('Dodo API request', { url: apiUrl, body: checkoutPayload, plan });
+      log.info('Dodo checkout request', { url: apiUrl, plan, productId });
       const apiReq = https.request(apiUrl, reqOpts, (apiRes) => {
         let data = '';
         apiRes.on('data', chunk => { data += chunk; });
@@ -131,11 +131,11 @@ router.post('/checkout', auth, async (req, res) => {
           try {
             const parsed = JSON.parse(data);
             if (apiRes.statusCode >= 400) {
-              log.error('Dodo API error', { url: apiUrl, status: apiRes.statusCode, responseBody: data, requestBody: checkoutPayload, plan });
-              reject(new Error(parsed.message || parsed.error || `Subscription creation failed (HTTP ${apiRes.statusCode})`));
+              log.error('Dodo API error', { url: apiUrl, status: apiRes.statusCode, responseBody: data, plan });
+              reject(new Error(parsed.message || parsed.error || `Checkout creation failed (HTTP ${apiRes.statusCode})`));
             } else {
-              log.info('Dodo API success', { status: apiRes.statusCode, subscriptionId: parsed.subscription_id, hasPaymentLink: !!parsed.payment_link });
-              resolve(parsed.payment_link || parsed.checkout_url || parsed.url);
+              log.info('Dodo API success', { status: apiRes.statusCode, sessionId: parsed.session_id, hasCheckoutUrl: !!parsed.checkout_url });
+              resolve(parsed.checkout_url);
             }
           } catch(e) {
             log.error('Dodo API invalid response', { url: apiUrl, status: apiRes.statusCode, body: data });
