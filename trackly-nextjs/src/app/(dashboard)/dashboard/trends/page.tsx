@@ -34,11 +34,11 @@ export default function TrendsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Trends</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Trends</h1>
       <p className="text-[var(--text-muted)] mb-6">Share of Voice trends over time</p>
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">{brands.map(b => (
-          <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
+          <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
         ))}</div>
       )}
       {trendData.length === 0 ? (
@@ -59,7 +59,7 @@ export default function TrendsPage() {
               <tbody>
                 {trendData.slice(-20).reverse().map((point, i) => (
                   <tr key={i} className="border-b border-[var(--border)]/50 hover:bg-[var(--bg3)]">
-                    <td className="px-4 py-2.5 text-[var(--text)]">{new Date(point.date).toLocaleDateString()}</td>
+                    <td className="px-4 py-2.5 text-white">{new Date(point.date).toLocaleDateString()}</td>
                     <td className="px-4 py-2.5"><span className={`font-medium ${point.sov >= 50 ? 'text-[var(--green)]' : point.sov > 0 ? 'text-[var(--amber)]' : 'text-[var(--text-muted)]'}`}>{point.sov}%</span></td>
                     {Object.keys(PLATFORM_COLORS).map(p => {
                       const val = point.platforms?.[p];

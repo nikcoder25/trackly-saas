@@ -28,14 +28,14 @@ export default function PlatformsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Platforms</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Platforms</h1>
       <p className="text-[var(--text-muted)] mb-6">Platform status and share of voice breakdown</p>
 
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">
           {brands.map(b => (
             <button key={b.id} onClick={() => setSelectedBrand(b)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
           ))}
         </div>
       )}
@@ -49,9 +49,9 @@ export default function PlatformsPage() {
             <div key={name} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5">
               <div className="flex items-center gap-3 mb-3">
                 <span className="w-4 h-4 rounded-full" style={{ background: color }} />
-                <h3 className="font-semibold text-[var(--text)]">{name}</h3>
+                <h3 className="font-semibold text-white">{name}</h3>
                 {hasData && (
-                  <span className={`ml-auto text-xs px-2 py-0.5 rounded ${sov >= 50 ? 'bg-[var(--success-light)] text-[var(--success)]' : sov > 0 ? 'bg-[var(--warning-light)] text-[var(--amber)]' : 'bg-[var(--danger-light)] text-[var(--danger)]'}`}>
+                  <span className={`ml-auto text-xs px-2 py-0.5 rounded ${sov >= 50 ? 'bg-green-900/20 text-green-400' : sov > 0 ? 'bg-amber-900/20 text-amber-400' : 'bg-red-900/20 text-red-400'}`}>
                     {sov}% SOV
                   </span>
                 )}
@@ -62,11 +62,11 @@ export default function PlatformsPage() {
                   <div className="flex justify-between text-xs text-[var(--text-muted)]">
                     <span>{pd.mentions || 0} mentions</span>
                     <span>{pd.queries || 0} queries</span>
-                    {pd.errors ? <span className="text-[var(--danger)]">{pd.errors} errors</span> : null}
+                    {pd.errors ? <span className="text-red-400">{pd.errors} errors</span> : null}
                   </div>
                 </div>
               ) : (
-                <><p className="text-2xl font-bold text-[var(--text)]">—</p><p className="text-xs text-[var(--text-muted)] mt-1">No data yet</p></>
+                <><p className="text-2xl font-bold text-white">—</p><p className="text-xs text-[var(--text-muted)] mt-1">No data yet</p></>
               )}
             </div>
           );
