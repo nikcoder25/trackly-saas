@@ -27,7 +27,7 @@ export default function BillingPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Billing</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Billing</h1>
       <p className="text-[var(--text-muted)] mb-6">Manage your subscription and billing</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -37,10 +37,10 @@ export default function BillingPage() {
           return (
             <div key={planName} className={`bg-[var(--bg2)] border rounded-xl p-6 ${isCurrent ? 'border-[var(--primary)] ring-1 ring-[var(--primary)]/20' : 'border-[var(--border)]'}`}>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-[var(--text)] capitalize">{planName}</h3>
+                <h3 className="text-lg font-semibold text-white capitalize">{planName}</h3>
                 {isCurrent && <span className="text-xs bg-[var(--primary)]/10 text-[var(--primary)] px-2 py-1 rounded">Current</span>}
               </div>
-              <p className="text-2xl font-bold text-[var(--text)] mb-4">{PLAN_PRICES[planName]}<span className="text-sm text-[var(--text-muted)] font-normal">{planName !== 'free' && planName !== 'enterprise' ? '/mo' : ''}</span></p>
+              <p className="text-2xl font-bold text-white mb-4">{PLAN_PRICES[planName]}<span className="text-sm text-[var(--text-muted)] font-normal">{planName !== 'free' && planName !== 'enterprise' ? '/mo' : ''}</span></p>
               <ul className="space-y-2 text-sm text-[var(--text-muted)] mb-6">
                 <li>{limits.brands} brand{limits.brands > 1 ? 's' : ''}</li>
                 <li>{limits.prompts} prompts/month</li>
@@ -52,7 +52,7 @@ export default function BillingPage() {
               </ul>
               {isUpgrade && (
                 <button onClick={() => handleUpgrade(planName)} disabled={upgrading === planName}
-                  className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--text)] py-2 rounded-lg text-sm font-medium transition disabled:opacity-50">
+                  className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white py-2 rounded-lg text-sm font-medium transition disabled:opacity-50">
                   {upgrading === planName ? 'Processing...' : `Upgrade to ${planName}`}
                 </button>
               )}

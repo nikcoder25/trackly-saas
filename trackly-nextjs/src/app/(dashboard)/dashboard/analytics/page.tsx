@@ -29,11 +29,11 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Analytics</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Analytics</h1>
       <p className="text-[var(--text-muted)] mb-6">Query performance and keyword tracking</p>
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">{brands.map(b => (
-          <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-[var(--text)]' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
+          <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--text-muted)] border border-[var(--border)]'}`}>{b.name}</button>
         ))}</div>
       )}
       {keywords.length === 0 ? (
@@ -54,10 +54,10 @@ export default function AnalyticsPage() {
                 const rate = parseFloat(k.mention_rate) * 100;
                 return (
                   <tr key={i} className="border-b border-[var(--border)]/50 hover:bg-[var(--bg3)]">
-                    <td className="px-4 py-2.5 text-[var(--text)] max-w-xs truncate">{k.prompt}</td>
+                    <td className="px-4 py-2.5 text-white max-w-xs truncate">{k.prompt}</td>
                     <td className="px-4 py-2.5"><span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: PLATFORM_COLORS[k.platform] || '#666' }} /><span className="text-[var(--text-muted)]">{k.platform}</span></span></td>
                     <td className="px-4 py-2.5 text-[var(--text-muted)]">{k.total_runs}</td>
-                    <td className="px-4 py-2.5 text-[var(--text)] font-medium">{k.mention_count}</td>
+                    <td className="px-4 py-2.5 text-white font-medium">{k.mention_count}</td>
                     <td className="px-4 py-2.5"><span className={`font-medium ${rate >= 50 ? 'text-[var(--green)]' : rate > 0 ? 'text-[var(--amber)]' : 'text-[var(--red)]'}`}>{rate.toFixed(0)}%</span></td>
                     <td className="px-4 py-2.5 text-[var(--text-muted)]">{k.avg_rank ? `#${parseFloat(k.avg_rank).toFixed(1)}` : '—'}</td>
                   </tr>
