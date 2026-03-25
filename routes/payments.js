@@ -100,14 +100,18 @@ router.post('/checkout', auth, async (req, res) => {
         email: user.email,
         name: user.name || user.email.split('@')[0]
       },
+      billing: {
+        country: 'US'
+      },
       metadata: {
-        user_id: user.id,
+        user_id: String(user.id),
         plan: plan
       }
     };
 
     // Create subscription via DodoPayments API
     const body = JSON.stringify(checkoutPayload);
+    const apiUrl = `${baseUrl}/subscriptions`;
     const checkoutUrl = await new Promise((resolve, reject) => {
       const reqOpts = {
         method: 'POST',
@@ -119,20 +123,22 @@ router.post('/checkout', auth, async (req, res) => {
         timeout: TIMEOUTS.paymentApi
       };
 
-      const apiReq = https.request(`${baseUrl}/v1/subscriptions`, reqOpts, (apiRes) => {
+      log.info('Dodo API request', { url: apiUrl, body: checkoutPayload, plan });
+      const apiReq = https.request(apiUrl, reqOpts, (apiRes) => {
         let data = '';
         apiRes.on('data', chunk => { data += chunk; });
         apiRes.on('end', () => {
           try {
             const parsed = JSON.parse(data);
             if (apiRes.statusCode >= 400) {
-              log.error('Dodo API error', { status: apiRes.statusCode, response: data, plan });
-              reject(new Error(parsed.message || parsed.error || 'Subscription creation failed'));
+              log.error('Dodo API error', { url: apiUrl, status: apiRes.statusCode, responseBody: data, requestBody: checkoutPayload, plan });
+              reject(new Error(parsed.message || parsed.error || `Subscription creation failed (HTTP ${apiRes.statusCode})`));
             } else {
+              log.info('Dodo API success', { status: apiRes.statusCode, subscriptionId: parsed.subscription_id, hasPaymentLink: !!parsed.payment_link });
               resolve(parsed.payment_link || parsed.checkout_url || parsed.url);
             }
           } catch(e) {
-            log.error('Dodo API invalid response', { status: apiRes.statusCode, body: data });
+            log.error('Dodo API invalid response', { url: apiUrl, status: apiRes.statusCode, body: data });
             reject(new Error('Invalid response from payment service'));
           }
         });
