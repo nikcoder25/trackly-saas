@@ -21,13 +21,20 @@ export async function PUT(request: Request) {
     emailNotifications: ['true', 'false'],
     timezone: [], // allow any string
     language: ['en', 'es', 'fr', 'de', 'ja', 'ko', 'zh', 'hi'],
+    emailReportSchedule: ['off', 'weekly', 'monthly'],
+    notifyInApp: ['true', 'false'],
+    notifyEmail: ['true', 'false'],
+    notifyWebhook: ['true', 'false'],
+    webhookUrl: [], // allow any string
+    webhookStatus: ['none', 'active', 'error'],
   };
+  const booleanKeys = ['emailNotifications', 'notifyInApp', 'notifyEmail', 'notifyWebhook'];
   const updates: Record<string, unknown> = {};
   for (const [key, validValues] of Object.entries(allowed)) {
     if (body[key] === undefined) continue;
-    const val = String(body[key]).slice(0, 100); // limit length
+    const val = key === 'webhookUrl' ? String(body[key]).slice(0, 500) : String(body[key]).slice(0, 100);
     if (validValues.length > 0 && !validValues.includes(val)) continue; // reject invalid enum
-    updates[key] = key === 'emailNotifications' ? val === 'true' : val;
+    updates[key] = booleanKeys.includes(key) ? val === 'true' : val;
   }
   if (Object.keys(updates).length === 0) return Response.json({ error: 'No valid settings to update' }, { status: 400 });
 

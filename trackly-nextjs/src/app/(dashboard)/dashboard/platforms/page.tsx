@@ -28,8 +28,8 @@ export default function PlatformsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Platforms</h1>
-      <p className="text-[var(--text-muted)] mb-6">Platform status and share of voice breakdown</p>
+      <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)] mb-1">Platform Status</h1>
+      <p className="text-[13px] text-[var(--muted)] mb-4">SOV per AI platform and real-time API health.</p>
 
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">
