@@ -1,0 +1,29 @@
+import bcrypt from 'bcryptjs';
+import { pool, auditLog } from '@/lib/db';
+import { verifyRequestAuth } from '@/lib/auth';
+import { AUTH } from '@/lib/constants';
+
+export async function POST(request: Request) {
+  const user = verifyRequestAuth(request);
+  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  const { currentPassword, newPassword } = await request.json();
+  if (!currentPassword || !newPassword) return Response.json({ error: 'Current and new password required' }, { status: 400 });
+  if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid input' }, { status: 400 });
+  if (newPassword.length < 8) return Response.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
+  if (newPassword.length > 128) return Response.json({ error: 'Password too long' }, { status: 400 });
+
+  try {
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+    if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
+    const ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+    if (!ok) return Response.json({ error: 'Current password is incorrect' }, { status: 400 });
+    const hash = await bcrypt.hash(newPassword, AUTH.bcryptRounds);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    auditLog(user.id, 'change_password', 'user', user.id, {}, ip);
+    return Response.json({ message: 'Password updated successfully' });
+  } catch {
+    return Response.json({ error: 'Failed to change password' }, { status: 500 });
+  }
+}

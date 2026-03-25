@@ -1,0 +1,36 @@
+import type { Metadata } from 'next';
+import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+
+export const metadata: Metadata = {
+  title: 'About Livesov — AI Visibility Tracking Platform',
+  description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+  alternates: { canonical: '/about' },
+};
+
+export default function AboutPage() {
+  return (
+    <SeoLayout>
+      <SeoHero
+        title={<>About <span className="text-[#FF6154]">Livesov</span></>}
+        subtitle="We're building the analytics layer for AI visibility — helping brands understand and optimize how AI platforms mention and recommend them."
+      />
+      <SeoContent>
+        <h2>Our Mission</h2>
+        <p>AI is changing how people discover brands. When someone asks ChatGPT &quot;what&apos;s the best CRM?&quot; or Claude &quot;recommend a project management tool,&quot; the AI&apos;s response directly influences purchasing decisions. Livesov gives brands the tools to track, measure, and optimize their presence in these AI responses.</p>
+
+        <h2>What We Do</h2>
+        <p>Livesov systematically queries AI platforms with industry-relevant prompts, parses the responses, and provides actionable analytics. We track mention rates, recommendation rankings, sentiment, competitor co-occurrence, hallucinations, and citations — giving you the complete picture of your AI visibility.</p>
+
+        <h2>Our Platform</h2>
+        <ul>
+          <li>Track 5 AI platforms: ChatGPT, Claude, Gemini, Perplexity, Grok</li>
+          <li>Automated scheduled monitoring</li>
+          <li>Real-time streaming results</li>
+          <li>Competitor benchmarking</li>
+          <li>Hallucination detection</li>
+          <li>AI-powered recommendations</li>
+        </ul>
+      </SeoContent>
+    </SeoLayout>
+  );
+}
