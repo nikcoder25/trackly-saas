@@ -35,21 +35,36 @@ export async function POST(request: NextRequest) {
     let googleId: string, email: string, name: string, avatarUrl: string | null;
 
     if (access_token) {
+      // Validate access token by calling Google's userinfo API server-side
       const resp = await fetch(API_ENDPOINTS.google.userinfo, {
         headers: { Authorization: 'Bearer ' + access_token },
       });
       if (!resp.ok) return Response.json({ error: 'Invalid access token' }, { status: 400 });
       const userInfo = await resp.json();
+      // Verify the token has required fields (scope validation)
+      if (!userInfo.sub) return Response.json({ error: 'Invalid Google token: missing user ID' }, { status: 400 });
+      if (!userInfo.email) return Response.json({ error: 'Invalid Google token: missing email scope' }, { status: 400 });
       if (!userInfo.email_verified) return Response.json({ error: 'Google email is not verified' }, { status: 400 });
       googleId = userInfo.sub;
       email = userInfo.email?.toLowerCase();
       name = userInfo.name || email?.split('@')[0];
       avatarUrl = userInfo.picture || null;
     } else {
+      // Validate ID token via Google's tokeninfo API
       const resp = await fetch(`${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential)}`);
       if (!resp.ok) return Response.json({ error: 'Invalid token' }, { status: 400 });
       const payload = await resp.json();
+      // Verify audience matches our client ID (prevents token reuse attacks)
       if (payload.aud !== clientId) return Response.json({ error: 'Token audience mismatch' }, { status: 400 });
+      // Verify issuer is Google
+      if (payload.iss !== 'accounts.google.com' && payload.iss !== 'https://accounts.google.com') {
+        return Response.json({ error: 'Invalid token issuer' }, { status: 400 });
+      }
+      // Verify token hasn't expired
+      if (payload.exp && parseInt(payload.exp, 10) < Math.floor(Date.now() / 1000)) {
+        return Response.json({ error: 'Token has expired' }, { status: 400 });
+      }
+      if (!payload.sub) return Response.json({ error: 'Invalid token: missing user ID' }, { status: 400 });
       googleId = payload.sub;
       email = payload.email?.toLowerCase();
       name = payload.name || email?.split('@')[0];

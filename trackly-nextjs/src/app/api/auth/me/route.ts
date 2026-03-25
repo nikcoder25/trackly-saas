@@ -14,6 +14,9 @@ export async function GET(request: Request) {
     const user = result.rows[0];
     if (!user) return Response.json({ error: 'User not found' }, { status: 404 });
 
+    // Single admin enforcement: admin role is only set via direct DB access
+    // (config/db.js auto-promotes the designated admin email on first run).
+    // No API endpoint can assign admin role. Admin automatically gets owner plan.
     if (user.role === 'admin' && user.plan !== 'owner') {
       await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['owner', user.id]);
       user.plan = 'owner';

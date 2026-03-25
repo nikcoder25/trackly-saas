@@ -30,7 +30,11 @@ if (process.env.NODE_ENV !== 'production') {
   globalForDb.pool = pool;
 }
 
-// Audit log helper
+/**
+ * Audit log helper - logs security-relevant events.
+ * Returns true if logged successfully, false if logging failed.
+ * Never throws - callers should not fail due to audit log issues.
+ */
 export async function auditLog(
   userId: string,
   action: string,
@@ -38,31 +42,47 @@ export async function auditLog(
   targetId?: string,
   details?: Record<string, unknown>,
   ip?: string
-) {
+): Promise<boolean> {
   try {
     await pool.query(
       'INSERT INTO audit_logs (user_id, action, target_type, target_id, details, ip) VALUES ($1, $2, $3, $4, $5, $6)',
       [userId, action, targetType || null, targetId || null, JSON.stringify(details || {}), ip || null]
     );
+    return true;
   } catch (e) {
-    console.error('[AuditLog]', (e as Error).message);
+    console.error('[AuditLog] FAILED to write audit log:', {
+      action,
+      userId,
+      error: (e as Error).message,
+    });
+    return false;
   }
 }
 
-// Notification helper
+/**
+ * Notification helper - creates in-app notifications.
+ * Returns true if created successfully, false otherwise.
+ * Never throws.
+ */
 export async function notify(
   userId: string,
   type: string,
   title: string,
   message?: string,
   data?: Record<string, unknown>
-) {
+): Promise<boolean> {
   try {
     await pool.query(
       'INSERT INTO notifications (user_id, type, title, message, data) VALUES ($1, $2, $3, $4, $5)',
       [userId, type, title, message || '', JSON.stringify(data || {})]
     );
+    return true;
   } catch (e) {
-    console.error('[Notify]', (e as Error).message);
+    console.error('[Notify] FAILED to create notification:', {
+      type,
+      userId,
+      error: (e as Error).message,
+    });
+    return false;
   }
 }

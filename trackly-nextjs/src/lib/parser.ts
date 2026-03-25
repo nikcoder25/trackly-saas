@@ -18,6 +18,15 @@ const NEG_WORDS = ['avoid', 'complaint', 'poor', 'bad', 'worst', 'unreliable', '
 const POS_RE = new RegExp(POS_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
 const NEG_RE = new RegExp(NEG_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
 
+export interface BrandInput {
+  name: string;
+  website?: string;
+  aliases?: string[];
+  city?: string;
+  nearbyAreas?: string[];
+  competitors?: string[];
+}
+
 export interface BrandMatcher {
   nameLower: string; exactRe: RegExp; noPuncRe: RegExp | null;
   nameNoSpace: string; firstWord: string;
@@ -27,8 +36,7 @@ export interface BrandMatcher {
   compRes: Array<{ name: string; re: RegExp }>; hasCity: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function buildBrandMatcher(brand: any): BrandMatcher {
+export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
   const name = (brand.name || '').trim().slice(0, 200); // Limit length to prevent ReDoS
   const nameLower = name.toLowerCase();
   const nameEsc = nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -86,8 +94,7 @@ export function buildBrandMatcher(brand: any): BrandMatcher {
   return { nameLower, exactRe, noPuncRe, nameNoSpace, firstWord, sigWords, sigWordRes, domain, aliasMatchers, positionRes, allLocations, compRes, hasCity: !!brand.city };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseResponse(text: string, brand: any, query: string, matcher?: BrandMatcher) {
+export function parseResponse(text: string, brand: BrandInput, query: string, matcher?: BrandMatcher) {
   if (!text || !brand.name) return { mentioned: false, recommended: false, sentiment: 'neutral', cites: [] as string[], listPosition: null as number | null };
 
   const m = matcher || buildBrandMatcher(brand);
