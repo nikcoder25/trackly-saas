@@ -80,6 +80,31 @@ export default function DashboardPage() {
     return sentTotal > 0 ? Math.round((posCount * 100 + neuCount * 50) / sentTotal) : 0;
   }, [posCount, neuCount, sentTotal]);
 
+  // AI Category Breakdown (Chat AI vs Search AI)
+  const chatStats = useMemo(() => {
+    const names = ['ChatGPT', 'Claude', 'Grok'];
+    let total = 0, mentioned = 0;
+    Object.entries(platforms).forEach(([name, pd]) => {
+      if (names.includes(name)) { total += (pd as Record<string, number>).total || 0; mentioned += (pd as Record<string, number>).mentions || 0; }
+    });
+    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
+  }, [platforms]);
+
+  const searchStats = useMemo(() => {
+    const names = ['Perplexity', 'Gemini'];
+    let total = 0, mentioned = 0;
+    Object.entries(platforms).forEach(([name, pd]) => {
+      if (names.includes(name)) { total += (pd as Record<string, number>).total || 0; mentioned += (pd as Record<string, number>).mentions || 0; }
+    });
+    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
+  }, [platforms]);
+
+  const bestPlatform = useMemo(() => {
+    const entries = Object.entries(platforms).map(([name, pd]) => ({ name, sov: (pd as Record<string, number>).sov || 0 }));
+    if (!entries.length) return null;
+    return entries.reduce((a, b) => b.sov > a.sov ? b : a);
+  }, [platforms]);
+
   // Competitors
   const competitorData = lastRun?.competitors || {};
   const topCompetitors = useMemo(() =>
@@ -283,6 +308,31 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* AI Category Breakdown */}
+      {Object.keys(platforms).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
+            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
+            <div className="text-2xl font-extrabold font-mono" style={{ color: chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{chatStats.sov}%</div>
+            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div>
+            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">ChatGPT · Claude · Grok</div>
+          </div>
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${searchStats.sov >= 40 ? 'var(--green)' : searchStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
+            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🔍 Search AI SOV</div>
+            <div className="text-2xl font-extrabold font-mono" style={{ color: searchStats.sov >= 40 ? 'var(--green)' : searchStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{searchStats.sov}%</div>
+            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
+            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">Perplexity · Gemini</div>
+          </div>
+          {bestPlatform && (
+            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: '2px solid var(--green)' }}>
+              <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
+              <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform.name}</div>
+              <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform.sov}% SOV — strongest visibility</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Platform Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
