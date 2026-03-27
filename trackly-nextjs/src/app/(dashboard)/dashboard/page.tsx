@@ -137,6 +137,8 @@ export default function DashboardPage() {
     return { rate: total > 0 ? Math.round((matched / total) * 100) : 0, areas: areaHits };
   }, [brand]);
 
+  const nearbyAreas = (brand as Record<string, unknown>)?.nearby_areas as string[] | undefined;
+
   // Query Performance data (per-query mention rate from last run)
   const queryPerfData = useMemo(() => {
     if (!lastRun) return [];
@@ -408,7 +410,10 @@ export default function DashboardPage() {
 
       {/* AI Category Breakdown — always show */}
       <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-title">AI Category Breakdown</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>AI Category Breakdown</div>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>Share of Voice by platform type</span>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
             <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
@@ -432,8 +437,15 @@ export default function DashboardPage() {
 
       {/* Location Visibility — always show */}
       {(
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">📍 Location Visibility</div>
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>📍 Location Visibility</div>
+            {brand.city && (
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                {brand.city}{nearbyAreas && nearbyAreas.length > 0 ? ` + ${nearbyAreas.length} nearby areas` : ''}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <div className="text-2xl font-extrabold font-mono" style={{ color: locationData.rate >= 40 ? 'var(--green)' : locationData.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>
@@ -465,38 +477,28 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Platform Cards — with ACTIVE status badge like legacy */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
+      {/* Platform Cards — centered layout matching livesov.com */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 14 }}>
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
-          const pMent = (pd as Record<string, number>).mentions || 0;
           const pTotal = (pd as Record<string, number>).total || 0;
-          const pErr = (pd as Record<string, number>).errors || 0;
           const isActive = pTotal > 0;
           return (
-            <div key={name} className="stat-card" style={{ borderLeft: `3px solid ${color}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{name}</span>
-                {/* ACTIVE badge */}
-                <span style={{
-                  fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
-                  padding: '2px 8px', borderRadius: 100, marginLeft: 4,
-                  background: isActive ? 'rgba(16,185,129,.08)' : 'var(--bg3)',
-                  color: isActive ? 'var(--green)' : 'var(--muted)',
-                  border: `1px solid ${isActive ? 'rgba(16,185,129,.2)' : 'var(--border)'}`,
-                  textTransform: 'uppercase', letterSpacing: '.3px',
-                }}>● {isActive ? 'ACTIVE' : 'INACTIVE'}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)', color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</span>
-              </div>
+            <div key={name} className="stat-card" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{name}</div>
+              <div style={{
+                display: 'inline-block', fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
+                padding: '2px 10px', borderRadius: 100, marginBottom: 10,
+                background: isActive ? 'rgba(16,185,129,.08)' : 'var(--bg3)',
+                color: isActive ? 'var(--green)' : 'var(--muted)',
+                border: `1px solid ${isActive ? 'rgba(16,185,129,.2)' : 'var(--border)'}`,
+                textTransform: 'uppercase', letterSpacing: '.3px',
+              }}>● {isActive ? 'ACTIVE' : 'INACTIVE'}</div>
               <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
                 <div style={{ height: '100%', borderRadius: 3, width: `${pSov}%`, background: color, transition: 'width .5s' }} />
               </div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-                <span>Mentions: <strong style={{ color: 'var(--text)' }}>{pMent}/{pTotal}</strong></span>
-                {pErr > 0 && <span style={{ color: 'var(--red)' }}>Errors: {pErr}</span>}
-              </div>
+              <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--mono)', color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</div>
             </div>
           );
         })}
@@ -607,22 +609,27 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Last Run Summary */}
+      {/* Last Run Summary — "LAST RUN — MMM DD HH:MM AM/PM" format */}
       {lastRun && (
         <div className="card">
-          <div className="card-title">Last Run</div>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                {lastRun.date ? new Date(lastRun.date).toLocaleString() : 'Unknown date'}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                Found {totalM} of {totalQ} total responses
-              </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>
+              Last Run — {lastRun.date ? (() => {
+                const d = new Date(lastRun.date);
+                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const h = d.getHours();
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const h12 = h % 12 || 12;
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                return `${months[d.getMonth()]} ${d.getDate()} ${String(h12).padStart(2, '0')}:${mm} ${ampm}`;
+              })() : 'Unknown'}
             </div>
-            <Link href="/dashboard/mentions" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none', marginLeft: 'auto' }}>
-              View All Results →
-            </Link>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>Found {totalM}/{totalQ}</span>
+              <Link href="/dashboard/mentions" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>
+                View All →
+              </Link>
+            </div>
           </div>
         </div>
       )}
@@ -657,16 +664,16 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button className="pill-btn">BULK ADD</button>
-          <button className="pill-btn">SUGGEST</button>
-          <button className="pill-btn">AI GENERATE</button>
-          <button className="pill-btn" onClick={() => {
+          <button className="pill-btn" style={{ color: 'var(--green)', borderColor: 'rgba(16,185,129,.3)' }}>SUGGEST</button>
+          <button className="pill-btn" style={{ color: 'var(--blue)', borderColor: 'rgba(59,130,246,.3)' }}>AI GENERATE</button>
+          <button className="pill-btn" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,.3)' }} onClick={() => {
             if (!brand || !queries.length) return;
             if (confirm('Remove all queries?')) {
               fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) })
                 .then(() => fetchBrands());
             }
           }}>CLEAR ALL</button>
-          <button className="pill-btn">SELECT</button>
+          <button className="pill-btn">☐ SELECT</button>
         </div>
       </div>
     </div>
