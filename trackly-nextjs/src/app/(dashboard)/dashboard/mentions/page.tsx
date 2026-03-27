@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { csvSafe } from '@/lib/csv';
 
 interface Mention {
   query: string;
@@ -181,15 +182,15 @@ export default function MentionsPage() {
     const csvRows = [headers.join(',')];
     filtered.forEach(m => {
       csvRows.push([
-        `"${(m.query || '').replace(/"/g, '""')}"`,
-        m.platform || '',
-        m.model || '',
+        csvSafe(m.query || ''),
+        csvSafe(m.platform || ''),
+        csvSafe(m.model || ''),
         m.mentioned ? 'Yes' : 'No',
         m.recommended ? 'Yes' : 'No',
         m.sentiment || '',
-        m.position ?? '',
-        `"${(m.response || m.snippet || '').replace(/"/g, '""')}"`,
-        `"${(m.error || '').replace(/"/g, '""')}"`,
+        String(m.position ?? ''),
+        csvSafe(m.response || m.snippet || ''),
+        csvSafe(m.error || ''),
       ].join(','));
     });
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });

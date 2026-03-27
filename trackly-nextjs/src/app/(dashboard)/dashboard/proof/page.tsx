@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { csvSafe } from '@/lib/csv';
 
 interface Brand {
   id: string;
@@ -108,13 +109,13 @@ export default function ProofPage() {
     const csvRows = [headers.join(',')];
     filtered.forEach(r => {
       csvRows.push([
-        `"${(r.query || '').replace(/"/g, '""')}"`,
-        r.platform || '',
-        r.model || '',
+        csvSafe(r.query || ''),
+        csvSafe(r.platform || ''),
+        csvSafe(r.model || ''),
         r.mentioned ? 'Yes' : 'No',
         r.sentiment || '',
-        r.position ?? '',
-        `"${(r.response || r.snippet || '').replace(/"/g, '""')}"`,
+        String(r.position ?? ''),
+        csvSafe(r.response || r.snippet || ''),
       ].join(','));
     });
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });

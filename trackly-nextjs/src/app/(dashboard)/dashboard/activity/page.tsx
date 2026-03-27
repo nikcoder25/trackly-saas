@@ -85,7 +85,7 @@ export default function ActivityPage() {
                 <div key={log.id || i} className="flex items-center justify-between bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3">
                   <div className="flex items-center gap-4 min-w-0">
                     <span className="text-xs text-[var(--muted)] shrink-0 w-36">{new Date(log.timestamp).toLocaleString()}</span>
-                    <span className="text-sm text-[var(--text)] truncate">{log.action}</span>
+                    <span className="text-sm text-[var(--text)] truncate" title={log.action}>{log.action}</span>
                   </div>
                   <span className="text-xs text-[var(--muted)] shrink-0 ml-4 font-mono">{log.ip}</span>
                 </div>

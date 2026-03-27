@@ -164,13 +164,20 @@ export default function QueryTrackerPage() {
     return sortDir === 'asc' ? ' \u2191' : ' \u2193';
   }
 
-  function Sparkline({ value }: { value: number }) {
-    const points = Array.from({ length: 7 }, (_, i) => {
-      const jitter = Math.sin(i * 1.5 + value) * 15;
-      return Math.max(5, Math.min(35, value * 0.4 + jitter));
+  function Sparkline({ keyword }: { keyword: string }) {
+    // Use real historical visibility data from brandRuns
+    const recentRuns = brandRuns.slice(-7);
+    const points = recentRuns.map(run => {
+      const results = (run.allResults || []).filter(r => r.query === keyword);
+      if (results.length === 0) return 5;
+      const rate = (results.filter(r => r.mentioned).length / results.length) * 100;
+      return Math.max(5, Math.min(35, rate * 0.35));
     });
+    // Pad to 7 points if less
+    while (points.length < 7) points.unshift(5);
     const path = points.map((y, i) => `${i === 0 ? 'M' : 'L'} ${i * 10} ${40 - y}`).join(' ');
-    const color = value >= 50 ? 'var(--green)' : value > 0 ? 'var(--amber)' : 'var(--red)';
+    const lastVal = points[points.length - 1];
+    const color = lastVal >= 17 ? 'var(--green)' : lastVal > 5 ? 'var(--amber)' : 'var(--red)';
     return (
       <svg width="60" height="40" viewBox="0 0 60 40" className="inline-block">
         <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -270,7 +277,7 @@ export default function QueryTrackerPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-[var(--muted)]">{row.avgPosition > 0 ? `#${row.avgPosition.toFixed(1)}` : '\u2014'}</td>
-                  <td className="px-4 py-3"><Sparkline value={row.visibility} /></td>
+                  <td className="px-4 py-3"><Sparkline keyword={row.keyword} /></td>
                   <td className="px-4 py-3 text-xs text-[var(--muted)]">{row.updated ? new Date(row.updated).toLocaleDateString() : '\u2014'}</td>
                 </tr>
               ))}

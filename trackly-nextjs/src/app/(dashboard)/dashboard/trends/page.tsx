@@ -100,9 +100,9 @@ export default function TrendsPage() {
           <SovChart data={trendData} />
 
           {/* Table */}
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden shadow-[var(--app-shadow)]">
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden shadow-[var(--app-shadow)]" style={{ maxHeight: 500, overflowY: 'auto' }}>
             <table className="w-full text-sm">
-              <thead><tr className="border-b border-[var(--border)]">
+              <thead><tr className="border-b border-[var(--border)]" style={{ position: 'sticky', top: 0, background: 'var(--bg2)', zIndex: 1 }}>
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Date</th>
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Overall SOV</th>
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Change</th>
