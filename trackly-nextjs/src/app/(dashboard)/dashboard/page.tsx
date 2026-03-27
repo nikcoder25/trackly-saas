@@ -35,6 +35,7 @@ export default function DashboardPage() {
   const [bulkText, setBulkText] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedQueries, setSelectedQueries] = useState<Set<number>>(new Set());
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Preset section visibility
   const show = (section: string) => {
@@ -362,14 +363,14 @@ export default function DashboardPage() {
       )}
 
       {/* API Health Banner — matching legacy format */}
-      {apiTotal > 0 && (
+      {apiTotalResponses > 0 && (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
           <span className="w-2 h-2 rounded-full" style={{ background: apiHealthColor }} />
           <span className="text-[var(--text)] font-medium"><strong>{apiHealthy}/{apiTotal}</strong> platforms healthy</span>
           <span className="text-[var(--muted)]">·</span>
-          <span className="text-[var(--muted)]"><strong>{totalQ - apiErrors}</strong> ok</span>
+          <span className="text-[var(--muted)]"><strong>{apiTotalResponses - apiErrors}</strong> valid responses</span>
           <span className="text-[var(--muted)]">·</span>
-          <span style={{ color: apiErrors > 0 ? 'var(--red)' : 'var(--muted)' }}>{apiErrors} error{apiErrors !== 1 ? 's' : ''}</span>
+          <span style={{ color: apiErrors > 0 ? 'var(--red)' : 'var(--green)' }}>{apiErrors === 0 ? '✓ No errors' : `${apiErrors} error${apiErrors !== 1 ? 's' : ''}`}</span>
           {apiErrors > 0 && (
             <Link href="/dashboard/activity" className="text-[var(--red)] font-mono text-[10px] hover:underline ml-auto no-underline">View Errors →</Link>
           )}
@@ -389,7 +390,7 @@ export default function DashboardPage() {
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-2xl font-extrabold font-mono text-[var(--text)]">{sov}%</span>
               {sovChange !== null && sovChange !== 0 && (
-                <span className={`text-[10px] font-mono font-bold ${sovChange > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
+                <span title="Compared to previous run" className={`text-[10px] font-mono font-bold ${sovChange > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`} style={{ cursor: 'help' }}>
                   {sovChange > 0 ? '▲' : '▼'} {Math.abs(sovChange)}%
                 </span>
               )}
@@ -615,8 +616,8 @@ export default function DashboardPage() {
           )) : queries.length > 0 ? queries.slice(0, 8).map((q, i) => (
             <div key={i} style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                <span style={{ fontSize: 12, color: 'var(--text)' }}>{q}</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>--</span>
+                <span title={q} style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{q}</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>No data</span>
               </div>
               <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3 }} />
             </div>
@@ -639,7 +640,7 @@ export default function DashboardPage() {
               </span>
             )) : (brand.competitors || []).length > 0 ? (brand.competitors || []).map((c, i) => (
               <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 12, color: 'var(--text)' }}>
-                {c}
+                {c} <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>No SOV data</span>
               </span>
             )) : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Add competitors in Brand Setup</p>}
           </div>
@@ -816,13 +817,26 @@ export default function DashboardPage() {
           }}>AI GENERATE</button>
           <button className="pill-btn" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,.3)' }} onClick={() => {
             if (!brand || !queries.length) return;
-            if (confirm('Remove all queries? This cannot be undone.')) {
-              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) })
-                .then(() => fetchBrands());
-            }
+            setShowClearConfirm(true);
           }}>CLEAR ALL</button>
           <button className="pill-btn" style={selectMode ? { color: 'var(--primary)', borderColor: 'var(--primary-border)', background: 'var(--primary-light)' } : {}} onClick={() => { setSelectMode(!selectMode); setSelectedQueries(new Set()); }}>{selectMode ? '✓ DONE' : '☐ SELECT'}</button>
         </div>
+
+        {/* Clear All Confirmation Modal */}
+        {showClearConfirm && (
+          <div style={{ background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', padding: 14, marginTop: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--red)', marginBottom: 8 }}>Are you sure you want to remove all {queries.length} queries?</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>This cannot be undone. All tracked queries will be permanently deleted.</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="pill-btn" onClick={() => setShowClearConfirm(false)}>Cancel</button>
+              <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12, background: 'var(--red)' }} onClick={() => {
+                if (!brand) return;
+                fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) })
+                  .then(() => { fetchBrands(); setShowClearConfirm(false); });
+              }}>Yes, Remove All Queries</button>
+            </div>
+          </div>
+        )}
       </div>
       )}
     </div>
