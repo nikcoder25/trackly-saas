@@ -587,15 +587,6 @@ function HeroStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ScoreCard({ label, color, children }: { label: string; color: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `3px solid ${color}` }}>
-      <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] mb-2">{label}</div>
-      {children}
-    </div>
-  );
-}
-
 function InsightCard({ color, icon, title, desc, link }: { color: string; icon: string; title: string; desc: string; link: string }) {
   return (
     <Link href={link} className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg hover:bg-[var(--bg3)] transition no-underline">
