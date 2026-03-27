@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Tailwind v4 fix: default border color (v4 uses currentColor, v3 used gray-200) */
+@layer base {
+  *, *::before, *::after {
+    border-color: var(--card-border, #e8e5e1);
+  }
+  /* Restore sensible list styles inside pricing cards */
+  ul { list-style: none; }
+}
+
 *{box-sizing:border-box;margin:0;padding:0;}
 
 @keyframes spin {
