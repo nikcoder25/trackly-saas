@@ -42,10 +42,10 @@ export default function SetupPage() {
       const data = await api('GET', '/api/brands');
       const all = data.brands || [];
       setBrands(all);
-      if (all.length && !selectedBrand) setSelectedBrand(all[0]);
+      if (all.length) setSelectedBrand(prev => prev || all[0]);
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [selectedBrand]);
+  }, []);
 
   useEffect(() => { loadBrands(); }, [loadBrands]);
 
