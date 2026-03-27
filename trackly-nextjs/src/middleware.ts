@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Routes that require authentication
-const protectedPaths = ['/dashboard', '/overview', '/mentions', '/setup', '/billing', '/account', '/analytics'];
-const authPaths = ['/login', '/signup'];
+const authPaths = ['/login', '/signup', '/reset-password'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -14,8 +12,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // If user is on protected page but not logged in, redirect to login
-  if (protectedPaths.some((p) => pathname.startsWith(p)) && !token) {
+  // If user is on any dashboard page but not logged in, redirect to login
+  if (pathname.startsWith('/dashboard') && !token) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
@@ -25,5 +23,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/overview/:path*', '/mentions/:path*', '/setup/:path*', '/billing/:path*', '/account/:path*', '/analytics/:path*', '/login', '/signup'],
+  matcher: ['/dashboard/:path*', '/login', '/signup', '/reset-password'],
 };
