@@ -237,10 +237,10 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-start mb-4 flex-wrap gap-3">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)]">{brand.name}</h1>
-          <p className="text-[var(--muted)] text-[13px] mt-1">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
+          <h1 className="view-title">{brand.name}</h1>
+          <p className="view-sub">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Compare Toggle */}
@@ -311,7 +311,7 @@ export default function DashboardPage() {
       )}
 
       {/* SOV Hero Card */}
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6 shadow-[var(--app-shadow)] mb-4 flex flex-col md:flex-row gap-6 items-center">
+      <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
         <div className="text-center shrink-0">
           <div className="relative w-[120px] h-[120px]">
             <svg viewBox="0 0 120 120" className="w-full h-full">
@@ -346,9 +346,9 @@ export default function DashboardPage() {
       </div>
 
       {/* GEO Score / AI Sentiment / AI Recommends You */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {/* GEO Score */}
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+        <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}</div>
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score</div>
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
@@ -359,7 +359,7 @@ export default function DashboardPage() {
           </div>
         </div>
         {/* AI Sentiment */}
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+        <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{sentimentScore}</div>
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment</div>
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
@@ -372,7 +372,7 @@ export default function DashboardPage() {
           </div>
         </div>
         {/* AI Recommends You */}
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+        <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>{recommendedPct}<span className="text-[18px]">%</span></div>
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You</div>
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
