@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
+  const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
 
   const [now, setNow] = useState(Date.now());
 
@@ -176,6 +177,44 @@ export default function DashboardPage() {
   const apiTotal = Object.keys(platforms).length;
   const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
 
+  // Preset section visibility (matching legacy presets)
+  const show = (section: string) => {
+    if (preset === 'all') return true;
+    const presets: Record<string, string[]> = {
+      founder: ['hero', 'scores', 'trends', 'competitors', 'insights', 'lastrun'],
+      seo: ['hero', 'health', 'scores', 'platforms', 'qperf', 'citations', 'categories'],
+      agency: ['hero', 'health', 'categories', 'platforms', 'lastrun', 'competitors'],
+    };
+    return presets[preset]?.includes(section) ?? true;
+  };
+
+  // Location visibility data
+  const nearbyAreas = (brand as Record<string, unknown>).nearby_areas as string[] | undefined;
+  const locationMentions = useMemo(() => {
+    if (!brand.city || !lastRun) return { rate: 0, areas: {} as Record<string, number> };
+    let total = 0, matched = 0;
+    const areaHits: Record<string, number> = {};
+    const allAreas = [brand.city, ...(nearbyAreas || [])].filter(Boolean);
+    // Check if runs have allResults for location matching
+    const runResults = (brand.runs || []).slice(-3).flatMap(r => {
+      const res = (r as Record<string, unknown>).allResults as Array<{ response?: string; snippet?: string; mentioned?: boolean }> | undefined;
+      return res || [];
+    });
+    runResults.forEach(r => {
+      if (!r.response && !r.snippet) return;
+      const text = ((r.response || '') + ' ' + (r.snippet || '')).toLowerCase();
+      total++;
+      for (const area of allAreas) {
+        if (text.includes(area.toLowerCase())) {
+          matched++;
+          areaHits[area] = (areaHits[area] || 0) + 1;
+          break;
+        }
+      }
+    });
+    return { rate: total > 0 ? Math.round((matched / total) * 100) : 0, areas: areaHits };
+  }, [brand, lastRun, nearbyAreas]);
+
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 
   if (!brand) return (
@@ -194,7 +233,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)]">{brand.name}</h1>
           <p className="text-[var(--muted)] text-[13px] mt-1">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Compare Toggle */}
           <div className="flex bg-[var(--bg2)] border border-[var(--border)] rounded-lg overflow-hidden">
             {(['current', 'week', 'month'] as const).map(m => (
@@ -204,6 +243,17 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+          {/* Preset Selector */}
+          <select
+            value={preset}
+            onChange={e => setPreset(e.target.value as typeof preset)}
+            className="px-3 py-1.5 text-[11px] font-semibold bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] rounded-lg outline-none cursor-pointer"
+          >
+            <option value="all">All Sections</option>
+            <option value="founder">Founder View</option>
+            <option value="seo">SEO Manager</option>
+            <option value="agency">Agency View</option>
+          </select>
         </div>
       </div>
 
@@ -357,8 +407,43 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Location Visibility — matching legacy */}
+      {show('scores') && brand.city && (
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
+          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">📍 Location Visibility</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: locationMentions.rate >= 40 ? 'var(--green)' : locationMentions.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>
+                {locationMentions.rate}%
+              </div>
+              <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1">City Match Rate</div>
+              <div className="text-[11px] text-[var(--muted)] mt-1">AI mentions your location in responses</div>
+              {locationMentions.rate < 30 && (
+                <div className="mt-2 text-[11px] text-[var(--amber)] bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] rounded-md px-3 py-1.5">
+                  💡 Try adding city names directly in your tracked queries to improve location visibility.
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] mb-2">Areas where AI finds you</div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(locationMentions.areas).length > 0 ? (
+                  Object.entries(locationMentions.areas).sort((a, b) => b[1] - a[1]).map(([area, count]) => (
+                    <span key={area} className="inline-flex items-center gap-1 bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] text-[11px] font-medium px-2.5 py-1 rounded-full">
+                      {area} <span className="text-[var(--muted)] font-mono text-[10px]">{count}x</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[var(--muted)] text-xs">No location matches detected yet</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Platform Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
+      {show('platforms') && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
@@ -382,7 +467,7 @@ export default function DashboardPage() {
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {/* SOV Trend Mini Chart */}
       {sovTrend.length > 1 && (
