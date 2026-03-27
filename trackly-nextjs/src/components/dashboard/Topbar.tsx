@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -14,6 +14,17 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Close notification on outside click
+  useEffect(() => {
+    if (!showNotifs) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotifs]);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -57,7 +68,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <style>{`@media(min-width:1024px){.user-badge{display:inline!important;}}`}</style>
 
         {/* Notification bell with dropdown */}
-        <div style={{ position: 'relative' }}>
+        <div ref={notifRef} style={{ position: 'relative' }}>
           <button className="notif-bell" aria-label="Notifications" onClick={() => setShowNotifs(!showNotifs)}>
             🔔
           </button>

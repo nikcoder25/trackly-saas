@@ -31,6 +31,10 @@ export default function DashboardPage() {
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
   const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedQueries, setSelectedQueries] = useState<Set<number>>(new Set());
 
   // Preset section visibility
   const show = (section: string) => {
@@ -391,12 +395,12 @@ export default function DashboardPage() {
         )}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 flex-1 w-full">
           <HeroStat label="Mentions / Total" value={`${totalM} / ${totalQ}`} />
-          <HeroStat label="Platforms Active" value={String(Object.keys(platforms).length)} />
+          <HeroStat label="Platforms Active" value={String(Object.values(platforms).filter(p => (p as Record<string,number>).total > 0).length)} />
           <HeroStat label="Queries Tracked" value={String(queries.length)} />
           <HeroStat label="Last Run" value={lastRunAge || '--'} />
           <HeroStat label="Run Duration" value={(() => {
             const d = lastRun?.duration;
-            if (d === undefined || d === null) return '--';
+            if (d === undefined || d === null) return 'N/A';
             const s = typeof d === 'number' ? (d > 1000 ? Math.round(d / 1000) : d) : 0;
             return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
           })()} />
@@ -464,10 +468,19 @@ export default function DashboardPage() {
             <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
             <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">Perplexity · Gemini</div>
           </div>
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4" style={{ borderTop: '2px solid var(--green)' }}>
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4" style={{ borderTop: `2px solid ${bestPlatform && bestPlatform.sov > 0 ? 'var(--green)' : 'var(--muted)'}` }}>
             <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
-            <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform ? bestPlatform.name : '--'}</div>
-            <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform ? `${bestPlatform.sov}% SOV — strongest visibility` : 'Run queries to see results'}</div>
+            {bestPlatform && bestPlatform.sov > 0 ? (
+              <>
+                <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform.name}</div>
+                <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform.sov}% SOV — strongest visibility</div>
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-extrabold font-mono text-[var(--muted)]">--</div>
+                <div className="text-[11px] text-[var(--muted)] mt-1">No platform data yet</div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -517,7 +530,7 @@ export default function DashboardPage() {
 
       {/* Platform Cards */}
       {show('platforms') && (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 14 }}>
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
@@ -573,7 +586,7 @@ export default function DashboardPage() {
           {queryPerfData.length > 0 ? queryPerfData.slice(0, 8).map((q, i) => (
             <div key={i} style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                <span style={{ fontSize: 12, color: 'var(--text)', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</span>
+                <span title={q.query} style={{ fontSize: 12, color: 'var(--text)', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</span>
                 <span style={{ fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>{q.rate}%</span>
               </div>
               <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
@@ -607,7 +620,7 @@ export default function DashboardPage() {
               </span>
             )) : (brand.competitors || []).length > 0 ? (brand.competitors || []).map((c, i) => (
               <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 12, color: 'var(--text)' }}>
-                {c} <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>--</span>
+                {c}
               </span>
             )) : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Add competitors in Brand Setup</p>}
           </div>
@@ -636,7 +649,7 @@ export default function DashboardPage() {
               <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', minWidth: 32, textAlign: 'right' }}>{count}×</span>
             </div>
           ));
-        })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Citation data will appear after query runs.</p>}
+        })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>No citation sources detected in AI responses yet.</p>}
       </div>
       )}
 
@@ -645,10 +658,13 @@ export default function DashboardPage() {
       <div className="card">
         <div className="card-title">Actionable Insights</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* SOV drop takes priority over SOV level */}
+          {sovChange !== null && sovChange < -5 && <InsightCard color="var(--red)" icon="⚠" title="SOV Declined" desc={`Your SOV dropped ${Math.abs(sovChange)}% since last run. Review your content strategy and check which platforms lost visibility.`} link="/dashboard/trends" />}
+          {sovChange !== null && sovChange > 10 && <InsightCard color="var(--green)" icon="▲" title="SOV Improving" desc={`Great news! Your SOV improved +${sovChange}% since last run. Keep up the momentum.`} link="/dashboard/trends" />}
           {sov === 0 && <InsightCard color="var(--amber)" icon="⚠" title="Getting Started with GEO" desc="Your SOV is 0%. Run queries and check Recommendations for optimization tips." link="/dashboard/recommendations" />}
-          {sov > 0 && sov < 50 && <InsightCard color="var(--primary)" icon="▲" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
-          {sov >= 50 && <InsightCard color="var(--green)" icon="✓" title="Strong AI Visibility" desc={`Your SOV is ${sov}%. Keep monitoring and expanding your query coverage.`} link="/dashboard/query-performance" />}
-          {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && <InsightCard color="var(--red)" icon="◎" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
+          {sov > 0 && sov < 50 && (sovChange === null || sovChange >= -5) && <InsightCard color="var(--primary)" icon="▲" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
+          {sov >= 50 && (sovChange === null || sovChange >= -5) && <InsightCard color="var(--green)" icon="✓" title="Strong AI Visibility" desc={`Your SOV is ${sov}%. Keep monitoring and expanding your query coverage.`} link="/dashboard/query-performance" />}
+          {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && Object.values(platforms).some(p => (p as Record<string, number>).total > 0) && <InsightCard color="var(--red)" icon="◎" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
           {sentTotal > 0 && negCount > posCount && <InsightCard color="var(--red)" icon="⚠" title="Negative Sentiment Detected" desc="More negative than positive sentiment. Review responses and optimize brand content." link="/dashboard/mentions" />}
           {!brand.city && <InsightCard color="var(--blue)" icon="ℹ" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
         </div>
@@ -683,44 +699,110 @@ export default function DashboardPage() {
       {/* Tracked Queries */}
       {show('queries') && (
       <div className="card" style={{ marginBottom: 0 }}>
-        <div className="flex justify-between items-center mb-3">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Tracked Queries</div>
-            <div className="text-[11px] text-[var(--muted)] mt-0.5">{queries.length} / {planLimit} queries</div>
+            <div className="card-title" style={{ marginBottom: 2 }}>Tracked Queries</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{queries.length} / {Math.min(planLimit, 999)} queries</div>
           </div>
-          <Link href="/dashboard/setup" className="text-[11px] font-mono text-[var(--primary)] hover:underline">Manage Queries</Link>
+          <Link href="/dashboard/setup" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>Manage Queries</Link>
         </div>
-        {queries.length >= planLimit && (
-          <div className="bg-[rgba(245,158,11,.06)] border border-[rgba(245,158,11,.2)] px-3.5 py-2 mb-3 text-[11px] text-[var(--amber)] font-mono rounded-md">
+        {queries.length >= planLimit && planLimit < 999 && (
+          <div style={{ background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', padding: '8px 14px', marginBottom: 12, fontSize: 11, color: 'var(--amber)', fontFamily: 'var(--mono)', borderRadius: 'var(--radius-xs)' }}>
             Query limit reached. Upgrade your plan for more queries.
           </div>
         )}
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {queries.map((q, i) => (
-            <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] text-[12px] font-medium px-3 py-1.5 rounded-full">
+            <span key={i} title={q} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg3)', border: selectMode && selectedQueries.has(i) ? '2px solid var(--primary)' : '1px solid var(--border)', color: 'var(--text)', fontSize: 12, fontWeight: 500, padding: '6px 12px', borderRadius: 100, cursor: selectMode ? 'pointer' : 'default' }}
+              onClick={() => { if (selectMode) setSelectedQueries(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; }); }}>
+              {selectMode && <span style={{ width: 14, height: 14, border: '2px solid var(--border)', borderRadius: 3, background: selectedQueries.has(i) ? 'var(--primary)' : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, marginRight: 2 }}>{selectedQueries.has(i) ? '✓' : ''}</span>}
               {q}
-              <button onClick={() => removeQuery(i)} className="text-[var(--muted)] hover:text-[var(--red)] ml-1 text-xs">&times;</button>
+              {!selectMode && <button onClick={() => removeQuery(i)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, marginLeft: 4, padding: 0, lineHeight: 1 }}>&times;</button>}
             </span>
           ))}
-          {queries.length === 0 && <span className="text-[var(--muted)] text-xs">No queries yet. Add some below.</span>}
+          {queries.length === 0 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>No queries yet. Add some below.</span>}
         </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <input value={newQuery} onChange={e => setNewQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && addQuery()}
             placeholder="Add a new query..." className="finp" style={{ flex: 1, marginBottom: 0 }} />
           <button onClick={addQuery} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>+ Add</button>
         </div>
+
+        {/* BULK ADD modal */}
+        {bulkAddOpen && (
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: 14, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Paste queries (one per line)</div>
+            <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={5} style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: 10, fontSize: 13, fontFamily: 'var(--font)', color: 'var(--text)', resize: 'vertical' }} placeholder="best hvac company austin&#10;top plumber near me&#10;affordable ac repair" />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }} onClick={() => {
+                const lines = bulkText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                if (lines.length && brand) {
+                  const updated = [...queries, ...lines];
+                  fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
+                    .then(() => { fetchBrands(); setBulkText(''); setBulkAddOpen(false); });
+                }
+              }}>Add {bulkText.split('\n').filter(l => l.trim()).length} Queries</button>
+              <button className="pill-btn" onClick={() => setBulkAddOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Select mode: delete selected */}
+        {selectMode && selectedQueries.size > 0 && (
+          <div style={{ background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.15)', borderRadius: 'var(--radius-xs)', padding: '8px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12, color: 'var(--red)' }}>{selectedQueries.size} selected</span>
+            <button className="pill-btn" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,.3)' }} onClick={() => {
+              if (!brand) return;
+              const updated = queries.filter((_, i) => !selectedQueries.has(i));
+              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
+                .then(() => { fetchBrands(); setSelectedQueries(new Set()); setSelectMode(false); });
+            }}>DELETE SELECTED</button>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button className="pill-btn">BULK ADD</button>
-          <button className="pill-btn" style={{ color: 'var(--green)', borderColor: 'rgba(16,185,129,.3)' }}>SUGGEST</button>
-          <button className="pill-btn" style={{ color: 'var(--blue)', borderColor: 'rgba(59,130,246,.3)' }}>AI GENERATE</button>
+          <button className="pill-btn" onClick={() => setBulkAddOpen(!bulkAddOpen)}>BULK ADD</button>
+          <button className="pill-btn" style={{ color: 'var(--green)', borderColor: 'rgba(16,185,129,.3)' }} onClick={() => {
+            if (!brand) return;
+            const industry = brand.industry || 'services';
+            const city = brand.city || '';
+            const suggestions = [
+              `best ${industry} in ${city || 'my area'}`,
+              `top rated ${industry} near me`,
+              `${brand.name} reviews`,
+              `recommended ${industry} companies`,
+              `${industry} cost ${city}`,
+            ].filter(s => !queries.includes(s));
+            if (suggestions.length && brand) {
+              const updated = [...queries, ...suggestions];
+              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
+                .then(() => fetchBrands());
+            }
+          }}>SUGGEST</button>
+          <button className="pill-btn" style={{ color: 'var(--blue)', borderColor: 'rgba(59,130,246,.3)' }} onClick={() => {
+            if (!brand) return;
+            const name = brand.name;
+            const generated = [
+              `what is ${name}`,
+              `is ${name} good`,
+              `${name} vs competitors`,
+              `${name} pricing`,
+              `alternatives to ${name}`,
+            ].filter(s => !queries.includes(s));
+            if (generated.length && brand) {
+              const updated = [...queries, ...generated];
+              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
+                .then(() => fetchBrands());
+            }
+          }}>AI GENERATE</button>
           <button className="pill-btn" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,.3)' }} onClick={() => {
             if (!brand || !queries.length) return;
-            if (confirm('Remove all queries?')) {
+            if (confirm('Remove all queries? This cannot be undone.')) {
               fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) })
                 .then(() => fetchBrands());
             }
           }}>CLEAR ALL</button>
-          <button className="pill-btn">☐ SELECT</button>
+          <button className="pill-btn" style={selectMode ? { color: 'var(--primary)', borderColor: 'var(--primary-border)', background: 'var(--primary-light)' } : {}} onClick={() => { setSelectMode(!selectMode); setSelectedQueries(new Set()); }}>{selectMode ? '✓ DONE' : '☐ SELECT'}</button>
         </div>
       </div>
       )}
