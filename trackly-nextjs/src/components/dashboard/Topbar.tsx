@@ -1,35 +1,51 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import Link from 'next/link';
+
+interface Brand { id: string; name: string; }
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [showNotifs, setShowNotifs] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/brands', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        const b = d.brands || [];
+        setBrands(b);
+        if (b.length) setSelectedId(b[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <header className="topbar">
       {/* Left side */}
       <div className="topbar-left">
-        {/* Mobile menu */}
         <button onClick={onMenuToggle} className="land-hamburger" style={{ display: 'none' }} aria-label="Menu">
           <span /><span /><span />
         </button>
         <style>{`@media(max-width:1023px){.topbar .land-hamburger{display:flex!important;}}`}</style>
 
-        {/* Logo */}
         <span className="topbar-logo">Live<span>sov</span></span>
 
-        {/* Brand selector */}
+        {/* Brand selector — connected to real data */}
         <div className="topbar-brand-sel">
-          <select>
-            <option>-- Select brand --</option>
+          <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+            {brands.length === 0 && <option value="">-- Select brand --</option>}
+            {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
 
-        {/* Add Brand */}
-        <button className="add-brand-btn" style={{ display: 'none' }}>+ ADD BRAND</button>
+        <Link href="/dashboard/setup" className="add-brand-btn" style={{ display: 'none', textDecoration: 'none' }}>+ ADD BRAND</Link>
         <style>{`@media(min-width:768px){.add-brand-btn{display:inline-block!important;}}`}</style>
       </div>
 
@@ -40,15 +56,31 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <span className="user-badge" style={{ display: 'none' }}>{user?.email}</span>
         <style>{`@media(min-width:1024px){.user-badge{display:inline!important;}}`}</style>
 
-        {/* Notification bell */}
-        <button className="notif-bell" aria-label="Notifications">&#128276;</button>
+        {/* Notification bell with dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button className="notif-bell" aria-label="Notifications" onClick={() => setShowNotifs(!showNotifs)}>
+            🔔
+          </button>
+          {showNotifs && (
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 8,
+              width: 280, background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', boxShadow: 'var(--app-shadow-lg)',
+              zIndex: 100, padding: 16,
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Notifications</div>
+              <p style={{ fontSize: 12, color: 'var(--muted)' }}>No new notifications.</p>
+            </div>
+          )}
+        </div>
 
         {/* Plan badge */}
-        <span className={`plan-badge ${user?.plan === 'pro' ? 'pro' : user?.plan === 'agency' ? 'agency' : ''}`}>
-          {(user?.plan || 'FREE').toUpperCase()}
-        </span>
+        <Link href="/dashboard/billing" style={{ textDecoration: 'none' }}>
+          <span className={`plan-badge ${user?.plan === 'pro' ? 'pro' : user?.plan === 'agency' ? 'agency' : ''}`}>
+            {(user?.plan || 'FREE').toUpperCase()}
+          </span>
+        </Link>
 
-        {/* Logout */}
         <button onClick={logout} className="logout-btn" style={{ display: 'none' }}>
           {t.dashboard.signOut}
         </button>

@@ -32,6 +32,17 @@ export default function DashboardPage() {
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
   const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
 
+  // Preset section visibility
+  const show = (section: string) => {
+    if (preset === 'all') return true;
+    const presets: Record<string, string[]> = {
+      founder: ['hero', 'scores', 'trend', 'competitors', 'insights', 'lastrun', 'queries'],
+      seo: ['hero', 'health', 'scores', 'platforms', 'qperf', 'citations', 'categories'],
+      agency: ['hero', 'health', 'categories', 'platforms', 'lastrun', 'competitors'],
+    };
+    return presets[preset]?.includes(section) ?? true;
+  };
+
   // Hydration-safe: initialize to 0, set real value in useEffect
   const [now, setNow] = useState(0);
   const [nextRunText, setNextRunText] = useState('');
@@ -53,8 +64,25 @@ export default function DashboardPage() {
   }, []);
 
   const brand = brands[0];
-  const lastRun = brand?.runs?.length ? brand.runs[brand.runs.length - 1] : null;
-  const prevRun = brand?.runs && brand.runs.length >= 2 ? brand.runs[brand.runs.length - 2] : null;
+  const allRuns = brand?.runs || [];
+  const lastRun = allRuns.length ? allRuns[allRuns.length - 1] : null;
+  const prevRun = allRuns.length >= 2 ? allRuns[allRuns.length - 2] : null;
+
+  // Comparison run based on compareMode
+  const compareRun = useMemo((): (typeof allRuns)[number] | null => {
+    if (compareMode === 'current' || !lastRun?.date) return null;
+    const lastDate = new Date(lastRun.date).getTime();
+    const targetAge = compareMode === 'week' ? 7 * 86400000 : 30 * 86400000;
+    const targetDate = lastDate - targetAge;
+    let closest: (typeof allRuns)[number] | null = null;
+    let closestDiff = Infinity;
+    allRuns.forEach(run => {
+      if (!run.date) return;
+      const diff = Math.abs(new Date(run.date).getTime() - targetDate);
+      if (diff < closestDiff) { closestDiff = diff; closest = run; }
+    });
+    return closest !== lastRun ? closest : null;
+  }, [compareMode, lastRun, allRuns]);
   const sov = lastRun?.sov || 0;
   const totalM = lastRun?.totalM || 0;
   const totalQ = lastRun?.totalQ || 0;
@@ -355,6 +383,12 @@ export default function DashboardPage() {
           </div>
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-2">Share of Voice</div>
         </div>
+        {/* Compare banner */}
+        {compareRun && (
+          <div style={{ width: '100%', padding: '8px 14px', background: 'var(--primary-light)', border: '1px solid var(--primary-border)', borderRadius: 'var(--radius-xs)', marginBottom: 12, fontSize: 11, color: 'var(--primary)', fontFamily: 'var(--mono)' }}>
+            Comparing with run from {compareRun.date ? new Date(compareRun.date).toLocaleDateString() : '?'}: SOV was {compareRun.sov ?? 0}% (now {sov}%, {sov - (compareRun.sov ?? 0) >= 0 ? '+' : ''}{sov - (compareRun.sov ?? 0)}%)
+          </div>
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 flex-1 w-full">
           <HeroStat label="Mentions / Total" value={`${totalM} / ${totalQ}`} />
           <HeroStat label="Platforms Active" value={String(Object.keys(platforms).length)} />
@@ -370,6 +404,7 @@ export default function DashboardPage() {
       </div>
 
       {/* GEO Score / AI Sentiment / AI Recommends You */}
+      {show('scores') && (
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {/* GEO Score */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
@@ -407,8 +442,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* AI Category Breakdown — always show */}
+      {show('categories') && (
       <div className="card" style={{ marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div className="card-title" style={{ marginBottom: 0 }}>AI Category Breakdown</div>
@@ -434,9 +471,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Location Visibility — always show */}
-      {(
+      {/* Location Visibility */}
+      {show('scores') && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div className="card-title" style={{ marginBottom: 0 }}>📍 Location Visibility</div>
@@ -477,7 +515,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Platform Cards — centered layout matching livesov.com */}
+      {/* Platform Cards */}
+      {show('platforms') && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 14 }}>
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
@@ -503,9 +542,10 @@ export default function DashboardPage() {
           );
         })}
       </div>
+      )}
 
       {/* SOV Trend Mini Chart */}
-      {sovTrend.length > 1 && (
+      {show('trend') && sovTrend.length > 1 && (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
           <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">SOV Trend <span className="font-normal">Last {sovTrend.length} runs</span></div>
           <div className="flex items-end gap-1 h-[100px]">
@@ -520,6 +560,7 @@ export default function DashboardPage() {
       )}
 
       {/* Query Performance + Competitors Row */}
+      {show('qperf') && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 14 }}>
         {/* Query Performance — horizontal bars like legacy */}
         <div className="card" style={{ marginBottom: 0 }}>
@@ -572,8 +613,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Citation Sources — horizontal bars like legacy */}
+      {/* Citation Sources */}
+      {show('citations') && (
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
@@ -595,8 +638,10 @@ export default function DashboardPage() {
           ));
         })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Citation data will appear after query runs.</p>}
       </div>
+      )}
 
-      {/* Actionable Insights — always show */}
+      {/* Actionable Insights */}
+      {show('insights') && (
       <div className="card">
         <div className="card-title">Actionable Insights</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -608,9 +653,10 @@ export default function DashboardPage() {
           {!brand.city && <InsightCard color="var(--blue)" icon="ℹ" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
         </div>
       </div>
+      )}
 
-      {/* Last Run Summary — "LAST RUN — MMM DD HH:MM AM/PM" format */}
-      {lastRun && (
+      {/* Last Run Summary */}
+      {show('lastrun') && lastRun && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="card-title" style={{ marginBottom: 0 }}>
@@ -635,6 +681,7 @@ export default function DashboardPage() {
       )}
 
       {/* Tracked Queries */}
+      {show('queries') && (
       <div className="card" style={{ marginBottom: 0 }}>
         <div className="flex justify-between items-center mb-3">
           <div>
@@ -676,6 +723,7 @@ export default function DashboardPage() {
           <button className="pill-btn">☐ SELECT</button>
         </div>
       </div>
+      )}
     </div>
   );
 }

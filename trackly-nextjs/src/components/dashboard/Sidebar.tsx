@@ -65,7 +65,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       }}>
         {/* Run Queries Button */}
         <div style={{ padding: '8px 8px 4px' }}>
-          <button className="run-btn" style={{ margin: 0 }}>&#9654; RUN QUERIES</button>
+          <button className="run-btn" style={{ margin: 0 }} onClick={() => {
+            fetch('/api/brands', { credentials: 'include' })
+              .then(r => r.json())
+              .then(d => {
+                const b = (d.brands || [])[0];
+                if (b) {
+                  fetch(`/api/brands/${b.id}/run`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } })
+                    .then(() => alert('Queries running! Check Mentions page for results.'))
+                    .catch(() => alert('Failed to start run.'));
+                } else {
+                  alert('No brand configured. Set up a brand first.');
+                }
+              });
+          }}>▶ RUN QUERIES</button>
         </div>
 
         {/* Nav groups */}
