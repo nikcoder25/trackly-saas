@@ -341,7 +341,13 @@ export default function DashboardPage() {
           <HeroStat label="Platforms Active" value={String(Object.keys(platforms).length)} />
           <HeroStat label="Queries Tracked" value={String(queries.length)} />
           <HeroStat label="Last Run" value={lastRunAge || '--'} />
-          <HeroStat label="Run Duration" value={lastRun?.duration ? `${Math.round(lastRun.duration / 1000)}s` : '--'} />
+          <HeroStat label="Run Duration" value={(() => {
+            const dur = lastRun?.duration;
+            if (dur === undefined || dur === null) return '--';
+            const secs = typeof dur === 'number' ? (dur > 1000 ? Math.round(dur / 1000) : dur) : 0;
+            if (secs >= 60) { const m = Math.floor(secs / 60); const s = secs % 60; return `${m}m ${s}s`; }
+            return `${secs}s`;
+          })()} />
         </div>
       </div>
 
