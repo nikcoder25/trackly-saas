@@ -38,15 +38,15 @@ export default function DashboardPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   // Preset section visibility
-  const show = (section: string) => {
-    if (preset === 'all') return true;
-    const presets: Record<string, string[]> = {
-      founder: ['hero', 'scores', 'trend', 'competitors', 'insights', 'lastrun', 'queries'],
-      seo: ['hero', 'health', 'scores', 'platforms', 'qperf', 'citations', 'categories'],
-      agency: ['hero', 'health', 'categories', 'platforms', 'lastrun', 'competitors'],
-    };
-    return presets[preset]?.includes(section) ?? true;
+  const allSections = ['hero', 'health', 'scores', 'categories', 'location', 'platforms', 'trend', 'qperf', 'citations', 'insights', 'lastrun', 'queries'];
+  const presetMap: Record<string, string[]> = {
+    all: allSections,
+    founder: ['hero', 'scores', 'trend', 'qperf', 'insights', 'lastrun', 'queries'],
+    seo: ['hero', 'health', 'scores', 'platforms', 'qperf', 'citations', 'categories'],
+    agency: ['hero', 'health', 'categories', 'platforms', 'lastrun', 'qperf'],
   };
+  const visibleSections = presetMap[preset] || allSections;
+  const show = (section: string) => visibleSections.includes(section);
 
   // Hydration-safe: initialize to 0, set real value in useEffect
   const [now, setNow] = useState(0);
@@ -297,15 +297,34 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {/* Global dashboard styles: transitions, responsive, card consistency */}
+      <style>{`
+        .ov-section { transition: opacity .25s ease, max-height .3s ease; overflow: hidden; }
+        .ov-section-hidden { opacity: 0; max-height: 0; margin: 0 !important; padding: 0 !important; border: none !important; }
+        .card { border-radius: var(--radius) !important; box-shadow: var(--app-shadow) !important; border: 1px solid var(--border) !important; }
+        .stat-card { border-radius: var(--radius) !important; box-shadow: var(--app-shadow) !important; }
+        @media(max-width:768px) {
+          .ov-hero-wrap { flex-direction: column !important; }
+          .ov-hero-stats { grid-template-columns: repeat(2, 1fr) !important; }
+          .ov-score-grid { grid-template-columns: 1fr !important; }
+          .ov-cat-grid { grid-template-columns: 1fr !important; }
+          .ov-plat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .ov-qp-grid { grid-template-columns: 1fr !important; }
+          .ov-header { flex-direction: column !important; align-items: stretch !important; }
+          .ov-controls { flex-direction: column !important; align-items: stretch !important; }
+          .ov-compare-btns { flex-wrap: wrap !important; }
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+      <div className="ov-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 className="view-title">{brand.name}</h1>
           <p className="view-sub">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="ov-controls" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {/* Compare Toggle — each button has its own border */}
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div className="ov-compare-btns" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {(['current', 'week', 'month'] as const).map(m => (
               <button key={m} onClick={() => setCompareMode(m)}
                 style={{
@@ -319,17 +338,24 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          {/* Preset Selector */}
-          <select
-            value={preset}
-            onChange={e => setPreset(e.target.value as typeof preset)}
-            className="px-3 py-1.5 text-[11px] font-semibold bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] rounded-lg outline-none cursor-pointer"
-          >
-            <option value="all">All Sections</option>
-            <option value="founder">Founder View</option>
-            <option value="seo">SEO Manager</option>
-            <option value="agency">Agency View</option>
-          </select>
+          {/* Preset Selector with section count */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select
+              value={preset}
+              onChange={e => setPreset(e.target.value as typeof preset)}
+              style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}
+            >
+              <option value="all">All Sections ({allSections.length})</option>
+              <option value="founder">Founder View ({presetMap.founder.length})</option>
+              <option value="seo">SEO Manager ({presetMap.seo.length})</option>
+              <option value="agency">Agency View ({presetMap.agency.length})</option>
+            </select>
+            {preset !== 'all' && (
+              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
+                {visibleSections.length}/{allSections.length}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -378,7 +404,7 @@ export default function DashboardPage() {
       )}
 
       {/* SOV Hero Card */}
-      <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
+      <div className="card ov-hero-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
         <div className="text-center shrink-0">
           <div className="relative w-[120px] h-[120px]">
             <svg viewBox="0 0 120 120" className="w-full h-full">
@@ -404,7 +430,7 @@ export default function DashboardPage() {
             Comparing with run from {compareRun.date ? new Date(compareRun.date).toLocaleDateString() : '?'}: SOV was {compareRun.sov ?? 0}% (now {sov}%, {sov - (compareRun.sov ?? 0) >= 0 ? '+' : ''}{sov - (compareRun.sov ?? 0)}%)
           </div>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 flex-1 w-full">
+        <div className="ov-hero-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, flex: 1, width: '100%' }}>
           <HeroStat label="Mentions / Total" value={`${totalM} / ${totalQ}`} />
           <HeroStat label="Platforms Active" value={String(Object.values(platforms).filter(p => (p as Record<string,number>).total > 0).length)} />
           <HeroStat label="Queries Tracked" value={String(queries.length)} />
@@ -420,7 +446,7 @@ export default function DashboardPage() {
 
       {/* GEO Score / AI Sentiment / AI Recommends You */}
       {show('scores') && (
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="stat-grid ov-score-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {/* GEO Score */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}<span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>/100</span></div>
@@ -472,7 +498,7 @@ export default function DashboardPage() {
           <div className="card-title" style={{ marginBottom: 0 }}>AI Category Breakdown</div>
           <span style={{ fontSize: 11, color: 'var(--muted)' }}>Share of Voice by platform type</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div className="ov-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
             <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
             <div className="text-2xl font-extrabold font-mono" style={{ color: chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{chatStats.sov}%</div>
@@ -548,7 +574,7 @@ export default function DashboardPage() {
 
       {/* Platform Cards */}
       {show('platforms') && (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 14 }}>
+      <div className="ov-plat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 14 }}>
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
@@ -594,7 +620,7 @@ export default function DashboardPage() {
 
       {/* Query Performance + Competitors Row */}
       {show('qperf') && (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 14 }}>
+      <div className="ov-qp-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 14 }}>
         {/* Query Performance — horizontal bars like legacy */}
         <div className="card" style={{ marginBottom: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
