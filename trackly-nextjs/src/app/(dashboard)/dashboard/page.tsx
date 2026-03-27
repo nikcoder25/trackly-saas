@@ -109,6 +109,34 @@ export default function DashboardPage() {
     return entries.reduce((a, b) => b.sov > a.sov ? b : a);
   }, [platforms]);
 
+  // Location visibility — scan recent run responses for city/area mentions
+  const locationData = useMemo(() => {
+    const city = brand?.city;
+    if (!city) return { rate: 0, areas: {} as Record<string, number> };
+    const nearbyAreas = (brand as Record<string, unknown>).nearby_areas as string[] | undefined;
+    const allAreas = [city, ...(nearbyAreas || [])].filter(Boolean);
+    const recentRuns = (brand?.runs || []).slice(-3);
+    let total = 0, matched = 0;
+    const areaHits: Record<string, number> = {};
+    recentRuns.forEach(run => {
+      const results = (run as Record<string, unknown>).allResults as Array<{ response?: string; snippet?: string }> | undefined;
+      if (!results) return;
+      results.forEach(r => {
+        const text = ((r.response || '') + ' ' + (r.snippet || '')).toLowerCase();
+        if (!text.trim()) return;
+        total++;
+        for (const area of allAreas) {
+          if (text.includes(area.toLowerCase())) {
+            matched++;
+            areaHits[area] = (areaHits[area] || 0) + 1;
+            break;
+          }
+        }
+      });
+    });
+    return { rate: total > 0 ? Math.round((matched / total) * 100) : 0, areas: areaHits };
+  }, [brand]);
+
   // Competitors
   const competitorData = lastRun?.competitors || {};
   const topCompetitors = useMemo(() =>
@@ -267,19 +295,17 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* API Health Banner */}
+      {/* API Health Banner — matching legacy format */}
       {apiTotal > 0 && (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
           <span className="w-2 h-2 rounded-full" style={{ background: apiHealthy === apiTotal ? 'var(--green)' : apiHealthy > 0 ? 'var(--amber)' : 'var(--red)' }} />
-          <span className="text-[var(--text)] font-medium">{apiHealthy}/{apiTotal} platforms healthy</span>
+          <span className="text-[var(--text)] font-medium"><strong>{apiHealthy}/{apiTotal}</strong> platforms healthy</span>
           <span className="text-[var(--muted)]">·</span>
-          <span className="text-[var(--muted)]">{totalQ} responses</span>
+          <span className="text-[var(--muted)]"><strong>{totalQ - apiErrors}</strong> ok</span>
+          <span className="text-[var(--muted)]">·</span>
+          <span style={{ color: apiErrors > 0 ? 'var(--red)' : 'var(--muted)' }}>{apiErrors} error{apiErrors !== 1 ? 's' : ''}</span>
           {apiErrors > 0 && (
-            <>
-              <span className="text-[var(--muted)]">·</span>
-              <span className="text-[var(--red)]">{apiErrors} errors</span>
-              <Link href="/dashboard/platforms" className="text-[var(--primary)] font-mono hover:underline ml-auto">Diagnose Errors →</Link>
-            </>
+            <Link href="/dashboard/activity" className="text-[var(--red)] font-mono text-[10px] hover:underline ml-auto no-underline">View Errors →</Link>
           )}
         </div>
       )}
@@ -378,6 +404,41 @@ export default function DashboardPage() {
               <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
               <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform.name}</div>
               <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform.sov}% SOV — strongest visibility</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Location Visibility */}
+      {brand.city && (
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
+          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">📍 Location Visibility</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-2xl font-extrabold font-mono" style={{ color: locationData.rate >= 40 ? 'var(--green)' : locationData.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>
+                {locationData.rate}%
+              </div>
+              <div className="text-[11px] text-[var(--muted)] mt-1">City Match Rate</div>
+              <div className="text-[10px] text-[var(--muted)] mt-0.5">AI mentions your location in responses</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] mb-2">Areas where AI finds you</div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(locationData.areas).length > 0 ? (
+                  Object.entries(locationData.areas).map(([area, count]) => (
+                    <span key={area} className="inline-flex items-center gap-1 bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] text-[11px] px-2.5 py-1 rounded-full">
+                      {area} <span className="font-mono text-[var(--muted)]">{count}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[11px] text-[var(--muted)]">No area mentions detected yet</span>
+                )}
+              </div>
+            </div>
+          </div>
+          {locationData.rate < 30 && (
+            <div className="mt-3 bg-[rgba(59,130,246,0.05)] border border-[rgba(59,130,246,0.12)] rounded-lg px-3 py-2 text-[11px] text-[var(--blue)]">
+              💡 Tip: Include city and neighborhood names in your tracked queries to improve local AI visibility.
             </div>
           )}
         </div>
