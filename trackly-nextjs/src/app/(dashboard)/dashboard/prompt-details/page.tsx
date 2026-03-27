@@ -270,19 +270,85 @@ export default function PromptDetailsPage() {
             </div>
           </div>
 
-          {/* Charts Placeholder */}
+          {/* Visibility Over Time + Sentiment Distribution */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Visibility Bar Chart */}
             <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
               <h3 className="text-sm font-semibold text-[var(--text)] mb-3 uppercase tracking-wide">Visibility Over Time</h3>
-              <div className="h-40 flex items-center justify-center text-[var(--muted)] text-sm border border-dashed border-[var(--border)] rounded-lg">
-                Chart area — visibility trend across {periodDays} days
-              </div>
+              {(() => {
+                // Build per-run visibility for selected query
+                const runVis = runs.slice(-10).map(run => {
+                  const items = (run.allResults || run.results || []).filter(r => r.query === selectedQuery);
+                  const mentioned = items.filter(r => r.mentioned).length;
+                  const rate = items.length > 0 ? Math.round((mentioned / items.length) * 100) : 0;
+                  return { date: run.date || run.created_at || '', rate };
+                }).filter(rv => rv.date);
+
+                if (runVis.length === 0) return <p className="text-[var(--muted)] text-xs py-8 text-center">No visibility data yet.</p>;
+
+                return (
+                  <div className="flex items-end gap-1 h-[120px]">
+                    {runVis.map((rv, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[8px] font-mono text-[var(--muted)]">{rv.rate}%</span>
+                        <div className="w-full rounded-t transition-all" style={{
+                          height: `${Math.max(4, rv.rate)}%`,
+                          background: rv.rate >= 50 ? 'var(--green)' : rv.rate > 0 ? 'var(--amber)' : 'var(--bg4)',
+                          minHeight: 4
+                        }} />
+                        <span className="text-[7px] text-[var(--muted)] truncate max-w-full">{rv.date ? new Date(rv.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
+
+            {/* Sentiment Breakdown */}
             <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
               <h3 className="text-sm font-semibold text-[var(--text)] mb-3 uppercase tracking-wide">Sentiment Distribution</h3>
-              <div className="h-40 flex items-center justify-center text-[var(--muted)] text-sm border border-dashed border-[var(--border)] rounded-lg">
-                Chart area — sentiment breakdown
-              </div>
+              {(() => {
+                const pos = queryResults.filter(r => r.sentiment === 'positive').length;
+                const neu = queryResults.filter(r => r.sentiment === 'neutral').length;
+                const neg = queryResults.filter(r => r.sentiment === 'negative').length;
+                const total = pos + neu + neg;
+                if (total === 0) return <p className="text-[var(--muted)] text-xs py-8 text-center">No sentiment data yet.</p>;
+                const posPct = Math.round((pos / total) * 100);
+                const neuPct = Math.round((neu / total) * 100);
+                const negPct = Math.round((neg / total) * 100);
+                return (
+                  <div>
+                    {/* Stacked bar */}
+                    <div className="flex gap-0.5 h-8 rounded-lg overflow-hidden bg-[var(--bg3)] mb-4">
+                      {posPct > 0 && <div className="bg-[var(--green)] h-full transition-all flex items-center justify-center text-white text-[10px] font-bold" style={{ width: `${posPct}%` }}>{posPct}%</div>}
+                      {neuPct > 0 && <div className="bg-[var(--muted)] h-full transition-all flex items-center justify-center text-white text-[10px] font-bold" style={{ width: `${neuPct}%` }}>{neuPct}%</div>}
+                      {negPct > 0 && <div className="bg-[var(--red)] h-full transition-all flex items-center justify-center text-white text-[10px] font-bold" style={{ width: `${negPct}%` }}>{negPct}%</div>}
+                    </div>
+                    {/* Legend */}
+                    <div className="flex gap-6 text-xs">
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[var(--green)]" /> Positive <strong className="font-mono">{pos}</strong></span>
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[var(--muted)]" /> Neutral <strong className="font-mono">{neu}</strong></span>
+                      <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[var(--red)]" /> Negative <strong className="font-mono">{neg}</strong></span>
+                    </div>
+                    {/* Per-platform sentiment */}
+                    <div className="mt-4 space-y-1.5">
+                      {platformPerf.filter(p => p.sentTotal > 0).map(p => {
+                        const pPosPct = Math.round((p.sentPos / p.sentTotal) * 100);
+                        return (
+                          <div key={p.platform} className="flex items-center gap-2 text-[11px]">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PLATFORM_COLORS[p.platform] || '#666' }} />
+                            <span className="text-[var(--muted)] w-20 truncate">{p.platform}</span>
+                            <div className="flex-1 h-[4px] bg-[var(--bg3)] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${pPosPct}%`, background: pPosPct >= 50 ? 'var(--green)' : 'var(--amber)' }} />
+                            </div>
+                            <span className="font-mono text-[var(--muted)] w-10 text-right">{pPosPct}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

@@ -51,8 +51,40 @@ export default function QueryTrackerPage() {
       .catch(() => setKeywords([]));
   }, [selectedBrand]);
 
-  // Aggregate keywords by prompt
+  // Also fetch brand runs data for change% calculation
+  const [brandRuns, setBrandRuns] = useState<Array<{ date?: string; allResults?: Array<{ query: string; mentioned: boolean }> }>>([]);
+
+  useEffect(() => {
+    if (!selectedBrand) return;
+    fetch(`/api/brands/${selectedBrand.id}/prompt-runs`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setBrandRuns(d.runs || d.promptRuns || []))
+      .catch(() => setBrandRuns([]));
+  }, [selectedBrand]);
+
+  // Aggregate keywords by prompt with change% from runs data
   const aggregated = useMemo(() => {
+    // Calculate per-query visibility for recent vs previous period from runs
+    const periodDays = period === 'day' ? 1 : period === 'week' ? 7 : 30;
+    const now = Date.now();
+    const cutoffCurrent = now - periodDays * 86400000;
+    const cutoffPrev = cutoffCurrent - periodDays * 86400000;
+
+    const currentVis: Record<string, { mentioned: number; total: number }> = {};
+    const prevVis: Record<string, { mentioned: number; total: number }> = {};
+
+    brandRuns.forEach(run => {
+      if (!run.date || !run.allResults) return;
+      const runTime = new Date(run.date).getTime();
+      const bucket = runTime >= cutoffCurrent ? currentVis : runTime >= cutoffPrev ? prevVis : null;
+      if (!bucket) return;
+      run.allResults.forEach(r => {
+        if (!bucket[r.query]) bucket[r.query] = { mentioned: 0, total: 0 };
+        bucket[r.query].total++;
+        if (r.mentioned) bucket[r.query].mentioned++;
+      });
+    });
+
     const map: Record<string, {
       prompt: string;
       totalMentions: number;
@@ -73,16 +105,26 @@ export default function QueryTrackerPage() {
       if (k.avg_rank) { a.rankSum += parseFloat(k.avg_rank); a.rankCount++; }
       if (k.last_run_at && k.last_run_at > a.lastRunAt) a.lastRunAt = k.last_run_at;
     });
-    return Object.values(map).map(a => ({
-      keyword: a.prompt,
-      visibility: a.totalRuns > 0 ? (a.totalMentions / a.totalRuns) * 100 : 0,
-      change: 0,
-      runs: a.totalRuns,
-      platforms: Array.from(a.platforms),
-      avgPosition: a.rankCount > 0 ? a.rankSum / a.rankCount : 0,
-      updated: a.lastRunAt,
-    }));
-  }, [keywords]);
+    return Object.values(map).map(a => {
+      const visibility = a.totalRuns > 0 ? (a.totalMentions / a.totalRuns) * 100 : 0;
+      // Calculate change%
+      const cur = currentVis[a.prompt];
+      const prev = prevVis[a.prompt];
+      const curRate = cur && cur.total > 0 ? (cur.mentioned / cur.total) * 100 : visibility;
+      const prevRate = prev && prev.total > 0 ? (prev.mentioned / prev.total) * 100 : null;
+      const change = prevRate !== null ? Math.round(curRate - prevRate) : 0;
+
+      return {
+        keyword: a.prompt,
+        visibility,
+        change,
+        runs: a.totalRuns,
+        platforms: Array.from(a.platforms),
+        avgPosition: a.rankCount > 0 ? a.rankSum / a.rankCount : 0,
+        updated: a.lastRunAt,
+      };
+    });
+  }, [keywords, brandRuns, period]);
 
   const filtered = useMemo(() => {
     let rows = aggregated;

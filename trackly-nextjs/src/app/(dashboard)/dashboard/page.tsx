@@ -31,6 +31,8 @@ export default function DashboardPage() {
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
 
+  const [now, setNow] = useState(Date.now());
+
   const fetchBrands = useCallback(() => {
     fetch('/api/brands', { credentials: 'include' })
       .then(r => r.json())
@@ -40,8 +42,15 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchBrands(); }, [fetchBrands]);
 
+  // Live timer that updates every second
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const brand = brands[0];
   const lastRun = brand?.runs?.length ? brand.runs[brand.runs.length - 1] : null;
+  const prevRun = brand?.runs && brand.runs.length >= 2 ? brand.runs[brand.runs.length - 2] : null;
   const sov = lastRun?.sov || 0;
   const totalM = lastRun?.totalM || 0;
   const totalQ = lastRun?.totalQ || 0;
@@ -87,6 +96,44 @@ export default function DashboardPage() {
       .then(() => fetchBrands());
   };
 
+  // Last run age
+  const lastRunAge = useMemo(() => {
+    if (!lastRun?.date) return '';
+    const diff = now - new Date(lastRun.date).getTime();
+    if (diff < 0) return 'just now';
+    const secs = Math.floor(diff / 1000);
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ${hrs % 24}h ago`;
+  }, [lastRun?.date, now]);
+
+  // SOV change from previous run
+  const sovChange = prevRun?.sov !== undefined && lastRun?.sov !== undefined ? lastRun.sov - prevRun.sov : null;
+
+  // Alerts derived from data
+  const alerts = useMemo(() => {
+    const a: Array<{ type: 'danger' | 'warn' | 'info'; text: string }> = [];
+    if (sovChange !== null && sovChange < -10) a.push({ type: 'danger', text: `SOV dropped ${Math.abs(sovChange)}% since last run` });
+    else if (sovChange !== null && sovChange < -3) a.push({ type: 'warn', text: `SOV down ${Math.abs(sovChange)}% since last run` });
+    if (sovChange !== null && sovChange > 5) a.push({ type: 'info', text: `SOV improved +${sovChange}% since last run` });
+    if (sentiment.negative && sentTotal > 0 && (sentiment.negative / sentTotal) > 0.3) a.push({ type: 'warn', text: 'High negative sentiment detected' });
+    const zeroPlatforms = Object.entries(platforms).filter(([, p]) => (p as Record<string, number>).sov === 0);
+    if (zeroPlatforms.length > 0 && Object.keys(platforms).length > 0) a.push({ type: 'warn', text: `${zeroPlatforms.length} platform(s) with 0% SOV` });
+    return a;
+  }, [sovChange, sentiment, sentTotal, platforms]);
+
+  // API Health summary
+  const apiHealthy = Object.values(platforms).filter(p => {
+    const pd = p as Record<string, number>;
+    return pd.total && pd.total > 0 && (!pd.errors || pd.errors / pd.total < 0.3);
+  }).length;
+  const apiTotal = Object.keys(platforms).length;
+  const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
+
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 
   if (!brand) return (
@@ -118,6 +165,41 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Alert Strip */}
+      {alerts.length > 0 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto">
+          {alerts.map((a, i) => (
+            <span key={i} className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium ${
+              a.type === 'danger' ? 'bg-[rgba(239,68,68,0.08)] text-[var(--red)]' :
+              a.type === 'warn' ? 'bg-[rgba(245,158,11,0.08)] text-[var(--amber)]' :
+              'bg-[rgba(59,130,246,0.08)] text-[var(--blue)]'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                a.type === 'danger' ? 'bg-[var(--red)]' : a.type === 'warn' ? 'bg-[var(--amber)]' : 'bg-[var(--blue)]'
+              }`} />
+              {a.text}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* API Health Banner */}
+      {apiTotal > 0 && (
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
+          <span className="w-2 h-2 rounded-full" style={{ background: apiHealthy === apiTotal ? 'var(--green)' : apiHealthy > 0 ? 'var(--amber)' : 'var(--red)' }} />
+          <span className="text-[var(--text)] font-medium">{apiHealthy}/{apiTotal} platforms healthy</span>
+          <span className="text-[var(--muted)]">·</span>
+          <span className="text-[var(--muted)]">{totalQ} responses</span>
+          {apiErrors > 0 && (
+            <>
+              <span className="text-[var(--muted)]">·</span>
+              <span className="text-[var(--red)]">{apiErrors} errors</span>
+              <Link href="/dashboard/platforms" className="text-[var(--primary)] font-mono hover:underline ml-auto">Diagnose Errors →</Link>
+            </>
+          )}
+        </div>
+      )}
+
       {/* SOV Hero Card */}
       <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6 shadow-[var(--app-shadow)] mb-4 flex flex-col md:flex-row gap-6 items-center">
         <div className="text-center shrink-0">
@@ -130,6 +212,11 @@ export default function DashboardPage() {
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-2xl font-extrabold font-mono text-[var(--text)]">{sov}%</span>
+              {sovChange !== null && sovChange !== 0 && (
+                <span className={`text-[10px] font-mono font-bold ${sovChange > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
+                  {sovChange > 0 ? '▲' : '▼'} {Math.abs(sovChange)}%
+                </span>
+              )}
             </div>
           </div>
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-2">Share of Voice</div>
@@ -138,7 +225,7 @@ export default function DashboardPage() {
           <HeroStat label="Mentions / Total" value={`${totalM} / ${totalQ}`} />
           <HeroStat label="Platforms Active" value={String(Object.keys(platforms).length)} />
           <HeroStat label="Queries Tracked" value={String(queries.length)} />
-          <HeroStat label="Last Run" value={lastRun?.date ? new Date(lastRun.date).toLocaleDateString() : '--'} />
+          <HeroStat label="Last Run" value={lastRunAge || '--'} />
           <HeroStat label="Run Duration" value={lastRun?.duration ? `${Math.round(lastRun.duration / 1000)}s` : '--'} />
         </div>
       </div>
