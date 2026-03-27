@@ -55,37 +55,24 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
   return (
     <>
+      {/* Mobile overlay */}
       {open && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 40 }} className="lg:hidden" onClick={onClose} />
+        <div className="mobile-overlay" style={{ display: 'block', position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 998 }} onClick={onClose} />
       )}
 
-      <aside
-        className={`lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{
-          position: 'fixed',
-          top: 52,
-          left: 0,
-          height: 'calc(100vh - 52px)',
-          width: 220,
-          background: 'var(--bg2)',
-          borderRight: '1px solid var(--border)',
-          zIndex: 50,
-          overflowY: 'auto',
-          transition: 'transform 0.2s',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <aside className={`sidebar ${open ? 'mobile-open' : ''}`} style={{
+        display: 'flex', flexDirection: 'column',
+      }}>
         {/* Run Queries Button */}
         <div style={{ padding: '8px 8px 4px' }}>
-          <button className="run-btn">&#9654; RUN QUERIES</button>
+          <button className="run-btn" style={{ margin: 0 }}>&#9654; RUN QUERIES</button>
         </div>
 
         {/* Nav groups */}
         <nav style={{ flex: 1, padding: '4px 8px' }}>
           {navGroups.map((group) => (
             <div key={group.label}>
-              <div className="nav-group-label">{group.label}</div>
+              <div className="nav-group">{group.label}</div>
               {group.items.map((item) => {
                 if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null;
                 const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
@@ -94,7 +81,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                     key={item.href}
                     href={item.href}
                     onClick={onClose}
-                    className={`nav-link ${isActive ? 'active' : ''} ${'adminOnly' in item && item.adminOnly ? 'admin-link' : ''}`}
+                    className={`nav-item ${isActive ? 'active' : ''} ${'adminOnly' in item && item.adminOnly ? 'admin-link' : ''}`}
+                    style={{ textDecoration: 'none' }}
                   >
                     {item.icon} {item.label}
                   </Link>
@@ -111,18 +99,22 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               {user?.name?.[0]?.toUpperCase() || 'U'}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || 'User'}</p>
-              <p style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.plan || 'free'} plan</p>
+              <p style={{ fontSize: 14, color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{user?.name || 'User'}</p>
+              <p style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{user?.plan || 'free'} plan</p>
             </div>
           </div>
-          <button
-            onClick={logout}
-            style={{ background: 'none', border: 'none', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', cursor: 'pointer', padding: '4px 8px' }}
-          >
+          <button onClick={logout} className="logout-btn">
             {t.dashboard.signOut}
           </button>
         </div>
       </aside>
+
+      <style>{`
+        @media(max-width:1023px){
+          .sidebar{display:none!important;position:fixed!important;top:52px!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;z-index:999!important;}
+          .sidebar.mobile-open{display:flex!important;}
+        }
+      `}</style>
     </>
   );
 }
