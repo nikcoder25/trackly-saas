@@ -10,66 +10,42 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--white)', overflow: 'hidden' }}>
+    <div id="landing-page">
 
-      {/* Navigation */}
-      <nav className="flex items-center justify-between px-6 md:px-12 py-4 bg-white/92 border-b border-black/[.06] sticky top-0 z-50 backdrop-blur-[20px] flex-wrap">
-        <div className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">
-          Live<span className="text-[var(--primary)]">sov</span>
-        </div>
+      {/* Navigation — uses legacy .land-nav classes */}
+      <nav className="land-nav">
+        <div className="land-nav-logo">Live<span>sov</span></div>
 
-        {/* Hamburger */}
-        <button
-          className="flex md:hidden flex-col gap-1 p-2 border border-[var(--card-border)] rounded-md"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Toggle menu"
-        >
-          <span className="block w-[18px] h-0.5 bg-[var(--text-primary)]" />
-          <span className="block w-[18px] h-0.5 bg-[var(--text-primary)]" />
-          <span className="block w-[18px] h-0.5 bg-[var(--text-primary)]" />
+        <button className="land-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <span /><span /><span />
         </button>
 
-        {/* Nav links */}
-        <div className={`${menuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-0 md:gap-8 order-3 md:order-none w-full md:w-auto mt-3 md:mt-0 pt-3 md:pt-0 border-t md:border-0 border-[var(--card-border)] md:ml-12 md:mr-auto`}>
-          <a href="#features" onClick={() => setMenuOpen(false)} className="text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] transition py-2.5 md:py-0">{t.nav.features}</a>
-          <a href="#how-it-works" onClick={() => setMenuOpen(false)} className="text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] transition py-2.5 md:py-0">{t.nav.howItWorks}</a>
-          <a href="#pricing" onClick={() => setMenuOpen(false)} className="text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] transition py-2.5 md:py-0">{t.nav.pricing}</a>
-          <a href="#use-cases" onClick={() => setMenuOpen(false)} className="text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] transition py-2.5 md:py-0">{t.nav.useCases}</a>
-          <a href="#faq" onClick={() => setMenuOpen(false)} className="text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] transition py-2.5 md:py-0">{t.nav.faq}</a>
+        <div className={`land-nav-links ${menuOpen ? 'open' : ''}`}>
+          <a href="#features" onClick={() => setMenuOpen(false)}>{t.nav.features}</a>
+          <a href="#how-it-works" onClick={() => setMenuOpen(false)}>{t.nav.howItWorks}</a>
+          <a href="#pricing" onClick={() => setMenuOpen(false)}>{t.nav.pricing}</a>
+          <a href="#use-cases" onClick={() => setMenuOpen(false)}>{t.nav.useCases}</a>
+          <a href="#faq" onClick={() => setMenuOpen(false)}>{t.nav.faq}</a>
         </div>
 
-        {/* Right side */}
-        <div className="flex gap-3 items-center order-2 md:order-none ml-auto md:ml-0">
+        <div className="land-nav-right">
           <LanguageSwitcher variant="light" />
-          <Link href="/login" className="hidden sm:inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-[var(--text-secondary)] border border-[var(--card-border)] rounded-lg hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-section)] transition">
-            {t.nav.login}
-          </Link>
-          <Link href="/signup" className="inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-white bg-[var(--primary)] rounded-lg shadow-[0_1px_2px_rgba(255,97,84,.3)] hover:bg-[var(--primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,97,84,.3)] transition">
-            {t.nav.getStarted}
-          </Link>
+          <Link href="/login" className="land-btn land-btn-ghost">{t.nav.login}</Link>
+          <Link href="/signup" className="land-btn land-btn-primary">{t.nav.getStarted}</Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="flex flex-col items-center text-center px-6 pt-16 md:pt-20 pb-14 bg-gradient-to-b from-white to-[var(--bg-section)]">
-        <div className="text-[13px] font-semibold text-[var(--primary)] border border-[var(--primary-border)] px-4 py-1.5 rounded-full bg-[var(--primary-light)] tracking-wider mb-7">
-          {t.hero.badge}
+      <section className="land-hero">
+        <div className="land-hero-badge">{t.hero.badge}</div>
+        <h1>{t.hero.title}<span>{t.hero.titleHighlight}</span></h1>
+        <p>{t.hero.description}</p>
+        <div className="land-hero-cta">
+          <Link href="/signup" className="land-btn land-btn-primary">{t.hero.cta} &rarr;</Link>
+          <a href="#demo-section" className="land-btn land-btn-ghost">{t.hero.ctaDemo}</a>
         </div>
-        <h1 className="text-[clamp(38px,5.5vw,62px)] font-extrabold tracking-[-2px] leading-[1.08] mb-6 max-w-[780px] text-[var(--text-primary)]">
-          {t.hero.title}<span className="bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] bg-clip-text text-transparent">{t.hero.titleHighlight}</span>
-        </h1>
-        <p className="text-[var(--text-secondary)] text-lg max-w-[580px] leading-relaxed mb-10">{t.hero.description}</p>
-        <div className="flex gap-3.5 items-center justify-center flex-col sm:flex-row w-full max-w-xs sm:max-w-none">
-          <Link href="/signup" className="w-full sm:w-auto inline-flex items-center justify-center px-9 py-3.5 text-base font-bold text-white bg-[var(--primary)] rounded-lg shadow-[0_1px_2px_rgba(255,97,84,.3)] hover:bg-[var(--primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,97,84,.3)] transition">
-            {t.hero.cta} &rarr;
-          </Link>
-          <a href="#demo-section" className="w-full sm:w-auto inline-flex items-center justify-center px-7 py-3.5 text-[15px] font-semibold text-[var(--text-secondary)] border border-[var(--card-border)] rounded-lg hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-section)] transition">
-            {t.hero.ctaDemo}
-          </a>
-        </div>
-        {/* Google Sign-in */}
-        <div className="mt-4 text-center">
-          <Link href="/signup" className="inline-flex items-center gap-2.5 px-7 py-3 bg-white text-[#333] border border-[#e0e0e0] rounded-lg text-sm font-semibold hover:bg-[#f5f5f5] hover:border-[#ccc] hover:-translate-y-px transition">
+        <div className="land-google-wrap">
+          <Link href="/signup" className="btn-google-land">
             <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
             Sign up with Google
           </Link>
@@ -77,17 +53,17 @@ export default function HomePage() {
       </section>
 
       {/* Social Proof */}
-      <section className="flex flex-col items-center px-6 pt-12 pb-4">
-        <div className="flex gap-6 sm:gap-10 flex-wrap justify-center">
-          <div className="text-center"><div className="text-[22px] font-extrabold text-[var(--text-primary)]">500+</div><div className="text-xs text-[var(--text-muted)] mt-0.5">{t.socialProof.brandsTracked}</div></div>
-          <div className="text-center"><div className="text-[22px] font-extrabold text-[var(--text-primary)]">7</div><div className="text-xs text-[var(--text-muted)] mt-0.5">{t.socialProof.aiPlatforms}</div></div>
-          <div className="text-center"><div className="text-[22px] font-extrabold text-[var(--text-primary)]">50K+</div><div className="text-xs text-[var(--text-muted)] mt-0.5">{t.socialProof.queriesRun}</div></div>
-          <div className="text-center"><div className="text-[22px] font-extrabold text-[var(--text-primary)]">Real-time</div><div className="text-xs text-[var(--text-muted)] mt-0.5">{t.socialProof.liveResults}</div></div>
+      <section className="land-social-proof">
+        <div className="land-social-proof-stats">
+          <div className="land-social-proof-stat"><div className="val">500+</div><div className="lbl">{t.socialProof.brandsTracked}</div></div>
+          <div className="land-social-proof-stat"><div className="val">7</div><div className="lbl">{t.socialProof.aiPlatforms}</div></div>
+          <div className="land-social-proof-stat"><div className="val">50K+</div><div className="lbl">{t.socialProof.queriesRun}</div></div>
+          <div className="land-social-proof-stat"><div className="val">Real-time</div><div className="lbl">{t.socialProof.liveResults}</div></div>
         </div>
       </section>
 
       {/* Platform Chips */}
-      <section className="flex justify-center gap-3 px-6 pt-9 pb-12 flex-wrap">
+      <section className="land-platforms">
         {[
           { name: 'ChatGPT', color: '#19c37d', icon: '\u2B21' },
           { name: 'Perplexity', color: '#9b72ff', icon: '\u25CE' },
@@ -95,22 +71,20 @@ export default function HomePage() {
           { name: 'Gemini', color: '#4285f4', icon: '\u2726' },
           { name: 'Grok', color: '#1d9bf0', icon: '\u26A1' },
         ].map(p => (
-          <div key={p.name} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[var(--card-border)] rounded-full text-[13px] font-semibold text-[var(--text-secondary)] shadow-[var(--card-shadow)] hover:-translate-y-0.5 hover:shadow-[var(--card-shadow-lg)] transition">
-            <span style={{ color: p.color, fontSize: 16 }}>{p.icon}</span> {p.name}
+          <div key={p.name} className="land-plat-chip">
+            <span className="plat-icon" style={{ color: p.color }}>{p.icon}</span> {p.name}
           </div>
         ))}
       </section>
 
       {/* Live Demo */}
-      <section className="px-6 pb-16 max-w-[960px] mx-auto" id="demo-section">
-        <div className="bg-white border border-[var(--card-border)] rounded-xl overflow-hidden shadow-[var(--card-shadow-lg)]">
-          <div className="px-5 py-3.5 bg-[var(--bg-section)] border-b border-[var(--card-border)] flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[var(--success)]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[var(--card-border)]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[var(--card-border)]" />
-            <span className="text-[11px] font-semibold text-[var(--text-muted)] ml-3">{t.demo.query}</span>
+      <section className="land-demo" id="demo-section">
+        <div className="land-demo-box">
+          <div className="land-demo-header">
+            <div className="dot g" /><div className="dot" /><div className="dot" />
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginLeft: 12 }}>{t.demo.query}</span>
           </div>
-          <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div className="land-demo-body">
             {[
               { name: 'ChatGPT', color: '#19c37d', icon: '\u2B21', found: true, text: t.demo.chatgptResponse },
               { name: 'Perplexity', color: '#9b72ff', icon: '\u25CE', found: true, text: t.demo.perplexityResponse },
@@ -118,86 +92,71 @@ export default function HomePage() {
               { name: 'Gemini', color: '#4285f4', icon: '\u2726', found: true, text: t.demo.geminiResponse },
               { name: 'Grok', color: '#1d9bf0', icon: '\u26A1', found: false, text: t.demo.grokResponse },
             ].map(d => (
-              <div key={d.name} className={`bg-[var(--bg-section)] border border-[var(--card-border)] rounded-lg p-4 relative hover:border-[var(--text-muted)] hover:-translate-y-px transition ${!d.found ? 'opacity-70' : ''}`}>
-                <div className="flex items-center gap-2 mb-2.5 text-[13px] font-bold text-[var(--text-primary)]">
-                  <span style={{ color: d.color, fontSize: 16 }}>{d.icon}</span> {d.name}
-                </div>
-                <span className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                  d.found
-                    ? 'bg-[var(--success-light)] text-[var(--success)] border-[rgba(16,185,129,.2)]'
-                    : 'bg-[var(--danger-light)] text-[var(--red)] border-[rgba(239,68,68,.2)]'
-                }`}>
+              <div key={d.name} className="land-demo-card" style={!d.found ? { opacity: 0.7 } : undefined}>
+                <div className="plat-head"><span className="icon" style={{ color: d.color }}>{d.icon}</span> {d.name}</div>
+                <div className="found-badge" style={!d.found ? { background: 'var(--danger-light)', color: 'var(--red)', borderColor: 'rgba(239,68,68,.2)' } : undefined}>
                   {d.found ? t.demo.mentioned : t.demo.notFound}
-                </span>
-                <div className="text-xs text-[var(--text-secondary)] leading-relaxed [&_mark]:bg-[var(--primary-light)] [&_mark]:text-[var(--primary)] [&_mark]:rounded [&_mark]:px-1" dangerouslySetInnerHTML={{ __html: d.text }} />
+                </div>
+                <div className="response-text" dangerouslySetInnerHTML={{ __html: d.text }} />
               </div>
             ))}
           </div>
         </div>
-        <div className="text-center mt-8">
-          <Link href="/signup" className="inline-flex items-center justify-center px-9 py-3.5 text-[15px] font-bold text-white bg-[var(--primary)] rounded-lg shadow-[0_1px_2px_rgba(255,97,84,.3)] hover:bg-[var(--primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,97,84,.3)] transition">
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 15 }}>
             {t.demo.tryIt} &rarr;
           </Link>
-          <p className="text-xs text-[var(--text-muted)] mt-2.5">{t.demo.plansStart}</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>{t.demo.plansStart}</p>
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto" id="features">
-        <div className="text-[13px] font-bold tracking-wider text-[var(--primary)] uppercase mb-2.5 text-center">{t.features.label}</div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.features.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-13 max-w-[520px] mx-auto leading-relaxed mb-12">{t.features.subtitle}</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {t.features.items.map(f => (
-            <div key={f.title} className="bg-white border border-[var(--card-border)] rounded-xl p-8 hover:-translate-y-1 hover:shadow-[var(--card-shadow-lg)] hover:border-transparent transition">
-              <div className="text-[28px] mb-4 w-12 h-12 flex items-center justify-center bg-[var(--primary-light)] rounded-lg">{f.icon}</div>
-              <h3 className="text-base font-bold mb-2.5 text-[var(--text-primary)]">{f.title}</h3>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{f.desc}</p>
+      <section className="land-section" id="features">
+        <div className="land-section-label">{t.features.label}</div>
+        <h2>{t.features.title}</h2>
+        <div className="section-sub">{t.features.subtitle}</div>
+        <div className="land-features">
+          {t.features.items.map((f: { icon: string; title: string; desc: string }) => (
+            <div key={f.title} className="land-feature">
+              <div className="feat-icon">{f.icon}</div>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* How it Works */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto" id="how-it-works">
-        <div className="text-[13px] font-bold tracking-wider text-[var(--primary)] uppercase mb-2.5 text-center">{t.howItWorks.label}</div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.howItWorks.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-12 max-w-[520px] mx-auto leading-relaxed">{t.howItWorks.subtitle}</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {t.howItWorks.steps.map(s => (
-            <div key={s.num} className="text-center p-8 bg-white border border-[var(--card-border)] rounded-xl">
-              <div className="inline-flex items-center justify-center w-10 h-10 text-sm font-extrabold text-[var(--primary)] bg-[var(--primary-light)] rounded-full mb-4">{s.num}</div>
-              <h3 className="text-base font-bold mb-2.5 text-[var(--text-primary)]">{s.title}</h3>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{s.desc}</p>
+      <section className="land-section" id="how-it-works">
+        <div className="land-section-label">{t.howItWorks.label}</div>
+        <h2>{t.howItWorks.title}</h2>
+        <div className="section-sub">{t.howItWorks.subtitle}</div>
+        <div className="land-how">
+          {t.howItWorks.steps.map((s: { num: string; title: string; desc: string }) => (
+            <div key={s.num} className="land-how-step">
+              <div className="land-how-num">{s.num}</div>
+              <h3>{s.title}</h3>
+              <p>{s.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Pricing */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto" id="pricing">
-        <div className="text-[13px] font-bold tracking-wider text-[var(--primary)] uppercase mb-2.5 text-center">{t.pricing.label}</div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.pricing.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-12 max-w-[520px] mx-auto leading-relaxed">{t.pricing.subtitle}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-          {t.pricing.plans.map((plan, i) => (
-            <div key={plan.name} className={`bg-white border rounded-xl p-7 text-center relative hover:-translate-y-1 hover:shadow-[var(--card-shadow-lg)] transition ${
-              plan.featured ? 'border-[var(--primary)] shadow-[0_0_0_1px_var(--primary),var(--card-shadow-lg)]' : plan.enterprise ? 'border-[var(--purple)]' : 'border-[var(--card-border)]'
-            }`}>
-              {plan.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold bg-[var(--primary)] text-white px-4 py-1 rounded-full tracking-wider">
-                  {t.pricing.mostPopular}
-                </span>
-              )}
-              <h3 className={`text-[15px] font-bold uppercase tracking-wider mb-1 ${plan.enterprise ? 'text-[var(--purple)]' : 'text-[var(--text-secondary)]'}`}>{plan.name}</h3>
-              <div className="text-[40px] font-extrabold text-[var(--text-primary)] mt-4 mb-1">{plan.price}<span className="text-base text-[var(--text-muted)] font-normal">{t.pricing.perMonth}</span></div>
-              <div className="text-[13px] text-[var(--text-muted)] mb-5">{plan.sub}</div>
-              <ul className="text-left mb-6">
-                {plan.features.map(f => (
-                  <li key={f} className="text-sm text-[var(--text-secondary)] py-2 border-b border-[var(--bg-section)] before:content-['\u2713_'] before:text-[var(--success)] before:font-bold">{f}</li>
-                ))}
+      <section className="land-section" id="pricing">
+        <div className="land-section-label">{t.pricing.label}</div>
+        <h2>{t.pricing.title}</h2>
+        <div className="section-sub">{t.pricing.subtitle}</div>
+        <div className="land-pricing">
+          {t.pricing.plans.map((plan: { name: string; price: string; sub: string; features: string[]; featured?: boolean; enterprise?: boolean }, i: number) => (
+            <div key={plan.name} className={`land-price-card ${plan.featured ? 'featured' : ''}`} style={plan.enterprise ? { borderColor: 'var(--purple)' } : undefined}>
+              <h3 style={plan.enterprise ? { color: 'var(--purple)' } : undefined}>{plan.name}</h3>
+              <div className="price">{plan.price}<span>{t.pricing.perMonth}</span></div>
+              <div className="price-sub">{plan.sub}</div>
+              <ul>
+                {plan.features.map((f: string) => <li key={f}>{f}</li>)}
               </ul>
-              <Link href="/signup" className="w-full inline-flex items-center justify-center px-6 py-2.5 text-sm font-bold text-white bg-[var(--primary)] rounded-lg shadow-[0_1px_2px_rgba(255,97,84,.3)] hover:bg-[var(--primary-hover)] hover:-translate-y-px transition">
+              <Link href="/signup" className="land-btn land-btn-primary" style={{ width: '100%' }}>
                 {i === 0 ? t.pricing.getStarted : i === 1 ? t.pricing.startPro : i === 2 ? t.pricing.startAgency : t.pricing.contactSales}
               </Link>
             </div>
@@ -205,23 +164,27 @@ export default function HomePage() {
         </div>
 
         {/* Comparison Table */}
-        <div className="max-w-[900px] mx-auto mt-12">
-          <h3 className="text-xl font-bold text-center mb-1.5">{t.pricing.comparison.title}</h3>
-          <p className="text-[var(--text-secondary)] text-base text-center mb-6">{t.pricing.comparison.subtitle}</p>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse font-mono text-xs text-center">
+        <div style={{ maxWidth: 900, margin: '48px auto 0' }}>
+          <h3 style={{ fontSize: 20, fontWeight: 700, textAlign: 'center', marginBottom: 6 }}>{t.pricing.comparison.title}</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 16, textAlign: 'center', marginBottom: 24 }}>{t.pricing.comparison.subtitle}</p>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl" style={{ fontFamily: 'var(--mono)', fontSize: 12, textAlign: 'center' }}>
               <thead>
-                <tr className="border-b border-[var(--border)]">
-                  {t.pricing.comparison.headers.map((h, i) => (
-                    <th key={h} className={`p-2.5 font-semibold ${i === 0 ? 'text-left text-[var(--muted)]' : i === 1 ? 'text-[var(--primary)] font-bold' : 'text-[var(--muted)]'}`}>{h}</th>
+                <tr>
+                  {t.pricing.comparison.headers.map((h: string, i: number) => (
+                    <th key={h} style={{ textAlign: i === 0 ? 'left' : 'center', color: i === 1 ? 'var(--primary)' : undefined, fontWeight: i === 1 ? 700 : undefined }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {t.pricing.comparison.rows.map((row, ri) => (
-                  <tr key={ri} className="border-b border-[var(--border)]">
-                    {row.map((cell, ci) => (
-                      <td key={ci} className={`p-2 ${ci === 0 ? 'text-left' : ''} ${ci === 1 ? 'text-[var(--primary)] font-bold' : ''} ${cell.includes('\u2713') && ci !== 1 ? 'text-[var(--green)]' : ''} ${cell.includes('\u2717') ? 'text-[var(--red)]' : ''}`}>{cell}</td>
+                {t.pricing.comparison.rows.map((row: string[], ri: number) => (
+                  <tr key={ri}>
+                    {row.map((cell: string, ci: number) => (
+                      <td key={ci} style={{
+                        textAlign: ci === 0 ? 'left' : 'center',
+                        color: ci === 1 ? 'var(--primary)' : cell.includes('\u2713') ? 'var(--green)' : cell.includes('\u2717') ? 'var(--red)' : undefined,
+                        fontWeight: ci === 1 ? 700 : undefined,
+                      }}>{cell}</td>
                     ))}
                   </tr>
                 ))}
@@ -232,68 +195,66 @@ export default function HomePage() {
       </section>
 
       {/* Why AI Visibility */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto">
-        <div className="text-[13px] font-bold tracking-wider text-[var(--primary)] uppercase mb-2.5 text-center">{t.whyAI.label}</div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.whyAI.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-12 max-w-[520px] mx-auto leading-relaxed">{t.whyAI.subtitle}</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {t.whyAI.items.map(item => (
-            <article key={item.title} className="bg-white border border-[var(--card-border)] rounded-xl p-8 hover:-translate-y-1 hover:shadow-[var(--card-shadow-lg)] hover:border-transparent transition">
-              <div className="text-[28px] mb-4 w-12 h-12 flex items-center justify-center bg-[var(--primary-light)] rounded-lg">{item.icon}</div>
-              <h3 className="text-base font-bold mb-2.5 text-[var(--text-primary)]">{item.title}</h3>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{item.desc}</p>
-            </article>
+      <section className="land-section">
+        <div className="land-section-label">{t.whyAI.label}</div>
+        <h2>{t.whyAI.title}</h2>
+        <div className="section-sub">{t.whyAI.subtitle}</div>
+        <div className="land-features" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+          {t.whyAI.items.map((item: { icon: string; title: string; desc: string }) => (
+            <div key={item.title} className="land-feature">
+              <div className="feat-icon">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
           ))}
         </div>
       </section>
 
       {/* Use Cases */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto" id="use-cases">
-        <div className="text-[13px] font-bold tracking-wider text-[var(--primary)] uppercase mb-2.5 text-center">{t.useCases.label}</div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.useCases.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-12 max-w-[520px] mx-auto leading-relaxed">{t.useCases.subtitle}</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {t.useCases.items.map(item => (
-            <article key={item.title} className="bg-white border border-[var(--card-border)] rounded-xl p-8 hover:-translate-y-1 hover:shadow-[var(--card-shadow-lg)] hover:border-transparent transition">
-              <div className="text-[28px] mb-4 w-12 h-12 flex items-center justify-center bg-[var(--primary-light)] rounded-lg">{item.icon}</div>
-              <h3 className="text-base font-bold mb-2.5 text-[var(--text-primary)]">{item.title}</h3>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{item.desc}</p>
-            </article>
+      <section className="land-section" id="use-cases">
+        <div className="land-section-label">{t.useCases.label}</div>
+        <h2>{t.useCases.title}</h2>
+        <div className="section-sub">{t.useCases.subtitle}</div>
+        <div className="land-features">
+          {t.useCases.items.map((item: { icon: string; title: string; desc: string }) => (
+            <div key={item.title} className="land-feature">
+              <div className="feat-icon">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
           ))}
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto" id="faq">
-        <div className="text-[13px] font-bold tracking-wider text-[var(--primary)] uppercase mb-2.5 text-center">{t.faq.label}</div>
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.faq.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-12 max-w-[520px] mx-auto leading-relaxed">{t.faq.subtitle}</p>
-        <div className="max-w-[700px] mx-auto">
-          {t.faq.items.map(item => (
-            <details key={item.q} className="bg-white border border-[var(--card-border)] rounded-lg mb-2.5 overflow-hidden hover:border-[var(--text-muted)] transition group open:border-[var(--primary-border)] open:bg-[var(--primary-light)]">
-              <summary className="px-6 py-[18px] text-[15px] font-semibold cursor-pointer text-[var(--text-primary)] flex justify-between items-center [&::-webkit-details-marker]:hidden after:content-['+'] after:text-xl after:text-[var(--primary)] after:font-semibold group-open:after:content-['\u2212']">
-                {item.q}
-              </summary>
-              <p className="px-6 pb-5 text-sm text-[var(--text-secondary)] leading-relaxed">{item.a}</p>
+      <section className="land-section" id="faq">
+        <div className="land-section-label">{t.faq.label}</div>
+        <h2>{t.faq.title}</h2>
+        <div className="section-sub">{t.faq.subtitle}</div>
+        <div style={{ maxWidth: 700, margin: '0 auto' }}>
+          {t.faq.items.map((item: { q: string; a: string }) => (
+            <details key={item.q} className="faq-item">
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
             </details>
           ))}
         </div>
       </section>
 
       {/* Testimonials */}
-      <section className="py-20 px-6 max-w-[1080px] mx-auto">
-        <h2 className="text-4xl font-extrabold tracking-tight text-center mb-3.5 text-[var(--text-primary)]">{t.testimonials.title}</h2>
-        <p className="text-[var(--text-secondary)] text-base text-center mb-12 max-w-[520px] mx-auto leading-relaxed">{t.testimonials.subtitle}</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {t.testimonials.items.map(item => (
-            <div key={item.name} className="bg-white border border-[var(--card-border)] rounded-xl p-7 hover:shadow-[var(--card-shadow-lg)] hover:-translate-y-0.5 transition">
-              <div className="text-[var(--warning)] text-base tracking-widest mb-3.5">{'\u2605'}{'\u2605'}{'\u2605'}{'\u2605'}{'\u2605'}</div>
-              <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-5 italic">{item.text}</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-white flex items-center justify-center text-[13px] font-bold shrink-0">{item.initials}</div>
+      <section className="land-section">
+        <h2>{t.testimonials.title}</h2>
+        <div className="section-sub">{t.testimonials.subtitle}</div>
+        <div className="land-testimonials">
+          {t.testimonials.items.map((item: { name: string; role: string; text: string; initials: string }) => (
+            <div key={item.name} className="land-testimonial-card">
+              <div className="land-testimonial-stars">{'\u2605\u2605\u2605\u2605\u2605'}</div>
+              <div className="land-testimonial-text">{item.text}</div>
+              <div className="land-testimonial-author">
+                <div className="land-testimonial-avatar">{item.initials}</div>
                 <div>
-                  <div className="text-[13px] font-semibold text-[var(--text-primary)]">{item.name}</div>
-                  <div className="text-xs text-[var(--text-muted)] mt-0.5">{item.role}</div>
+                  <div className="land-testimonial-name">{item.name}</div>
+                  <div className="land-testimonial-role">{item.role}</div>
                 </div>
               </div>
             </div>
@@ -302,51 +263,51 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="mx-6 mb-20 rounded-xl bg-gradient-to-br from-[var(--text-primary)] to-[#2d1b4e] text-white py-20 px-10 text-center max-w-[1080px] lg:mx-auto">
-        <h2 className="text-4xl font-extrabold text-white mb-4">{t.cta.title}</h2>
-        <p className="text-white/70 text-base mb-9 max-w-[520px] mx-auto">{t.cta.subtitle}</p>
-        <Link href="/signup" className="inline-flex items-center justify-center px-11 py-4 text-base font-bold text-white bg-[var(--primary)] rounded-lg shadow-[0_1px_2px_rgba(255,97,84,.3)] hover:bg-[var(--primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,97,84,.3)] transition">
+      <section className="land-cta-section">
+        <h2>{t.cta.title}</h2>
+        <div className="section-sub">{t.cta.subtitle}</div>
+        <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '16px 44px', fontSize: 16 }}>
           {t.cta.button} &rarr;
         </Link>
-        <p className="text-[13px] text-white/50 mt-4">{t.cta.note}</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginTop: 16 }}>{t.cta.note}</p>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--card-border)] bg-[var(--bg-section)]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-10 p-8 md:p-12 max-w-[1080px] mx-auto">
-          <div className="max-w-[280px]">
-            <div className="text-xl font-extrabold text-[var(--text-primary)] tracking-tight mb-3">Live<span className="text-[var(--primary)]">sov</span></div>
-            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">{t.footer.desc}</p>
+      <footer className="land-footer">
+        <div className="land-footer-grid">
+          <div className="land-footer-brand">
+            <div className="land-footer-logo">Live<span>sov</span></div>
+            <div className="land-footer-desc">{t.footer.desc}</div>
           </div>
-          <div className="flex flex-col gap-2.5">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-primary)] mb-1">{t.footer.product}</div>
-            <Link href="/#features" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.features}</Link>
-            <Link href="/pricing" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.pricing}</Link>
-            <Link href="/how-it-works" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.howItWorks}</Link>
-            <Link href="/use-cases" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.useCases}</Link>
-            <Link href="/integrations" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.integrations}</Link>
+          <div className="land-footer-col">
+            <div className="land-footer-col-title">{t.footer.product}</div>
+            <Link href="/#features">{t.footer.links.features}</Link>
+            <Link href="/pricing">{t.footer.links.pricing}</Link>
+            <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
+            <Link href="/use-cases">{t.footer.links.useCases}</Link>
+            <Link href="/integrations">{t.footer.links.integrations}</Link>
           </div>
-          <div className="flex flex-col gap-2.5">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-primary)] mb-1">{t.footer.resources}</div>
-            <Link href="/blog" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.blog}</Link>
-            <Link href="/geo-optimization" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.geoGuide}</Link>
-            <Link href="/about" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.about}</Link>
-            <Link href="/contact" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.contact}</Link>
-            <Link href="/changelog" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.changelog}</Link>
+          <div className="land-footer-col">
+            <div className="land-footer-col-title">{t.footer.resources}</div>
+            <Link href="/blog">{t.footer.links.blog}</Link>
+            <Link href="/geo-optimization">{t.footer.links.geoGuide}</Link>
+            <Link href="/about">{t.footer.links.about}</Link>
+            <Link href="/contact">{t.footer.links.contact}</Link>
+            <Link href="/changelog">{t.footer.links.changelog}</Link>
           </div>
-          <div className="flex flex-col gap-2.5">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-primary)] mb-1">{t.footer.legal}</div>
-            <Link href="/privacy" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.privacy}</Link>
-            <Link href="/terms" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.terms}</Link>
-            <Link href="/cookies" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--primary)] transition">{t.footer.links.cookies}</Link>
+          <div className="land-footer-col">
+            <div className="land-footer-col-title">{t.footer.legal}</div>
+            <Link href="/privacy">{t.footer.links.privacy}</Link>
+            <Link href="/terms">{t.footer.links.terms}</Link>
+            <Link href="/cookies">{t.footer.links.cookies}</Link>
           </div>
         </div>
-        <div className="flex justify-between items-center px-8 md:px-12 py-5 border-t border-[var(--card-border)] max-w-[1080px] mx-auto flex-wrap gap-3">
-          <div className="text-[13px] text-[var(--text-muted)]">&copy; {new Date().getFullYear()} {t.footer.copyright}</div>
-          <div className="flex gap-4">
-            <a href="mailto:hello@livesov.com" className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] text-base font-bold border border-[var(--card-border)] rounded-full hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition" aria-label="Email">{'\u2709'}</a>
-            <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] text-base font-bold border border-[var(--card-border)] rounded-full hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition" aria-label="X (Twitter)">{'\u2715'}</a>
-            <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center text-[var(--text-muted)] text-base font-bold border border-[var(--card-border)] rounded-full hover:text-[var(--primary)] hover:border-[var(--primary-border)] transition" aria-label="LinkedIn">in</a>
+        <div className="land-footer-bottom">
+          <div className="land-footer-text">&copy; {new Date().getFullYear()} {t.footer.copyright}</div>
+          <div className="land-footer-social">
+            <a href="mailto:hello@livesov.com" aria-label="Email">{'\u2709'}</a>
+            <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">{'\u2715'}</a>
+            <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
           </div>
         </div>
       </footer>
