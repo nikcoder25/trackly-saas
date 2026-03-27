@@ -243,11 +243,17 @@ export default function DashboardPage() {
           <p className="view-sub">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Compare Toggle */}
-          <div className="flex bg-[var(--bg2)] border border-[var(--border)] rounded-lg overflow-hidden">
+          {/* Compare Toggle — each button has its own border */}
+          <div style={{ display: 'flex', gap: 4 }}>
             {(['current', 'week', 'month'] as const).map(m => (
               <button key={m} onClick={() => setCompareMode(m)}
-                className={`px-3 py-1.5 text-[11px] font-semibold transition ${compareMode === m ? 'bg-[var(--primary)] text-white' : 'text-[var(--muted)] hover:text-[var(--text)]'}`}>
+                style={{
+                  padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 'var(--radius-xs)',
+                  border: compareMode === m ? '1px solid var(--primary)' : '1px solid var(--border)',
+                  background: compareMode === m ? 'var(--primary)' : 'var(--bg2)',
+                  color: compareMode === m ? '#fff' : 'var(--muted)',
+                  cursor: 'pointer', transition: 'all .15s', fontFamily: 'var(--font)',
+                }}>
                 {m === 'current' ? 'Current' : m === 'week' ? 'vs Last Week' : 'vs Last Month'}
               </button>
             ))}
@@ -384,9 +390,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* AI Category Breakdown */}
-      {Object.keys(platforms).length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+      {/* AI Category Breakdown — always show */}
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card-title">AI Category Breakdown</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
           <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
             <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
             <div className="text-2xl font-extrabold font-mono" style={{ color: chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{chatStats.sov}%</div>
@@ -399,18 +406,16 @@ export default function DashboardPage() {
             <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
             <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">Perplexity · Gemini</div>
           </div>
-          {bestPlatform && (
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: '2px solid var(--green)' }}>
-              <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
-              <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform.name}</div>
-              <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform.sov}% SOV — strongest visibility</div>
-            </div>
-          )}
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4" style={{ borderTop: '2px solid var(--green)' }}>
+            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
+            <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform ? bestPlatform.name : '--'}</div>
+            <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform ? `${bestPlatform.sov}% SOV — strongest visibility` : 'Run queries to see results'}</div>
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* Location Visibility */}
-      {brand.city && (
+      {/* Location Visibility — always show */}
+      {(
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
           <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">📍 Location Visibility</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -532,21 +537,41 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Actionable Insights */}
-      {sov < 30 && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">Actionable Insights</div>
-          <div className="space-y-2">
-            {sov === 0 && <InsightCard color="var(--amber)" icon="\u26A0" title="Getting Started with GEO" desc="Your SOV is 0%. Run queries and check Recommendations for optimization tips." link="/dashboard/recommendations" />}
-            {sov > 0 && sov < 30 && <InsightCard color="var(--primary)" icon="\u25B2" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
-            {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && <InsightCard color="var(--red)" icon="\u25CE" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
-            {!brand.city && <InsightCard color="var(--blue)" icon="\u2139" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
+      {/* Actionable Insights — always show */}
+      <div className="card">
+        <div className="card-title">Actionable Insights</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {sov === 0 && <InsightCard color="var(--amber)" icon="\u26A0" title="Getting Started with GEO" desc="Your SOV is 0%. Run queries and check Recommendations for optimization tips." link="/dashboard/recommendations" />}
+          {sov > 0 && sov < 50 && <InsightCard color="var(--primary)" icon="\u25B2" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
+          {sov >= 50 && <InsightCard color="var(--green)" icon="\u2713" title="Strong AI Visibility" desc={`Your SOV is ${sov}%. Keep monitoring and expanding your query coverage.`} link="/dashboard/query-performance" />}
+          {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && <InsightCard color="var(--red)" icon="\u25CE" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
+          {sentTotal > 0 && negCount > posCount && <InsightCard color="var(--red)" icon="\u26A0" title="Negative Sentiment Detected" desc="More negative than positive sentiment. Review responses and optimize brand content." link="/dashboard/mentions" />}
+          {!brand.city && <InsightCard color="var(--blue)" icon="\u2139" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
+        </div>
+      </div>
+
+      {/* Last Run Summary */}
+      {lastRun && (
+        <div className="card">
+          <div className="card-title">Last Run</div>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                {lastRun.date ? new Date(lastRun.date).toLocaleString() : 'Unknown date'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                Found {totalM} of {totalQ} total responses
+              </div>
+            </div>
+            <Link href="/dashboard/mentions" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none', marginLeft: 'auto' }}>
+              View All Results →
+            </Link>
           </div>
         </div>
       )}
 
       {/* Tracked Queries */}
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
+      <div className="card" style={{ marginBottom: 0 }}>
         <div className="flex justify-between items-center mb-3">
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Tracked Queries</div>
@@ -568,10 +593,23 @@ export default function DashboardPage() {
           ))}
           {queries.length === 0 && <span className="text-[var(--muted)] text-xs">No queries yet. Add some below.</span>}
         </div>
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <input value={newQuery} onChange={e => setNewQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && addQuery()}
-            placeholder="Add a new query..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none transition" />
-          <button onClick={addQuery} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md hover:bg-[var(--primary-hover)] transition">+ Add</button>
+            placeholder="Add a new query..." className="finp" style={{ flex: 1, marginBottom: 0 }} />
+          <button onClick={addQuery} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>+ Add</button>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button className="pill-btn">BULK ADD</button>
+          <button className="pill-btn">SUGGEST</button>
+          <button className="pill-btn">AI GENERATE</button>
+          <button className="pill-btn" onClick={() => {
+            if (!brand || !queries.length) return;
+            if (confirm('Remove all queries?')) {
+              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) })
+                .then(() => fetchBrands());
+            }
+          }}>CLEAR ALL</button>
+          <button className="pill-btn">SELECT</button>
         </div>
       </div>
     </div>
