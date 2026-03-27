@@ -30,8 +30,11 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
+  const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
 
-  const [now, setNow] = useState(Date.now());
+  // Hydration-safe: initialize to 0, set real value in useEffect
+  const [now, setNow] = useState(0);
+  const [nextRunText, setNextRunText] = useState('');
 
   const fetchBrands = useCallback(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -42,9 +45,10 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchBrands(); }, [fetchBrands]);
 
-  // Live timer that updates every second
+  // Client-only live timer — avoids hydration mismatch
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -136,6 +140,24 @@ export default function DashboardPage() {
       .then(() => fetchBrands());
   };
 
+  // Next run badge — client-only to avoid hydration mismatch
+  useEffect(() => {
+    if (!lastRun?.date || !now) { setNextRunText(''); return; }
+    const runTime = new Date(lastRun.date).getTime();
+    const nextRunMs = runTime + 6 * 3600 * 1000;
+    const diffMs = nextRunMs - now;
+    if (diffMs > 0) {
+      const h = Math.floor(diffMs / 3600000);
+      const m = Math.floor((diffMs % 3600000) / 60000);
+      setNextRunText(`next|Next run in ${h}h ${m}m`);
+    } else {
+      const overdueMs = Math.abs(diffMs);
+      const oh = Math.floor(overdueMs / 3600000);
+      const om = Math.floor((overdueMs % 3600000) / 60000);
+      setNextRunText(`overdue|Overdue by ${oh > 0 ? `${oh}h ${om}m` : `${om}m`} — waiting for next scheduled run`);
+    }
+  }, [lastRun?.date, now]);
+
   // Last run age
   const lastRunAge = useMemo(() => {
     if (!lastRun?.date) return '';
@@ -192,7 +214,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)]">{brand.name}</h1>
           <p className="text-[var(--muted)] text-[13px] mt-1">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Compare Toggle */}
           <div className="flex bg-[var(--bg2)] border border-[var(--border)] rounded-lg overflow-hidden">
             {(['current', 'week', 'month'] as const).map(m => (
@@ -202,8 +224,30 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+          {/* Preset Selector */}
+          <select
+            value={preset}
+            onChange={e => setPreset(e.target.value as typeof preset)}
+            className="px-3 py-1.5 text-[11px] font-semibold bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] rounded-lg outline-none cursor-pointer"
+          >
+            <option value="all">All Sections</option>
+            <option value="founder">Founder View</option>
+            <option value="seo">SEO Manager</option>
+            <option value="agency">Agency View</option>
+          </select>
         </div>
       </div>
+
+      {/* Next Run Badge — rendered client-only via useEffect state */}
+      {nextRunText && (() => {
+        const [type, text] = nextRunText.split('|');
+        const isOverdue = type === 'overdue';
+        return (
+          <div className={`rounded-lg px-4 py-2 mb-4 text-[11px] font-mono flex items-center gap-2 ${isOverdue ? 'bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] text-[var(--amber)]' : 'bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] text-[var(--blue)]'}`}>
+            <span>{isOverdue ? '\u23F0' : '\u{1F550}'}</span> {text}
+          </div>
+        );
+      })()}
 
       {/* Alert Strip */}
       {alerts.length > 0 && (
@@ -266,7 +310,12 @@ export default function DashboardPage() {
           <HeroStat label="Platforms Active" value={String(Object.keys(platforms).length)} />
           <HeroStat label="Queries Tracked" value={String(queries.length)} />
           <HeroStat label="Last Run" value={lastRunAge || '--'} />
-          <HeroStat label="Run Duration" value={lastRun?.duration ? `${Math.round(lastRun.duration / 1000)}s` : '--'} />
+          <HeroStat label="Run Duration" value={(() => {
+            const d = lastRun?.duration;
+            if (d === undefined || d === null) return '--';
+            const s = typeof d === 'number' ? (d > 1000 ? Math.round(d / 1000) : d) : 0;
+            return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+          })()} />
         </div>
       </div>
 
