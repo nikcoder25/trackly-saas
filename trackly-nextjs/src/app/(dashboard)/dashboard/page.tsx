@@ -137,6 +137,22 @@ export default function DashboardPage() {
     return { rate: total > 0 ? Math.round((matched / total) * 100) : 0, areas: areaHits };
   }, [brand]);
 
+  // Query Performance data (per-query mention rate from last run)
+  const queryPerfData = useMemo(() => {
+    if (!lastRun) return [];
+    const allResults = (lastRun as Record<string, unknown>).allResults as Array<{ query: string; mentioned: boolean }> | undefined;
+    if (!allResults) return [];
+    const map: Record<string, { query: string; mentioned: number; total: number }> = {};
+    allResults.forEach(r => {
+      if (!map[r.query]) map[r.query] = { query: r.query, mentioned: 0, total: 0 };
+      map[r.query].total++;
+      if (r.mentioned) map[r.query].mentioned++;
+    });
+    return Object.values(map)
+      .map(q => ({ query: q.query, rate: q.total > 0 ? Math.round((q.mentioned / q.total) * 100) : 0 }))
+      .sort((a, b) => b.rate - a.rate);
+  }, [lastRun]);
+
   // Competitors
   const competitorData = lastRun?.competitors || {};
   const topCompetitors = useMemo(() =>
@@ -449,27 +465,37 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Platform Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
+      {/* Platform Cards — with ACTIVE status badge like legacy */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 14 }}>
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
           const pMent = (pd as Record<string, number>).mentions || 0;
           const pTotal = (pd as Record<string, number>).total || 0;
           const pErr = (pd as Record<string, number>).errors || 0;
+          const isActive = pTotal > 0;
           return (
-            <div key={name} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)] hover:shadow-[var(--app-shadow-lg)] hover:-translate-y-px transition" style={{ borderLeft: `3px solid ${color}` }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-                <span className="text-sm font-bold text-[var(--text)]">{name}</span>
-                <span className="ml-auto text-lg font-extrabold font-mono" style={{ color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</span>
+            <div key={name} className="stat-card" style={{ borderLeft: `3px solid ${color}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{name}</span>
+                {/* ACTIVE badge */}
+                <span style={{
+                  fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
+                  padding: '2px 8px', borderRadius: 100, marginLeft: 4,
+                  background: isActive ? 'rgba(16,185,129,.08)' : 'var(--bg3)',
+                  color: isActive ? 'var(--green)' : 'var(--muted)',
+                  border: `1px solid ${isActive ? 'rgba(16,185,129,.2)' : 'var(--border)'}`,
+                  textTransform: 'uppercase', letterSpacing: '.3px',
+                }}>● {isActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)', color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</span>
               </div>
-              <div className="flex gap-4 text-[11px] text-[var(--muted)] font-mono">
-                <span>Mentions: <strong className="text-[var(--text)]">{pMent}/{pTotal}</strong></span>
-                {pErr > 0 && <span className="text-[var(--red)]">Errors: {pErr}</span>}
+              <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                <div style={{ height: '100%', borderRadius: 3, width: `${pSov}%`, background: color, transition: 'width .5s' }} />
               </div>
-              <div className="mt-2 h-1 bg-[var(--bg3)] rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pSov}%`, background: color }} />
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+                <span>Mentions: <strong style={{ color: 'var(--text)' }}>{pMent}/{pTotal}</strong></span>
+                {pErr > 0 && <span style={{ color: 'var(--red)' }}>Errors: {pErr}</span>}
               </div>
             </div>
           );
@@ -492,61 +518,92 @@ export default function DashboardPage() {
       )}
 
       {/* Query Performance + Competitors Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-4">
-        {/* Top Queries */}
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">Top Queries</div>
-          {queries.slice(0, 6).map((q, i) => (
-            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-[var(--border)] last:border-0 text-xs">
-              <span className="text-[var(--text)] truncate flex-1">{q}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 14 }}>
+        {/* Query Performance — horizontal bars like legacy */}
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>Query Performance</div>
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+              {queries.length} queries {queryPerfData.length > 0 ? `· Avg ${Math.round(queryPerfData.reduce((s, q) => s + q.rate, 0) / queryPerfData.length)}%` : ''}
+            </span>
+          </div>
+          {queryPerfData.length > 0 ? queryPerfData.slice(0, 8).map((q, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                <span style={{ fontSize: 12, color: 'var(--text)', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>{q.rate}%</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 3, width: `${q.rate}%`, background: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)', transition: 'width .3s' }} />
+              </div>
             </div>
-          ))}
-          {queries.length === 0 && <p className="text-[var(--muted)] text-xs">No queries yet</p>}
-          {queries.length > 6 && <Link href="/dashboard/query-performance" className="text-[10px] text-[var(--primary)] font-mono mt-2 inline-block">View all {queries.length} queries &rarr;</Link>}
+          )) : queries.length > 0 ? queries.slice(0, 8).map((q, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontSize: 12, color: 'var(--text)' }}>{q}</span>
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>--</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3 }} />
+            </div>
+          )) : <p style={{ fontSize: 12, color: 'var(--muted)' }}>No queries yet</p>}
+          {queries.length > 8 && <Link href="/dashboard/query-performance" style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none', marginTop: 8, display: 'inline-block' }}>View all {queries.length} queries →</Link>}
         </div>
 
-        {/* Competitors */}
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)]">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">Detected Competitors</div>
-          {topCompetitors.length > 0 ? topCompetitors.map(([name, count], i) => (
-            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-[var(--border)] last:border-0 text-xs">
-              <span className="text-[var(--text)] truncate flex-1">{name}</span>
-              <span className="font-mono text-[var(--muted)]">{count}x</span>
-            </div>
-          )) : (brand.competitors || []).length > 0 ? (brand.competitors || []).map((c, i) => (
-            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-[var(--border)] last:border-0 text-xs">
-              <span className="text-[var(--text)]">{c}</span>
-              <span className="font-mono text-[var(--muted)]">--</span>
-            </div>
-          )) : <p className="text-[var(--muted)] text-xs">Add competitors in Brand Setup</p>}
+        {/* Competitors in AI — tag pills like legacy */}
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>Competitors in AI</div>
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+              {topCompetitors.length || (brand.competitors || []).length} brands
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {topCompetitors.length > 0 ? topCompetitors.map(([name, count], i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 12, color: 'var(--text)' }}>
+                {name} <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{count}x</span>
+              </span>
+            )) : (brand.competitors || []).length > 0 ? (brand.competitors || []).map((c, i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 12, color: 'var(--text)' }}>
+                {c} <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>--</span>
+              </span>
+            )) : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Add competitors in Brand Setup</p>}
+          </div>
         </div>
       </div>
 
-      {/* Citation Sources */}
-      {topCitations.length > 0 && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">Top Citation Sources</div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            {topCitations.map(([domain, count], i) => (
-              <div key={i} className="text-xs px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-md">
-                <span className="text-[var(--text)] truncate block">{domain}</span>
-                <span className="font-mono text-[var(--muted)]">{count}x</span>
-              </div>
-            ))}
+      {/* Citation Sources — horizontal bars like legacy */}
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div>
+            <div className="card-title" style={{ marginBottom: 2 }}>Citation Sources</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Where AI pulls information from</div>
           </div>
+          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{topCitations.length} domains</span>
         </div>
-      )}
+        {topCitations.length > 0 ? (() => {
+          const maxCount = topCitations[0] ? topCitations[0][1] : 1;
+          return topCitations.map(([domain, count], i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: 'var(--text)', minWidth: 140, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{domain}</span>
+              <div style={{ flex: 1, height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 3, width: `${(count / maxCount) * 100}%`, background: 'var(--primary)', transition: 'width .3s' }} />
+              </div>
+              <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', minWidth: 32, textAlign: 'right' }}>{count}×</span>
+            </div>
+          ));
+        })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Citation data will appear after query runs.</p>}
+      </div>
 
       {/* Actionable Insights — always show */}
       <div className="card">
         <div className="card-title">Actionable Insights</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {sov === 0 && <InsightCard color="var(--amber)" icon="\u26A0" title="Getting Started with GEO" desc="Your SOV is 0%. Run queries and check Recommendations for optimization tips." link="/dashboard/recommendations" />}
-          {sov > 0 && sov < 50 && <InsightCard color="var(--primary)" icon="\u25B2" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
-          {sov >= 50 && <InsightCard color="var(--green)" icon="\u2713" title="Strong AI Visibility" desc={`Your SOV is ${sov}%. Keep monitoring and expanding your query coverage.`} link="/dashboard/query-performance" />}
-          {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && <InsightCard color="var(--red)" icon="\u25CE" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
-          {sentTotal > 0 && negCount > posCount && <InsightCard color="var(--red)" icon="\u26A0" title="Negative Sentiment Detected" desc="More negative than positive sentiment. Review responses and optimize brand content." link="/dashboard/mentions" />}
-          {!brand.city && <InsightCard color="var(--blue)" icon="\u2139" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
+          {sov === 0 && <InsightCard color="var(--amber)" icon="⚠" title="Getting Started with GEO" desc="Your SOV is 0%. Run queries and check Recommendations for optimization tips." link="/dashboard/recommendations" />}
+          {sov > 0 && sov < 50 && <InsightCard color="var(--primary)" icon="▲" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
+          {sov >= 50 && <InsightCard color="var(--green)" icon="✓" title="Strong AI Visibility" desc={`Your SOV is ${sov}%. Keep monitoring and expanding your query coverage.`} link="/dashboard/query-performance" />}
+          {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && <InsightCard color="var(--red)" icon="◎" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
+          {sentTotal > 0 && negCount > posCount && <InsightCard color="var(--red)" icon="⚠" title="Negative Sentiment Detected" desc="More negative than positive sentiment. Review responses and optimize brand content." link="/dashboard/mentions" />}
+          {!brand.city && <InsightCard color="var(--blue)" icon="ℹ" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
         </div>
       </div>
 
