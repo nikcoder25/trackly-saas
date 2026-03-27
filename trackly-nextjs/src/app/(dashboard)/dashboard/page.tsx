@@ -30,7 +30,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
-  const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
 
   const [now, setNow] = useState(Date.now());
 
@@ -63,50 +62,8 @@ export default function DashboardPage() {
 
   // Sentiment data
   const sentiment = lastRun?.sentiment || { positive: 0, neutral: 0, negative: 0 };
-  const posCount = sentiment.positive || 0;
-  const neuCount = sentiment.neutral || 0;
-  const negCount = sentiment.negative || 0;
-  const sentTotal = posCount + neuCount + negCount;
+  const sentTotal = (sentiment.positive || 0) + (sentiment.neutral || 0) + (sentiment.negative || 0);
   const recommendedPct = lastRun?.recommended || 0;
-
-  // GEO Score calculation (matching legacy: mentionRate*40 + recommendRate*35 + locationRate*25)
-  const mentionRate = totalQ > 0 ? totalM / totalQ : 0;
-  const recommendRate = totalQ > 0 ? recommendedPct / 100 : 0;
-  const geoScore = Math.round(mentionRate * 40 + recommendRate * 35 + 0 * 25);
-  const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)';
-  const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
-
-  // AI Sentiment score (matching legacy: (pos*100 + neu*50) / total)
-  const sentimentScore = sentTotal > 0 ? Math.round((posCount * 100 + neuCount * 50) / sentTotal) : 0;
-  const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
-
-  // AI Recommends %
-  const recPct = recommendedPct;
-  const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
-
-  // Category breakdown (Chat AI vs Search AI)
-  const chatAI = new Set(['ChatGPT', 'Claude', 'Grok']);
-  const searchAI = new Set(['Perplexity', 'Gemini']);
-  const chatStats = useMemo(() => {
-    let total = 0, mentioned = 0;
-    Object.entries(platforms).forEach(([name, pd]) => {
-      if (chatAI.has(name)) { total += (pd as Record<string,number>).total || 0; mentioned += (pd as Record<string,number>).mentions || 0; }
-    });
-    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
-  }, [platforms]);
-  const searchStats = useMemo(() => {
-    let total = 0, mentioned = 0;
-    Object.entries(platforms).forEach(([name, pd]) => {
-      if (searchAI.has(name)) { total += (pd as Record<string,number>).total || 0; mentioned += (pd as Record<string,number>).mentions || 0; }
-    });
-    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
-  }, [platforms]);
-  const bestPlatform = useMemo(() => {
-    const entries = Object.entries(platforms).map(([name, pd]) => [name, (pd as Record<string,number>).sov || 0] as [string, number]);
-    if (!entries.length) return null;
-    return entries.reduce((a, b) => b[1] > a[1] ? b : a);
-  }, [platforms]);
-  const catColor = (v: number) => v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)';
 
   // Competitors
   const competitorData = lastRun?.competitors || {};
@@ -177,44 +134,6 @@ export default function DashboardPage() {
   const apiTotal = Object.keys(platforms).length;
   const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
 
-  // Preset section visibility (matching legacy presets)
-  const show = (section: string) => {
-    if (preset === 'all') return true;
-    const presets: Record<string, string[]> = {
-      founder: ['hero', 'scores', 'trends', 'competitors', 'insights', 'lastrun'],
-      seo: ['hero', 'health', 'scores', 'platforms', 'qperf', 'citations', 'categories'],
-      agency: ['hero', 'health', 'categories', 'platforms', 'lastrun', 'competitors'],
-    };
-    return presets[preset]?.includes(section) ?? true;
-  };
-
-  // Location visibility data
-  const nearbyAreas = (brand as Record<string, unknown>).nearby_areas as string[] | undefined;
-  const locationMentions = useMemo(() => {
-    if (!brand.city || !lastRun) return { rate: 0, areas: {} as Record<string, number> };
-    let total = 0, matched = 0;
-    const areaHits: Record<string, number> = {};
-    const allAreas = [brand.city, ...(nearbyAreas || [])].filter(Boolean);
-    // Check if runs have allResults for location matching
-    const runResults = (brand.runs || []).slice(-3).flatMap(r => {
-      const res = (r as Record<string, unknown>).allResults as Array<{ response?: string; snippet?: string; mentioned?: boolean }> | undefined;
-      return res || [];
-    });
-    runResults.forEach(r => {
-      if (!r.response && !r.snippet) return;
-      const text = ((r.response || '') + ' ' + (r.snippet || '')).toLowerCase();
-      total++;
-      for (const area of allAreas) {
-        if (text.includes(area.toLowerCase())) {
-          matched++;
-          areaHits[area] = (areaHits[area] || 0) + 1;
-          break;
-        }
-      }
-    });
-    return { rate: total > 0 ? Math.round((matched / total) * 100) : 0, areas: areaHits };
-  }, [brand, lastRun, nearbyAreas]);
-
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 
   if (!brand) return (
@@ -233,7 +152,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)]">{brand.name}</h1>
           <p className="text-[var(--muted)] text-[13px] mt-1">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           {/* Compare Toggle */}
           <div className="flex bg-[var(--bg2)] border border-[var(--border)] rounded-lg overflow-hidden">
             {(['current', 'week', 'month'] as const).map(m => (
@@ -243,44 +162,8 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          {/* Preset Selector */}
-          <select
-            value={preset}
-            onChange={e => setPreset(e.target.value as typeof preset)}
-            className="px-3 py-1.5 text-[11px] font-semibold bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] rounded-lg outline-none cursor-pointer"
-          >
-            <option value="all">All Sections</option>
-            <option value="founder">Founder View</option>
-            <option value="seo">SEO Manager</option>
-            <option value="agency">Agency View</option>
-          </select>
         </div>
       </div>
-
-      {/* Next Run Badge — matching legacy "Overdue by..." */}
-      {lastRun?.date && (() => {
-        const runTime = new Date(lastRun.date).getTime();
-        const nextRunMs = runTime + 6 * 3600 * 1000; // 6-hour interval
-        const diffMs = nextRunMs - now;
-        if (diffMs > 0) {
-          const h = Math.floor(diffMs / 3600000);
-          const m = Math.floor((diffMs % 3600000) / 60000);
-          return (
-            <div className="bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] rounded-lg px-4 py-2 mb-4 text-[11px] font-mono text-[var(--blue)] flex items-center gap-2">
-              <span>🕐</span> Next run in {h}h {m}m
-            </div>
-          );
-        } else {
-          const overdueMs = Math.abs(diffMs);
-          const oh = Math.floor(overdueMs / 3600000);
-          const om = Math.floor((overdueMs % 3600000) / 60000);
-          return (
-            <div className="bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] rounded-lg px-4 py-2 mb-4 text-[11px] font-mono text-[var(--amber)] flex items-center gap-2">
-              <span>⏰</span> Overdue by {oh > 0 ? `${oh}h ${om}m` : `${om}m`} — waiting for next scheduled run
-            </div>
-          );
-        }
-      })()}
 
       {/* Alert Strip */}
       {alerts.length > 0 && (
@@ -304,13 +187,15 @@ export default function DashboardPage() {
       {apiTotal > 0 && (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
           <span className="w-2 h-2 rounded-full" style={{ background: apiHealthy === apiTotal ? 'var(--green)' : apiHealthy > 0 ? 'var(--amber)' : 'var(--red)' }} />
-          <span className="text-[var(--text)] font-medium"><strong>{apiHealthy}/{apiTotal}</strong> platforms healthy</span>
+          <span className="text-[var(--text)] font-medium">{apiHealthy}/{apiTotal} platforms healthy</span>
           <span className="text-[var(--muted)]">·</span>
-          <span className="text-[var(--muted)]"><strong>{totalQ - apiErrors}</strong> ok</span>
-          <span className="text-[var(--muted)]">·</span>
-          <span style={{ color: apiErrors > 0 ? 'var(--red)' : 'inherit' }}>{apiErrors} error{apiErrors !== 1 ? 's' : ''}</span>
+          <span className="text-[var(--muted)]">{totalQ} responses</span>
           {apiErrors > 0 && (
-            <Link href="/dashboard/activity" className="text-[var(--red)] font-mono text-[10px] hover:underline ml-auto no-underline">View Errors →</Link>
+            <>
+              <span className="text-[var(--muted)]">·</span>
+              <span className="text-[var(--red)]">{apiErrors} errors</span>
+              <Link href="/dashboard/platforms" className="text-[var(--primary)] font-mono hover:underline ml-auto">Diagnose Errors →</Link>
+            </>
           )}
         </div>
       )}
@@ -341,115 +226,36 @@ export default function DashboardPage() {
           <HeroStat label="Platforms Active" value={String(Object.keys(platforms).length)} />
           <HeroStat label="Queries Tracked" value={String(queries.length)} />
           <HeroStat label="Last Run" value={lastRunAge || '--'} />
-          <HeroStat label="Run Duration" value={(() => {
-            const dur = lastRun?.duration;
-            if (dur === undefined || dur === null) return '--';
-            const secs = typeof dur === 'number' ? (dur > 1000 ? Math.round(dur / 1000) : dur) : 0;
-            if (secs >= 60) { const m = Math.floor(secs / 60); const s = secs % 60; return `${m}m ${s}s`; }
-            return `${secs}s`;
-          })()} />
+          <HeroStat label="Run Duration" value={lastRun?.duration ? `${Math.round(lastRun.duration / 1000)}s` : '--'} />
         </div>
       </div>
 
-      {/* GEO Score / AI Sentiment / AI Recommends You — matching legacy exactly */}
-      {lastRun && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
-          {/* GEO Score */}
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
-            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoColor }}>{geoScore}</div>
-            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score</div>
-            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${geoScore}%`, background: geoColor }} />
-            </div>
-            <div className="text-[11px] font-semibold" style={{ color: geoColor }}>{geoLabel}</div>
+      {/* GEO & Sentiment Scores */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+        <ScoreCard label="Brand Sentiment" color={sentiment.positive && sentiment.positive > (sentiment.negative || 0) ? 'var(--green)' : 'var(--amber)'}>
+          <div className="flex gap-3 text-[11px] font-mono">
+            <span className="text-[var(--green)]">+{sentiment.positive || 0}</span>
+            <span className="text-[var(--muted)]">~{sentiment.neutral || 0}</span>
+            <span className="text-[var(--red)]">-{sentiment.negative || 0}</span>
           </div>
-          {/* AI Sentiment */}
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
-            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: sentColor }}>{sentimentScore}</div>
-            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment</div>
-            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sentimentScore}%`, background: sentColor }} />
-            </div>
-            <div className="flex justify-center gap-3 text-[11px] font-mono">
-              <span className="text-[var(--green)]">+{posCount} positive</span>
-              <span className="text-[var(--muted)]">~{neuCount} neutral</span>
-              <span className="text-[var(--red)]">-{negCount} negative</span>
-            </div>
+          <div className="flex gap-0.5 mt-2 h-2 rounded-full overflow-hidden bg-[var(--bg3)]">
+            {sentTotal > 0 && <>
+              <div className="bg-[var(--green)] h-full" style={{ width: `${((sentiment.positive || 0) / sentTotal) * 100}%` }} />
+              <div className="bg-[var(--bg4)] h-full" style={{ width: `${((sentiment.neutral || 0) / sentTotal) * 100}%` }} />
+              <div className="bg-[var(--red)] h-full" style={{ width: `${((sentiment.negative || 0) / sentTotal) * 100}%` }} />
+            </>}
           </div>
-          {/* AI Recommends You */}
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
-            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recColor }}>{recPct}<span className="text-[18px]">%</span></div>
-            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You</div>
-            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recPct}%`, background: recColor }} />
-            </div>
-            <div className="text-[11px] font-semibold" style={{ color: recColor }}>{recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Moderate endorsement' : 'Not yet'}</div>
-          </div>
-        </div>
-      )}
-
-      {/* AI Category Breakdown — matching legacy exactly */}
-      {lastRun && Object.keys(platforms).length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${catColor(chatStats.sov)}` }}>
-            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
-            <div className="text-2xl font-extrabold font-mono" style={{ color: catColor(chatStats.sov) }}>{chatStats.sov}%</div>
-            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div>
-            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">ChatGPT · Claude · Grok</div>
-          </div>
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${catColor(searchStats.sov)}` }}>
-            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🔍 Search AI SOV</div>
-            <div className="text-2xl font-extrabold font-mono" style={{ color: catColor(searchStats.sov) }}>{searchStats.sov}%</div>
-            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
-            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">Perplexity · Gemini</div>
-          </div>
-          {bestPlatform && (
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: '2px solid var(--green)' }}>
-              <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
-              <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform[0]}</div>
-              <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform[1]}% SOV — strongest visibility</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Location Visibility — matching legacy */}
-      {show('scores') && brand.city && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">📍 Location Visibility</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: locationMentions.rate >= 40 ? 'var(--green)' : locationMentions.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>
-                {locationMentions.rate}%
-              </div>
-              <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1">City Match Rate</div>
-              <div className="text-[11px] text-[var(--muted)] mt-1">AI mentions your location in responses</div>
-              {locationMentions.rate < 30 && (
-                <div className="mt-2 text-[11px] text-[var(--amber)] bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] rounded-md px-3 py-1.5">
-                  💡 Try adding city names directly in your tracked queries to improve location visibility.
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] mb-2">Areas where AI finds you</div>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(locationMentions.areas).length > 0 ? (
-                  Object.entries(locationMentions.areas).sort((a, b) => b[1] - a[1]).map(([area, count]) => (
-                    <span key={area} className="inline-flex items-center gap-1 bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] text-[11px] font-medium px-2.5 py-1 rounded-full">
-                      {area} <span className="text-[var(--muted)] font-mono text-[10px]">{count}x</span>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-[var(--muted)] text-xs">No location matches detected yet</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        </ScoreCard>
+        <ScoreCard label="AI Recommends You" color={recommendedPct >= 50 ? 'var(--green)' : 'var(--amber)'}>
+          <div className="text-2xl font-extrabold font-mono">{recommendedPct}%</div>
+        </ScoreCard>
+        <ScoreCard label={`City Match: ${brand.city || 'N/A'}`} color="var(--blue)">
+          <div className="text-sm text-[var(--muted)]">{brand.city ? 'Location tracking active' : 'Set a city in Brand Setup'}</div>
+        </ScoreCard>
+      </div>
 
       {/* Platform Cards */}
-      {show('platforms') && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
@@ -473,7 +279,7 @@ export default function DashboardPage() {
             </div>
           );
         })}
-      </div>}
+      </div>
 
       {/* SOV Trend Mini Chart */}
       {sovTrend.length > 1 && (
