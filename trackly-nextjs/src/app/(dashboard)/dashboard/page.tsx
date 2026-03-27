@@ -62,8 +62,50 @@ export default function DashboardPage() {
 
   // Sentiment data
   const sentiment = lastRun?.sentiment || { positive: 0, neutral: 0, negative: 0 };
-  const sentTotal = (sentiment.positive || 0) + (sentiment.neutral || 0) + (sentiment.negative || 0);
+  const posCount = sentiment.positive || 0;
+  const neuCount = sentiment.neutral || 0;
+  const negCount = sentiment.negative || 0;
+  const sentTotal = posCount + neuCount + negCount;
   const recommendedPct = lastRun?.recommended || 0;
+
+  // GEO Score calculation (matching legacy: mentionRate*40 + recommendRate*35 + locationRate*25)
+  const mentionRate = totalQ > 0 ? totalM / totalQ : 0;
+  const recommendRate = totalQ > 0 ? recommendedPct / 100 : 0;
+  const geoScore = Math.round(mentionRate * 40 + recommendRate * 35 + 0 * 25);
+  const geoColor = geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)';
+  const geoLabel = geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible';
+
+  // AI Sentiment score (matching legacy: (pos*100 + neu*50) / total)
+  const sentimentScore = sentTotal > 0 ? Math.round((posCount * 100 + neuCount * 50) / sentTotal) : 0;
+  const sentColor = sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)';
+
+  // AI Recommends %
+  const recPct = recommendedPct;
+  const recColor = recPct >= 40 ? 'var(--green)' : recPct > 0 ? 'var(--amber)' : 'var(--muted)';
+
+  // Category breakdown (Chat AI vs Search AI)
+  const chatAI = new Set(['ChatGPT', 'Claude', 'Grok']);
+  const searchAI = new Set(['Perplexity', 'Gemini']);
+  const chatStats = useMemo(() => {
+    let total = 0, mentioned = 0;
+    Object.entries(platforms).forEach(([name, pd]) => {
+      if (chatAI.has(name)) { total += (pd as Record<string,number>).total || 0; mentioned += (pd as Record<string,number>).mentions || 0; }
+    });
+    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
+  }, [platforms]);
+  const searchStats = useMemo(() => {
+    let total = 0, mentioned = 0;
+    Object.entries(platforms).forEach(([name, pd]) => {
+      if (searchAI.has(name)) { total += (pd as Record<string,number>).total || 0; mentioned += (pd as Record<string,number>).mentions || 0; }
+    });
+    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
+  }, [platforms]);
+  const bestPlatform = useMemo(() => {
+    const entries = Object.entries(platforms).map(([name, pd]) => [name, (pd as Record<string,number>).sov || 0] as [string, number]);
+    if (!entries.length) return null;
+    return entries.reduce((a, b) => b[1] > a[1] ? b : a);
+  }, [platforms]);
+  const catColor = (v: number) => v >= 40 ? 'var(--green)' : v > 0 ? 'var(--amber)' : 'var(--red)';
 
   // Competitors
   const competitorData = lastRun?.competitors || {};
@@ -165,6 +207,31 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Next Run Badge — matching legacy "Overdue by..." */}
+      {lastRun?.date && (() => {
+        const runTime = new Date(lastRun.date).getTime();
+        const nextRunMs = runTime + 6 * 3600 * 1000; // 6-hour interval
+        const diffMs = nextRunMs - now;
+        if (diffMs > 0) {
+          const h = Math.floor(diffMs / 3600000);
+          const m = Math.floor((diffMs % 3600000) / 60000);
+          return (
+            <div className="bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] rounded-lg px-4 py-2 mb-4 text-[11px] font-mono text-[var(--blue)] flex items-center gap-2">
+              <span>🕐</span> Next run in {h}h {m}m
+            </div>
+          );
+        } else {
+          const overdueMs = Math.abs(diffMs);
+          const oh = Math.floor(overdueMs / 3600000);
+          const om = Math.floor((overdueMs % 3600000) / 60000);
+          return (
+            <div className="bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] rounded-lg px-4 py-2 mb-4 text-[11px] font-mono text-[var(--amber)] flex items-center gap-2">
+              <span>⏰</span> Overdue by {oh > 0 ? `${oh}h ${om}m` : `${om}m`} — waiting for next scheduled run
+            </div>
+          );
+        }
+      })()}
+
       {/* Alert Strip */}
       {alerts.length > 0 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">
@@ -187,15 +254,13 @@ export default function DashboardPage() {
       {apiTotal > 0 && (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
           <span className="w-2 h-2 rounded-full" style={{ background: apiHealthy === apiTotal ? 'var(--green)' : apiHealthy > 0 ? 'var(--amber)' : 'var(--red)' }} />
-          <span className="text-[var(--text)] font-medium">{apiHealthy}/{apiTotal} platforms healthy</span>
+          <span className="text-[var(--text)] font-medium"><strong>{apiHealthy}/{apiTotal}</strong> platforms healthy</span>
           <span className="text-[var(--muted)]">·</span>
-          <span className="text-[var(--muted)]">{totalQ} responses</span>
+          <span className="text-[var(--muted)]"><strong>{totalQ - apiErrors}</strong> ok</span>
+          <span className="text-[var(--muted)]">·</span>
+          <span style={{ color: apiErrors > 0 ? 'var(--red)' : 'inherit' }}>{apiErrors} error{apiErrors !== 1 ? 's' : ''}</span>
           {apiErrors > 0 && (
-            <>
-              <span className="text-[var(--muted)]">·</span>
-              <span className="text-[var(--red)]">{apiErrors} errors</span>
-              <Link href="/dashboard/platforms" className="text-[var(--primary)] font-mono hover:underline ml-auto">Diagnose Errors →</Link>
-            </>
+            <Link href="/dashboard/activity" className="text-[var(--red)] font-mono text-[10px] hover:underline ml-auto no-underline">View Errors →</Link>
           )}
         </div>
       )}
@@ -230,29 +295,67 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* GEO & Sentiment Scores */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
-        <ScoreCard label="Brand Sentiment" color={sentiment.positive && sentiment.positive > (sentiment.negative || 0) ? 'var(--green)' : 'var(--amber)'}>
-          <div className="flex gap-3 text-[11px] font-mono">
-            <span className="text-[var(--green)]">+{sentiment.positive || 0}</span>
-            <span className="text-[var(--muted)]">~{sentiment.neutral || 0}</span>
-            <span className="text-[var(--red)]">-{sentiment.negative || 0}</span>
+      {/* GEO Score / AI Sentiment / AI Recommends You — matching legacy exactly */}
+      {lastRun && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+          {/* GEO Score */}
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoColor }}>{geoScore}</div>
+            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score</div>
+            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${geoScore}%`, background: geoColor }} />
+            </div>
+            <div className="text-[11px] font-semibold" style={{ color: geoColor }}>{geoLabel}</div>
           </div>
-          <div className="flex gap-0.5 mt-2 h-2 rounded-full overflow-hidden bg-[var(--bg3)]">
-            {sentTotal > 0 && <>
-              <div className="bg-[var(--green)] h-full" style={{ width: `${((sentiment.positive || 0) / sentTotal) * 100}%` }} />
-              <div className="bg-[var(--bg4)] h-full" style={{ width: `${((sentiment.neutral || 0) / sentTotal) * 100}%` }} />
-              <div className="bg-[var(--red)] h-full" style={{ width: `${((sentiment.negative || 0) / sentTotal) * 100}%` }} />
-            </>}
+          {/* AI Sentiment */}
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: sentColor }}>{sentimentScore}</div>
+            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment</div>
+            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sentimentScore}%`, background: sentColor }} />
+            </div>
+            <div className="flex justify-center gap-3 text-[11px] font-mono">
+              <span className="text-[var(--green)]">+{posCount} positive</span>
+              <span className="text-[var(--muted)]">~{neuCount} neutral</span>
+              <span className="text-[var(--red)]">-{negCount} negative</span>
+            </div>
           </div>
-        </ScoreCard>
-        <ScoreCard label="AI Recommends You" color={recommendedPct >= 50 ? 'var(--green)' : 'var(--amber)'}>
-          <div className="text-2xl font-extrabold font-mono">{recommendedPct}%</div>
-        </ScoreCard>
-        <ScoreCard label={`City Match: ${brand.city || 'N/A'}`} color="var(--blue)">
-          <div className="text-sm text-[var(--muted)]">{brand.city ? 'Location tracking active' : 'Set a city in Brand Setup'}</div>
-        </ScoreCard>
-      </div>
+          {/* AI Recommends You */}
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recColor }}>{recPct}<span className="text-[18px]">%</span></div>
+            <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You</div>
+            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recPct}%`, background: recColor }} />
+            </div>
+            <div className="text-[11px] font-semibold" style={{ color: recColor }}>{recPct >= 50 ? 'Strong endorsement' : recPct > 0 ? 'Moderate endorsement' : 'Not yet'}</div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Category Breakdown — matching legacy exactly */}
+      {lastRun && Object.keys(platforms).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${catColor(chatStats.sov)}` }}>
+            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
+            <div className="text-2xl font-extrabold font-mono" style={{ color: catColor(chatStats.sov) }}>{chatStats.sov}%</div>
+            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div>
+            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">ChatGPT · Claude · Grok</div>
+          </div>
+          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${catColor(searchStats.sov)}` }}>
+            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🔍 Search AI SOV</div>
+            <div className="text-2xl font-extrabold font-mono" style={{ color: catColor(searchStats.sov) }}>{searchStats.sov}%</div>
+            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
+            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">Perplexity · Gemini</div>
+          </div>
+          {bestPlatform && (
+            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: '2px solid var(--green)' }}>
+              <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
+              <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform[0]}</div>
+              <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform[1]}% SOV — strongest visibility</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Platform Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
