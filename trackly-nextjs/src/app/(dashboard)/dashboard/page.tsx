@@ -62,8 +62,23 @@ export default function DashboardPage() {
 
   // Sentiment data
   const sentiment = lastRun?.sentiment || { positive: 0, neutral: 0, negative: 0 };
-  const sentTotal = (sentiment.positive || 0) + (sentiment.neutral || 0) + (sentiment.negative || 0);
+  const posCount = sentiment.positive || 0;
+  const neuCount = sentiment.neutral || 0;
+  const negCount = sentiment.negative || 0;
+  const sentTotal = posCount + neuCount + negCount;
   const recommendedPct = lastRun?.recommended || 0;
+
+  // GEO Score (mentionRate*40 + recommendRate*35)
+  const geoScore = useMemo(() => {
+    const mRate = totalQ > 0 ? totalM / totalQ : 0;
+    const rRate = totalQ > 0 ? recommendedPct / 100 : 0;
+    return Math.round(mRate * 40 + rRate * 35);
+  }, [totalM, totalQ, recommendedPct]);
+
+  // AI Sentiment score ((pos*100 + neu*50) / total)
+  const sentimentScore = useMemo(() => {
+    return sentTotal > 0 ? Math.round((posCount * 100 + neuCount * 50) / sentTotal) : 0;
+  }, [posCount, neuCount, sentTotal]);
 
   // Competitors
   const competitorData = lastRun?.competitors || {};
@@ -230,28 +245,43 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* GEO & Sentiment Scores */}
+      {/* GEO Score / AI Sentiment / AI Recommends You */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4">
-        <ScoreCard label="Brand Sentiment" color={sentiment.positive && sentiment.positive > (sentiment.negative || 0) ? 'var(--green)' : 'var(--amber)'}>
-          <div className="flex gap-3 text-[11px] font-mono">
-            <span className="text-[var(--green)]">+{sentiment.positive || 0}</span>
-            <span className="text-[var(--muted)]">~{sentiment.neutral || 0}</span>
-            <span className="text-[var(--red)]">-{sentiment.negative || 0}</span>
+        {/* GEO Score */}
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}</div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score</div>
+          <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${geoScore}%`, background: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
           </div>
-          <div className="flex gap-0.5 mt-2 h-2 rounded-full overflow-hidden bg-[var(--bg3)]">
-            {sentTotal > 0 && <>
-              <div className="bg-[var(--green)] h-full" style={{ width: `${((sentiment.positive || 0) / sentTotal) * 100}%` }} />
-              <div className="bg-[var(--bg4)] h-full" style={{ width: `${((sentiment.neutral || 0) / sentTotal) * 100}%` }} />
-              <div className="bg-[var(--red)] h-full" style={{ width: `${((sentiment.negative || 0) / sentTotal) * 100}%` }} />
-            </>}
+          <div className="text-[11px] font-semibold" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>
+            {geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible'}
           </div>
-        </ScoreCard>
-        <ScoreCard label="AI Recommends You" color={recommendedPct >= 50 ? 'var(--green)' : 'var(--amber)'}>
-          <div className="text-2xl font-extrabold font-mono">{recommendedPct}%</div>
-        </ScoreCard>
-        <ScoreCard label={`City Match: ${brand.city || 'N/A'}`} color="var(--blue)">
-          <div className="text-sm text-[var(--muted)]">{brand.city ? 'Location tracking active' : 'Set a city in Brand Setup'}</div>
-        </ScoreCard>
+        </div>
+        {/* AI Sentiment */}
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{sentimentScore}</div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment</div>
+          <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sentimentScore}%`, background: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
+          </div>
+          <div className="flex justify-center gap-3 text-[11px] font-mono">
+            <span className="text-[var(--green)]">+{posCount}</span>
+            <span className="text-[var(--muted)]">~{neuCount}</span>
+            <span className="text-[var(--red)]">-{negCount}</span>
+          </div>
+        </div>
+        {/* AI Recommends You */}
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] text-center">
+          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>{recommendedPct}<span className="text-[18px]">%</span></div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You</div>
+          <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recommendedPct}%`, background: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }} />
+          </div>
+          <div className="text-[11px] font-semibold" style={{ color: recommendedPct >= 50 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>
+            {recommendedPct >= 50 ? 'Strong endorsement' : recommendedPct > 0 ? 'Room to grow' : 'Not yet'}
+          </div>
+        </div>
       </div>
 
       {/* Platform Cards */}
