@@ -72,20 +72,28 @@ export default function DashboardPage() {
   const lastRun = allRuns.length ? allRuns[allRuns.length - 1] : null;
   const prevRun = allRuns.length >= 2 ? allRuns[allRuns.length - 2] : null;
 
-  // Comparison run based on compareMode
+  // Comparison run based on compareMode — ensures week/month find different runs
   const compareRun = useMemo((): (typeof allRuns)[number] | null => {
     if (compareMode === 'current' || !lastRun?.date) return null;
     const lastDate = new Date(lastRun.date).getTime();
     const targetAge = compareMode === 'week' ? 7 * 86400000 : 30 * 86400000;
+    const minAge = compareMode === 'week' ? 3 * 86400000 : 14 * 86400000;
     const targetDate = lastDate - targetAge;
-    let closest: (typeof allRuns)[number] | null = null;
-    let closestDiff = Infinity;
-    allRuns.forEach(run => {
-      if (!run.date) return;
-      const diff = Math.abs(new Date(run.date).getTime() - targetDate);
+    // Filter to only runs older than minAge from latest
+    const candidates = allRuns.filter(run => {
+      if (!run.date || run === lastRun) return false;
+      const age = lastDate - new Date(run.date).getTime();
+      return age >= minAge;
+    });
+    if (candidates.length === 0) return null;
+    // Find closest to target date
+    let closest = candidates[0];
+    let closestDiff = Math.abs(new Date(closest.date!).getTime() - targetDate);
+    candidates.forEach(run => {
+      const diff = Math.abs(new Date(run.date!).getTime() - targetDate);
       if (diff < closestDiff) { closestDiff = diff; closest = run; }
     });
-    return closest !== lastRun ? closest : null;
+    return closest;
   }, [compareMode, lastRun, allRuns]);
   const sov = lastRun?.sov || 0;
   const totalM = lastRun?.totalM || 0;
@@ -385,7 +393,7 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-2">Share of Voice</div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-2">Share of Voice<MetricTooltip text="Percentage of AI responses that mention your brand out of all tracked queries" /></div>
         </div>
         {/* Compare banner */}
         {compareRun && (
@@ -413,7 +421,7 @@ export default function DashboardPage() {
         {/* GEO Score */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}</div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score</div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score<MetricTooltip text="Measures how well AI platforms associate your brand with your geographic location (0-100)" /></div>
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${geoScore}%`, background: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
           </div>
@@ -424,7 +432,7 @@ export default function DashboardPage() {
         {/* AI Sentiment */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{sentimentScore}</div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment</div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment<MetricTooltip text="Overall sentiment of AI responses mentioning your brand (positive, neutral, negative)" /></div>
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sentimentScore}%`, background: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
           </div>
@@ -437,7 +445,7 @@ export default function DashboardPage() {
         {/* AI Recommends You */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
           <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>{recommendedPct}<span className="text-[18px]">%</span></div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You</div>
+          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You<MetricTooltip text="Percentage of AI responses that actively recommend your brand" /></div>
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recommendedPct}%`, background: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }} />
           </div>
@@ -502,7 +510,7 @@ export default function DashboardPage() {
               <div className="text-2xl font-extrabold font-mono" style={{ color: locationData.rate >= 40 ? 'var(--green)' : locationData.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>
                 {locationData.rate}%
               </div>
-              <div className="text-[11px] text-[var(--muted)] mt-1">City Match Rate</div>
+              <div className="text-[11px] text-[var(--muted)] mt-1">City Match Rate<MetricTooltip text="Percentage of AI responses that mention your specific city/location" /></div>
               <div className="text-[10px] text-[var(--muted)] mt-0.5">AI mentions your location in responses</div>
             </div>
             <div>
@@ -557,18 +565,14 @@ export default function DashboardPage() {
       </div>
       )}
 
-      {/* SOV Trend Mini Chart */}
+      {/* SOV Trend — SVG Line/Area Chart */}
       {show('trend') && sovTrend.length > 1 && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] mb-4">
-          <div className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] mb-3">SOV Trend <span className="font-normal">Last {sovTrend.length} runs</span></div>
-          <div className="flex items-end gap-1 h-[100px]">
-            {sovTrend.map((r, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[8px] font-mono text-[var(--muted)]">{r.sov}%</span>
-                <div className="w-full rounded-t" style={{ height: `${Math.max(4, r.sov)}%`, background: r.sov >= 50 ? 'var(--green)' : r.sov > 0 ? 'var(--amber)' : 'var(--bg4)', minHeight: 4 }} />
-              </div>
-            ))}
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 0 }}>SOV Trend</div>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>Last {sovTrend.length} runs</span>
           </div>
+          <SovTrendChart data={sovTrend} />
         </div>
       )}
 
@@ -828,5 +832,82 @@ function InsightCard({ color, icon, title, desc, link }: { color: string; icon: 
         <div className="text-xs text-[var(--muted)] mt-0.5">{desc}</div>
       </div>
     </Link>
+  );
+}
+
+function MetricTooltip({ text }: { text: string }) {
+  return (
+    <span title={text} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: 'var(--bg3)', color: 'var(--muted)', fontSize: 9, fontWeight: 700, cursor: 'help', marginLeft: 4, verticalAlign: 'middle', border: '1px solid var(--border)' }}>?</span>
+  );
+}
+
+function SovTrendChart({ data }: { data: Array<{ sov: number; date: string }> }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const W = 600, H = 160, PL = 36, PR = 12, PT = 10, PB = 24;
+  const chartW = W - PL - PR, chartH = H - PT - PB;
+  const maxSov = Math.max(100, ...data.map(d => d.sov));
+
+  const points = data.map((d, i) => ({
+    x: PL + (data.length > 1 ? (i / (data.length - 1)) * chartW : chartW / 2),
+    y: PT + chartH - (d.sov / maxSov) * chartH,
+    sov: d.sov,
+    date: d.date,
+  }));
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+  const areaPath = linePath + ` L${points[points.length - 1].x},${PT + chartH} L${points[0].x},${PT + chartH} Z`;
+
+  const yTicks = [0, 25, 50, 75, 100].filter(v => v <= maxSov);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: 180 }}>
+        <defs>
+          <linearGradient id="sovGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {/* Y-axis grid lines */}
+        {yTicks.map(v => {
+          const y = PT + chartH - (v / maxSov) * chartH;
+          return (
+            <g key={v}>
+              <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="4,4" />
+              <text x={PL - 6} y={y + 3} textAnchor="end" style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+            </g>
+          );
+        })}
+        {/* X-axis labels */}
+        {points.filter((_, i) => data.length <= 7 || i % Math.ceil(data.length / 7) === 0 || i === data.length - 1).map((p, i) => (
+          <text key={i} x={p.x} y={H - 4} textAnchor="middle" style={{ fontSize: 8, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
+            {p.date ? new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : `#${i + 1}`}
+          </text>
+        ))}
+        {/* Area fill */}
+        <path d={areaPath} fill="url(#sovGrad)" />
+        {/* Line */}
+        <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Data points */}
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={hoverIdx === i ? 5 : 3}
+            fill={hoverIdx === i ? 'var(--primary)' : 'var(--bg2)'}
+            stroke="var(--primary)" strokeWidth="2"
+            style={{ cursor: 'pointer', transition: 'r .15s' }}
+            onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} />
+        ))}
+      </svg>
+      {/* Hover tooltip */}
+      {hoverIdx !== null && points[hoverIdx] && (
+        <div style={{
+          position: 'absolute', left: `${(points[hoverIdx].x / W) * 100}%`, top: `${(points[hoverIdx].y / H) * 100 - 14}%`,
+          transform: 'translateX(-50%)', background: 'var(--text)', color: '#fff', padding: '4px 10px',
+          borderRadius: 'var(--radius-xs)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
+          whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10,
+        }}>
+          {points[hoverIdx].sov}% · {points[hoverIdx].date ? new Date(points[hoverIdx].date).toLocaleDateString() : ''}
+        </div>
+      )}
+    </div>
   );
 }
