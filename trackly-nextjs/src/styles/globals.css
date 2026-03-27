@@ -2,6 +2,10 @@
 
 *{box-sizing:border-box;margin:0;padding:0;}
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 :root {
   /* Landing page (light theme) */
   --white: #ffffff;
@@ -201,4 +205,12 @@ body {
   color: var(--muted);
   font-size: 13px;
   margin-top: 4px;
+}
+
+/* Responsive: dashboard sidebar collapses on mobile */
+@media (max-width: 1023px) {
+  main[style] {
+    margin-left: 0 !important;
+    padding: 12px 16px 24px !important;
+  }
 }
