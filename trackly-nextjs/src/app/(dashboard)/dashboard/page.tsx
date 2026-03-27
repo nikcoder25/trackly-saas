@@ -274,13 +274,15 @@ export default function DashboardPage() {
     return a;
   }, [sovChange, sentiment, sentTotal, platforms]);
 
-  // API Health summary
+  // API Health summary — fix: green when 0 errors regardless of platform count
+  const apiTotalResponses = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).total || 0), 0);
+  const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
   const apiHealthy = Object.values(platforms).filter(p => {
     const pd = p as Record<string, number>;
     return pd.total && pd.total > 0 && (!pd.errors || pd.errors / pd.total < 0.3);
   }).length;
-  const apiTotal = Object.keys(platforms).length;
-  const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
+  const apiTotal = Object.values(platforms).filter(p => (p as Record<string, number>).total > 0).length;
+  const apiHealthColor = apiErrors === 0 && apiTotalResponses > 0 ? 'var(--green)' : apiErrors > 0 ? 'var(--red)' : 'var(--muted)';
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -335,8 +337,8 @@ export default function DashboardPage() {
         const [type, text] = nextRunText.split('|');
         const isOverdue = type === 'overdue';
         return (
-          <div className={`rounded-lg px-4 py-2 mb-4 text-[11px] font-mono flex items-center gap-2 ${isOverdue ? 'bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] text-[var(--amber)]' : 'bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] text-[var(--blue)]'}`}>
-            <span>{isOverdue ? '\u23F0' : '\u{1F550}'}</span> {text}
+          <div className={`rounded-lg px-4 py-2 mb-4 text-[11px] font-medium flex items-center gap-2 ${isOverdue ? 'bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] text-[var(--amber)]' : 'bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] text-[var(--blue)]'}`}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> {text}
           </div>
         );
       })()}
@@ -362,7 +364,7 @@ export default function DashboardPage() {
       {/* API Health Banner — matching legacy format */}
       {apiTotal > 0 && (
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
-          <span className="w-2 h-2 rounded-full" style={{ background: apiHealthy === apiTotal ? 'var(--green)' : apiHealthy > 0 ? 'var(--amber)' : 'var(--red)' }} />
+          <span className="w-2 h-2 rounded-full" style={{ background: apiHealthColor }} />
           <span className="text-[var(--text)] font-medium"><strong>{apiHealthy}/{apiTotal}</strong> platforms healthy</span>
           <span className="text-[var(--muted)]">·</span>
           <span className="text-[var(--muted)]"><strong>{totalQ - apiErrors}</strong> ok</span>
@@ -420,10 +422,10 @@ export default function DashboardPage() {
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {/* GEO Score */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
-          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}</div>
+          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}<span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>/100</span></div>
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score<MetricTooltip text="Measures how well AI platforms associate your brand with your geographic location (0-100)" /></div>
-          <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${geoScore}%`, background: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
+          <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+            <div style={{ height: '100%', borderRadius: 4, width: `${geoScore}%`, background: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)', transition: 'width .5s', minWidth: geoScore > 0 ? 8 : 0 }} />
           </div>
           <div className="text-[11px] font-semibold" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>
             {geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible'}
@@ -436,21 +438,27 @@ export default function DashboardPage() {
           <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sentimentScore}%`, background: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
           </div>
-          <div className="flex justify-center gap-3 text-[11px] font-mono">
-            <span className="text-[var(--green)]">+{posCount}</span>
-            <span className="text-[var(--muted)]">~{neuCount}</span>
-            <span className="text-[var(--red)]">-{negCount}</span>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, fontSize: 10 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />{posCount} positive</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--muted)' }} />{neuCount} neutral</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />{negCount} negative</span>
           </div>
         </div>
         {/* AI Recommends You */}
         <div className="stat-card" style={{ textAlign: 'center' }}>
-          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>{recommendedPct}<span className="text-[18px]">%</span></div>
+          {recommendedPct > 0 ? (
+            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recommendedPct >= 40 ? 'var(--green)' : 'var(--amber)' }}>{recommendedPct}<span className="text-[18px]">%</span></div>
+          ) : (
+            <div className="text-[24px] font-extrabold leading-none" style={{ color: 'var(--muted)' }}>Not yet</div>
+          )}
           <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You<MetricTooltip text="Percentage of AI responses that actively recommend your brand" /></div>
-          <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recommendedPct}%`, background: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }} />
-          </div>
+          {recommendedPct > 0 && (
+            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recommendedPct}%`, background: recommendedPct >= 40 ? 'var(--green)' : 'var(--amber)' }} />
+            </div>
+          )}
           <div className="text-[11px] font-semibold" style={{ color: recommendedPct >= 50 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>
-            {recommendedPct >= 50 ? 'Strong endorsement' : recommendedPct > 0 ? 'Room to grow' : 'Not yet'}
+            {recommendedPct >= 50 ? 'Strong endorsement' : recommendedPct > 0 ? 'Room to grow' : 'Run queries to start tracking'}
           </div>
         </div>
       </div>
@@ -530,7 +538,8 @@ export default function DashboardPage() {
           </div>
           {locationData.rate < 30 && (
             <div className="mt-3 bg-[rgba(59,130,246,0.05)] border border-[rgba(59,130,246,0.12)] rounded-lg px-3 py-2 text-[11px] text-[var(--blue)]">
-              💡 Tip: Include city and neighborhood names in your tracked queries to improve local AI visibility.
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              <strong>Tip:</strong> Include city and neighborhood names in your tracked queries to improve local AI visibility.
             </div>
           )}
         </div>
@@ -545,7 +554,7 @@ export default function DashboardPage() {
           const pTotal = (pd as Record<string, number>).total || 0;
           const isActive = pTotal > 0;
           return (
-            <div key={name} className="stat-card" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
+            <div key={name} className="stat-card" style={{ textAlign: 'center', borderTop: `3px solid ${color}`, opacity: isActive ? 1 : 0.6 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{name}</div>
               <div style={{
                 display: 'inline-block', fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
@@ -555,10 +564,16 @@ export default function DashboardPage() {
                 border: `1px solid ${isActive ? 'rgba(16,185,129,.2)' : 'var(--border)'}`,
                 textTransform: 'uppercase', letterSpacing: '.3px',
               }}>● {isActive ? 'ACTIVE' : 'INACTIVE'}</div>
-              <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                <div style={{ height: '100%', borderRadius: 3, width: `${pSov}%`, background: color, transition: 'width .5s' }} />
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--mono)', color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</div>
+              {isActive ? (
+                <>
+                  <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                    <div style={{ height: '100%', borderRadius: 3, width: `${pSov}%`, background: color, transition: 'width .5s' }} />
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--mono)', color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</div>
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Not configured</div>
+              )}
             </div>
           );
         })}
@@ -653,7 +668,7 @@ export default function DashboardPage() {
               <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', minWidth: 32, textAlign: 'right' }}>{count}×</span>
             </div>
           ));
-        })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>No citation sources detected in AI responses yet.</p>}
+        })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Citation tracking requires AI platforms that provide source links (Perplexity, Gemini). Run queries to start collecting citation data.</p>}
       </div>
       )}
 
@@ -687,7 +702,7 @@ export default function DashboardPage() {
                 const ampm = h >= 12 ? 'PM' : 'AM';
                 const h12 = h % 12 || 12;
                 const mm = String(d.getMinutes()).padStart(2, '0');
-                return `${months[d.getMonth()]} ${d.getDate()} ${String(h12).padStart(2, '0')}:${mm} ${ampm}`;
+                return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${String(h12).padStart(2, '0')}:${mm} ${ampm}`;
               })() : 'Unknown'}
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -706,7 +721,7 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <div className="card-title" style={{ marginBottom: 2 }}>Tracked Queries</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{queries.length} / {Math.min(planLimit, 999)} queries</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{queries.length} / {planLimit > 1000 ? '∞' : planLimit} queries</div>
           </div>
           <Link href="/dashboard/setup" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>Manage Queries</Link>
         </div>
@@ -825,12 +840,15 @@ function HeroStat({ label, value }: { label: string; value: string }) {
 
 function InsightCard({ color, icon, title, desc, link }: { color: string; icon: string; title: string; desc: string; link: string }) {
   return (
-    <Link href={link} className="flex items-start gap-3 p-3 border border-[var(--border)] rounded-lg hover:bg-[var(--bg3)] transition no-underline">
-      <span className="text-lg" style={{ color }}>{icon}</span>
-      <div>
-        <div className="text-sm font-semibold text-[var(--text)]">{title}</div>
-        <div className="text-xs text-[var(--muted)] mt-0.5">{desc}</div>
+    <Link href={link} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', textDecoration: 'none', transition: 'all .15s', borderLeft: `3px solid ${color}` }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg3)'; (e.currentTarget as HTMLElement).style.transform = 'translateX(2px)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; (e.currentTarget as HTMLElement).style.transform = ''; }}>
+      <span style={{ fontSize: 18, color, flexShrink: 0 }}>{icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{title}</div>
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{desc}</div>
       </div>
+      <span style={{ fontSize: 11, color: 'var(--primary)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap', flexShrink: 0 }}>View →</span>
     </Link>
   );
 }
@@ -881,7 +899,7 @@ function SovTrendChart({ data }: { data: Array<{ sov: number; date: string }> })
         {/* X-axis labels */}
         {points.filter((_, i) => data.length <= 7 || i % Math.ceil(data.length / 7) === 0 || i === data.length - 1).map((p, i) => (
           <text key={i} x={p.x} y={H - 4} textAnchor="middle" style={{ fontSize: 8, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
-            {p.date ? new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : `#${i + 1}`}
+            {p.date ? (() => { const d = new Date(p.date); return `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })() : `#${i + 1}`}
           </text>
         ))}
         {/* Area fill */}

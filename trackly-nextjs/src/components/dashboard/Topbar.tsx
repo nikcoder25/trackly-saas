@@ -86,8 +86,10 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         </div>
 
         {/* Plan badge */}
-        <Link href="/dashboard/billing" style={{ textDecoration: 'none' }}>
-          <span className={`plan-badge ${user?.plan === 'pro' ? 'pro' : user?.plan === 'agency' ? 'agency' : ''}`}>
+        <Link href="/dashboard/billing" style={{ textDecoration: 'none' }}
+          onMouseEnter={e => { (e.currentTarget.firstChild as HTMLElement).style.opacity = '0.7'; (e.currentTarget.firstChild as HTMLElement).style.textDecoration = 'underline'; }}
+          onMouseLeave={e => { (e.currentTarget.firstChild as HTMLElement).style.opacity = '1'; (e.currentTarget.firstChild as HTMLElement).style.textDecoration = 'none'; }}>
+          <span className={`plan-badge ${user?.plan === 'pro' ? 'pro' : user?.plan === 'agency' ? 'agency' : ''}`} style={{ cursor: 'pointer' }}>
             {(user?.plan || 'FREE').toUpperCase()}
           </span>
         </Link>
