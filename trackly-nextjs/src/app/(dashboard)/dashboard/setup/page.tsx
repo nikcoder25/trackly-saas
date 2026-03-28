@@ -53,10 +53,10 @@ export default function SetupPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)]">Brand Setup</h1>
-          <p className="text-[var(--muted)] text-[13px] mt-1">Configure your brand details.</p>
+          <div className="view-title">Brand Setup</div>
+          <div className="view-sub">Configure your brand details.</div>
         </div>
         <button onClick={() => setShowCreate(true)} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-[0_1px_2px_rgba(255,97,84,.2)]">+ New Brand</button>
       </div>
@@ -266,19 +266,19 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
   };
 
   return (
-    <div className="space-y-4">
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-6 shadow-[var(--app-shadow)]">
-        {error && <div className="bg-[var(--danger-light)] border border-[rgba(239,68,68,.2)] text-[var(--danger)] text-[11px] font-mono px-3 py-2 rounded-md mb-3">{error}</div>}
-        {message && <div className="bg-[var(--success-light)] border border-[rgba(16,185,129,.2)] text-[var(--success)] text-[11px] font-mono px-3 py-2 rounded-md mb-3">{message}</div>}
-        <form onSubmit={handleSave} className="space-y-4">
+    <div>
+      <div className="card">
+        {error && <div className="auth-err" style={{ display: 'block', marginBottom: 12 }}>{error}</div>}
+        {message && <div className="auth-err" style={{ display: 'block', marginBottom: 12, background: 'var(--success-light)', borderColor: 'rgba(16,185,129,.2)', color: 'var(--success)' }}>{message}</div>}
+        <form onSubmit={handleSave}>
           <Field label="Brand Name" value={name} onChange={setName} placeholder="Your Brand Name" />
           <Field label="Industry" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
           <Field label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
 
           {/* Aliases */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1.5">Alternate Names / Aliases</label>
-            <p className="text-[10px] font-mono text-[var(--muted)] mb-2 leading-relaxed">AI platforms may refer to your brand differently. Add all variations so no mention is missed.</p>
+            <label className="flbl">Alternate Names / Aliases</label>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br/>Auto-generated from brand name &amp; website — add more if needed.</div>
             <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
               {aliases.map((a, i) => (
                 <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
@@ -303,8 +303,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
 
           {/* Manage Queries */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">Manage Queries</label>
-            <p className="text-[10px] font-mono text-[var(--muted)] mb-2">Add, remove, or bulk-manage tracked queries. <span className="font-bold">{queries.length} queries</span></p>
+            <label className="flbl">Manage Queries</label>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>Add, remove, or bulk-manage the queries tracked for this brand. <span style={{ fontWeight: 700 }}>{queries.length} / 250 prompts</span></div>
             <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
               {queries.map((q, i) => (
                 <span key={i} onClick={() => { if (selectMode) { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); } }}
@@ -352,7 +352,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
 
           {/* Competitors */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">Competitors</label>
+            <label className="flbl">Competitors</label>
             <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
               {competitors.map((c, i) => (
                 <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
@@ -372,8 +372,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
 
           {/* AI Platforms to Track */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1">AI Platforms to Track</label>
-            <p className="text-[10px] font-mono text-[var(--muted)] mb-2">Select which AI models to query when running keyword tracking.</p>
+            <label className="flbl">AI Platforms to Track</label>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI models to query when running keyword tracking.</div>
             <div className="flex flex-wrap gap-2">
               {ALL_PLATFORMS.map(p => (
                 <button key={p} type="button" onClick={() => togglePlatform(p)}
@@ -388,10 +388,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
             </div>
           </div>
 
-          <button type="submit" disabled={saving} className="w-full py-3 bg-[var(--primary)] text-white font-bold text-sm rounded-lg hover:bg-[var(--primary-hover)] transition disabled:opacity-50">
+          <button type="submit" disabled={saving} className="btn-primary" style={{ opacity: saving ? 0.5 : 1 }}>
             {saving ? 'SAVING...' : 'SAVE CHANGES'}
           </button>
-          <button type="button" onClick={handleDelete} className="w-full py-2.5 border border-[var(--red)] text-[var(--red)] text-xs font-bold rounded-lg hover:bg-[var(--danger-light)] transition">
+          <button type="button" onClick={handleDelete} style={{ width: '100%', padding: 10, background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--font)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginTop: 10, borderRadius: 'var(--radius-xs)' }}>
             DELETE BRAND
           </button>
         </form>
@@ -415,11 +415,9 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
 /* ── SHARED COMPONENTS ───────────────────── */
 function Field({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string }) {
   return (
-    <div>
-      <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-1.5">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3.5 py-[11px] rounded-md focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_var(--primary-light)] transition"
-        placeholder={placeholder} />
+    <div className="form-group">
+      <label className="flbl">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} className="finp" placeholder={placeholder} />
     </div>
   );
 }
