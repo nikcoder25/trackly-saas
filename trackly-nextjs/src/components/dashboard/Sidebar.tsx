@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+// Language removed from dashboard
 
 const navGroups = [
   {
@@ -51,7 +51,7 @@ const navGroups = [
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  // const t removed
 
   return (
     <>
@@ -134,7 +134,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </div>
           </div>
           <button onClick={logout} className="logout-btn">
-            {t.dashboard.signOut}
+            Sign out
           </button>
         </div>
       </aside>

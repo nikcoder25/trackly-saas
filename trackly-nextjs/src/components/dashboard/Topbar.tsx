@@ -2,15 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 import Link from 'next/link';
 
 interface Brand { id: string; name: string; }
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  // Language removed from dashboard
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
@@ -62,8 +60,6 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
       {/* Right side */}
       <div className="topbar-right">
-        <LanguageSwitcher variant="light" />
-
         <span className="user-badge" style={{ display: 'none' }}>{user?.email}</span>
         <style>{`@media(min-width:1024px){.user-badge{display:inline!important;}}`}</style>
 
@@ -95,7 +91,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         </Link>
 
         <button onClick={logout} className="logout-btn" style={{ display: 'none' }}>
-          {t.dashboard.signOut}
+          LOGOUT
         </button>
         <style>{`@media(min-width:768px){.logout-btn{display:inline!important;}}`}</style>
       </div>

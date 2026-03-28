@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+// Language removed from dashboard
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';
@@ -25,7 +25,7 @@ interface Brand {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  // Language removed
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
