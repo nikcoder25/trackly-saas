@@ -256,6 +256,44 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── BRAND SETUP PAGE ─────────────────── */
+.setup-add-btn {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.setup-add-btn:hover {
+  background: var(--primary-hover);
+}
+.setup-mono-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  transition: all .15s;
+}
+.setup-mono-btn:hover {
+  background: var(--bg4);
+  color: var(--text);
+}
+.setup-mono-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Responsive dashboard grids */
 @media (max-width: 768px) {
   .main { padding: 12px 16px 24px !important; }
