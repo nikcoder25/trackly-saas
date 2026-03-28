@@ -4,47 +4,21 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 
-interface Mention {
-  query: string;
-  platform: string;
-  mentioned: boolean;
-  recommended?: boolean;
-  sentiment?: string;
-  position?: number;
-  model?: string;
-  date?: string;
-  snippet?: string;
-  response?: string;
-  error?: string;
-}
-
-interface Run {
-  id?: string;
-  date?: string;
-  created_at?: string;
-  allResults?: Mention[];
-  results?: Mention[];
-}
-
-interface Brand {
-  id: string;
-  name: string;
-  mentions?: Mention[];
-  runs?: Run[];
-}
-
+interface Mention { query: string; platform: string; mentioned: boolean; recommended?: boolean; sentiment?: string; position?: number; model?: string; date?: string; snippet?: string; response?: string; error?: string; raw?: string; context?: string; listPosition?: number; errorMessage?: string; }
+interface Run { id?: string; date?: string; created_at?: string; time?: string; sov?: number; allResults?: Mention[]; results?: Mention[]; }
+interface Brand { id: string; name: string; mentions?: Mention[]; runs?: Run[]; }
 type FilterMode = 'all' | 'mentioned' | 'not_mentioned' | 'recommended' | 'errors';
 
 export default function MentionsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedRunIdx, setSelectedRunIdx] = useState<number>(0);
+  const [selectedRunId, setSelectedRunId] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [page, setPage] = useState(0);
   const [perPage, setPerPage] = useState(15);
 
   useEffect(() => {
@@ -54,65 +28,66 @@ export default function MentionsPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (selectedBrand?.runs?.length) setSelectedRunIdx(selectedBrand.runs.length - 1);
-    else setSelectedRunIdx(0);
-    setCurrentPage(1);
-    setExpandedItems(new Set());
-  }, [selectedBrand]);
+  const runs = useMemo(() => (selectedBrand?.runs || []).slice().reverse(), [selectedBrand]);
+  useEffect(() => { if (runs.length && !selectedRunId) setSelectedRunId(runs[0].id || '0'); }, [runs, selectedRunId]);
 
-  const runs = selectedBrand?.runs || [];
-  const currentRun = runs[selectedRunIdx] || null;
-  const results: Mention[] = currentRun?.allResults || currentRun?.results || selectedBrand?.mentions || [];
+  const currentRun = useMemo(() => {
+    if (!selectedRunId) return runs[0] || null;
+    return (selectedBrand?.runs || []).find(r => r.id === selectedRunId) || runs[0] || null;
+  }, [selectedRunId, runs, selectedBrand]);
 
-  const platforms = useMemo(() => {
-    const set = new Set<string>();
-    results.forEach(m => { if (m.platform) set.add(m.platform); });
-    return Array.from(set);
-  }, [results]);
+  const all: Mention[] = currentRun?.allResults || currentRun?.results || [];
+
+  const platformCounts = useMemo(() => {
+    const pc: Record<string, { t: number; f: number }> = {};
+    all.forEach(r => { if (!pc[r.platform]) pc[r.platform] = { t: 0, f: 0 }; pc[r.platform].t++; if (r.mentioned) pc[r.platform].f++; });
+    return pc;
+  }, [all]);
 
   const filtered = useMemo(() => {
-    return results.filter(m => {
-      if (filter === 'mentioned' && !m.mentioned) return false;
-      if (filter === 'not_mentioned' && m.mentioned) return false;
-      if (filter === 'recommended' && !m.recommended) return false;
-      if (filter === 'errors' && !m.error) return false;
-      if (platformFilter !== 'all' && m.platform !== platformFilter) return false;
+    return all.filter(r => {
+      if (platformFilter !== 'all' && r.platform !== platformFilter) return false;
+      if (filter === 'mentioned' && !r.mentioned) return false;
+      if (filter === 'not_mentioned' && (r.mentioned || r.error)) return false;
+      if (filter === 'recommended' && !r.recommended) return false;
+      if (filter === 'errors' && !r.error) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        if (!m.query?.toLowerCase().includes(q) && !m.platform?.toLowerCase().includes(q) && !m.response?.toLowerCase().includes(q)) return false;
+        const hay = `${r.platform} ${r.query} ${r.response || r.raw || r.context || r.snippet || ''} ${r.model || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [results, filter, platformFilter, searchQuery]);
+  }, [all, platformFilter, filter, searchQuery]);
 
-  useEffect(() => { setCurrentPage(1); setExpandedItems(new Set()); }, [filter, platformFilter, searchQuery, selectedRunIdx]);
+  useEffect(() => { setPage(0); setExpandedRow(null); }, [filter, platformFilter, searchQuery, selectedRunId]);
 
-  const mentionedCount = results.filter(m => m.mentioned).length;
-  const recommendedCount = results.filter(m => m.recommended).length;
-  const mentionRate = results.length ? Math.round((mentionedCount / results.length) * 100) : 0;
-  const recRate = results.length ? Math.round((recommendedCount / results.length) * 100) : 0;
+  const ok = all.filter(r => !r.error);
+  const found = all.filter(r => r.mentioned);
+  const rec = all.filter(r => r.recommended);
+  const sovPct = ok.length ? Math.round(found.length / ok.length * 100) : 0;
+  const recPct = ok.length ? Math.round(rec.length / ok.length * 100) : 0;
 
-  const totalPagesCalc = Math.max(1, Math.ceil(filtered.length / perPage));
-  const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
-
-  const toggleExpand = useCallback((idx: number) => {
-    setExpandedItems(prev => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n; });
-  }, []);
+  const effectivePerPage = perPage === 0 ? filtered.length : perPage;
+  const totalPages = effectivePerPage > 0 ? Math.ceil(filtered.length / effectivePerPage) : 1;
+  const from = page * effectivePerPage;
+  const slice = filtered.slice(from, from + effectivePerPage);
 
   function highlightBrand(text: string): string {
-    if (!selectedBrand || !text) return text;
+    if (!selectedBrand || !text) return escHtml(text);
     const escaped = selectedBrand.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(
-      new RegExp(`(${escaped})`, 'gi'),
-      '<mark style="background:rgba(255,97,84,.15);color:var(--primary);padding:1px 4px;border-radius:3px;font-weight:700">$1</mark>'
-    );
+    return escHtml(text).replace(new RegExp(`(${escaped})`, 'gi'),
+      '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
   }
+  function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   function exportCSV() {
     if (!filtered.length) return;
-    const rows = [['Query','Platform','Model','Status','Sentiment','Recommended','Position','Response'].join(',')];
-    filtered.forEach(m => rows.push([csvSafe(m.query||''), csvSafe(m.platform||''), csvSafe(m.model||''), m.mentioned?'Found':'Not Found', m.sentiment||'', m.recommended?'Yes':'No', String(m.position??''), csvSafe(m.response||m.snippet||'')].join(',')));
+    const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview'].join(',')];
+    filtered.forEach(m => {
+      const preview = (m.response || m.raw || m.context || m.snippet || '').replace(/[\n\r]/g,' ').substring(0, 300);
+      rows.push([csvSafe(m.platform), csvSafe(m.model||''), csvSafe(m.query), m.error?'ERROR':m.mentioned?'Found':'Not Found', m.sentiment||'neutral', m.recommended?'Yes':'No', csvSafe(preview)].join(','));
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
     a.download = `livesov-mentions-${new Date().toISOString().slice(0,10)}.csv`;
@@ -123,157 +98,156 @@ export default function MentionsPage() {
 
   return (
     <div>
-      {/* Header — matches production exactly */}
-      <div className="mt-header">
+      {/* Header — exact match */}
+      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
         <div>
-          <div className="mt-title">AI Mentions</div>
-          <div className="mt-subtitle">Track how AI platforms mention your brand across all queries.</div>
+          <div className="view-title">AI Mentions</div>
+          <div className="view-sub">Track how AI platforms mention your brand across all queries.</div>
         </div>
-        <div className="mt-header-right">
-          <select className="mt-run-sel" value={selectedRunIdx} onChange={e => setSelectedRunIdx(Number(e.target.value))}>
-            {runs.map((run, i) => {
-              const d = run.date ? new Date(run.date) : null;
-              const label = d ? `${d.toLocaleDateString(undefined,{month:'short',day:'numeric'})}, ${String(d.getHours()%12||12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${d.getHours()>=12?'PM':'AM'} · SOV` : `Run ${i+1}`;
-              return <option key={i} value={i}>{label}</option>;
+        <div style={{ display:'flex',gap:8,alignItems:'center' }}>
+          <select className="brand-select" style={{ width:210,margin:0,fontSize:11 }} value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)}>
+            {runs.map((r, i) => {
+              const d = new Date(r.time || r.date || 0);
+              const label = isNaN(d.getTime()) ? `Run ${i+1}` : `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} · SOV`;
+              return <option key={r.id || i} value={r.id || String(i)}>{label}</option>;
             })}
-            {runs.length === 0 && <option value={0}>No runs yet</option>}
+            {runs.length === 0 && <option value="">No runs yet</option>}
           </select>
-          <button className="mt-btn-export" onClick={exportCSV} disabled={!filtered.length}>↓ Export</button>
+          <button className="pbtn" onClick={exportCSV} disabled={!filtered.length}>↓ Export</button>
         </div>
       </div>
 
-      {results.length === 0 ? (
-        <div className="ov-card" style={{textAlign:'center',padding:48}}>
-          <p style={{color:'var(--muted)',fontSize:14}}>No mention data yet. Run queries from Brand Setup to see results here.</p>
-        </div>
+      {all.length === 0 ? (
+        <div className="card" style={{ textAlign:'center',padding:48 }}><p style={{ color:'var(--muted)' }}>No results yet — run queries to start tracking.</p></div>
       ) : (
         <>
-          {/* KPI Score Cards — 4 cards like production */}
-          <div className="mt-scores">
-            <div className="mt-score">
-              <div style={{fontSize:32,fontWeight:800,fontFamily:'var(--mono)',color:mentionRate>=50?'var(--green)':mentionRate>0?'var(--primary)':'var(--muted)',lineHeight:1}}>{mentionRate}%</div>
-              <div className="mt-score-title">Mention Rate</div>
+          {/* KPI Cards — 4 score cards */}
+          <div style={{ display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16 }}>
+            <div className="stat-card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)' }}>{sovPct}%</div>
+              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Mention Rate</div>
             </div>
-            <div className="mt-score">
-              <div style={{fontSize:28,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)',lineHeight:1}}>{mentionedCount}/{results.length}</div>
-              <div className="mt-score-title">Found / Total</div>
+            <div className="stat-card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)' }}>{found.length}/{ok.length}</div>
+              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Found / Total</div>
             </div>
-            <div className="mt-score">
-              <div style={{fontSize:28,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)',lineHeight:1}}>{platforms.length}</div>
-              <div className="mt-score-title">Platforms</div>
+            <div className="stat-card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)' }}>{Object.keys(platformCounts).length}</div>
+              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Platforms</div>
             </div>
-            <div className="mt-score">
-              <div style={{fontSize:32,fontWeight:800,fontFamily:'var(--mono)',color:recRate>0?'var(--primary)':'var(--muted)',lineHeight:1}}>{recRate}%</div>
-              <div className="mt-score-title">Recommended</div>
-            </div>
-          </div>
-
-          {/* Platform Filter Chips */}
-          <div className="mt-filterbar">
-            <div className="mt-platforms">
-              <button className={`mt-chip ${platformFilter==='all'?'mt-chip-active':''}`} onClick={()=>setPlatformFilter('all')}
-                style={platformFilter==='all'?{background:'var(--primary)',color:'#fff',borderColor:'var(--primary)'}:{}}>All</button>
-              {platforms.map(p => (
-                <button key={p} className={`mt-chip ${platformFilter===p?'mt-chip-active':''}`} onClick={()=>setPlatformFilter(platformFilter===p?'all':p)}>
-                  {p}
-                </button>
-              ))}
+            <div className="stat-card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--purple)' }}>{recPct}%</div>
+              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Recommended</div>
             </div>
           </div>
 
-          {/* Filter + Search Row */}
-          <div style={{display:'flex',gap:10,marginBottom:16,alignItems:'center',flexWrap:'wrap'}}>
-            <select className="mt-sel" value={filter} onChange={e=>setFilter(e.target.value as FilterMode)}>
+          {/* Platform filter chips */}
+          <div style={{ display:'flex',gap:5,marginBottom:14,flexWrap:'wrap' }}>
+            <span className={`plat-filter ${platformFilter==='all'?'active-filter':''}`} onClick={()=>{setPlatformFilter('all');}} style={{ cursor:'pointer' }}>All</span>
+            {Object.keys(PLATFORM_COLORS).map(p => {
+              const c = platformCounts[p];
+              return <span key={p} className={`plat-filter ${platformFilter===p?'active-filter':''}`} onClick={()=>setPlatformFilter(platformFilter===p?'all':p)} style={{ cursor:'pointer', opacity: c?.t ? 1 : 0.45 }}>{p}</span>;
+            })}
+          </div>
+
+          {/* Filter + search */}
+          <div style={{ display:'flex',gap:8,marginBottom:14,alignItems:'center' }}>
+            <select className="brand-select" style={{ width:140,margin:0 }} value={filter} onChange={e=>setFilter(e.target.value as FilterMode)}>
               <option value="all">All Results</option>
               <option value="mentioned">Mentioned Only</option>
               <option value="not_mentioned">Not Mentioned</option>
               <option value="recommended">Recommended</option>
               <option value="errors">Errors Only</option>
             </select>
-            <input className="mt-search" type="text" placeholder="Filter by keyword..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+            <input className="brand-select" type="text" placeholder="Filter by keyword..." style={{ width:160,margin:0 }} value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
           </div>
 
-          {/* Results Table */}
-          {paginated.length === 0 ? (
-            <div className="ov-card" style={{textAlign:'center',padding:32}}>
-              <p style={{color:'var(--muted)'}}>No results match your filters.</p>
-            </div>
+          {/* Results Table — matches legacy exactly */}
+          {filtered.length === 0 ? (
+            <div className="card" style={{ textAlign:'center',padding:48 }}><p style={{ color:'var(--muted)' }}>No results match your filters.</p></div>
           ) : (
-            <>
-              {/* Table Header */}
-              <div style={{display:'grid',gridTemplateColumns:'140px 1fr 120px 120px 80px',padding:'10px 18px',borderBottom:'2px solid var(--border)',background:'var(--bg)',fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.3px'}}>
-                <div>Platform</div>
-                <div>Query</div>
-                <div>Status</div>
-                <div>Sentiment</div>
-                <div>Position</div>
-              </div>
+            <div className="card" style={{ padding:0,overflow:'hidden' }}>
+              <table style={{ width:'100%',borderCollapse:'collapse',fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:'var(--bg3)' }}>
+                    <th className="th">Platform</th>
+                    <th className="th">Query</th>
+                    <th className="th">Status</th>
+                    <th className="th">Sentiment</th>
+                    <th className="th">Position</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {slice.map((r, i) => {
+                    const globalIdx = from + i;
+                    const isExpanded = expandedRow === globalIdx;
+                    const responseText = r.response || r.raw || r.context || r.snippet || '';
+                    const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : '—';
+                    const sentColor = r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
 
-              {/* Rows */}
-              {paginated.map((m, i) => {
-                const gIdx = (currentPage-1)*perPage + i;
-                const expanded = expandedItems.has(gIdx);
-                const hasResponse = !!(m.response || m.snippet);
-                return (
-                  <div key={gIdx} className={`mt-item${expanded?' mt-item-open':''}`} style={{'--accent-clr':PLATFORM_COLORS[m.platform]||'var(--border)'} as React.CSSProperties}>
-                    {/* Row */}
-                    <div className="mt-item-main" onClick={()=>toggleExpand(gIdx)} style={{cursor:hasResponse||m.error?'pointer':'default'}}>
-                      <div style={{display:'grid',gridTemplateColumns:'140px 1fr 120px 120px 80px',alignItems:'center',width:'100%'}}>
-                        <div className="mt-item-pname" style={{color:PLATFORM_COLORS[m.platform]||'var(--text)',fontWeight:700,fontSize:13}}>{m.platform}</div>
-                        <div className="mt-item-query" style={{fontSize:13,color:'var(--text)'}}>{m.query}</div>
-                        <div>
-                          {m.error ? <span className="mt-tag mt-tag-err">ERROR</span>
-                           : m.mentioned ? <span className="mt-tag mt-tag-yes">FOUND</span>
-                           : <span className="mt-tag mt-tag-no">NOT FOUND</span>}
-                        </div>
-                        <div style={{fontSize:12,color:m.sentiment==='positive'?'var(--green)':m.sentiment==='negative'?'var(--red)':'var(--muted)'}}>
-                          {m.sentiment ? m.sentiment.charAt(0).toUpperCase()+m.sentiment.slice(1) : '—'}
-                        </div>
-                        <div style={{fontSize:12,fontFamily:'var(--mono)',color:'var(--muted)'}}>
-                          {m.position ? `#${m.position}` : '—'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Expanded Detail — shows AI response with brand highlighted */}
-                    {expanded && (hasResponse || m.error) && (
-                      <div className="mt-detail">
-                        <div className="mt-detail-body" style={{paddingTop:16}}>
-                          {m.error ? (
-                            <div style={{color:'var(--red)',fontSize:13,padding:12,background:'rgba(239,68,68,.05)',borderRadius:'var(--radius-xs)',border:'1px solid rgba(239,68,68,.15)'}}>
-                              Error: {m.error}
-                            </div>
-                          ) : (
-                            <div style={{borderLeft:'3px solid var(--primary)',paddingLeft:16,fontSize:13,lineHeight:1.8,color:'var(--text)',whiteSpace:'pre-wrap'}}
-                              dangerouslySetInnerHTML={{__html: highlightBrand(m.response || m.snippet || '')}} />
-                          )}
-                          <div style={{fontSize:11,color:'var(--muted)',fontFamily:'var(--mono)',marginTop:12,paddingLeft:16}}>
-                            Model: {m.model||'—'} · Position: {m.position||'—'} · Sentiment: {m.sentiment||'neutral'} · Recommended: {m.recommended?'Yes':'No'}
+                    return (
+                      <tr key={globalIdx} className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
+                        <td className="td" colSpan={5} style={{ padding: 0 }}>
+                          {/* Main row */}
+                          <div style={{ display:'grid',gridTemplateColumns:'140px 1fr 120px 120px 80px',alignItems:'center',padding:'12px 14px' }}>
+                            <span style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</span>
+                            <span>{r.query}</span>
+                            <span>{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</span>
+                            <span>{!r.mentioned && !r.error ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</span>
+                            <span>{posLabel}</span>
                           </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
 
-              {/* Pagination — matches production "Showing 1-15 of 95 · Show: 15 25 50 100 · ‹ ›" */}
-              <div className="mt-pager">
-                <div style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}}>
-                  Showing {Math.min((currentPage-1)*perPage+1,filtered.length)}-{Math.min(currentPage*perPage,filtered.length)} of {filtered.length} results
-                </div>
-                <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:11,color:'var(--muted)'}}>Show:</span>
-                  {[15,25,50,100].map(n => (
-                    <button key={n} className={`mt-pg${perPage===n?' mt-pg-cur':''}`} onClick={()=>{setPerPage(n);setCurrentPage(1);}}>{n}</button>
-                  ))}
-                </div>
-                <div style={{display:'flex',gap:4}}>
-                  <button className="mt-pg" disabled={currentPage<=1} onClick={()=>setCurrentPage(p=>p-1)}>‹</button>
-                  <button className="mt-pg" disabled={currentPage>=totalPagesCalc} onClick={()=>setCurrentPage(p=>p+1)}>›</button>
-                </div>
-              </div>
-            </>
+                          {/* Expanded detail — shows full AI response */}
+                          {isExpanded && (
+                            <div style={{ padding:16,background:'var(--bg)',borderTop:'1px solid var(--bg3)' }}>
+                              {r.error ? (
+                                <div style={{ fontSize:12,color:'var(--red)',padding:12,background:'rgba(239,68,68,.05)',borderRadius:'var(--radius-xs)',border:'1px solid rgba(239,68,68,.15)' }}>
+                                  {r.errorMessage || r.error}
+                                </div>
+                              ) : (
+                                <div style={{ background:'var(--bg3)',padding:14,borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--text)',lineHeight:1.7,borderLeft:`3px solid ${r.mentioned ? 'var(--green)' : 'var(--red)'}`,whiteSpace:'pre-wrap' }}
+                                  dangerouslySetInnerHTML={{ __html: highlightBrand(responseText) }} />
+                              )}
+                              <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
+                                Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.sentiment || 'neutral'} · Recommended: {r.recommended ? 'Yes' : 'No'}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination — matches legacy exactly */}
+          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',flexWrap:'wrap',gap:8 }}>
+            <div style={{ fontFamily:'var(--mono)',fontSize:10,color:'var(--muted)' }}>
+              Showing {from+1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length} results
+            </div>
+            <div style={{ display:'flex',alignItems:'center',gap:8 }}>
+              <span style={{ fontSize:11,color:'var(--muted)' }}>Show:</span>
+              {[15, 25, 50, 100].map(n => (
+                <button key={n} onClick={() => { setPerPage(n); setPage(0); setExpandedRow(null); }}
+                  style={{ padding:'4px 10px',border:`1px solid ${perPage===n?'var(--primary)':'var(--border)'}`,background:perPage===n?'var(--primary)':'var(--bg2)',color:perPage===n?'#fff':'var(--muted)',fontFamily:'var(--mono)',fontSize:10,fontWeight:600,cursor:'pointer',borderRadius:'var(--radius-xs)' }}>{n}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Page numbers */}
+          {totalPages > 1 && (
+            <div style={{ display:'flex',justifyContent:'center',gap:4,marginTop:4 }}>
+              {page > 0 && <button className="pbtn" onClick={() => { setPage(p => p-1); setExpandedRow(null); }}>‹</button>}
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                const ps = Math.max(0, Math.min(page - 2, totalPages - 5));
+                const p = ps + i;
+                if (p >= totalPages) return null;
+                return <button key={p} className="pbtn" style={p===page ? { background:'var(--primary)',color:'#fff',borderColor:'var(--primary)' } : {}} onClick={() => { setPage(p); setExpandedRow(null); }}>{p+1}</button>;
+              })}
+              {page < totalPages-1 && <button className="pbtn" onClick={() => { setPage(p => p+1); setExpandedRow(null); }}>›</button>}
+            </div>
           )}
         </>
       )}
