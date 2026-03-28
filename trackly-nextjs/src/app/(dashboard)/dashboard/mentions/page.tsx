@@ -189,7 +189,7 @@ export default function MentionsPage() {
                       <tr key={globalIdx} className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
                         <td className="td" colSpan={5} style={{ padding: 0 }}>
                           {/* Main row */}
-                          <div style={{ display:'grid',gridTemplateColumns:'140px 1fr 120px 120px 80px',alignItems:'center',padding:'12px 14px' }}>
+                          <div style={{ display:'grid',gridTemplateColumns:'15% 1fr 12% 12% 8%',alignItems:'center',padding:'12px 14px' }}>
                             <span style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</span>
                             <span>{r.query}</span>
                             <span>{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</span>
