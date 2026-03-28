@@ -28,10 +28,54 @@ export default function QueryTrackerPage() {
 
   useEffect(() => {
     if (!brand) return;
+    // Try API first, fall back to computing from brand runs
     fetch(`/api/brands/${brand.id}/keyword-tracker?period=${period}`, { credentials: 'include' })
       .then(r => r.json())
-      .then(d => setKeywords(d.keywords || []))
-      .catch(() => setKeywords([]));
+      .then(d => {
+        if (d.keywords && d.keywords.length > 0) {
+          setKeywords(d.keywords);
+        } else {
+          // Compute from brand runs as fallback
+          computeFromRuns();
+        }
+      })
+      .catch(() => computeFromRuns());
+
+    function computeFromRuns() {
+      const runs = (brand as unknown as Record<string, unknown>).runs as Array<{ date?: string; time?: string; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }> | undefined;
+      if (!runs || !runs.length) { setKeywords([]); return; }
+      const map: Record<string, { keyword: string; totalRuns: number; mentionCount: number; platforms: Set<string>; posSum: number; posCount: number; lastDate: string; history: number[] }> = {};
+      runs.forEach(run => {
+        const results = run.allResults || [];
+        const queryMap: Record<string, { mentioned: number; total: number }> = {};
+        results.forEach(r => {
+          if (!queryMap[r.query]) queryMap[r.query] = { mentioned: 0, total: 0 };
+          queryMap[r.query].total++;
+          if (r.mentioned) queryMap[r.query].mentioned++;
+          if (!map[r.query]) map[r.query] = { keyword: r.query, totalRuns: 0, mentionCount: 0, platforms: new Set(), posSum: 0, posCount: 0, lastDate: '', history: [] };
+          map[r.query].platforms.add(r.platform);
+          if (r.position) { map[r.query].posSum += r.position; map[r.query].posCount++; }
+        });
+        Object.entries(queryMap).forEach(([q, s]) => {
+          if (!map[q]) return;
+          map[q].totalRuns += s.total;
+          map[q].mentionCount += s.mentioned;
+          map[q].lastDate = run.date || run.time || map[q].lastDate;
+          map[q].history.push(s.total > 0 ? Math.round(s.mentioned / s.total * 100) : 0);
+        });
+      });
+      const computed: KTKeyword[] = Object.values(map).map(m => ({
+        keyword: m.keyword,
+        mentionRate: m.totalRuns > 0 ? Math.round(m.mentionCount / m.totalRuns * 100) : 0,
+        change: m.history.length >= 2 ? m.history[m.history.length - 1] - m.history[m.history.length - 2] : null,
+        totalRuns: m.totalRuns,
+        platformCount: m.platforms.size,
+        avgPosition: m.posCount > 0 ? Math.round(m.posSum / m.posCount) : null,
+        lastUpdated: m.lastDate,
+        sparkline: m.history.length > 1 ? m.history.slice(-7) : undefined,
+      }));
+      setKeywords(computed);
+    }
   }, [brand, period]);
 
   const filtered = useMemo(() => {
