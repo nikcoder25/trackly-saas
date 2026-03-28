@@ -71,7 +71,48 @@
   }
 }
 
-/* ── GLOBAL DASHBOARD SPACING & POLISH ────────────── */
+/* ── DASHBOARD CARD BORDER FIX ─────────────── */
+/* Many dashboard pages use Tailwind classes like:
+   bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4/p-5
+   But Tailwind v4 may not generate border-[var(--border)] class.
+   These rules ensure ALL card-like elements in the dashboard get visible borders. */
+
+/* Any element with bg2 background + border inside .main gets proper border */
+.main [class*="bg-[var(--bg2)"][class*="border"][class*="rounded"] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--app-shadow) !important;
+}
+
+/* Fix stat-like cards in grids */
+.main [class*="grid"] > [class*="bg-[var(--bg2)"] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--app-shadow) !important;
+}
+
+/* Summary/filter bars */
+.main [class*="bg-[var(--bg2)"][class*="flex"][class*="items-center"] {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-xs) !important;
+}
+
+/* Spacing for filter/toolbar rows */
+.main [class*="flex"][class*="gap-3"],
+.main [class*="flex"][class*="gap-2"] {
+  gap: 12px;
+}
+
+/* Make all select/inputs in dashboard look consistent */
+.main select {
+  min-height: 36px;
+  padding: 6px 12px;
+}
+
+/* Period button groups — ensure gap */
+.main [class*="rounded-lg"][class*="overflow-hidden"] > button {
+  min-width: 40px;
+}
 /* These rules fix spacing, padding, and card consistency across ALL dashboard pages */
 
 /* Main content area proper padding */

@@ -206,11 +206,18 @@ export default function QueryTrackerPage() {
       )}
 
       {/* Period tabs + Filter */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <div className="flex bg-[var(--bg2)] border border-[var(--border)] rounded-lg overflow-hidden">
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           {(['day', 'week', 'month'] as Period[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 text-xs font-medium transition capitalize ${period === p ? 'bg-[var(--primary)] text-white' : 'text-[var(--muted)]'}`}
+              style={{
+                padding: '6px 14px', fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
+                borderRadius: 'var(--radius-xs)', cursor: 'pointer', transition: 'all .15s',
+                fontFamily: 'var(--font)',
+                border: period === p ? '1px solid var(--primary)' : '1px solid var(--border)',
+                background: period === p ? 'var(--primary)' : 'var(--bg2)',
+                color: period === p ? '#fff' : 'var(--muted)',
+              }}
             >{p}</button>
           ))}
         </div>

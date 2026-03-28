@@ -179,7 +179,7 @@ export default function PromptDetailsPage() {
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap gap-3 mb-6 items-center">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20, alignItems: 'center' }}>
         <select
           value={selectedQuery}
           onChange={e => setSelectedQuery(e.target.value)}
@@ -198,13 +198,17 @@ export default function PromptDetailsPage() {
           {platforms.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
 
-        <div className="flex bg-[var(--bg2)] border border-[var(--border)] rounded-lg overflow-hidden ml-auto">
-          {([7, 14, 30, 60, 90] as PeriodDays[]).map(d => (
-            <button key={d} onClick={() => setPeriodDays(d)}
-              className={`px-2.5 py-1.5 text-xs font-medium transition ${periodDays === d ? 'bg-[var(--primary)] text-white' : 'text-[var(--muted)]'}`}
-            >{d}d</button>
-          ))}
-        </div>
+        <select
+          value={periodDays}
+          onChange={e => setPeriodDays(Number(e.target.value) as PeriodDays)}
+          style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font)', marginLeft: 'auto' }}
+        >
+          <option value={7}>Last 7 days</option>
+          <option value={14}>Last 14 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={60}>Last 60 days</option>
+          <option value={90}>Last 90 days</option>
+        </select>
       </div>
 
       {queryResults.length === 0 ? (
