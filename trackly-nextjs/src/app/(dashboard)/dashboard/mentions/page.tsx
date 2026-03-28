@@ -57,6 +57,7 @@ export default function MentionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [retryingIdx, setRetryingIdx] = useState<number | null>(null);
+  const [perPage, setPerPage] = useState(15);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -202,12 +203,10 @@ export default function MentionsPage() {
     URL.revokeObjectURL(url);
   }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
-
-
-  const [perPage, setPerPage] = useState(15);
   const totalPagesCalc = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
     <div>
