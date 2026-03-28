@@ -57,15 +57,30 @@ export default function SetupPage() {
           <div className="view-title">Brand Setup</div>
           <div className="view-sub">Configure your brand details.</div>
         </div>
-        <button onClick={() => setShowCreate(true)} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-[0_1px_2px_rgba(255,97,84,.2)]">+ New Brand</button>
+        <button onClick={() => setShowCreate(true)} style={{
+          background: 'var(--primary)', color: '#fff', border: 'none',
+          padding: '9px 18px', borderRadius: 'var(--radius-xs)', fontSize: 13,
+          fontWeight: 700, fontFamily: 'var(--font)', cursor: 'pointer',
+          boxShadow: '0 1px 2px rgba(255,97,84,.2)', transition: 'all .15s',
+        }}>+ New Brand</button>
       </div>
 
       {brands.length > 0 && (
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {brands.map(b => (
-            <button key={b.id} onClick={() => { setSelectedBrand(b); setShowCreate(false); }}
-              className={`shrink-0 px-4 py-2 rounded-lg text-sm transition ${selectedBrand?.id === b.id && !showCreate ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--muted)] hover:bg-[var(--bg3)] border border-[var(--border)]'}`}>{b.name}</button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 8 }}>
+          {brands.map(b => {
+            const isActive = selectedBrand?.id === b.id && !showCreate;
+            return (
+              <button key={b.id} onClick={() => { setSelectedBrand(b); setShowCreate(false); }}
+                style={{
+                  flexShrink: 0, padding: '8px 16px', borderRadius: 'var(--radius-xs)',
+                  fontSize: 13, fontFamily: 'var(--font)', fontWeight: isActive ? 600 : 500,
+                  cursor: 'pointer', transition: 'all .15s',
+                  background: isActive ? 'var(--primary)' : 'var(--bg2)',
+                  color: isActive ? '#fff' : 'var(--muted)',
+                  border: isActive ? '1px solid var(--primary)' : '1px solid var(--border)',
+                }}>{b.name}</button>
+            );
+          })}
         </div>
       )}
 
