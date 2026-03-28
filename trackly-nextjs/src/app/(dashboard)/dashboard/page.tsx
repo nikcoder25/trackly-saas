@@ -345,10 +345,10 @@ export default function DashboardPage() {
               onChange={e => setPreset(e.target.value as typeof preset)}
               style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}
             >
-              <option value="all">All Sections ({allSections.length})</option>
-              <option value="founder">Founder View ({presetMap.founder.length})</option>
-              <option value="seo">SEO Manager ({presetMap.seo.length})</option>
-              <option value="agency">Agency View ({presetMap.agency.length})</option>
+              <option value="all">All Sections</option>
+              <option value="founder">Founder View</option>
+              <option value="seo">SEO Manager</option>
+              <option value="agency">Agency View</option>
             </select>
             {preset !== 'all' && (
               <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
@@ -370,36 +370,26 @@ export default function DashboardPage() {
         );
       })()}
 
-      {/* Alert Strip */}
+      {/* Alert Banners — coral cards matching production */}
       {alerts.length > 0 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
           {alerts.map((a, i) => (
-            <span key={i} className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium ${
-              a.type === 'danger' ? 'bg-[rgba(239,68,68,0.08)] text-[var(--red)]' :
-              a.type === 'warn' ? 'bg-[rgba(245,158,11,0.08)] text-[var(--amber)]' :
-              'bg-[rgba(59,130,246,0.08)] text-[var(--blue)]'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                a.type === 'danger' ? 'bg-[var(--red)]' : a.type === 'warn' ? 'bg-[var(--amber)]' : 'bg-[var(--blue)]'
-              }`} />
-              {a.text}
-            </span>
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+              borderRadius: 'var(--radius-xs)', borderLeft: `3px solid ${a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--amber)' : 'var(--blue)'}`,
+              background: a.type === 'danger' ? 'rgba(239,68,68,.06)' : a.type === 'warn' ? 'rgba(245,158,11,.06)' : 'rgba(59,130,246,.06)',
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--amber)' : 'var(--blue)' }} />
+              <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, flex: 1 }}>{a.text}</span>
+              <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', flexShrink: 0 }}>
+                {lastRun?.date ? (() => {
+                  const diff = Date.now() - new Date(lastRun.date).getTime();
+                  const days = Math.floor(diff / 86400000);
+                  return days > 0 ? `${days}d ago` : 'today';
+                })() : ''}
+              </span>
+            </div>
           ))}
-        </div>
-      )}
-
-      {/* API Health Banner — matching legacy format */}
-      {apiTotalResponses > 0 && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-lg px-4 py-2.5 mb-4 flex items-center gap-3 text-[11px] flex-wrap">
-          <span className="w-2 h-2 rounded-full" style={{ background: apiHealthColor }} />
-          <span className="text-[var(--text)] font-medium"><strong>{apiHealthy}/{apiTotal}</strong> platforms healthy</span>
-          <span className="text-[var(--muted)]">·</span>
-          <span className="text-[var(--muted)]"><strong>{apiTotalResponses - apiErrors}</strong> valid responses</span>
-          <span className="text-[var(--muted)]">·</span>
-          <span style={{ color: apiErrors > 0 ? 'var(--red)' : 'var(--green)' }}>{apiErrors === 0 ? '✓ No errors' : `${apiErrors} error${apiErrors !== 1 ? 's' : ''}`}</span>
-          {apiErrors > 0 && (
-            <Link href="/dashboard/activity" className="text-[var(--red)] font-mono text-[10px] hover:underline ml-auto no-underline">View Errors →</Link>
-          )}
         </div>
       )}
 
@@ -443,6 +433,21 @@ export default function DashboardPage() {
           })()} />
         </div>
       </div>
+
+      {/* API Health Status Bar — between hero and score cards like production */}
+      {show('health') && apiTotalResponses > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 14, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: apiHealthColor, flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{apiHealthy}/{apiTotal} platforms healthy</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>·</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{apiTotalResponses - apiErrors} ok</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>·</span>
+          <span style={{ fontSize: 11, color: apiErrors > 0 ? 'var(--red)' : 'var(--green)' }}>{apiErrors} errors</span>
+          {apiErrors > 0 && (
+            <Link href="/dashboard/activity" style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--red)', textDecoration: 'none', marginLeft: 'auto' }}>View Errors →</Link>
+          )}
+        </div>
+      )}
 
       {/* GEO Score / AI Sentiment / AI Recommends You */}
       {show('scores') && (
@@ -579,7 +584,8 @@ export default function DashboardPage() {
           const pd = platforms[name] || {};
           const pSov = (pd as Record<string, number>).sov || 0;
           const pTotal = (pd as Record<string, number>).total || 0;
-          const isActive = pTotal > 0;
+          const pMentions = (pd as Record<string, number>).mentions || 0;
+          const isActive = pTotal > 0 || pSov > 0 || pMentions > 0;
           return (
             <div key={name} className="stat-card" style={{ textAlign: 'center', borderTop: `3px solid ${color}`, opacity: isActive ? 1 : 0.6 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{name}</div>
