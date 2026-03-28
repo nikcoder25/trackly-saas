@@ -276,21 +276,21 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           <Field label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
 
           {/* Aliases */}
-          <div>
+          <div style={{ marginBottom: 16 }}>
             <label className="flbl">Alternate Names / Aliases</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br/>Auto-generated from brand name &amp; website — add more if needed.</div>
-            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 28 }}>
               {aliases.map((a, i) => (
-                <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
-                  {a} <button type="button" onClick={() => setAliases(aliases.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg3)', color: 'var(--text)', fontSize: 12, padding: '6px 12px', borderRadius: 100, border: '1px solid var(--border)' }}>
+                  {a} <button type="button" onClick={() => setAliases(aliases.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}>&times;</button>
                 </span>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 8 }}>
               <input value={aliasInput} onChange={e => setAliasInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAlias())}
-                placeholder="Add alternate name..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
-              <button type="button" onClick={addAlias} className="px-3 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
-              <button type="button" onClick={autoGenerateAliases} className="px-3 py-2 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md hover:text-[var(--text)]">AUTO-GENERATE</button>
+                placeholder="Add alternate name..." className="finp" style={{ flex: 1, margin: 0 }} />
+              <button type="button" onClick={addAlias} className="pbtn" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', whiteSpace: 'nowrap' }}>+ Add</button>
+              <button type="button" onClick={autoGenerateAliases} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', whiteSpace: 'nowrap' }}>AUTO-GENERATE</button>
             </div>
           </div>
 
@@ -302,68 +302,64 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           </div>
 
           {/* Manage Queries */}
-          <div>
+          <div style={{ marginBottom: 16 }}>
             <label className="flbl">Manage Queries</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 6, lineHeight: 1.6 }}>Add, remove, or bulk-manage the queries tracked for this brand. <span style={{ fontWeight: 700 }}>{queries.length} / 250 prompts</span></div>
-            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 28 }}>
               {queries.map((q, i) => (
                 <span key={i} onClick={() => { if (selectMode) { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); } }}
-                  className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border cursor-default transition ${
-                    selectMode && selected.has(i) ? 'bg-[var(--primary-light)] border-[var(--primary-border)] text-[var(--primary)]'
-                      : 'bg-[var(--bg3)] border-[var(--border)] text-[var(--text)]'
-                  } ${selectMode ? 'cursor-pointer' : ''}`}>
-                  {selectMode && <span className="text-[10px]">{selected.has(i) ? '\u2611' : '\u2610'}</span>}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '6px 12px', borderRadius: 100, cursor: selectMode ? 'pointer' : 'default', background: selectMode && selected.has(i) ? 'var(--primary-light)' : 'var(--bg3)', border: `1px solid ${selectMode && selected.has(i) ? 'var(--primary-border)' : 'var(--border)'}`, color: selectMode && selected.has(i) ? 'var(--primary)' : 'var(--text)' }}>
+                  {selectMode && <span style={{ fontSize: 10 }}>{selected.has(i) ? '☑' : '☐'}</span>}
                   {q}
-                  {!selectMode && <button type="button" onClick={() => setQueries(queries.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>}
+                  {!selectMode && <button type="button" onClick={() => setQueries(queries.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}>&times;</button>}
                 </span>
               ))}
             </div>
 
             {/* Action buttons */}
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              <button type="button" onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">{selectMode ? 'CANCEL' : '\u2610 SELECT'}</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              <button type="button" onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>{selectMode ? 'CANCEL' : '☐ SELECT'}</button>
               {selectMode && <>
-                <button type="button" onClick={() => setSelected(new Set(queries.map((_, i) => i)))} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">SELECT ALL</button>
-                <button type="button" onClick={() => setSelected(new Set())} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">DESELECT ALL</button>
-                <button type="button" onClick={deleteSelected} disabled={selected.size === 0} className="px-3 py-1.5 border border-[var(--red)] text-[var(--red)] text-[10px] font-mono rounded-md disabled:opacity-40">DELETE SELECTED ({selected.size})</button>
+                <button type="button" onClick={() => setSelected(new Set(queries.map((_, i) => i)))} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>Select All</button>
+                <button type="button" onClick={() => setSelected(new Set())} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>Deselect All</button>
+                <button type="button" onClick={deleteSelected} disabled={selected.size === 0} style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', opacity: selected.size === 0 ? 0.4 : 1 }}>DELETE SELECTED ({selected.size})</button>
               </>}
-              <button type="button" onClick={() => setShowBulk(!showBulk)} className="px-3 py-1.5 bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] text-[10px] font-mono rounded-md">BULK ADD</button>
-              <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }} className="px-3 py-1.5 border border-[var(--red)] text-[var(--red)] text-[10px] font-mono rounded-md">CLEAR ALL</button>
+              <button type="button" onClick={() => setShowBulk(!showBulk)} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>BULK ADD</button>
+              <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }} style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>CLEAR ALL</button>
             </div>
 
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 8 }}>
               <input value={queryInput} onChange={e => setQueryInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addQuery())}
-                placeholder="Add a query..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
-              <button type="button" onClick={addQuery} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+                placeholder="Add a query..." className="finp" style={{ flex: 1, margin: 0 }} />
+              <button type="button" onClick={addQuery} className="pbtn" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', whiteSpace: 'nowrap' }}>+ Add</button>
             </div>
 
             {showBulk && (
-              <div className="mt-2">
+              <div style={{ marginTop: 8 }}>
                 <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={5}
-                  placeholder="Paste queries, one per line..."
-                  className="w-full bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] font-mono text-[11px] p-2.5 rounded-md resize-y" />
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-[10px] font-mono text-[var(--muted)]">{bulkText.split('\n').filter(Boolean).length} queries detected</span>
-                  <button type="button" onClick={bulkAddQueries} className="px-4 py-1.5 bg-[var(--green)] text-white text-[10px] font-mono font-bold rounded-md">ADD ALL</button>
+                  placeholder="Paste queries, one per line..." className="finp" style={{ width: '100%', minHeight: 120, resize: 'vertical', fontFamily: 'var(--mono)', fontSize: 11 }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{bulkText.split('\n').filter(Boolean).length} queries detected</span>
+                  <button type="button" onClick={bulkAddQueries} style={{ background: 'var(--green)', border: 'none', color: '#fff', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 16px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', fontWeight: 700 }}>ADD ALL</button>
                 </div>
               </div>
             )}
           </div>
 
           {/* Competitors */}
-          <div>
+          <div style={{ marginBottom: 16 }}>
             <label className="flbl">Competitors</label>
-            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 28 }}>
               {competitors.map((c, i) => (
-                <span key={i} className="inline-flex items-center gap-1 bg-[var(--bg3)] text-[var(--text)] text-xs px-3 py-1.5 rounded-full border border-[var(--border)]">
-                  {c} <button type="button" onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))} className="text-[var(--muted)] hover:text-[var(--red)]">&times;</button>
+                <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg3)', color: 'var(--text)', fontSize: 12, padding: '6px 12px', borderRadius: 100, border: '1px solid var(--border)' }}>
+                  {c} <button type="button" onClick={() => setCompetitors(competitors.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}>&times;</button>
                 </span>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 8 }}>
               <input value={compInput} onChange={e => setCompInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addComp())}
-                placeholder="Add competitor name..." className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm px-3 py-2 rounded-md focus:border-[var(--primary)] focus:outline-none" />
-              <button type="button" onClick={addComp} className="px-4 py-2 bg-[var(--primary)] text-white text-xs font-bold rounded-md">+ Add</button>
+                placeholder="Add competitor name..." className="finp" style={{ flex: 1, margin: 0 }} />
+              <button type="button" onClick={addComp} className="pbtn" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', whiteSpace: 'nowrap' }}>+ Add</button>
             </div>
           </div>
 
@@ -371,18 +367,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           <Field label="SOV Goal (%)" value={String(goal)} onChange={v => setGoal(Number(v))} placeholder="70" type="number" />
 
           {/* AI Platforms to Track */}
-          <div>
+          <div style={{ marginBottom: 16 }}>
             <label className="flbl">AI Platforms to Track</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI models to query when running keyword tracking.</div>
-            <div className="flex flex-wrap gap-2">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {ALL_PLATFORMS.map(p => (
                 <button key={p} type="button" onClick={() => togglePlatform(p)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold border transition ${
-                    selectedPlatforms.includes(p) ? 'bg-[var(--bg3)] border-[var(--text-secondary)] text-[var(--text)]' : 'bg-[var(--bg2)] border-[var(--border)] text-[var(--muted)]'
-                  }`}>
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: PLATFORM_COLORS[p] }} />
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 100, fontSize: 12, fontWeight: 600, border: `1px solid ${selectedPlatforms.includes(p) ? 'var(--text-secondary)' : 'var(--border)'}`, background: selectedPlatforms.includes(p) ? 'var(--bg3)' : 'var(--bg2)', color: selectedPlatforms.includes(p) ? 'var(--text)' : 'var(--muted)', cursor: 'pointer', transition: 'all .15s' }}>
+                  <input type="checkbox" checked={selectedPlatforms.includes(p)} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
                   {p}
-                  {selectedPlatforms.includes(p) && <span className="text-[var(--green)]">{'\u2713'}</span>}
                 </button>
               ))}
             </div>
