@@ -71,49 +71,28 @@
   }
 }
 
-/* ── DASHBOARD CARD BORDER FIX ─────────────── */
-/* Many dashboard pages use Tailwind classes like:
-   bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4/p-5
-   But Tailwind v4 may not generate border-[var(--border)] class.
-   These rules ensure ALL card-like elements in the dashboard get visible borders. */
+/* ── DASHBOARD GLOBAL STYLES ─────────────── */
+/* Fix for Tailwind v4 not rendering border colors properly.
+   The legacy CSS variables are all loaded, but Tailwind's border
+   utility only sets width, not color. These rules ensure all
+   dashboard elements get proper borders and spacing. */
 
-/* Any element with bg2 background + border inside .main gets proper border */
-.main [class*="bg-[var(--bg2)"][class*="border"][class*="rounded"] {
-  border: 1px solid var(--border) !important;
+/* CRITICAL FIX: Tailwind .border class only sets width in v4.
+   Force border-color on ALL elements with .border class inside .main */
+.main .border {
+  border-color: var(--border) !important;
+}
+
+/* All rounded-xl cards in main get proper shadow */
+.main .rounded-xl {
   border-radius: var(--radius) !important;
-  box-shadow: var(--app-shadow) !important;
+  box-shadow: var(--app-shadow);
 }
 
-/* Fix stat-like cards in grids */
-.main [class*="grid"] > [class*="bg-[var(--bg2)"] {
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
-  box-shadow: var(--app-shadow) !important;
+/* Grid gaps — Tailwind gap-3 = 12px, gap-3.5 = 14px, gap-4 = 16px */
+.main .gap-3\.5, .main .gap-4 {
+  gap: 14px;
 }
-
-/* Summary/filter bars */
-.main [class*="bg-[var(--bg2)"][class*="flex"][class*="items-center"] {
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius-xs) !important;
-}
-
-/* Spacing for filter/toolbar rows */
-.main [class*="flex"][class*="gap-3"],
-.main [class*="flex"][class*="gap-2"] {
-  gap: 12px;
-}
-
-/* Make all select/inputs in dashboard look consistent */
-.main select {
-  min-height: 36px;
-  padding: 6px 12px;
-}
-
-/* Period button groups — ensure gap */
-.main [class*="rounded-lg"][class*="overflow-hidden"] > button {
-  min-width: 40px;
-}
-/* These rules fix spacing, padding, and card consistency across ALL dashboard pages */
 
 /* Main content area proper padding */
 .main {
@@ -161,26 +140,56 @@
   margin-bottom: 14px;
 }
 
+/* Ensure p-4 and p-5 classes render proper padding */
+.main .p-4 { padding: 16px !important; }
+.main .p-5 { padding: 20px !important; }
+.main .p-8 { padding: 32px !important; }
+.main .mb-4 { margin-bottom: 16px !important; }
+.main .mb-6 { margin-bottom: 24px !important; }
+
+/* Fix KPI/stat card text sizing */
+.main .text-2xl { font-size: 24px !important; line-height: 1.2 !important; }
+.main .text-xl { font-size: 20px !important; }
+.main .text-lg { font-size: 18px !important; }
+.main .text-sm { font-size: 14px !important; }
+.main .text-xs { font-size: 12px !important; }
+
+/* Font weights */
+.main .font-bold { font-weight: 700 !important; }
+.main .font-extrabold { font-weight: 800 !important; }
+.main .font-mono { font-family: var(--mono) !important; }
+
 /* Tables inside cards */
 .tbl { width: 100%; border-collapse: collapse; }
 .tbl th { padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: .3px; color: var(--muted); text-transform: uppercase; border-bottom: 2px solid var(--border); text-align: left; background: var(--bg); }
 .tbl td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
 .tbl tr:hover td { background: var(--bg3); }
 
+/* Also fix tables using Tailwind classes */
+.main table { width: 100%; border-collapse: collapse; }
+.main table th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: var(--muted);
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--border);
+  text-align: left;
+  background: var(--bg);
+}
+.main table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.main table tr:hover td { background: var(--bg3); }
+
 /* Badges */
 .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full); letter-spacing: .3px; }
 .badge.pos { background: rgba(16,185,129,.08); color: var(--green); border: 1px solid rgba(16,185,129,.2); }
 .badge.neg { background: var(--danger-light); color: var(--red); border: 1px solid rgba(239,68,68,.2); }
 .badge.neu { background: var(--bg3); color: var(--muted); border: 1px solid var(--border); }
-
-/* Filter bars spacing */
-.filter-bar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
 
 /* Buttons consistent */
 .btn-secondary {
@@ -211,18 +220,14 @@
 }
 .pill-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary-border); }
 
-/* Global spacing between sections in dashboard pages */
-.main > div > .card,
-.main > div > .stat-grid,
-.main > div > div[style*="grid"] {
-  margin-bottom: 16px;
-}
-
 /* Select/Input form elements in dashboard */
 .main select,
 .main input[type="text"],
 .main input[type="email"],
-.main input[type="search"] {
+.main input[type="search"],
+.main input[type="number"],
+.main input[type="url"],
+.main textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
@@ -234,12 +239,26 @@
   transition: border-color .15s;
 }
 .main select:focus,
-.main input:focus {
+.main input:focus,
+.main textarea:focus {
   border-color: var(--primary);
+}
+
+/* Space between sections in dashboard */
+.main > div > div[class*="grid"],
+.main > div > div[class*="space-y"] {
+  margin-bottom: 16px;
+}
+
+/* Fix overflow-x on tables */
+.main .overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Responsive dashboard grids */
 @media (max-width: 768px) {
   .main { padding: 12px 16px 24px !important; }
   .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .main table { min-width: 600px; }
 }
