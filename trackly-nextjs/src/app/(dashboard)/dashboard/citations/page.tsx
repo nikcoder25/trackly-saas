@@ -1,84 +1,108 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
-interface Brand { id: string; name: string; }
-interface CitationDomain { domain: string; count: number; percentage: number; }
-interface CitationData { total_citations: number; unique_domains: number; brand_domain_citations: number; top_domains: CitationDomain[]; }
+interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
+interface CitationData { domains: Record<string, number>; totalCitations: number; ownDomain?: number; ownDomainName?: string; }
 
 export default function CitationsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
-  const [data, setData] = useState<CitationData | null>(null);
+  const [brand, setBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
+  const [citData, setCitData] = useState<CitationData | null>(null);
 
   useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' }).then(r => r.json()).then(d => {
-      const b = d.brands || []; setBrands(b); if (b.length) setSelectedBrand(b[0]); setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch('/api/brands', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (!selectedBrand) return;
-    setLoading(true);
-    fetch(`/api/brands/${selectedBrand.id}/citation-analysis`, { credentials: 'include' })
-      .then(r => r.json()).then(d => { setData(d); setLoading(false); })
-      .catch(() => { setData(null); setLoading(false); });
-  }, [selectedBrand]);
+    if (!brand) return;
+    fetch(`/api/brands/${brand.id}/citation-analysis`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setCitData(d))
+      .catch(() => {
+        // Compute from runs if API not available
+        const domains: Record<string, number> = {};
+        (brand.runs || []).forEach(run => {
+          (run.allResults || []).forEach(r => {
+            (r.citations || []).forEach(url => {
+              try { const d = new URL(url).hostname.replace(/^www\./, ''); domains[d] = (domains[d] || 0) + 1; } catch {}
+            });
+          });
+        });
+        const total = Object.values(domains).reduce((s, n) => s + n, 0);
+        setCitData({ domains, totalCitations: total });
+      });
+  }, [brand]);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
+  const sortedDomains = useMemo(() => {
+    if (!citData) return [];
+    return Object.entries(citData.domains).sort((a, b) => b[1] - a[1]);
+  }, [citData]);
 
-  const kpis = [
-    { label: 'Total Citations', value: data?.total_citations ?? 0, color: 'var(--primary)' },
-    { label: 'Unique Domains', value: data?.unique_domains ?? 0, color: 'var(--amber)' },
-    { label: 'Brand Domain Citations', value: data?.brand_domain_citations ?? 0, color: 'var(--green)' },
-  ];
+  const domainCount = sortedDomains.length;
+  const totalCitations = citData?.totalCitations || sortedDomains.reduce((s, [, n]) => s + n, 0);
+  const ownDomainCount = citData?.ownDomain || 0;
+  const maxCount = sortedDomains.length > 0 ? sortedDomains[0][1] : 1;
 
-  const topDomains = data?.top_domains || [];
-  const maxCount = topDomains.length > 0 ? Math.max(...topDomains.map(d => d.count)) : 1;
+  // Detect own domain (brand website)
+  const ownDomainName = citData?.ownDomainName || '';
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Citation Analysis</h1>
-      <p className="text-[var(--muted)] mb-6">Which domains AI platforms cite when answering queries about your industry.</p>
-
-      {brands.length > 1 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">{brands.map(b => (
-          <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--muted)] border border-[var(--border)]'}`}>{b.name}</button>
-        ))}</div>
-      )}
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        {kpis.map(k => (
-          <div key={k.label} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] p-5">
-            <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--muted)] mb-1">{k.label}</p>
-            <p className="text-3xl font-bold" style={{ color: k.color }}>{k.value.toLocaleString()}</p>
-          </div>
-        ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+        <div>
+          <div className="view-title">Citation Analysis</div>
+          <div className="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
+        </div>
       </div>
 
-      {/* Top Cited Domains */}
-      <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] p-5">
-        <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--muted)] mb-4">Top Cited Domains</p>
-        {topDomains.length === 0 ? (
-          <p className="text-[var(--muted)] text-sm text-center py-6">No citation data available yet. Run queries to start collecting citation data.</p>
+      {/* KPI Cards — 3 score cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+        <div className="score-card">
+          <div className="score-val" style={{ fontSize: 24, color: 'var(--blue)' }}>{domainCount}</div>
+          <div className="score-label">Domains Cited</div>
+        </div>
+        <div className="score-card">
+          <div className="score-val" style={{ fontSize: 24 }}>{totalCitations}</div>
+          <div className="score-label">Total Citations</div>
+        </div>
+        <div className="score-card">
+          <div className="score-val" style={{ fontSize: 24, color: 'var(--primary)' }}>{ownDomainCount}</div>
+          <div className="score-label">Your Domain Cited</div>
+        </div>
+      </div>
+
+      {/* Top Cited Domains — horizontal bar chart */}
+      <div className="card" style={{ padding: '20px 24px' }}>
+        <div className="section-title">Top Cited Domains</div>
+        {sortedDomains.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
+            No citation data yet. Run queries on platforms that provide source links (Perplexity, Gemini).
+          </div>
         ) : (
-          <div className="space-y-3">
-            {topDomains.map((d, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <span className="text-sm font-medium text-[var(--text)] w-5 text-right">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-[var(--text)] truncate">{d.domain}</span>
-                    <span className="text-xs text-[var(--muted)] ml-2 shrink-0">{d.count} ({d.percentage.toFixed(1)}%)</span>
+          <div>
+            {sortedDomains.map(([domain, count], i) => {
+              const isOwn = ownDomainName && domain.includes(ownDomainName);
+              const barWidth = Math.max((count / maxCount) * 100, 4);
+              return (
+                <div key={domain} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < sortedDomains.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  {isOwn && <span style={{ color: 'var(--primary)', fontSize: 14 }}>★</span>}
+                  <div style={{ minWidth: 180, maxWidth: 220, fontSize: 13, fontWeight: isOwn ? 700 : 500, color: isOwn ? 'var(--primary)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {isOwn && '★ '}{domain}
                   </div>
-                  <div className="w-full bg-[var(--bg3)] rounded-full h-2">
-                    <div className="h-2 rounded-full bg-[var(--primary)]" style={{ width: `${(d.count / maxCount) * 100}%` }} />
+                  <div style={{ flex: 1, height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 3, width: `${barWidth}%`, background: isOwn ? 'var(--green)' : 'var(--blue)', transition: 'width .3s' }} />
                   </div>
+                  <div style={{ minWidth: 28, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--text)' }}>{count}</div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
