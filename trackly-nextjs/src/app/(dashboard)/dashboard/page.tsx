@@ -362,6 +362,23 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* COMPARE BANNER — shows when vs Last Week or vs Last Month is active */}
+      {compareRun && compareMode !== 'current' && (
+        <div style={{padding:'10px 16px',marginBottom:14,background:'var(--primary-light)',border:'1px solid var(--primary-border)',borderRadius:'var(--radius-xs)',fontSize:12,fontFamily:'var(--mono)',color:'var(--primary)',display:'flex',alignItems:'center',gap:8}}>
+          <span>📊</span>
+          Comparing with run from {compareRun.date ? new Date(compareRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '?'}:
+          SOV was {compareRun.sov ?? 0}% → now {sov}%
+          <span style={{fontWeight:700,color:sov-(compareRun.sov??0)>=0?'var(--green)':'var(--red)'}}>
+            ({sov-(compareRun.sov??0)>=0?'+':''}{sov-(compareRun.sov??0)}%)
+          </span>
+        </div>
+      )}
+      {compareMode !== 'current' && !compareRun && (
+        <div style={{padding:'10px 16px',marginBottom:14,background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--muted)'}}>
+          No comparison data available for {compareMode === 'week' ? 'last week' : 'last month'}. Need more runs to compare.
+        </div>
+      )}
+
       {/* API HEALTH */}
       {show('health')&&apiTotalResponses>0&&<div className="ov-health"><span className="ov-health-dot" style={{background:apiHealthColor}}/><span className="ov-health-text">{apiHealthy}/{apiTotal} platforms healthy · {apiTotalResponses-apiErrors} ok · {apiErrors} errors</span></div>}
 
