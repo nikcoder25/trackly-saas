@@ -1,156 +1,136 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import dynamic from 'next/dynamic';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
-const SovChart = dynamic(() => import('@/components/dashboard/SovChart'), { ssr: false });
-
-interface Brand {
-  id: string; name: string;
-  sovHistory?: Array<{ date: string; sov: number; platforms?: Record<string, number> }>;
-  runs?: Array<{ date?: string; sov?: number; platforms?: Record<string, { sov?: number }> }>;
-}
+interface SovPoint { date: string; overall: number; platforms?: Record<string, number>; }
+interface Run { date?: string; time?: string; sov?: number; platforms?: Record<string, { sov?: number }> }
+interface Brand { id: string; name: string; sovHistory?: SovPoint[]; runs?: Run[]; }
 
 export default function TrendsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [brand, setBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' }).then(r => r.json()).then(d => {
-      const b = d.brands || []; setBrands(b); if (b.length) setSelectedBrand(b[0]); setLoading(false);
-    }).catch(() => setLoading(false));
+    fetch('/api/brands', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
-  const sovHistory = selectedBrand?.sovHistory || [];
-  const trendData = sovHistory.length > 0 ? sovHistory
-    : (selectedBrand?.runs || []).filter(r => r.date && r.sov !== undefined).map(r => ({
-        date: r.date!, sov: r.sov!,
-        platforms: r.platforms ? Object.fromEntries(Object.entries(r.platforms).map(([k, v]) => [k, v.sov || 0])) : {},
-      }));
+  // Build history from sovHistory or runs
+  const history: SovPoint[] = useMemo(() => {
+    if (brand?.sovHistory?.length) return brand.sovHistory;
+    return (brand?.runs || []).filter(r => r.date && r.sov !== undefined).map(r => ({
+      date: r.date!,
+      overall: r.sov!,
+      platforms: r.platforms ? Object.fromEntries(Object.entries(r.platforms).map(([k, v]) => [k, v.sov || 0])) : {},
+    }));
+  }, [brand]);
 
-  // Trend KPIs
-  const currentSov = trendData.length > 0 ? trendData[trendData.length - 1].sov : 0;
-  const prevSov = trendData.length >= 2 ? trendData[trendData.length - 2].sov : null;
-  const sovChange = prevSov !== null ? currentSov - prevSov : null;
-  const peakSov = trendData.length > 0 ? Math.max(...trendData.map(d => d.sov)) : 0;
-  const avgSov = trendData.length > 0 ? Math.round(trendData.reduce((s, d) => s + d.sov, 0) / trendData.length) : 0;
+  // All platforms across history
+  const allPlatforms = useMemo(() => {
+    const set = new Set<string>();
+    history.forEach(h => { if (h.platforms) Object.keys(h.platforms).forEach(p => set.add(p)); });
+    return [...set];
+  }, [history]);
 
-  // Per-platform trend direction
-  const platformTrends = useMemo(() => {
-    if (trendData.length < 2) return {};
-    const latest = trendData[trendData.length - 1];
-    const prev = trendData[trendData.length - 2];
-    const trends: Record<string, number> = {};
-    if (latest.platforms && prev.platforms) {
-      Object.keys(latest.platforms).forEach(p => {
-        const cur = latest.platforms?.[p] || 0;
-        const pre = prev.platforms?.[p] || 0;
-        trends[p] = cur - pre;
-      });
-    }
-    return trends;
-  }, [trendData]);
-
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
     <div>
-      <h1 className="text-2xl font-extrabold tracking-tight text-[var(--text)] mb-1">SOV Trends</h1>
-      <p className="text-[13px] text-[var(--muted)] mb-4">Share of Voice over time &mdash; overall and per platform.</p>
-      {brands.length > 1 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">{brands.map(b => (
-          <button key={b.id} onClick={() => setSelectedBrand(b)} className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--muted)] border border-[var(--border)]'}`}>{b.name}</button>
-        ))}</div>
-      )}
+      <div className="view-title">SOV Trends</div>
+      <div className="view-sub">Share of Voice over time — overall and per platform.</div>
 
-      {trendData.length === 0 ? (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-8 text-center"><p className="text-[var(--muted)]">Trend data will appear after multiple query runs.</p></div>
-      ) : (
-        <div className="space-y-4">
-          {/* KPI Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
-              <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">Current SOV</p>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-2xl font-extrabold font-mono ${currentSov >= 50 ? 'text-[var(--green)]' : currentSov > 0 ? 'text-[var(--amber)]' : 'text-[var(--muted)]'}`}>{currentSov}%</span>
-                {sovChange !== null && sovChange !== 0 && (
-                  <span className={`text-xs font-mono font-bold ${sovChange > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                    {sovChange > 0 ? '▲' : '▼'} {Math.abs(sovChange)}%
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
-              <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">Peak SOV</p>
-              <span className="text-2xl font-extrabold font-mono text-[var(--text)]">{peakSov}%</span>
-            </div>
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
-              <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">Avg SOV</p>
-              <span className="text-2xl font-extrabold font-mono text-[var(--text)]">{avgSov}%</span>
-            </div>
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
-              <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">Data Points</p>
-              <span className="text-2xl font-extrabold font-mono text-[var(--text)]">{trendData.length}</span>
-            </div>
-          </div>
-
-          {/* Chart */}
-          <SovChart data={trendData} />
-
-          {/* Table */}
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden shadow-[var(--app-shadow)]" style={{ maxHeight: 500, overflowY: 'auto' }}>
-            <table className="w-full text-sm">
-              <thead><tr className="border-b border-[var(--border)]" style={{ position: 'sticky', top: 0, background: 'var(--bg2)', zIndex: 1 }}>
-                <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Date</th>
-                <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Overall SOV</th>
-                <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Change</th>
-                {Object.keys(PLATFORM_COLORS).map(p => <th key={p} className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">{p}</th>)}
-              </tr></thead>
-              <tbody>
-                {trendData.slice(-20).reverse().map((point, i, arr) => {
-                  const prevPoint = i < arr.length - 1 ? arr[i + 1] : null;
-                  const change = prevPoint ? point.sov - prevPoint.sov : null;
-                  return (
-                    <tr key={i} className="border-b border-[var(--border)]/50 hover:bg-[var(--bg3)]">
-                      <td className="px-4 py-2.5 text-[var(--text)]">{new Date(point.date).toLocaleDateString()}</td>
-                      <td className="px-4 py-2.5"><span className={`font-mono font-semibold ${point.sov >= 50 ? 'text-[var(--green)]' : point.sov > 0 ? 'text-[var(--amber)]' : 'text-[var(--muted)]'}`}>{point.sov}%</span></td>
-                      <td className="px-4 py-2.5">
-                        {change !== null && change !== 0 ? (
-                          <span className={`text-xs font-mono font-bold ${change > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                            {change > 0 ? '+' : ''}{change}%
-                          </span>
-                        ) : (
-                          <span className="text-[var(--muted)] text-xs">—</span>
-                        )}
-                      </td>
-                      {Object.keys(PLATFORM_COLORS).map(p => {
-                        const val = point.platforms?.[p];
-                        const trend = platformTrends[p];
-                        return (
-                          <td key={p} className="px-4 py-2.5 text-[var(--muted)]">
-                            {val !== undefined ? (
-                              <span className="inline-flex items-center gap-1">
-                                {val}%
-                                {i === 0 && trend !== undefined && trend !== 0 && (
-                                  <span className={`text-[9px] ${trend > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                    {trend > 0 ? '▲' : '▼'}
-                                  </span>
-                                )}
-                              </span>
-                            ) : '—'}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      {/* Overall SOV Trend — bar chart */}
+      <div className="card" style={{ padding: 20 }}>
+        <div className="card-title">Overall SOV Trend</div>
+        <div style={{ height: 200, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'flex', alignItems: 'flex-end', gap: 4, padding: 16 }}>
+          {history.length > 0 ? history.map((h, i) => {
+            const pct = Math.max((h.overall / 100) * 100, 4);
+            const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
+            return (
+              <div key={i} title={`${h.overall}% — ${new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                style={{ flex: 1, background: 'var(--primary)', borderRadius: '3px 3px 0 0', height: `${pct}%`, opacity, transition: 'height .3s ease' }} />
+            );
+          }) : (
+            // Placeholder bars
+            [40, 45, 50, 52, 55, 58, 60, 64, 68, 72].map((h, i) => (
+              <div key={i} style={{ flex: 1, background: 'var(--primary)', borderRadius: '3px 3px 0 0', height: `${h}%`, opacity: 0.4 + i * 0.06 }} />
+            ))
+          )}
         </div>
-      )}
+        {history.length > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+            <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{new Date(history[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{new Date(history[history.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Per-Platform SOV Trend — SVG line chart */}
+      <div className="card" style={{ padding: 20, marginTop: 14 }}>
+        <div className="card-title">Per-Platform SOV Trend</div>
+
+        {history.length > 1 && allPlatforms.length > 0 ? (
+          <div>
+            {/* Legend */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+              {allPlatforms.map(p => (
+                <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+                  <span style={{ display: 'inline-block', width: 16, height: 3, borderRadius: 2, background: PLATFORM_COLORS[p] || '#888' }} /> {p}
+                </span>
+              ))}
+            </div>
+
+            {/* SVG Chart */}
+            <svg viewBox="0 0 700 300" style={{ width: '100%', height: 'auto', maxHeight: 300 }}>
+              {/* Y-axis grid */}
+              {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(v => {
+                const y = 270 - (v / 100) * 240;
+                return (
+                  <g key={v}>
+                    <line x1="40" y1={y} x2="680" y2={y} stroke="rgba(0,0,0,.06)" strokeWidth="0.5" />
+                    <text x="35" y={y + 3} textAnchor="end" style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+                  </g>
+                );
+              })}
+
+              {/* X-axis labels */}
+              {history.filter((_, i) => i === 0 || i === history.length - 1).map((h, i) => (
+                <text key={i} x={i === 0 ? 40 : 680} y={290} textAnchor={i === 0 ? 'start' : 'end'} style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
+                  {new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </text>
+              ))}
+
+              {/* Lines per platform */}
+              {allPlatforms.map(plat => {
+                const color = PLATFORM_COLORS[plat] || '#888';
+                const points = history.map((h, i) => {
+                  const x = 40 + (i / (history.length - 1)) * 640;
+                  const y = 270 - ((h.platforms?.[plat] || 0) / 100) * 240;
+                  return { x, y, val: h.platforms?.[plat] || 0 };
+                });
+                return (
+                  <g key={plat}>
+                    <polyline points={points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {points.map((p, i) => (
+                      <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--bg2)" stroke={color} strokeWidth="2">
+                        <title>{plat}: {p.val}%</title>
+                      </circle>
+                    ))}
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        ) : (
+          <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Chart: Multi-line graph per platform (ChatGPT, Perplexity, Claude, etc.)</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
