@@ -65,19 +65,36 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       }}>
         {/* Run Queries Button */}
         <div style={{ padding: '8px 8px 4px' }}>
-          <button className="run-btn" style={{ margin: 0 }} onClick={() => {
-            fetch('/api/brands', { credentials: 'include' })
-              .then(r => r.json())
-              .then(d => {
-                const b = (d.brands || [])[0];
-                if (b) {
-                  fetch(`/api/brands/${b.id}/run`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } })
-                    .then(() => alert('Queries running! Check Mentions page for results.'))
-                    .catch(() => alert('Failed to start run.'));
-                } else {
-                  alert('No brand configured. Set up a brand first.');
-                }
-              });
+          <button className="run-btn" id="sidebar-run-btn" style={{ margin: 0 }} onClick={async (e) => {
+            const btn = e.currentTarget;
+            const origText = btn.textContent;
+            btn.textContent = '⏳ RUNNING...';
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+            try {
+              const brandRes = await fetch('/api/brands', { credentials: 'include' });
+              const brandData = await brandRes.json();
+              const b = (brandData.brands || [])[0];
+              if (!b) {
+                btn.textContent = '❌ No brand set up';
+                setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }, 3000);
+                return;
+              }
+              const runRes = await fetch(`/api/brands/${b.id}/run`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } });
+              const runData = await runRes.json();
+              if (!runRes.ok) {
+                btn.textContent = '❌ ' + (runData.error || 'Failed');
+                btn.style.background = 'var(--red)';
+                setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 4000);
+                return;
+              }
+              btn.textContent = '✓ DONE — Refreshing...';
+              btn.style.background = 'var(--green)';
+              setTimeout(() => { window.location.reload(); }, 1500);
+            } catch (err) {
+              btn.textContent = '❌ Network error';
+              setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 3000);
+            }
           }}>▶ RUN QUERIES</button>
         </div>
 
