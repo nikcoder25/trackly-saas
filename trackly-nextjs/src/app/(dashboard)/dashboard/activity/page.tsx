@@ -2,92 +2,85 @@
 
 import { useState, useEffect } from 'react';
 
-interface ActivityLog {
-  id: string;
-  timestamp: string;
-  action: string;
-  ip: string;
-}
+interface ActivityLog { id?: string; action: string; timestamp: string; ip?: string; details?: string; }
+interface ApiLog { id?: string; timestamp: string; platform: string; model?: string; query?: string; status: string; tokens?: number; cost?: number; duration?: number; run_id?: string; calls?: number; platforms_used?: string; }
+interface KeyStatus { platform: string; count: number; }
 
-interface ApiLog {
-  id: string;
-  timestamp: string;
-  platform: string;
-  model: string;
-  status: string;
-  tokens: number;
-  cost: number;
-}
-
-interface ApiKeyStatus {
-  platform: string;
-  configured: boolean;
-  last_used?: string;
-}
-
-type Tab = 'activity' | 'api-logs' | 'api-keys';
+const ACTION_ICONS: Record<string, string> = { login: '🔑', register: '📝', create_brand: '🏷', run_queries: '▶', update_brand: '⚙', delete_brand: '🗑', change_password: '🔒' };
 
 export default function ActivityPage() {
-  const [tab, setTab] = useState<Tab>('activity');
+  const [tab, setTab] = useState<'activity' | 'api-logs' | 'key-status'>('activity');
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [apiLogs, setApiLogs] = useState<ApiLog[]>([]);
-  const [apiKeys, setApiKeys] = useState<ApiKeyStatus[]>([]);
+  const [keyStatus, setKeyStatus] = useState<KeyStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorBanner, setErrorBanner] = useState('');
 
   useEffect(() => {
-    setLoading(true);
     Promise.all([
       fetch('/api/activity-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [] })),
-      fetch('/api/api-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [], api_keys: [] })),
+      fetch('/api/api-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [], errors: 0 })),
     ]).then(([actData, apiData]) => {
       setActivityLogs(actData.logs || []);
       setApiLogs(apiData.logs || []);
-      setApiKeys(apiData.api_keys || []);
+      setKeyStatus(apiData.keyStatus || []);
+      if (apiData.recentErrors > 0) setErrorBanner(`${apiData.recentErrors} recent run failures — check console for details`);
       setLoading(false);
     });
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
+  // API log stats
+  const okCount = apiLogs.filter(l => l.status === 'ok' || l.status === 'success').length;
+  const errCount = apiLogs.filter(l => l.status === 'error').length;
+  const totalCost = apiLogs.reduce((s, l) => s + (l.cost || 0), 0);
+  const totalTokens = apiLogs.reduce((s, l) => s + (l.tokens || 0), 0);
+  const avgMs = apiLogs.length > 0 ? Math.round(apiLogs.reduce((s, l) => s + (l.duration || 0), 0) / apiLogs.length) : 0;
+  const platforms = new Set(apiLogs.map(l => l.platform)).size;
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'activity', label: 'Account Activity' },
-    { key: 'api-logs', label: 'API Call Logs' },
-    { key: 'api-keys', label: 'API Key Status' },
-  ];
+  function formatDate(d: string) {
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Activity & Logs</h1>
-      <p className="text-[var(--muted)] mb-6">Account activity, API call history, and system diagnostics — all in one view.</p>
+      <div className="view-title">Activity &amp; Logs</div>
+      <div className="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
 
       {/* Tab Buttons */}
-      <div className="flex gap-2 mb-6">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg3)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)]'}`}
-          >
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid var(--border)' }}>
+        {[
+          { key: 'activity', label: 'Account Activity' },
+          { key: 'api-logs', label: 'API Call Logs' },
+          { key: 'key-status', label: 'API Key Status' },
+        ].map(t => (
+          <button key={t.key} onClick={() => setTab(t.key as typeof tab)}
+            className="tab-btn" style={{
+              padding: '10px 20px', background: 'none', border: 'none', borderBottom: tab === t.key ? '2px solid var(--primary)' : '2px solid transparent',
+              color: tab === t.key ? 'var(--primary)' : 'var(--muted)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: -2,
+            }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Tab 1: Account Activity */}
+      {/* Tab: Account Activity */}
       {tab === 'activity' && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] p-5">
-          <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--muted)] mb-4">Account Activity</p>
+        <div className="card" style={{ padding: '20px 24px' }}>
           {activityLogs.length === 0 ? (
-            <p className="text-[var(--muted)] text-sm text-center py-6">No account activity recorded yet.</p>
+            <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>No account activity recorded yet.</div>
           ) : (
-            <div className="space-y-2">
+            <div>
               {activityLogs.map((log, i) => (
-                <div key={log.id || i} className="flex items-center justify-between bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <span className="text-xs text-[var(--muted)] shrink-0 w-36">{new Date(log.timestamp).toLocaleString()}</span>
-                    <span className="text-sm text-[var(--text)] truncate" title={log.action}>{log.action}</span>
+                <div key={log.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: i < activityLogs.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ fontSize: 20 }}>{ACTION_ICONS[log.action] || '📋'}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{log.action.charAt(0).toUpperCase() + log.action.slice(1).replace(/_/g, ' ')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--mono)', marginLeft: 12 }}>{formatDate(log.timestamp)}</span>
                   </div>
-                  <span className="text-xs text-[var(--muted)] shrink-0 ml-4 font-mono">{log.ip}</span>
+                  {log.ip && <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>IP: {log.ip}</span>}
                 </div>
               ))}
             </div>
@@ -95,77 +88,78 @@ export default function ActivityPage() {
         </div>
       )}
 
-      {/* Tab 2: API Call Logs */}
+      {/* Tab: API Call Logs */}
       {tab === 'api-logs' && (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] overflow-hidden">
-          <div className="p-5 pb-3">
-            <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--muted)]">API Call Logs</p>
-          </div>
-          {apiLogs.length === 0 ? (
-            <p className="text-[var(--muted)] text-sm text-center py-6">No API calls logged yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    <th className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium">Timestamp</th>
-                    <th className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium">Platform</th>
-                    <th className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium">Model</th>
-                    <th className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium">Status</th>
-                    <th className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium">Tokens</th>
-                    <th className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium">Cost</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {apiLogs.map((log, i) => (
-                    <tr key={log.id || i} className="border-b border-[var(--border)]/50 hover:bg-[var(--bg3)]">
-                      <td className="px-4 py-2.5 text-[var(--muted)] text-xs">{new Date(log.timestamp).toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-[var(--text)] font-medium">{log.platform}</td>
-                      <td className="px-4 py-2.5 text-[var(--muted)]">{log.model}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold uppercase px-2 py-0.5 rounded-full ${log.status === 'success' ? 'bg-green-100 text-[var(--green)]' : log.status === 'error' ? 'bg-red-100 text-[var(--red)]' : 'bg-amber-100 text-[var(--amber)]'}`}>
-                          {log.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2.5 text-[var(--muted)]">{log.tokens.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-[var(--text)] font-medium">${log.cost.toFixed(4)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div>
+          {/* Error banner */}
+          {errorBanner && (
+            <div style={{ background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 'var(--radius-xs)', padding: '12px 16px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--amber)' }}><strong style={{ color: 'var(--red)' }}>{errorBanner.split(' ')[0]}</strong> {errorBanner.split(' ').slice(1).join(' ')}</span>
+              <button onClick={() => setErrorBanner('')} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '4px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>DISMISS</button>
             </div>
           )}
+
+          {/* Stats summary */}
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, fontFamily: 'var(--mono)' }}>
+            Last 24h: <span style={{ color: 'var(--green)', fontWeight: 700 }}>{okCount} ok</span> · {errCount} errors · {platforms} platforms · avg {avgMs}ms · <span style={{ color: 'var(--amber)' }}>${totalCost.toFixed(4)}</span> cost · {totalTokens} tokens
+          </div>
+
+          {/* API logs table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg3)' }}>
+                  <th className="th">Time</th>
+                  <th className="th">Platform</th>
+                  <th className="th">Model</th>
+                  <th className="th">Query</th>
+                  <th className="th">Status</th>
+                  <th className="th">Time</th>
+                  <th className="th">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {apiLogs.length === 0 ? (
+                  <tr><td colSpan={7} className="td" style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>No API calls logged yet.</td></tr>
+                ) : apiLogs.map((log, i) => {
+                  const isRun = log.calls && log.calls > 1;
+                  return (
+                    <tr key={log.id || i} className="trow" style={isRun ? { background: 'rgba(59,130,246,.03)' } : {}}>
+                      <td className="td"><span style={{ color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 11 }}>▶ {new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span></td>
+                      <td className="td" style={{ fontWeight: isRun ? 700 : 400 }}>{isRun ? `${log.calls} calls · ${log.platforms_used || platforms} platforms` : log.platform}</td>
+                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{isRun ? (log.platforms_used || '') : (log.model || '—')}</td>
+                      <td className="td">{log.query || (isRun ? `${log.calls} ok` : '—')}</td>
+                      <td className="td"><span style={{ color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{typeof log.status === 'number' ? log.status : (log.status === 'ok' || log.status === 'success' ? okCount : log.status)}</span></td>
+                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{log.duration ? (log.duration >= 60000 ? `${Math.floor(log.duration / 60000)}m ${Math.round((log.duration % 60000) / 1000)}s` : `${Math.round(log.duration / 1000)}s`) : '—'}</td>
+                      <td className="td" style={{ color: 'var(--amber)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{log.cost ? `$${log.cost.toFixed(3)}` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ textAlign: 'center', padding: 12, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+            Showing {apiLogs.length} of {apiLogs.length} API calls
+          </div>
         </div>
       )}
 
-      {/* Tab 3: API Key Status */}
-      {tab === 'api-keys' && (
-        <div>
-          <p className="text-[12px] font-bold uppercase tracking-wider text-[var(--muted)] mb-4">API Key Status</p>
-          {apiKeys.length === 0 ? (
-            <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] p-5">
-              <p className="text-[var(--muted)] text-sm text-center py-6">No API key information available.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {apiKeys.map((key, i) => (
-                <div key={i} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-[var(--text)]">{key.platform}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${key.configured ? 'bg-green-100 text-[var(--green)]' : 'bg-red-100 text-[var(--red)]'}`}>
-                      {key.configured ? 'Configured' : 'Missing'}
-                    </span>
-                  </div>
-                  {key.last_used && (
-                    <p className="text-xs text-[var(--muted)]">Last used: {new Date(key.last_used).toLocaleDateString()}</p>
-                  )}
-                  {!key.configured && (
-                    <p className="text-xs text-[var(--muted)] mt-1">Add your API key in Settings to enable this platform.</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Tab: API Key Status */}
+      {tab === 'key-status' && (
+        <div className="card" style={{ padding: '20px 24px' }}>
+          <div className="section-title">API Key Status</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {(keyStatus.length > 0 ? keyStatus : [
+              { platform: 'openai', count: 0 }, { platform: 'perplexity', count: 0 },
+              { platform: 'gemini', count: 0 }, { platform: 'claude', count: 0 }, { platform: 'grok', count: 0 }
+            ]).map(k => (
+              <div key={k.platform} style={{ padding: '16px 24px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center', minWidth: 120 }}>
+                <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: k.count > 0 ? 'var(--green)' : 'var(--muted)' }}>{k.count}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{k.platform} keys</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
