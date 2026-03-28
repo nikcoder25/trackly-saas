@@ -21,6 +21,11 @@ export default function AccountPage() {
   const [pwMsg, setPwMsg] = useState('');
   const [twoFAStatus, setTwoFAStatus] = useState('');
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFASetup, setTwoFASetup] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [twoFAMsg, setTwoFAMsg] = useState('');
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [disablePw, setDisablePw] = useState('');
   const [usernameEdit, setUsernameEdit] = useState(false);
   const [usernameVal, setUsernameVal] = useState(user?.username || '');
 
@@ -118,10 +123,96 @@ export default function AccountPage() {
       {/* Two-Factor Authentication */}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="section-title">Two-Factor Authentication</div>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>{twoFAStatus}. Add an extra layer of security to your account with an authenticator app.</div>
-        <button className="pbtn" style={{ background: twoFAEnabled ? 'none' : 'var(--primary)', color: twoFAEnabled ? 'var(--red)' : '#fff', borderColor: twoFAEnabled ? 'var(--red)' : 'var(--primary)', fontWeight: 700, fontSize: 11 }}>
-          {twoFAEnabled ? 'DISABLE 2FA' : 'ENABLE 2FA'}
-        </button>
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+          {twoFAEnabled ? 'Enabled — your account is protected with 2FA.' : 'Not enabled. Add an extra layer of security to your account with an authenticator app.'}
+        </div>
+        {twoFAMsg && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: twoFAMsg.includes('success') || twoFAMsg.includes('enabled') || twoFAMsg.includes('disabled') ? 'var(--green)' : 'var(--red)', marginBottom: 12 }}>{twoFAMsg}</div>}
+
+        {/* Enable 2FA Flow */}
+        {!twoFAEnabled && !twoFASetup && (
+          <button className="pbtn" onClick={async () => {
+            try {
+              const res = await fetch('/api/auth/2fa/setup', { method: 'POST', credentials: 'include' });
+              const data = await res.json();
+              if (!res.ok) { setTwoFAMsg(data.error || 'Failed to setup 2FA'); return; }
+              setTwoFASetup({ secret: data.secret, otpauthUrl: data.otpauthUrl });
+              setTwoFAMsg('');
+            } catch { setTwoFAMsg('Failed to connect'); }
+          }} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, fontSize: 11 }}>
+            ENABLE 2FA
+          </button>
+        )}
+
+        {/* QR Code + Verify Step */}
+        {twoFASetup && (
+          <div style={{ marginTop: 12 }}>
+            {/* QR Code rendered as SVG */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Scan this QR code with your authenticator app</div>
+              <div style={{ display: 'inline-block', padding: 16, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(twoFASetup.otpauthUrl)}`} alt="2FA QR Code" width={200} height={200} style={{ display: 'block' }} />
+              </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
+                Can&apos;t scan? Enter this key manually:
+              </div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'inline-block', letterSpacing: 2, userSelect: 'all' as const }}>
+                {twoFASetup.secret}
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>2. Enter the 6-digit code from your app</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
+              <input className="finp" value={twoFACode} onChange={e => setTwoFACode(e.target.value)} type="text" placeholder="Enter 6-digit code" maxLength={6} inputMode="numeric" style={{ margin: 0, flex: 1, textAlign: 'center', letterSpacing: 4, fontSize: 18 }} />
+              <button className="pbtn" onClick={async () => {
+                try {
+                  const res = await fetch('/api/auth/2fa/verify', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: twoFACode }) });
+                  const data = await res.json();
+                  if (!res.ok) { setTwoFAMsg(data.error || 'Invalid code'); return; }
+                  setTwoFAEnabled(true);
+                  setTwoFASetup(null);
+                  setTwoFACode('');
+                  setTwoFAStatus('Enabled');
+                  setTwoFAMsg('2FA enabled successfully!');
+                  if (data.backupCodes) setBackupCodes(data.backupCodes);
+                } catch { setTwoFAMsg('Failed to verify'); }
+              }} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', whiteSpace: 'nowrap', fontWeight: 700 }}>VERIFY</button>
+            </div>
+          </div>
+        )}
+
+        {/* Backup Codes Display */}
+        {backupCodes.length > 0 && (
+          <div style={{ marginTop: 16, padding: 16, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup Codes — Save these somewhere safe!</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+              {backupCodes.map((code, i) => (
+                <div key={i} style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg2)', borderRadius: 4, textAlign: 'center' }}>{code}</div>
+              ))}
+            </div>
+            <button className="pbtn" onClick={() => { navigator.clipboard.writeText(backupCodes.join('\n')); setTwoFAMsg('Backup codes copied!'); }} style={{ marginTop: 10, fontSize: 10 }}>COPY ALL CODES</button>
+          </div>
+        )}
+
+        {/* Disable 2FA */}
+        {twoFAEnabled && !twoFASetup && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
+              <input className="finp" type="password" placeholder="Enter password to confirm" value={disablePw} onChange={e => setDisablePw(e.target.value)} style={{ margin: 0, flex: 1 }} />
+              <button className="pbtn" onClick={async () => {
+                try {
+                  const res = await fetch('/api/auth/2fa/disable', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: disablePw }) });
+                  const data = await res.json();
+                  if (!res.ok) { setTwoFAMsg(data.error || 'Failed'); return; }
+                  setTwoFAEnabled(false);
+                  setDisablePw('');
+                  setTwoFAStatus('Not enabled');
+                  setTwoFAMsg('2FA disabled successfully');
+                  setBackupCodes([]);
+                } catch { setTwoFAMsg('Failed'); }
+              }} style={{ borderColor: 'var(--red)', color: 'var(--red)', whiteSpace: 'nowrap' }}>DISABLE 2FA</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Export Data */}
