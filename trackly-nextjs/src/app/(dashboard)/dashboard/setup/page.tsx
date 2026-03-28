@@ -348,8 +348,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           {/* Website */}
           <SectionField label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
 
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+
           {/* Alternate Names / Aliases */}
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 20 }}>
             <label className="flbl">Alternate Names / Aliases</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
               AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br />
@@ -364,14 +366,20 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
             </div>
           </div>
 
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+
           {/* City / Location */}
           <SectionField label="City / Location" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
 
           {/* Nearby Areas */}
           <NearbyAreasSection city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
 
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+
           {/* Manage Queries */}
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 20 }}>
             <label className="flbl">Manage Queries</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
               Add, remove, or bulk-manage the queries tracked for this brand. <span style={{ fontWeight: 700 }}>{queries.length} / 250 prompts</span>
@@ -445,11 +453,15 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
             )}
           </div>
 
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+
           {/* SOV Goal */}
           <SectionField label="SOV Goal (%)" value={String(goal)} onChange={v => setGoal(Number(v))} placeholder="70" type="number" />
 
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+
           {/* AI Platforms to Track */}
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 20 }}>
             <label className="flbl">AI Platforms to Track</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI models to query when running keyword tracking.</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -470,6 +482,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
               ))}
             </div>
           </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
 
           {/* Save Changes */}
           <button type="submit" disabled={saving} className="btn-primary" style={{ opacity: saving ? 0.5 : 1 }}>
