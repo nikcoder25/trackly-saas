@@ -206,6 +206,15 @@ export default function MentionsPage() {
   const totalPagesCalc = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
 
+  // Highlight brand name in response text
+  function highlightBrand(text: string): string {
+    if (!selectedBrand || !text) return text;
+    const name = selectedBrand.name;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(regex, '<mark style="background:rgba(255,97,84,.15);color:var(--primary);padding:1px 4px;border-radius:3px;font-weight:600">$1</mark>');
+  }
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
@@ -356,18 +365,20 @@ export default function MentionsPage() {
                         </div>
                       </div>
 
-                      {/* Expanded Detail */}
+                      {/* Expanded Detail — shows full AI response with brand name highlighted */}
                       {isExpanded && (
                         <div className="mt-detail">
                           <div className="mt-detail-body">
                             {m.error ? (
                               <div style={{ color: 'var(--red)', fontSize: 13, padding: 12, background: 'rgba(239,68,68,.05)', borderRadius: 'var(--radius-xs)', border: '1px solid rgba(239,68,68,.15)' }}>Error: {m.error}</div>
                             ) : (m.response || m.snippet) ? (
-                              <div className="mt-detail-text" style={{ borderLeft: '3px solid var(--primary)', paddingLeft: 16, fontSize: 13, lineHeight: 1.8, color: 'var(--text)' }}>
-                                {m.response || m.snippet}
-                              </div>
-                            ) : null}
-                            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', marginTop: 12 }}>
+                              <div className="mt-detail-text" style={{ borderLeft: '3px solid var(--primary)', paddingLeft: 16, fontSize: 13, lineHeight: 1.8, color: 'var(--text)', whiteSpace: 'pre-wrap' }}
+                                dangerouslySetInnerHTML={{ __html: highlightBrand(m.response || m.snippet || '') }}
+                              />
+                            ) : (
+                              <div style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', padding: 12 }}>No response text available.</div>
+                            )}
+                            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)', marginTop: 12, paddingLeft: 16 }}>
                               Model: {m.model || '—'} · Position: {m.position || '—'} · Sentiment: {m.sentiment || 'neutral'} · Recommended: {m.recommended ? 'Yes' : 'No'}
                             </div>
                           </div>
