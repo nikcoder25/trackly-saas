@@ -335,8 +335,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ALERT STRIP */}
-      {alerts.length > 0 && <div className="alerts-strip" style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(alerts.length,3)},1fr)`,gap:8,marginBottom:14}}>{alerts.map((a,i) => <div key={i} style={{padding:'14px 18px',borderRadius:'var(--radius-xs)',background:'var(--primary)',color:'#fff',fontSize:13,fontWeight:600}}>{a.text}<div style={{fontSize:10,opacity:.7,marginTop:2}}>{now>0&&lastRun?.date?(() => {const diff=now-new Date(lastRun.date).getTime();const days=Math.floor(diff/86400000);return days>0?`${days}d ago`:'today';})():''}</div></div>)}</div>}
+      {/* ALERT STRIP — white cards with colored dot matching production screenshot */}
+      {alerts.length > 0 && <div className="alerts-strip">{alerts.map((a,i) => <div key={i} className={`alert-chip ${a.type}`}><span className="alert-dot" style={{background:a.type==='danger'?'var(--red)':a.type==='warn'?'var(--amber)':'var(--blue)'}}/><div style={{flex:1,minWidth:0}}><div className="alert-text">{a.text}</div><div className="alert-time">{now>0&&lastRun?.date?(()=>{const diff=now-new Date(lastRun.date).getTime();const days=Math.floor(diff/86400000);return days>0?`${days}d ago`:'today';})():''}</div></div></div>)}</div>}
 
       {/* SOV HERO */}
       <div className="ov-hero">
