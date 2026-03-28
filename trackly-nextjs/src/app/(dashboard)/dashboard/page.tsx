@@ -295,681 +295,350 @@ export default function DashboardPage() {
     </div>
   );
 
+
+  // Duration formatter
+  const fmtDuration = (d: number | undefined | null) => {
+    if (d === undefined || d === null) return 'N/A';
+    const s = typeof d === 'number' ? (d > 1000 ? Math.round(d / 1000) : d) : 0;
+    return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+  };
+
+  // Date formatter for Last Run
+  const fmtDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${String(h12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
+  };
+
   return (
     <div>
-      {/* Global dashboard styles: transitions, responsive, card consistency */}
-      <style>{`
-        .ov-section { transition: opacity .25s ease, max-height .3s ease; overflow: hidden; }
-        .ov-section-hidden { opacity: 0; max-height: 0; margin: 0 !important; padding: 0 !important; border: none !important; }
-        .card { border-radius: var(--radius) !important; box-shadow: var(--app-shadow) !important; border: 1px solid var(--border) !important; }
-        .stat-card { border-radius: var(--radius) !important; box-shadow: var(--app-shadow) !important; }
-        @media(max-width:768px) {
-          .ov-hero-wrap { flex-direction: column !important; }
-          .ov-hero-stats { grid-template-columns: repeat(2, 1fr) !important; }
-          .ov-score-grid { grid-template-columns: 1fr !important; }
-          .ov-cat-grid { grid-template-columns: 1fr !important; }
-          .ov-plat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .ov-qp-grid { grid-template-columns: 1fr !important; }
-          .ov-header { flex-direction: column !important; align-items: stretch !important; }
-          .ov-controls { flex-direction: column !important; align-items: stretch !important; }
-          .ov-compare-btns { flex-wrap: wrap !important; }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div className="ov-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 className="view-title">{brand.name}</h1>
-          <p className="view-sub">{brand.industry || ''} {brand.city ? '· ' + brand.city : ''}</p>
+      {/* ── HEADER ── */}
+      <div className="ov-header">
+        <div className="ov-header-left">
+          <div className="view-title">{brand.name}</div>
+          <div className="view-sub">{brand.industry || ''} {brand.city ? `· ${brand.city}` : ''}</div>
         </div>
-        <div className="ov-controls" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {/* Compare Toggle — each button has its own border */}
-          <div className="ov-compare-btns" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {(['current', 'week', 'month'] as const).map(m => (
-              <button key={m} onClick={() => setCompareMode(m)}
-                style={{
-                  padding: '6px 12px', fontSize: 11, fontWeight: 600, borderRadius: 'var(--radius-xs)',
-                  border: compareMode === m ? '1px solid var(--primary)' : '1px solid var(--border)',
-                  background: compareMode === m ? 'var(--primary)' : 'var(--bg2)',
-                  color: compareMode === m ? '#fff' : 'var(--muted)',
-                  cursor: 'pointer', transition: 'all .15s', fontFamily: 'var(--font)',
-                }}>
+        <div className="ov-header-right">
+          {nextRunText && (() => {
+            const [type, text] = nextRunText.split('|');
+            return <div className="next-run-badge" style={{ background: type === 'overdue' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)', color: type === 'overdue' ? 'var(--amber)' : 'var(--blue)', padding: '6px 14px', borderRadius: 'var(--radius-xs)', fontSize: 11, fontFamily: 'var(--mono)', border: `1px solid ${type === 'overdue' ? 'rgba(245,158,11,.2)' : 'rgba(59,130,246,.2)'}` }}>{text}</div>;
+          })()}
+          <div className="compare-toggle">
+            {(['current','week','month'] as const).map(m => (
+              <button key={m} className={compareMode === m ? 'active' : ''} onClick={() => setCompareMode(m)}>
                 {m === 'current' ? 'Current' : m === 'week' ? 'vs Last Week' : 'vs Last Month'}
               </button>
             ))}
           </div>
-          {/* Preset Selector with section count */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select
-              value={preset}
-              onChange={e => setPreset(e.target.value as typeof preset)}
-              style={{ padding: '6px 12px', fontSize: 11, fontWeight: 600, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}
-            >
-              <option value="all">All Sections</option>
-              <option value="founder">Founder View</option>
-              <option value="seo">SEO Manager</option>
-              <option value="agency">Agency View</option>
-            </select>
-            {preset !== 'all' && (
-              <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
-                {visibleSections.length}/{allSections.length}
-              </span>
-            )}
-          </div>
+          <select className="finp" style={{ width: 150, margin: 0, fontSize: 11, padding: '4px 8px' }} value={preset} onChange={e => setPreset(e.target.value as typeof preset)}>
+            <option value="all">All Sections</option>
+            <option value="founder">Founder View</option>
+            <option value="seo">SEO Manager</option>
+            <option value="agency">Agency View</option>
+          </select>
         </div>
       </div>
 
-      {/* Next Run Badge — rendered client-only via useEffect state */}
-      {nextRunText && (() => {
-        const [type, text] = nextRunText.split('|');
-        const isOverdue = type === 'overdue';
-        return (
-          <div className={`rounded-lg px-4 py-2 mb-4 text-[11px] font-medium flex items-center gap-2 ${isOverdue ? 'bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] text-[var(--amber)]' : 'bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] text-[var(--blue)]'}`}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> {text}
-          </div>
-        );
-      })()}
-
-      {/* Alert Banners — coral cards matching production */}
+      {/* ── ALERTS STRIP ── */}
       {alerts.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+        <div className="alerts-strip" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(alerts.length, 3)}, 1fr)`, gap: 8, marginBottom: 14 }}>
           {alerts.map((a, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-              borderRadius: 'var(--radius-xs)', borderLeft: `3px solid ${a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--amber)' : 'var(--blue)'}`,
-              background: a.type === 'danger' ? 'rgba(239,68,68,.06)' : a.type === 'warn' ? 'rgba(245,158,11,.06)' : 'rgba(59,130,246,.06)',
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: a.type === 'danger' ? 'var(--red)' : a.type === 'warn' ? 'var(--amber)' : 'var(--blue)' }} />
-              <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500, flex: 1 }}>{a.text}</span>
-              <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', flexShrink: 0 }}>
-                {lastRun?.date ? (() => {
-                  const diff = Date.now() - new Date(lastRun.date).getTime();
-                  const days = Math.floor(diff / 86400000);
-                  return days > 0 ? `${days}d ago` : 'today';
-                })() : ''}
-              </span>
+            <div key={i} style={{ background: 'var(--primary)', color: '#fff', padding: '12px 16px', borderRadius: 'var(--radius-xs)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{a.text}</div>
+              <div style={{ fontSize: 10, opacity: .7 }}>{now > 0 && lastRun?.date ? (() => { const days = Math.floor((now - new Date(lastRun.date).getTime()) / 86400000); return days > 0 ? `${days}d ago` : 'today'; })() : ''}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* SOV Hero Card */}
-      <div className="card ov-hero-wrap" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
-        <div className="text-center shrink-0">
-          <div className="relative w-[120px] h-[120px]">
-            <svg viewBox="0 0 120 120" className="w-full h-full">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" strokeWidth="8" />
-              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--primary)" strokeWidth="8"
-                strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 60 60)"
-                style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-extrabold font-mono text-[var(--text)]">{sov}%</span>
-              {sovChange !== null && sovChange !== 0 && (
-                <span title="Compared to previous run" className={`text-[10px] font-mono font-bold ${sovChange > 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`} style={{ cursor: 'help' }}>
-                  {sovChange > 0 ? '▲' : '▼'} {Math.abs(sovChange)}%
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-2">Share of Voice<MetricTooltip text="Percentage of AI responses that mention your brand out of all tracked queries" /></div>
-        </div>
-        {/* Compare banner */}
-        {compareRun && (
-          <div style={{ width: '100%', padding: '8px 14px', background: 'var(--primary-light)', border: '1px solid var(--primary-border)', borderRadius: 'var(--radius-xs)', marginBottom: 12, fontSize: 11, color: 'var(--primary)', fontFamily: 'var(--mono)' }}>
-            Comparing with run from {compareRun.date ? new Date(compareRun.date).toLocaleDateString() : '?'}: SOV was {compareRun.sov ?? 0}% (now {sov}%, {sov - (compareRun.sov ?? 0) >= 0 ? '+' : ''}{sov - (compareRun.sov ?? 0)}%)
-          </div>
-        )}
-        <div className="ov-hero-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, flex: 1, width: '100%' }}>
-          <HeroStat label="Mentions / Total" value={`${totalM} / ${totalQ}`} />
-          <HeroStat label="Platforms Active" value={String(Object.values(platforms).filter(p => (p as Record<string,number>).total > 0).length)} />
-          <HeroStat label="Queries Tracked" value={String(queries.length)} />
-          <HeroStat label="Last Run" value={lastRunAge || '--'} />
-          <HeroStat label="Run Duration" value={(() => {
-            const d = lastRun?.duration;
-            if (d === undefined || d === null) return 'N/A';
-            const s = typeof d === 'number' ? (d > 1000 ? Math.round(d / 1000) : d) : 0;
-            return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
-          })()} />
-        </div>
-      </div>
-
-      {/* API Health Status Bar — between hero and score cards like production */}
-      {show('health') && apiTotalResponses > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 14, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: apiHealthColor, flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>{apiHealthy}/{apiTotal} platforms healthy</span>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>·</span>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{apiTotalResponses - apiErrors} ok</span>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>·</span>
-          <span style={{ fontSize: 11, color: apiErrors > 0 ? 'var(--red)' : 'var(--green)' }}>{apiErrors} errors</span>
-          {apiErrors > 0 && (
-            <Link href="/dashboard/activity" style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--red)', textDecoration: 'none', marginLeft: 'auto' }}>View Errors →</Link>
-          )}
-        </div>
-      )}
-
-      {/* GEO Score / AI Sentiment / AI Recommends You */}
-      {show('scores') && (
-      <div className="stat-grid ov-score-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-        {/* GEO Score */}
-        <div className="stat-card" style={{ textAlign: 'center' }}>
-          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}<span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 500 }}>/100</span></div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">GEO Score<MetricTooltip text="Measures how well AI platforms associate your brand with your geographic location (0-100)" /></div>
-          <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ height: '100%', borderRadius: 4, width: `${geoScore}%`, background: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)', transition: 'width .5s', minWidth: geoScore > 0 ? 8 : 0 }} />
-          </div>
-          <div className="text-[11px] font-semibold" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>
-            {geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible'}
-          </div>
-        </div>
-        {/* AI Sentiment */}
-        <div className="stat-card" style={{ textAlign: 'center' }}>
-          <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{sentimentScore}</div>
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Sentiment<MetricTooltip text="Overall sentiment of AI responses mentioning your brand (positive, neutral, negative)" /></div>
-          <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${sentimentScore}%`, background: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, fontSize: 10 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />{posCount} positive</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--muted)' }} />{neuCount} neutral</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />{negCount} negative</span>
-          </div>
-        </div>
-        {/* AI Recommends You */}
-        <div className="stat-card" style={{ textAlign: 'center' }}>
-          {recommendedPct > 0 ? (
-            <div className="text-[32px] font-extrabold font-mono leading-none" style={{ color: recommendedPct >= 40 ? 'var(--green)' : 'var(--amber)' }}>{recommendedPct}<span className="text-[18px]">%</span></div>
-          ) : (
-            <div className="text-[24px] font-extrabold leading-none" style={{ color: 'var(--muted)' }}>Not yet</div>
-          )}
-          <div className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider mt-1 mb-2">AI Recommends You<MetricTooltip text="Percentage of AI responses that actively recommend your brand" /></div>
-          {recommendedPct > 0 && (
-            <div className="h-[6px] bg-[var(--bg3)] rounded-full overflow-hidden mb-2">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${recommendedPct}%`, background: recommendedPct >= 40 ? 'var(--green)' : 'var(--amber)' }} />
-            </div>
-          )}
-          <div className="text-[11px] font-semibold" style={{ color: recommendedPct >= 50 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>
-            {recommendedPct >= 50 ? 'Strong endorsement' : recommendedPct > 0 ? 'Room to grow' : 'Run queries to start tracking'}
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* AI Category Breakdown — always show */}
-      {show('categories') && (
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>AI Category Breakdown</div>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>Share of Voice by platform type</span>
-        </div>
-        <div className="ov-cat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
-            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">💬 Chat AI SOV</div>
-            <div className="text-2xl font-extrabold font-mono" style={{ color: chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{chatStats.sov}%</div>
-            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div>
-            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">ChatGPT · Claude · Grok</div>
-          </div>
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]" style={{ borderTop: `2px solid ${searchStats.sov >= 40 ? 'var(--green)' : searchStats.sov > 0 ? 'var(--amber)' : 'var(--red)'}` }}>
-            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🔍 Search AI SOV</div>
-            <div className="text-2xl font-extrabold font-mono" style={{ color: searchStats.sov >= 40 ? 'var(--green)' : searchStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{searchStats.sov}%</div>
-            <div className="text-[11px] text-[var(--muted)] mt-1">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
-            <div className="text-[10px] text-[var(--muted)] mt-0.5 font-mono">Perplexity · Gemini</div>
-          </div>
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4" style={{ borderTop: `2px solid ${bestPlatform && bestPlatform.sov > 0 ? 'var(--green)' : 'var(--muted)'}` }}>
-            <div className="text-[11px] text-[var(--muted)] font-medium mb-1">🏆 Best Platform</div>
-            {bestPlatform && bestPlatform.sov > 0 ? (
-              <>
-                <div className="text-2xl font-extrabold font-mono text-[var(--green)]">{bestPlatform.name}</div>
-                <div className="text-[11px] text-[var(--muted)] mt-1">{bestPlatform.sov}% SOV — strongest visibility</div>
-              </>
-            ) : (
-              <>
-                <div className="text-2xl font-extrabold font-mono text-[var(--muted)]">--</div>
-                <div className="text-[11px] text-[var(--muted)] mt-1">No platform data yet</div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* Location Visibility */}
-      {show('scores') && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>📍 Location Visibility</div>
-            {brand.city && (
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                {brand.city}{nearbyAreas && nearbyAreas.length > 0 ? ` + ${nearbyAreas.length} nearby areas` : ''}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-2xl font-extrabold font-mono" style={{ color: locationData.rate >= 40 ? 'var(--green)' : locationData.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>
-                {locationData.rate}%
-              </div>
-              <div className="text-[11px] text-[var(--muted)] mt-1">City Match Rate<MetricTooltip text="Percentage of AI responses that mention your specific city/location" /></div>
-              <div className="text-[10px] text-[var(--muted)] mt-0.5">AI mentions your location in responses</div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] mb-2">Areas where AI finds you</div>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.entries(locationData.areas).length > 0 ? (
-                  Object.entries(locationData.areas).map(([area, count]) => (
-                    <span key={area} className="inline-flex items-center gap-1 bg-[var(--bg3)] border border-[var(--border)] text-[var(--text)] text-[11px] px-2.5 py-1 rounded-full">
-                      {area} <span className="font-mono text-[var(--muted)]">{count}</span>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-[11px] text-[var(--muted)]">No area mentions detected yet</span>
+      {/* ── SOV HERO ── */}
+      {show('hero') && (
+        <div className="ov-hero">
+          <div className="ov-hero-sov">
+            <div className="ov-hero-sov-ring">
+              <svg viewBox="0 0 120 120" className="ov-ring-svg">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" strokeWidth="8" />
+                <circle cx="60" cy="60" r="52" fill="none" stroke={sov >= 50 ? 'var(--green)' : sov > 0 ? 'var(--primary)' : 'var(--bg4)'} strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 60 60)" style={{ transition: 'stroke-dashoffset .6s ease' }} />
+              </svg>
+              <div className="ov-ring-label">
+                <span className="ov-ring-pct">{sov}%</span>
+                {sovChange !== null && sovChange !== 0 && (
+                  <span className="ov-ring-diff" style={{ color: sovChange > 0 ? 'var(--green)' : 'var(--red)' }}>{sovChange > 0 ? '▲' : '▼'} {Math.abs(sovChange)}%</span>
                 )}
               </div>
             </div>
+            <div className="ov-hero-sov-label">Share of Voice</div>
           </div>
-          {locationData.rate < 30 && (
-            <div className="mt-3 bg-[rgba(59,130,246,0.05)] border border-[rgba(59,130,246,0.12)] rounded-lg px-3 py-2 text-[11px] text-[var(--blue)]">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-              <strong>Tip:</strong> Include city and neighborhood names in your tracked queries to improve local AI visibility.
+          <div className="ov-hero-stats">
+            <div className="ov-hero-stat"><div className="ov-hero-stat-val">{totalM} / {totalQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
+            <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p => (p as Record<string,number>).total > 0).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
+            <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {totalQ > 0 ? totalQ / Object.values(platforms).filter(p => (p as Record<string,number>).total > 0).length || queries.length : queries.length}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
+            <div className="ov-hero-stat"><div className="ov-hero-stat-val">{lastRunAge || '--'}</div><div className="ov-hero-stat-lbl">Last Run</div></div>
+            <div className="ov-hero-stat"><div className="ov-hero-stat-val">{fmtDuration(lastRun?.duration)}</div><div className="ov-hero-stat-lbl">Run Duration</div></div>
+          </div>
+        </div>
+      )}
+
+      {/* ── API HEALTH ── */}
+      {show('health') && apiTotalResponses > 0 && (
+        <div className="ov-health">
+          <span className="ov-health-dot" style={{ background: apiHealthColor }} />
+          <span className="ov-health-text">{apiHealthy}/{apiTotal} platforms healthy</span>
+          <span style={{ color: 'var(--muted)' }}>{apiTotalResponses - apiErrors} ok · {apiErrors} errors</span>
+        </div>
+      )}
+
+      {/* ── SCORE CARDS ── */}
+      {show('scores') && (
+        <div className="ov-scores-row">
+          <div className="ov-score-card">
+            <div className="ov-score-val" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore}</div>
+            <div className="ov-score-label">GEO Score</div>
+            <div className="ov-score-tag" style={{ color: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : geoScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{geoScore >= 70 ? 'Strong' : geoScore >= 40 ? 'Growing' : geoScore > 0 ? 'Weak' : 'Not Visible'}</div>
+            <div className="ov-score-bar"><div className="ov-score-bar-fill" style={{ width: `${geoScore}%`, background: geoScore >= 60 ? 'var(--green)' : geoScore >= 30 ? 'var(--amber)' : 'var(--red)' }} /></div>
+          </div>
+          <div className="ov-score-card">
+            <div className="ov-score-val" style={{ color: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : sentimentScore > 0 ? 'var(--red)' : 'var(--muted)' }}>{sentimentScore}</div>
+            <div className="ov-score-label">AI Sentiment</div>
+            <div className="ov-score-tag">+{posCount} positive · {neuCount} neutral · {negCount} negative</div>
+            <div className="ov-score-bar"><div className="ov-score-bar-fill" style={{ width: `${sentimentScore}%`, background: sentimentScore >= 70 ? 'var(--green)' : sentimentScore >= 40 ? 'var(--amber)' : 'var(--red)' }} /></div>
+          </div>
+          <div className="ov-score-card">
+            <div className="ov-score-val" style={{ color: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>{recommendedPct}<span className="ov-score-unit">%</span></div>
+            <div className="ov-score-label">AI Recommends You</div>
+            <div className="ov-score-tag" style={{ color: recommendedPct >= 50 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }}>{recommendedPct >= 50 ? 'Strong endorsement' : recommendedPct > 0 ? 'Room to grow' : 'Not yet'}</div>
+            <div className="ov-score-bar"><div className="ov-score-bar-fill" style={{ width: `${recommendedPct}%`, background: recommendedPct >= 40 ? 'var(--green)' : recommendedPct > 0 ? 'var(--amber)' : 'var(--muted)' }} /></div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CATEGORY BREAKDOWN ── */}
+      {show('categories') && (
+        <div className="ov-card">
+          <div className="ov-card-head"><div className="ov-card-title">AI Category Breakdown</div><div className="ov-card-sub">Share of Voice by platform type</div></div>
+          <div className="ov-grid-3">
+            <div className="ov-cat-card">
+              <div className="ov-cat-label">💬 Chat AI SOV</div>
+              <div className="ov-cat-val" style={{ color: chatStats.sov >= 40 ? 'var(--green)' : chatStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{chatStats.sov}%</div>
+              <div className="ov-cat-detail">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div>
+              <div className="ov-cat-sub">ChatGPT · Claude · Grok</div>
+            </div>
+            <div className="ov-cat-card">
+              <div className="ov-cat-label">🔍 Search AI SOV</div>
+              <div className="ov-cat-val" style={{ color: searchStats.sov >= 40 ? 'var(--green)' : searchStats.sov > 0 ? 'var(--amber)' : 'var(--red)' }}>{searchStats.sov}%</div>
+              <div className="ov-cat-detail">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div>
+              <div className="ov-cat-sub">Perplexity · Gemini</div>
+            </div>
+            <div className="ov-cat-card">
+              <div className="ov-cat-label">🏆 Best Platform</div>
+              <div className="ov-cat-val" style={{ color: bestPlatform && bestPlatform.sov > 0 ? 'var(--green)' : 'var(--muted)' }}>{bestPlatform && bestPlatform.sov > 0 ? bestPlatform.name : '--'}</div>
+              <div className="ov-cat-detail">{bestPlatform && bestPlatform.sov > 0 ? `${bestPlatform.sov}% SOV — strongest visibility` : 'No platform data yet'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LOCATION VISIBILITY ── */}
+      {show('location') && (
+        <div className="ov-card">
+          <div className="ov-card-head"><div className="ov-card-title">📍 Location Visibility</div><div className="ov-card-sub">{brand.city || ''}{nearbyAreas?.length ? ` + ${nearbyAreas.length} nearby areas` : ''}</div></div>
+          <div className="ov-loc-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'var(--mono)', color: locationData.rate >= 40 ? 'var(--green)' : locationData.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>{locationData.rate}%</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', marginTop: 4 }}>City Match Rate</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>AI mentions your location</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Areas where AI finds you</div>
+              {Object.entries(locationData.areas).length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{Object.entries(locationData.areas).map(([area, count]) => (
+                  <span key={area} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 11 }}>{area} <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)' }}>{count}</span></span>
+                ))}</div>
+              ) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>No location matches found yet. Run more queries with location-specific terms.</div>}
+            </div>
+          </div>
+          {locationData.rate < 30 && brand.city && (
+            <div className="ov-cit-tip" style={{ marginTop: 12 }}>💡 Tip: Include &quot;{brand.city}&quot; in your queries (e.g., &quot;best {brand.industry || 'service'} in {brand.city}&quot;) to test local AI visibility.</div>
+          )}
+        </div>
+      )}
+
+      {/* ── ACTIONABLE INSIGHTS ── */}
+      {show('insights') && (
+        <div className="ov-card">
+          <div className="ov-card-head"><div className="ov-card-title">Actionable Insights</div><div className="ov-card-sub">{alerts.length} tip{alerts.length !== 1 ? 's' : ''}</div></div>
+          {Object.values(platforms).some(p => (p as Record<string,number>).sov === 0) && Object.values(platforms).some(p => (p as Record<string,number>).total > 0) && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 14, borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 18 }}>✦</span>
+              <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Platform Gap Detected</div><div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>Strong on some platforms but invisible on others. Different AI platforms pull from different sources — diversify your online presence.</div></div>
+            </div>
+          )}
+          {sov > 0 && sov < 50 && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 14, borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 18 }}>📈</span>
+              <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Growing Your AI Presence</div><div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>You&apos;re appearing in {sov}% of queries. To boost this: create <strong style={{ color: 'var(--text)' }}>FAQ-style content</strong> that directly answers common questions, and ensure your <strong style={{ color: 'var(--text)' }}>Google Business Profile</strong> is fully optimized.</div></div>
+            </div>
+          )}
+          {sentTotal > 0 && negCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 14 }}>
+              <span style={{ fontSize: 18 }}>⚠</span>
+              <div><div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Negative Sentiment Detected</div><div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{negCount} AI response{negCount !== 1 ? 's' : ''} show negative sentiment about your brand. Check <Link href="/dashboard/mentions" style={{ color: 'var(--primary)', textDecoration: 'none' }}>All Results</Link> to see what AI is saying and address underlying issues.</div></div>
             </div>
           )}
         </div>
       )}
 
-      {/* Platform Cards */}
+      {/* ── PLATFORM CARDS ── */}
       {show('platforms') && (
-      <div className="ov-plat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 14 }}>
-        {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
-          const pd = platforms[name] || {};
-          const pSov = (pd as Record<string, number>).sov || 0;
-          const pTotal = (pd as Record<string, number>).total || 0;
-          const pMentions = (pd as Record<string, number>).mentions || 0;
-          const isActive = pTotal > 0 || pSov > 0 || pMentions > 0;
-          return (
-            <div key={name} className="stat-card" style={{ textAlign: 'center', borderTop: `3px solid ${color}`, opacity: isActive ? 1 : 0.6 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{name}</div>
-              <div style={{
-                display: 'inline-block', fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
-                padding: '2px 10px', borderRadius: 100, marginBottom: 10,
-                background: isActive ? 'rgba(16,185,129,.08)' : 'var(--bg3)',
-                color: isActive ? 'var(--green)' : 'var(--muted)',
-                border: `1px solid ${isActive ? 'rgba(16,185,129,.2)' : 'var(--border)'}`,
-                textTransform: 'uppercase', letterSpacing: '.3px',
-              }}>● {isActive ? 'ACTIVE' : 'INACTIVE'}</div>
-              {isActive ? (
-                <>
-                  <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                    <div style={{ height: '100%', borderRadius: 3, width: `${pSov}%`, background: color, transition: 'width .5s' }} />
-                  </div>
-                  <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--mono)', color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</div>
-                </>
-              ) : (
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Not configured</div>
+        <div className="ov-plat-grid">
+          {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
+            const pd = platforms[name] || {};
+            const pSov = (pd as Record<string,number>).sov || 0;
+            const pTotal = (pd as Record<string,number>).total || 0;
+            const isActive = pTotal > 0 || pSov > 0;
+            return (
+              <div key={name} className="ov-plat-card" style={{ borderTop: `3px solid ${color}` }}>
+                <div className="ov-plat-name">{name}</div>
+                <div className="ov-plat-status" style={{ color: isActive ? 'var(--green)' : 'var(--muted)' }}>● {isActive ? 'ACTIVE' : 'INACTIVE'}</div>
+                <div className="ov-plat-sov" style={{ color: pSov >= 50 ? 'var(--green)' : pSov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{pSov}%</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── SOV TREND ── */}
+      {show('trend') && sovTrend.length > 1 && (
+        <div className="ov-card">
+          <div className="ov-card-head"><div className="ov-card-title">SOV Trend</div><div className="ov-card-sub">Last {sovTrend.length} runs</div></div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 160, padding: '0 4px' }}>
+            {sovTrend.map((r, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                <div style={{ width: '100%', borderRadius: '4px 4px 0 0', background: r.sov >= 50 ? 'var(--green)' : r.sov > 20 ? 'var(--primary)' : r.sov > 0 ? 'var(--amber)' : 'var(--bg4)', height: `${Math.max(4, r.sov * 1.5)}px`, transition: 'height .3s' }} />
+                {(i === 0 || i === sovTrend.length - 1 || sovTrend.length <= 7) && (
+                  <div style={{ fontSize: 8, color: 'var(--muted)', fontFamily: 'var(--mono)', marginTop: 4, whiteSpace: 'nowrap' }}>{r.date ? new Date(r.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── QUERY PERFORMANCE + COMPETITORS ── */}
+      {show('qperf') && (
+        <div className="ov-grid-2">
+          <div className="ov-card" style={{ marginBottom: 0 }}>
+            <div className="ov-card-head"><div className="ov-card-title">Query Performance</div><div className="ov-card-sub">{queries.length} queries · Avg {queryPerfData.length > 0 ? Math.round(queryPerfData.reduce((s, q) => s + q.rate, 0) / queryPerfData.length) : 0}%</div></div>
+            {(queryPerfData.length > 0 ? queryPerfData : queries.map(q => ({ query: q, rate: 0 }))).slice(0, 8).map((q, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span className="ov-qp-query" title={q.query}>{q.query}</span>
+                  <span className="ov-qp-rate" style={{ color: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>{q.rate}%</span>
+                </div>
+                <div className="ov-qp-track"><div className="ov-qp-bar"><div className="ov-qp-fill" style={{ width: `${q.rate}%`, background: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)' }} /></div></div>
+              </div>
+            ))}
+          </div>
+          <div className="ov-card" style={{ marginBottom: 0 }}>
+            <div className="ov-card-head"><div className="ov-card-title">Competitors in AI</div><div className="ov-card-sub">{topCompetitors.length || (brand.competitors || []).length} brands</div></div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {topCompetitors.length > 0 ? topCompetitors.map(([name, count], i) => (
+                <span key={i} className="ov-comp-chip">{name} <span className="ov-comp-count">{count}x</span></span>
+              )) : (brand.competitors || []).length > 0 ? (brand.competitors || []).map((c, i) => (
+                <span key={i} className="ov-comp-chip">{c}</span>
+              )) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>Add competitors in Brand Setup</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CITATION SOURCES ── */}
+      {show('citations') && (
+        <div className="ov-card">
+          <div className="ov-card-head"><div className="ov-card-title">Citation Sources</div><div className="ov-card-sub">Where AI pulls information from</div></div>
+          <div className="ov-cit-list">
+            {topCitations.length > 0 ? (() => {
+              const maxC = topCitations[0][1];
+              return topCitations.map(([domain, count], i) => (
+                <div key={i} className="ov-cit-item">
+                  <span className={`ov-cit-domain ${brand.name && domain.toLowerCase().includes(brand.name.toLowerCase().split(' ')[0]) ? 'ov-cit-own' : ''}`}>{brand.name && domain.toLowerCase().includes(brand.name.toLowerCase().split(' ')[0]) ? `★ ${domain}` : domain}</span>
+                  <div className="ov-cit-bar"><div className="ov-cit-bar-fill" style={{ width: `${(count / maxC) * 100}%` }} /></div>
+                  <span className="ov-cit-count">{count}</span>
+                </div>
+              ));
+            })() : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Citation tracking requires AI platforms that provide source links (Perplexity, Gemini). Run queries to start collecting citation data.</div>}
+          </div>
+        </div>
+      )}
+
+      {/* ── LAST RUN ── */}
+      {show('lastrun') && lastRun && (
+        <div className="ov-card">
+          <div className="ov-card-head">
+            <div className="ov-card-title">Last Run — {fmtDate(lastRun.date)}</div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{totalM} found / {totalQ} total responses</span>
+              <Link href="/dashboard/mentions" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>View All Results →</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TRACKED QUERIES ── */}
+      {show('queries') && (
+        <div className="ov-card">
+          <div className="ov-card-head"><div className="ov-card-title">Tracked Queries</div><div className="ov-card-sub">{queries.length} / {planLimit > 1000 ? '∞' : planLimit} prompts</div></div>
+          <div className="ov-query-tags">
+            {queries.map((q, i) => (
+              <span key={i} className="query-tag" title={q}>
+                {selectMode && <input type="checkbox" checked={selectedQueries.has(i)} onChange={() => setSelectedQueries(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; })} style={{ marginRight: 4, accentColor: 'var(--primary)' }} />}
+                {q}
+                {!selectMode && <button onClick={() => removeQuery(i)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, marginLeft: 4, padding: 0 }}>×</button>}
+              </span>
+            ))}
+          </div>
+          <div className="ov-query-actions">
+            <div className="add-query-row">
+              <input value={newQuery} onChange={e => setNewQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && addQuery()} placeholder="Add a new query..." />
+              <button onClick={addQuery}>+ Add</button>
+            </div>
+            <div className="ov-query-btns">
+              <button className="ov-btn-subtle" onClick={() => setBulkAddOpen(!bulkAddOpen)}>BULK ADD</button>
+              <button className="ov-btn-subtle ov-btn-green" onClick={() => {
+                if (!brand) return;
+                const suggestions = [`best ${brand.industry || 'service'} in ${brand.city || 'my area'}`, `top rated ${brand.industry || 'service'} near me`, `${brand.name} reviews`, `recommended ${brand.industry || 'service'} companies`, `${brand.industry || 'service'} cost ${brand.city || ''}`].filter(s => !queries.includes(s));
+                if (suggestions.length) { fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [...queries, ...suggestions] }) }).then(() => fetchBrands()); }
+              }}>SUGGEST</button>
+              <button className="ov-btn-subtle ov-btn-blue" onClick={() => {
+                if (!brand) return;
+                const gen = [`what is ${brand.name}`, `is ${brand.name} good`, `${brand.name} vs competitors`, `${brand.name} pricing`, `alternatives to ${brand.name}`].filter(s => !queries.includes(s));
+                if (gen.length) { fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [...queries, ...gen] }) }).then(() => fetchBrands()); }
+              }}>AI GENERATE</button>
+              <button className="ov-btn-subtle ov-btn-red" onClick={() => { if (brand && queries.length && confirm('Remove all queries?')) fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) }).then(() => fetchBrands()); }}>CLEAR ALL</button>
+              <button className="ov-btn-subtle" onClick={() => { setSelectMode(!selectMode); setSelectedQueries(new Set()); }}>{selectMode ? '✓ DONE' : '☐ SELECT'}</button>
+              {selectMode && selectedQueries.size > 0 && (
+                <button className="ov-btn-subtle ov-btn-red" onClick={() => {
+                  if (!brand) return;
+                  const updated = queries.filter((_, i) => !selectedQueries.has(i));
+                  fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) }).then(() => { fetchBrands(); setSelectedQueries(new Set()); setSelectMode(false); });
+                }}>🗑 DELETE SELECTED ({selectedQueries.size})</button>
               )}
             </div>
-          );
-        })}
-      </div>
-      )}
-
-      {/* SOV Trend — SVG Line/Area Chart */}
-      {show('trend') && sovTrend.length > 1 && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>SOV Trend</div>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>Last {sovTrend.length} runs</span>
           </div>
-          <SovTrendChart data={sovTrend} />
-        </div>
-      )}
-
-      {/* Query Performance + Competitors Row */}
-      {show('qperf') && (
-      <div className="ov-qp-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 14 }}>
-        {/* Query Performance — horizontal bars like legacy */}
-        <div className="card" style={{ marginBottom: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>Query Performance</div>
-            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-              {queries.length} queries {queryPerfData.length > 0 ? `· Avg ${Math.round(queryPerfData.reduce((s, q) => s + q.rate, 0) / queryPerfData.length)}%` : ''}
-            </span>
-          </div>
-          {queryPerfData.length > 0 ? queryPerfData.slice(0, 8).map((q, i) => (
-            <div key={i} style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                <span title={q.query} style={{ fontSize: 12, color: 'var(--text)', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.query}</span>
-                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700, color: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)' }}>{q.rate}%</span>
-              </div>
-              <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 3, width: `${q.rate}%`, background: q.rate >= 50 ? 'var(--green)' : q.rate > 0 ? 'var(--amber)' : 'var(--red)', transition: 'width .3s' }} />
+          {bulkAddOpen && (
+            <div style={{ marginTop: 12 }}>
+              <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} placeholder={'Paste multiple queries here — one per line'} style={{ width: '100%', minHeight: 120, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--mono)', fontSize: 11, padding: 10, resize: 'vertical', boxSizing: 'border-box', borderRadius: 'var(--radius-xs)' }} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 11 }} onClick={() => {
+                  const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
+                  if (lines.length && brand) { fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [...queries, ...lines] }) }).then(() => { fetchBrands(); setBulkText(''); setBulkAddOpen(false); }); }
+                }}>ADD ALL QUERIES</button>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)' }}>One query per line</span>
               </div>
             </div>
-          )) : queries.length > 0 ? queries.slice(0, 8).map((q, i) => (
-            <div key={i} style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                <span title={q} style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{q}</span>
-                <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>No data</span>
-              </div>
-              <div style={{ height: 6, background: 'var(--bg3)', borderRadius: 3 }} />
-            </div>
-          )) : <p style={{ fontSize: 12, color: 'var(--muted)' }}>No queries yet</p>}
-          {queries.length > 8 && <Link href="/dashboard/query-performance" style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none', marginTop: 8, display: 'inline-block' }}>View all {queries.length} queries →</Link>}
-        </div>
-
-        {/* Competitors in AI — tag pills like legacy */}
-        <div className="card" style={{ marginBottom: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>Competitors in AI</div>
-            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-              {topCompetitors.length || (brand.competitors || []).length} brands
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {topCompetitors.length > 0 ? topCompetitors.map(([name, count], i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 12, color: 'var(--text)' }}>
-                {name} <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{count}x</span>
-              </span>
-            )) : (brand.competitors || []).length > 0 ? (brand.competitors || []).map((c, i) => (
-              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 100, fontSize: 12, color: 'var(--text)' }}>
-                {c} <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>No SOV data</span>
-              </span>
-            )) : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Add competitors in Brand Setup</p>}
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* Citation Sources */}
-      {show('citations') && (
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div>
-            <div className="card-title" style={{ marginBottom: 2 }}>Citation Sources</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Where AI pulls information from</div>
-          </div>
-          <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{topCitations.length} domains</span>
-        </div>
-        {topCitations.length > 0 ? (() => {
-          const maxCount = topCitations[0] ? topCitations[0][1] : 1;
-          return topCitations.map(([domain, count], i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 12, color: 'var(--text)', minWidth: 140, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{domain}</span>
-              <div style={{ flex: 1, height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 3, width: `${(count / maxCount) * 100}%`, background: 'var(--primary)', transition: 'width .3s' }} />
-              </div>
-              <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', minWidth: 32, textAlign: 'right' }}>{count}×</span>
-            </div>
-          ));
-        })() : <p style={{ fontSize: 12, color: 'var(--muted)' }}>Citation tracking requires AI platforms that provide source links (Perplexity, Gemini). Run queries to start collecting citation data.</p>}
-      </div>
-      )}
-
-      {/* Actionable Insights */}
-      {show('insights') && (
-      <div className="card">
-        <div className="card-title">Actionable Insights</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* SOV drop takes priority over SOV level */}
-          {sovChange !== null && sovChange < -5 && <InsightCard color="var(--red)" icon="⚠" title="SOV Declined" desc={`Your SOV dropped ${Math.abs(sovChange)}% since last run. Review your content strategy and check which platforms lost visibility.`} link="/dashboard/trends" />}
-          {sovChange !== null && sovChange > 10 && <InsightCard color="var(--green)" icon="▲" title="SOV Improving" desc={`Great news! Your SOV improved +${sovChange}% since last run. Keep up the momentum.`} link="/dashboard/trends" />}
-          {sov === 0 && <InsightCard color="var(--amber)" icon="⚠" title="Getting Started with GEO" desc="Your SOV is 0%. Run queries and check Recommendations for optimization tips." link="/dashboard/recommendations" />}
-          {sov > 0 && sov < 50 && (sovChange === null || sovChange >= -5) && <InsightCard color="var(--primary)" icon="▲" title="Growing Your AI Presence" desc={`Your SOV is ${sov}%. Focus on high-performing queries and optimize content for AI platforms.`} link="/dashboard/recommendations" />}
-          {sov >= 50 && (sovChange === null || sovChange >= -5) && <InsightCard color="var(--green)" icon="✓" title="Strong AI Visibility" desc={`Your SOV is ${sov}%. Keep monitoring and expanding your query coverage.`} link="/dashboard/query-performance" />}
-          {Object.values(platforms).some(p => (p as Record<string, number>).sov === 0) && Object.values(platforms).some(p => (p as Record<string, number>).total > 0) && <InsightCard color="var(--red)" icon="◎" title="Platform Gap Detected" desc="Some platforms show 0% SOV. Check Platform Status for details." link="/dashboard/platforms" />}
-          {sentTotal > 0 && negCount > posCount && <InsightCard color="var(--red)" icon="⚠" title="Negative Sentiment Detected" desc="More negative than positive sentiment. Review responses and optimize brand content." link="/dashboard/mentions" />}
-          {!brand.city && <InsightCard color="var(--blue)" icon="ℹ" title="Set Your Location" desc="Add a city in Brand Setup to track local AI visibility." link="/dashboard/setup" />}
-        </div>
-      </div>
-      )}
-
-      {/* Last Run Summary */}
-      {show('lastrun') && lastRun && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>
-              Last Run — {lastRun.date ? (() => {
-                const d = new Date(lastRun.date);
-                const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                const h = d.getHours();
-                const ampm = h >= 12 ? 'PM' : 'AM';
-                const h12 = h % 12 || 12;
-                const mm = String(d.getMinutes()).padStart(2, '0');
-                return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${String(h12).padStart(2, '0')}:${mm} ${ampm}`;
-              })() : 'Unknown'}
-            </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>Found {totalM}/{totalQ}</span>
-              <Link href="/dashboard/mentions" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>
-                View All →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tracked Queries */}
-      {show('queries') && (
-      <div className="card" style={{ marginBottom: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div>
-            <div className="card-title" style={{ marginBottom: 2 }}>Tracked Queries</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>{queries.length} / {planLimit > 1000 ? '∞' : planLimit} queries</div>
-          </div>
-          <Link href="/dashboard/setup" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>Manage Queries</Link>
-        </div>
-        {queries.length >= planLimit && planLimit < 999 && (
-          <div style={{ background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', padding: '8px 14px', marginBottom: 12, fontSize: 11, color: 'var(--amber)', fontFamily: 'var(--mono)', borderRadius: 'var(--radius-xs)' }}>
-            Query limit reached. Upgrade your plan for more queries.
-          </div>
-        )}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-          {queries.map((q, i) => (
-            <span key={i} title={q} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg3)', border: selectMode && selectedQueries.has(i) ? '2px solid var(--primary)' : '1px solid var(--border)', color: 'var(--text)', fontSize: 12, fontWeight: 500, padding: '6px 12px', borderRadius: 100, cursor: selectMode ? 'pointer' : 'default' }}
-              onClick={() => { if (selectMode) setSelectedQueries(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n; }); }}>
-              {selectMode && <span style={{ width: 14, height: 14, border: '2px solid var(--border)', borderRadius: 3, background: selectedQueries.has(i) ? 'var(--primary)' : 'transparent', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, marginRight: 2 }}>{selectedQueries.has(i) ? '✓' : ''}</span>}
-              {q}
-              {!selectMode && <button onClick={() => removeQuery(i)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, marginLeft: 4, padding: 0, lineHeight: 1 }}>&times;</button>}
-            </span>
-          ))}
-          {queries.length === 0 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>No queries yet. Add some below.</span>}
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <input value={newQuery} onChange={e => setNewQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && addQuery()}
-            placeholder="Add a new query..." className="finp" style={{ flex: 1, marginBottom: 0 }} />
-          <button onClick={addQuery} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>+ Add</button>
-        </div>
-
-        {/* BULK ADD modal */}
-        {bulkAddOpen && (
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: 14, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Paste queries (one per line)</div>
-            <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={5} style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: 10, fontSize: 13, fontFamily: 'var(--font)', color: 'var(--text)', resize: 'vertical' }} placeholder="best hvac company austin&#10;top plumber near me&#10;affordable ac repair" />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }} onClick={() => {
-                const lines = bulkText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                if (lines.length && brand) {
-                  const updated = [...queries, ...lines];
-                  fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
-                    .then(() => { fetchBrands(); setBulkText(''); setBulkAddOpen(false); });
-                }
-              }}>Add {bulkText.split('\n').filter(l => l.trim()).length} Queries</button>
-              <button className="pill-btn" onClick={() => setBulkAddOpen(false)}>Cancel</button>
-            </div>
-          </div>
-        )}
-
-        {/* Select mode: delete selected */}
-        {selectMode && selectedQueries.size > 0 && (
-          <div style={{ background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.15)', borderRadius: 'var(--radius-xs)', padding: '8px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: 12, color: 'var(--red)' }}>{selectedQueries.size} selected</span>
-            <button className="pill-btn" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,.3)' }} onClick={() => {
-              if (!brand) return;
-              const updated = queries.filter((_, i) => !selectedQueries.has(i));
-              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
-                .then(() => { fetchBrands(); setSelectedQueries(new Set()); setSelectMode(false); });
-            }}>DELETE SELECTED</button>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button className="pill-btn" onClick={() => setBulkAddOpen(!bulkAddOpen)}>BULK ADD</button>
-          <button className="pill-btn" style={{ color: 'var(--green)', borderColor: 'rgba(16,185,129,.3)' }} onClick={() => {
-            if (!brand) return;
-            const industry = brand.industry || 'services';
-            const city = brand.city || '';
-            const suggestions = [
-              `best ${industry} in ${city || 'my area'}`,
-              `top rated ${industry} near me`,
-              `${brand.name} reviews`,
-              `recommended ${industry} companies`,
-              `${industry} cost ${city}`,
-            ].filter(s => !queries.includes(s));
-            if (suggestions.length && brand) {
-              const updated = [...queries, ...suggestions];
-              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
-                .then(() => fetchBrands());
-            }
-          }}>SUGGEST</button>
-          <button className="pill-btn" style={{ color: 'var(--blue)', borderColor: 'rgba(59,130,246,.3)' }} onClick={() => {
-            if (!brand) return;
-            const name = brand.name;
-            const generated = [
-              `what is ${name}`,
-              `is ${name} good`,
-              `${name} vs competitors`,
-              `${name} pricing`,
-              `alternatives to ${name}`,
-            ].filter(s => !queries.includes(s));
-            if (generated.length && brand) {
-              const updated = [...queries, ...generated];
-              fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
-                .then(() => fetchBrands());
-            }
-          }}>AI GENERATE</button>
-          <button className="pill-btn" style={{ color: 'var(--red)', borderColor: 'rgba(239,68,68,.3)' }} onClick={() => {
-            if (!brand || !queries.length) return;
-            setShowClearConfirm(true);
-          }}>CLEAR ALL</button>
-          <button className="pill-btn" style={selectMode ? { color: 'var(--primary)', borderColor: 'var(--primary-border)', background: 'var(--primary-light)' } : {}} onClick={() => { setSelectMode(!selectMode); setSelectedQueries(new Set()); }}>{selectMode ? '✓ DONE' : '☐ SELECT'}</button>
-        </div>
-
-        {/* Clear All Confirmation Modal */}
-        {showClearConfirm && (
-          <div style={{ background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)', padding: 14, marginTop: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--red)', marginBottom: 8 }}>Are you sure you want to remove all {queries.length} queries?</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>This cannot be undone. All tracked queries will be permanently deleted.</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="pill-btn" onClick={() => setShowClearConfirm(false)}>Cancel</button>
-              <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12, background: 'var(--red)' }} onClick={() => {
-                if (!brand) return;
-                fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: [] }) })
-                  .then(() => { fetchBrands(); setShowClearConfirm(false); });
-              }}>Yes, Remove All Queries</button>
-            </div>
-          </div>
-        )}
-      </div>
-      )}
-    </div>
-  );
-}
-
-function HeroStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-lg font-extrabold font-mono text-[var(--text)]">{value}</div>
-      <div className="text-[10px] text-[var(--muted)] font-medium uppercase tracking-wider mt-0.5">{label}</div>
-    </div>
-  );
-}
-
-function InsightCard({ color, icon, title, desc, link }: { color: string; icon: string; title: string; desc: string; link: string }) {
-  return (
-    <Link href={link} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', textDecoration: 'none', transition: 'all .15s', borderLeft: `3px solid ${color}` }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg3)'; (e.currentTarget as HTMLElement).style.transform = 'translateX(2px)'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; (e.currentTarget as HTMLElement).style.transform = ''; }}>
-      <span style={{ fontSize: 18, color, flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{title}</div>
-        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{desc}</div>
-      </div>
-      <span style={{ fontSize: 11, color: 'var(--primary)', fontFamily: 'var(--mono)', whiteSpace: 'nowrap', flexShrink: 0 }}>View →</span>
-    </Link>
-  );
-}
-
-function MetricTooltip({ text }: { text: string }) {
-  return (
-    <span title={text} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 14, height: 14, borderRadius: '50%', background: 'var(--bg3)', color: 'var(--muted)', fontSize: 9, fontWeight: 700, cursor: 'help', marginLeft: 4, verticalAlign: 'middle', border: '1px solid var(--border)' }}>?</span>
-  );
-}
-
-function SovTrendChart({ data }: { data: Array<{ sov: number; date: string }> }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const W = 600, H = 160, PL = 36, PR = 12, PT = 10, PB = 24;
-  const chartW = W - PL - PR, chartH = H - PT - PB;
-  const maxSov = Math.max(100, ...data.map(d => d.sov));
-
-  const points = data.map((d, i) => ({
-    x: PL + (data.length > 1 ? (i / (data.length - 1)) * chartW : chartW / 2),
-    y: PT + chartH - (d.sov / maxSov) * chartH,
-    sov: d.sov,
-    date: d.date,
-  }));
-
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
-  const areaPath = linePath + ` L${points[points.length - 1].x},${PT + chartH} L${points[0].x},${PT + chartH} Z`;
-
-  const yTicks = [0, 25, 50, 75, 100].filter(v => v <= maxSov);
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', maxHeight: 180 }}>
-        <defs>
-          <linearGradient id="sovGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        {/* Y-axis grid lines */}
-        {yTicks.map(v => {
-          const y = PT + chartH - (v / maxSov) * chartH;
-          return (
-            <g key={v}>
-              <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="4,4" />
-              <text x={PL - 6} y={y + 3} textAnchor="end" style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
-            </g>
-          );
-        })}
-        {/* X-axis labels */}
-        {points.filter((_, i) => data.length <= 7 || i % Math.ceil(data.length / 7) === 0 || i === data.length - 1).map((p, i) => (
-          <text key={i} x={p.x} y={H - 4} textAnchor="middle" style={{ fontSize: 8, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
-            {p.date ? (() => { const d = new Date(p.date); return `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })() : `#${i + 1}`}
-          </text>
-        ))}
-        {/* Area fill */}
-        <path d={areaPath} fill="url(#sovGrad)" />
-        {/* Line */}
-        <path d={linePath} fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {/* Data points */}
-        {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={hoverIdx === i ? 5 : 3}
-            fill={hoverIdx === i ? 'var(--primary)' : 'var(--bg2)'}
-            stroke="var(--primary)" strokeWidth="2"
-            style={{ cursor: 'pointer', transition: 'r .15s' }}
-            onMouseEnter={() => setHoverIdx(i)} onMouseLeave={() => setHoverIdx(null)} />
-        ))}
-      </svg>
-      {/* Hover tooltip */}
-      {hoverIdx !== null && points[hoverIdx] && (
-        <div style={{
-          position: 'absolute', left: `${(points[hoverIdx].x / W) * 100}%`, top: `${(points[hoverIdx].y / H) * 100 - 14}%`,
-          transform: 'translateX(-50%)', background: 'var(--text)', color: '#fff', padding: '4px 10px',
-          borderRadius: 'var(--radius-xs)', fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700,
-          whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10,
-        }}>
-          {points[hoverIdx].sov}% · {points[hoverIdx].date ? new Date(points[hoverIdx].date).toLocaleDateString() : ''}
+          )}
         </div>
       )}
     </div>
