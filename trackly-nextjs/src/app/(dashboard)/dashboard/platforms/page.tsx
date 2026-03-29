@@ -5,9 +5,9 @@ import { PLATFORM_COLORS } from '@/lib/constants';
 
 interface PlatformData {
   sov?: number;
-  queries?: number;
+  queries?: number;  // stored by run route as 'queries' (total query count per platform)
   mentions?: number;
-  total?: number;
+  total?: number;    // alias for queries in some contexts
   errors?: number;
   latency?: number;
   successRate?: number;
@@ -27,8 +27,9 @@ interface Brand {
 }
 
 function healthStatus(pd: PlatformData): { label: string; color: string; dot: string } {
-  if (!pd || pd.sov === undefined) return { label: 'No Data', color: 'var(--muted)', dot: 'var(--muted)' };
-  if (pd.errors && pd.total && pd.errors / pd.total > 0.3) return { label: 'Degraded', color: 'var(--red)', dot: 'var(--red)' };
+  if (!pd || (pd.sov === undefined && pd.mentions === undefined)) return { label: 'No Data', color: 'var(--muted)', dot: 'var(--muted)' };
+  const total = pd.total || pd.queries || 0;
+  if (pd.errors && total && pd.errors / total > 0.3) return { label: 'Degraded', color: 'var(--red)', dot: 'var(--red)' };
   if (pd.latency && pd.latency > 5000) return { label: 'Slow', color: 'var(--amber)', dot: 'var(--amber)' };
   return { label: 'Healthy', color: 'var(--green)', dot: 'var(--green)' };
 }
@@ -57,7 +58,7 @@ export default function PlatformsPage() {
       Object.entries(run.platforms).forEach(([name, pd]) => {
         if (!stats[name]) stats[name] = { totalCalls: 0, totalErrors: 0, avgLatency: 0, latencyCount: 0 };
         const s = stats[name];
-        s.totalCalls += (pd.total || 0);
+        s.totalCalls += (pd.total || pd.queries || 0);
         s.totalErrors += (pd.errors || 0);
         if (pd.latency) { s.avgLatency += pd.latency; s.latencyCount++; }
       });
@@ -68,7 +69,7 @@ export default function PlatformsPage() {
   // Summary stats
   const healthyCount = Object.entries(PLATFORM_COLORS).filter(([name]) => {
     const pd = platformData[name];
-    return pd && pd.sov !== undefined && healthStatus(pd).label === 'Healthy';
+    return pd && (pd.sov !== undefined || pd.mentions !== undefined) && healthStatus(pd).label === 'Healthy';
   }).length;
   const totalPlatforms = Object.keys(PLATFORM_COLORS).length;
   const totalErrors = Object.values(platformData).reduce((s, pd) => s + (pd.errors || 0), 0);

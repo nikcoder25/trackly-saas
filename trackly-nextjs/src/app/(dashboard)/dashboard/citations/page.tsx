@@ -22,7 +22,7 @@ export default function CitationsPage() {
     if (!brand) return;
     fetch(`/api/brands/${brand.id}/citation-analysis`, { credentials: 'include' })
       .then(r => r.json())
-      .then(d => setCitData(d))
+      .then(d => setCitData({ domains: d?.domains ?? {}, totalCitations: d?.totalCitations ?? 0, ownDomain: d?.ownDomain, ownDomainName: d?.ownDomainName }))
       .catch(() => {
         // Compute from runs if API not available
         const domains: Record<string, number> = {};
@@ -39,8 +39,8 @@ export default function CitationsPage() {
   }, [brand]);
 
   const sortedDomains = useMemo(() => {
-    if (!citData) return [];
-    return Object.entries(citData.domains).sort((a, b) => b[1] - a[1]);
+    if (!citData?.domains) return [];
+    return Object.entries(citData.domains ?? {}).sort((a, b) => b[1] - a[1]);
   }, [citData]);
 
   const domainCount = sortedDomains.length;
