@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
-  const result = await pool.query('SELECT * FROM alert_rules WHERE brand_id = $1 ORDER BY created_at DESC', [id]);
+  const result = await pool.query('SELECT id, brand_id, user_id, name, condition_type, condition_params, action_type, action_params, cooldown_hours, enabled, created_at FROM alert_rules WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 100', [id]);
   return Response.json({ alerts: result.rows });
 }
 

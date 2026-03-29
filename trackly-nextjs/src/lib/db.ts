@@ -21,7 +21,7 @@ export const pool =
   new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: sslConfig,
-    max: parseInt(process.env.PG_POOL_MAX || '15', 10),
+    max: parseInt(process.env.PG_POOL_MAX || '50', 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
   });

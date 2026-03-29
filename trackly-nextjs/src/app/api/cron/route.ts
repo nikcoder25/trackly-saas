@@ -30,40 +30,46 @@ export async function GET(request: Request) {
       WHERE b.data->>'schedule' IS NOT NULL
         AND (b.data->>'schedule')::int > 0
       ORDER BY b.updated_at ASC
-      LIMIT 10
+      LIMIT 50
     `);
 
-    let processed = 0;
-    let skipped = 0;
-
-    for (const row of result.rows) {
+    // Filter eligible brands
+    const eligible = result.rows.filter(row => {
       const scheduleHours = parseInt(row.data?.schedule, 10);
-      if (!scheduleHours || scheduleHours <= 0) { skipped++; continue; }
-
+      if (!scheduleHours || scheduleHours <= 0) return false;
       const limits = getPlanLimits(row.plan || 'free');
-      if (!limits.scheduledRuns) { skipped++; continue; }
-      if (scheduleHours < limits.minScheduleHours) { skipped++; continue; }
-
-      // Check if enough time has passed since last run
+      if (!limits.scheduledRuns) return false;
+      if (scheduleHours < limits.minScheduleHours) return false;
       const runs = row.data?.runs || [];
       if (runs.length > 0) {
         const lastRun = runs[runs.length - 1];
         const lastRunTime = new Date(lastRun.date).getTime();
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
-        if (hoursSince < scheduleHours) { skipped++; continue; }
+        if (hoursSince < scheduleHours) return false;
       }
+      return true;
+    });
 
-      // Trigger run via internal API
-      try {
-        const runUrl = new URL(`/api/brands/${row.id}/run`, request.url);
-        await fetch(runUrl.toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        processed++;
-      } catch (e) {
-        console.error(`[Cron] Failed to run brand ${row.id}:`, (e as Error).message);
-      }
+    const skipped = result.rows.length - eligible.length;
+
+    // Process eligible brands in parallel (batches of 5 to avoid overwhelming)
+    let processed = 0;
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+      const batch = eligible.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (row) => {
+          const runUrl = new URL(`/api/brands/${row.id}/run`, request.url);
+          await fetch(runUrl.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+        })
+      );
+      processed += results.filter(r => r.status === 'fulfilled').length;
+      results.filter(r => r.status === 'rejected').forEach((r, idx) => {
+        console.error(`[Cron] Failed brand ${batch[idx].id}:`, (r as PromiseRejectedResult).reason?.message);
+      });
     }
 
     return Response.json({ processed, skipped, total: result.rows.length, timestamp: new Date().toISOString() });

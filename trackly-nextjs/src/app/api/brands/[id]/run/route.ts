@@ -51,11 +51,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let totalMentions = 0;
   let totalQueries = 0;
 
-  // Execute queries across platforms
-  for (const platform of activePlatforms) {
+  // Execute queries across all platforms concurrently
+  // Each platform runs its queries sequentially (to respect rate limits per API key),
+  // but all platforms run in parallel with each other
+  await Promise.all(activePlatforms.map(async (platform) => {
     const keyName = PLATFORM_KEY_MAP[platform];
     const apiKey = userKeys[keyName] || serverKeys[platform]?.[0];
-    if (!apiKey) continue;
+    if (!apiKey) return;
 
     const model = getDefaultModel(platform);
     let platMentions = 0;
@@ -102,7 +104,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       sov: platTotal > 0 ? Math.round((platMentions / platTotal) * 100) : 0,
       errors: platErrors,
     };
-  }
+  }));
 
   // Calculate overall SOV
   const overallSov = totalQueries > 0 ? Math.round((totalMentions / totalQueries) * 100) : 0;
