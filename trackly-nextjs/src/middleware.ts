@@ -8,6 +8,7 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('livesov_token')?.value;
 
   // If user is on auth page but already logged in, redirect to dashboard
+  // This prevents logged-in users from accessing login/signup/reset pages
   if (authPaths.some((p) => pathname.startsWith(p)) && token) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
