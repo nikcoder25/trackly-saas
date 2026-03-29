@@ -26,11 +26,20 @@ interface Brand {
   selected_platforms?: string[];
 }
 
-function healthStatus(pd: PlatformData): { label: string; color: string; dot: string } {
-  if (!pd || (pd.sov === undefined && pd.mentions === undefined)) return { label: 'No Data', color: 'var(--muted)', dot: 'var(--muted)' };
-  const total = pd.total || pd.queries || 0;
-  if (pd.errors && total && pd.errors / total > 0.3) return { label: 'Degraded', color: 'var(--red)', dot: 'var(--red)' };
-  if (pd.latency && pd.latency > 5000) return { label: 'Slow', color: 'var(--amber)', dot: 'var(--amber)' };
+// Normalize platform data — handles both number (SOV%) and object formats
+function normPlatform(pd: unknown): { sov: number; total: number; mentions: number; errors: number } {
+  if (typeof pd === 'number') return { sov: pd, total: pd > 0 ? 1 : 0, mentions: pd > 0 ? 1 : 0, errors: 0 };
+  if (typeof pd === 'object' && pd !== null) {
+    const o = pd as Record<string, number>;
+    return { sov: o.sov || 0, total: o.total || o.queries || 0, mentions: o.mentions || 0, errors: o.errors || 0 };
+  }
+  return { sov: 0, total: 0, mentions: 0, errors: 0 };
+}
+
+function healthStatus(pd: unknown): { label: string; color: string; dot: string } {
+  const n = normPlatform(pd);
+  if (n.sov === 0 && n.total === 0 && n.mentions === 0) return { label: 'No Data', color: 'var(--muted)', dot: 'var(--muted)' };
+  if (n.errors && n.total && n.errors / n.total > 0.3) return { label: 'Degraded', color: 'var(--red)', dot: 'var(--red)' };
   return { label: 'Healthy', color: 'var(--green)', dot: 'var(--green)' };
 }
 
@@ -63,18 +72,17 @@ export default function PlatformsPage() {
   const latestRun = selectedBrand?.runs?.length ? selectedBrand.runs[selectedBrand.runs.length - 1] : null;
   const platformData = latestRun?.platforms || {};
 
-  // Aggregate stats across last 10 runs for latency/success rate estimates
+  // Aggregate stats across last 10 runs
   const platformStats = useMemo(() => {
-    const stats: Record<string, { totalCalls: number; totalErrors: number; avgLatency: number; latencyCount: number }> = {};
+    const stats: Record<string, { totalCalls: number; totalErrors: number }> = {};
     const recentRuns = (selectedBrand?.runs || []).slice(-10);
     recentRuns.forEach(run => {
       if (!run.platforms) return;
       Object.entries(run.platforms).forEach(([name, pd]) => {
-        if (!stats[name]) stats[name] = { totalCalls: 0, totalErrors: 0, avgLatency: 0, latencyCount: 0 };
-        const s = stats[name];
-        s.totalCalls += (pd.total || pd.queries || 0);
-        s.totalErrors += (pd.errors || 0);
-        if (pd.latency) { s.avgLatency += pd.latency; s.latencyCount++; }
+        if (!stats[name]) stats[name] = { totalCalls: 0, totalErrors: 0 };
+        const n = normPlatform(pd);
+        stats[name].totalCalls += n.total;
+        stats[name].totalErrors += n.errors;
       });
     });
     return stats;
@@ -83,11 +91,12 @@ export default function PlatformsPage() {
   // Summary stats
   const healthyCount = Object.entries(PLATFORM_COLORS).filter(([name]) => {
     const pd = platformData[name];
-    return pd && (pd.sov !== undefined || pd.mentions !== undefined) && healthStatus(pd).label === 'Healthy';
+    if (pd === undefined || pd === null) return false;
+    return healthStatus(pd).label === 'Healthy';
   }).length;
   const totalPlatforms = Object.keys(PLATFORM_COLORS).length;
-  const totalErrors = Object.values(platformData).reduce((s, pd) => s + (pd.errors || 0), 0);
-  const totalMentions = Object.values(platformData).reduce((s, pd) => s + (pd.mentions || 0), 0);
+  const totalErrors = Object.values(platformData).reduce((s, pd) => s + normPlatform(pd).errors, 0);
+  const totalMentions = Object.values(platformData).reduce((s, pd) => s + normPlatform(pd).mentions, 0);
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 
@@ -158,16 +167,13 @@ export default function PlatformsPage() {
       {/* Platform Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
-          const pd = platformData[name] || {} as PlatformData;
-          const sov = pd.sov;
-          const hasData = sov !== undefined;
-          const health = healthStatus(pd);
+          const raw = platformData[name];
+          const n = normPlatform(raw);
+          const hasData = raw !== undefined && raw !== null;
+          const health = healthStatus(raw);
           const stats = platformStats[name];
           const successRate = stats && stats.totalCalls > 0
             ? Math.round(((stats.totalCalls - stats.totalErrors) / stats.totalCalls) * 100)
-            : null;
-          const avgLatency = stats && stats.latencyCount > 0
-            ? Math.round(stats.avgLatency / stats.latencyCount)
             : null;
 
           return (
@@ -186,24 +192,24 @@ export default function PlatformsPage() {
                 <>
                   {/* SOV */}
                   <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-2xl font-extrabold font-mono" style={{ color: sov >= 50 ? 'var(--green)' : sov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{sov}%</span>
+                    <span className="text-2xl font-extrabold font-mono" style={{ color: n.sov >= 50 ? 'var(--green)' : n.sov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{n.sov}%</span>
                     <span className="text-[10px] text-[var(--muted)] uppercase tracking-wider">SOV</span>
                   </div>
 
                   {/* Progress bar */}
                   <div className="w-full bg-[var(--bg)] rounded-full h-2 mb-3">
-                    <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(sov, 100)}%`, background: color }} />
+                    <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(n.sov, 100)}%`, background: color }} />
                   </div>
 
                   {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[11px]">
                     <div className="flex justify-between">
                       <span className="text-[var(--muted)]">Mentions</span>
-                      <span className="font-mono text-[var(--text)] font-medium">{pd.mentions || 0}/{pd.total || 0}</span>
+                      <span className="font-mono text-[var(--text)] font-medium">{n.mentions}/{n.total}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[var(--muted)]">Queries</span>
-                      <span className="font-mono text-[var(--text)] font-medium">{pd.queries || pd.total || 0}</span>
+                      <span className="text-[var(--muted)]">SOV</span>
+                      <span className="font-mono text-[var(--text)] font-medium">{n.sov}%</span>
                     </div>
                     {successRate !== null && (
                       <div className="flex justify-between">
@@ -211,16 +217,10 @@ export default function PlatformsPage() {
                         <span className={`font-mono font-medium ${successRate >= 90 ? 'text-[var(--green)]' : successRate >= 70 ? 'text-[var(--amber)]' : 'text-[var(--red)]'}`}>{successRate}%</span>
                       </div>
                     )}
-                    {avgLatency !== null && (
-                      <div className="flex justify-between">
-                        <span className="text-[var(--muted)]">Avg Latency</span>
-                        <span className={`font-mono font-medium ${avgLatency < 3000 ? 'text-[var(--green)]' : avgLatency < 6000 ? 'text-[var(--amber)]' : 'text-[var(--red)]'}`}>{(avgLatency / 1000).toFixed(1)}s</span>
-                      </div>
-                    )}
-                    {(pd.errors || 0) > 0 && (
+                    {n.errors > 0 && (
                       <div className="flex justify-between col-span-2">
                         <span className="text-[var(--muted)]">Errors</span>
-                        <span className="font-mono text-[var(--red)] font-medium">{pd.errors}</span>
+                        <span className="font-mono text-[var(--red)] font-medium">{n.errors}</span>
                       </div>
                     )}
                     {stats && stats.totalCalls > 0 && (

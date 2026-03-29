@@ -102,6 +102,16 @@ export default function DashboardPage() {
   const platforms = lastRun?.platforms || {};
   const queries = brand?.queries || [];
   const planLimit = (user?.limits as Record<string, number>)?.prompts || 5;
+
+  // Normalize platform data — handles both number format (SOV%) and object format
+  function normPlatform(pd: unknown): { sov: number; total: number; mentions: number; errors: number } {
+    if (typeof pd === 'number') return { sov: pd, total: pd > 0 ? 1 : 0, mentions: pd > 0 ? 1 : 0, errors: 0 };
+    if (typeof pd === 'object' && pd !== null) {
+      const o = pd as Record<string, number>;
+      return { sov: o.sov || 0, total: o.total || o.queries || 0, mentions: o.mentions || 0, errors: o.errors || 0 };
+    }
+    return { sov: 0, total: 0, mentions: 0, errors: 0 };
+  }
   const circumference = 2 * Math.PI * 52;
   const offset = circumference - (sov / 100) * circumference;
 
@@ -130,7 +140,7 @@ export default function DashboardPage() {
     const names = ['ChatGPT', 'Claude', 'Grok'];
     let total = 0, mentioned = 0;
     Object.entries(platforms).forEach(([name, pd]) => {
-      if (names.includes(name)) { total += (pd as Record<string, number>).total || 0; mentioned += (pd as Record<string, number>).mentions || 0; }
+      if (names.includes(name)) { const n = normPlatform(pd); total += n.total; mentioned += n.mentions; }
     });
     return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
   }, [platforms]);
@@ -139,13 +149,13 @@ export default function DashboardPage() {
     const names = ['Perplexity', 'Gemini'];
     let total = 0, mentioned = 0;
     Object.entries(platforms).forEach(([name, pd]) => {
-      if (names.includes(name)) { total += (pd as Record<string, number>).total || 0; mentioned += (pd as Record<string, number>).mentions || 0; }
+      if (names.includes(name)) { const n = normPlatform(pd); total += n.total; mentioned += n.mentions; }
     });
     return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
   }, [platforms]);
 
   const bestPlatform = useMemo(() => {
-    const entries = Object.entries(platforms).map(([name, pd]) => ({ name, sov: (pd as Record<string, number>).sov || 0 }));
+    const entries = Object.entries(platforms).map(([name, pd]) => ({ name, sov: normPlatform(pd).sov }));
     if (!entries.length) return null;
     return entries.reduce((a, b) => b.sov > a.sov ? b : a);
   }, [platforms]);
@@ -275,15 +285,11 @@ export default function DashboardPage() {
     return a;
   }, [sovChange, sentiment, sentTotal, platforms]);
 
-  // API Health summary — use queries OR total field (run route saves 'queries', not 'total')
-  const apiTotalResponses = Object.values(platforms).reduce((s, p) => { const pd = p as Record<string, number>; return s + (pd.total || pd.queries || 0); }, 0);
-  const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
-  const apiHealthy = Object.values(platforms).filter(p => {
-    const pd = p as Record<string, number>;
-    const total = pd.total || pd.queries || 0;
-    return total > 0 && (!pd.errors || pd.errors / total < 0.3);
-  }).length;
-  const apiTotal = Object.values(platforms).filter(p => { const pd = p as Record<string, number>; return (pd.total || pd.queries || 0) > 0; }).length;
+  // API Health summary — normalize platform data (handles both number and object formats)
+  const apiTotalResponses = Object.values(platforms).reduce((s, p) => s + normPlatform(p).total, 0);
+  const apiErrors = Object.values(platforms).reduce((s, p) => s + normPlatform(p).errors, 0);
+  const apiHealthy = Object.values(platforms).filter(p => { const n = normPlatform(p); return n.total > 0 && (n.errors === 0 || n.errors / n.total < 0.3); }).length;
+  const apiTotal = Object.values(platforms).filter(p => normPlatform(p).total > 0).length;
   const apiHealthColor = apiErrors === 0 && apiTotalResponses > 0 ? 'var(--green)' : apiErrors > 0 ? 'var(--red)' : 'var(--muted)';
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
@@ -356,7 +362,7 @@ export default function DashboardPage() {
         </div>
         <div className="ov-hero-stats">
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{totalM} / {totalQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>{const pd=p as Record<string,number>;return (pd.total||pd.queries||0)>0;}).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>normPlatform(p).total>0).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:lastRunAge.includes('d')?'var(--amber)':''}}>{lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">Last Run</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{fmtDuration(lastRun?.duration)}</div><div className="ov-hero-stat-lbl">Run Duration</div></div>
@@ -417,7 +423,7 @@ export default function DashboardPage() {
       </div>}
 
       {/* PLATFORM CARDS */}
-      {show('platforms')&&<div className="ov-plat-grid">{Object.entries(PLATFORM_COLORS).map(([name,color])=>{const pd=platforms[name]||{};const pSov=(pd as Record<string,number>).sov||0;const pTotal=(pd as Record<string,number>).total||0;const isActive=pTotal>0||pSov>0;return <div key={name} className="ov-plat-card" style={{borderTop:`3px solid ${color}`}}><div className="ov-plat-name">{name}</div><div className="ov-plat-status" style={{color:isActive?'var(--green)':'var(--muted)'}}>● {isActive?'ACTIVE':'INACTIVE'}</div><div className="ov-plat-bar"><div className="ov-plat-bar-fill" style={{width:`${pSov}%`,background:color}}/></div><div className="ov-plat-sov" style={{color:pSov>=50?'var(--green)':pSov>0?'var(--amber)':'var(--muted)'}}>{pSov}%</div></div>;})}</div>}
+      {show('platforms')&&<div className="ov-plat-grid">{Object.entries(PLATFORM_COLORS).map(([name,color])=>{const n=normPlatform(platforms[name]);const isActive=n.total>0||n.sov>0;return <div key={name} className="ov-plat-card" style={{borderTop:`3px solid ${color}`}}><div className="ov-plat-name">{name}</div><div className="ov-plat-status" style={{color:isActive?'var(--green)':'var(--muted)'}}>● {isActive?'ACTIVE':'INACTIVE'}</div><div className="ov-plat-bar"><div className="ov-plat-bar-fill" style={{width:`${n.sov}%`,background:color}}/></div><div className="ov-plat-sov" style={{color:n.sov>=50?'var(--green)':n.sov>0?'var(--amber)':'var(--muted)'}}>{n.sov}%</div></div>;})}</div>}
 
       {/* SOV TREND */}
       {show('trend')&&sovTrend.length>1&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">SOV Trend</div><div className="ov-card-sub">Last {sovTrend.length} runs</div></div>
