@@ -229,7 +229,7 @@ export default function QueryTrackerPage() {
                     <div className="kt-row" onClick={() => setExpanded(isExpanded ? null : idx)} style={{ cursor: 'pointer' }}>
                       <div className="kt-col kt-col-kw">
                         <span className="kt-expand-icon">{isExpanded ? '▼' : '▶'}</span>
-                        <span className="kt-kw-text">{kw.keyword}</span>
+                        <span className="kt-kw-text" title={kw.keyword}>{kw.keyword}</span>
                       </div>
                       <div className="kt-col kt-col-vis"><span style={{ color: rateColor, fontWeight: 700 }}>{kw.mentionRate}%</span></div>
                       <div className="kt-col kt-col-change"><span style={{ color: changeColor, fontWeight: 600 }}>{changeArrow}{changeStr}</span></div>

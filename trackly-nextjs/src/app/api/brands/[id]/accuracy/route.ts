@@ -12,11 +12,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const facts = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);
     // Get recent prompt runs to check for hallucinations
-    const runs = await pool.query(
-      `SELECT id, prompt, platform, model, response_parsed, mentioned, created_at
-       FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
-       ORDER BY created_at DESC LIMIT 50`, [id]
-    );
+    let runs = { rows: [] as Record<string, unknown>[] };
+    try {
+      runs = await pool.query(
+        `SELECT id, prompt, platform, model, mentioned, sentiment, recommended, created_at
+         FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
+         ORDER BY created_at DESC LIMIT 50`, [id]
+      );
+    } catch {
+      // prompt_runs table may not have all columns — return empty
+    }
     return Response.json({ facts: facts.rows, recentRuns: runs.rows });
   } catch (e) {
     console.error('[Accuracy]', (e as Error).message);

@@ -6,7 +6,12 @@ import { PLAN_LIMITS } from '@/lib/constants';
 
 interface BillingData { plan: string; memberSince: string; runsToday?: number; brandCount?: number; queryCount?: number; platformCount?: number; }
 
+const PLAN_PRICES: Record<string, string> = {
+  free: '$0', starter: '$9', pro: '$29', agency: '$89', enterprise: '$499', owner: '—',
+};
+
 const PLAN_FEATURES = [
+  { feature: 'Price / month', free: '$0', starter: '$9', pro: '$29', agency: '$89', enterprise: '$499', owner: '—' },
   { feature: 'Total Prompts', free: '5', starter: '30', pro: '250', agency: '1000', enterprise: '∞', owner: '∞' },
   { feature: 'Brands', free: '1', starter: '1', pro: '5', agency: '20', enterprise: '100', owner: '∞' },
   { feature: 'Competitors', free: '0', starter: '0', pro: '5', agency: '20', enterprise: '100', owner: '∞' },
@@ -98,6 +103,7 @@ export default function BillingPage() {
                 {['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].map(p => (
                   <th key={p} style={{ padding: '10px 14px', fontWeight: 700, color: p === currentPlan ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', fontSize: 11, letterSpacing: .5 }}>
                     {p}{p === currentPlan && ' ★'}
+                    <div style={{ fontSize: 13, fontWeight: 800, color: p === currentPlan ? 'var(--primary)' : 'var(--text)', marginTop: 2 }}>{PLAN_PRICES[p]}<span style={{ fontSize: 9, fontWeight: 400, color: 'var(--muted)' }}>{p !== 'free' && p !== 'owner' ? '/mo' : ''}</span></div>
                   </th>
                 ))}
               </tr>

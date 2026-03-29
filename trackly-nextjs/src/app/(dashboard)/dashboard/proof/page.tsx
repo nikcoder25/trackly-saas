@@ -302,7 +302,7 @@ export default function ProofPage() {
 function ProofRow({ r, highlightBrand, showQuery }: { r: { platform: string; model?: string; query: string; mentioned: boolean; error?: string; errorMessage?: string; response?: string; raw?: string; context?: string; snippet?: string; sentiment?: string; recommended?: boolean; listPosition?: number; position?: number; competitorMentions?: string[] }; highlightBrand: (t: string) => string; showQuery?: boolean }) {
   const txt = r.error ? '' : (r.raw || r.response || r.context || r.snippet || '');
   const excerpt = txt.replace(/[#*_~`]/g, '').replace(/\n/g, ' ').substring(0, 260);
-  const sent = r.sentiment || 'neutral';
+  const sent = r.error ? '—' : (r.sentiment || 'neutral');
   const sentC = sent === 'positive' ? 'var(--green)' : sent === 'negative' ? 'var(--red)' : 'var(--muted)';
   const pos = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : '';
   const statusLabel = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
