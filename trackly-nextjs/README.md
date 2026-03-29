@@ -1,0 +1,86 @@
+# Trackly (Livesov) — Next.js Frontend
+
+AI Visibility Tracker — Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand.
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4 + legacy CSS variables
+- **Database:** PostgreSQL (via `pg` pool)
+- **Auth:** JWT (httpOnly cookies) + Google OAuth
+- **Payments:** DodoPayments
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL database (shared with the Express app)
+
+### Environment Variables
+
+Create a `.env` file:
+
+```env
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+JWT_SECRET=your-jwt-secret
+CRON_SECRET=your-cron-secret
+
+# AI Platform API Keys (at least one required for running queries)
+OPENAI_API_KEY=sk-...
+PERPLEXITY_API_KEY=pplx-...
+CLAUDE_API_KEY=sk-ant-...
+GEMINI_API_KEY=AI...
+GROK_API_KEY=xai-...
+
+# Optional
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+DODO_API_KEY=...
+DODO_WEBHOOK_SECRET=...
+ENCRYPTION_KEY=...
+```
+
+### Install & Run
+
+```bash
+npm install
+npm run dev     # Development server on http://localhost:3000
+npm run build   # Production build
+npm start       # Start production server
+```
+
+## Folder Structure
+
+```
+src/
+├── app/
+│   ├── (auth)/          # Login, signup, reset-password pages
+│   ├── (dashboard)/     # Dashboard pages (setup, proof, trends, etc.)
+│   ├── (public)/        # Landing pages, blog, pricing, SEO pages
+│   └── api/             # API routes
+│       ├── auth/        # Authentication endpoints
+│       ├── brands/      # Brand CRUD + run queries + analytics
+│       ├── payments/    # DodoPayments checkout & webhooks
+│       └── ...
+├── components/
+│   ├── auth/            # Auth layout
+│   ├── dashboard/       # Sidebar, Topbar, shared form components
+│   └── seo/             # SEO layout for public pages
+├── contexts/            # React contexts (Auth, Language)
+├── lib/                 # Server utilities (db, auth, AI platforms, parser)
+├── locales/             # i18n translations (en, es, fr)
+└── styles/              # Global CSS + legacy dashboard styles
+```
+
+## Key Features
+
+- **Brand Setup** — Configure brand name, aliases, queries, nearby areas, AI platforms
+- **Query Runs** — Send queries to 5 AI platforms and analyze responses
+- **Evidence & Proof** — Full AI responses with brand mention highlighting
+- **SOV Tracking** — Share of Voice trends over time
+- **Competitors** — Track competitor mentions alongside your brand
+- **Citation Analysis** — See which sources AI platforms cite
+- **Scheduled Runs** — Automatic cron-based query execution
+- **Team Sharing** — Invite team members with role-based access

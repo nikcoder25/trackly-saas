@@ -9,7 +9,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
-  const result = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);
+  const result = await pool.query('SELECT id, brand_id, fact_key, fact_value, category, updated_at FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key LIMIT 200', [id]);
   return Response.json({ facts: result.rows });
 }
 
@@ -34,7 +34,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         [id, fact.fact_key, fact.fact_value, fact.category || 'general']
       );
     }
-    const result = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);
+    const result = await pool.query('SELECT id, brand_id, fact_key, fact_value, category, updated_at FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key LIMIT 200', [id]);
     return Response.json({ facts: result.rows });
   } catch (e) {
     return Response.json({ error: 'Failed to update facts' }, { status: 500 });

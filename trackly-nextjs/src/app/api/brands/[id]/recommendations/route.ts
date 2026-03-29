@@ -11,9 +11,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const result = await pool.query(
-      `SELECT * FROM recommendations WHERE brand_id = $1 ORDER BY
+      `SELECT id, brand_id, title, description, severity, category, status, created_at FROM recommendations WHERE brand_id = $1 ORDER BY
        CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-       created_at DESC`, [id]
+       created_at DESC LIMIT 100`, [id]
     );
     return Response.json({ recommendations: result.rows });
   } catch (e) {
