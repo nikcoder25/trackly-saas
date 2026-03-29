@@ -75,9 +75,14 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               const runRes = await fetch(`/api/brands/${b.id}/run`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } });
               const runData = await runRes.json();
               if (!runRes.ok) {
-                btn.textContent = '❌ ' + (runData.error || 'Failed');
+                const errMsg = runData.error || 'Failed';
+                // Show short error in button, full error in title tooltip
+                const short = errMsg.length > 30 ? errMsg.substring(0, 28) + '…' : errMsg;
+                btn.textContent = '❌ ' + short;
+                btn.title = errMsg;
                 btn.style.background = 'var(--red)';
-                setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 4000);
+                btn.style.fontSize = '10px';
+                setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; btn.style.fontSize = ''; btn.title = ''; }, 5000);
                 return;
               }
               btn.textContent = '✓ DONE — Refreshing...';

@@ -1399,10 +1399,10 @@ select.finput{appearance:none;}
 }
 
 /* ── ALERTS STRIP ─────────────────────── */
-.alerts-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
+.alerts-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
 .alert-chip{
-  display:flex;align-items:center;gap:8px;
-  padding:10px 16px;background:var(--bg2);border:1px solid var(--border);
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px;background:var(--bg2);border:1px solid var(--border);
   border-radius:var(--radius-sm);min-width:0;
   box-shadow:var(--app-shadow);transition:all .2s;
 }
@@ -1904,11 +1904,12 @@ input.brand-select{padding:7px 10px;}
 .ov-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
 .ov-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
 
-.ov-plat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
+.ov-plat-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:14px;}
 .ov-plat-card{
   background:var(--bg2);border:1px solid var(--border);
   padding:16px;border-radius:var(--radius-sm);text-align:center;
   box-shadow:var(--app-shadow);transition:all .2s;
+  flex:0 1 160px;min-width:130px;
 }
 .ov-plat-card:hover{box-shadow:var(--app-shadow-lg);}
 .ov-plat-logo{font-size:18px;width:28px;text-align:center;margin:0 auto 4px;}
@@ -2049,10 +2050,10 @@ input.brand-select{padding:7px 10px;}
   .ov-hero{flex-direction:column;gap:16px;padding:18px;}
   .ov-hero-stats{grid-template-columns:repeat(3,1fr);gap:8px;}
   .ov-grid-2,.ov-grid-3,.ov-scores-row{grid-template-columns:1fr;}
-  .ov-plat-grid{grid-template-columns:repeat(2,1fr);}
+  .ov-plat-grid{justify-content:center;}
   .ov-loc-grid{grid-template-columns:1fr;}
   .ov-cit-domain{width:140px;}
-  .alerts-strip{grid-template-columns:1fr;}
+  .alerts-strip{flex-direction:column;}
   /* Prompt Details mobile */
   .pd-header{flex-direction:column;gap:10px;}
   .pd-header-actions{width:100%;justify-content:flex-end;}
