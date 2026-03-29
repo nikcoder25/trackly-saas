@@ -24,7 +24,21 @@ export default function MentionsPage() {
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
       .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setSelectedBrand(b[0]); setLoading(false); })
+      .then(async (d) => {
+        const b = d.brands || [];
+        setBrands(b);
+        if (b.length) {
+          // Fetch full brand data (unstripped) for complete AI response text
+          try {
+            const fullRes = await fetch(`/api/brands/${b[0].id}`, { credentials: 'include' });
+            const fullData = await fullRes.json();
+            setSelectedBrand(fullData.brand || b[0]);
+          } catch {
+            setSelectedBrand(b[0]);
+          }
+        }
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
