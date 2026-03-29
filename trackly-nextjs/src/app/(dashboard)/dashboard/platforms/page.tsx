@@ -191,41 +191,37 @@ export default function PlatformsPage() {
               {hasData ? (
                 <>
                   {/* SOV */}
-                  <div className="flex items-baseline gap-2 mb-3">
+                  <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-2xl font-extrabold font-mono" style={{ color: n.sov >= 50 ? 'var(--green)' : n.sov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{n.sov}%</span>
                     <span className="text-[10px] text-[var(--muted)] uppercase tracking-wider">SOV</span>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="w-full bg-[var(--bg)] rounded-full h-2 mb-3">
-                    <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min(n.sov, 100)}%`, background: color }} />
+                  <div className="w-full bg-[var(--bg)] rounded-full h-1.5 mb-4">
+                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(n.sov, 100)}%`, background: color }} />
                   </div>
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-[11px]">
-                    <div className="flex justify-between">
+                  {/* Stats */}
+                  <div className="space-y-2 text-[12px]">
+                    <div className="flex justify-between items-center">
                       <span className="text-[var(--muted)]">Mentions</span>
-                      <span className="font-mono text-[var(--text)] font-medium">{n.mentions}/{n.total}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--muted)]">SOV</span>
-                      <span className="font-mono text-[var(--text)] font-medium">{n.sov}%</span>
+                      <span className="font-mono text-[var(--text)] font-medium">{n.mentions} / {n.total}</span>
                     </div>
                     {successRate !== null && (
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span className="text-[var(--muted)]">Success Rate</span>
                         <span className={`font-mono font-medium ${successRate >= 90 ? 'text-[var(--green)]' : successRate >= 70 ? 'text-[var(--amber)]' : 'text-[var(--red)]'}`}>{successRate}%</span>
                       </div>
                     )}
                     {n.errors > 0 && (
-                      <div className="flex justify-between col-span-2">
+                      <div className="flex justify-between items-center">
                         <span className="text-[var(--muted)]">Errors</span>
                         <span className="font-mono text-[var(--red)] font-medium">{n.errors}</span>
                       </div>
                     )}
                     {stats && stats.totalCalls > 0 && (
-                      <div className="flex justify-between col-span-2">
-                        <span className="text-[var(--muted)]">Total Calls (last 10 runs)</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[var(--muted)]">Total Calls <span className="text-[10px]">(last 10 runs)</span></span>
                         <span className="font-mono text-[var(--text)] font-medium">{stats.totalCalls}</span>
                       </div>
                     )}

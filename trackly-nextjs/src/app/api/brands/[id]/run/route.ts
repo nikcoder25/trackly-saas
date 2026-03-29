@@ -1,5 +1,5 @@
 import { pool, auditLog } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
 import { queryAI, getDefaultModel, estimateCost } from '@/lib/ai-platforms';
@@ -48,8 +48,9 @@ function getServerKeys(): Record<string, string[]> {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-    const user = verifyRequestAuth(request);
-    if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+    const authResult = await requireVerifiedAuth(request, pool);
+    if (authResult instanceof Response) return authResult;
+    const user = authResult;
 
   const { id } = await params;
     const access = await getBrandWithAccess(id, user.id);

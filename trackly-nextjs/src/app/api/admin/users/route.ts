@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const admin = await requireAdmin(request);
-  if (!admin) return Response.json({ error: 'Admin access required' }, { status: 403 });
+  if (!admin) return Response.json({ error: 'Not found' }, { status: 404 });
 
   const url = new URL(request.url);
   const rawLimit = parseInt(url.searchParams.get('limit') || '100', 10);

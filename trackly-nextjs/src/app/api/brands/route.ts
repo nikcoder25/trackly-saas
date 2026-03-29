@@ -1,5 +1,5 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { uid } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
 
@@ -47,8 +47,9 @@ function trimBrandData(data: Record<string, unknown>) {
 
 // GET /api/brands - List all brands
 export async function GET(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   try {
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [user.id]);
@@ -86,8 +87,9 @@ export async function GET(request: Request) {
 
 // POST /api/brands - Create brand
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const body = await request.json();
   const { name, industry, website, city, goal, competitors, queries, nearbyAreas } = body;

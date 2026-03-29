@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { pool } from '@/lib/db';
 import { AUTH } from '@/lib/constants';
+import { validatePasswordComplexity } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
@@ -10,10 +11,10 @@ export async function POST(request: NextRequest) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { token, newPassword } = await request.json();
-  if (!token || !newPassword) return Response.json({ error: 'Token and new password required' }, { status: 400 });
-  if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid input' }, { status: 400 });
-  if (newPassword.length < 8) return Response.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-  if (newPassword.length > 128) return Response.json({ error: 'Password too long' }, { status: 400 });
+  if (!token || !newPassword) return Response.json({ error: 'Invalid request' }, { status: 400 });
+  if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid request' }, { status: 400 });
+  const pwError = validatePasswordComplexity(newPassword);
+  if (pwError) return Response.json({ error: pwError }, { status: 400 });
 
   try {
     const result = await pool.query(
