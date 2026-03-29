@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const accessToken = signAccessToken({ id: user.id, email: user.email });
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
-    return jsonWithCookies({ token: accessToken, refreshToken: newRefreshToken }, cookieHeaders);
+    return jsonWithCookies({ token: accessToken }, cookieHeaders);
   } catch (e) {
     console.error('[Refresh]', (e as Error).message);
     return Response.json({ error: 'Token refresh failed' }, { status: 500 });

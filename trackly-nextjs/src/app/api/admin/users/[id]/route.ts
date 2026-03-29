@@ -16,7 +16,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const admin = await requireAdmin(request);
-  if (!admin) return Response.json({ error: 'Admin access required' }, { status: 403 });
+  if (!admin) return Response.json({ error: 'Not found' }, { status: 404 });
   const { id } = await params;
 
   if (!id || typeof id !== 'string' || id.length > 50) {
@@ -74,7 +74,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const admin = await requireAdmin(request);
-  if (!admin) return Response.json({ error: 'Admin access required' }, { status: 403 });
+  if (!admin) return Response.json({ error: 'Not found' }, { status: 404 });
   const { id } = await params;
 
   if (!id || typeof id !== 'string' || id.length > 50) {

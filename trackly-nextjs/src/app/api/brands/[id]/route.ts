@@ -1,12 +1,13 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
 
 // GET /api/brands/:id
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const { id } = await params;
   try {
@@ -20,8 +21,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 // PUT /api/brands/:id
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const { id } = await params;
   try {
@@ -96,8 +98,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 // DELETE /api/brands/:id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const { id } = await params;
   try {

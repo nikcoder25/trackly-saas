@@ -16,6 +16,10 @@ export async function POST(request: NextRequest) {
 
   if (!email || !password) return Response.json({ error: 'Email/username and password required' }, { status: 400 });
 
+  // IP-based rate limit to prevent brute-force across multiple accounts
+  const ipRl = rateLimit('login_ip:' + ip, 15 * 60 * 1000, 20);
+  if (!ipRl.allowed) return rateLimitResponse(ipRl.retryAfter);
+
   // Per-account rate limit
   const accountKey = 'login_account:' + email.toString().toLowerCase().trim();
   const rl = rateLimit(accountKey, 15 * 60 * 1000, 10);
@@ -91,7 +95,7 @@ export async function POST(request: NextRequest) {
     auditLog(user.id, 'login', 'user', user.id, {}, ip);
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, refreshToken);
-    return jsonWithCookies({ token: accessToken, refreshToken, user: safeUser(user) }, cookieHeaders);
+    return jsonWithCookies({ token: accessToken, user: safeUser(user) }, cookieHeaders);
   } catch (e) {
     console.error('[Login]', (e as Error).message);
     return Response.json({ error: 'Login failed' }, { status: 500 });

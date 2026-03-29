@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { uid, safeUser } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity } from '@/lib/auth';
 import { getPlanLimits, AUTH } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
   if (typeof email !== 'string' || typeof password !== 'string') return Response.json({ error: 'Invalid input' }, { status: 400 });
   if (email.length > 254) return Response.json({ error: 'Email too long' }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return Response.json({ error: 'Invalid email format' }, { status: 400 });
-  if (password.length < 8) return Response.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-  if (password.length > 128) return Response.json({ error: 'Password too long' }, { status: 400 });
+  const pwError = validatePasswordComplexity(password);
+  if (pwError) return Response.json({ error: pwError }, { status: 400 });
   if (name && (typeof name !== 'string' || name.length > 100)) return Response.json({ error: 'Name must be 100 characters or less' }, { status: 400 });
 
   let trimmedUsername = username ? username.trim().toLowerCase() : null;
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
        RETURNING id`,
       [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
     );
-    if (!insertResult.rows.length) return Response.json({ error: 'Email already registered' }, { status: 400 });
+    if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try a different email or sign in.' }, { status: 400 });
 
     sendVerificationEmail(email.toLowerCase(), verifyToken).catch((e) => {
       console.error('[Register] Failed to send verification email:', e.message);
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, refreshToken);
     return jsonWithCookies({
-      token: accessToken, refreshToken,
+      token: accessToken,
       user: {
         id, email: email.toLowerCase(), username: trimmedUsername, name: userName,
         plan: 'free', emailVerified: false, createdAt: new Date().toISOString(),

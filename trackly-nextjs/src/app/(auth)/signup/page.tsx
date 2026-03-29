@@ -27,23 +27,29 @@ export default function SignupPage() {
   const googleClientIdRef = useRef<string | null>(null);
   const gsiLoadedRef = useRef(false);
 
-  // Fetch Google Client ID and load GIS script
+  // Load Google OAuth - prefer build-time env var, fallback to API
   useEffect(() => {
-    fetch('/api/config').then(r => r.json()).then(d => {
-      if (d.googleClientId) {
-        googleClientIdRef.current = d.googleClientId;
-        if (!gsiLoadedRef.current && !document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
-          const s = document.createElement('script');
-          s.src = 'https://accounts.google.com/gsi/client';
-          s.async = true;
-          s.onload = () => { gsiLoadedRef.current = true; setGoogleReady(true); };
-          document.head.appendChild(s);
-        } else {
-          gsiLoadedRef.current = true;
-          setGoogleReady(true);
-        }
+    const initGoogle = (clientId: string) => {
+      googleClientIdRef.current = clientId;
+      if (!gsiLoadedRef.current && !document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
+        const s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        s.onload = () => { gsiLoadedRef.current = true; setGoogleReady(true); };
+        document.head.appendChild(s);
+      } else {
+        gsiLoadedRef.current = true;
+        setGoogleReady(true);
       }
-    }).catch(() => {});
+    };
+    const envClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (envClientId) {
+      initGoogle(envClientId);
+    } else {
+      fetch('/api/config').then(r => r.json()).then(d => {
+        if (d.googleClientId) initGoogle(d.googleClientId);
+      }).catch(() => {});
+    }
   }, []);
 
   const handleGoogleSignIn = async () => {
@@ -150,7 +156,7 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="finp"
-            placeholder="Min 8 characters"
+            placeholder="Min 8 chars, upper, lower, number, special"
             required
             minLength={8}
             autoComplete="new-password"

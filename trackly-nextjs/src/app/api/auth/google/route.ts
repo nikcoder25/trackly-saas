@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, ip);
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
-    return jsonWithCookies({ token: accessToken, refreshToken: newRefreshToken, user: safeUser(user) }, cookieHeaders);
+    return jsonWithCookies({ token: accessToken, user: safeUser(user) }, cookieHeaders);
   } catch (e) {
     console.error('[GoogleAuth]', (e as Error).message);
     return Response.json({ error: 'Google authentication failed' }, { status: 400 });

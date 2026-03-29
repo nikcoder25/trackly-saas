@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuth, validatePasswordComplexity } from '@/lib/auth';
 import { AUTH } from '@/lib/constants';
 
 export async function POST(request: Request) {
@@ -10,8 +10,8 @@ export async function POST(request: Request) {
   const { currentPassword, newPassword } = await request.json();
   if (!currentPassword || !newPassword) return Response.json({ error: 'Current and new password required' }, { status: 400 });
   if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid input' }, { status: 400 });
-  if (newPassword.length < 8) return Response.json({ error: 'New password must be at least 8 characters' }, { status: 400 });
-  if (newPassword.length > 128) return Response.json({ error: 'Password too long' }, { status: 400 });
+  const pwError = validatePasswordComplexity(newPassword);
+  if (pwError) return Response.json({ error: pwError }, { status: 400 });
 
   try {
     const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
