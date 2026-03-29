@@ -28,22 +28,32 @@ export default function QueryTrackerPage() {
 
   useEffect(() => {
     if (!brand) return;
-    // Try API first, fall back to computing from brand runs
+    // Try API first, fall back to computing from brand data
     fetch(`/api/brands/${brand.id}/keyword-tracker?period=${period}`, { credentials: 'include' })
       .then(r => r.json())
       .then(d => {
         if (d.keywords && d.keywords.length > 0) {
           setKeywords(d.keywords);
         } else {
-          // Compute from brand runs as fallback
-          computeFromRuns();
+          computeFromBrand();
         }
       })
-      .catch(() => computeFromRuns());
+      .catch(() => computeFromBrand());
 
-    function computeFromRuns() {
-      const runs = brand!.runs || [];
-      const brandQueries = brand!.queries || [];
+    function computeFromBrand() {
+      // Fetch full brand data to get queries and runs
+      fetch(`/api/brands/${brand!.id}`, { credentials: 'include' })
+        .then(r => r.json())
+        .then(d => {
+          const fullBrand = d.brand || brand;
+          computeFromRuns(fullBrand);
+        })
+        .catch(() => computeFromRuns(brand!));
+    }
+
+    function computeFromRuns(b: Brand) {
+      const runs = b.runs || [];
+      const brandQueries = b.queries || [];
       const map: Record<string, { keyword: string; totalRuns: number; mentionCount: number; platforms: Set<string>; posSum: number; posCount: number; lastDate: string; history: number[] }> = {};
 
       // Build stats from runs that have allResults (latest run after payload trimming)
