@@ -9,16 +9,16 @@ function trimBrandData(data: Record<string, unknown>) {
 
   // Keep only last 10 runs, strip allResults from all but latest 2
   if (Array.isArray(d.runs)) {
-    d.runs = d.runs.slice(-10);
-    for (let ri = 0; ri < d.runs.length; ri++) {
-      const run = d.runs[ri] as Record<string, unknown>;
-      const isRecent = ri >= d.runs.length - 2;
+    const runs = (d.runs as Record<string, unknown>[]).slice(-10);
+    for (let ri = 0; ri < runs.length; ri++) {
+      const run = runs[ri];
+      const isRecent = ri >= runs.length - 2;
       if (run.allResults) {
         if (!isRecent) {
           delete run.allResults;
         } else {
           // Strip raw/response text from results, keep metadata
-          d.runs[ri] = { ...run, allResults: (run.allResults as Record<string, unknown>[]).map(r => {
+          runs[ri] = { ...run, allResults: (run.allResults as Record<string, unknown>[]).map(r => {
             const { raw, response, context, ...rest } = r;
             return rest;
           })};
@@ -30,11 +30,12 @@ function trimBrandData(data: Record<string, unknown>) {
         }
       }
     }
+    d.runs = runs;
   }
 
   // Keep only last 20 SOV history entries
   if (Array.isArray(d.sovHistory)) {
-    d.sovHistory = d.sovHistory.slice(-20);
+    d.sovHistory = (d.sovHistory as unknown[]).slice(-20);
   }
 
   // Strip raw from top-level mentions
