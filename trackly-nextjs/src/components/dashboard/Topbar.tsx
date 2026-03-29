@@ -54,7 +54,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           </select>
         </div>
 
-        <Link href="/dashboard/setup" className="add-brand-btn" style={{ display: 'none', textDecoration: 'none' }}>+ ADD BRAND</Link>
+        <Link href="/dashboard/setup" prefetch={false} className="add-brand-btn" style={{ display: 'none', textDecoration: 'none' }}>+ ADD BRAND</Link>
         <style>{`@media(min-width:768px){.add-brand-btn{display:inline-block!important;}}`}</style>
       </div>
 
@@ -86,7 +86,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         </div>
 
         {/* Plan badge */}
-        <Link href="/dashboard/billing" style={{ textDecoration: 'none' }}
+        <Link href="/dashboard/billing" prefetch={false} style={{ textDecoration: 'none' }}
           onMouseEnter={e => { (e.currentTarget.firstChild as HTMLElement).style.opacity = '0.7'; (e.currentTarget.firstChild as HTMLElement).style.textDecoration = 'underline'; }}
           onMouseLeave={e => { (e.currentTarget.firstChild as HTMLElement).style.opacity = '1'; (e.currentTarget.firstChild as HTMLElement).style.textDecoration = 'none'; }}>
           <span className={`plan-badge ${user?.plan === 'pro' ? 'pro' : user?.plan === 'agency' ? 'agency' : ''}`} style={{ cursor: 'pointer' }}>

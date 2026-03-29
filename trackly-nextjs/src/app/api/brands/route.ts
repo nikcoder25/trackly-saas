@@ -20,9 +20,9 @@ function trimBrandData(data: Record<string, unknown>) {
           // Non-latest: remove allResults entirely, keep summary stats
           delete run.allResults;
         } else {
-          // Latest run: keep allResults but strip text fields
+          // Latest run: keep allResults with snippet, strip only raw/full response text
           runs[ri] = { ...run, allResults: (run.allResults as Record<string, unknown>[]).map(r => {
-            const { raw, response, context, snippet, ...rest } = r;
+            const { raw, response, context, ...rest } = r;
             return rest;
           })};
         }

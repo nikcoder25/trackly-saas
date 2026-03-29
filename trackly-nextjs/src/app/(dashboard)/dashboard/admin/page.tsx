@@ -118,7 +118,7 @@ export default function AdminPage() {
           <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">Total Users</p>
           <p className="text-2xl font-extrabold font-mono text-[var(--text)]">{total}</p>
         </div>
-        {['free', 'starter', 'pro', 'agency'].map(plan => (
+        {['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].map(plan => (
           <div key={plan} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
             <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">{plan}</p>
             <p className="text-2xl font-extrabold font-mono" style={{ color: PLAN_COLORS[plan] }}>{planCounts[plan] || 0}</p>
@@ -196,7 +196,7 @@ export default function AdminPage() {
                       <span className="text-[var(--amber)] text-xs">✗ Unverified</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[var(--muted)]">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--muted)]" style={{ whiteSpace: 'nowrap' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5">
                       <button

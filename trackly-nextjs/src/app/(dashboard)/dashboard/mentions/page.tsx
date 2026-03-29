@@ -62,9 +62,11 @@ export default function MentionsPage() {
 
   useEffect(() => { setPage(0); setExpandedRow(null); }, [filter, platformFilter, searchQuery, selectedRunId]);
 
-  const ok = all.filter(r => !r.error);
-  const found = all.filter(r => r.mentioned);
-  const rec = all.filter(r => r.recommended);
+  // Stats based on filtered results so they update when filters change
+  const statsSource = platformFilter !== 'all' || filter !== 'all' || searchQuery.trim() ? filtered : all;
+  const ok = statsSource.filter(r => !r.error);
+  const found = statsSource.filter(r => r.mentioned);
+  const rec = statsSource.filter(r => r.recommended);
   const sovPct = ok.length ? Math.round(found.length / ok.length * 100) : 0;
   const recPct = ok.length ? Math.round(rec.length / ok.length * 100) : 0;
 
