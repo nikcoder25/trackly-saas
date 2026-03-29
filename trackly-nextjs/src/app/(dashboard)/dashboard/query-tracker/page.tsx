@@ -17,7 +17,7 @@ export default function QueryTrackerPage() {
   const [filterText, setFilterText] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -151,7 +151,7 @@ export default function QueryTrackerPage() {
       <div className="kt-period-tabs">
         {['day', 'week', 'month'].map(p => (
           <button key={p} className={`kt-period-tab ${period === p ? 'active' : ''}`}
-            onClick={() => { setPeriod(p); setExpanded(null); setSortField(null); }}>
+            onClick={() => { setPeriod(p); setExpanded(null); setSortField(null); setFilterText(''); }}>
             {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
@@ -199,11 +199,11 @@ export default function QueryTrackerPage() {
                 const changeColor = kw.change != null && kw.change > 0 ? 'var(--green)' : kw.change != null && kw.change < 0 ? 'var(--red)' : 'var(--muted)';
                 const changeArrow = kw.change != null && kw.change > 0 ? '▲ ' : kw.change != null && kw.change < 0 ? '▼ ' : '';
                 const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '-';
-                const isExpanded = expanded === kw.keyword;
+                const isExpanded = expanded === idx;
 
                 return (
-                  <div key={kw.keyword} className={`kt-row-wrap ${isExpanded ? 'kt-expanded' : ''}`}>
-                    <div className="kt-row" onClick={() => setExpanded(isExpanded ? null : kw.keyword)} style={{ cursor: 'pointer' }}>
+                  <div key={idx} className={`kt-row-wrap ${isExpanded ? 'kt-expanded' : ''}`}>
+                    <div className="kt-row" onClick={() => setExpanded(isExpanded ? null : idx)} style={{ cursor: 'pointer' }}>
                       <div className="kt-col kt-col-kw">
                         <span className="kt-expand-icon">{isExpanded ? '▼' : '▶'}</span>
                         <span className="kt-kw-text">{kw.keyword}</span>
