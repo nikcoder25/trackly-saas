@@ -42,7 +42,21 @@ export default function PlatformsPage() {
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
       .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setSelectedBrand(b[0]); setLoading(false); })
+      .then(async (d) => {
+        const b = d.brands || [];
+        setBrands(b);
+        if (b.length) {
+          // Fetch full brand data (unstripped) for accurate platform stats
+          try {
+            const fullRes = await fetch(`/api/brands/${b[0].id}`, { credentials: 'include' });
+            const fullData = await fullRes.json();
+            setSelectedBrand(fullData.brand || b[0]);
+          } catch {
+            setSelectedBrand(b[0]);
+          }
+        }
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
@@ -85,7 +99,13 @@ export default function PlatformsPage() {
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">
           {brands.map(b => (
-            <button key={b.id} onClick={() => setSelectedBrand(b)}
+            <button key={b.id} onClick={async () => {
+              try {
+                const res = await fetch(`/api/brands/${b.id}`, { credentials: 'include' });
+                const data = await res.json();
+                setSelectedBrand(data.brand || b);
+              } catch { setSelectedBrand(b); }
+            }}
               className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--muted)] border border-[var(--border)]'}`}>{b.name}</button>
           ))}
         </div>

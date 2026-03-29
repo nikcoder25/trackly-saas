@@ -275,14 +275,15 @@ export default function DashboardPage() {
     return a;
   }, [sovChange, sentiment, sentTotal, platforms]);
 
-  // API Health summary — fix: green when 0 errors regardless of platform count
-  const apiTotalResponses = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).total || 0), 0);
+  // API Health summary — use queries OR total field (run route saves 'queries', not 'total')
+  const apiTotalResponses = Object.values(platforms).reduce((s, p) => { const pd = p as Record<string, number>; return s + (pd.total || pd.queries || 0); }, 0);
   const apiErrors = Object.values(platforms).reduce((s, p) => s + ((p as Record<string, number>).errors || 0), 0);
   const apiHealthy = Object.values(platforms).filter(p => {
     const pd = p as Record<string, number>;
-    return pd.total && pd.total > 0 && (!pd.errors || pd.errors / pd.total < 0.3);
+    const total = pd.total || pd.queries || 0;
+    return total > 0 && (!pd.errors || pd.errors / total < 0.3);
   }).length;
-  const apiTotal = Object.values(platforms).filter(p => (p as Record<string, number>).total > 0).length;
+  const apiTotal = Object.values(platforms).filter(p => { const pd = p as Record<string, number>; return (pd.total || pd.queries || 0) > 0; }).length;
   const apiHealthColor = apiErrors === 0 && apiTotalResponses > 0 ? 'var(--green)' : apiErrors > 0 ? 'var(--red)' : 'var(--muted)';
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
@@ -355,7 +356,7 @@ export default function DashboardPage() {
         </div>
         <div className="ov-hero-stats">
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{totalM} / {totalQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>(p as Record<string,number>).total>0).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>{const pd=p as Record<string,number>;return (pd.total||pd.queries||0)>0;}).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:lastRunAge.includes('d')?'var(--amber)':''}}>{lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">Last Run</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{fmtDuration(lastRun?.duration)}</div><div className="ov-hero-stat-lbl">Run Duration</div></div>
@@ -380,7 +381,7 @@ export default function DashboardPage() {
       )}
 
       {/* API HEALTH */}
-      {show('health')&&apiTotalResponses>0&&<div className="ov-health"><span className="ov-health-dot" style={{background:apiHealthColor}}/><span className="ov-health-text">{apiHealthy}/{apiTotal} platforms healthy · {apiTotalResponses-apiErrors} ok · {apiErrors} errors</span></div>}
+      {show('health')&&apiTotalResponses>0&&<div className="ov-health"><span className="ov-health-dot" style={{background:apiHealthColor}}/><span className="ov-health-text">{apiHealthy}/{apiTotal} platforms healthy · {apiTotalResponses-apiErrors} ok · {apiErrors} errors · <Link href="/dashboard/platforms" style={{color:'var(--primary)',textDecoration:'none',fontWeight:600}}>View Errors →</Link></span></div>}
 
       {/* GEO SCORE / AI SENTIMENT / AI RECOMMENDS */}
       {show('scores')&&<div className="ov-scores-row">

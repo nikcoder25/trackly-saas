@@ -92,7 +92,7 @@ const jsonLd = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#FF6154" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -103,7 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
         ))}
       </head>
-      <body style={{ fontFamily: "var(--font)" }}>
+      <body style={{ fontFamily: "var(--font)" }} suppressHydrationWarning>
         <LanguageProvider>
           <AuthProvider>
             {children}
