@@ -109,7 +109,8 @@ const AUTH = {
 
 // ─── AI PLATFORM SETTINGS ───────────────────────────────────────
 const AI = {
-  maxOutputTokens: 300,
+    maxOutputTokens: 300,
+    geminiMaxOutputTokens: 800,    // Higher limit for Gemini (needs more tokens for grounded search responses)
   systemPrompt: 'Recommendation ssistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.',
   fetchMaxRetries: 2,
   networkBaseDelay: 500,      // 0.5s backoff for network errors
