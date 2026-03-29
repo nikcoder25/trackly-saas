@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import SectionField from '@/components/dashboard/SectionField';
+import TagList from '@/components/dashboard/TagList';
 
 interface Brand {
   id: string;
@@ -578,26 +580,3 @@ function NearbyAreasSection({ city, areas, onChange, brandId }: { city: string; 
   );
 }
 
-/* ── SHARED COMPONENTS ───────────────────── */
-function SectionField({ label, value, onChange, placeholder, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string }) {
-  return (
-    <div className="form-group">
-      <label className="flbl">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} className="finp" placeholder={placeholder} />
-    </div>
-  );
-}
-
-function TagList({ items, onRemove }: { items: string[]; onRemove: (i: number) => void }) {
-  if (!items.length) return null;
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minHeight: 28 }}>
-      {items.map((item, i) => (
-        <span key={i} className="query-tag">
-          {item}
-          <button type="button" onClick={() => onRemove(i)}>&times;</button>
-        </span>
-      ))}
-    </div>
-  );
-}

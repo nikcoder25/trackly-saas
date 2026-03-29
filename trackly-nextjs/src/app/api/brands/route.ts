@@ -6,7 +6,10 @@ import { getPlanLimits } from '@/lib/constants';
 // Trim heavy fields from brand data for list responses
 function trimBrandData(data: Record<string, unknown>) {
   const d = { ...data };
+
+  // Keep only last 10 runs, strip allResults from all but latest 2
   if (Array.isArray(d.runs)) {
+    d.runs = d.runs.slice(-10);
     for (let ri = 0; ri < d.runs.length; ri++) {
       const run = d.runs[ri] as Record<string, unknown>;
       const isRecent = ri >= d.runs.length - 2;
@@ -14,9 +17,11 @@ function trimBrandData(data: Record<string, unknown>) {
         if (!isRecent) {
           delete run.allResults;
         } else {
-          for (const r of run.allResults as Record<string, unknown>[]) {
-            if (r.raw) delete r.raw;
-          }
+          // Strip raw/response text from results, keep metadata
+          d.runs[ri] = { ...run, allResults: (run.allResults as Record<string, unknown>[]).map(r => {
+            const { raw, response, context, ...rest } = r;
+            return rest;
+          })};
         }
       }
       if (Array.isArray(run.mentions)) {
@@ -26,6 +31,13 @@ function trimBrandData(data: Record<string, unknown>) {
       }
     }
   }
+
+  // Keep only last 20 SOV history entries
+  if (Array.isArray(d.sovHistory)) {
+    d.sovHistory = d.sovHistory.slice(-20);
+  }
+
+  // Strip raw from top-level mentions
   if (Array.isArray(d.mentions)) {
     for (const m of d.mentions as Record<string, unknown>[]) {
       if (m.raw) delete m.raw;
