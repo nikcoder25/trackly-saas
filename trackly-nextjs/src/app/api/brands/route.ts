@@ -7,26 +7,24 @@ import { getPlanLimits } from '@/lib/constants';
 function trimBrandData(data: Record<string, unknown>) {
   const d = { ...data };
 
-  // Keep only last 10 runs, strip allResults from all but latest 2
+  // Keep only last 10 runs, aggressively strip heavy data
   if (Array.isArray(d.runs)) {
     const runs = (d.runs as Record<string, unknown>[]).slice(-10);
     for (let ri = 0; ri < runs.length; ri++) {
       const run = runs[ri];
-      const isRecent = ri >= runs.length - 2;
+      const isLatest = ri === runs.length - 1;
+      // Remove mentions array from all runs (heavy)
+      delete run.mentions;
       if (run.allResults) {
-        if (!isRecent) {
+        if (!isLatest) {
+          // Non-latest: remove allResults entirely, keep summary stats
           delete run.allResults;
         } else {
-          // Strip raw/response text from results, keep metadata
+          // Latest run: keep allResults but strip text fields
           runs[ri] = { ...run, allResults: (run.allResults as Record<string, unknown>[]).map(r => {
-            const { raw, response, context, ...rest } = r;
+            const { raw, response, context, snippet, ...rest } = r;
             return rest;
           })};
-        }
-      }
-      if (Array.isArray(run.mentions)) {
-        for (const m of run.mentions as Record<string, unknown>[]) {
-          if (m.raw) delete m.raw;
         }
       }
     }

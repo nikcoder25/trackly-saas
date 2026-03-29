@@ -2406,7 +2406,7 @@ input.brand-select{padding:7px 10px;}
   font-size:13px;color:var(--text);
 }
 .kt-col{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kt-col-kw{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0;}
+.kt-col-kw{display:flex;align-items:center;gap:8px;font-weight:600;min-width:200px;overflow:hidden;}
 .kt-kw-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .kt-expand-icon{font-size:9px;color:var(--muted);flex-shrink:0;width:14px;transition:color .15s;}
 .kt-row:hover .kt-expand-icon{color:var(--primary);}

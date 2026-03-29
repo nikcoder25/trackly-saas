@@ -64,19 +64,23 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <style>{`@media(min-width:1024px){.user-badge{display:inline!important;}}`}</style>
 
         {/* Notification bell with dropdown */}
-        <div ref={notifRef} style={{ position: 'relative' }}>
-          <button className="notif-bell" aria-label="Notifications" onClick={() => setShowNotifs(!showNotifs)}>
+        <div ref={notifRef} style={{ position: 'relative', zIndex: 200 }}>
+          <button className="notif-bell" aria-label="Notifications" onClick={(e) => { e.stopPropagation(); setShowNotifs(!showNotifs); }}
+            style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 'var(--radius-xs)' }}>
             🔔
           </button>
           {showNotifs && (
             <div style={{
               position: 'absolute', top: '100%', right: 0, marginTop: 8,
-              width: 280, background: 'var(--bg2)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)', boxShadow: 'var(--app-shadow-lg)',
-              zIndex: 100, padding: 16,
+              width: 300, background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', boxShadow: '0 8px 30px rgba(0,0,0,.12)',
+              zIndex: 9999, padding: 16,
             }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Notifications</div>
-              <p style={{ fontSize: 12, color: 'var(--muted)' }}>No new notifications.</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Notifications</div>
+                <Link href="/dashboard/alerts" onClick={() => setShowNotifs(false)} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>VIEW ALL →</Link>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No new notifications.</p>
             </div>
           )}
         </div>

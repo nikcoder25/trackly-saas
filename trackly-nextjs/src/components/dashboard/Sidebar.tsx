@@ -7,9 +7,16 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const navGroups = [
   {
-    label: 'Analysis',
+    label: 'Dashboard',
     items: [
       { href: '/dashboard', label: 'Overview', icon: '📊' },
+      { href: '/dashboard/mentions', label: 'Mentions', icon: '◎' },
+      { href: '/dashboard/recommendations', label: 'Recommendations', icon: '✦' },
+    ],
+  },
+  {
+    label: 'Analysis',
+    items: [
       { href: '/dashboard/proof', label: 'Evidence & Proof', icon: '◆' },
       { href: '/dashboard/query-performance', label: 'Query Performance', icon: '◻' },
       { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '✦' },

@@ -32,7 +32,15 @@ export default function AccountPage() {
   useEffect(() => {
     fetch('/api/payments/history', { credentials: 'include' })
       .then(r => r.json())
-      .then(d => setBillingHistory(d.history || []))
+      .then(d => {
+        const history = (d.history || []).map((h: Record<string, unknown>) => ({
+          date: h.date || h.processed_at || h.created_at || '',
+          plan: h.plan || (typeof h.event_type === 'string' ? h.event_type.replace(/_/g, ' ') : '') || '',
+          amount: h.amount || '',
+          status: h.status || (h.event_type ? 'processed' : ''),
+        }));
+        setBillingHistory(history);
+      })
       .catch(() => {});
     fetch('/api/auth/2fa/status', { credentials: 'include' })
       .then(r => r.json())
@@ -109,7 +117,7 @@ export default function AccountPage() {
             <tbody>
               {billingHistory.map((b, i) => (
                 <tr key={i} className="trow">
-                  <td className="td">{new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                  <td className="td">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
                   <td className="td" style={{ textTransform: 'uppercase', fontWeight: 600 }}>{b.plan}</td>
                   <td className="td">{b.amount}</td>
                   <td className="td"><span style={{ color: b.status === 'succeeded' ? 'var(--green)' : 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{b.status}</span></td>

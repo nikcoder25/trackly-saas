@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 
@@ -33,6 +34,8 @@ async function api(method: string, path: string, body?: unknown) {
 const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 
 export default function SetupPage() {
+  const { user } = useAuth();
+  const planLimit = (user?.limits as Record<string, number>)?.prompts || 250;
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,7 +92,7 @@ export default function SetupPage() {
       {(showCreate || brands.length === 0) ? (
         <CreateBrandWizard onCreated={brand => { setBrands([...brands, brand]); setSelectedBrand(brand); setShowCreate(false); }} />
       ) : selectedBrand ? (
-        <EditBrandForm brand={selectedBrand}
+        <EditBrandForm brand={selectedBrand} planLimit={planLimit}
           onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); }}
           onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); }} />
       ) : null}
@@ -213,7 +216,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 }
 
 /* ── EDIT BRAND FORM (full feature parity with LiveSOV) ───────────────────── */
-function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void }) {
+function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
   const [name, setName] = useState(brand.name);
   const [industry, setIndustry] = useState(brand.industry || '');
   const [website, setWebsite] = useState(brand.website || '');
@@ -384,7 +387,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted }: { brand: Brand; onUpdate
           <div style={{ marginBottom: 20 }}>
             <label className="flbl">Manage Queries</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
-              Add, remove, or bulk-manage the queries tracked for this brand. <span style={{ fontWeight: 700 }}>{queries.length} / 250 prompts</span>
+              Add, remove, or bulk-manage the queries tracked for this brand. <span style={{ fontWeight: 700 }}>{queries.length} / {planLimit > 1000 ? '∞' : planLimit} prompts</span>
             </div>
 
             {/* Query tags */}

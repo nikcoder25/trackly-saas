@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 
-interface ActivityLog { id?: string; action: string; timestamp: string; ip?: string; details?: string; }
+interface ActivityLog { id?: string; action: string; timestamp: string; created_at?: string; ip?: string; details?: string; }
 interface ApiLog { id?: string; timestamp: string; platform: string; model?: string; query?: string; status: string; tokens?: number; cost?: number; duration?: number; run_id?: string; calls?: number; platforms_used?: string; }
 interface KeyStatus { platform: string; count: number; }
 
@@ -21,7 +21,7 @@ export default function ActivityPage() {
       fetch('/api/activity-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [] })),
       fetch('/api/api-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [], errors: 0 })),
     ]).then(([actData, apiData]) => {
-      setActivityLogs(actData.logs || []);
+      setActivityLogs((actData.logs || []).map((l: Record<string, unknown>) => ({ ...l, timestamp: l.timestamp || l.created_at || '' })));
       setApiLogs(apiData.logs || []);
       setKeyStatus(apiData.keyStatus || []);
       if (apiData.recentErrors > 0) setErrorBanner(`${apiData.recentErrors} recent run failures — check console for details`);
