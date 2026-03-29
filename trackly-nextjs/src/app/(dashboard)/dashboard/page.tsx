@@ -135,23 +135,26 @@ export default function DashboardPage() {
     return sentTotal > 0 ? Math.round((posCount * 100 + neuCount * 50) / sentTotal) : 0;
   }, [posCount, neuCount, sentTotal]);
 
-  // AI Category Breakdown (Chat AI vs Search AI)
+  // AI Category Breakdown (Chat AI vs Search AI) — only count active platforms
+  const chatNames = ['ChatGPT', 'Claude', 'Grok'];
+  const searchNames = ['Perplexity', 'Gemini'];
+
   const chatStats = useMemo(() => {
-    const names = ['ChatGPT', 'Claude', 'Grok'];
     let total = 0, mentioned = 0;
+    const active: string[] = [];
     Object.entries(platforms).forEach(([name, pd]) => {
-      if (names.includes(name)) { const n = normPlatform(pd); total += n.total; mentioned += n.mentions; }
+      if (chatNames.includes(name)) { const n = normPlatform(pd); if (n.total > 0) { total += n.total; mentioned += n.mentions; active.push(name); } }
     });
-    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
+    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0, active };
   }, [platforms]);
 
   const searchStats = useMemo(() => {
-    const names = ['Perplexity', 'Gemini'];
     let total = 0, mentioned = 0;
+    const active: string[] = [];
     Object.entries(platforms).forEach(([name, pd]) => {
-      if (names.includes(name)) { const n = normPlatform(pd); total += n.total; mentioned += n.mentions; }
+      if (searchNames.includes(name)) { const n = normPlatform(pd); if (n.total > 0) { total += n.total; mentioned += n.mentions; active.push(name); } }
     });
-    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0 };
+    return { total, mentioned, sov: total > 0 ? Math.round(mentioned / total * 100) : 0, active };
   }, [platforms]);
 
   const bestPlatform = useMemo(() => {
@@ -399,8 +402,8 @@ export default function DashboardPage() {
       {/* AI CATEGORY BREAKDOWN */}
       {show('categories')&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">AI Category Breakdown</div><div className="ov-card-sub">Share of Voice by platform type</div></div>
         <div className="ov-grid-3" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
-          <div className="ov-cat-card"><div className="ov-cat-label">💬 Chat AI SOV</div><div className="ov-cat-val" style={{color:chatStats.sov>=40?'var(--green)':chatStats.sov>0?'var(--amber)':'var(--red)'}}>{chatStats.sov}%</div><div className="ov-cat-detail">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div><div className="ov-cat-sub">ChatGPT · Claude · Grok</div></div>
-          <div className="ov-cat-card"><div className="ov-cat-label">🔍 Search AI SOV</div><div className="ov-cat-val" style={{color:searchStats.sov>=40?'var(--green)':searchStats.sov>0?'var(--amber)':'var(--red)'}}>{searchStats.sov}%</div><div className="ov-cat-detail">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div><div className="ov-cat-sub">Perplexity · Gemini</div></div>
+          <div className="ov-cat-card"><div className="ov-cat-label">💬 Chat AI SOV</div><div className="ov-cat-val" style={{color:chatStats.sov>=40?'var(--green)':chatStats.sov>0?'var(--amber)':'var(--red)'}}>{chatStats.sov}%</div><div className="ov-cat-detail">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div><div className="ov-cat-sub">{chatStats.active.length > 0 ? chatStats.active.join(' · ') : 'ChatGPT · Claude · Grok'}</div></div>
+          <div className="ov-cat-card"><div className="ov-cat-label">🔍 Search AI SOV</div><div className="ov-cat-val" style={{color:searchStats.sov>=40?'var(--green)':searchStats.sov>0?'var(--amber)':'var(--red)'}}>{searchStats.sov}%</div><div className="ov-cat-detail">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div><div className="ov-cat-sub">{searchStats.active.length > 0 ? searchStats.active.join(' · ') : 'Perplexity · Gemini'}</div></div>
           <div className="ov-cat-card"><div className="ov-cat-label">🏆 Best Platform</div><div className="ov-cat-val" style={{color:bestPlatform&&bestPlatform.sov>0?'var(--green)':'var(--muted)'}}>{bestPlatform&&bestPlatform.sov>0?bestPlatform.name:'—'}</div><div className="ov-cat-detail">{bestPlatform&&bestPlatform.sov>0?`${bestPlatform.sov}% SOV — strongest visibility`:'No platform data yet'}</div></div>
         </div>
       </div>}
