@@ -9,18 +9,6 @@ export const AUTH = {
   bcryptRounds: 12,
 };
 
-export const RATE_LIMITS = {
-  auth: { windowMs: 15 * 60 * 1000, max: 20 },
-  api: { windowMs: 60 * 1000, max: 120 },
-  run: { windowMs: 60 * 1000, max: 5 },
-  loginAccount: { windowMs: 15 * 60 * 1000, max: 10 },
-  twoFA: { windowMs: 15 * 60 * 1000, max: 5 },
-  forgotPassword: { windowMs: 60 * 60 * 1000, max: 5 },
-  resetPassword: { windowMs: 60 * 60 * 1000, max: 10 },
-  verifyEmail: { windowMs: 60 * 60 * 1000, max: 20 },
-  twoFASetup: { windowMs: 15 * 60 * 1000, max: 10 },
-};
-
 export const TOTP_CONFIG = {
   period: 30,
   digits: 6,

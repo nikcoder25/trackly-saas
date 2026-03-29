@@ -59,30 +59,3 @@ export async function auditLog(
   }
 }
 
-/**
- * Notification helper - creates in-app notifications.
- * Returns true if created successfully, false otherwise.
- * Never throws.
- */
-export async function notify(
-  userId: string,
-  type: string,
-  title: string,
-  message?: string,
-  data?: Record<string, unknown>
-): Promise<boolean> {
-  try {
-    await pool.query(
-      'INSERT INTO notifications (user_id, type, title, message, data) VALUES ($1, $2, $3, $4, $5)',
-      [userId, type, title, message || '', JSON.stringify(data || {})]
-    );
-    return true;
-  } catch (e) {
-    console.error('[Notify] FAILED to create notification:', {
-      type,
-      userId,
-      error: (e as Error).message,
-    });
-    return false;
-  }
-}

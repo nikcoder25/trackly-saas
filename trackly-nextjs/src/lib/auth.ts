@@ -2,7 +2,6 @@
  * Auth utilities for Next.js - JWT verification, cookie handling
  */
 import jwt from 'jsonwebtoken';
-import { cookies } from 'next/headers';
 import { AUTH } from './constants';
 
 function getSecret(): string {
@@ -31,17 +30,6 @@ export function verifyToken(token: string): JWTPayload | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Get the current authenticated user from cookies or Authorization header.
- * For use in Server Components and API routes.
- */
-export async function getAuthUser(): Promise<JWTPayload | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('livesov_token')?.value;
-  if (!token) return null;
-  return verifyToken(token);
 }
 
 export function createTokenCookieHeaders(accessToken: string, refreshToken: string): Array<string> {
