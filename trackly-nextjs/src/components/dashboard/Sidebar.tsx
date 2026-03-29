@@ -114,6 +114,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onClick={onClose}
                     className={`nav-item ${isActive ? 'active' : ''} ${'adminOnly' in item && item.adminOnly ? 'admin-link' : ''}`}
                     style={{ textDecoration: 'none' }}

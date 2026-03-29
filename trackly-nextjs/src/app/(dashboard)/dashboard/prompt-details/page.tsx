@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; date?: string; }
@@ -17,6 +17,7 @@ export default function PromptDetailsPage() {
   const [intentVal, setIntentVal] = useState('');
   const [funnelVal, setFunnelVal] = useState('');
   const [tagsVal, setTagsVal] = useState('');
+  const [expandedRun, setExpandedRun] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -313,14 +314,21 @@ export default function PromptDetailsPage() {
             </thead>
             <tbody>
               {recentRuns.map((r, i) => (
-                <tr key={i} className="trow">
+                <React.Fragment key={i}>
+                <tr className="trow">
                   <td className="td"><span className="pd-run-plat" style={{ color: PLATFORM_COLORS[r.platform] || 'var(--text)' }}>{r.platform}</span></td>
                   <td className="td pd-run-date">{formatDate(r.runDate)}</td>
-                  <td className="td pd-run-model" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{r.model || '—'}</td>
+                  <td className="td pd-run-model" title={r.model || ''} style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.model || '—'}</td>
                   <td className="td pd-run-mentioned"><span style={{ color: r.mentioned ? 'var(--green)' : 'var(--red)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 10 }}>{r.mentioned ? 'YES' : 'NO'}</span></td>
                   <td className="td pd-run-sent" style={{ color: r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)' }}>{r.sentiment || 'neutral'}</td>
-                  <td className="td pd-run-view"><span style={{ color: 'var(--primary)', cursor: 'pointer', fontSize: 11 }}>View details →</span></td>
+                  <td className="td pd-run-view"><span onClick={() => setExpandedRun(expandedRun === i ? null : i)} style={{ color: 'var(--primary)', cursor: 'pointer', fontSize: 11 }}>{expandedRun === i ? 'Hide ▲' : 'View details →'}</span></td>
                 </tr>
+                {expandedRun === i && (
+                  <tr><td colSpan={6} style={{ padding: '12px 16px', background: 'var(--bg)', fontSize: 12, lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderBottom: '1px solid var(--border)' }}>
+                    {r.snippet || r.response || r.raw || r.context || <span style={{ color: 'var(--muted)' }}>No response text available.</span>}
+                  </td></tr>
+                )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

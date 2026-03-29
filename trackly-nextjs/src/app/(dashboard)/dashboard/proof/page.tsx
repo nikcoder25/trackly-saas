@@ -315,7 +315,7 @@ function ProofRow({ r, highlightBrand, showQuery }: { r: { platform: string; mod
           <span className="ep-row-plat-dot" style={{ background: PLATFORM_COLORS[r.platform] || '#888' }} />
           <span className="ep-row-plat-name" style={{ color: PLATFORM_COLORS[r.platform] || '#888' }}>{r.platform}</span>
         </div>
-        {r.model && <div className="ep-row-model">{r.model}</div>}
+        {r.model && <div className="ep-row-model" title={r.model}>{r.model}</div>}
       </div>
       <div className="ep-row-mid">
         {showQuery && <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, marginBottom: 4, fontFamily: 'var(--mono)' }}>{r.query}</div>}

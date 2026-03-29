@@ -1,5 +1,7 @@
+import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { decryptApiKeys } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -8,6 +10,14 @@ const PLATFORM_KEY_MAP: Record<string, string> = {
   gemini: 'GEMINI_API_KEY',
   perplexity: 'PERPLEXITY_API_KEY',
   grok: 'GROK_API_KEY',
+};
+
+const USER_KEY_MAP: Record<string, string> = {
+  claude: 'claude',
+  openai: 'openai',
+  gemini: 'gemini',
+  perplexity: 'perplexity',
+  grok: 'grok',
 };
 
 const PLATFORM_DISPLAY: Record<string, string> = {
@@ -30,11 +40,12 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Brand name and industry are required' }, { status: 400 });
   }
 
-  // Find an available AI platform
-  const platformOrder = ['gemini', 'claude', 'openai', 'grok', 'perplexity'];
+  // Find an available AI platform (server keys first, then user keys)
+  const platformOrder = ['claude', 'openai', 'gemini', 'grok', 'perplexity'];
   let platform: string | null = null;
   let apiKey: string | null = null;
 
+  // Try server keys first
   for (const p of platformOrder) {
     const envVar = PLATFORM_KEY_MAP[p];
     const keys = (process.env[envVar] || '').split(',').map(k => k.trim()).filter(Boolean);
@@ -45,8 +56,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // Fall back to user's own API keys
   if (!platform || !apiKey) {
-    return Response.json({ error: 'No AI platform API keys configured. Contact admin.' }, { status: 400 });
+    try {
+      const userResult = await pool.query('SELECT api_keys FROM users WHERE id = $1', [user.id]);
+      const userKeys = decryptApiKeys(userResult.rows[0]?.api_keys || {});
+      for (const p of platformOrder) {
+        const key = userKeys[USER_KEY_MAP[p]];
+        if (key) {
+          platform = PLATFORM_DISPLAY[p];
+          apiKey = key;
+          break;
+        }
+      }
+    } catch {}
+  }
+
+  if (!platform || !apiKey) {
+    return Response.json({ error: 'No AI API keys available. Add keys in Account Settings or contact admin.' }, { status: 400 });
   }
 
   const existingList = Array.isArray(existingQueries) && existingQueries.length > 0

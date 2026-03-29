@@ -64,7 +64,17 @@ export default function CopilotPage() {
                       </div>
                     );
                   }
-                  return <div key={li}>{line}</div>;
+                  // Simple markdown: **bold**, `code`, - list items, ### headers
+                  if (msg.role === 'bot') {
+                    let html = line
+                      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/`(.+?)`/g, '<code style="background:var(--bg);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;">$1</code>');
+                    if (/^#{1,3}\s/.test(line)) html = `<strong>${html.replace(/^#{1,3}\s/, '')}</strong>`;
+                    if (/^[-•]\s/.test(line)) html = `&nbsp;&nbsp;• ${html.replace(/^[-•]\s/, '')}`;
+                    return <div key={li} dangerouslySetInnerHTML={{ __html: html || '&nbsp;' }} />;
+                  }
+                  return <div key={li}>{line || '\u00A0'}</div>;
                 })}
               </div>
             </div>
