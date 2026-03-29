@@ -7,39 +7,31 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const navGroups = [
   {
-    label: 'Dashboard',
-    items: [
-      { href: '/dashboard', label: 'Overview', icon: '◈' },
-      { href: '/dashboard/mentions', label: 'Mentions', icon: '◎' },
-      { href: '/dashboard/recommendations', label: 'Recommendations', icon: '✦' },
-    ],
-  },
-  {
     label: 'Analysis',
     items: [
+      { href: '/dashboard', label: 'Overview', icon: '📊' },
       { href: '/dashboard/proof', label: 'Evidence & Proof', icon: '◆' },
       { href: '/dashboard/query-performance', label: 'Query Performance', icon: '◻' },
-      { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '◈' },
+      { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '✦' },
       { href: '/dashboard/prompt-details', label: 'Prompt Details', icon: '◇' },
       { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/competitors', label: 'Competitors', icon: '⊘' },
       { href: '/dashboard/citations', label: 'Citation Analysis', icon: '⬤' },
       { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
-      { href: '/dashboard/platforms', label: 'Platform Status', icon: '⬡' },
+      { href: '/dashboard/platforms', label: 'Platform Status', icon: '◎' },
     ],
   },
   {
     label: 'Tools',
     items: [
-      { href: '/dashboard/copilot', label: 'Copilot', icon: '◈' },
+      { href: '/dashboard/copilot', label: 'Copilot', icon: '✦' },
     ],
   },
   {
     label: 'Settings',
     items: [
-      { href: '/dashboard/setup', label: 'Brand Setup', icon: '⚙' },
+      { href: '/dashboard/setup', label: 'Brand Setup', icon: '◇' },
       { href: '/dashboard/alerts', label: 'Alerts & Notifications', icon: '⚡' },
-      { href: '/dashboard/team', label: 'Team Members', icon: '◎' },
       { href: '/dashboard/billing', label: 'Billing', icon: '◻' },
       { href: '/dashboard/account', label: 'Account & Plan', icon: '◉' },
       { href: '/dashboard/activity', label: 'Activity & Logs', icon: '◆' },
