@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
 interface KTKeyword { keyword: string; mentionRate: number; change: number | null; totalRuns: number; platformCount: number; avgPosition: number | null; lastUpdated: string; sparkline?: number[]; platforms?: Record<string, number>; }
-interface Brand { id: string; name: string; }
+interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ date?: string; time?: string; sov?: number; platforms?: Record<string, unknown>; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }>; }
 
 type SortField = 'keyword' | 'mentionRate' | 'change' | 'totalRuns' | 'platformCount' | 'avgPosition' | 'lastUpdated';
 
@@ -42,13 +42,16 @@ export default function QueryTrackerPage() {
       .catch(() => computeFromRuns());
 
     function computeFromRuns() {
-      const runs = (brand as unknown as Record<string, unknown>).runs as Array<{ date?: string; time?: string; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }> | undefined;
-      if (!runs || !runs.length) { setKeywords([]); return; }
+      const runs = brand!.runs || [];
+      const brandQueries = brand!.queries || [];
       const map: Record<string, { keyword: string; totalRuns: number; mentionCount: number; platforms: Set<string>; posSum: number; posCount: number; lastDate: string; history: number[] }> = {};
+
+      // Build stats from runs that have allResults (latest run after payload trimming)
       runs.forEach(run => {
         const results = run.allResults || [];
         const queryMap: Record<string, { mentioned: number; total: number }> = {};
         results.forEach(r => {
+          if (!r.query) return;
           if (!queryMap[r.query]) queryMap[r.query] = { mentioned: 0, total: 0 };
           queryMap[r.query].total++;
           if (r.mentioned) queryMap[r.query].mentioned++;
@@ -64,6 +67,16 @@ export default function QueryTrackerPage() {
           map[q].history.push(s.total > 0 ? Math.round(s.mentioned / s.total * 100) : 0);
         });
       });
+
+      // Ensure all brand queries appear even if no allResults data (stripped older runs)
+      for (const q of brandQueries) {
+        if (!map[q]) {
+          map[q] = { keyword: q, totalRuns: 0, mentionCount: 0, platforms: new Set(), posSum: 0, posCount: 0, lastDate: runs.length ? (runs[runs.length - 1].date || '') : '', history: [] };
+        }
+      }
+
+      if (Object.keys(map).length === 0) { setKeywords([]); return; }
+
       const computed: KTKeyword[] = Object.values(map).map(m => ({
         keyword: m.keyword,
         mentionRate: m.totalRuns > 0 ? Math.round(m.mentionCount / m.totalRuns * 100) : 0,
