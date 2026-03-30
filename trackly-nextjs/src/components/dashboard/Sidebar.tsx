@@ -126,12 +126,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               }
               btn.textContent = '✓ DONE — Refreshing...';
               btn.style.background = 'var(--green)';
-              setTimeout(() => { 
-                  clearInterval(progTimer);
-                  if (fillEl) fillEl.style.width = '100%';
-                  if (statusEl) statusEl.textContent = 'Complete! Refreshing...';
-                  await new Promise(r => setTimeout(r, 500));
-window.location.reload(); }, 1500);
+            setTimeout(() => {
+              clearInterval(progTimer);
+              if (fillEl) fillEl.style.width = '100%';
+              if (statusEl) statusEl.textContent = 'Complete! Refreshing...';
+              setTimeout(() => { window.location.reload(); }, 1000);
+            }, 1500);
             } catch (err) {
                   clearInterval(progTimer);
                   if (progEl) progEl.style.display = 'none';
