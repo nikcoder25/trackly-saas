@@ -325,6 +325,57 @@ export default function DashboardPage() {
     return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${String(h12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
   };
 
+  // Progress bar for RUN QUERIES button
+  useEffect(() => {
+    const btn = document.getElementById('sidebar-run-btn');
+    if (!btn) return;
+    const handler = () => {
+      // Create progress bar if not already present
+      let progEl = document.getElementById('run-progress-bar');
+      if (progEl) progEl.remove();
+      progEl = document.createElement('div');
+      progEl.id = 'run-progress-bar';
+      progEl.style.cssText = 'margin-top:6px;padding:0 8px';
+      const barWrap = document.createElement('div');
+      barWrap.style.cssText = 'background:var(--bg3,#eee);border-radius:4px;height:6px;overflow:hidden';
+      const fillEl = document.createElement('div');
+      fillEl.style.cssText = 'width:0%;height:100%;background:var(--primary,#e07a5f);border-radius:4px;transition:width 0.5s ease';
+      barWrap.appendChild(fillEl);
+      progEl.appendChild(barWrap);
+      const statusEl = document.createElement('div');
+      statusEl.style.cssText = 'font-size:10px;font-family:var(--mono,monospace);color:var(--muted,#888);margin-top:4px;text-align:center';
+      progEl.appendChild(statusEl);
+      btn.parentElement?.appendChild(progEl);
+      let pct = 0;
+      const startTime = Date.now();
+      const timer = setInterval(() => {
+        pct = Math.min(pct + Math.random() * 8 + 2, 92);
+        fillEl.style.width = pct + '%';
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const mins = Math.floor(elapsed / 60);
+        const secs = elapsed % 60;
+        statusEl.textContent = 'Running queries... ' + (mins > 0 ? mins + 'm ' : '') + secs + 's';
+      }, 1500);
+      // Watch for button text change to detect completion
+      const observer = new MutationObserver(() => {
+        const text = btn.textContent || '';
+        if (text.includes('DONE') || text.includes('RUN QUERIES') || text.includes('Network')) {
+          clearInterval(timer);
+          if (text.includes('DONE')) {
+            fillEl.style.width = '100%';
+            statusEl.textContent = 'Complete! Refreshing...';
+          } else {
+            if (progEl.parentElement) progEl.remove();
+          }
+          observer.disconnect();
+        }
+      });
+      observer.observe(btn, { childList: true, characterData: true, subtree: true });
+    };
+    btn.addEventListener('click', handler);
+    return () => btn.removeEventListener('click', handler);
+  }, []);
+
 
   return (
     <div>
