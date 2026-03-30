@@ -140,6 +140,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 3000);
             }
           }}>▶ RUN QUERIES</button>
+          </div>
 
 
         {/* Nav groups */}
