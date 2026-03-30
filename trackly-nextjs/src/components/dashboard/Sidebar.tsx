@@ -85,7 +85,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               statusEl.id = 'run-status-text';
               statusEl.style.cssText = 'font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:4px;text-align:center';
               progEl.appendChild(statusEl);
-              btn.parentElement.appendChild(progEl);
+              btn.parentElement?.appendChild(progEl);
             }
             progEl.style.display = 'block';
             const fillEl = document.getElementById('run-progress-fill');
