@@ -68,6 +68,20 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             const btn = e.currentTarget;
             const origText = btn.textContent;
             btn.textContent = '⏳ RUNNING...';
+                const progEl = document.getElementById('run-progress');
+                const fillEl = document.getElementById('run-progress-fill');
+                const statusEl = document.getElementById('run-status-text');
+                if (progEl) progEl.style.display = 'block';
+                let pct = 0;
+                const startTime = Date.now();
+                const progTimer = setInterval(() => {
+                  pct = Math.min(pct + Math.random() * 8 + 2, 92);
+                  if (fillEl) fillEl.style.width = pct + '%';
+                  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                  const mins = Math.floor(elapsed / 60);
+                  const secs = elapsed % 60;
+                  if (statusEl) statusEl.textContent = 'Running queries... ' + (mins > 0 ? mins + 'm ' : '') + secs + 's';
+                }, 1500);
             btn.style.opacity = '0.6';
             btn.style.cursor = 'not-allowed';
             try {
@@ -94,12 +108,27 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               }
               btn.textContent = '✓ DONE — Refreshing...';
               btn.style.background = 'var(--green)';
-              setTimeout(() => { window.location.reload(); }, 1500);
+              setTimeout(() => { 
+                  clearInterval(progTimer);
+                  if (fillEl) fillEl.style.width = '100%';
+                  if (statusEl) statusEl.textContent = 'Complete! Refreshing...';
+                  await new Promise(r => setTimeout(r, 500));
+window.location.reload(); }, 1500);
             } catch (err) {
+                  clearInterval(progTimer);
+                  if (progEl) progEl.style.display = 'none';
+
               btn.textContent = '❌ Network error';
               setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 3000);
             }
           }}>▶ RUN QUERIES</button>
+              {/* Progress Bar */}
+              <div id="run-progress" style={{ display: 'none', marginTop: 6, padding: '0 8px' }}>
+                <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                  <div id="run-progress-fill" style={{ width: '0%', height: '100%', background: 'var(--primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
+                </div>
+                <div id="run-status-text" style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, textAlign: 'center' }} />
+              </div>
         </div>
 
         {/* Nav groups */}
