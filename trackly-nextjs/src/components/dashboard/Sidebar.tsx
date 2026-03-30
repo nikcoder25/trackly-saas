@@ -68,20 +68,38 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             const btn = e.currentTarget;
             const origText = btn.textContent;
             btn.textContent = '⏳ RUNNING...';
-                const progEl = document.getElementById('run-progress');
-                const fillEl = document.getElementById('run-progress-fill');
-                const statusEl = document.getElementById('run-status-text');
-                if (progEl) progEl.style.display = 'block';
-                let pct = 0;
-                const startTime = Date.now();
-                const progTimer = setInterval(() => {
-                  pct = Math.min(pct + Math.random() * 8 + 2, 92);
-                  if (fillEl) fillEl.style.width = pct + '%';
-                  const elapsed = Math.floor((Date.now() - startTime) / 1000);
-                  const mins = Math.floor(elapsed / 60);
-                  const secs = elapsed % 60;
-                  if (statusEl) statusEl.textContent = 'Running queries... ' + (mins > 0 ? mins + 'm ' : '') + secs + 's';
-                }, 1500);
+            // Create progress bar dynamically
+            let progEl = document.getElementById('run-progress');
+            if (!progEl) {
+              progEl = document.createElement('div');
+              progEl.id = 'run-progress';
+              progEl.style.cssText = 'margin-top:6px;padding:0 8px';
+              const barWrap = document.createElement('div');
+              barWrap.style.cssText = 'background:var(--bg3);border-radius:4px;height:6px;overflow:hidden';
+              const fillEl = document.createElement('div');
+              fillEl.id = 'run-progress-fill';
+              fillEl.style.cssText = 'width:0%;height:100%;background:var(--primary);border-radius:4px;transition:width 0.5s ease';
+              barWrap.appendChild(fillEl);
+              progEl.appendChild(barWrap);
+              const statusEl = document.createElement('div');
+              statusEl.id = 'run-status-text';
+              statusEl.style.cssText = 'font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:4px;text-align:center';
+              progEl.appendChild(statusEl);
+              btn.parentElement.appendChild(progEl);
+            }
+            progEl.style.display = 'block';
+            const fillEl = document.getElementById('run-progress-fill');
+            const statusEl = document.getElementById('run-status-text');
+            let pct = 0;
+            const startTime = Date.now();
+            const progTimer = setInterval(() => {
+              pct = Math.min(pct + Math.random() * 8 + 2, 92);
+              if (fillEl) fillEl.style.width = pct + '%';
+              const elapsed = Math.floor((Date.now() - startTime) / 1000);
+              const mins = Math.floor(elapsed / 60);
+              const secs = elapsed % 60;
+              if (statusEl) statusEl.textContent = 'Running queries... ' + (mins > 0 ? mins + 'm ' : '') + secs + 's';
+            }, 1500);
             btn.style.opacity = '0.6';
             btn.style.cursor = 'not-allowed';
             try {
@@ -122,14 +140,7 @@ window.location.reload(); }, 1500);
               setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 3000);
             }
           }}>▶ RUN QUERIES</button>
-              {/* Progress Bar */}
-              <div id="run-progress" style={{ display: 'none', marginTop: 6, padding: '0 8px' }}>
-                <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                  <div id="run-progress-fill" style={{ width: '0%', height: '100%', background: 'var(--primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
-                </div>
-                <div id="run-status-text" style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, textAlign: 'center' }} />
-              </div>
-        </div>
+
 
         {/* Nav groups */}
         <nav style={{ flex: 1, padding: '4px 8px' }}>
