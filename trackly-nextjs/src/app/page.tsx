@@ -1,466 +1,313 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-
-/* ─── Animated counter hook ─── */
-function useCounter(target: number, duration = 2000) {
-  const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
-
-  useEffect(() => {
-    if (!started) return;
-    let start = 0;
-    const step = Math.ceil(target / (duration / 16));
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= target) { setCount(target); clearInterval(timer); }
-      else setCount(start);
-    }, 16);
-    return () => clearInterval(timer);
-  }, [started, target, duration]);
-
-  return { count, ref: (node: HTMLDivElement | null) => {
-    if (!node) return;
-    const observer = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStarted(true); }, { threshold: 0.3 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }};
-}
-
-/* ─── Platform data ─── */
-const platforms = [
-  { name: 'ChatGPT', color: '#10a37f', icon: '⬡' },
-  { name: 'Perplexity', color: '#9b72ff', icon: '◎' },
-  { name: 'Claude', color: '#d97706', icon: '◈' },
-  { name: 'Gemini', color: '#4285f4', icon: '✦' },
-  { name: 'Grok', color: '#1d9bf0', icon: '⚡' },
-];
-
-const features = [
-  { icon: '🔍', title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok — all from a single dashboard.' },
-  { icon: '📊', title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.' },
-  { icon: '🛡️', title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.' },
-  { icon: '🎯', title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.' },
-  { icon: '⚙️', title: 'Custom Queries', desc: 'Define exactly what your customers ask. Track performance per query, per platform, per location.' },
-  { icon: '📈', title: 'Competitor Intelligence', desc: 'Add competitors to see how they appear in AI responses alongside your brand. Benchmark and outrank.' },
-];
-
-const steps = [
-  { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. Smart default queries are generated automatically.' },
-  { num: '02', title: 'Auto-Track Daily', desc: 'Trackly queries all 5 AI platforms on your schedule. Results flow into your real-time dashboard.' },
-  { num: '03', title: 'Analyze & Report', desc: 'See what each AI says about you. Track trends, export proof, and share data-backed reports.' },
-];
-
-const pricingPlans = [
-  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'SOV tracking & export'], cta: 'Get Started' },
-  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Pro' },
-  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Agency' },
-  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000 prompts/month', '100 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'], cta: 'Contact Sales' },
-];
-
-const faqs = [
-  { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
-  { q: 'Which AI platforms does Trackly support?', a: 'Trackly tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
-  { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
-  { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Trackly tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
-  { q: 'Can I use Trackly for client reporting?', a: 'Yes. Trackly saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Trackly cost?', a: 'Plans start at $9/mo (Starter). Pro is $29/mo and Agency is $89/mo — the best value in AI visibility tracking.' },
-];
-
-const testimonials = [
-  { text: 'We had no idea ChatGPT was recommending our competitor. Within a month of optimizing, our AI Share of Voice went from 0% to 34%.', name: 'Sarah Kim', role: 'Head of Growth, NovaBrand', initials: 'SK' },
-  { text: 'Trackly is like Ahrefs but for AI search. Our agency uses it for every client now. The proof exports make reporting effortless.', name: 'Marco Rivera', role: 'Founder, Altitude Digital', initials: 'MR' },
-  { text: 'As a solo founder, I needed to know if AI platforms were recommending me. Trackly gave me clarity in minutes.', name: 'James Liu', role: 'Founder, StackPilot', initials: 'JL' },
-];
-
-const demoResults = [
-  { name: 'ChatGPT', color: '#10a37f', icon: '⬡', found: true, text: 'Based on available information, <mark>CoolAir Pro</mark> is a well-regarded HVAC provider in Austin TX. Customers praise them for responsive service and transparent pricing...' },
-  { name: 'Perplexity', color: '#9b72ff', icon: '◎', found: true, text: '<mark>CoolAir Pro</mark> is a leading HVAC company in Austin TX [1]. Reviews highlight professional technicians and fair pricing [2]...' },
-  { name: 'Claude', color: '#d97706', icon: '◈', found: true, text: 'I can share that <mark>CoolAir Pro</mark> has developed a solid reputation in the Austin TX HVAC market for professional service...' },
-  { name: 'Gemini', color: '#4285f4', icon: '✦', found: true, text: '<mark>CoolAir Pro</mark> is an HVAC provider in Austin TX with consistent 4+ star ratings. Professional, licensed, transparent...' },
-  { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, text: 'For HVAC in Austin TX, I\'d recommend AC Express, Stan\'s Heating, and Green Leaf Air. Solid reviews and competitive pricing...' },
-];
+import { useState } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function HomePage() {
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   return (
-    <div className="trackly-landing">
+    <div id="landing-page">
 
-      {/* ═══════ NAVIGATION ═══════ */}
-      <nav className={`tl-nav ${scrolled ? 'tl-nav--scrolled' : ''}`}>
-        <div className="tl-nav-inner">
-          <Link href="/" className="tl-logo">
-            Track<span>ly</span>
-          </Link>
+      {/* Navigation — uses legacy .land-nav classes */}
+      <nav className="land-nav">
+        <div className="land-nav-logo">Live<span>sov</span></div>
 
-          <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
-            <span className={menuOpen ? 'open' : ''} />
-            <span className={menuOpen ? 'open' : ''} />
-            <span className={menuOpen ? 'open' : ''} />
-          </button>
+        <button className="land-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <span /><span /><span />
+        </button>
 
-          <div className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
-            <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
-            <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
-            <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
-            <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
-          </div>
+        <div className={`land-nav-links ${menuOpen ? 'open' : ''}`}>
+          <a href="#features" onClick={() => setMenuOpen(false)}>{t.nav.features}</a>
+          <a href="#how-it-works" onClick={() => setMenuOpen(false)}>{t.nav.howItWorks}</a>
+          <a href="#pricing" onClick={() => setMenuOpen(false)}>{t.nav.pricing}</a>
+          <a href="#use-cases" onClick={() => setMenuOpen(false)}>{t.nav.useCases}</a>
+          <a href="#faq" onClick={() => setMenuOpen(false)}>{t.nav.faq}</a>
+        </div>
 
-          <div className="tl-nav-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost">Log In</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary">Get Started Free</Link>
-          </div>
+        <div className="land-nav-right">
+          <LanguageSwitcher variant="light" />
+          <Link href="/login" className="land-btn land-btn-ghost">{t.nav.login}</Link>
+          <Link href="/signup" className="land-btn land-btn-primary">{t.nav.getStarted}</Link>
         </div>
       </nav>
 
-      {/* Mobile menu overlay */}
-      {menuOpen && (
-        <div className="tl-mobile-menu">
-          <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
-          <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
-          <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
-          <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
-          <div className="tl-mobile-menu-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>Log In</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>Get Started Free</Link>
+      {/* Hero */}
+      <section className="land-hero">
+        <div className="land-hero-badge">{t.hero.badge}</div>
+        <h1>{t.hero.title}<span>{t.hero.titleHighlight}</span></h1>
+        <p>{t.hero.description}</p>
+        <div className="land-hero-cta">
+          <Link href="/signup" className="land-btn land-btn-primary">{t.hero.cta} &rarr;</Link>
+          <a href="#demo-section" className="land-btn land-btn-ghost">{t.hero.ctaDemo}</a>
+        </div>
+        <div className="land-google-wrap">
+          <Link href="/signup" className="btn-google-land">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Sign up with Google
+          </Link>
+        </div>
+      </section>
+
+      {/* Social Proof */}
+      <section className="land-social-proof">
+        <div className="land-social-proof-stats">
+          <div className="land-social-proof-stat"><div className="val">500+</div><div className="lbl">{t.socialProof.brandsTracked}</div></div>
+          <div className="land-social-proof-stat"><div className="val">7</div><div className="lbl">{t.socialProof.aiPlatforms}</div></div>
+          <div className="land-social-proof-stat"><div className="val">50K+</div><div className="lbl">{t.socialProof.queriesRun}</div></div>
+          <div className="land-social-proof-stat"><div className="val">Real-time</div><div className="lbl">{t.socialProof.liveResults}</div></div>
+        </div>
+      </section>
+
+      {/* Platform Chips */}
+      <section className="land-platforms">
+        {[
+          { name: 'ChatGPT', color: '#19c37d', icon: '\u2B21' },
+          { name: 'Perplexity', color: '#9b72ff', icon: '\u25CE' },
+          { name: 'Claude', color: '#d97706', icon: '\u25C8' },
+          { name: 'Gemini', color: '#4285f4', icon: '\u2726' },
+          { name: 'Grok', color: '#1d9bf0', icon: '\u26A1' },
+        ].map(p => (
+          <div key={p.name} className="land-plat-chip">
+            <span className="plat-icon" style={{ color: p.color }}>{p.icon}</span> {p.name}
+          </div>
+        ))}
+      </section>
+
+      {/* Live Demo */}
+      <section className="land-demo" id="demo-section">
+        <div className="land-demo-box">
+          <div className="land-demo-header">
+            <div className="dot g" /><div className="dot" /><div className="dot" />
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginLeft: 12 }}>{t.demo.query}</span>
+          </div>
+          <div className="land-demo-body">
+            {[
+              { name: 'ChatGPT', color: '#19c37d', icon: '\u2B21', found: true, text: t.demo.chatgptResponse },
+              { name: 'Perplexity', color: '#9b72ff', icon: '\u25CE', found: true, text: t.demo.perplexityResponse },
+              { name: 'Claude', color: '#d97706', icon: '\u25C8', found: true, text: t.demo.claudeResponse },
+              { name: 'Gemini', color: '#4285f4', icon: '\u2726', found: true, text: t.demo.geminiResponse },
+              { name: 'Grok', color: '#1d9bf0', icon: '\u26A1', found: false, text: t.demo.grokResponse },
+            ].map(d => (
+              <div key={d.name} className="land-demo-card" style={!d.found ? { opacity: 0.7 } : undefined}>
+                <div className="plat-head"><span className="icon" style={{ color: d.color }}>{d.icon}</span> {d.name}</div>
+                <div className="found-badge" style={!d.found ? { background: 'var(--danger-light)', color: 'var(--red)', borderColor: 'rgba(239,68,68,.2)' } : undefined}>
+                  {d.found ? t.demo.mentioned : t.demo.notFound}
+                </div>
+                <div className="response-text" dangerouslySetInnerHTML={{ __html: d.text }} />
+              </div>
+            ))}
           </div>
         </div>
-      )}
-
-      {/* ═══════ HERO ═══════ */}
-      <section className="tl-hero">
-        <div className="tl-hero-glow" />
-        <div className="tl-hero-content">
-          <div className="tl-badge">
-            <span className="tl-badge-dot" />
-            AI Visibility Tracker
-          </div>
-          <h1>
-            Is your brand visible in{' '}
-            <span className="tl-gradient-text">AI answers?</span>
-          </h1>
-          <p className="tl-hero-sub">
-            Track how ChatGPT, Perplexity, Claude, Gemini & Grok mention your brand.
-            Get real proof, measure share of voice, and optimize your AI visibility strategy.
-          </p>
-          <div className="tl-hero-ctas">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Start Tracking Free <span className="tl-arrow">&rarr;</span>
-            </Link>
-            <a href="#demo-section" className="tl-btn tl-btn--outline tl-btn--lg">
-              See Live Demo
-            </a>
-          </div>
-          <p className="tl-hero-note">No credit card required &middot; Set up in 2 minutes</p>
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 15 }}>
+            {t.demo.tryIt} &rarr;
+          </Link>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>{t.demo.plansStart}</p>
         </div>
+      </section>
 
-        {/* Platform pills floating */}
-        <div className="tl-hero-platforms">
-          {platforms.map(p => (
-            <div key={p.name} className="tl-platform-pill" style={{ '--platform-color': p.color } as React.CSSProperties}>
-              <span className="tl-platform-icon">{p.icon}</span>
-              {p.name}
+      {/* Features */}
+      <section className="land-section" id="features">
+        <div className="land-section-label">{t.features.label}</div>
+        <h2>{t.features.title}</h2>
+        <div className="section-sub">{t.features.subtitle}</div>
+        <div className="land-features">
+          {t.features.items.map((f: { icon: string; title: string; desc: string }) => (
+            <div key={f.title} className="land-feature">
+              <div className="feat-icon">{f.icon}</div>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ═══════ SOCIAL PROOF BAR ═══════ */}
-      <section className="tl-proof">
-        <div className="tl-proof-inner">
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">500+</span>
-            <span className="tl-proof-label">Brands tracked</span>
-          </div>
-          <div className="tl-proof-divider" />
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">5</span>
-            <span className="tl-proof-label">AI platforms</span>
-          </div>
-          <div className="tl-proof-divider" />
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">50K+</span>
-            <span className="tl-proof-label">Queries analyzed</span>
-          </div>
-          <div className="tl-proof-divider" />
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">Real-time</span>
-            <span className="tl-proof-label">Live results</span>
-          </div>
+      {/* How it Works */}
+      <section className="land-section" id="how-it-works">
+        <div className="land-section-label">{t.howItWorks.label}</div>
+        <h2>{t.howItWorks.title}</h2>
+        <div className="section-sub">{t.howItWorks.subtitle}</div>
+        <div className="land-how">
+          {t.howItWorks.steps.map((s: { num: string; title: string; desc: string }) => (
+            <div key={s.num} className="land-how-step">
+              <div className="land-how-num">{s.num}</div>
+              <h3>{s.title}</h3>
+              <p>{s.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ═══════ LIVE DEMO ═══════ */}
-      <section className="tl-section" id="demo-section">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Live Demo</span>
-            <h2>See Trackly in Action</h2>
-            <p>Here's what happens when you track a brand across all 5 AI platforms.</p>
-          </div>
-
-          <div className="tl-demo-window">
-            <div className="tl-demo-toolbar">
-              <div className="tl-demo-dots">
-                <span className="tl-dot tl-dot--red" />
-                <span className="tl-dot tl-dot--yellow" />
-                <span className="tl-dot tl-dot--green" />
-              </div>
-              <div className="tl-demo-query">
-                <span className="tl-demo-query-icon">🔍</span>
-                &quot;Best HVAC company in Austin TX&quot;
-              </div>
+      {/* Pricing */}
+      <section className="land-section" id="pricing">
+        <div className="land-section-label">{t.pricing.label}</div>
+        <h2>{t.pricing.title}</h2>
+        <div className="section-sub">{t.pricing.subtitle}</div>
+        <div className="land-pricing">
+          {t.pricing.plans.map((plan: { name: string; price: string; sub: string; features: string[]; featured?: boolean; enterprise?: boolean }, i: number) => (
+            <div key={plan.name} className={`land-price-card ${plan.featured ? 'featured' : ''}`} style={plan.enterprise ? { borderColor: 'var(--purple)' } : undefined}>
+              <h3 style={plan.enterprise ? { color: 'var(--purple)' } : undefined}>{plan.name}</h3>
+              <div className="price">{plan.price}<span>{t.pricing.perMonth}</span></div>
+              <div className="price-sub">{plan.sub}</div>
+              <ul>
+                {plan.features.map((f: string) => <li key={f}>{f}</li>)}
+              </ul>
+              <Link href="/signup" className="land-btn land-btn-primary" style={{ width: '100%' }}>
+                {i === 0 ? t.pricing.getStarted : i === 1 ? t.pricing.startPro : i === 2 ? t.pricing.startAgency : t.pricing.contactSales}
+              </Link>
             </div>
-            <div className="tl-demo-grid">
-              {demoResults.map(d => (
-                <div key={d.name} className={`tl-demo-card ${!d.found ? 'tl-demo-card--missed' : ''}`}>
-                  <div className="tl-demo-card-head">
-                    <span style={{ color: d.color, fontSize: 18 }}>{d.icon}</span>
-                    <span className="tl-demo-card-name">{d.name}</span>
-                    <span className={`tl-demo-badge ${d.found ? 'tl-demo-badge--found' : 'tl-demo-badge--missed'}`}>
-                      {d.found ? '✓ Mentioned' : '✗ Not Found'}
-                    </span>
-                  </div>
-                  <div className="tl-demo-card-text" dangerouslySetInnerHTML={{ __html: d.text }} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="tl-demo-cta">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Try It With Your Brand <span className="tl-arrow">&rarr;</span>
-            </Link>
-          </div>
+          ))}
         </div>
-      </section>
 
-      {/* ═══════ FEATURES ═══════ */}
-      <section className="tl-section tl-section--alt" id="features">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Features</span>
-            <h2>Everything you need to dominate AI visibility</h2>
-            <p>Monitor your brand across all major AI platforms from one powerful dashboard.</p>
-          </div>
-
-          <div className="tl-features-grid">
-            {features.map(f => (
-              <div key={f.title} className="tl-feature-card">
-                <div className="tl-feature-icon">{f.icon}</div>
-                <h3>{f.title}</h3>
-                <p>{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ HOW IT WORKS ═══════ */}
-      <section className="tl-section" id="how-it-works">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">How it Works</span>
-            <h2>Start tracking in 3 simple steps</h2>
-            <p>Set up in under 2 minutes. No technical skills required.</p>
-          </div>
-
-          <div className="tl-steps">
-            {steps.map((s, i) => (
-              <div key={s.num} className="tl-step">
-                <div className="tl-step-num">{s.num}</div>
-                <h3>{s.title}</h3>
-                <p>{s.desc}</p>
-                {i < steps.length - 1 && <div className="tl-step-connector" />}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ WHY AI VISIBILITY ═══════ */}
-      <section className="tl-section tl-section--dark">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag tl-section-tag--light">Why it Matters</span>
-            <h2>AI is the new search. Are you visible?</h2>
-            <p>40% of searches now use AI chatbots. If AI doesn't recommend you, you're invisible to a growing audience.</p>
-          </div>
-
-          <div className="tl-why-grid">
-            <div className="tl-why-card">
-              <div className="tl-why-stat">40%</div>
-              <h3>Searches use AI</h3>
-              <p>Users are shifting from Google to ChatGPT and Perplexity for buying decisions.</p>
-            </div>
-            <div className="tl-why-card">
-              <div className="tl-why-stat">0%</div>
-              <h3>SEO coverage in AI</h3>
-              <p>Ranking #1 on Google doesn't mean AI will recommend you. Different signals matter.</p>
-            </div>
-            <div className="tl-why-card">
-              <div className="tl-why-stat">GEO</div>
-              <h3>Is the future</h3>
-              <p>Generative Engine Optimization is how brands ensure they appear in AI-generated answers.</p>
-            </div>
-            <div className="tl-why-card">
-              <div className="tl-why-stat">📋</div>
-              <h3>Proof for clients</h3>
-              <p>Real API responses, not screenshots. Export verifiable evidence as CSV reports.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ PRICING ═══════ */}
-      <section className="tl-section" id="pricing">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Pricing</span>
-            <h2>Simple, transparent pricing</h2>
-            <p>Start free. Scale as you grow. Best value in AI visibility tracking.</p>
-          </div>
-
-          <div className="tl-pricing-grid">
-            {pricingPlans.map(plan => (
-              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''} ${plan.enterprise ? 'tl-price-card--enterprise' : ''}`}>
-                {plan.featured && <div className="tl-price-badge">Most Popular</div>}
-                <h3>{plan.name}</h3>
-                <div className="tl-price-amount">
-                  {plan.price}<span>/mo</span>
-                </div>
-                <p className="tl-price-sub">{plan.sub}</p>
-                <ul className="tl-price-features">
-                  {plan.features.map(f => (
-                    <li key={f}>
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      {f}
-                    </li>
+        {/* Comparison Table */}
+        <div style={{ maxWidth: 900, margin: '48px auto 0' }}>
+          <h3 style={{ fontSize: 20, fontWeight: 700, textAlign: 'center', marginBottom: 6 }}>{t.pricing.comparison.title}</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 16, textAlign: 'center', marginBottom: 24 }}>{t.pricing.comparison.subtitle}</p>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tbl" style={{ fontFamily: 'var(--mono)', fontSize: 12, textAlign: 'center' }}>
+              <thead>
+                <tr>
+                  {t.pricing.comparison.headers.map((h: string, i: number) => (
+                    <th key={h} style={{ textAlign: i === 0 ? 'left' : 'center', color: i === 1 ? 'var(--primary)' : undefined, fontWeight: i === 1 ? 700 : undefined }}>{h}</th>
                   ))}
-                </ul>
-                <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
+                </tr>
+              </thead>
+              <tbody>
+                {t.pricing.comparison.rows.map((row: string[], ri: number) => (
+                  <tr key={ri}>
+                    {row.map((cell: string, ci: number) => (
+                      <td key={ci} style={{
+                        textAlign: ci === 0 ? 'left' : 'center',
+                        color: ci === 1 ? 'var(--primary)' : cell.includes('\u2713') ? 'var(--green)' : cell.includes('\u2717') ? 'var(--red)' : undefined,
+                        fontWeight: ci === 1 ? 700 : undefined,
+                      }}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
-      {/* ═══════ TESTIMONIALS ═══════ */}
-      <section className="tl-section tl-section--alt">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Testimonials</span>
-            <h2>Trusted by marketers & agencies</h2>
-            <p>See what people are saying about Trackly.</p>
-          </div>
+      {/* Why AI Visibility */}
+      <section className="land-section">
+        <div className="land-section-label">{t.whyAI.label}</div>
+        <h2>{t.whyAI.title}</h2>
+        <div className="section-sub">{t.whyAI.subtitle}</div>
+        <div className="land-features" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+          {t.whyAI.items.map((item: { icon: string; title: string; desc: string }) => (
+            <div key={item.title} className="land-feature">
+              <div className="feat-icon">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <div className="tl-testimonials">
-            {testimonials.map(t => (
-              <div key={t.name} className="tl-testimonial-card">
-                <div className="tl-testimonial-stars">★★★★★</div>
-                <p className="tl-testimonial-text">&ldquo;{t.text}&rdquo;</p>
-                <div className="tl-testimonial-author">
-                  <div className="tl-testimonial-avatar">{t.initials}</div>
-                  <div>
-                    <div className="tl-testimonial-name">{t.name}</div>
-                    <div className="tl-testimonial-role">{t.role}</div>
-                  </div>
+      {/* Use Cases */}
+      <section className="land-section" id="use-cases">
+        <div className="land-section-label">{t.useCases.label}</div>
+        <h2>{t.useCases.title}</h2>
+        <div className="section-sub">{t.useCases.subtitle}</div>
+        <div className="land-features">
+          {t.useCases.items.map((item: { icon: string; title: string; desc: string }) => (
+            <div key={item.title} className="land-feature">
+              <div className="feat-icon">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="land-section" id="faq">
+        <div className="land-section-label">{t.faq.label}</div>
+        <h2>{t.faq.title}</h2>
+        <div className="section-sub">{t.faq.subtitle}</div>
+        <div style={{ maxWidth: 700, margin: '0 auto' }}>
+          {t.faq.items.map((item: { q: string; a: string }) => (
+            <details key={item.q} className="faq-item">
+              <summary>{item.q}</summary>
+              <p>{item.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="land-section">
+        <h2>{t.testimonials.title}</h2>
+        <div className="section-sub">{t.testimonials.subtitle}</div>
+        <div className="land-testimonials">
+          {t.testimonials.items.map((item: { name: string; role: string; text: string; initials: string }) => (
+            <div key={item.name} className="land-testimonial-card">
+              <div className="land-testimonial-stars">{'\u2605\u2605\u2605\u2605\u2605'}</div>
+              <div className="land-testimonial-text">{item.text}</div>
+              <div className="land-testimonial-author">
+                <div className="land-testimonial-avatar">{item.initials}</div>
+                <div>
+                  <div className="land-testimonial-name">{item.name}</div>
+                  <div className="land-testimonial-role">{item.role}</div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ═══════ FAQ ═══════ */}
-      <section className="tl-section" id="faq">
-        <div className="tl-section-inner" style={{ maxWidth: 760 }}>
-          <div className="tl-section-header">
-            <span className="tl-section-tag">FAQ</span>
-            <h2>Frequently Asked Questions</h2>
-          </div>
-
-          <div className="tl-faq-list">
-            {faqs.map((f, i) => (
-              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`}>
-                <button className="tl-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                  <span>{f.q}</span>
-                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-                <div className="tl-faq-a">
-                  <p>{f.a}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* CTA */}
+      <section className="land-cta-section">
+        <h2>{t.cta.title}</h2>
+        <div className="section-sub">{t.cta.subtitle}</div>
+        <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '16px 44px', fontSize: 16 }}>
+          {t.cta.button} &rarr;
+        </Link>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginTop: 16 }}>{t.cta.note}</p>
       </section>
 
-      {/* ═══════ FINAL CTA ═══════ */}
-      <section className="tl-cta">
-        <div className="tl-cta-glow" />
-        <div className="tl-cta-content">
-          <h2>Ready to track your AI visibility?</h2>
-          <p>Join 500+ brands already monitoring their presence across AI platforms.</p>
-          <Link href="/signup" className="tl-btn tl-btn--white tl-btn--lg">
-            Start Tracking Free <span className="tl-arrow">&rarr;</span>
-          </Link>
-          <span className="tl-cta-note">Plans start at $9/mo &middot; Set up in 2 minutes</span>
-        </div>
-      </section>
-
-      {/* ═══════ FOOTER ═══════ */}
-      <footer className="tl-footer">
-        <div className="tl-footer-inner">
-          <div className="tl-footer-grid">
-            <div className="tl-footer-brand">
-              <div className="tl-logo" style={{ fontSize: 22 }}>Track<span>ly</span></div>
-              <p>Track your brand's visibility across AI platforms. Know when ChatGPT, Perplexity, Claude, Gemini & Grok mention you.</p>
-            </div>
-            <div className="tl-footer-col">
-              <h4>Product</h4>
-              <Link href="/#features">Features</Link>
-              <Link href="/pricing">Pricing</Link>
-              <Link href="/how-it-works">How it Works</Link>
-              <Link href="/use-cases">Use Cases</Link>
-              <Link href="/integrations">Integrations</Link>
-            </div>
-            <div className="tl-footer-col">
-              <h4>Resources</h4>
-              <Link href="/blog">Blog</Link>
-              <Link href="/geo-optimization">GEO Guide</Link>
-              <Link href="/about">About</Link>
-              <Link href="/contact">Contact</Link>
-              <Link href="/changelog">Changelog</Link>
-            </div>
-            <div className="tl-footer-col">
-              <h4>Legal</h4>
-              <Link href="/privacy">Privacy Policy</Link>
-              <Link href="/terms">Terms of Service</Link>
-              <Link href="/cookies">Cookie Policy</Link>
-            </div>
+      {/* Footer */}
+      <footer className="land-footer">
+        <div className="land-footer-grid">
+          <div className="land-footer-brand">
+            <div className="land-footer-logo">Live<span>sov</span></div>
+            <div className="land-footer-desc">{t.footer.desc}</div>
           </div>
-          <div className="tl-footer-bottom">
-            <span>&copy; {new Date().getFullYear()} Trackly. All rights reserved.</span>
-            <div className="tl-footer-social">
-              <a href="mailto:hello@trackly.com" aria-label="Email">✉</a>
-              <a href="https://x.com/trackly" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>
-              <a href="https://linkedin.com/company/trackly" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
-            </div>
+          <div className="land-footer-col">
+            <div className="land-footer-col-title">{t.footer.product}</div>
+            <Link href="/#features">{t.footer.links.features}</Link>
+            <Link href="/pricing">{t.footer.links.pricing}</Link>
+            <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
+            <Link href="/use-cases">{t.footer.links.useCases}</Link>
+            <Link href="/integrations">{t.footer.links.integrations}</Link>
+          </div>
+          <div className="land-footer-col">
+            <div className="land-footer-col-title">{t.footer.resources}</div>
+            <Link href="/blog">{t.footer.links.blog}</Link>
+            <Link href="/geo-optimization">{t.footer.links.geoGuide}</Link>
+            <Link href="/about">{t.footer.links.about}</Link>
+            <Link href="/contact">{t.footer.links.contact}</Link>
+            <Link href="/changelog">{t.footer.links.changelog}</Link>
+          </div>
+          <div className="land-footer-col">
+            <div className="land-footer-col-title">{t.footer.legal}</div>
+            <Link href="/privacy">{t.footer.links.privacy}</Link>
+            <Link href="/terms">{t.footer.links.terms}</Link>
+            <Link href="/cookies">{t.footer.links.cookies}</Link>
+          </div>
+        </div>
+        <div className="land-footer-bottom">
+          <div className="land-footer-text">&copy; {new Date().getFullYear()} {t.footer.copyright}</div>
+          <div className="land-footer-social">
+            <a href="mailto:hello@livesov.com" aria-label="Email">{'\u2709'}</a>
+            <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">{'\u2715'}</a>
+            <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
           </div>
         </div>
       </footer>
