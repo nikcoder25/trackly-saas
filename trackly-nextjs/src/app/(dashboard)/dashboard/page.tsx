@@ -3,7 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
 // Language removed from dashboard
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
@@ -30,7 +30,7 @@ export default function DashboardPage() {
   // Language removed
   const [brands, setBrands] = useState<Brand[]>([]);
   const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
-  const toastIdRef = { current: 0 };
+  const toastIdRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
@@ -69,7 +69,7 @@ export default function DashboardPage() {
   useEffect(() => { fetchBrands(); }, [fetchBrands]);
 
   // Toast notifications — spawn a card for each new result
-  const lastResultCountRef = { current: 0 };
+  const lastResultCountRef = useRef(0);
   useEffect(() => {
     if (live.results.length <= lastResultCountRef.current) return;
     const newResults = live.results.slice(lastResultCountRef.current);

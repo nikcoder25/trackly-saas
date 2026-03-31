@@ -216,6 +216,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const brandData = await brandRes.json();
       const b = (brandData.brands || [])[0];
       if (!b) {
+        runningRef.current = false;
         setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'No brand set up', errorMsg: 'No brand set up' }));
         setTimeout(() => setLive(INITIAL_STATE), 3000);
         return;
@@ -237,6 +238,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
         clearTimeout(fetchTimeout);
         const errData = await response.json().catch(() => ({ error: 'Request failed' }));
         if (response.status === 409) {
+          runningRef.current = false;
           setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'A run is already in progress.', errorMsg: 'concurrent' }));
           return;
         }
@@ -312,6 +314,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
         newMentions: sseFoundCount, errorCount: sseErrorCount,
       };
 
+      runningRef.current = false;
       setLive(prev => ({
         ...prev, running: false, status: 'done',
         received: sseReceived, foundCount: sseFoundCount, errorCount: sseErrorCount,
@@ -324,20 +327,38 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const error = err as Error;
       const isAbort = error.name === 'AbortError';
 
-      // If we have a runId, switch to polling
+      // Read current state to decide: poll fallback or show error
+      // (can't call pollRunStatus inside setLive updater — side effects not allowed)
       setLive(prev => {
         if (prev.runId && prev.brandId) {
-          pollRunStatus(prev.brandId, prev.runId);
+          // Keep running=true, runningRef stays true — polling will reset them
           return { ...prev, statusText: 'Reconnecting — queries still running...' };
         }
+        runningRef.current = false;
         return {
           ...prev, running: false, status: 'error' as const,
           statusText: isAbort ? 'Connection timed out' : 'Run failed: ' + error.message,
           errorMsg: error.message,
         };
       });
+
+      // Schedule polling fallback outside the state updater
+      // Use a microtask so the setLive above resolves first
+      queueMicrotask(() => {
+        // Re-read from ref-accessible state — if still running, we have a runId to poll
+        setLive(prev => {
+          if (prev.running && prev.runId && prev.brandId) {
+            pollRunStatus(prev.brandId, prev.runId);
+          }
+          return prev; // no state change
+        });
+      });
+
       // If no runId, auto-clear after 5s
-      setTimeout(() => setLive(prev => prev.status === 'error' ? INITIAL_STATE : prev), 5000);
+      setTimeout(() => setLive(prev => {
+        if (prev.status === 'error') { runningRef.current = false; return INITIAL_STATE; }
+        return prev;
+      }), 5000);
     }
   }, [pollRunStatus]);
 
