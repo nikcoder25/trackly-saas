@@ -197,18 +197,20 @@ export default function DashboardPage() {
     const city = brand?.city;
     if (!city) return { rate: 0, areas: {} as Record<string, number> };
     const allAreas = [city, ...(nearbyAreas || [])].filter(Boolean);
-    const results = (lastRun as Record<string, unknown> | null)?.allResults as Array<{ snippet?: string }> | undefined;
+    const norm = (s: string) => s.toLowerCase().replace(/[,.\-_'"]/g, ' ').replace(/\s+/g, ' ').trim();
+    const normalizedAreas = allAreas.map(a => norm(a));
+    const results = (lastRun as Record<string, unknown> | null)?.allResults as Array<{ snippet?: string; query?: string }> | undefined;
     if (!results || !results.length) return { rate: 0, areas: {} as Record<string, number> };
     let total = 0, matched = 0;
     const areaHits: Record<string, number> = {};
     results.forEach(r => {
-      const text = (r.snippet || '').toLowerCase();
+      const text = norm((r.snippet || '') + ' ' + (r.query || ''));
       if (!text.trim()) return;
       total++;
-      for (const area of allAreas) {
-        if (text.includes(area.toLowerCase())) {
+      for (let i = 0; i < normalizedAreas.length; i++) {
+        if (text.includes(normalizedAreas[i])) {
           matched++;
-          areaHits[area] = (areaHits[area] || 0) + 1;
+          areaHits[allAreas[i]] = (areaHits[allAreas[i]] || 0) + 1;
           break;
         }
       }
