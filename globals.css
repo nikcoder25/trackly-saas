@@ -300,3 +300,72 @@
   .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .main table { min-width: 600px; }
 }
+
+
+/* ── LANDING / PUBLIC PAGES: Missing Tailwind v4 spacing utilities ─── */
+/* Tailwind v4 is not generating spacing utilities for public pages.    */
+/* These rules target #landing-page (the SeoLayout wrapper).            */
+
+#landing-page .mx-auto { margin-left: auto; margin-right: auto; }
+#landing-page .my-2 { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
+#landing-page .mt-0\.5 { margin-top: 0.125rem; }
+#landing-page .mt-1 { margin-top: 0.25rem; }
+#landing-page .mt-2 { margin-top: 0.5rem; }
+#landing-page .mt-3 { margin-top: 0.75rem; }
+#landing-page .mt-4 { margin-top: 1rem; }
+#landing-page .mt-6 { margin-top: 1.5rem; }
+#landing-page .mt-8 { margin-top: 2rem; }
+
+#landing-page .mb-1 { margin-bottom: 0.25rem; }
+#landing-page .mb-2 { margin-bottom: 0.5rem; }
+#landing-page .mb-3 { margin-bottom: 0.75rem; }
+#landing-page .mb-4 { margin-bottom: 1rem; }
+#landing-page .mb-6 { margin-bottom: 1.5rem; }
+#landing-page .mb-8 { margin-bottom: 2rem; }
+#landing-page .mb-12 { margin-bottom: 3rem; }
+#landing-page .mb-16 { margin-bottom: 4rem; }
+
+#landing-page .ml-2 { margin-left: 0.5rem; }
+#landing-page .mr-2 { margin-right: 0.5rem; }
+
+#landing-page .p-4 { padding: 1rem; }
+#landing-page .p-6 { padding: 1.5rem; }
+#landing-page .p-8 { padding: 2rem; }
+
+#landing-page .px-4 { padding-left: 1rem; padding-right: 1rem; }
+#landing-page .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+#landing-page .px-8 { padding-left: 2rem; padding-right: 2rem; }
+
+#landing-page .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+#landing-page .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+#landing-page .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+#landing-page .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+#landing-page .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+#landing-page .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+#landing-page .py-16 { padding-top: 4rem; padding-bottom: 4rem; }
+#landing-page .py-20 { padding-top: 5rem; padding-bottom: 5rem; }
+
+#landing-page .pt-4 { padding-top: 1rem; }
+#landing-page .pt-8 { padding-top: 2rem; }
+#landing-page .pt-16 { padding-top: 4rem; }
+
+#landing-page .pb-4 { padding-bottom: 1rem; }
+#landing-page .pb-8 { padding-bottom: 2rem; }
+#landing-page .pb-16 { padding-bottom: 4rem; }
+
+#landing-page .pl-6 { padding-left: 1.5rem; }
+
+#landing-page .space-y-1 > * + * { margin-top: 0.25rem; }
+#landing-page .space-y-2 > * + * { margin-top: 0.5rem; }
+#landing-page .space-y-2\.5 > * + * { margin-top: 0.625rem; }
+#landing-page .space-y-3 > * + * { margin-top: 0.75rem; }
+#landing-page .space-y-4 > * + * { margin-top: 1rem; }
+#landing-page .space-y-6 > * + * { margin-top: 1.5rem; }
+#landing-page .space-y-8 > * + * { margin-top: 2rem; }
+
+#landing-page .gap-2 { gap: 0.5rem; }
+#landing-page .gap-3 { gap: 0.75rem; }
+#landing-page .gap-4 { gap: 1rem; }
+#landing-page .gap-6 { gap: 1.5rem; }
+#landing-page .gap-8 { gap: 2rem; }
