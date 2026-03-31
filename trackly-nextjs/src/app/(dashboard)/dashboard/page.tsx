@@ -191,35 +191,30 @@ export default function DashboardPage() {
     return entries.reduce((a, b) => b.sov > a.sov ? b : a);
   }, [platforms]);
 
-  // Location visibility — scan recent run responses for city/area mentions
+  // Location visibility — scan last run's allResults for city/area mentions (client-side)
+  const nearbyAreas = (brand as Record<string, unknown>)?.nearbyAreas as string[] | undefined;
   const locationData = useMemo(() => {
     const city = brand?.city;
     if (!city) return { rate: 0, areas: {} as Record<string, number> };
-    const nearbyAreas = (brand as Record<string, unknown>).nearby_areas as string[] | undefined;
     const allAreas = [city, ...(nearbyAreas || [])].filter(Boolean);
-    const recentRuns = (brand?.runs || []).slice(-3);
+    const results = (lastRun as Record<string, unknown> | null)?.allResults as Array<{ snippet?: string }> | undefined;
+    if (!results || !results.length) return { rate: 0, areas: {} as Record<string, number> };
     let total = 0, matched = 0;
     const areaHits: Record<string, number> = {};
-    recentRuns.forEach(run => {
-      const results = (run as Record<string, unknown>).allResults as Array<{ response?: string; snippet?: string }> | undefined;
-      if (!results) return;
-      results.forEach(r => {
-        const text = ((r.response || '') + ' ' + (r.snippet || '')).toLowerCase();
-        if (!text.trim()) return;
-        total++;
-        for (const area of allAreas) {
-          if (text.includes(area.toLowerCase())) {
-            matched++;
-            areaHits[area] = (areaHits[area] || 0) + 1;
-            break;
-          }
+    results.forEach(r => {
+      const text = (r.snippet || '').toLowerCase();
+      if (!text.trim()) return;
+      total++;
+      for (const area of allAreas) {
+        if (text.includes(area.toLowerCase())) {
+          matched++;
+          areaHits[area] = (areaHits[area] || 0) + 1;
+          break;
         }
-      });
+      }
     });
     return { rate: total > 0 ? Math.round((matched / total) * 100) : 0, areas: areaHits };
-  }, [brand]);
-
-  const nearbyAreas = (brand as Record<string, unknown>)?.nearby_areas as string[] | undefined;
+  }, [brand, lastRun, nearbyAreas]);
 
   // Query Performance data (per-query mention rate from last run)
   const queryPerfData = useMemo(() => {

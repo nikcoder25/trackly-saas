@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import AddBrandModal from '@/components/dashboard/AddBrandModal';
 
 interface Brand { id: string; name: string; }
 
@@ -12,6 +13,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
+  const [showAddBrand, setShowAddBrand] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   // Close notification on outside click
@@ -36,6 +38,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   }, []);
 
   return (
+    <>
     <header className="topbar">
       {/* Left side */}
       <div className="topbar-left">
@@ -54,7 +57,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           </select>
         </div>
 
-        <Link href="/dashboard/setup" prefetch={false} className="add-brand-btn" style={{ display: 'none', textDecoration: 'none' }}>+ ADD BRAND</Link>
+        <button onClick={() => setShowAddBrand(true)} className="add-brand-btn" style={{ display: 'none', cursor: 'pointer' }}>+ ADD BRAND</button>
         <style>{`@media(min-width:768px){.add-brand-btn{display:inline-block!important;}}`}</style>
       </div>
 
@@ -100,5 +103,16 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <style>{`@media(min-width:768px){.logout-btn{display:inline!important;}}`}</style>
       </div>
     </header>
+    {showAddBrand && (
+      <AddBrandModal
+        onClose={() => setShowAddBrand(false)}
+        onCreated={(brand) => {
+          setBrands(prev => [...prev, brand]);
+          setSelectedId(brand.id);
+          setShowAddBrand(false);
+        }}
+      />
+    )}
+    </>
   );
 }
