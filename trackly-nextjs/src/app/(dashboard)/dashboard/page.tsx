@@ -298,33 +298,6 @@ export default function DashboardPage() {
   const apiTotal = Object.values(platforms).filter(p => normPlatform(p).total > 0).length;
   const apiHealthColor = apiErrors === 0 && apiTotalResponses > 0 ? 'var(--green)' : apiErrors > 0 ? 'var(--red)' : 'var(--muted)';
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
-
-  if (!brand) return (
-    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-8 text-center shadow-[var(--app-shadow)]">
-      <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Get started with your first brand</h2>
-      <p className="text-sm text-[var(--muted)] mb-6 max-w-md mx-auto">Set up your brand and start tracking how AI platforms mention you.</p>
-      <Link href="/dashboard/setup" className="inline-block bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-6 py-2.5 rounded-lg font-bold text-sm transition no-underline shadow-[0_1px_2px_rgba(255,97,84,.2)]">Set Up Brand</Link>
-    </div>
-  );
-
-
-  // Duration formatter
-  const fmtDuration = (d: number | undefined | null) => {
-    if (d === undefined || d === null) return 'N/A';
-    const s = typeof d === 'number' ? (d > 1000 ? Math.round(d / 1000) : d) : 0;
-    return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
-  };
-
-  // Date formatter for Last Run
-  const fmtDate = (dateStr?: string) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
-    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${String(h12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
-  };
-
   // Progress bar for RUN QUERIES button
   useEffect(() => {
     const btn = document.getElementById('sidebar-run-btn');
@@ -376,6 +349,31 @@ export default function DashboardPage() {
     return () => btn.removeEventListener('click', handler);
   }, []);
 
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
+
+  if (!brand) return (
+    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-8 text-center shadow-[var(--app-shadow)]">
+      <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Get started with your first brand</h2>
+      <p className="text-sm text-[var(--muted)] mb-6 max-w-md mx-auto">Set up your brand and start tracking how AI platforms mention you.</p>
+      <Link href="/dashboard/setup" className="inline-block bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white px-6 py-2.5 rounded-lg font-bold text-sm transition no-underline shadow-[0_1px_2px_rgba(255,97,84,.2)]">Set Up Brand</Link>
+    </div>
+  );
+
+  // Duration formatter
+  const fmtDuration = (d: number | undefined | null) => {
+    if (d === undefined || d === null) return 'N/A';
+    const s = typeof d === 'number' ? (d > 1000 ? Math.round(d / 1000) : d) : 0;
+    return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+  };
+
+  // Date formatter for Last Run
+  const fmtDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const h = d.getHours(), ampm = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${String(h12).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${ampm}`;
+  };
 
   return (
     <div>
