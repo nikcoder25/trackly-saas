@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useRun, type LiveResult } from '@/contexts/RunContext';
 // Language removed from dashboard
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
@@ -25,8 +26,11 @@ interface Brand {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { live, elapsed, pct } = useRun();
   // Language removed
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
+  const toastIdRef = { current: 0 };
   const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
@@ -63,6 +67,27 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { fetchBrands(); }, [fetchBrands]);
+
+  // Toast notifications — spawn a card for each new result
+  const lastResultCountRef = { current: 0 };
+  useEffect(() => {
+    if (live.results.length <= lastResultCountRef.current) return;
+    const newResults = live.results.slice(lastResultCountRef.current);
+    lastResultCountRef.current = live.results.length;
+    const newToasts = newResults.map(r => ({ ...r, id: ++toastIdRef.current }));
+    setToasts(prev => [...prev, ...newToasts].slice(-6)); // keep max 6 visible
+    // Auto-dismiss each toast after 4s
+    const ids = newToasts.map(t => t.id);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => !ids.includes(t.id)));
+    }, 4000);
+  }, [live.results.length]);
+
+  // Live computed scores (override static values during run)
+  const liveSOV = live.running && live.received > 0
+    ? Math.round((live.foundCount / live.received) * 100) : null;
+  const liveTotalM = live.running ? live.foundCount : null;
+  const liveTotalQ = live.running ? live.received : null;
 
   // Client-only live timer — avoids hydration mismatch
   useEffect(() => {
@@ -327,6 +352,41 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {/* ═══ LIVE PROGRESS BAR (main content area) ═══ */}
+      {(live.running || live.status === 'done') && (
+        <div style={{ marginBottom: 14, padding: '12px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 700 }}>
+                {live.running && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />}
+                {live.running ? 'RUNNING QUERIES' : 'RUN COMPLETE'}
+              </span>
+              {live.running && live.received > 0 && (
+                <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+                  {live.received}/{live.totalExpected}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, fontFamily: 'var(--mono)' }}>
+              {live.foundCount > 0 && <span style={{ color: 'var(--green)', fontWeight: 700 }}>{live.foundCount} found</span>}
+              {live.errorCount > 0 && <span style={{ color: 'var(--red)', fontWeight: 700 }}>{live.errorCount} error{live.errorCount > 1 ? 's' : ''}</span>}
+              {live.running && elapsed && <span style={{ color: 'var(--muted)' }}>{elapsed}</span>}
+            </div>
+          </div>
+          <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+            <div style={{
+              width: live.status === 'done' ? '100%' : `${pct}%`,
+              height: '100%', background: live.status === 'done' ? 'var(--green)' : 'var(--primary)',
+              borderRadius: 4, transition: 'width 0.4s ease',
+            }} />
+          </div>
+          <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 6 }}>
+            {live.statusText}
+            {live.running && liveSOV !== null && ` · Live SOV: ${liveSOV}%`}
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <div className="ov-header">
         <div className="ov-header-left">
@@ -350,29 +410,38 @@ export default function DashboardPage() {
       {/* ALERT STRIP — white cards with colored dot matching production screenshot */}
       {alerts.length > 0 && <div className="alerts-strip">{alerts.map((a,i) => <div key={i} className={`alert-chip ${a.type}`}><span className="alert-dot" style={{background:a.type==='danger'?'var(--red)':a.type==='warn'?'var(--amber)':'var(--blue)'}}/><div style={{flex:1,minWidth:0}}><div className="alert-text">{a.text}</div><div className="alert-time">{now>0&&lastRun?.date?(()=>{const diff=now-new Date(lastRun.date).getTime();const days=Math.floor(diff/86400000);return days>0?`${days}d ago`:'today';})():''}</div></div></div>)}</div>}
 
-      {/* SOV HERO */}
+      {/* SOV HERO — shows live values during run */}
+      {(() => {
+        const displaySOV = liveSOV !== null ? liveSOV : sov;
+        const displayM = liveTotalM !== null ? liveTotalM : totalM;
+        const displayQ = liveTotalQ !== null ? liveTotalQ : totalQ;
+        const displayOffset = circumference - (displaySOV / 100) * circumference;
+        return (
       <div className="ov-hero">
         <div className="ov-hero-sov">
           <div className="ov-hero-sov-ring">
             <svg viewBox="0 0 120 120" className="ov-ring-svg">
               <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" strokeWidth="8"/>
-              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--primary)" strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 60 60)" style={{transition:'stroke-dashoffset .6s ease'}}/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke={live.running ? 'var(--green)' : 'var(--primary)'} strokeWidth="8" strokeDasharray={circumference} strokeDashoffset={displayOffset} strokeLinecap="round" transform="rotate(-90 60 60)" style={{transition:'stroke-dashoffset .6s ease'}}/>
             </svg>
             <div className="ov-ring-label">
-              <span className="ov-ring-pct" style={{color:sov>=50?'var(--green)':sov>0?'var(--primary)':'var(--muted)'}}>{sov}%</span>
-              {sovChange!==null&&sovChange!==0&&<span className="ov-ring-diff" style={{color:sovChange>0?'var(--green)':'var(--red)'}} title="Compared to previous run">{sovChange>0?'▲':'▼'}{Math.abs(sovChange)}%</span>}
+              <span className="ov-ring-pct" style={{color:displaySOV>=50?'var(--green)':displaySOV>0?'var(--primary)':'var(--muted)'}}>{displaySOV}%</span>
+              {live.running && <span style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--green)',fontWeight:700}}>LIVE</span>}
+              {!live.running&&sovChange!==null&&sovChange!==0&&<span className="ov-ring-diff" style={{color:sovChange>0?'var(--green)':'var(--red)'}} title="Compared to previous run">{sovChange>0?'▲':'▼'}{Math.abs(sovChange)}%</span>}
             </div>
           </div>
           <div className="ov-hero-sov-label">Share of Voice</div>
         </div>
         <div className="ov-hero-stats">
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{totalM} / {totalQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={live.running?{color:'var(--green)'}:{}}>{displayM} / {displayQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>normPlatform(p).total>0).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:lastRunAge.includes('d')?'var(--amber)':''}}>{lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">Last Run</div></div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{fmtDuration(lastRun?.duration)}</div><div className="ov-hero-stat-lbl">Run Duration</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:live.running?'var(--green)':lastRunAge.includes('d')?'var(--amber)':''}}>{live.running?elapsed||'0s':lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">{live.running?'Run Duration':'Last Run'}</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{live.running?`${live.received - live.foundCount - live.errorCount}`:fmtDuration(lastRun?.duration)}</div><div className="ov-hero-stat-lbl">{live.running?'Not Found':'Run Duration'}</div></div>
         </div>
       </div>
+        );
+      })()}
 
       {/* COMPARE BANNER — shows when vs Last Week or vs Last Month is active */}
       {compareRun && compareMode !== 'current' && (
@@ -391,8 +460,58 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* API HEALTH */}
-      {show('health')&&apiTotalResponses>0&&<div className="ov-health"><span className="ov-health-dot" style={{background:apiHealthColor}}/><span className="ov-health-text">{apiHealthy}/{apiTotal} platforms healthy · {apiTotalResponses-apiErrors} ok · {apiErrors} errors · <Link href="/dashboard/platforms" style={{color:'var(--primary)',textDecoration:'none',fontWeight:600}}>View Errors →</Link></span></div>}
+      {/* API HEALTH — live counter during run */}
+      {show('health') && (apiTotalResponses > 0 || live.running) && (
+        <div className="ov-health">
+          <span className="ov-health-dot" style={{ background: live.running ? 'var(--green)' : apiHealthColor }} />
+          <span className="ov-health-text">
+            {live.running
+              ? <>{live.received - live.errorCount} ok · {live.errorCount} errors · {live.received}/{live.totalExpected} total</>
+              : <>{apiHealthy}/{apiTotal} platforms healthy · {apiTotalResponses - apiErrors} ok · {apiErrors} errors · <Link href="/dashboard/platforms" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>View Errors →</Link></>
+            }
+          </span>
+        </div>
+      )}
+
+      {/* ═══ LIVE RESULTS FEED ═══ */}
+      {live.running && live.results.length > 0 && (
+        <div style={{ marginBottom: 14, padding: '12px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)' }}>LIVE Results Feed</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginLeft: 'auto' }}>{live.results.length} results</span>
+          </div>
+          <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {live.results.slice(-30).reverse().map((r, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px',
+                background: 'var(--bg)', borderRadius: 'var(--radius-xs)',
+                borderLeft: `3px solid ${r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)'}`,
+                animation: i === 0 ? 'fadeInUp .3s ease' : undefined,
+              }}>
+                <span style={{ width: 22, height: 22, borderRadius: 6, background: PLATFORM_COLORS[r.platform] || 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', fontWeight: 700, flexShrink: 0 }}>
+                  {r.platform[0]}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ color: PLATFORM_COLORS[r.platform] || 'var(--muted)', marginRight: 6 }}>{r.platform}</span>
+                    {r.query}
+                  </div>
+                  {r.model && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{r.model}</div>}
+                </div>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
+                  background: r.error ? 'rgba(245,158,11,.1)' : r.mentioned ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)',
+                  color: r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* GEO SCORE / AI SENTIMENT / AI RECOMMENDS */}
       {show('scores')&&<div className="ov-scores-row">
@@ -469,6 +588,67 @@ export default function DashboardPage() {
         {bulkAddOpen&&<div style={{marginTop:12,background:'var(--bg)',border:'1px solid var(--border)',borderRadius:'var(--radius-xs)',padding:14}}><textarea value={bulkText} onChange={e=>setBulkText(e.target.value)} rows={5} style={{width:'100%',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-xs)',padding:10,fontSize:13,fontFamily:'var(--font)',color:'var(--text)',resize:'vertical'}} placeholder={'Paste queries (one per line)'}/><div style={{display:'flex',gap:8,marginTop:8}}><button className="pbtn" style={{background:'var(--primary)',color:'#fff',borderColor:'var(--primary)'}} onClick={()=>{const lines=bulkText.split('\n').map(l=>l.trim()).filter(l=>l.length>0);if(lines.length&&brand){const updated=[...queries,...lines];fetch(`/api/brands/${brand.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({queries:updated})}).then(()=>{fetchBrands();setBulkText('');setBulkAddOpen(false);});}}}>Add {bulkText.split('\n').filter(l=>l.trim()).length} Queries</button><button className="pbtn" onClick={()=>setBulkAddOpen(false)}>Cancel</button></div></div>}
         {showClearConfirm&&<div style={{background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--radius-xs)',padding:14,marginTop:12}}><div style={{fontSize:13,fontWeight:600,color:'var(--red)',marginBottom:8}}>Remove all {queries.length} queries?</div><div style={{display:'flex',gap:8}}><button className="pbtn" onClick={()=>setShowClearConfirm(false)}>Cancel</button><button className="pbtn" style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}} onClick={()=>{if(!brand)return;fetch(`/api/brands/${brand.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({queries:[]})}).then(()=>{fetchBrands();setShowClearConfirm(false);});}}>Yes, Remove All</button></div></div>}
       </div>}
+
+      {/* ═══ TOAST NOTIFICATIONS (fixed bottom-right) ═══ */}
+      {toasts.length > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
+          display: 'flex', flexDirection: 'column-reverse', gap: 8,
+          maxHeight: '50vh', pointerEvents: 'none',
+        }}>
+          {toasts.map(t => (
+            <div key={t.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+              background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-xs)', boxShadow: '0 4px 12px rgba(0,0,0,.15)',
+              minWidth: 280, maxWidth: 380, animation: 'toastIn .35s ease',
+              pointerEvents: 'auto',
+              borderLeft: `3px solid ${t.error ? 'var(--amber)' : t.mentioned ? 'var(--green)' : 'var(--red)'}`,
+            }}>
+              <span style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: PLATFORM_COLORS[t.platform] || 'var(--bg3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, color: '#fff', fontWeight: 700, flexShrink: 0,
+              }}>
+                {t.platform[0]}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: PLATFORM_COLORS[t.platform] || 'var(--muted)', fontWeight: 700 }}>
+                  {t.platform}{t.model ? ` · ${t.model}` : ''}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {t.query}
+                </div>
+              </div>
+              <span style={{
+                fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100,
+                background: t.error ? 'rgba(245,158,11,.1)' : t.mentioned ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)',
+                color: t.error ? 'var(--amber)' : t.mentioned ? 'var(--green)' : 'var(--red)',
+                whiteSpace: 'nowrap',
+              }}>
+                {t.error ? 'ERROR' : t.mentioned ? 'FOUND' : 'NOT FOUND'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Animations */}
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateX(40px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
     </div>
   );
 }
