@@ -93,6 +93,18 @@ export default function LivesovHomePage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Scroll fade-in animation
+  useEffect(() => {
+    const els = document.querySelectorAll('.tl-animate');
+    if (!els.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('tl-animate--visible'); observer.unobserve(e.target); } }),
+      { threshold: 0.15 }
+    );
+    els.forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="trackly-landing">
 
@@ -246,7 +258,7 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ FEATURES ═══════ */}
-      <section className="tl-section tl-section--alt" id="features">
+      <section className="tl-section tl-section--alt tl-animate" id="features">
         <div className="tl-section-inner">
           <div className="tl-section-header">
             <span className="tl-section-tag">Features</span>
@@ -267,7 +279,7 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ HOW IT WORKS ═══════ */}
-      <section className="tl-section" id="how-it-works">
+      <section className="tl-section tl-animate" id="how-it-works">
         <div className="tl-section-inner">
           <div className="tl-section-header">
             <span className="tl-section-tag">How it Works</span>
@@ -289,7 +301,7 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ WHY AI VISIBILITY ═══════ */}
-      <section className="tl-section tl-section--dark">
+      <section className="tl-section tl-section--dark tl-animate">
         <div className="tl-section-inner">
           <div className="tl-section-header">
             <span className="tl-section-tag tl-section-tag--light">Why it Matters</span>
@@ -323,7 +335,7 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ PRICING ═══════ */}
-      <section className="tl-section" id="pricing">
+      <section className="tl-section tl-animate" id="pricing">
         <div className="tl-section-inner">
           <div className="tl-section-header">
             <span className="tl-section-tag">Pricing</span>
@@ -358,7 +370,7 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ TESTIMONIALS ═══════ */}
-      <section className="tl-section tl-section--alt">
+      <section className="tl-section tl-section--alt tl-animate">
         <div className="tl-section-inner">
           <div className="tl-section-header">
             <span className="tl-section-tag">Testimonials</span>
@@ -385,7 +397,7 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ FAQ ═══════ */}
-      <section className="tl-section" id="faq">
+      <section className="tl-section tl-animate" id="faq">
         <div className="tl-section-inner" style={{ maxWidth: 760 }}>
           <div className="tl-section-header">
             <span className="tl-section-tag">FAQ</span>

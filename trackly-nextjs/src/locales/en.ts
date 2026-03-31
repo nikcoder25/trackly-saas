@@ -112,6 +112,7 @@ const en = {
         ['30-prompt plan', '$9/mo', '$189/mo', '$199/mo', 'Custom'],
         ['150-prompt plan', '$29/mo', '$189/mo', '$399/mo', 'Custom'],
       ],
+      disclaimer: 'Competitor pricing sourced from public websites as of March 2026. Prices may have changed.',
     },
   },
 

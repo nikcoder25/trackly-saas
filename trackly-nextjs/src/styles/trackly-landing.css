@@ -920,16 +920,18 @@
 }
 
 .tl-testimonial-avatar {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--tl-primary), #a855f7);
   color: var(--tl-white);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3), 0 0 0 3px rgba(99, 102, 241, 0.08);
+  flex-shrink: 0;
 }
 
 .tl-testimonial-name {
@@ -1344,4 +1346,41 @@
   .tl-section-header h2 {
     font-size: 24px;
   }
+}
+
+/* ══════════════════════════════════════
+   SCROLL FADE-IN ANIMATIONS
+   ══════════════════════════════════════ */
+@keyframes tl-fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tl-animate {
+  opacity: 0;
+}
+
+.tl-animate--visible {
+  animation: tl-fadeUp 0.5s ease forwards;
+}
+
+/* Stagger children slightly */
+.tl-animate--visible .tl-feature-card:nth-child(2),
+.tl-animate--visible .tl-step:nth-child(2),
+.tl-animate--visible .tl-price-card:nth-child(2),
+.tl-animate--visible .tl-testimonial-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.tl-animate--visible .tl-feature-card:nth-child(3),
+.tl-animate--visible .tl-step:nth-child(3),
+.tl-animate--visible .tl-price-card:nth-child(3),
+.tl-animate--visible .tl-testimonial-card:nth-child(3) {
+  animation-delay: 0.2s;
 }

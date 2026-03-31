@@ -1,0 +1,89 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+export default function CookieConsent() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const consent = localStorage.getItem('cookie-consent');
+    if (!consent) {
+      const t = setTimeout(() => setShow(true), 1000);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const handleChoice = (choice: 'accepted' | 'declined') => {
+    localStorage.setItem('cookie-consent', choice);
+    setShow(false);
+  };
+
+  if (!show) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 9998,
+        background: '#0f172a',
+        color: 'rgba(255,255,255,0.85)',
+        padding: '16px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        flexWrap: 'wrap',
+        fontSize: 14,
+        animation: 'cookieSlideUp 0.4s ease',
+        borderTop: '1px solid rgba(255,255,255,0.1)',
+      }}
+    >
+      <style>{`
+        @keyframes cookieSlideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
+      <p style={{ margin: 0, maxWidth: 600, lineHeight: 1.5 }}>
+        We use cookies to improve your experience. By continuing, you agree to our{' '}
+        <Link href="/cookies" style={{ color: '#FF6154', textDecoration: 'underline' }}>Cookie Policy</Link>.
+      </p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => handleChoice('accepted')}
+          style={{
+            background: '#FF6154',
+            color: '#fff',
+            border: 'none',
+            padding: '8px 20px',
+            borderRadius: 6,
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          Accept
+        </button>
+        <button
+          onClick={() => handleChoice('declined')}
+          style={{
+            background: 'transparent',
+            color: 'rgba(255,255,255,0.6)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '8px 20px',
+            borderRadius: 6,
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}

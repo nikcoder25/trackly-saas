@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import ProgressBar from '@/components/ProgressBar';
+import CookieConsent from '@/components/CookieConsent';
 
 export const metadata: Metadata = {
   title: 'Livesov \u2014 AI Visibility Tracker | Track Your Brand on ChatGPT, Perplexity, Gemini & More',
@@ -104,11 +106,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ))}
       </head>
       <body style={{ fontFamily: "var(--font)" }} suppressHydrationWarning>
+        <ProgressBar />
         <LanguageProvider>
           <AuthProvider>
             {children}
           </AuthProvider>
         </LanguageProvider>
+        <CookieConsent />
       </body>
     </html>
   );

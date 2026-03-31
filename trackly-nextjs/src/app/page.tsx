@@ -191,6 +191,7 @@ export default function HomePage() {
               </tbody>
             </table>
           </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 11, textAlign: 'center', marginTop: 16, opacity: 0.6 }}>{t.pricing.comparison.disclaimer}</p>
         </div>
       </section>
 
