@@ -15,7 +15,7 @@ export interface LiveResult {
   context?: string;
   citations?: string[];
   listPosition?: number | null;
-  ts: number; // client-side timestamp for ordering
+  ts: number;
 }
 
 export interface RunLiveState {
@@ -31,7 +31,6 @@ export interface RunLiveState {
   statusText: string;
   errorMsg: string | null;
   results: LiveResult[];
-  /** Final SOV from this run (set on completion) */
   liveSov: number | null;
 }
 
@@ -57,7 +56,6 @@ const RunContext = createContext<RunContextType>({
 
 export function useRun() { return useContext(RunContext); }
 
-// ── Helpers ──────────────────────────────────────────
 function fmtTime(ms: number): string {
   const secs = Math.floor(ms / 1000);
   const mins = Math.floor(secs / 60);
@@ -69,9 +67,9 @@ function fmtTime(ms: number): string {
 export function RunProvider({ children }: { children: ReactNode }) {
   const [live, setLive] = useState<RunLiveState>(INITIAL_STATE);
   const [elapsed, setElapsed] = useState('');
-  const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const runningRef = useRef(false);
+  const pollRef = useRef(false); // prevents duplicate poll loops
 
   // Live timer
   useEffect(() => {
@@ -85,33 +83,34 @@ export function RunProvider({ children }: { children: ReactNode }) {
     }
   }, [live.running, live.startTime]);
 
-  // Computed
+  useEffect(() => { runningRef.current = live.running; }, [live.running]);
+
   const pct = live.totalExpected > 0 ? Math.round((live.received / live.totalExpected) * 100) : 0;
 
-  // ── Poll fallback ──────────────────────────────────
+  // ── Poll run status from DB ────────────────────────
   const pollRunStatus = useCallback(async (brandId: string, runId: string) => {
+    if (pollRef.current) return; // already polling
+    pollRef.current = true;
     let pollErrors = 0;
-    const MAX_POLL_ERRORS = 15;
+    const MAX_POLL_ERRORS = 20;
     let pollDelay = 2000;
     let lastResultCount = 0;
 
     const poll = async (): Promise<void> => {
+      if (!pollRef.current) return; // stopped
       try {
-        const res = await fetch(`/api/brands/${brandId}/run-status/${runId}`, { credentials: 'include' });
+        const res = await fetch(`/api/brands/${brandId}/run-status/${runId}?since=${lastResultCount}`, { credentials: 'include' });
         if (!res.ok) throw new Error('Poll failed');
         const data = await res.json();
         pollErrors = 0;
 
-        const newResults: LiveResult[] = [];
-        if (data.results && data.results.length > lastResultCount) {
-          pollDelay = 2000;
-          for (let i = lastResultCount; i < data.results.length; i++) {
-            const r = data.results[i];
-            newResults.push({ ...r, ts: Date.now() });
-          }
-          lastResultCount = data.results.length;
+        // Merge new results
+        const newResults: LiveResult[] = (data.results || []).map((r: LiveResult) => ({ ...r, ts: Date.now() }));
+        if (newResults.length > 0) {
+          lastResultCount = data.totalResults || (lastResultCount + newResults.length);
+          pollDelay = 2000; // new data — stay responsive
         } else {
-          pollDelay = Math.min(pollDelay * 1.5, 10000);
+          pollDelay = Math.min(pollDelay + 500, 5000); // no new data — slow down gently
         }
 
         setLive(prev => ({
@@ -125,9 +124,10 @@ export function RunProvider({ children }: { children: ReactNode }) {
         }));
 
         if (data.status === 'done' || data.status === 'error') {
-          localStorage.removeItem('livesov_active_run');
+          pollRef.current = false;
           runningRef.current = false;
-          const finalResult = data.finalData?.result;
+          localStorage.removeItem('livesov_active_run');
+          const finalResult = data.finalData;
           if (data.status === 'done' && finalResult) {
             setLive(prev => ({
               ...prev, running: false, status: 'done',
@@ -145,13 +145,16 @@ export function RunProvider({ children }: { children: ReactNode }) {
           }
           return;
         }
+
+        // Schedule next poll
         await new Promise(r => setTimeout(r, pollDelay));
         return poll();
       } catch {
         pollErrors++;
         if (pollErrors >= MAX_POLL_ERRORS) {
-          localStorage.removeItem('livesov_active_run');
+          pollRef.current = false;
           runningRef.current = false;
+          localStorage.removeItem('livesov_active_run');
           setLive(prev => ({
             ...prev, running: false, status: 'error',
             statusText: 'Lost connection. Refresh to check status.',
@@ -180,6 +183,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       .then(r => r.json())
       .then(data => {
         if (data.status === 'running') {
+          runningRef.current = true;
           setLive({
             running: true, runId: runInfo.runId, brandId: runInfo.brandId,
             received: data.received || 0, totalExpected: data.totalExpected || 0,
@@ -200,10 +204,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       .catch(() => { localStorage.removeItem('livesov_active_run'); });
   }, [pollRunStatus]);
 
-  // Keep ref in sync
-  useEffect(() => { runningRef.current = live.running; }, [live.running]);
-
-  // ── Start run with SSE streaming ───────────────────
+  // ── Start run (POST + poll) ────────────────────────
   const startRun = useCallback(async (force = false) => {
     if (runningRef.current) return;
     runningRef.current = true;
@@ -213,11 +214,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
       startTime: Date.now(), statusText: 'Connecting to AI platforms...',
     });
 
-    // Declared outside try so catch can access them for polling fallback
-    let brandId: string | null = null;
-    let activeRunId: string | null = null;
-
     try {
+      // Fetch brand
       const brandRes = await fetch('/api/brands', { credentials: 'include' });
       const brandData = await brandRes.json();
       const b = (brandData.brands || [])[0];
@@ -228,20 +226,16 @@ export function RunProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      brandId = b.id;
-      const abortCtrl = new AbortController();
-      abortRef.current = abortCtrl;
-      const fetchTimeout = setTimeout(() => abortCtrl.abort(), 10 * 60 * 1000);
-
+      const brandId = b.id;
       const forceParam = force ? '&force=1' : '';
-      const response = await fetch(`/api/brands/${brandId}/run?stream=1${forceParam}`, {
+
+      // POST to start the run — returns immediately with runId
+      const response = await fetch(`/api/brands/${brandId}/run?x=1${forceParam}`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        signal: abortCtrl.signal,
       });
 
       if (!response.ok) {
-        clearTimeout(fetchTimeout);
         const errData = await response.json().catch(() => ({ error: 'Request failed' }));
         if (response.status === 409) {
           runningRef.current = false;
@@ -251,109 +245,36 @@ export function RunProvider({ children }: { children: ReactNode }) {
         throw new Error(errData.error || 'Request failed');
       }
 
-      clearTimeout(fetchTimeout);
+      const data = await response.json();
+      const runId = data.runId;
+      const totalExpected = data.totalExpected || 0;
 
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let sseReceived = 0;
-      let sseTotalExpected = 0;
-      let sseFoundCount = 0;
-      let sseErrorCount = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let finalData: any = null;
+      // Save to localStorage for resume
+      localStorage.setItem('livesov_active_run', JSON.stringify({ runId, brandId, startedAt: Date.now() }));
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          let evt;
-          try { evt = JSON.parse(line.slice(6)); } catch { continue; }
-
-          if (evt.type === 'start') {
-            sseTotalExpected = evt.totalExpected || 0;
-            activeRunId = evt.runId || null;
-            if (activeRunId) {
-              localStorage.setItem('livesov_active_run', JSON.stringify({ runId: activeRunId, brandId, startedAt: Date.now() }));
-            }
-            setLive(prev => ({
-              ...prev, runId: activeRunId, brandId, totalExpected: sseTotalExpected,
-              statusText: `Running ${evt.queries?.length || 0} queries on ${evt.platforms?.length || 0} platforms...`,
-            }));
-          } else if (evt.type === 'result') {
-            sseReceived++;
-            const r = evt.result;
-            if (r.error) sseErrorCount++;
-            else if (r.mentioned) sseFoundCount++;
-
-            const liveResult: LiveResult = { ...r, ts: Date.now() };
-
-            // Update on every result for the live feed + toasts; throttle status text every 3rd
-            setLive(prev => ({
-              ...prev,
-              received: sseReceived,
-              foundCount: sseFoundCount,
-              errorCount: sseErrorCount,
-              results: [...prev.results, liveResult],
-              ...(sseReceived % 3 === 0 || sseReceived >= sseTotalExpected
-                ? { statusText: `${sseReceived}/${sseTotalExpected} — ${sseFoundCount} found` }
-                : {}),
-            }));
-          } else if (evt.type === 'done') {
-            finalData = evt;
-          } else if (evt.type === 'error') {
-            throw new Error(evt.error || 'Server error');
-          }
-        }
-      }
-
-      localStorage.removeItem('livesov_active_run');
-      const result = finalData?.result || {
-        totalQ: sseReceived, totalM: sseFoundCount,
-        sov: sseReceived > 0 ? Math.round((sseFoundCount / sseReceived) * 100) : 0,
-        newMentions: sseFoundCount, errorCount: sseErrorCount,
-      };
-
-      runningRef.current = false;
       setLive(prev => ({
-        ...prev, running: false, status: 'done',
-        received: sseReceived, foundCount: sseFoundCount, errorCount: sseErrorCount,
-        liveSov: result.sov ?? null,
-        statusText: `Done! Found in ${result.newMentions} of ${result.totalQ} responses`,
+        ...prev, runId, brandId, totalExpected,
+        statusText: `Running ${data.queries?.length || 0} queries on ${data.platforms?.length || 0} platforms...`,
       }));
 
-      setTimeout(() => { setLive(INITIAL_STATE); window.location.reload(); }, 2500);
-    } catch (err) {
-      const error = err as Error;
-      const isAbort = error.name === 'AbortError';
+      // Start polling for results
+      pollRunStatus(brandId, runId);
 
-      // If we have a runId, the server is still running — switch to polling
-      if (activeRunId && brandId) {
-        setLive(prev => ({ ...prev, statusText: 'Reconnecting — queries still running...' }));
-        pollRunStatus(brandId, activeRunId);
-      } else {
-        runningRef.current = false;
-        setLive(prev => ({
-          ...prev, running: false, status: 'error' as const,
-          statusText: isAbort ? 'Connection timed out' : 'Run failed: ' + error.message,
-          errorMsg: error.message,
-        }));
-        // Auto-clear error after 5s
-        setTimeout(() => setLive(prev => {
-          if (prev.status === 'error') { runningRef.current = false; return INITIAL_STATE; }
-          return prev;
-        }), 5000);
-      }
+    } catch (err) {
+      runningRef.current = false;
+      const error = err as Error;
+      setLive(prev => ({
+        ...prev, running: false, status: 'error',
+        statusText: 'Run failed: ' + error.message,
+        errorMsg: error.message,
+      }));
+      setTimeout(() => setLive(INITIAL_STATE), 5000);
     }
   }, [pollRunStatus]);
 
   // ── Force-run ──────────────────────────────────────
   const forceRun = useCallback(async () => {
+    pollRef.current = false; // stop any active poll
     try {
       let brandId = live.brandId;
       if (!brandId) {
@@ -365,6 +286,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       if (brandId) {
         await fetch(`/api/brands/${brandId}/force-release`, { method: 'POST', credentials: 'include' });
       }
+      runningRef.current = false;
       setLive(INITIAL_STATE);
       setTimeout(() => startRun(true), 300);
     } catch {
