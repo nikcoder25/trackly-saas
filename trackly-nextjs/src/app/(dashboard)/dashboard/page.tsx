@@ -16,7 +16,7 @@ interface Brand {
   runs?: Array<{ sov?: number; totalQ?: number; totalM?: number; date?: string; duration?: number;
     platforms?: Record<string, { sov?: number; mentions?: number; total?: number; errors?: number }>;
     sentiment?: { positive?: number; neutral?: number; negative?: number };
-    recommended?: number; competitors?: Record<string, number>; citations?: Record<string, number>;
+    recommended?: number; durationMs?: number; competitors?: Record<string, number>; citations?: Record<string, number>;
   }>;
   queries?: string[];
   competitors?: string[];
@@ -143,13 +143,14 @@ export default function DashboardPage() {
   const circumference = 2 * Math.PI * 52;
   const offset = circumference - (sov / 100) * circumference;
 
-  // Sentiment data
-  const sentiment = lastRun?.sentiment || { positive: 0, neutral: 0, negative: 0 };
-  const posCount = sentiment.positive || 0;
-  const neuCount = sentiment.neutral || 0;
-  const negCount = sentiment.negative || 0;
+  // Sentiment data — computed from individual allResults items
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allResultsArr = ((lastRun as Record<string, unknown> | null)?.allResults || []) as Array<Record<string, any>>;
+  const posCount = allResultsArr.filter(r => r.sentiment === 'positive').length;
+  const neuCount = allResultsArr.filter(r => r.sentiment === 'neutral').length;
+  const negCount = allResultsArr.filter(r => r.sentiment === 'negative').length;
   const sentTotal = posCount + neuCount + negCount;
-  const recommendedPct = lastRun?.recommended || 0;
+  const recommendedPct = allResultsArr.length > 0 ? Math.round((allResultsArr.filter(r => r.recommended).length / allResultsArr.length) * 100) : 0;
 
   // GEO Score (mentionRate*40 + recommendRate*35)
   const geoScore = useMemo(() => {
@@ -434,7 +435,7 @@ export default function DashboardPage() {
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>normPlatform(p).total>0).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:live.running?'var(--green)':lastRunAge.includes('d')?'var(--amber)':''}}>{live.running?elapsed||'0s':lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">{live.running?'Run Duration':'Last Run'}</div></div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{live.running?`${live.received - live.foundCount - live.errorCount}`:fmtDuration(lastRun?.duration)}</div><div className="ov-hero-stat-lbl">{live.running?'Not Found':'Run Duration'}</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{live.running?`${live.received - live.foundCount - live.errorCount}`:fmtDuration(lastRun?.durationMs)}</div><div className="ov-hero-stat-lbl">{live.running?'Not Found':'Run Duration'}</div></div>
         </div>
       </div>
         );
