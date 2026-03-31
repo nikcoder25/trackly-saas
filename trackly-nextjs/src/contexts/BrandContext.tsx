@@ -40,12 +40,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const sb = data.sharedBrands || [];
       setBrands(b);
       setSharedBrands(sb);
-      if (b.length && !selectedBrand) setSelectedBrand(b[0]);
+      setSelectedBrand((prev) => (b.length && !prev ? b[0] : prev));
     } catch (e) {
       console.error('[BrandProvider]', e);
     }
     setLoading(false);
-  }, [selectedBrand]);
+  }, []);
 
   useEffect(() => { refreshBrands(); }, []);
 

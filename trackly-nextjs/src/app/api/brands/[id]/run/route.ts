@@ -140,6 +140,7 @@ async function executeRunBackground(
   totalExpected: number, activePlatforms: string[], queries: string[],
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
 ) {
+  const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allResults: any[] = [];
@@ -261,7 +262,7 @@ async function executeRunBackground(
     }
     const overallSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
     const totalErrors = allResults.filter((r: { error?: boolean }) => r.error).length;
-    const durationMs = Date.now() - Date.now(); // approximate
+    const durationMs = Date.now() - startTime;
     const newMentions = allResults
       .filter((r: { mentioned?: boolean; error?: boolean }) => r.mentioned && !r.error)
       .map((r: { platform: string; query: string; context?: string; sentiment?: string; recommended?: boolean; citations?: string[]; model?: string }) => ({
