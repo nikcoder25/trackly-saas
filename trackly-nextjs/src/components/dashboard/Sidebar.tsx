@@ -50,7 +50,7 @@ const navGroups = [
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { live, elapsed, pct, startRun, forceRun } = useRun();
+  const { live, startRun, forceRun } = useRun();
 
   return (
     <>
@@ -86,29 +86,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             <button onClick={forceRun} style={{ width: '100%', marginTop: 4, padding: '6px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
               ⚡ FORCE RUN
             </button>
-          )}
-
-          {/* Progress bar + live stats */}
-          {(live.running || live.status === 'done') && (
-            <div style={{ marginTop: 6 }}>
-              <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
-                <div style={{ width: live.status === 'done' ? '100%' : `${pct}%`, height: '100%', background: 'var(--primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
-              </div>
-              {live.running && live.received > 0 && (
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', fontSize: 10, fontFamily: 'var(--mono)', marginTop: 4, flexWrap: 'wrap' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0f0', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                    LIVE
-                  </span>
-                  <span style={{ color: 'var(--green)', fontWeight: 700 }}>{live.foundCount} found</span>
-                  <span style={{ color: 'var(--muted)' }}>{live.received - live.foundCount - live.errorCount} not found</span>
-                  {live.errorCount > 0 && <span style={{ color: 'var(--red)', fontWeight: 700 }}>{live.errorCount} err</span>}
-                </div>
-              )}
-              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 3, textAlign: 'center' }}>
-                {live.statusText}{live.running && elapsed ? ` · ${elapsed}` : ''}
-              </div>
-            </div>
           )}
         </div>
 
@@ -151,10 +128,6 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         @media(max-width:1023px){
           .sidebar{display:none!important;position:fixed!important;top:52px!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;z-index:999!important;}
           .sidebar.mobile-open{display:flex!important;}
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
         }
       `}</style>
     </>
