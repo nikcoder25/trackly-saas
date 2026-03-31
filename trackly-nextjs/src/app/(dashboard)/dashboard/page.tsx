@@ -308,11 +308,11 @@ export default function DashboardPage() {
     if (sovChange !== null && sovChange < -10) a.push({ type: 'danger', text: `SOV dropped ${Math.abs(sovChange)}% since last run` });
     else if (sovChange !== null && sovChange < -3) a.push({ type: 'warn', text: `SOV down ${Math.abs(sovChange)}% since last run` });
     if (sovChange !== null && sovChange > 5) a.push({ type: 'info', text: `SOV improved +${sovChange}% since last run` });
-    if (sentiment.negative && sentTotal > 0 && (sentiment.negative / sentTotal) > 0.3) a.push({ type: 'warn', text: 'High negative sentiment detected' });
+    if (negCount > 0 && sentTotal > 0 && (negCount / sentTotal) > 0.3) a.push({ type: 'warn', text: 'High negative sentiment detected' });
     const zeroPlatforms = Object.entries(platforms).filter(([, p]) => (p as Record<string, number>).sov === 0);
     if (zeroPlatforms.length > 0 && Object.keys(platforms).length > 0) a.push({ type: 'warn', text: `${zeroPlatforms.length} platform(s) with 0% SOV` });
     return a;
-  }, [sovChange, sentiment, sentTotal, platforms]);
+  }, [sovChange, negCount, sentTotal, platforms]);
 
   // API Health summary — normalize platform data (handles both number and object formats)
   const apiTotalResponses = Object.values(platforms).reduce((s, p) => s + normPlatform(p).total, 0);
