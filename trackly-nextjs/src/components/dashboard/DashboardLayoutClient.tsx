@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider } from '@/contexts/BrandContext';
+import { RunProvider } from '@/contexts/RunContext';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 
@@ -25,9 +26,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main">
-        <BrandProvider>
-          {children}
-        </BrandProvider>
+        <RunProvider>
+          <BrandProvider>
+            {children}
+          </BrandProvider>
+        </RunProvider>
       </main>
       <style>{`
         @media(max-width:1023px){

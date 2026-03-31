@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-// Language removed from dashboard
+import { useRun } from '@/contexts/RunContext';
 
 const navGroups = [
   {
@@ -50,7 +50,7 @@ const navGroups = [
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  // const t removed
+  const { live, elapsed, pct, startRun, forceRun } = useRun();
 
   return (
     <>
@@ -64,84 +64,53 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       }}>
         {/* Run Queries Button */}
         <div style={{ padding: '8px 8px 4px' }}>
-          <button className="run-btn" id="sidebar-run-btn" style={{ margin: 0 }} onClick={async (e) => {
-            const btn = e.currentTarget;
-            const origText = btn.textContent;
-            btn.textContent = '⏳ RUNNING...';
-            // Create progress bar dynamically
-            let progEl = document.getElementById('run-progress');
-            if (!progEl) {
-              progEl = document.createElement('div');
-              progEl.id = 'run-progress';
-              progEl.style.cssText = 'margin-top:6px;padding:0 8px';
-              const barWrap = document.createElement('div');
-              barWrap.style.cssText = 'background:var(--bg3);border-radius:4px;height:6px;overflow:hidden';
-              const fillEl = document.createElement('div');
-              fillEl.id = 'run-progress-fill';
-              fillEl.style.cssText = 'width:0%;height:100%;background:var(--primary);border-radius:4px;transition:width 0.5s ease';
-              barWrap.appendChild(fillEl);
-              progEl.appendChild(barWrap);
-              const statusEl = document.createElement('div');
-              statusEl.id = 'run-status-text';
-              statusEl.style.cssText = 'font-size:10px;font-family:var(--mono);color:var(--muted);margin-top:4px;text-align:center';
-              progEl.appendChild(statusEl);
-              btn.parentElement?.appendChild(progEl);
-            }
-            progEl.style.display = 'block';
-            const fillEl = document.getElementById('run-progress-fill');
-            const statusEl = document.getElementById('run-status-text');
-            let pct = 0;
-            const startTime = Date.now();
-            const progTimer = setInterval(() => {
-              pct = Math.min(pct + Math.random() * 8 + 2, 92);
-              if (fillEl) fillEl.style.width = pct + '%';
-              const elapsed = Math.floor((Date.now() - startTime) / 1000);
-              const mins = Math.floor(elapsed / 60);
-              const secs = elapsed % 60;
-              if (statusEl) statusEl.textContent = 'Running queries... ' + (mins > 0 ? mins + 'm ' : '') + secs + 's';
-            }, 1500);
-            btn.style.opacity = '0.6';
-            btn.style.cursor = 'not-allowed';
-            try {
-              const brandRes = await fetch('/api/brands', { credentials: 'include' });
-              const brandData = await brandRes.json();
-              const b = (brandData.brands || [])[0];
-              if (!b) {
-                btn.textContent = '❌ No brand set up';
-                setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }, 3000);
-                return;
-              }
-              const runRes = await fetch(`/api/brands/${b.id}/run`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } });
-              const runData = await runRes.json();
-              if (!runRes.ok) {
-                const errMsg = runData.error || 'Failed';
-                // Show short error in button, full error in title tooltip
-                const short = errMsg.length > 30 ? errMsg.substring(0, 28) + '…' : errMsg;
-                btn.textContent = '❌ ' + short;
-                btn.title = errMsg;
-                btn.style.background = 'var(--red)';
-                btn.style.fontSize = '10px';
-                setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; btn.style.fontSize = ''; btn.title = ''; }, 5000);
-                return;
-              }
-              btn.textContent = '✓ DONE — Refreshing...';
-              btn.style.background = 'var(--green)';
-            setTimeout(() => {
-              clearInterval(progTimer);
-              if (fillEl) fillEl.style.width = '100%';
-              if (statusEl) statusEl.textContent = 'Complete! Refreshing...';
-              setTimeout(() => { window.location.reload(); }, 1000);
-            }, 1500);
-            } catch (err) {
-                  clearInterval(progTimer);
-                  if (progEl) progEl.style.display = 'none';
+          <button
+            className={`run-btn${live.running ? ' running' : ''}`}
+            id="sidebar-run-btn"
+            style={{
+              margin: 0,
+              opacity: live.running ? 0.6 : 1,
+              cursor: live.running ? 'not-allowed' : 'pointer',
+              background: live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
+              fontSize: live.status === 'error' && live.errorMsg && live.errorMsg !== 'concurrent' ? '10px' : undefined,
+            }}
+            title={live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
+            disabled={live.running}
+            onClick={() => startRun(false)}
+          >
+            {live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + (live.statusText.length > 30 ? live.statusText.substring(0, 28) + '...' : live.statusText)) : '▶ RUN QUERIES'}
+          </button>
 
-              btn.textContent = '❌ Network error';
-              setTimeout(() => { btn.textContent = origText; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; btn.style.background = 'var(--primary)'; }, 3000);
-            }
-          }}>▶ RUN QUERIES</button>
-          </div>
+          {/* Force-run button for concurrent lock errors */}
+          {live.status === 'error' && live.errorMsg === 'concurrent' && (
+            <button onClick={forceRun} style={{ width: '100%', marginTop: 4, padding: '6px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
+              ⚡ FORCE RUN
+            </button>
+          )}
 
+          {/* Progress bar + live stats */}
+          {(live.running || live.status === 'done') && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ background: 'var(--bg3)', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                <div style={{ width: live.status === 'done' ? '100%' : `${pct}%`, height: '100%', background: 'var(--primary)', borderRadius: 4, transition: 'width 0.5s ease' }} />
+              </div>
+              {live.running && live.received > 0 && (
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', fontSize: 10, fontFamily: 'var(--mono)', marginTop: 4, flexWrap: 'wrap' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0f0', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                    LIVE
+                  </span>
+                  <span style={{ color: 'var(--green)', fontWeight: 700 }}>{live.foundCount} found</span>
+                  <span style={{ color: 'var(--muted)' }}>{live.received - live.foundCount - live.errorCount} not found</span>
+                  {live.errorCount > 0 && <span style={{ color: 'var(--red)', fontWeight: 700 }}>{live.errorCount} err</span>}
+                </div>
+              )}
+              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 3, textAlign: 'center' }}>
+                {live.statusText}{live.running && elapsed ? ` · ${elapsed}` : ''}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Nav groups */}
         <nav style={{ flex: 1, padding: '4px 8px' }}>
@@ -152,14 +121,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null;
                 const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={false}
-                    onClick={onClose}
+                  <Link key={item.href} href={item.href} prefetch={false} onClick={onClose}
                     className={`nav-item ${isActive ? 'active' : ''} ${'adminOnly' in item && item.adminOnly ? 'admin-link' : ''}`}
-                    style={{ textDecoration: 'none' }}
-                  >
+                    style={{ textDecoration: 'none' }}>
                     {item.icon} {item.label}
                   </Link>
                 );
@@ -179,9 +143,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <p style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{user?.plan || 'free'} plan</p>
             </div>
           </div>
-          <button onClick={logout} className="logout-btn">
-            Sign out
-          </button>
+          <button onClick={logout} className="logout-btn">Sign out</button>
         </div>
       </aside>
 
@@ -189,6 +151,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
         @media(max-width:1023px){
           .sidebar{display:none!important;position:fixed!important;top:52px!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;z-index:999!important;}
           .sidebar.mobile-open{display:flex!important;}
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
         }
       `}</style>
     </>
