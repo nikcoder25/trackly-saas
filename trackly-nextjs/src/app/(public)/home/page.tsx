@@ -48,30 +48,30 @@ const features = [
 
 const steps = [
   { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. Smart default queries are generated automatically.' },
-  { num: '02', title: 'Auto-Track Daily', desc: 'Trackly queries all 5 AI platforms on your schedule. Results flow into your real-time dashboard.' },
+  { num: '02', title: 'Auto-Track Daily', desc: 'Livesov queries all 5 AI platforms on your schedule. Results flow into your real-time dashboard.' },
   { num: '03', title: 'Analyze & Report', desc: 'See what each AI says about you. Track trends, export proof, and share data-backed reports.' },
 ];
 
 const pricingPlans = [
   { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'SOV tracking & export'], cta: 'Get Started' },
-  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Pro' },
-  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Agency' },
-  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000 prompts/month', '100 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'], cta: 'Contact Sales' },
+  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['150 prompts/month', '3 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (3)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Pro' },
+  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['500 prompts/month', '10 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (10)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Agency' },
+  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Daily tracking', 'Unlimited competitors', 'API access', 'Priority support'], cta: 'Contact Sales' },
 ];
 
 const faqs = [
   { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
-  { q: 'Which AI platforms does Trackly support?', a: 'Trackly tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
+  { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
-  { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Trackly tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
-  { q: 'Can I use Trackly for client reporting?', a: 'Yes. Trackly saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Trackly cost?', a: 'Plans start at $9/mo (Starter). Pro is $29/mo and Agency is $89/mo — the best value in AI visibility tracking.' },
+  { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
+  { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
+  { q: 'How much does Livesov cost?', a: 'Plans start at $9/mo (Starter). Pro is $29/mo and Agency is $89/mo — the best value in AI visibility tracking.' },
 ];
 
 const testimonials = [
   { text: 'We had no idea ChatGPT was recommending our competitor. Within a month of optimizing, our AI Share of Voice went from 0% to 34%.', name: 'Sarah Kim', role: 'Head of Growth, NovaBrand', initials: 'SK' },
-  { text: 'Trackly is like Ahrefs but for AI search. Our agency uses it for every client now. The proof exports make reporting effortless.', name: 'Marco Rivera', role: 'Founder, Altitude Digital', initials: 'MR' },
-  { text: 'As a solo founder, I needed to know if AI platforms were recommending me. Trackly gave me clarity in minutes.', name: 'James Liu', role: 'Founder, StackPilot', initials: 'JL' },
+  { text: 'Livesov is like Ahrefs but for AI search. Our agency uses it for every client now. The proof exports make reporting effortless.', name: 'Marco Rivera', role: 'Founder, Altitude Digital', initials: 'MR' },
+  { text: 'As a solo founder, I needed to know if AI platforms were recommending me. Livesov gave me clarity in minutes.', name: 'James Liu', role: 'Founder, StackPilot', initials: 'JL' },
 ];
 
 const demoResults = [
@@ -82,7 +82,7 @@ const demoResults = [
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, text: 'For HVAC in Austin TX, I\'d recommend AC Express, Stan\'s Heating, and Green Leaf Air. Solid reviews and competitive pricing...' },
 ];
 
-export default function TracklyHomePage() {
+export default function LivesovHomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -100,7 +100,7 @@ export default function TracklyHomePage() {
       <nav className={`tl-nav ${scrolled ? 'tl-nav--scrolled' : ''}`}>
         <div className="tl-nav-inner">
           <Link href="/" className="tl-logo">
-            Track<span>ly</span>
+            Live<span>sov</span>
           </Link>
 
           <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
@@ -118,7 +118,7 @@ export default function TracklyHomePage() {
 
           <div className="tl-nav-actions">
             <Link href="/login" className="tl-btn tl-btn--ghost">Log In</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary">Get Started Free</Link>
+            <Link href="/signup" className="tl-btn tl-btn--primary">Get Started</Link>
           </div>
         </div>
       </nav>
@@ -132,7 +132,7 @@ export default function TracklyHomePage() {
           <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
           <div className="tl-mobile-menu-actions">
             <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>Log In</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>Get Started Free</Link>
+            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>Get Started</Link>
           </div>
         </div>
       )}
@@ -155,13 +155,13 @@ export default function TracklyHomePage() {
           </p>
           <div className="tl-hero-ctas">
             <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Start Tracking Free <span className="tl-arrow">&rarr;</span>
+              Start Tracking <span className="tl-arrow">&rarr;</span>
             </Link>
             <a href="#demo-section" className="tl-btn tl-btn--outline tl-btn--lg">
               See Live Demo
             </a>
           </div>
-          <p className="tl-hero-note">No credit card required &middot; Set up in 2 minutes</p>
+          <p className="tl-hero-note">Plans start at $9/mo &middot; Set up in 2 minutes</p>
         </div>
 
         {/* Platform pills floating */}
@@ -205,7 +205,7 @@ export default function TracklyHomePage() {
         <div className="tl-section-inner">
           <div className="tl-section-header">
             <span className="tl-section-tag">Live Demo</span>
-            <h2>See Trackly in Action</h2>
+            <h2>See Livesov in Action</h2>
             <p>Here's what happens when you track a brand across all 5 AI platforms.</p>
           </div>
 
@@ -363,7 +363,7 @@ export default function TracklyHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag">Testimonials</span>
             <h2>Trusted by marketers & agencies</h2>
-            <p>See what people are saying about Trackly.</p>
+            <p>See what people are saying about Livesov.</p>
           </div>
 
           <div className="tl-testimonials">
@@ -417,7 +417,7 @@ export default function TracklyHomePage() {
           <h2>Ready to track your AI visibility?</h2>
           <p>Join 500+ brands already monitoring their presence across AI platforms.</p>
           <Link href="/signup" className="tl-btn tl-btn--white tl-btn--lg">
-            Start Tracking Free <span className="tl-arrow">&rarr;</span>
+            Start Tracking <span className="tl-arrow">&rarr;</span>
           </Link>
           <span className="tl-cta-note">Plans start at $9/mo &middot; Set up in 2 minutes</span>
         </div>
@@ -428,7 +428,7 @@ export default function TracklyHomePage() {
         <div className="tl-footer-inner">
           <div className="tl-footer-grid">
             <div className="tl-footer-brand">
-              <div className="tl-logo" style={{ fontSize: 22 }}>Track<span>ly</span></div>
+              <div className="tl-logo" style={{ fontSize: 22 }}>Live<span>sov</span></div>
               <p>Track your brand's visibility across AI platforms. Know when ChatGPT, Perplexity, Claude, Gemini & Grok mention you.</p>
             </div>
             <div className="tl-footer-col">
@@ -455,11 +455,11 @@ export default function TracklyHomePage() {
             </div>
           </div>
           <div className="tl-footer-bottom">
-            <span>&copy; {new Date().getFullYear()} Trackly. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} Livesov. All rights reserved.</span>
             <div className="tl-footer-social">
-              <a href="mailto:hello@trackly.com" aria-label="Email">✉</a>
-              <a href="https://x.com/trackly" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>
-              <a href="https://linkedin.com/company/trackly" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
+              <a href="mailto:hello@livesov.com" aria-label="Email">✉</a>
+              <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>
+              <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
             </div>
           </div>
         </div>

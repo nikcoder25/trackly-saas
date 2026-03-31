@@ -5,6 +5,7 @@ interface SeoLayoutProps {
 }
 
 const navLinks = [
+  { href: '/#features', label: 'Features' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/how-it-works', label: 'How it Works' },
   { href: '/use-cases', label: 'Use Cases' },
@@ -60,7 +61,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <h2>Ready to track your AI visibility?</h2>
         <div className="section-sub">Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.</div>
         <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 16 }}>
-          Get Started Free
+          Get Started
         </Link>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 16 }}>No credit card required.</p>
       </section>
@@ -113,7 +114,7 @@ export function SeoHero({ title, subtitle }: { title: React.ReactNode; subtitle:
       <h1>{title}</h1>
       <p>{subtitle}</p>
       <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 16 }}>
-        Start Tracking Free
+        Start Tracking
       </Link>
     </section>
   );

@@ -1,4 +1,4 @@
-# Trackly (Livesov) — Next.js Frontend
+# Livesov — Next.js Frontend
 
 AI Visibility Tracker — Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand.
 

@@ -4,7 +4,7 @@
  */
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'Trackly <noreply@trackly.com>';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
 const EMAIL_API_URL = process.env.EMAIL_API_URL || 'https://api.resend.com/emails';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
