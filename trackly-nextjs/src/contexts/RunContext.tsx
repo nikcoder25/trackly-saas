@@ -71,6 +71,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const [elapsed, setElapsed] = useState('');
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const runningRef = useRef(false);
 
   // Live timer
   useEffect(() => {
@@ -197,9 +198,13 @@ export function RunProvider({ children }: { children: ReactNode }) {
       .catch(() => { localStorage.removeItem('livesov_active_run'); });
   }, [pollRunStatus]);
 
+  // Keep ref in sync
+  useEffect(() => { runningRef.current = live.running; }, [live.running]);
+
   // ── Start run with SSE streaming ───────────────────
   const startRun = useCallback(async (force = false) => {
-    if (live.running) return;
+    if (runningRef.current) return;
+    runningRef.current = true;
 
     setLive({
       ...INITIAL_STATE, running: true, status: 'running',
@@ -334,7 +339,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       // If no runId, auto-clear after 5s
       setTimeout(() => setLive(prev => prev.status === 'error' ? INITIAL_STATE : prev), 5000);
     }
-  }, [live.running, pollRunStatus]);
+  }, [pollRunStatus]);
 
   // ── Force-run ──────────────────────────────────────
   const forceRun = useCallback(async () => {
