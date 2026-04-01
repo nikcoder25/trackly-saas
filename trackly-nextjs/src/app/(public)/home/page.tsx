@@ -390,127 +390,6 @@ function TestimonialCarousel() {
   );
 }
 
-/* ─── Product Showcase — clean floating metrics ─── */
-function ProductShowcase() {
-  const [sovValue, setSovValue] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) {
-        node.classList.add('tl-showcase--visible');
-        let val = 0;
-        const timer = setInterval(() => {
-          val += 1;
-          if (val >= 67) { setSovValue(67); clearInterval(timer); }
-          else setSovValue(val);
-        }, 18);
-        observer.disconnect();
-      }
-    }, { threshold: 0.2 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  const circumference = 2 * Math.PI * 42;
-  const offset = circumference - (sovValue / 100) * circumference;
-
-  return (
-    <section className="tl-showcase" ref={containerRef}>
-      <div className="tl-showcase-inner">
-
-        {/* Central SOV card */}
-        <div className="tl-showcase-main">
-          <div className="tl-showcase-ring-wrap">
-            <svg width="112" height="112" viewBox="0 0 112 112">
-              <circle cx="56" cy="56" r="42" fill="none" stroke="rgba(99,102,241,0.1)" strokeWidth="8" />
-              <circle cx="56" cy="56" r="42" fill="none" stroke="url(#sovGrad)" strokeWidth="8"
-                strokeDasharray={circumference} strokeDashoffset={offset}
-                strokeLinecap="round" transform="rotate(-90 56 56)"
-                style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
-              <defs>
-                <linearGradient id="sovGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" />
-                  <stop offset="100%" stopColor="#10b981" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="tl-showcase-ring-val">{sovValue}%</div>
-          </div>
-          <div className="tl-showcase-main-label">Share of Voice</div>
-          <div className="tl-showcase-main-delta">
-            <span className="tl-showcase-delta-up">▲ 12%</span> vs last week
-          </div>
-        </div>
-
-        {/* Floating metric cards */}
-        <div className="tl-showcase-card tl-showcase-card--1">
-          <div className="tl-showcase-card-icon" style={{ background: '#10a37f' }}>⬡</div>
-          <div className="tl-showcase-card-body">
-            <div className="tl-showcase-card-title">ChatGPT</div>
-            <div className="tl-showcase-card-val">
-              <span className="tl-showcase-badge tl-showcase-badge--found">✓ Mentioned</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="tl-showcase-card tl-showcase-card--2">
-          <div className="tl-showcase-card-icon" style={{ background: '#6366f1' }}>◆</div>
-          <div className="tl-showcase-card-body">
-            <div className="tl-showcase-card-title">GEO Score</div>
-            <div className="tl-showcase-card-val tl-showcase-val--green">78 / 100</div>
-          </div>
-        </div>
-
-        <div className="tl-showcase-card tl-showcase-card--3">
-          <div className="tl-showcase-card-icon" style={{ background: '#f59e0b' }}>★</div>
-          <div className="tl-showcase-card-body">
-            <div className="tl-showcase-card-title">Sentiment</div>
-            <div className="tl-showcase-card-val tl-showcase-val--green">Positive</div>
-          </div>
-        </div>
-
-        <div className="tl-showcase-card tl-showcase-card--4">
-          <div className="tl-showcase-card-icon" style={{ background: '#ef4444' }}>⊘</div>
-          <div className="tl-showcase-card-body">
-            <div className="tl-showcase-card-title">Grok</div>
-            <div className="tl-showcase-card-val">
-              <span className="tl-showcase-badge tl-showcase-badge--missed">✗ Not found</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Platform mini bars */}
-        <div className="tl-showcase-platforms">
-          {[
-            { name: 'ChatGPT', pct: 80, color: '#10a37f' },
-            { name: 'Perplexity', pct: 72, color: '#9b72ff' },
-            { name: 'Claude', pct: 65, color: '#d97706' },
-            { name: 'Gemini', pct: 58, color: '#4285f4' },
-            { name: 'Grok', pct: 0, color: '#94a3b8' },
-          ].map(p => (
-            <div key={p.name} className="tl-showcase-pbar">
-              <span className="tl-showcase-pbar-name">{p.name}</span>
-              <div className="tl-showcase-pbar-track">
-                <div className="tl-showcase-pbar-fill" style={{ width: `${p.pct}%`, background: p.color }} />
-              </div>
-              <span className="tl-showcase-pbar-val">{p.pct}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="tl-showcase-cta">
-        <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-          See Your Brand&apos;s Score <span className="tl-arrow">&rarr;</span>
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 /* ─── Email capture component ─── */
 function EmailCapture() {
   const [email, setEmail] = useState('');
@@ -674,9 +553,6 @@ export default function LivesovHomePage() {
           ))}
         </div>
       </section>
-
-      {/* ═══════ PRODUCT SHOWCASE ═══════ */}
-      <ProductShowcase />
 
       {/* ═══════ SOCIAL PROOF BAR ═══════ */}
       <SocialProofBar />
