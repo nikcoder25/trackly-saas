@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -29,7 +28,6 @@ export default function HomePage() {
         </div>
 
         <div className="land-nav-right">
-          <LanguageSwitcher variant="light" />
           <Link href="/login" className="land-btn land-btn-ghost">{t.nav.login}</Link>
           <Link href="/signup" className="land-btn land-btn-primary">{t.nav.getStarted}</Link>
         </div>
@@ -163,36 +161,6 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Comparison Table */}
-        <div style={{ maxWidth: 900, margin: '48px auto 0' }}>
-          <h3 style={{ fontSize: 20, fontWeight: 700, textAlign: 'center', marginBottom: 6 }}>{t.pricing.comparison.title}</h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 16, textAlign: 'center', marginBottom: 24 }}>{t.pricing.comparison.subtitle}</p>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="tbl" style={{ fontFamily: 'var(--mono)', fontSize: 12, textAlign: 'center' }}>
-              <thead>
-                <tr>
-                  {t.pricing.comparison.headers.map((h: string, i: number) => (
-                    <th key={h} style={{ textAlign: i === 0 ? 'left' : 'center', color: i === 1 ? 'var(--primary)' : undefined, fontWeight: i === 1 ? 700 : undefined }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {t.pricing.comparison.rows.map((row: string[], ri: number) => (
-                  <tr key={ri}>
-                    {row.map((cell: string, ci: number) => (
-                      <td key={ci} style={{
-                        textAlign: ci === 0 ? 'left' : 'center',
-                        color: ci === 1 ? 'var(--primary)' : cell.includes('\u2713') ? 'var(--green)' : cell.includes('\u2717') ? 'var(--red)' : undefined,
-                        fontWeight: ci === 1 ? 700 : undefined,
-                      }}>{cell}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 11, textAlign: 'center', marginTop: 16, opacity: 0.6 }}>{t.pricing.comparison.disclaimer}</p>
-        </div>
       </section>
 
       {/* Why AI Visibility */}

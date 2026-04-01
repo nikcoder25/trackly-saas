@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 /* ─── Animated counter hook (fixed memory leak) ─── */
 function useCounter(target: number, duration = 2000) {
@@ -87,18 +86,6 @@ const useCases = [
   { icon: '🎓', title: 'Education & Consulting', desc: 'Monitor your personal or institutional brand presence in AI answers. Build authority in your niche through strategic optimization.' },
 ];
 
-const pricingComparison = {
-  headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush', 'Manual Search'],
-  rows: [
-    ['AI platform tracking', '✓ 5 platforms', '✗', '✗', '~ 1 at a time'],
-    ['Share of Voice (AI)', '✓ Automatic', '✗', '✗', '✗'],
-    ['Sentiment analysis', '✓ Built-in', '✗', '✗', '✗'],
-    ['Competitor tracking', '✓ Up to 10+', '✗', '✗', '~ Manual'],
-    ['Proof & evidence export', '✓ CSV + API', '✗', '✗', '~ Screenshots'],
-    ['AI response monitoring', '✓ Daily', '✗', '✗', '~ Occasional'],
-    ['Price', 'From $9/mo', '$99/mo', '$119/mo', 'Free (your time)'],
-  ],
-};
 
 const faqs = [
   { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
@@ -501,7 +488,6 @@ export default function LivesovHomePage() {
           </div>
 
           <div className="tl-nav-actions">
-            <LanguageSwitcher variant="light" />
             <Link href="/login" className="tl-btn tl-btn--ghost">{t.nav.login}</Link>
             <Link href="/signup" className="tl-btn tl-btn--primary">{t.nav.getStarted}</Link>
           </div>
@@ -697,34 +683,6 @@ export default function LivesovHomePage() {
             ))}
           </div>
 
-          {/* Comparison Table */}
-          <div className="tl-comparison">
-            <h3 className="tl-comparison-title">How Livesov compares</h3>
-            <p className="tl-comparison-sub">Purpose-built for AI visibility. Not a bolt-on feature.</p>
-            <div className="tl-comparison-wrap">
-              <table className="tl-comparison-table">
-                <thead>
-                  <tr>
-                    {pricingComparison.headers.map((h, i) => (
-                      <th key={h} className={i === 1 ? 'tl-comparison-highlight' : ''}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricingComparison.rows.map((row, ri) => (
-                    <tr key={ri}>
-                      {row.map((cell, ci) => (
-                        <td key={ci} className={`${ci === 1 ? 'tl-comparison-highlight' : ''} ${cell.includes('✓') ? 'tl-cell-yes' : cell.includes('✗') ? 'tl-cell-no' : ''}`}>
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of 2026. Subject to change.</p>
-          </div>
         </div>
       </section>
 
