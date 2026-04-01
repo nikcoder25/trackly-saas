@@ -30,6 +30,11 @@ export default function BillingPage() {
   const currentPlan = user?.plan || 'free';
   const limits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free;
 
+  // Only show the owner plan in the comparison table if the user is on the owner plan
+  const visiblePlans = currentPlan === 'owner'
+    ? ['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'] as const
+    : ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
+
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
       .then(r => r.json())
@@ -133,7 +138,7 @@ export default function BillingPage() {
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
                 <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, color: 'var(--text)' }}>Feature</th>
-                {['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].map(p => (
+                {visiblePlans.map(p => (
                   <th key={p} style={{ padding: '10px 14px', fontWeight: 700, color: p === currentPlan ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', fontSize: 11, letterSpacing: .5 }}>
                     {p}{p === currentPlan && ' ★'}
                     <div style={{ fontSize: 13, fontWeight: 800, color: p === currentPlan ? 'var(--primary)' : 'var(--text)', marginTop: 2 }}>{PLAN_PRICES[p]}<span style={{ fontSize: 9, fontWeight: 400, color: 'var(--muted)' }}>{p !== 'free' && p !== 'owner' ? '/mo' : ''}</span></div>
@@ -145,7 +150,7 @@ export default function BillingPage() {
               {PLAN_FEATURES.map((row, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{row.feature}</td>
-                  {(['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'] as const).map(p => {
+                  {visiblePlans.map(p => {
                     const val = row[p];
                     const isCheck = val === '✓';
                     const isDash = val === '—';

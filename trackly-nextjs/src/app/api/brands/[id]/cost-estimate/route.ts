@@ -1,4 +1,5 @@
-import { verifyRequestAuth } from '@/lib/auth';
+import { pool } from '@/lib/db';
+import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getDefaultModel, MODEL_PRICING } from '@/lib/ai-platforms';
 
@@ -7,8 +8,9 @@ const AVG_INPUT_TOKENS = 150;
 const AVG_OUTPUT_TOKENS = 250;
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
   const { id } = await params;
 
   const access = await getBrandWithAccess(id, user.id);

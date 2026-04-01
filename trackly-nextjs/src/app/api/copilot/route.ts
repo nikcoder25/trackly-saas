@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
-import { verifyRequestAuth } from '@/lib/auth';
+import { pool } from '@/lib/db';
+import { requireVerifiedAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  const user = verifyRequestAuth(request);
-  if (!user) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   try {
     const { message, history } = await request.json();

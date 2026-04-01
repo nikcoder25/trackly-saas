@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!ok) return Response.json({ error: 'Current password is incorrect' }, { status: 400 });
     const hash = await bcrypt.hash(newPassword, AUTH.bcryptRounds);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
+    await pool.query('UPDATE users SET password_hash = $1, refresh_token = NULL WHERE id = $2', [hash, user.id]);
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     auditLog(user.id, 'change_password', 'user', user.id, {}, ip);
     return Response.json({ message: 'Password updated successfully' });

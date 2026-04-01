@@ -7,8 +7,7 @@ import { AUTH } from './constants';
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') console.error('[FATAL] JWT_SECRET is not set.');
-    return '';
+    throw new Error('JWT_SECRET environment variable is required');
   }
   return secret;
 }

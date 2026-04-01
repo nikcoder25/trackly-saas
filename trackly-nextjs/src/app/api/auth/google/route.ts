@@ -83,10 +83,12 @@ export async function POST(request: NextRequest) {
       user = (await pool.query(`SELECT ${selectCols} FROM users WHERE LOWER(email) = $1`, [email])).rows[0];
 
       if (user) {
-        await pool.query('UPDATE users SET google_id = $1, avatar_url = COALESCE(avatar_url, $2), email_verified = TRUE WHERE id = $3', [googleId, avatarUrl, user.id]);
-        user.google_id = googleId;
-        user.avatar_url = user.avatar_url || avatarUrl;
-        user.email_verified = true;
+        // Existing account with same email but no google_id — do NOT auto-link.
+        // User must log in with password first and link Google from account settings.
+        return Response.json(
+          { error: 'An account with this email already exists. Please log in with your password and link Google from Account Settings.' },
+          { status: 409 }
+        );
       } else {
         // Case 3: Brand new user
         const id = uid();

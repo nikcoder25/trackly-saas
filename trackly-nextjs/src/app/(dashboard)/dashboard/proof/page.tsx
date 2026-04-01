@@ -109,10 +109,10 @@ export default function ProofPage() {
     return { order, map };
   }, [filtered]);
 
-  function escHtml(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function escHtml(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function highlightBrand(text: string) {
     if (!brand || !text) return escHtml(text);
-    const escaped = brand.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = escHtml(brand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return escHtml(text).replace(new RegExp(`(${escaped})`, 'gi'),
       '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:0 3px;border-radius:3px;font-weight:700;">$1</mark>');
   }

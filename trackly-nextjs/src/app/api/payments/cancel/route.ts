@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     await pool.query(
-      `UPDATE users SET settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
+      `UPDATE users SET plan = 'free', settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
       [user.id]
     );
 

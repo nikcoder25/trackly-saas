@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { CookiePreferencesButton } from '@/components/CookieConsent';
 
 /* ─── Animated counter hook (fixed memory leak) ─── */
 function useCounter(target: number, duration = 2000) {
@@ -83,10 +84,11 @@ const steps = [
 ];
 
 const pricingPlans = [
+  { name: 'Free', price: '$0', sub: 'Try it out', features: ['5 prompts/month', '1 brand', '2 AI platforms', 'Manual runs', 'Basic dashboard'], cta: 'Start Free' },
   { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'SOV tracking & export'], cta: 'Get Started' },
-  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['150 prompts/month', '3 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (3)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Pro' },
-  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['500 prompts/month', '10 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (10)', 'Sentiment analysis', 'Scheduled runs & webhooks'], cta: 'Start Agency' },
-  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Daily tracking', 'Unlimited competitors', 'API access', 'Priority support'], cta: 'Contact Sales' },
+  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Email alerts'], cta: 'Start Pro' },
+  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'], cta: 'Start Agency' },
+  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Priority support'], cta: 'Contact Sales' },
 ];
 
 const pricingComparison = {
@@ -755,6 +757,7 @@ export default function LivesovHomePage() {
           </div>
           <div className="tl-footer-bottom">
             <span>&copy; {new Date().getFullYear()} {t.footer.copyright}</span>
+            <CookiePreferencesButton />
             <div className="tl-footer-social">
               <a href="mailto:hello@livesov.com" aria-label="Email">✉</a>
               <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>

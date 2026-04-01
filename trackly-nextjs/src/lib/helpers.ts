@@ -10,7 +10,8 @@ export function uid(): string {
 }
 
 // ── API Key Encryption ───────────────────────────────
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || '';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
+if (!ENCRYPTION_KEY) throw new Error('ENCRYPTION_KEY or JWT_SECRET environment variable is required');
 const ALGO = 'aes-256-gcm';
 const ENCRYPTION_SALT =
   process.env.ENCRYPTION_SALT ||

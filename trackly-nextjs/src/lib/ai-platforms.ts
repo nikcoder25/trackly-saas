@@ -119,9 +119,9 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
   }
 
   if (platform === 'Gemini') {
-    const url = `${API_ENDPOINTS.gemini.base}${useModel}:generateContent?key=${apiKey}`;
+    const url = `${API_ENDPOINTS.gemini.base}${useModel}:generateContent`;
     const d = await fetchAI(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({ contents: [{ parts: [{ text: SYSTEM_PROMPT + '\n\n' + query }] }], generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS } }),
     });
     const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';

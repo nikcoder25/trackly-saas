@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 };
 
 const plans = [
-  { name: 'Starter', price: '$9', period: '/mo', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Manual runs', 'Basic dashboard'], cta: 'Get Started', highlighted: false },
-  { name: 'Pro', price: '$29', period: '/mo', features: ['3 brands', '150 prompts/month', '5 AI platforms', 'Scheduled runs', 'Sentiment analysis', 'Competitor tracking (3)', 'Email alerts'], cta: 'Start Pro', highlighted: true },
-  { name: 'Agency', price: '$89', period: '/mo', features: ['10 brands', '500 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (10)', 'Team collaboration', 'Priority support', 'API access'], cta: 'Start Agency', highlighted: false },
+  { name: 'Free', price: '$0', period: '/mo', features: ['1 brand', '5 prompts/month', '2 AI platforms', 'Manual runs', 'Basic dashboard'], cta: 'Start Free', highlighted: false },
+  { name: 'Starter', price: '$9', period: '/mo', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Weekly schedule', 'SOV tracking'], cta: 'Get Started', highlighted: false },
+  { name: 'Pro', price: '$29', period: '/mo', features: ['5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'Sentiment analysis', 'Competitor tracking (5)', 'Email alerts'], cta: 'Start Pro', highlighted: true },
+  { name: 'Agency', price: '$89', period: '/mo', features: ['20 brands', '1,000 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'], cta: 'Start Agency', highlighted: false },
   { name: 'Enterprise', price: '$499', period: '/mo', features: ['100+ brands', '10,000+ prompts', '5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Custom integrations', 'White-label reports'], cta: 'Contact Sales', highlighted: false },
 ];
 

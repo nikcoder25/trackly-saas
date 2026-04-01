@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       return Response.json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true }, { status: 403 });
     }
 
-    const safeComps = Array.isArray(competitors) ? competitors.filter((c: unknown) => typeof c === 'string').map((c: string) => c.trim()).filter(Boolean).slice(0, 100) : [];
+    const safeComps = Array.isArray(competitors) ? competitors.filter((c: unknown) => typeof c === 'string').map((c: string) => c.trim()).filter(Boolean).slice(0, limits.competitors) : [];
     const safeNearby = Array.isArray(nearbyAreas) ? nearbyAreas.filter((a: unknown) => typeof a === 'string').map((a: string) => a.trim()).filter(Boolean).slice(0, 100) : [];
 
     const defaultQueries = city

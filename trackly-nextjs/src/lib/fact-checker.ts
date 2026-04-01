@@ -155,10 +155,10 @@ async function callChecker(
     }
 
     if (checker.type === 'gemini') {
-      const url = `${API_ENDPOINTS.gemini}${checker.model}:generateContent?key=${checker.key}`;
+      const url = `${API_ENDPOINTS.gemini}${checker.model}:generateContent`;
       const resp = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { maxOutputTokens: 1500, temperature: 0 },
@@ -339,10 +339,36 @@ export interface AutoDiscoverResult {
   error?: string;
 }
 
+function isPrivateHostname(hostname: string): boolean {
+  // Reject localhost and internal hostnames
+  if (hostname === 'localhost' || hostname.includes('internal')) return true;
+  // Check for IPv6 loopback
+  if (hostname === '::1' || hostname === '[::1]') return true;
+  // Check for private IPv4/IPv6 ranges
+  const parts = hostname.split('.').map(Number);
+  if (parts.length === 4 && parts.every(p => !isNaN(p))) {
+    if (parts[0] === 127) return true;                              // 127.0.0.0/8
+    if (parts[0] === 10) return true;                               // 10.0.0.0/8
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+    if (parts[0] === 192 && parts[1] === 168) return true;         // 192.168.0.0/16
+    if (parts[0] === 169 && parts[1] === 254) return true;         // 169.254.0.0/16
+    if (parts[0] === 0) return true;                                // 0.0.0.0/8
+  }
+  // Check for IPv6 private ranges (fc00::/7 includes fd00::/8)
+  if (hostname.startsWith('fc') || hostname.startsWith('fd')) return true;
+  return false;
+}
+
 async function fetchWebsiteText(url: string): Promise<string> {
   try {
     let fullUrl = url;
     if (!fullUrl.startsWith('http')) fullUrl = 'https://' + fullUrl;
+
+    // SSRF protection: validate URL before fetching
+    const parsed = new URL(fullUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    if (isPrivateHostname(parsed.hostname)) return '';
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
     const resp = await fetch(fullUrl, {

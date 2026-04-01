@@ -26,7 +26,7 @@ export default function TeamPage() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch('/api/team', {
+      const res = await fetch('/api/team/invite', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),

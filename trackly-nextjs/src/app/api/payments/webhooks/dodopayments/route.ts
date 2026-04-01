@@ -1,4 +1,5 @@
 import { pool } from '@/lib/db';
+import crypto from 'crypto';
 
 const PLAN_MAP: Record<string, string> = {};
 if (process.env.DODO_STARTER_PRODUCT_ID) PLAN_MAP[process.env.DODO_STARTER_PRODUCT_ID] = 'starter';
@@ -20,8 +21,38 @@ async function markWebhookProcessed(eventId: string, eventType: string) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const eventId = body.event_id || body.id || `evt_${Date.now()}`;
+    const rawBody = await request.text();
+
+    // Webhook signature verification
+    const webhookSecret = process.env.DODO_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('[Webhook] DODO_WEBHOOK_SECRET is not set');
+      if (process.env.NODE_ENV === 'production') {
+        return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
+      }
+    }
+    if (webhookSecret) {
+      const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
+      if (!signature) {
+        console.error('[Webhook] Missing signature header');
+        return Response.json({ error: 'Missing signature' }, { status: 401 });
+      }
+      const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+      const sigBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expected, 'hex');
+      if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+        console.error('[Webhook] Invalid signature');
+        return Response.json({ error: 'Invalid signature' }, { status: 401 });
+      }
+    }
+
+    const body = JSON.parse(rawBody);
+
+    // Require a real event ID from the payload
+    const eventId = body.event_id || body.id;
+    if (!eventId) {
+      return Response.json({ error: 'Missing event_id' }, { status: 400 });
+    }
     const eventType = body.type || body.event_type || '';
 
     // Idempotency check
@@ -34,7 +65,7 @@ export async function POST(request: Request) {
       const metadata = body.metadata || body.data?.metadata || {};
       const userId = metadata.userId;
       const productId = body.product_id || body.data?.product_id;
-      const plan = metadata.plan || (productId ? PLAN_MAP[productId] : null);
+      const plan = productId ? PLAN_MAP[productId] : null;
 
       if (userId && plan) {
         await pool.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
@@ -66,7 +97,7 @@ export async function POST(request: Request) {
     await markWebhookProcessed(eventId, eventType);
     return Response.json({ received: true });
   } catch (e) {
-    console.error('[Webhook]', (e as Error).message);
-    return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
+    console.error('[Webhook] Processing error:', (e as Error).message);
+    return Response.json({ error: 'Webhook processing failed' }, { status: 200 });
   }
 }

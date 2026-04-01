@@ -12,6 +12,12 @@ export async function GET(request: Request) {
   return Response.json({ settings });
 }
 
+// Keys that must NEVER be set via the settings endpoint
+const SETTINGS_BLOCKED_KEYS = new Set([
+  'totp_secret', 'totp_enabled', 'totp_backup_codes', 'totp_secret_pending',
+  'dodo_subscription_id', 'password_hash', 'role', 'plan', 'id', 'email',
+]);
+
 export async function PUT(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
@@ -35,6 +41,10 @@ export async function PUT(request: Request) {
     const val = key === 'webhookUrl' ? String(body[key]).slice(0, 500) : String(body[key]).slice(0, 100);
     if (validValues.length > 0 && !validValues.includes(val)) continue; // reject invalid enum
     updates[key] = booleanKeys.includes(key) ? val === 'true' : val;
+  }
+  // Strip any blocked keys that may have bypassed the allowlist
+  for (const key of SETTINGS_BLOCKED_KEYS) {
+    delete updates[key];
   }
   if (Object.keys(updates).length === 0) return Response.json({ error: 'No valid settings to update' }, { status: 400 });
 

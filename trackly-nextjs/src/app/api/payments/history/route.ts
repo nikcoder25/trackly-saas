@@ -9,7 +9,9 @@ export async function GET(request: Request) {
   try {
     const result = await pool.query(
       `SELECT event_id, event_type, processed_at FROM webhook_events
-       ORDER BY processed_at DESC LIMIT 50`
+       WHERE user_id = $1
+       ORDER BY processed_at DESC LIMIT 50`,
+      [user.id]
     );
     return Response.json({ history: result.rows });
   } catch {

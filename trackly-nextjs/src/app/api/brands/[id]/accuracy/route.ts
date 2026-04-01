@@ -1,5 +1,5 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { runFactCheck, autoDiscoverFacts } from '@/lib/fact-checker';
 
@@ -13,8 +13,9 @@ interface FactRow {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
@@ -74,8 +75,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
@@ -84,29 +86,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { facts } = await request.json();
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
+  const client = await pool.connect();
   try {
-    await pool.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
+    await client.query('BEGIN');
+    await client.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
     for (const fact of facts) {
       const key = fact.key || fact.fact_key;
       const value = fact.value || fact.fact_value;
       if (!key || !value) continue;
-      await pool.query(
+      await client.query(
         `INSERT INTO brand_facts (brand_id, fact_key, fact_value, category, updated_at)
          VALUES ($1, $2, $3, $4, NOW())
          ON CONFLICT (brand_id, fact_key) DO UPDATE SET fact_value = $3, category = $4, updated_at = NOW()`,
         [id, key, value, fact.category || 'general']
       );
     }
+    await client.query('COMMIT');
     return Response.json({ ok: true });
   } catch (e) {
+    await client.query('ROLLBACK');
     console.error('[Accuracy POST]', (e as Error).message);
     return Response.json({ error: 'Failed to save facts' }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
