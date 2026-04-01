@@ -106,6 +106,122 @@ const demoResults = [
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, text: 'For HVAC in Austin TX, I\'d recommend AC Express, Stan\'s Heating, and Green Leaf Air. Solid reviews and competitive pricing...' },
 ];
 
+/* ─── Typing animation hook ─── */
+function useTypingEffect(text: string, speed = 50) {
+  const [displayed, setDisplayed] = useState('');
+  const [started, setStarted] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!started || done) return;
+    if (displayed.length >= text.length) { setDone(true); return; }
+    const timer = setTimeout(() => setDisplayed(text.slice(0, displayed.length + 1)), speed);
+    return () => clearTimeout(timer);
+  }, [started, displayed, text, speed, done]);
+
+  return { displayed, done, start: () => setStarted(true) };
+}
+
+/* ─── Social Proof with animated counters ─── */
+function SocialProofBar() {
+  const brands = useCounter(500, 2000);
+  const platforms = useCounter(5, 1000);
+  const queries = useCounter(50, 1500);
+
+  return (
+    <section className="tl-proof">
+      <div className="tl-proof-inner">
+        <div className="tl-proof-item" ref={brands.ref}>
+          <span className="tl-proof-val">{brands.count}+</span>
+          <span className="tl-proof-label">Brands tracked</span>
+        </div>
+        <div className="tl-proof-divider" />
+        <div className="tl-proof-item" ref={platforms.ref}>
+          <span className="tl-proof-val">{platforms.count}</span>
+          <span className="tl-proof-label">AI platforms</span>
+        </div>
+        <div className="tl-proof-divider" />
+        <div className="tl-proof-item" ref={queries.ref}>
+          <span className="tl-proof-val">{queries.count}K+</span>
+          <span className="tl-proof-label">Queries analyzed</span>
+        </div>
+        <div className="tl-proof-divider" />
+        <div className="tl-proof-item">
+          <span className="tl-proof-val">Real-time</span>
+          <span className="tl-proof-label">Live results</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Demo section with typing effect ─── */
+function DemoSection() {
+  const queryText = '"Best HVAC company in Austin TX"';
+  const typing = useTypingEffect(queryText, 40);
+  const [showResults, setShowResults] = useState(false);
+  const sectionRef = (node: HTMLElement | null) => {
+    if (!node) return;
+    const observer = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { typing.start(); observer.unobserve(node); }
+    }, { threshold: 0.3 });
+    observer.observe(node);
+  };
+
+  useEffect(() => {
+    if (typing.done) {
+      const timer = setTimeout(() => setShowResults(true), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [typing.done]);
+
+  return (
+    <section className="tl-section" id="demo-section" ref={sectionRef}>
+      <div className="tl-section-inner">
+        <div className="tl-section-header">
+          <span className="tl-section-tag">Live Demo</span>
+          <h2>See Livesov in Action</h2>
+          <p>Here&apos;s what happens when you track a brand across all 5 AI platforms.</p>
+        </div>
+
+        <div className="tl-demo-window">
+          <div className="tl-demo-toolbar">
+            <div className="tl-demo-dots">
+              <span className="tl-dot tl-dot--red" />
+              <span className="tl-dot tl-dot--yellow" />
+              <span className="tl-dot tl-dot--green" />
+            </div>
+            <div className="tl-demo-query">
+              <span className="tl-demo-query-icon">&#x1F50D;</span>
+              {typing.displayed}<span className="tl-cursor">|</span>
+            </div>
+          </div>
+          <div className={`tl-demo-grid ${showResults ? 'tl-demo-grid--visible' : 'tl-demo-grid--hidden'}`}>
+            {demoResults.map((d, i) => (
+              <div key={d.name} className={`tl-demo-card ${!d.found ? 'tl-demo-card--missed' : ''}`} style={{ animationDelay: `${i * 0.1}s` }}>
+                <div className="tl-demo-card-head">
+                  <span style={{ color: d.color, fontSize: 18 }}>{d.icon}</span>
+                  <span className="tl-demo-card-name">{d.name}</span>
+                  <span className={`tl-demo-badge ${d.found ? 'tl-demo-badge--found' : 'tl-demo-badge--missed'}`}>
+                    {d.found ? '✓ Mentioned' : '✗ Not Found'}
+                  </span>
+                </div>
+                <div className="tl-demo-card-text" dangerouslySetInnerHTML={{ __html: d.text }} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="tl-demo-cta">
+          <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
+            Try It With Your Brand <span className="tl-arrow">&rarr;</span>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function LivesovHomePage() {
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -222,74 +338,20 @@ export default function LivesovHomePage() {
       </section>
 
       {/* ═══════ SOCIAL PROOF BAR ═══════ */}
-      <section className="tl-proof">
-        <div className="tl-proof-inner">
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">500+</span>
-            <span className="tl-proof-label">Brands tracked</span>
-          </div>
-          <div className="tl-proof-divider" />
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">5</span>
-            <span className="tl-proof-label">AI platforms</span>
-          </div>
-          <div className="tl-proof-divider" />
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">50K+</span>
-            <span className="tl-proof-label">Queries analyzed</span>
-          </div>
-          <div className="tl-proof-divider" />
-          <div className="tl-proof-item">
-            <span className="tl-proof-val">Real-time</span>
-            <span className="tl-proof-label">Live results</span>
-          </div>
+      <SocialProofBar />
+
+      {/* ═══════ TRUSTED BY ═══════ */}
+      <section className="tl-trusted">
+        <p className="tl-trusted-label">Trusted by marketers, agencies & brands worldwide</p>
+        <div className="tl-trusted-logos">
+          {['NovaBrand', 'Altitude Digital', 'StackPilot', 'GreenLeaf Co', 'Apex Media', 'CloudSync'].map(name => (
+            <div key={name} className="tl-trusted-logo">{name}</div>
+          ))}
         </div>
       </section>
 
       {/* ═══════ LIVE DEMO ═══════ */}
-      <section className="tl-section" id="demo-section">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Live Demo</span>
-            <h2>See Livesov in Action</h2>
-            <p>Here's what happens when you track a brand across all 5 AI platforms.</p>
-          </div>
-
-          <div className="tl-demo-window">
-            <div className="tl-demo-toolbar">
-              <div className="tl-demo-dots">
-                <span className="tl-dot tl-dot--red" />
-                <span className="tl-dot tl-dot--yellow" />
-                <span className="tl-dot tl-dot--green" />
-              </div>
-              <div className="tl-demo-query">
-                <span className="tl-demo-query-icon">🔍</span>
-                &quot;Best HVAC company in Austin TX&quot;
-              </div>
-            </div>
-            <div className="tl-demo-grid">
-              {demoResults.map(d => (
-                <div key={d.name} className={`tl-demo-card ${!d.found ? 'tl-demo-card--missed' : ''}`}>
-                  <div className="tl-demo-card-head">
-                    <span style={{ color: d.color, fontSize: 18 }}>{d.icon}</span>
-                    <span className="tl-demo-card-name">{d.name}</span>
-                    <span className={`tl-demo-badge ${d.found ? 'tl-demo-badge--found' : 'tl-demo-badge--missed'}`}>
-                      {d.found ? '✓ Mentioned' : '✗ Not Found'}
-                    </span>
-                  </div>
-                  <div className="tl-demo-card-text" dangerouslySetInnerHTML={{ __html: d.text }} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="tl-demo-cta">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Try It With Your Brand <span className="tl-arrow">&rarr;</span>
-            </Link>
-          </div>
-        </div>
-      </section>
+      <DemoSection />
 
       {/* ═══════ FEATURES ═══════ */}
       <section className="tl-section tl-section--alt tl-animate" id="features">
@@ -542,6 +604,14 @@ export default function LivesovHomePage() {
               <Link href="/about">About</Link>
               <Link href="/contact">Contact</Link>
               <Link href="/changelog">Changelog</Link>
+            </div>
+            <div className="tl-footer-col">
+              <h4>AI Platforms</h4>
+              <Link href="/chatgpt-brand-tracking">ChatGPT Tracking</Link>
+              <Link href="/perplexity-brand-tracking">Perplexity Tracking</Link>
+              <Link href="/claude-brand-tracking">Claude Tracking</Link>
+              <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
+              <Link href="/grok-brand-tracking">Grok Tracking</Link>
             </div>
             <div className="tl-footer-col">
               <h4>Legal</h4>
