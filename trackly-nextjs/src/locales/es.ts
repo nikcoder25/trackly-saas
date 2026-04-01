@@ -89,6 +89,7 @@ const es: Translations = {
         ['Plan 30 consultas', '$9/mes', '$189/mes', '$199/mes', 'Personalizado'],
         ['Plan 250 consultas', '$29/mes', '$189/mes', '$399/mes', 'Personalizado'],
       ],
+      disclaimer: 'Precios de competidores obtenidos de sitios web públicos a marzo de 2026. Los precios pueden haber cambiado.',
     },
   },
   whyAI: {

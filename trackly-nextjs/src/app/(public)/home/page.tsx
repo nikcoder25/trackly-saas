@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 /* ─── Animated counter hook ─── */
 function useCounter(target: number, duration = 2000) {
@@ -59,6 +61,28 @@ const pricingPlans = [
   { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Daily tracking', 'Unlimited competitors', 'API access', 'Priority support'], cta: 'Contact Sales' },
 ];
 
+const useCases = [
+  { icon: '🏢', title: 'Local Businesses', desc: 'See if AI recommends your business when locals search for services in your area. Track mentions across ChatGPT, Perplexity & more.' },
+  { icon: '🚀', title: 'SaaS & Tech Companies', desc: 'Monitor how AI positions your product against competitors. Optimize your content strategy to improve AI-generated recommendations.' },
+  { icon: '📱', title: 'Digital Agencies', desc: 'Offer AI visibility audits as a premium service. Use proof exports to create data-backed reports for every client.' },
+  { icon: '🏥', title: 'Healthcare & Legal', desc: 'Ensure AI platforms provide accurate, positive information about your practice. Track sentiment and correct misinformation early.' },
+  { icon: '🛒', title: 'E-commerce Brands', desc: 'Track whether AI recommends your products when shoppers ask for buying advice. Benchmark against top competitors.' },
+  { icon: '🎓', title: 'Education & Consulting', desc: 'Monitor your personal or institutional brand presence in AI answers. Build authority in your niche through strategic optimization.' },
+];
+
+const pricingComparison = {
+  headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush', 'Manual Search'],
+  rows: [
+    ['AI platform tracking', '✓ 5 platforms', '✗', '✗', '~ 1 at a time'],
+    ['Share of Voice (AI)', '✓ Automatic', '✗', '✗', '✗'],
+    ['Sentiment analysis', '✓ Built-in', '✗', '✗', '✗'],
+    ['Competitor tracking', '✓ Up to 10+', '✗', '✗', '~ Manual'],
+    ['Proof & evidence export', '✓ CSV + API', '✗', '✗', '~ Screenshots'],
+    ['AI response monitoring', '✓ Daily', '✗', '✗', '~ Occasional'],
+    ['Price', 'From $9/mo', '$99/mo', '$119/mo', 'Free (your time)'],
+  ],
+};
+
 const faqs = [
   { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
   { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
@@ -83,6 +107,7 @@ const demoResults = [
 ];
 
 export default function LivesovHomePage() {
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -124,11 +149,13 @@ export default function LivesovHomePage() {
           <div className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
             <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
             <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
+            <a href="#use-cases" onClick={() => setMenuOpen(false)}>Use Cases</a>
             <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
             <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
           </div>
 
           <div className="tl-nav-actions">
+            <LanguageSwitcher variant="light" />
             <Link href="/login" className="tl-btn tl-btn--ghost">Log In</Link>
             <Link href="/signup" className="tl-btn tl-btn--primary">Get Started</Link>
           </div>
@@ -140,6 +167,7 @@ export default function LivesovHomePage() {
         <div className="tl-mobile-menu">
           <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
           <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
+          <a href="#use-cases" onClick={() => setMenuOpen(false)}>Use Cases</a>
           <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
           <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
           <div className="tl-mobile-menu-actions">
@@ -174,6 +202,12 @@ export default function LivesovHomePage() {
             </a>
           </div>
           <p className="tl-hero-note">Plans start at $9/mo &middot; Set up in 2 minutes</p>
+          <div className="tl-hero-google">
+            <Link href="/signup" className="tl-btn-google">
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+              Sign up with Google
+            </Link>
+          </div>
         </div>
 
         {/* Platform pills floating */}
@@ -334,6 +368,27 @@ export default function LivesovHomePage() {
         </div>
       </section>
 
+      {/* ═══════ USE CASES ═══════ */}
+      <section className="tl-section tl-section--alt tl-animate" id="use-cases">
+        <div className="tl-section-inner">
+          <div className="tl-section-header">
+            <span className="tl-section-tag">Use Cases</span>
+            <h2>Built for every type of business</h2>
+            <p>From local shops to global agencies — Livesov helps you track and improve your AI visibility.</p>
+          </div>
+
+          <div className="tl-features-grid">
+            {useCases.map(u => (
+              <div key={u.title} className="tl-feature-card">
+                <div className="tl-feature-icon">{u.icon}</div>
+                <h3>{u.title}</h3>
+                <p>{u.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══════ PRICING ═══════ */}
       <section className="tl-section tl-animate" id="pricing">
         <div className="tl-section-inner">
@@ -365,6 +420,35 @@ export default function LivesovHomePage() {
                 </Link>
               </div>
             ))}
+          </div>
+
+          {/* Comparison Table */}
+          <div className="tl-comparison">
+            <h3 className="tl-comparison-title">How Livesov compares</h3>
+            <p className="tl-comparison-sub">Purpose-built for AI visibility. Not a bolt-on feature.</p>
+            <div className="tl-comparison-wrap">
+              <table className="tl-comparison-table">
+                <thead>
+                  <tr>
+                    {pricingComparison.headers.map((h, i) => (
+                      <th key={h} className={i === 1 ? 'tl-comparison-highlight' : ''}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pricingComparison.rows.map((row, ri) => (
+                    <tr key={ri}>
+                      {row.map((cell, ci) => (
+                        <td key={ci} className={`${ci === 1 ? 'tl-comparison-highlight' : ''} ${cell.includes('✓') ? 'tl-cell-yes' : cell.includes('✗') ? 'tl-cell-no' : ''}`}>
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of 2024. Subject to change.</p>
           </div>
         </div>
       </section>

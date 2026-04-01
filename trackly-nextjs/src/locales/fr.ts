@@ -89,6 +89,7 @@ const fr: Translations = {
         ['Plan 30 requ\u00eates', '9$/mois', '189$/mois', '199$/mois', 'Personnalis\u00e9'],
         ['Plan 250 requ\u00eates', '29$/mois', '189$/mois', '399$/mois', 'Personnalis\u00e9'],
       ],
+      disclaimer: 'Prix des concurrents provenant de sites web publics en mars 2026. Les prix peuvent avoir chang\u00e9.',
     },
   },
   whyAI: {

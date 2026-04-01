@@ -385,6 +385,40 @@
 }
 
 /* ══════════════════════════════════════
+   GOOGLE SIGN-UP BUTTON
+   ══════════════════════════════════════ */
+.tl-hero-google {
+  margin-top: 24px;
+}
+
+.tl-btn-google {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  background: var(--tl-white);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tl-text);
+  text-decoration: none;
+  box-shadow: var(--tl-shadow);
+  transition: all var(--tl-transition);
+  font-family: var(--tl-font);
+}
+
+.tl-btn-google:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tl-shadow-lg);
+  border-color: var(--tl-text-3);
+}
+
+.tl-btn-google svg {
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════
    SOCIAL PROOF BAR
    ══════════════════════════════════════ */
 .tl-proof {
@@ -874,6 +908,100 @@
 .tl-price-features li svg {
   flex-shrink: 0;
   color: var(--tl-success);
+}
+
+/* ══════════════════════════════════════
+   COMPARISON TABLE
+   ══════════════════════════════════════ */
+.tl-comparison {
+  max-width: 900px;
+  margin: 56px auto 0;
+}
+
+.tl-comparison-title {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+  color: var(--tl-text);
+}
+
+.tl-comparison-sub {
+  font-size: 15px;
+  color: var(--tl-text-2);
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.tl-comparison-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius-lg);
+  background: var(--tl-white);
+}
+
+.tl-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: var(--tl-mono);
+  text-align: center;
+}
+
+.tl-comparison-table thead th {
+  padding: 16px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--tl-text-2);
+  background: var(--tl-bg-alt);
+  border-bottom: 1px solid var(--tl-border);
+}
+
+.tl-comparison-table thead th:first-child {
+  text-align: left;
+}
+
+.tl-comparison-table tbody td {
+  padding: 14px;
+  border-bottom: 1px solid var(--tl-border-light);
+  color: var(--tl-text-2);
+}
+
+.tl-comparison-table tbody td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--tl-text);
+  font-family: var(--tl-font);
+}
+
+.tl-comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tl-comparison-highlight {
+  color: var(--tl-primary) !important;
+  font-weight: 700 !important;
+  background: var(--tl-primary-light);
+}
+
+.tl-cell-yes {
+  color: var(--tl-success) !important;
+}
+
+.tl-cell-no {
+  color: var(--tl-danger) !important;
+  opacity: 0.7;
+}
+
+.tl-comparison-disclaimer {
+  font-size: 11px;
+  color: var(--tl-text-3);
+  text-align: center;
+  margin-top: 16px;
+  opacity: 0.6;
 }
 
 /* ══════════════════════════════════════
