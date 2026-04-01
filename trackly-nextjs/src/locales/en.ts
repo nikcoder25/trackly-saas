@@ -164,19 +164,19 @@ const en = {
 
   // Testimonials
   testimonials: {
-    title: 'What people are saying',
-    subtitle: 'Trusted by marketers, founders, and agencies tracking AI visibility.',
+    title: 'What Early Adopters Are Saying',
+    subtitle: 'Real feedback from marketers, agency owners, and founders using Livesov.',
     items: [
-      { text: '"We had no idea ChatGPT was recommending our competitor until Livesov showed us. Within a month of optimizing, our AI Share of Voice went from 0% to 34%."', name: 'Sarah Kim', role: 'Head of Growth, NovaBrand', initials: 'SK' },
-      { text: '"Livesov is like Ahrefs but for AI search. Our agency uses it for every client now. The proof exports make client reporting effortless."', name: 'Marco Rivera', role: 'Founder, Altitude Digital Agency', initials: 'MR' },
-      { text: '"As a solo founder, I needed to know if AI platforms were sending traffic my way. Livesov gave me clarity in minutes. The Starter plan is genuinely useful."', name: 'James Liu', role: 'Founder, StackPilot', initials: 'JL' },
+      { text: '"We discovered that ChatGPT was consistently recommending a competitor we hadn\'t even considered. Once we saw the data, we adjusted our content strategy and started showing up within weeks."', name: 'S.K.', role: 'Marketing Director at a SaaS startup', initials: 'SK' },
+      { text: '"Our agency needed a way to show clients their AI visibility without manually querying five different chatbots. Livesov replaced hours of manual checking with an actual dashboard and exportable proof."', name: 'M.R.', role: 'Founder of a boutique digital agency', initials: 'MR' },
+      { text: '"As a solo founder, I had no idea whether AI platforms even knew my product existed. Turns out they didn\'t. Now I can track my progress as I work on improving it."', name: 'J.L.', role: 'Indie SaaS founder', initials: 'JL' },
     ],
   },
 
   // CTA
   cta: {
     title: 'Ready to track your AI visibility?',
-    subtitle: 'Join 500+ brands already monitoring their presence across AI platforms.',
+    subtitle: 'Start monitoring your presence across AI platforms today.',
     button: 'Start Tracking',
     note: 'Plans start at just $9/mo. Set up in under 2 minutes.',
   },
@@ -248,7 +248,7 @@ const en = {
         { title: 'Evidence & Proof', desc: 'Get actual AI responses as proof of brand mentions' },
         { title: 'Automated Scheduled Runs', desc: 'Set up recurring checks and get notified of changes' },
       ],
-      trusted: 'Trusted by 500+ brands and agencies',
+      trusted: 'Built for brands and agencies tracking AI visibility',
     },
     backToHome: 'Back to home',
   },

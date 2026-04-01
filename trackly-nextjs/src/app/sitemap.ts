@@ -21,10 +21,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/geo-optimization',
     '/vs/semrush',
     '/vs/ahrefs',
+    '/partners',
     '/privacy',
     '/terms',
     '/cookies',
     '/home',
+    '/free-check',
   ];
 
   return pages.map((path) => ({

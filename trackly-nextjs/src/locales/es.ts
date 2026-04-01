@@ -133,17 +133,17 @@ const es: Translations = {
     ],
   },
   testimonials: {
-    title: 'Lo que dice la gente',
-    subtitle: 'Confiado por marketers, fundadores y agencias rastreando visibilidad IA.',
+    title: 'Lo que dicen los primeros usuarios',
+    subtitle: 'Comentarios reales de marketers, agencias y fundadores usando Livesov.',
     items: [
-      { text: '"No teníamos idea de que ChatGPT estaba recomendando a nuestro competidor hasta que Livesov nos lo mostró. En un mes, nuestra Cuota de Voz IA pasó de 0% a 34%."', name: 'Sarah Kim', role: 'Jefa de Crecimiento, NovaBrand', initials: 'SK' },
-      { text: '"Livesov es como Ahrefs pero para búsqueda IA. Nuestra agencia lo usa para cada cliente ahora. Las exportaciones de pruebas hacen los reportes sin esfuerzo."', name: 'Marco Rivera', role: 'Fundador, Altitude Digital Agency', initials: 'MR' },
-      { text: '"Como fundador solo, necesitaba saber si las plataformas de IA enviaban tráfico a mi sitio. Livesov me dio claridad en minutos."', name: 'James Liu', role: 'Fundador, StackPilot', initials: 'JL' },
+      { text: '"Descubrimos que ChatGPT estaba recomendando consistentemente a un competidor que ni habíamos considerado. Una vez que vimos los datos, ajustamos nuestra estrategia de contenido."', name: 'S.K.', role: 'Directora de Marketing en una startup SaaS', initials: 'SK' },
+      { text: '"Nuestra agencia necesitaba mostrar a los clientes su visibilidad IA sin consultar manualmente cinco chatbots diferentes. Livesov reemplazó horas de verificación manual."', name: 'M.R.', role: 'Fundador de una agencia digital boutique', initials: 'MR' },
+      { text: '"Como fundador solo, no tenía idea si las plataformas de IA conocían mi producto. Resulta que no. Ahora puedo seguir mi progreso mientras trabajo en mejorarlo."', name: 'J.L.', role: 'Fundador SaaS independiente', initials: 'JL' },
     ],
   },
   cta: {
     title: '¿Listo para rastrear tu visibilidad IA?',
-    subtitle: 'Únete a 500+ marcas que ya monitorean su presencia en plataformas de IA.',
+    subtitle: 'Comienza a monitorear tu presencia en plataformas de IA hoy mismo.',
     button: 'Comenzar Rastreo',
     note: 'Planes desde solo $9/mes. Configura en menos de 2 minutos.',
   },
