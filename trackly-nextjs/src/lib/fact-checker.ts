@@ -323,3 +323,147 @@ export async function runFactCheck(
     categoryStats,
   };
 }
+
+// ── Auto-Discover Facts ─────────────────────────────────────────
+
+export interface SuggestedFact {
+  key: string;
+  value: string;
+  category: string;
+  source: 'website' | 'ai_responses';
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface AutoDiscoverResult {
+  facts: SuggestedFact[];
+  error?: string;
+}
+
+async function fetchWebsiteText(url: string): Promise<string> {
+  try {
+    let fullUrl = url;
+    if (!fullUrl.startsWith('http')) fullUrl = 'https://' + fullUrl;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    const resp = await fetch(fullUrl, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Livesov/1.0)' },
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return '';
+    const html = await resp.text();
+    // Strip HTML tags, scripts, styles to get text content
+    return html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 8000);
+  } catch {
+    return '';
+  }
+}
+
+function buildDiscoverPrompt(brandName: string, websiteText: string, aiResponses: string[]): string {
+  let context = '';
+
+  if (websiteText) {
+    context += `\nBRAND WEBSITE CONTENT:\n"""\n${websiteText.slice(0, 4000)}\n"""\n`;
+  }
+
+  if (aiResponses.length > 0) {
+    context += `\nAI PLATFORM RESPONSES ABOUT THIS BRAND:\n`;
+    for (const [i, resp] of aiResponses.slice(0, 5).entries()) {
+      context += `\n--- Response ${i + 1} ---\n${resp.slice(0, 1500)}\n`;
+    }
+  }
+
+  return `You are a fact extraction assistant. Extract all verifiable, specific facts about the brand "${brandName}" from the content below.
+
+${context}
+
+Extract facts that can be objectively verified — things like:
+- Company name, founding year, headquarters, CEO/founder
+- Products, services, pricing, plans
+- Key features, capabilities, technology
+- Contact info (phone, email, address)
+- Industry, target market, company size
+- Awards, certifications, partnerships
+- Any specific numbers, dates, or claims
+
+For each fact, provide:
+- "key": a snake_case identifier (e.g. "founding_year", "headquarters", "starting_price")
+- "value": the specific factual value (e.g. "2009", "Austin, TX", "$29/mo")
+- "category": one of "general", "pricing", "features", "company"
+- "source": "${websiteText ? 'website' : 'ai_responses'}" (use "website" if the fact came from website content, "ai_responses" if from AI responses)
+- "confidence": "high" if the fact is explicitly and clearly stated, "medium" if inferred or partially stated, "low" if uncertain or contradicted between sources
+
+Return ONLY a valid JSON array. Example:
+[{"key":"founding_year","value":"2009","category":"company","source":"website","confidence":"high"},{"key":"starting_price","value":"$9/mo","category":"pricing","source":"website","confidence":"high"}]
+
+Important:
+- Only include facts that are specific and verifiable (not vague marketing claims)
+- Prefer facts from the website over AI responses when both are available
+- Set confidence to "low" if different sources disagree
+- Return 10-25 facts maximum, prioritizing the most important ones
+- Return ONLY the JSON array, no markdown, no extra text.`;
+}
+
+/**
+ * Auto-discover canonical facts about a brand using AI
+ */
+export async function autoDiscoverFacts(
+  brandName: string,
+  websiteUrl: string,
+  existingResponses?: string[]
+): Promise<AutoDiscoverResult> {
+  const checker = getAvailableChecker();
+  if (!checker) {
+    return { facts: [], error: 'No AI API keys configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or CLAUDE_API_KEY to your environment.' };
+  }
+
+  // Fetch website text if URL provided
+  let websiteText = '';
+  if (websiteUrl) {
+    websiteText = await fetchWebsiteText(websiteUrl);
+  }
+
+  const aiResponses = existingResponses || [];
+
+  if (!websiteText && aiResponses.length === 0) {
+    return { facts: [], error: 'No data sources available. Add a website URL to your brand or run some queries first.' };
+  }
+
+  try {
+    const prompt = buildDiscoverPrompt(brandName, websiteText, aiResponses);
+    const raw = await callChecker(checker, prompt);
+    const parsed = parseCheckerResponse(raw) as unknown as SuggestedFact[];
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return { facts: [], error: 'AI could not extract facts from the available data. Try adding more content to your website or running more queries.' };
+    }
+
+    // Validate and normalize
+    const validFacts: SuggestedFact[] = [];
+    for (const f of parsed) {
+      if (!f.key || !f.value) continue;
+      validFacts.push({
+        key: String(f.key).toLowerCase().replace(/\s+/g, '_').slice(0, 50),
+        value: String(f.value).slice(0, 500),
+        category: ['general', 'pricing', 'features', 'company'].includes(f.category) ? f.category : 'general',
+        source: f.source === 'ai_responses' ? 'ai_responses' : 'website',
+        confidence: ['high', 'medium', 'low'].includes(f.confidence) ? f.confidence : 'medium',
+      });
+    }
+
+    // Sort: high confidence first
+    const confOrder = { high: 0, medium: 1, low: 2 };
+    validFacts.sort((a, b) => confOrder[a.confidence] - confOrder[b.confidence]);
+
+    return { facts: validFacts };
+  } catch (e) {
+    console.error('[AutoDiscover]', (e as Error).message);
+    return { facts: [], error: 'Failed to auto-discover facts. Please try again.' };
+  }
+}

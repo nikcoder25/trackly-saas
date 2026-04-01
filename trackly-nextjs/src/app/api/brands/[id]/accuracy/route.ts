@@ -1,7 +1,7 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
-import { runFactCheck } from '@/lib/fact-checker';
+import { runFactCheck, autoDiscoverFacts } from '@/lib/fact-checker';
 
 interface FactRow {
   id: string;
@@ -111,6 +111,45 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
+  const body = await request.json();
+
+  // ── Auto-Discover Facts ──────────────────────────────────────
+  if (body.action === 'auto-discover') {
+    try {
+      // Get brand info (name, website)
+      const brandResult = await pool.query('SELECT name, website FROM brands WHERE id = $1', [id]);
+      if (brandResult.rows.length === 0) {
+        return Response.json({ error: 'Brand not found' }, { status: 404 });
+      }
+      const brand = brandResult.rows[0] as { name: string; website: string | null };
+
+      // Get recent AI responses about this brand
+      let aiResponses: string[] = [];
+      try {
+        const runsResult = await pool.query(
+          `SELECT response_raw FROM prompt_runs
+           WHERE brand_id = $1 AND success = TRUE AND response_raw IS NOT NULL AND response_raw != ''
+           ORDER BY created_at DESC LIMIT 10`,
+          [id]
+        );
+        aiResponses = runsResult.rows.map((r: { response_raw: string }) => r.response_raw);
+      } catch {
+        // table may not exist
+      }
+
+      const result = await autoDiscoverFacts(brand.name, brand.website || '', aiResponses);
+
+      return Response.json({
+        suggestedFacts: result.facts,
+        ...(result.error ? { error: result.error } : {}),
+      });
+    } catch (e) {
+      console.error('[AutoDiscover]', (e as Error).message);
+      return Response.json({ error: 'Failed to auto-discover facts' }, { status: 500 });
+    }
+  }
+
+  // ── Check Accuracy ───────────────────────────────────────────
   try {
     // Get canonical facts
     const factsResult = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);

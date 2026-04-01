@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
+interface SuggestedFact { key: string; value: string; category: string; source: 'website' | 'ai_responses'; confidence: 'high' | 'medium' | 'low'; }
 interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
@@ -200,6 +201,8 @@ export default function AccuracyPage() {
   const [checkedRuns, setCheckedRuns] = useState(0);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
+  const [suggestedFacts, setSuggestedFacts] = useState<SuggestedFact[]>([]);
+  const [discovering, setDiscovering] = useState(false);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -278,6 +281,64 @@ export default function AccuracyPage() {
       console.error('[Accuracy Check]', err);
       setCheckMessage('Failed to run accuracy check. Please try again.');
     }).finally(() => setChecking(false));
+  }
+
+  function autoDiscover() {
+    if (!brand || discovering) return;
+    setDiscovering(true);
+    fetch(`/api/brands/${brand.id}/accuracy`, {
+      method: 'PUT', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'auto-discover' }),
+    }).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }).then(d => {
+      if (d.error && (!d.suggestedFacts || d.suggestedFacts.length === 0)) {
+        setCheckMessage(d.error);
+      } else {
+        const suggestions = (d.suggestedFacts || []) as SuggestedFact[];
+        // Filter out facts that already exist
+        const existingKeys = new Set(facts.map(f => f.key));
+        const newSuggestions = suggestions.filter(s => !existingKeys.has(s.key));
+        setSuggestedFacts(newSuggestions);
+        if (newSuggestions.length === 0 && suggestions.length > 0) {
+          setCheckMessage('All discovered facts already exist in your canonical facts.');
+        }
+      }
+    }).catch(() => {
+      setCheckMessage('Failed to auto-discover facts. Please try again.');
+    }).finally(() => setDiscovering(false));
+  }
+
+  function acceptFact(sf: SuggestedFact) {
+    if (!brand) return;
+    const updated = [...facts, { key: sf.key, value: sf.value, category: sf.category }];
+    fetch(`/api/brands/${brand.id}/accuracy`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ facts: updated }),
+    }).then(() => {
+      setFacts(updated);
+      setSuggestedFacts(prev => prev.filter(f => f.key !== sf.key));
+    });
+  }
+
+  function acceptAllFacts() {
+    if (!brand || suggestedFacts.length === 0) return;
+    const updated = [...facts, ...suggestedFacts.map(sf => ({ key: sf.key, value: sf.value, category: sf.category }))];
+    fetch(`/api/brands/${brand.id}/accuracy`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ facts: updated }),
+    }).then(() => {
+      setFacts(updated);
+      setSuggestedFacts([]);
+    });
+  }
+
+  function dismissFact(key: string) {
+    setSuggestedFacts(prev => prev.filter(f => f.key !== key));
   }
 
   // Derived data
@@ -577,7 +638,138 @@ export default function AccuracyPage() {
           </div>
         )}
 
+        {/* Facts Tab */}
+        {activeTab === 'facts' && (
+          <div style={{ padding: '16px 20px' }}>
+            {/* Fact Coverage Indicator */}
+            <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg3)', borderRadius: 8 }}>
+              <FactCoverage facts={facts} />
+            </div>
+
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 10 }}>
+              Define what&apos;s true about your brand. We&apos;ll check if AI gets it right.
+            </div>
+
+            {/* AI Suggested Facts Panel */}
+            {(suggestedFacts.length > 0 || discovering) && (
+              <div style={{
+                marginBottom: 16, padding: 14, borderRadius: 8,
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
+                border: '1px solid rgba(124,58,237,0.15)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
+                      background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))',
+                      color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
+                    }}>
+                      AI-Suggested
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {suggestedFacts.length} fact{suggestedFacts.length !== 1 ? 's' : ''} discovered
+                    </span>
+                  </div>
+                  {suggestedFacts.length > 1 && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={acceptAllFacts} className="pbtn" style={{ fontWeight: 700, fontSize: 10, padding: '4px 10px', background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
+                        Add All
+                      </button>
+                      <button onClick={() => setSuggestedFacts([])} className="pbtn" style={{ fontWeight: 700, fontSize: 10, padding: '4px 10px' }}>
+                        Dismiss All
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {discovering ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20, color: '#7c3aed', fontSize: 12 }}>
+                    <span style={{ width: 14, height: 14, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                    AI is analyzing your brand...
+                  </div>
+                ) : (
+                  <div>
+                    {suggestedFacts.map((sf) => (
+                      <div key={sf.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid rgba(124,58,237,0.08)' }}>
+                        {/* Confidence dot */}
+                        <span style={{
+                          width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                          background: sf.confidence === 'high' ? 'var(--green)' : sf.confidence === 'medium' ? 'var(--amber)' : 'var(--red)',
+                        }} title={`${sf.confidence} confidence`} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 110 }}>{sf.key}</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{sf.value}</span>
+                        <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 6px', background: 'var(--bg3)', borderRadius: 4, textTransform: 'capitalize' }}>{sf.category}</span>
+                        <span style={{
+                          fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                          color: sf.source === 'website' ? '#3b82f6' : '#7c3aed',
+                          background: sf.source === 'website' ? 'rgba(59,130,246,0.08)' : 'rgba(124,58,237,0.08)',
+                        }}>
+                          {sf.source === 'website' ? 'Website' : 'AI Responses'}
+                        </span>
+                        <button onClick={() => acceptFact(sf)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '2px 4px' }} title="Add fact">+</button>
+                        <button onClick={() => dismissFact(sf.key)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }} title="Dismiss">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {facts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>
+                No facts defined yet. Add your brand&apos;s canonical facts below or use <strong>Auto-Discover</strong> to let AI find them for you.
+              </div>
+            ) : (
+              <div style={{ marginBottom: 14 }}>
+                {facts.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
+                    <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
+                    <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Fact Form */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto auto', gap: 8, marginTop: 12, alignItems: 'end' }}>
+              <div>
+                <label className="flbl">Fact Key</label>
+                <input className="finp" placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)} style={{ margin: 0 }} />
+              </div>
+              <div>
+                <label className="flbl">Fact Value</label>
+                <input className="finp" placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)} style={{ margin: 0 }} />
+              </div>
+              <div>
+                <label className="flbl">Category</label>
+                <select className="finp" value={factCategory} onChange={e => setFactCategory(e.target.value)} style={{ margin: 0 }}>
+                  <option value="general">General</option>
+                  <option value="pricing">Pricing</option>
+                  <option value="features">Features</option>
+                  <option value="company">Company</option>
+                </select>
+              </div>
+              <button className="pbtn" onClick={addFact} style={{ fontWeight: 700 }}>Add</button>
+              <button className="pbtn" onClick={autoDiscover} disabled={discovering}
+                style={{
+                  fontWeight: 700, whiteSpace: 'nowrap',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08))',
+                  color: '#7c3aed', borderColor: 'rgba(124,58,237,0.25)',
+                  opacity: discovering ? 0.6 : 1,
+                }}>
+                {discovering ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 10, height: 10, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                    Discovering...
+                  </span>
+                ) : 'Auto-Discover'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
-                                   }
+}
