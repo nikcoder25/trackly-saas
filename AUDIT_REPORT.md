@@ -441,6 +441,37 @@
 | **MEDIUM** | 25 | Race conditions, UX gaps, compliance, performance |
 | **LOW** | 20+ | SEO, accessibility, dead code, conversion, non-functional UI |
 
-**Total issues found: 75+**
+---
+
+## SECTION 9: ADDITIONAL FINDINGS FROM FINAL AUDIT PASS
+
+### FINAL-1: User Settings Endpoint Allows Arbitrary JSONB Injection (HIGH)
+- **File:** `routes/admin.js:387-410` (Express backend)
+- The `PUT /settings` endpoint merges the entire `settings` object into the user's JSONB column via `settings || $1::jsonb`
+- An attacker could inject arbitrary keys to overwrite `totp_secret`, `totp_enabled`, or `dodo_subscription_id` to **disable 2FA or fake a subscription**
+- **Fix:** Whitelist allowed settings keys before merging
+
+### FINAL-2: First-User Admin Claim Without ADMIN_SECRET (HIGH)
+- **File:** `routes/admin.js:343-369` (Express backend)
+- `/admin/make-first-admin` only requires `ADMIN_SECRET` if configured. If unset, **any authenticated user can promote themselves to admin**
+- **Fix:** Always require `ADMIN_SECRET`; fail closed if not set
+
+### FINAL-3: Express Backend Missing Password Complexity (MEDIUM)
+- **File:** `routes/auth.js:135-136`
+- Express registration only requires `password.length >= 8`
+- Next.js version enforces uppercase, lowercase, number, special char
+- Same database, different password policies = inconsistency
+
+### FINAL-4: Admin Panel Secret Passed via URL Query Parameter (MEDIUM)
+- **File:** `server.js:278-313`
+- Admin secret appears in URL as `?key=<secret>`, visible in server logs, browser history, proxy logs
+- **Fix:** Accept admin secret via POST body or header only
+
+### FINAL-5: Express CSRF Protection Not Mirrored in Next.js (HIGH)
+- Express backend has explicit origin-header CSRF protection (`server.js:131-152`)
+- Next.js app has **no equivalent CSRF middleware** at all
+- State-changing POST/PUT/DELETE requests are unprotected
+
+**Total issues found: 80+**
 
 *This audit covers 100+ files across the entire Next.js frontend, API routes, authentication system, payment processing, dashboard, admin panel, team management, and Express backend infrastructure.*
