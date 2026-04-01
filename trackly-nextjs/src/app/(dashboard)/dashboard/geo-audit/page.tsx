@@ -129,7 +129,7 @@ export default function DashboardGeoAuditPage() {
         url: url.trim(),
         score: data.overallScore,
         date: new Date().toISOString(),
-        result: data,
+        result: { ...data, categories: cats },
       };
       saveAudit(saved);
       setHistory(loadAudits());
@@ -287,7 +287,7 @@ export default function DashboardGeoAuditPage() {
           >
             {result.categories.map((cat) => (
               <div
-                key={cat.name}
+                key={cat.name || cat.label}
                 style={{
                   background: 'var(--card-bg, #fff)',
                   border: '1px solid var(--border)',
@@ -296,7 +296,7 @@ export default function DashboardGeoAuditPage() {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{cat.name}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{cat.name || cat.label}</span>
                   <span style={{ fontSize: 16, fontWeight: 800, color: scoreColor(cat.score) }}>{cat.score}</span>
                 </div>
                 <div style={{ width: '100%', height: 5, background: 'var(--border)', borderRadius: 3, marginBottom: 12 }}>
@@ -417,9 +417,9 @@ export default function DashboardGeoAuditPage() {
                       <strong style={{ color: 'var(--text)' }}>Title:</strong> {audit.result.meta.title} &middot; {audit.result.meta.wordCount} words
                     </div>
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                      {audit.result.categories.map((cat) => (
+                      {(Array.isArray(audit.result.categories) ? audit.result.categories : Object.values(audit.result.categories as any)).map((cat: any) => (
                         <span
-                          key={cat.name}
+                          key={cat.name || cat.label}
                           style={{
                             fontSize: 12,
                             padding: '4px 10px',
@@ -429,7 +429,7 @@ export default function DashboardGeoAuditPage() {
                             fontWeight: 600,
                           }}
                         >
-                          {cat.name}: {cat.score}
+                          {cat.name || cat.label}: {cat.score}
                         </span>
                       ))}
                     </div>
