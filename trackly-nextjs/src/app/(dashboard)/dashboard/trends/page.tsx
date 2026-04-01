@@ -1,24 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface SovPoint { date: string; overall: number; platforms?: Record<string, number>; }
 interface Run { date?: string; time?: string; sov?: number; platforms?: Record<string, { sov?: number }> }
 interface Brand { id: string; name: string; sovHistory?: SovPoint[]; runs?: Run[]; }
 
 export default function TrendsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+  const { brand: rawBrand, loading } = useBrandData();
+  const brand = rawBrand as Brand | null;
 
   // Build history from sovHistory or runs
   const history: SovPoint[] = useMemo(() => {

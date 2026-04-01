@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; date?: string; }
 interface Run { id?: string; date?: string; time?: string; sov?: number; allResults?: Result[]; results?: Result[]; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Run[]; }
 
 export default function PromptDetailsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand: rawBrand, loading } = useBrandData();
+  const brand = rawBrand as Brand | null;
   const [selectedQuery, setSelectedQuery] = useState('');
   const [platFilter, setPlatFilter] = useState('');
   const [periodDays, setPeriodDays] = useState(30);
@@ -18,13 +18,6 @@ export default function PromptDetailsPage() {
   const [funnelVal, setFunnelVal] = useState('');
   const [tagsVal, setTagsVal] = useState('');
   const [expandedRun, setExpandedRun] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   const queries = brand?.queries || [];
   const allRuns = brand?.runs || [];

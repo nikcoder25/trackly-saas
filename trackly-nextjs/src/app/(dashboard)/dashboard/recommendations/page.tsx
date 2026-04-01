@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Recommendation {
   id: string;
@@ -16,20 +17,11 @@ interface Recommendation {
 interface Brand { id: string; name: string; }
 
 export default function RecommendationsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const { brand: selectedBrand, brands, loading } = useBrandData();
   const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('');
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setSelectedBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   const loadRecs = async () => {
     if (!selectedBrand) return;

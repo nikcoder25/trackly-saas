@@ -3,8 +3,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { useBrandData } from '@/hooks/useBrandData';
 // Language removed from dashboard
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
@@ -28,11 +29,10 @@ interface Brand {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { live, elapsed, pct } = useRun();
+  const { brand: contextBrand, brands, loading, reload: fetchBrands } = useBrandData();
   // Language removed
-  const [brands, setBrands] = useState<Brand[]>([]);
   const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
   const toastIdRef = useRef(0);
-  const [loading, setLoading] = useState(true);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
   const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
@@ -59,15 +59,6 @@ export default function DashboardPage() {
   // Hydration-safe: initialize to 0, set real value in useEffect
   const [now, setNow] = useState(0);
   const [nextRunText, setNextRunText] = useState('');
-
-  const fetchBrands = useCallback(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { setBrands(d.brands || []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { fetchBrands(); }, [fetchBrands]);
 
   // Toast notifications — spawn a card for each new result
   const lastResultCountRef = useRef(0);
@@ -97,7 +88,7 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const brand = brands[0];
+  const brand = (contextBrand as Brand) || brands[0];
   const allRuns = brand?.runs || [];
   const lastRun = allRuns.length ? allRuns[allRuns.length - 1] : null;
   const prevRun = allRuns.length >= 2 ? allRuns[allRuns.length - 2] : null;

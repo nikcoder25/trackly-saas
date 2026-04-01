@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { useBrandData } from '@/hooks/useBrandData';
+import { useBrands } from '@/contexts/BrandContext';
 
 interface PlatformData {
   sov?: number;
@@ -44,30 +46,9 @@ function healthStatus(pd: unknown): { label: string; color: string; dot: string 
 }
 
 export default function PlatformsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(async (d) => {
-        const b = d.brands || [];
-        setBrands(b);
-        if (b.length) {
-          // Fetch full brand data (unstripped) for accurate platform stats
-          try {
-            const fullRes = await fetch(`/api/brands/${b[0].id}`, { credentials: 'include' });
-            const fullData = await fullRes.json();
-            setSelectedBrand(fullData.brand || b[0]);
-          } catch {
-            setSelectedBrand(b[0]);
-          }
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const { brand: rawBrand, brands, loading } = useBrandData({ fullData: true });
+  const selectedBrand = rawBrand as Brand | null;
+  const { selectBrandById } = useBrands();
 
   const latestRun = selectedBrand?.runs?.length ? selectedBrand.runs[selectedBrand.runs.length - 1] : null;
   const platformData = latestRun?.platforms || {};
@@ -108,13 +89,7 @@ export default function PlatformsPage() {
       {brands.length > 1 && (
         <div className="flex gap-2 mb-4 overflow-x-auto">
           {brands.map(b => (
-            <button key={b.id} onClick={async () => {
-              try {
-                const res = await fetch(`/api/brands/${b.id}`, { credentials: 'include' });
-                const data = await res.json();
-                setSelectedBrand(data.brand || b);
-              } catch { setSelectedBrand(b); }
-            }}
+            <button key={b.id} onClick={() => selectBrandById(b.id)}
               className={`shrink-0 px-3 py-1.5 rounded-lg text-sm ${selectedBrand?.id === b.id ? 'bg-[var(--primary)] text-white' : 'bg-[var(--bg2)] text-[var(--muted)] border border-[var(--border)]'}`}>{b.name}</button>
           ))}
         </div>

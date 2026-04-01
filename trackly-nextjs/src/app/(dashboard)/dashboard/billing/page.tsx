@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import Link from 'next/link';
+import { useBrands } from '@/contexts/BrandContext';
 
 interface BillingData { plan: string; memberSince: string; runsToday?: number; brandCount?: number; queryCount?: number; platformCount?: number; }
 
@@ -24,7 +25,7 @@ const PLAN_FEATURES = [
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const [billing, setBilling] = useState<BillingData | null>(null);
+  const { brands, selectedBrand, loading: brandsLoading } = useBrands();
   const [loading, setLoading] = useState(true);
 
   const currentPlan = user?.plan || 'free';
@@ -35,24 +36,21 @@ export default function BillingPage() {
     ? ['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'] as const
     : ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
+  const [billing, setBilling] = useState<BillingData | null>(null);
+
   useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        const brands = d.brands || [];
-        const b = brands[0];
-        setBilling({
-          plan: currentPlan,
-          memberSince: user?.createdAt || '',
-          brandCount: brands.length,
-          queryCount: b?.queries?.length || 0,
-          platformCount: (b?.selected_platforms || []).length || 5,
-          runsToday: 0,
-        });
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [currentPlan, user]);
+    if (brandsLoading) return;
+    const b = selectedBrand || brands[0];
+    setBilling({
+      plan: currentPlan,
+      memberSince: user?.createdAt || '',
+      brandCount: brands.length,
+      queryCount: (b as Record<string, unknown>)?.queries ? ((b as Record<string, unknown>).queries as string[]).length : 0,
+      platformCount: ((b as Record<string, unknown>)?.selected_platforms as string[] || []).length || 5,
+      runsToday: 0,
+    });
+    setLoading(false);
+  }, [brandsLoading, brands, selectedBrand, currentPlan, user]);
 
   const meters = [
     { label: 'Brands', used: billing?.brandCount || 0, max: limits.brands || 1, color: 'var(--blue)' },

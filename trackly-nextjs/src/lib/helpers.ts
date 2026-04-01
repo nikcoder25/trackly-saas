@@ -10,20 +10,26 @@ export function uid(): string {
 }
 
 // ── API Key Encryption ───────────────────────────────
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
-if (!ENCRYPTION_KEY) throw new Error('ENCRYPTION_KEY or JWT_SECRET environment variable is required');
 const ALGO = 'aes-256-gcm';
-const ENCRYPTION_SALT =
-  process.env.ENCRYPTION_SALT ||
-  crypto.createHash('sha256').update(ENCRYPTION_KEY).digest('hex').slice(0, 32);
+
+function getEncryptionKey(): string {
+  const key = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
+  if (!key) throw new Error('ENCRYPTION_KEY or JWT_SECRET environment variable is required');
+  return key;
+}
+
+function getEncryptionSalt(): string {
+  return process.env.ENCRYPTION_SALT ||
+    crypto.createHash('sha256').update(getEncryptionKey()).digest('hex').slice(0, 32);
+}
 
 function deriveKey(secret: string): Buffer {
-  return crypto.scryptSync(secret, ENCRYPTION_SALT, 32);
+  return crypto.scryptSync(secret, getEncryptionSalt(), 32);
 }
 
 export function encryptValue(text: string): string | null {
   if (!text) return null;
-  const key = deriveKey(ENCRYPTION_KEY);
+  const key = deriveKey(getEncryptionKey());
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGO, key, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -37,7 +43,7 @@ export function decryptValue(encrypted: string): string | null {
   try {
     const parts = encrypted.split(':');
     if (parts.length !== 3) return null;
-    const key = deriveKey(ENCRYPTION_KEY);
+    const key = deriveKey(getEncryptionKey());
     const iv = Buffer.from(parts[0], 'hex');
     const tag = Buffer.from(parts[1], 'hex');
     const decipher = crypto.createDecipheriv(ALGO, key, iv);

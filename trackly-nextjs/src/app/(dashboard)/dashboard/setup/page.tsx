@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
+import { useBrands } from '@/contexts/BrandContext';
 
 interface Brand {
   id: string;
@@ -37,22 +38,24 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 export default function SetupPage() {
   const { user } = useAuth();
   const planLimit = (user?.limits as Record<string, number>)?.prompts || 250;
+  const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  const loadBrands = useCallback(async () => {
-    try {
-      const data = await api('GET', '/api/brands');
-      const all = data.brands || [];
-      setBrands(all);
-      if (all.length) setSelectedBrand(prev => prev || all[0]);
-    } catch (e) { console.error(e); }
+  // Sync from BrandContext
+  useEffect(() => {
+    if (ctxLoading) return;
+    setBrands(ctxBrands as Brand[]);
+    if (ctxSelectedBrand && !selectedBrand) setSelectedBrand(ctxSelectedBrand as Brand);
+    else if (ctxBrands.length && !selectedBrand) setSelectedBrand(ctxBrands[0] as Brand);
     setLoading(false);
-  }, []);
+  }, [ctxLoading, ctxBrands, ctxSelectedBrand]);
 
-  useEffect(() => { loadBrands(); }, [loadBrands]);
+  const loadBrands = useCallback(async () => {
+    await refreshBrands();
+  }, [refreshBrands]);
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
 

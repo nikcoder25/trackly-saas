@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface KTKeyword { keyword: string; mentionRate: number; change: number | null; totalRuns: number; platformCount: number; avgPosition: number | null; lastUpdated: string; sparkline?: number[]; platforms?: Record<string, number>; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ date?: string; time?: string; sov?: number; platforms?: Record<string, unknown>; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }>; }
@@ -9,22 +10,14 @@ interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ d
 type SortField = 'keyword' | 'mentionRate' | 'change' | 'totalRuns' | 'platformCount' | 'avgPosition' | 'lastUpdated';
 
 export default function QueryTrackerPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
+  const { brand: rawBrand, loading } = useBrandData();
+  const brand = rawBrand as Brand | null;
   const [keywords, setKeywords] = useState<KTKeyword[]>([]);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('day');
   const [filterText, setFilterText] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expanded, setExpanded] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   useEffect(() => {
     if (!brand) return;

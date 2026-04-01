@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface AlertRule { id: string; name: string; condition: string; threshold: number; action: string; cooldown: number; enabled: boolean; }
 interface Notification { id: string; title: string; message: string; timestamp: string; read: boolean; }
-interface Brand { id: string; name: string; }
 
 export default function AlertsPage() {
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand, loading } = useBrandData();
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -21,13 +20,6 @@ export default function AlertsPage() {
   const [alertThreshold, setAlertThreshold] = useState(10);
   const [alertAction, setAlertAction] = useState('in_app');
   const [alertCooldown, setAlertCooldown] = useState(24);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   useEffect(() => {
     if (!brand) return;

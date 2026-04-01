@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { useBrandData } from '@/hooks/useBrandData';
+import { useBrands } from '@/contexts/BrandContext';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
@@ -188,9 +190,9 @@ function FactCoverage({ facts }: { facts: Fact[] }) {
 
 // ── Main Page ───────────────────────────────────────────────────
 export default function AccuracyPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand: rawBrand, brands, loading } = useBrandData();
+  const brand = rawBrand as Brand | null;
+  const { selectBrandById } = useBrands();
   const [facts, setFacts] = useState<Fact[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [accuracyRate, setAccuracyRate] = useState<number | null>(null);
@@ -208,13 +210,6 @@ export default function AccuracyPage() {
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
   const [suggestedFacts, setSuggestedFacts] = useState<SuggestedFact[]>([]);
   const [discovering, setDiscovering] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   useEffect(() => {
     if (!brand) return;
@@ -394,7 +389,7 @@ export default function AccuracyPage() {
             <select
               className="finp"
               value={brand?.id || ''}
-              onChange={e => setBrand(brands.find(b => b.id === e.target.value) || null)}
+              onChange={e => selectBrandById(e.target.value)}
               style={{ margin: 0, fontSize: 11 }}
             >
               {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}

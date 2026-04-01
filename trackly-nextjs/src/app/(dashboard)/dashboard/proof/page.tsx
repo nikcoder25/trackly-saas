@@ -4,41 +4,20 @@ import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; error?: string; errorMessage?: string; competitorMentions?: string[]; citations?: string[]; }
 interface Run { id?: string; date?: string; time?: string; created_at?: string; sov?: number; durationMs?: number; queries?: string[]; allResults?: Result[]; results?: Result[]; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Run[]; }
 
 export default function ProofPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand: rawBrand, loading } = useBrandData({ fullData: true });
+  const brand = rawBrand as Brand | null;
   const [selectedRunId, setSelectedRunId] = useState('');
   const [platFilter, setPlatFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
   const [viewMode, setViewMode] = useState<'grouped'|'flat'>('grouped');
   const [expandedQueries, setExpandedQueries] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(async (d) => {
-        const b = d.brands || [];
-        setBrands(b);
-        if (b.length) {
-          // Fetch full brand data (unstripped) for complete AI response text
-          try {
-            const fullRes = await fetch(`/api/brands/${b[0].id}`, { credentials: 'include' });
-            const fullData = await fullRes.json();
-            setBrand(fullData.brand || b[0]);
-          } catch {
-            setBrand(b[0]);
-          }
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
 
   const runs = useMemo(() => (brand?.runs || []).slice().reverse(), [brand]);
   useEffect(() => { if (runs.length && !selectedRunId) setSelectedRunId(runs[0].id || ''); }, [runs, selectedRunId]);

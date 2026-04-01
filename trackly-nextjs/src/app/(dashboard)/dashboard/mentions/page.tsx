@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Mention { query: string; platform: string; mentioned: boolean; recommended?: boolean; sentiment?: string; position?: number; model?: string; date?: string; snippet?: string; response?: string; error?: string; raw?: string; context?: string; listPosition?: number; errorMessage?: string; }
 interface Run { id?: string; date?: string; created_at?: string; time?: string; sov?: number; allResults?: Mention[]; results?: Mention[]; }
@@ -11,9 +12,8 @@ interface Brand { id: string; name: string; mentions?: Mention[]; runs?: Run[]; 
 type FilterMode = 'all' | 'mentioned' | 'not_mentioned' | 'recommended' | 'errors';
 
 export default function MentionsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand: rawBrand, loading } = useBrandData({ fullData: true });
+  const selectedBrand = rawBrand as Brand | null;
   const [selectedRunId, setSelectedRunId] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
@@ -21,27 +21,6 @@ export default function MentionsPage() {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [page, setPage] = useState(0);
   const [perPage, setPerPage] = useState(15);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(async (d) => {
-        const b = d.brands || [];
-        setBrands(b);
-        if (b.length) {
-          // Fetch full brand data (unstripped) for complete AI response text
-          try {
-            const fullRes = await fetch(`/api/brands/${b[0].id}`, { credentials: 'include' });
-            const fullData = await fullRes.json();
-            setSelectedBrand(fullData.brand || b[0]);
-          } catch {
-            setSelectedBrand(b[0]);
-          }
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
 
   const runs = useMemo(() => (selectedBrand?.runs || []).slice().reverse(), [selectedBrand]);
   useEffect(() => { if (runs.length && !selectedRunId) setSelectedRunId(runs[0].id || '0'); }, [runs, selectedRunId]);

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Brand {
   id: string;
@@ -12,16 +13,8 @@ interface Brand {
 }
 
 export default function QueryPerformancePage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+  const { brand: rawBrand, loading } = useBrandData();
+  const brand = rawBrand as Brand | null;
 
   const queries = brand?.queries || [];
   const qs = brand?.queryStats || {};

@@ -1,26 +1,19 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRun } from '@/contexts/RunContext';
 import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Brand { id: string; name: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
 
 export default function CompetitorsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand: rawBrand, loading, reload } = useBrandData();
+  const brand = rawBrand as Brand | null;
   const [newComp, setNewComp] = useState('');
   const { startRun, live } = useRun();
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   const competitors = brand?.competitors || [];
   const lastRun = brand?.runs?.length ? brand.runs[brand.runs.length - 1] : null;
@@ -38,12 +31,6 @@ export default function CompetitorsPage() {
     const updated = competitors.filter((_, i) => i !== idx);
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
       .then(() => reload());
-  }
-
-  function reload() {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b.find((x: Brand) => x.id === brand?.id) || b[0]); });
   }
 
   // Competitor comparison data

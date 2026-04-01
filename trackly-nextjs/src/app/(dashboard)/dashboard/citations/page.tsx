@@ -1,22 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useBrandData } from '@/hooks/useBrandData';
 
 interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
 interface CitationData { domains: Record<string, number>; totalCitations: number; ownDomain?: number; ownDomainName?: string; }
 
 export default function CitationsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { brand: rawBrand, loading } = useBrandData();
+  const brand = rawBrand as Brand | null;
   const [citData, setCitData] = useState<CitationData | null>(null);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => { const b = d.brands || []; setBrands(b); if (b.length) setBrand(b[0]); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   useEffect(() => {
     if (!brand) return;
