@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -62,6 +62,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     await pool.query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${idx}`, values);
     const result = await pool.query('SELECT id, email, username, name, plan, role, email_verified, created_at FROM users WHERE id = $1', [id]);
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
+
+    // Audit log admin action
+    const changes: Record<string, unknown> = {};
+    for (const field of allowedFields) { if (body[field] !== undefined) changes[field] = body[field]; }
+    auditLog(admin.id, 'admin_update_user', 'user', id, { changes, targetEmail: result.rows[0].email }, ip);
+
     return Response.json({ user: result.rows[0] });
   } catch (e) {
     console.error('[Admin Update]', (e as Error).message);
@@ -90,8 +96,17 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   try {
+    // Get user info before deletion for audit log
+    const userInfo = await pool.query('SELECT email, name, plan FROM users WHERE id = $1', [id]);
     const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
+
+    auditLog(admin.id, 'admin_delete_user', 'user', id, {
+      deletedEmail: userInfo.rows[0]?.email,
+      deletedName: userInfo.rows[0]?.name,
+      deletedPlan: userInfo.rows[0]?.plan,
+    }, ip);
+
     return Response.json({ success: true });
   } catch (e) {
     console.error('[Admin Delete]', (e as Error).message);

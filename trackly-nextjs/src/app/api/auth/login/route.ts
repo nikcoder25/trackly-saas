@@ -39,8 +39,39 @@ export async function POST(request: NextRequest) {
       : await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(username) = LOWER($1)`, [email]);
 
     const user = result.rows[0];
+
+    // Check account lockout (5 failed attempts = 15 min lock)
+    if (user) {
+      const lockoutThreshold = 5;
+      const lockoutMs = 15 * 60 * 1000;
+      const failedAttempts = (user.settings as Record<string, unknown>)?.failed_login_attempts as number || 0;
+      const lastFailedAt = (user.settings as Record<string, unknown>)?.last_failed_login as string;
+      if (failedAttempts >= lockoutThreshold && lastFailedAt) {
+        const lockedUntil = new Date(lastFailedAt).getTime() + lockoutMs;
+        if (Date.now() < lockedUntil) {
+          const retryAfter = Math.ceil((lockedUntil - Date.now()) / 1000);
+          auditLog(user.id, 'login_locked', 'user', user.id, { failedAttempts, ip }, ip);
+          return Response.json({
+            error: `Account temporarily locked due to too many failed attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.`,
+            retryAfter,
+          }, { status: 429 });
+        }
+      }
+    }
+
     const ok = await bcrypt.compare(password, user ? user.password_hash : DUMMY_HASH);
-    if (!user || !ok) return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+    if (!user || !ok) {
+      // Track failed login attempt
+      if (user) {
+        const currentFails = (user.settings as Record<string, unknown>)?.failed_login_attempts as number || 0;
+        await pool.query(
+          `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
+          [JSON.stringify({ failed_login_attempts: currentFails + 1, last_failed_login: new Date().toISOString() }), user.id]
+        );
+        auditLog(user.id, 'login_failed', 'user', user.id, { attempt: currentFails + 1, ip }, ip);
+      }
+      return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+    }
 
     // Check 2FA
     const totpSecret = user.settings?.totp_secret;
@@ -90,7 +121,12 @@ export async function POST(request: NextRequest) {
 
     const accessToken = signAccessToken({ id: user.id, email: user.email });
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id]);
+
+    // Reset failed login attempts on successful login
+    await pool.query(
+      `UPDATE users SET refresh_token = $1, settings = settings || '{"failed_login_attempts":0,"last_failed_login":null}'::jsonb WHERE id = $2`,
+      [refreshToken, user.id]
+    );
 
     auditLog(user.id, 'login', 'user', user.id, {}, ip);
 
