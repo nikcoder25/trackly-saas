@@ -16,11 +16,12 @@ const PLAN_FEATURES = [
   { feature: 'Price / month', free: '$0', starter: '$9', pro: '$29', agency: '$89', enterprise: '$499', owner: '—' },
   { feature: 'Total Prompts', free: '5', starter: '30', pro: '250', agency: '1000', enterprise: '∞', owner: '∞' },
   { feature: 'Brands', free: '1', starter: '1', pro: '5', agency: '20', enterprise: '100', owner: '∞' },
-  { feature: 'Competitors', free: '0', starter: '0', pro: '5', agency: '20', enterprise: '100', owner: '∞' },
+  { feature: 'Competitors', free: '0', starter: '2', pro: '5', agency: '20', enterprise: '100', owner: '∞' },
   { feature: 'Platforms', free: '2', starter: '2', pro: '5', agency: '5', enterprise: '5', owner: '5' },
   { feature: 'Sentiment', free: '—', starter: '—', pro: '✓', agency: '✓', enterprise: '✓', owner: '✓' },
   { feature: 'API Access', free: '—', starter: '—', pro: '—', agency: '—', enterprise: '✓', owner: '✓' },
   { feature: 'Priority Support', free: '—', starter: '—', pro: '—', agency: '—', enterprise: '✓', owner: '✓' },
+  { feature: 'GEO Audits/month', free: '3', starter: '25', pro: '100', agency: '500', enterprise: '5,000', owner: '∞' },
 ];
 
 export default function BillingPage() {

@@ -53,11 +53,11 @@ const steps = [
 ];
 
 const pricingPlans = [
-  { name: 'Free', price: '$0', sub: 'Try it out', features: ['5 prompts/month', '1 brand', '2 AI platforms', 'Manual runs', 'Basic dashboard'], cta: 'Start Free' },
-  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Every 3 days tracking', 'SOV tracking & export', 'Competitor tracking (2)', 'Sentiment analysis'], cta: 'Get Started' },
-  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Email alerts'], cta: 'Start Pro' },
-  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'], cta: 'Start Agency' },
-  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Priority support'], cta: 'Contact Sales' },
+  { name: 'Free', price: '$0', sub: 'Try it out', features: ['5 prompts/month', '1 brand', '2 AI platforms', 'Manual runs', 'Basic dashboard', '3 GEO audits/month'], cta: 'Start Free' },
+  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Every 3 days tracking', 'SOV tracking & export', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'], cta: 'Get Started' },
+  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Email alerts', '100 GEO audits/month'], cta: 'Start Pro' },
+  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'], cta: 'Start Agency' },
+  { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Priority support', '5,000 GEO audits/month'], cta: 'Contact Sales' },
 ];
 
 const pricingComparison = {
@@ -69,6 +69,7 @@ const pricingComparison = {
     ['Competitor tracking', '✓ Up to 10+', '✗', '✗', '~ Manual'],
     ['Proof & evidence export', '✓ CSV + API', '✗', '✗', '~ Screenshots'],
     ['AI response monitoring', '✓ Daily', '✗', '✗', '~ Occasional'],
+    ['GEO URL Audits', '✓ Up to 5,000/mo', '✗', '✗', '✗'],
     ['Price', 'From $9/mo', '$99/mo', '$119/mo', 'Free (your time)'],
   ],
 };
