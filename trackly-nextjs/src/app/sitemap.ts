@@ -27,6 +27,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/cookies',
     '/home',
     '/free-check',
+    '/geo-audit',
   ];
 
   return pages.map((path) => ({
