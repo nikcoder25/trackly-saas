@@ -399,43 +399,35 @@ export default function BlogPage() {
               if (!article) return null;
               return (
                 <article>
-                  <button
-                    onClick={() => setExpandedArticle(null)}
-                    className="text-sm text-[#FF6154] font-bold mb-6 hover:underline"
-                  >
-                    &larr; Back to all articles
-                  </button>
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-[#FF6154]/10 text-[#FF6154]">
-                      {article.tag}
-                    </span>
-                    <span className="text-sm text-gray-400">{article.date}</span>
-                    <span className="text-sm text-gray-400">{article.readTime}</span>
+                  {/* Header */}
+                  <div className="blog-post-header">
+                    <div className="blog-post-header-inner">
+                      <button onClick={() => setExpandedArticle(null)} className="blog-back">
+                        &larr; Back to all articles
+                      </button>
+                      <div className="blog-post-meta">
+                        <span className="blog-post-tag">{article.tag}</span>
+                        <span className="blog-post-date">{article.date}</span>
+                        <span className="blog-post-read">{article.readTime}</span>
+                      </div>
+                      <h1 className="blog-post-title">{article.title}</h1>
+                      <p className="blog-post-desc">{article.description}</p>
+                    </div>
                   </div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
-                    {article.title}
-                  </h1>
-                  <p className="text-lg text-gray-600 leading-relaxed mb-8">
-                    {article.description}
-                  </p>
 
-                  <div className="[&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-10 [&_h2]:mb-4 [&_p]:text-gray-700 [&_p]:leading-relaxed [&_p]:mb-4 [&_strong]:text-gray-900">
+                  {/* Article body */}
+                  <div className="blog-post-body">
                     <ArticleContent id={article.id} />
                   </div>
 
                   {/* CTA */}
-                  <div className="mt-12 p-8 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 text-center">
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">Ready to track your AI visibility?</h3>
-                    <p className="text-sm text-gray-600 mb-5">
-                      Livesov monitors your brand across ChatGPT, Perplexity, Claude, Gemini, and Grok — automatically.
-                    </p>
-                    <Link
-                      href="/signup"
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#FF6154] text-white font-semibold text-sm hover:bg-[#e5554a] transition-colors no-underline"
-                    >
+                  <div className="blog-post-cta" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+                    <h3>Ready to track your AI visibility?</h3>
+                    <p>Livesov monitors your brand across ChatGPT, Perplexity, Claude, Gemini, and Grok — automatically.</p>
+                    <Link href="/signup" className="blog-cta-btn">
                       Start Tracking Free &rarr;
                     </Link>
-                    <p className="text-xs text-gray-400 mt-3">No credit card required</p>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 12 }}>No credit card required</p>
                   </div>
                 </article>
               );
