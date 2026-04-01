@@ -514,7 +514,7 @@ export default function AccuracyPage() {
             {issues.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
                 {facts.length === 0 ? (
-                  <>Switch to the <strong>Canonical Facts</strong> tab and add your brand facts first, then click <strong>&quot;Check Now&quot;</strong>.</>
+                  <>Add your brand&apos;s canonical facts above, then click <strong>&quot;Check Now&quot;</strong> to verify AI accuracy.</>
                 ) : accuracyRate !== null ? (
                   <>All facts verified accurately across AI platforms. No issues found.</>
                 ) : (
