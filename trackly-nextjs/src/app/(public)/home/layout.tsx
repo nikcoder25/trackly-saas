@@ -37,6 +37,83 @@ export const metadata: Metadata = {
   },
 };
 
+/* JSON-LD structured data for rich search results */
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      name: 'Livesov',
+      url: 'https://livesov.com',
+      description: 'AI Visibility Tracker — Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
+      contactPoint: {
+        '@type': 'ContactPoint',
+        email: 'hello@livesov.com',
+        contactType: 'customer support',
+      },
+      sameAs: [
+        'https://x.com/livesov',
+        'https://linkedin.com/company/livesov',
+      ],
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Livesov',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      offers: [
+        { '@type': 'Offer', name: 'Starter', price: '9', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+        { '@type': 'Offer', name: 'Pro', price: '29', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+        { '@type': 'Offer', name: 'Agency', price: '89', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+        { '@type': 'Offer', name: 'Enterprise', price: '499', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is AI visibility tracking?',
+          acceptedAnswer: { '@type': 'Answer', text: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
+        },
+        {
+          '@type': 'Question',
+          name: 'Which AI platforms does Livesov support?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
+        },
+        {
+          '@type': 'Question',
+          name: 'What is Share of Voice in AI?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
+        },
+        {
+          '@type': 'Question',
+          name: 'How is this different from traditional SEO tools?',
+          acceptedAnswer: { '@type': 'Answer', text: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
+        },
+        {
+          '@type': 'Question',
+          name: 'Can I use Livesov for client reporting?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
+        },
+        {
+          '@type': 'Question',
+          name: 'How much does Livesov cost?',
+          acceptedAnswer: { '@type': 'Answer', text: 'Plans start at $9/mo (Starter). Pro is $29/mo and Agency is $89/mo — the best value in AI visibility tracking.' },
+        },
+      ],
+    },
+  ],
+};
+
 export default function HomeLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      {children}
+    </>
+  );
 }

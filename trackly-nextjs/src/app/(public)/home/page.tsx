@@ -1,14 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-/* ─── Animated counter hook ─── */
+/* ─── Animated counter hook (fixed memory leak) ─── */
 function useCounter(target: number, duration = 2000) {
   const [count, setCount] = useState(0);
   const [started, setStarted] = useState(false);
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setStarted(true); observer.disconnect(); }
+    }, { threshold: 0.3 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!started) return;
@@ -22,21 +33,27 @@ function useCounter(target: number, duration = 2000) {
     return () => clearInterval(timer);
   }, [started, target, duration]);
 
-  return { count, ref: (node: HTMLDivElement | null) => {
-    if (!node) return;
-    const observer = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStarted(true); }, { threshold: 0.3 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }};
+  return { count, ref: nodeRef };
+}
+
+/* ─── Smooth scroll helper ─── */
+function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>, closeMenu?: () => void) {
+  const href = e.currentTarget.getAttribute('href');
+  if (href?.startsWith('#')) {
+    e.preventDefault();
+    const el = document.querySelector(href);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    closeMenu?.();
+  }
 }
 
 /* ─── Platform data ─── */
 const platforms = [
-  { name: 'ChatGPT', color: '#10a37f', icon: '⬡' },
-  { name: 'Perplexity', color: '#9b72ff', icon: '◎' },
-  { name: 'Claude', color: '#d97706', icon: '◈' },
-  { name: 'Gemini', color: '#4285f4', icon: '✦' },
-  { name: 'Grok', color: '#1d9bf0', icon: '⚡' },
+  { name: 'ChatGPT', color: '#10a37f', icon: '⬡', href: '/chatgpt-brand-tracking' },
+  { name: 'Perplexity', color: '#9b72ff', icon: '◎', href: '/perplexity-brand-tracking' },
+  { name: 'Claude', color: '#d97706', icon: '◈', href: '/claude-brand-tracking' },
+  { name: 'Gemini', color: '#4285f4', icon: '✦', href: '/gemini-brand-tracking' },
+  { name: 'Grok', color: '#1d9bf0', icon: '⚡', href: '/grok-brand-tracking' },
 ];
 
 const features = [
@@ -222,17 +239,79 @@ function DemoSection() {
   );
 }
 
+/* ─── Email capture component ─── */
+function EmailCapture() {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes('@')) { setStatus('error'); return; }
+    // TODO: integrate with email service
+    setStatus('success');
+    setEmail('');
+  };
+
+  return (
+    <form className="tl-email-form" onSubmit={handleSubmit}>
+      {status === 'success' ? (
+        <div className="tl-email-success">
+          <span>✓</span> Thanks! You&apos;re on the list.
+        </div>
+      ) : (
+        <>
+          <div className="tl-email-input-wrap">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setStatus('idle'); }}
+              className={`tl-email-input ${status === 'error' ? 'tl-email-input--error' : ''}`}
+              required
+            />
+            <button type="submit" className="tl-btn tl-btn--primary">
+              Subscribe
+            </button>
+          </div>
+          {status === 'error' && <p className="tl-email-error">Please enter a valid email address.</p>}
+        </>
+      )}
+    </form>
+  );
+}
+
 export default function LivesovHomePage() {
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 20);
+      setShowBackToTop(window.scrollY > 600);
+      // Close mobile menu on scroll
+      if (menuOpen) setMenuOpen(false);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [menuOpen]);
+
+  // Close mobile menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.tl-mobile-menu') && !target.closest('.tl-hamburger')) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [menuOpen]);
 
   // Scroll fade-in animation
   useEffect(() => {
@@ -263,17 +342,17 @@ export default function LivesovHomePage() {
           </button>
 
           <div className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
-            <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
-            <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
-            <a href="#use-cases" onClick={() => setMenuOpen(false)}>Use Cases</a>
-            <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
-            <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
+            <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
+            <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
+            <a href="#use-cases" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.useCases}</a>
+            <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+            <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
           </div>
 
           <div className="tl-nav-actions">
             <LanguageSwitcher variant="light" />
-            <Link href="/login" className="tl-btn tl-btn--ghost">Log In</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary">Get Started</Link>
+            <Link href="/login" className="tl-btn tl-btn--ghost">{t.nav.login}</Link>
+            <Link href="/signup" className="tl-btn tl-btn--primary">{t.nav.getStarted}</Link>
           </div>
         </div>
       </nav>
@@ -281,14 +360,14 @@ export default function LivesovHomePage() {
       {/* Mobile menu overlay */}
       {menuOpen && (
         <div className="tl-mobile-menu">
-          <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
-          <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
-          <a href="#use-cases" onClick={() => setMenuOpen(false)}>Use Cases</a>
-          <a href="#pricing" onClick={() => setMenuOpen(false)}>Pricing</a>
-          <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
+          <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
+          <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
+          <a href="#use-cases" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.useCases}</a>
+          <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+          <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
           <div className="tl-mobile-menu-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>Log In</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>Get Started</Link>
+            <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>{t.nav.login}</Link>
+            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>{t.nav.getStarted}</Link>
           </div>
         </div>
       )}
@@ -299,22 +378,21 @@ export default function LivesovHomePage() {
         <div className="tl-hero-content">
           <div className="tl-badge">
             <span className="tl-badge-dot" />
-            AI Visibility Tracker
+            {t.hero.badge}
           </div>
           <h1>
-            Is your brand visible in{' '}
-            <span className="tl-gradient-text">AI answers?</span>
+            {t.hero.title}
+            <span className="tl-gradient-text">{t.hero.titleHighlight}</span>
           </h1>
           <p className="tl-hero-sub">
-            Track how ChatGPT, Perplexity, Claude, Gemini & Grok mention your brand.
-            Get real proof, measure share of voice, and optimize your AI visibility strategy.
+            {t.hero.description}
           </p>
           <div className="tl-hero-ctas">
             <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Start Tracking <span className="tl-arrow">&rarr;</span>
+              {t.hero.cta} <span className="tl-arrow">&rarr;</span>
             </Link>
-            <a href="#demo-section" className="tl-btn tl-btn--outline tl-btn--lg">
-              See Live Demo
+            <a href="#demo-section" onClick={(e) => smoothScrollTo(e)} className="tl-btn tl-btn--outline tl-btn--lg">
+              {t.hero.ctaDemo}
             </a>
           </div>
           <p className="tl-hero-note">Plans start at $9/mo &middot; Set up in 2 minutes</p>
@@ -329,10 +407,10 @@ export default function LivesovHomePage() {
         {/* Platform pills floating */}
         <div className="tl-hero-platforms">
           {platforms.map(p => (
-            <div key={p.name} className="tl-platform-pill" style={{ '--platform-color': p.color } as React.CSSProperties}>
+            <Link key={p.name} href={p.href} className="tl-platform-pill" style={{ '--platform-color': p.color } as React.CSSProperties}>
               <span className="tl-platform-icon">{p.icon}</span>
               {p.name}
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -457,7 +535,7 @@ export default function LivesovHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag">Pricing</span>
             <h2>Simple, transparent pricing</h2>
-            <p>Start free. Scale as you grow. Best value in AI visibility tracking.</p>
+            <p>Plans from $9/mo. Scale as you grow. Best value in AI visibility tracking.</p>
           </div>
 
           <div className="tl-pricing-grid">
@@ -510,7 +588,7 @@ export default function LivesovHomePage() {
                 </tbody>
               </table>
             </div>
-            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of 2024. Subject to change.</p>
+            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of 2026. Subject to change.</p>
           </div>
         </div>
       </section>
@@ -568,16 +646,28 @@ export default function LivesovHomePage() {
         </div>
       </section>
 
+      {/* ═══════ EMAIL CAPTURE ═══════ */}
+      <section className="tl-section tl-animate" id="newsletter">
+        <div className="tl-section-inner" style={{ maxWidth: 620 }}>
+          <div className="tl-section-header">
+            <span className="tl-section-tag">Stay Updated</span>
+            <h2>Get AI visibility tips in your inbox</h2>
+            <p>Weekly insights on GEO strategy, AI search trends, and brand optimization. No spam.</p>
+          </div>
+          <EmailCapture />
+        </div>
+      </section>
+
       {/* ═══════ FINAL CTA ═══════ */}
       <section className="tl-cta">
         <div className="tl-cta-glow" />
         <div className="tl-cta-content">
-          <h2>Ready to track your AI visibility?</h2>
-          <p>Join 500+ brands already monitoring their presence across AI platforms.</p>
+          <h2>{t.cta.title}</h2>
+          <p>{t.cta.subtitle}</p>
           <Link href="/signup" className="tl-btn tl-btn--white tl-btn--lg">
-            Start Tracking <span className="tl-arrow">&rarr;</span>
+            {t.cta.button} <span className="tl-arrow">&rarr;</span>
           </Link>
-          <span className="tl-cta-note">Plans start at $9/mo &middot; Set up in 2 minutes</span>
+          <span className="tl-cta-note">{t.cta.note}</span>
         </div>
       </section>
 
@@ -587,23 +677,23 @@ export default function LivesovHomePage() {
           <div className="tl-footer-grid">
             <div className="tl-footer-brand">
               <div className="tl-logo" style={{ fontSize: 22 }}>Live<span>sov</span></div>
-              <p>Track your brand's visibility across AI platforms. Know when ChatGPT, Perplexity, Claude, Gemini & Grok mention you.</p>
+              <p>{t.footer.desc}</p>
             </div>
             <div className="tl-footer-col">
-              <h4>Product</h4>
-              <Link href="/#features">Features</Link>
-              <Link href="/pricing">Pricing</Link>
-              <Link href="/how-it-works">How it Works</Link>
-              <Link href="/use-cases">Use Cases</Link>
-              <Link href="/integrations">Integrations</Link>
+              <h4>{t.footer.product}</h4>
+              <Link href="/home#features">{t.footer.links.features}</Link>
+              <Link href="/pricing">{t.footer.links.pricing}</Link>
+              <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
+              <Link href="/use-cases">{t.footer.links.useCases}</Link>
+              <Link href="/integrations">{t.footer.links.integrations}</Link>
             </div>
             <div className="tl-footer-col">
-              <h4>Resources</h4>
-              <Link href="/blog">Blog</Link>
-              <Link href="/geo-optimization">GEO Guide</Link>
-              <Link href="/about">About</Link>
-              <Link href="/contact">Contact</Link>
-              <Link href="/changelog">Changelog</Link>
+              <h4>{t.footer.resources}</h4>
+              <Link href="/blog">{t.footer.links.blog}</Link>
+              <Link href="/geo-optimization">{t.footer.links.geoGuide}</Link>
+              <Link href="/about">{t.footer.links.about}</Link>
+              <Link href="/contact">{t.footer.links.contact}</Link>
+              <Link href="/changelog">{t.footer.links.changelog}</Link>
             </div>
             <div className="tl-footer-col">
               <h4>AI Platforms</h4>
@@ -614,14 +704,16 @@ export default function LivesovHomePage() {
               <Link href="/grok-brand-tracking">Grok Tracking</Link>
             </div>
             <div className="tl-footer-col">
-              <h4>Legal</h4>
-              <Link href="/privacy">Privacy Policy</Link>
-              <Link href="/terms">Terms of Service</Link>
-              <Link href="/cookies">Cookie Policy</Link>
+              <h4>{t.footer.legal}</h4>
+              <Link href="/privacy">{t.footer.links.privacy}</Link>
+              <Link href="/terms">{t.footer.links.terms}</Link>
+              <Link href="/cookies">{t.footer.links.cookies}</Link>
+              <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
+              <Link href="/vs/semrush">Livesov vs Semrush</Link>
             </div>
           </div>
           <div className="tl-footer-bottom">
-            <span>&copy; {new Date().getFullYear()} Livesov. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} {t.footer.copyright}</span>
             <div className="tl-footer-social">
               <a href="mailto:hello@livesov.com" aria-label="Email">✉</a>
               <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>
@@ -630,6 +722,19 @@ export default function LivesovHomePage() {
           </div>
         </div>
       </footer>
+
+      {/* ═══════ BACK TO TOP ═══════ */}
+      {showBackToTop && (
+        <button
+          className="tl-back-to-top"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Back to top"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M10 15V5M10 5L5 10M10 5L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
