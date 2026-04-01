@@ -119,7 +119,11 @@ export default function DashboardGeoAuditPage() {
       }
 
       setProgress(100);
-      setResult(data);
+      // Transform categories from object to array if needed
+      const cats = data.categories && !Array.isArray(data.categories)
+        ? Object.values(data.categories).map((c: any) => ({ name: c.label || c.name, score: c.score, findings: c.findings }))
+        : data.categories;
+      setResult({ ...data, categories: cats });
 
       const saved: SavedAudit = {
         url: url.trim(),
