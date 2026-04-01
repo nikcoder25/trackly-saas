@@ -211,7 +211,7 @@ const fr: Translations = {
         { title: 'Évidence et Preuves', desc: 'Obtenez des réponses IA réelles comme preuve' },
         { title: 'Exécutions Planifiées', desc: "Configurez des vérifications récurrentes et soyez notifié" },
       ],
-      trusted: 'Approuvé par 500+ marques et agences',
+      trusted: 'Concu pour les marques et agences suivant la visibilite IA',
     },
     backToHome: "Retour à l'accueil",
   },

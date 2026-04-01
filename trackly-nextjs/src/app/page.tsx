@@ -52,12 +52,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Social Proof */}
+      {/* Platform Stats */}
       <section className="land-social-proof">
         <div className="land-social-proof-stats">
-          <div className="land-social-proof-stat"><div className="val">500+</div><div className="lbl">{t.socialProof.brandsTracked}</div></div>
-          <div className="land-social-proof-stat"><div className="val">7</div><div className="lbl">{t.socialProof.aiPlatforms}</div></div>
-          <div className="land-social-proof-stat"><div className="val">50K+</div><div className="lbl">{t.socialProof.queriesRun}</div></div>
+          <div className="land-social-proof-stat"><div className="val">5</div><div className="lbl">{t.socialProof.aiPlatforms}</div></div>
           <div className="land-social-proof-stat"><div className="val">Real-time</div><div className="lbl">{t.socialProof.liveResults}</div></div>
         </div>
       </section>

@@ -211,7 +211,7 @@ const es: Translations = {
         { title: 'Evidencia y Pruebas', desc: 'Obtén respuestas reales de IA como prueba de menciones' },
         { title: 'Ejecuciones Programadas', desc: 'Configura verificaciones recurrentes y recibe notificaciones' },
       ],
-      trusted: 'Confiado por 500+ marcas y agencias',
+      trusted: 'Creado para marcas y agencias que rastrean visibilidad IA',
     },
     backToHome: 'Volver al inicio',
   },
