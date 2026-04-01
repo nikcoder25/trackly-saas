@@ -450,7 +450,7 @@ export async function POST(req: NextRequest) {
     return Response.json({
       url: trimmedUrl,
       overallScore,
-      categories,
+      categories: Object.values(categories).map(c => ({ name: c.label, score: c.score, findings: c.findings })),
       recommendations,
       meta: {
         title: meta.title,
