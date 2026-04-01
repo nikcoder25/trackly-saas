@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg-left" x1="0%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="bg-right" x1="50%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="divider-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#6366f1" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="20"/>
+    </filter>
+    <filter id="soft-glow">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0f172a"/>
+
+  <!-- Left side ambient -->
+  <circle cx="300" cy="280" r="200" fill="#06b6d4" opacity="0.05" filter="url(#glow)"/>
+  <!-- Right side ambient -->
+  <circle cx="900" cy="280" r="200" fill="#6366f1" opacity="0.05" filter="url(#glow)"/>
+
+  <!-- Center divider line -->
+  <line x1="600" y1="60" x2="600" y2="510" stroke="url(#divider-grad)" stroke-width="2"/>
+
+  <!-- LEFT SIDE: Traditional Search - Magnifying Glass -->
+  <g transform="translate(300, 260)">
+    <!-- Magnifying glass glow -->
+    <circle cx="0" cy="-20" r="80" fill="#06b6d4" opacity="0.06" filter="url(#glow)"/>
+
+    <!-- Magnifying glass circle -->
+    <circle cx="-10" cy="-30" r="65" fill="none" stroke="#06b6d4" stroke-width="3" stroke-opacity="0.7"/>
+    <circle cx="-10" cy="-30" r="55" fill="none" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.3"/>
+
+    <!-- Glass shine -->
+    <path d="M-35,-60 Q-20,-75 0,-65" fill="none" stroke="#06b6d4" stroke-width="2" stroke-opacity="0.4" stroke-linecap="round"/>
+
+    <!-- Handle -->
+    <line x1="35" y1="15" x2="70" y2="50" stroke="#06b6d4" stroke-width="6" stroke-linecap="round" stroke-opacity="0.7"/>
+
+    <!-- Search result lines inside glass -->
+    <line x1="-35" y1="-45" x2="10" y2="-45" stroke="#06b6d4" stroke-width="2" stroke-opacity="0.3" stroke-linecap="round"/>
+    <line x1="-35" y1="-30" x2="15" y2="-30" stroke="#06b6d4" stroke-width="2" stroke-opacity="0.25" stroke-linecap="round"/>
+    <line x1="-35" y1="-15" x2="5" y2="-15" stroke="#06b6d4" stroke-width="2" stroke-opacity="0.2" stroke-linecap="round"/>
+
+    <!-- Decorative dots -->
+    <circle cx="-90" cy="-80" r="2" fill="#06b6d4" opacity="0.3"/>
+    <circle cx="80" cy="-70" r="1.5" fill="#06b6d4" opacity="0.2"/>
+    <circle cx="-80" cy="50" r="1.5" fill="#06b6d4" opacity="0.25"/>
+  </g>
+
+  <!-- Label: SEO -->
+  <text x="300" y="400" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#06b6d4" opacity="0.8" letter-spacing="3">SEO</text>
+  <text x="300" y="425" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#64748b" letter-spacing="1">Traditional Search</text>
+
+  <!-- CENTER: VS badge -->
+  <circle cx="600" cy="270" r="32" fill="#0f172a" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5"/>
+  <circle cx="600" cy="270" r="28" fill="#1e1b4b" opacity="0.8"/>
+  <text x="600" y="278" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#a5b4fc" letter-spacing="1">VS</text>
+
+  <!-- RIGHT SIDE: AI Brain/Chip -->
+  <g transform="translate(900, 250)">
+    <!-- Brain glow -->
+    <circle cx="0" cy="-10" r="80" fill="#6366f1" opacity="0.06" filter="url(#glow)"/>
+
+    <!-- Chip outline -->
+    <rect x="-45" y="-55" width="90" height="90" rx="12" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-opacity="0.7"/>
+    <rect x="-32" y="-42" width="64" height="64" rx="6" fill="none" stroke="#6366f1" stroke-width="1" stroke-opacity="0.3"/>
+
+    <!-- Chip pins - top -->
+    <line x1="-25" y1="-55" x2="-25" y2="-70" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="0" y1="-55" x2="0" y2="-70" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="25" y1="-55" x2="25" y2="-70" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <!-- Chip pins - bottom -->
+    <line x1="-25" y1="35" x2="-25" y2="50" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="0" y1="35" x2="0" y2="50" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="25" y1="35" x2="25" y2="50" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <!-- Chip pins - left -->
+    <line x1="-45" y1="-25" x2="-60" y2="-25" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="-45" y1="0" x2="-60" y2="0" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="-45" y1="25" x2="-60" y2="25" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <!-- Chip pins - right -->
+    <line x1="45" y1="-25" x2="60" y2="-25" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="45" y1="0" x2="60" y2="0" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+    <line x1="45" y1="25" x2="60" y2="25" stroke="#6366f1" stroke-width="2" stroke-opacity="0.5" stroke-linecap="round"/>
+
+    <!-- AI text inside chip -->
+    <text x="0" y="2" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" fill="#a5b4fc" opacity="0.8">AI</text>
+
+    <!-- Neural connection dots -->
+    <circle cx="-20" cy="-30" r="3" fill="#6366f1" opacity="0.4"/>
+    <circle cx="20" cy="-30" r="3" fill="#6366f1" opacity="0.4"/>
+    <circle cx="-20" cy="18" r="3" fill="#6366f1" opacity="0.4"/>
+    <circle cx="20" cy="18" r="3" fill="#6366f1" opacity="0.4"/>
+  </g>
+
+  <!-- Label: GEO -->
+  <text x="900" y="390" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="600" fill="#a5b4fc" opacity="0.8" letter-spacing="3">GEO</text>
+  <text x="900" y="415" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="400" fill="#64748b" letter-spacing="1">AI Visibility</text>
+
+  <!-- Title text -->
+  <text x="600" y="540" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="700" fill="white" letter-spacing="0.5">AI Visibility vs Traditional SEO</text>
+  <text x="600" y="568" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#94a3b8" letter-spacing="1">WHAT CHANGED AND WHY IT MATTERS</text>
+</svg>

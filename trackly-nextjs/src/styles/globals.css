@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./legacy.css";
 @import "./trackly-landing.css";
+@import "./blog.css";
 
 /* Tailwind v4 fix: default border color (v4 uses currentColor, v3 used gray-200) */
 @layer base {
