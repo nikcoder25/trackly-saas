@@ -15,12 +15,12 @@ export const TOTP_CONFIG = {
 };
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free: { brands: 1, prompts: 5, queries: 5, competitors: 0, platforms: 2, apiAccess: false, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 999 },
-  starter: { brands: 1, prompts: 30, queries: 30, competitors: 2, platforms: 2, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 72 },
-  pro: { brands: 5, prompts: 250, queries: 250, competitors: 5, platforms: 5, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 24 },
-  agency: { brands: 20, prompts: 1000, queries: 1000, competitors: 20, platforms: 5, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 12 },
-  enterprise: { brands: 100, prompts: 10000, queries: 10000, competitors: 100, platforms: 5, apiAccess: true, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 6 },
-  owner: { brands: 9999, prompts: 99999, queries: 99999, competitors: 9999, platforms: 5, apiAccess: true, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 1 },
+  free: { brands: 1, prompts: 5, queries: 5, competitors: 0, platforms: 2, apiAccess: false, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 999, geoAudits: 3 },
+  starter: { brands: 1, prompts: 30, queries: 30, competitors: 2, platforms: 2, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 72, geoAudits: 25 },
+  pro: { brands: 5, prompts: 250, queries: 250, competitors: 5, platforms: 5, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 24, geoAudits: 100 },
+  agency: { brands: 20, prompts: 1000, queries: 1000, competitors: 20, platforms: 5, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 12, geoAudits: 500 },
+  enterprise: { brands: 100, prompts: 10000, queries: 10000, competitors: 100, platforms: 5, apiAccess: true, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 6, geoAudits: 5000 },
+  owner: { brands: 9999, prompts: 99999, queries: 99999, competitors: 9999, platforms: 5, apiAccess: true, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 1, geoAudits: 99999 },
 };
 
 export interface PlanLimits {
@@ -34,6 +34,7 @@ export interface PlanLimits {
   sentiment: boolean;
   scheduledRuns: boolean;
   minScheduleHours: number;
+  geoAudits: number;
 }
 
 export function getPlanLimits(plan: string): PlanLimits {

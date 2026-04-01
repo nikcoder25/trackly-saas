@@ -5,11 +5,11 @@ import Link from 'next/link';
 import SeoLayout from '@/components/seo/SeoLayout';
 
 const monthlyPlans = [
-  { name: 'Free', price: '$0', annualPrice: '$0', period: '/mo', features: ['1 brand', '5 prompts/month', '2 AI platforms', 'Manual runs', 'Basic dashboard'], cta: 'Start Free', highlighted: false, href: '/signup' },
-  { name: 'Starter', price: '$9', annualPrice: '$7', period: '/mo', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (2)', 'Sentiment analysis'], cta: 'Get Started', highlighted: false, href: '/signup' },
-  { name: 'Pro', price: '$29', annualPrice: '$23', period: '/mo', features: ['5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'Sentiment analysis', 'Competitor tracking (5)', 'Email alerts'], cta: 'Start Pro', highlighted: true, href: '/signup' },
-  { name: 'Agency', price: '$89', annualPrice: '$71', period: '/mo', features: ['20 brands', '1,000 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'], cta: 'Start Agency', highlighted: false, href: '/signup' },
-  { name: 'Enterprise', price: '$499', annualPrice: '$399', period: '/mo', features: ['100+ brands', '10,000+ prompts', '5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Custom integrations', 'White-label reports'], cta: 'Contact Sales', highlighted: false, href: '/contact' },
+  { name: 'Free', price: '$0', annualPrice: '$0', period: '/mo', features: ['1 brand', '5 prompts/month', '2 AI platforms', 'Manual runs', 'Basic dashboard', '3 GEO audits/month'], cta: 'Start Free', highlighted: false, href: '/signup' },
+  { name: 'Starter', price: '$9', annualPrice: '$7', period: '/mo', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'], cta: 'Get Started', highlighted: false, href: '/signup' },
+  { name: 'Pro', price: '$29', annualPrice: '$23', period: '/mo', features: ['5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'Sentiment analysis', 'Competitor tracking (5)', 'Email alerts', '100 GEO audits/month'], cta: 'Start Pro', highlighted: true, href: '/signup' },
+  { name: 'Agency', price: '$89', annualPrice: '$71', period: '/mo', features: ['20 brands', '1,000 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'], cta: 'Start Agency', highlighted: false, href: '/signup' },
+  { name: 'Enterprise', price: '$499', annualPrice: '$399', period: '/mo', features: ['100+ brands', '10,000+ prompts', '5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Custom integrations', 'White-label reports', '5,000 GEO audits/month'], cta: 'Contact Sales', highlighted: false, href: '/contact' },
 ];
 
 const comparisonData = {
@@ -20,6 +20,7 @@ const comparisonData = {
     ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
     ['Share of Voice', '\u2713', 'Limited', 'Limited'],
     ['Sentiment Analysis', '\u2713', '\u2717', '\u2717'],
+    ['GEO URL Audits', '\u2713 (up to 5,000/mo)', '\u2717', '\u2717'],
   ],
 };
 

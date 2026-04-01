@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { verifyRequestAuth } from '@/lib/auth';
+import { getPlanLimits } from '@/lib/constants';
+import { pool } from '@/lib/db';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -354,6 +356,22 @@ export async function POST(req: NextRequest) {
 
     const { allowed, retryAfter } = await rateLimit(rateLimitKey, 60 * 60 * 1000, maxRequests);
     if (!allowed) return rateLimitResponse(retryAfter);
+
+    // Check monthly GEO audit limit based on plan
+    let userPlan = 'free';
+    if (user) {
+      const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
+      userPlan = planResult.rows[0]?.plan || 'free';
+    }
+    const limits = getPlanLimits(userPlan);
+    const monthlyKey = user ? `geo-audit-monthly:${user.id}` : `geo-audit-monthly:ip:${ip}`;
+    const monthlyCheck = await rateLimit(monthlyKey, 30 * 24 * 60 * 60 * 1000, limits.geoAudits);
+    if (!monthlyCheck.allowed) {
+      return Response.json({
+        error: `Monthly GEO audit limit reached (${limits.geoAudits} audits/month on ${userPlan} plan). Upgrade for more audits.`,
+        planLimit: true
+      }, { status: 429 });
+    }
 
     // Parse and validate input
     const body = await req.json();
