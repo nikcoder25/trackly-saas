@@ -239,6 +239,183 @@ function DemoSection() {
   );
 }
 
+/* ─── Dashboard Preview Mockup ─── */
+function DashboardPreview() {
+  const [activeTab, setActiveTab] = useState(0);
+  const tabs = ['Overview', 'Mentions', 'Evidence'];
+
+  // Animated SOV ring
+  const [sovValue, setSovValue] = useState(0);
+  const sovRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const node = sovRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        let val = 0;
+        const timer = setInterval(() => {
+          val += 2;
+          if (val >= 67) { setSovValue(67); clearInterval(timer); }
+          else setSovValue(val);
+        }, 20);
+        observer.disconnect();
+      }
+    }, { threshold: 0.3 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const circumference = 2 * Math.PI * 54;
+  const strokeDashoffset = circumference - (sovValue / 100) * circumference;
+
+  return (
+    <section className="tl-dashboard-preview" ref={sovRef}>
+      <div className="tl-section-inner">
+        <div className="tl-section-header">
+          <span className="tl-section-tag">Product Preview</span>
+          <h2>Your AI visibility command center</h2>
+          <p>See everything at a glance. Real data, real-time tracking, real proof.</p>
+        </div>
+
+        <div className="tl-dash-window">
+          {/* Window chrome */}
+          <div className="tl-dash-chrome">
+            <div className="tl-demo-dots">
+              <span className="tl-dot tl-dot--red" />
+              <span className="tl-dot tl-dot--yellow" />
+              <span className="tl-dot tl-dot--green" />
+            </div>
+            <div className="tl-dash-url">
+              <span className="tl-dash-lock">🔒</span>
+              app.livesov.com/dashboard
+            </div>
+          </div>
+
+          <div className="tl-dash-layout">
+            {/* Sidebar */}
+            <div className="tl-dash-sidebar">
+              <div className="tl-dash-sidebar-logo">Live<span>sov</span></div>
+              <div className="tl-dash-sidebar-btn">▶ RUN QUERIES</div>
+              <div className="tl-dash-sidebar-nav">
+                <div className="tl-dash-sidebar-group">Dashboard</div>
+                {['📊 Overview', '◎ Mentions', '✦ Recommendations'].map((item, i) => (
+                  <div key={item} className={`tl-dash-sidebar-item ${i === 0 ? 'tl-dash-sidebar-item--active' : ''}`}>{item}</div>
+                ))}
+                <div className="tl-dash-sidebar-group">Analysis</div>
+                {['◆ Evidence & Proof', '◻ Query Performance', '◆ SOV Trends', '⊘ Competitors'].map(item => (
+                  <div key={item} className="tl-dash-sidebar-item">{item}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Main content */}
+            <div className="tl-dash-main">
+              {/* Topbar */}
+              <div className="tl-dash-topbar">
+                <div className="tl-dash-tabs">
+                  {tabs.map((tab, i) => (
+                    <button key={tab} className={`tl-dash-tab ${activeTab === i ? 'tl-dash-tab--active' : ''}`} onClick={() => setActiveTab(i)}>{tab}</button>
+                  ))}
+                </div>
+                <div className="tl-dash-topbar-right">
+                  <span className="tl-dash-plan-badge">PRO</span>
+                </div>
+              </div>
+
+              {/* Dashboard body */}
+              <div className="tl-dash-body">
+                {/* SOV Hero */}
+                <div className="tl-dash-sov-hero">
+                  <div className="tl-dash-sov-ring-wrap">
+                    <svg width="128" height="128" viewBox="0 0 128 128">
+                      <circle cx="64" cy="64" r="54" fill="none" stroke="#e2e8f0" strokeWidth="10" />
+                      <circle cx="64" cy="64" r="54" fill="none" stroke="#10b981" strokeWidth="10"
+                        strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round" transform="rotate(-90 64 64)"
+                        style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
+                    </svg>
+                    <div className="tl-dash-sov-value">{sovValue}%</div>
+                  </div>
+                  <div className="tl-dash-sov-info">
+                    <div className="tl-dash-sov-label">Share of Voice</div>
+                    <div className="tl-dash-sov-delta">▲ 12% vs last week</div>
+                  </div>
+                </div>
+
+                {/* Stat cards row */}
+                <div className="tl-dash-stats-row">
+                  <div className="tl-dash-stat-card">
+                    <div className="tl-dash-stat-val">14 <span>/ 21</span></div>
+                    <div className="tl-dash-stat-label">Mentions</div>
+                  </div>
+                  <div className="tl-dash-stat-card">
+                    <div className="tl-dash-stat-val">5 <span>/ 5</span></div>
+                    <div className="tl-dash-stat-label">Platforms Active</div>
+                  </div>
+                  <div className="tl-dash-stat-card">
+                    <div className="tl-dash-stat-val">21</div>
+                    <div className="tl-dash-stat-label">Queries Tracked</div>
+                  </div>
+                  <div className="tl-dash-stat-card">
+                    <div className="tl-dash-stat-val">2h ago</div>
+                    <div className="tl-dash-stat-label">Last Run</div>
+                  </div>
+                </div>
+
+                {/* Score cards */}
+                <div className="tl-dash-scores">
+                  <div className="tl-dash-score-card">
+                    <div className="tl-dash-score-num tl-dash-score--green">78</div>
+                    <div className="tl-dash-score-title">GEO Score</div>
+                    <div className="tl-dash-score-sub">Strong</div>
+                  </div>
+                  <div className="tl-dash-score-card">
+                    <div className="tl-dash-score-num tl-dash-score--green">82</div>
+                    <div className="tl-dash-score-title">AI Sentiment</div>
+                    <div className="tl-dash-score-sub">+9 positive · 3 neutral</div>
+                  </div>
+                  <div className="tl-dash-score-card">
+                    <div className="tl-dash-score-num tl-dash-score--green">64%</div>
+                    <div className="tl-dash-score-title">AI Recommends You</div>
+                    <div className="tl-dash-score-sub">Strong endorsement</div>
+                  </div>
+                </div>
+
+                {/* Platform bars */}
+                <div className="tl-dash-platforms">
+                  {[
+                    { name: 'ChatGPT', sov: 80, color: '#10a37f' },
+                    { name: 'Perplexity', sov: 72, color: '#9b72ff' },
+                    { name: 'Claude', sov: 65, color: '#d97706' },
+                    { name: 'Gemini', sov: 58, color: '#4285f4' },
+                    { name: 'Grok', sov: 40, color: '#1d9bf0' },
+                  ].map(p => (
+                    <div key={p.name} className="tl-dash-platform-row">
+                      <span className="tl-dash-platform-name">{p.name}</span>
+                      <div className="tl-dash-platform-bar">
+                        <div className="tl-dash-platform-fill" style={{ width: `${p.sov}%`, background: p.color }} />
+                      </div>
+                      <span className="tl-dash-platform-pct">{p.sov}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Floating CTA overlay */}
+          <div className="tl-dash-overlay">
+            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
+              Get Your Dashboard <span className="tl-arrow">&rarr;</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Email capture component ─── */
 function EmailCapture() {
   const [email, setEmail] = useState('');
@@ -414,6 +591,9 @@ export default function LivesovHomePage() {
           ))}
         </div>
       </section>
+
+      {/* ═══════ DASHBOARD PREVIEW ═══════ */}
+      <DashboardPreview />
 
       {/* ═══════ SOCIAL PROOF BAR ═══════ */}
       <SocialProofBar />
