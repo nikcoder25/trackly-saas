@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLAN_LIMITS } from '@/lib/constants';
+import Link from 'next/link';
 
 interface BillingData { plan: string; memberSince: string; runsToday?: number; brandCount?: number; queryCount?: number; platformCount?: number; }
 
@@ -91,6 +92,38 @@ export default function BillingPage() {
           );
         })}
       </div>
+
+      {/* Over-limit warning */}
+      {meters.some(m => m.used > m.max && m.max < 10000) && (
+        <div style={{
+          padding: '16px 20px', marginTop: 16, background: 'rgba(239,68,68,.05)',
+          border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius-xs)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--red)', marginBottom: 4 }}>Usage Exceeds Plan Limits</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>
+                {meters.filter(m => m.used > m.max && m.max < 10000).map(m => (
+                  <div key={m.label}>• <strong>{m.label}:</strong> Using {m.used} of {m.max} allowed on your {currentPlan} plan</div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6, marginBottom: 12 }}>
+                Excess brands are <strong>locked</strong> (read-only — no edits or query runs). To restore full access, upgrade your plan or delete unused brands.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { const el = document.getElementById('plan-comparison'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+                  style={{ padding: '8px 16px', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
+                  Upgrade Plan
+                </button>
+                <Link href="/dashboard/setup" style={{ padding: '8px 16px', background: 'var(--bg3)', color: 'var(--text)', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', textDecoration: 'none', display: 'inline-block' }}>
+                  Manage Brands
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Plan Comparison Table */}
       <div className="card" style={{ padding: 16, marginTop: 16 }} id="plan-comparison">

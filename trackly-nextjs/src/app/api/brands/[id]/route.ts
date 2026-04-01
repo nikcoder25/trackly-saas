@@ -39,6 +39,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const plan = planResult.rows[0]?.plan || 'free';
     const limits = getPlanLimits(plan);
 
+    // Check if this brand is beyond the plan limit (soft-locked after downgrade)
+    const countResult = await pool.query(
+      `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at`,
+      [user.id]
+    );
+    const brandIds = countResult.rows.map((r: { id: string }) => r.id);
+    const brandIndex = brandIds.indexOf(id);
+    if (brandIndex >= limits.brands) {
+      return Response.json({
+        error: `This brand is locked because your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade your plan or delete unused brands to edit.`,
+        planLimit: true,
+      }, { status: 403 });
+    }
+
     const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
     const safeBody: Record<string, unknown> = {};
     for (const key of allowedFields) {

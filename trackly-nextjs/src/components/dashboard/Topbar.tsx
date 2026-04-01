@@ -6,7 +6,7 @@ import Link from 'next/link';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import { getPlanLimits } from '@/lib/constants';
 
-interface Brand { id: string; name: string; }
+interface Brand { id: string; name: string; lockedByPlan?: boolean; }
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
@@ -68,7 +68,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <div className="topbar-brand-sel">
           <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
             {brands.length === 0 && <option value="">-- Select brand --</option>}
-            {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            {brands.map(b => <option key={b.id} value={b.id}>{b.lockedByPlan ? '🔒 ' : ''}{b.name}</option>)}
           </select>
         </div>
 

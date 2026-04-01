@@ -82,6 +82,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const plan = planResult.rows[0]?.plan || 'free';
   const limits = getPlanLimits(plan);
 
+  // Check if this brand is beyond the plan limit (soft-locked after downgrade)
+  const countResult = await pool.query(
+    `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at`,
+    [user.id]
+  );
+  const brandIds = countResult.rows.map((r: { id: string }) => r.id);
+  const brandIndex = brandIds.indexOf(id);
+  if (brandIndex >= limits.brands) {
+    return Response.json({
+      error: `This brand is locked because your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade your plan or delete unused brands to run queries.`,
+      planLimit: true,
+    }, { status: 403 });
+  }
+
   const queries: string[] = brand.queries || [];
   if (!queries.length) return Response.json({ error: 'No queries configured. Add queries in Brand Setup.' }, { status: 400 });
 

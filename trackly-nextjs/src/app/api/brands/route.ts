@@ -78,7 +78,20 @@ export async function GET(request: Request) {
       };
     });
 
-    return Response.json({ brands, sharedBrands });
+    // Add plan limit info so the client can show over-limit warnings
+    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
+    const plan = planResult.rows[0]?.plan || 'free';
+    const limits = getPlanLimits(plan);
+    const brandLimit = limits.brands;
+    const overLimit = brands.length > brandLimit;
+
+    // Mark excess brands (oldest brands stay active, newest are locked)
+    const brandsWithStatus = brands.map((b: Record<string, unknown>, i: number) => ({
+      ...b,
+      lockedByPlan: overLimit && i >= brandLimit,
+    }));
+
+    return Response.json({ brands: brandsWithStatus, sharedBrands, plan, brandLimit, overLimit });
   } catch (e) {
     console.error('[Brands GET]', (e as Error).message);
     return Response.json({ error: 'Failed to load brands' }, { status: 500 });
