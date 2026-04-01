@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const user = authResult;
 
   try {
-    const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [user.id]);
+    const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at, id', [user.id]);
     const brands = result.rows.map((row: Record<string, unknown>) => {
       const data = trimBrandData({ ...((row.data as Record<string, unknown>) || {}) });
       return { id: row.id, userId: row.user_id, ...data, createdAt: row.created_at, updatedAt: row.updated_at };

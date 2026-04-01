@@ -46,8 +46,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   if (!user) return null;
 
   return (
-    <RunProvider>
     <BrandProvider>
+    <RunProvider>
     <div id="app" style={{ display: 'grid', height: '100vh', overflow: 'hidden', gridTemplateColumns: '220px 1fr', gridTemplateRows: '52px 1fr', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
       <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
@@ -67,7 +67,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         }
       `}</style>
     </div>
-    </BrandProvider>
     </RunProvider>
+    </BrandProvider>
   );
 }

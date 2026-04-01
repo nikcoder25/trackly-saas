@@ -34,21 +34,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const brand = access.brand;
     const body = await request.json();
 
-    // Plan limit checks
-    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [brand.userId]);
+    // Plan limit checks — always check against the brand OWNER's plan and count
+    const ownerId = brand.userId || user.id;
+    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
     const plan = planResult.rows[0]?.plan || 'free';
     const limits = getPlanLimits(plan);
 
-    // Check if this brand is beyond the plan limit (soft-locked after downgrade)
+    // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
     const countResult = await pool.query(
-      `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at`,
-      [user.id]
+      `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at, id`,
+      [ownerId]
     );
     const brandIds = countResult.rows.map((r: { id: string }) => r.id);
     const brandIndex = brandIds.indexOf(id);
     if (brandIndex >= limits.brands) {
       return Response.json({
-        error: `This brand is locked because your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade your plan or delete unused brands to edit.`,
+        error: `This brand is locked because the ${plan} plan allows up to ${limits.brands} brand(s). Upgrade the plan or delete unused brands to edit.`,
         planLimit: true,
       }, { status: 403 });
     }
@@ -87,7 +88,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const allBrandsResult = await pool.query(
         `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
          FROM brands WHERE user_id = $1 AND id != $2`,
-        [user.id, id]
+        [ownerId, id]
       );
       const otherBrandPrompts = parseInt(allBrandsResult.rows[0].total) || 0;
       const newTotal = otherBrandPrompts + (safeBody.queries as string[]).length;

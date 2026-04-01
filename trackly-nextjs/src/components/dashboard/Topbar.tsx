@@ -158,8 +158,8 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
       <AddBrandModal
         onClose={() => setShowAddBrand(false)}
         onCreated={() => {
-          refreshBrands();
           setShowAddBrand(false);
+          refreshBrands();
         }}
       />
     )}

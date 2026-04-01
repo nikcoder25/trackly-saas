@@ -78,20 +78,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot run queries' }, { status: 403 });
 
   const brand = access.brand;
+  const ownerId = brand.userId || user.id;
   const planResult = await pool.query('SELECT plan, api_keys FROM users WHERE id = $1', [user.id]);
-  const plan = planResult.rows[0]?.plan || 'free';
-  const limits = getPlanLimits(plan);
+  const ownerPlanResult = ownerId !== user.id
+    ? await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId])
+    : planResult;
+  const ownerPlan = ownerPlanResult.rows[0]?.plan || 'free';
+  const limits = getPlanLimits(ownerPlan);
 
-  // Check if this brand is beyond the plan limit (soft-locked after downgrade)
+  // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
   const countResult = await pool.query(
-    `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at`,
-    [user.id]
+    `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at, id`,
+    [ownerId]
   );
   const brandIds = countResult.rows.map((r: { id: string }) => r.id);
   const brandIndex = brandIds.indexOf(id);
   if (brandIndex >= limits.brands) {
     return Response.json({
-      error: `This brand is locked because your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade your plan or delete unused brands to run queries.`,
+      error: `This brand is locked because the ${ownerPlan} plan allows up to ${limits.brands} brand(s). Upgrade the plan or delete unused brands to run queries.`,
       planLimit: true,
     }, { status: 403 });
   }
