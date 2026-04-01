@@ -252,26 +252,32 @@ export default function AccuracyPage() {
       method: 'PUT', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'check' }),
-    }).then(r => r.json()).then(d => {
+    }).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }).then(d => {
       if (d.error) {
         setCheckMessage(d.error);
-      } else if (d.message) {
-        setCheckMessage(d.message);
-      } else {
-        setIssues(d.issues || []);
-        setAccuracyRate(d.accuracyRate ?? null);
-        if (d.platformStats) setPlatformStats(d.platformStats);
-        if (d.categoryStats) setCategoryStats(d.categoryStats);
-        setCheckedRuns(d.checkedRuns || 0);
-        setLastChecked(new Date().toISOString());
-        setActiveTab('issues');
-        setCheckMessage(
-          d.checkedRuns > 0
-            ? `AI analyzed ${d.checkedRuns} response${d.checkedRuns > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''}`
-            : null
-        );
+        return;
       }
-    }).catch(() => setCheckMessage('Failed to run accuracy check. Please try again.')).finally(() => setChecking(false));
+      // Always update data when present
+      setIssues(d.issues || []);
+      setAccuracyRate(d.accuracyRate ?? null);
+      if (d.platformStats) setPlatformStats(d.platformStats);
+      if (d.categoryStats) setCategoryStats(d.categoryStats);
+      setCheckedRuns(d.checkedRuns || 0);
+      setLastChecked(new Date().toISOString());
+      setActiveTab('issues');
+      // Show message from API or generate a summary
+      if (d.message) {
+        setCheckMessage(d.message);
+      } else if (d.checkedRuns > 0) {
+        setCheckMessage(`AI analyzed ${d.checkedRuns} response${d.checkedRuns > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''} — found ${(d.issues || []).length} issue${(d.issues || []).length !== 1 ? 's' : ''}`);
+      }
+    }).catch((err) => {
+      console.error('[Accuracy Check]', err);
+      setCheckMessage('Failed to run accuracy check. Please try again.');
+    }).finally(() => setChecking(false));
   }
 
   // Derived data
@@ -323,8 +329,8 @@ export default function AccuracyPage() {
               {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
-          <button className="pbtn" onClick={checkNow} disabled={checking || facts.length === 0}
-            style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, opacity: (checking || facts.length === 0) ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+          <button className="pbtn" onClick={checkNow} disabled={checking}
+            style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, opacity: checking ? 0.6 : 1, whiteSpace: 'nowrap' }}>
             {checking ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
