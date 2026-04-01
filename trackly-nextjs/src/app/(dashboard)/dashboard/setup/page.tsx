@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
+import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 
@@ -57,6 +58,7 @@ export default function SetupPage() {
 
   return (
     <div>
+      <LockedBrandBanner />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <div>
           <div className="view-title">Brand Setup</div>

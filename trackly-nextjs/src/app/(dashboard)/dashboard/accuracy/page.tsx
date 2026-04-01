@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
@@ -372,6 +373,7 @@ export default function AccuracyPage() {
 
   return (
     <div>
+      <LockedBrandBanner />
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
         <div>

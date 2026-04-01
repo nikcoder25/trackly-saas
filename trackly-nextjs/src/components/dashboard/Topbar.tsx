@@ -2,27 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBrands } from '@/contexts/BrandContext';
 import Link from 'next/link';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
-import { getPlanLimits } from '@/lib/constants';
-
-interface Brand { id: string; name: string; lockedByPlan?: boolean; }
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedId, setSelectedId] = useState('');
+  const { brands, selectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit } = useBrands();
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const limitRef = useRef<HTMLDivElement>(null);
 
-  const plan = user?.plan || 'free';
-  const limits = getPlanLimits(plan);
-  const atBrandLimit = brands.length >= limits.brands;
+  const atBrandLimit = brands.length >= brandLimit;
 
-  // Close notification on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     if (!showNotifs && !showLimitPrompt) return;
     const handler = (e: MouseEvent) => {
@@ -32,17 +27,6 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showNotifs, showLimitPrompt]);
-
-  useEffect(() => {
-    fetch('/api/brands', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => {
-        const b = d.brands || [];
-        setBrands(b);
-        if (b.length) setSelectedId(b[0].id);
-      })
-      .catch(() => {});
-  }, []);
 
   const handleAddBrandClick = () => {
     if (atBrandLimit) {
@@ -64,9 +48,9 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
         <span className="topbar-logo">Live<span>sov</span></span>
 
-        {/* Brand selector — connected to real data */}
+        {/* Brand selector — reads from BrandContext */}
         <div className="topbar-brand-sel">
-          <select value={selectedId} onChange={e => setSelectedId(e.target.value)}>
+          <select value={selectedBrand?.id || ''} onChange={e => selectBrandById(e.target.value)}>
             {brands.length === 0 && <option value="">-- Select brand --</option>}
             {brands.map(b => <option key={b.id} value={b.id}>{b.lockedByPlan ? '🔒 ' : ''}{b.name}</option>)}
           </select>
@@ -86,7 +70,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             + ADD BRAND
             {atBrandLimit && (
               <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>
-                ({brands.length}/{limits.brands})
+                ({brands.length}/{brandLimit})
               </span>
             )}
           </button>
@@ -105,7 +89,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
                 Brand Limit Reached
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
-                Your <strong>{plan}</strong> plan allows up to <strong>{limits.brands} brand{limits.brands !== 1 ? 's' : ''}</strong>.
+                Your <strong>{plan}</strong> plan allows up to <strong>{brandLimit} brand{brandLimit !== 1 ? 's' : ''}</strong>.
                 Upgrade your plan to add more brands.
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -173,9 +157,8 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     {showAddBrand && (
       <AddBrandModal
         onClose={() => setShowAddBrand(false)}
-        onCreated={(brand) => {
-          setBrands(prev => [...prev, brand]);
-          setSelectedId(brand.id);
+        onCreated={() => {
+          refreshBrands();
           setShowAddBrand(false);
         }}
       />

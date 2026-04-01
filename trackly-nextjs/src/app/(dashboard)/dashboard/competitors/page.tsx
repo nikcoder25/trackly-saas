@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRun } from '@/contexts/RunContext';
 import Link from 'next/link';
+import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
 interface Brand { id: string; name: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
@@ -82,6 +83,7 @@ export default function CompetitorsPage() {
 
   return (
     <div>
+      <LockedBrandBanner />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
         <div>
           <div className="view-title">Competitors</div>

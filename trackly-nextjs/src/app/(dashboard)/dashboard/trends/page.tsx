@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
+import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 
 interface SovPoint { date: string; overall: number; platforms?: Record<string, number>; }
 interface Run { date?: string; time?: string; sov?: number; platforms?: Record<string, { sov?: number }> }
@@ -40,6 +41,7 @@ export default function TrendsPage() {
 
   return (
     <div>
+      <LockedBrandBanner />
       <div className="view-title">SOV Trends</div>
       <div className="view-sub">Share of Voice over time — overall and per platform.</div>
 

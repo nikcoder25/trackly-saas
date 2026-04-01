@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRun } from '@/contexts/RunContext';
+import { useBrands } from '@/contexts/BrandContext';
 
 const navGroups = [
   {
@@ -42,6 +43,9 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { live, startRun, forceRun } = useRun();
+  const { selectedBrandLocked } = useBrands();
+
+  const isDisabled = live.running || selectedBrandLocked;
 
   return (
     <>
@@ -60,20 +64,31 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             id="sidebar-run-btn"
             style={{
               margin: 0,
-              opacity: live.running ? 0.6 : 1,
-              cursor: live.running ? 'not-allowed' : 'pointer',
-              background: live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
+              opacity: isDisabled ? 0.5 : 1,
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              background: selectedBrandLocked ? 'var(--muted)' : live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
               fontSize: live.status === 'error' && live.errorMsg && live.errorMsg !== 'concurrent' ? '10px' : undefined,
             }}
-            title={live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
-            disabled={live.running}
+            title={selectedBrandLocked ? 'This brand is locked — upgrade your plan to run queries' : live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
+            disabled={isDisabled}
             onClick={() => startRun(false)}
           >
-            {live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + (live.statusText.length > 30 ? live.statusText.substring(0, 28) + '...' : live.statusText)) : '▶ RUN QUERIES'}
+            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + (live.statusText.length > 30 ? live.statusText.substring(0, 28) + '...' : live.statusText)) : '▶ RUN QUERIES'}
           </button>
 
+          {/* Locked brand upgrade hint */}
+          {selectedBrandLocked && (
+            <Link href="/dashboard/account" style={{
+              display: 'block', marginTop: 4, padding: '5px 8px', background: 'rgba(245,158,11,.08)',
+              border: '1px solid rgba(245,158,11,.2)', borderRadius: 4, textAlign: 'center',
+              fontSize: 10, fontWeight: 600, color: 'var(--amber)', textDecoration: 'none',
+            }}>
+              Upgrade to unlock →
+            </Link>
+          )}
+
           {/* Force-run button for concurrent lock errors */}
-          {live.status === 'error' && live.errorMsg === 'concurrent' && (
+          {!selectedBrandLocked && live.status === 'error' && live.errorMsg === 'concurrent' && (
             <button onClick={forceRun} style={{ width: '100%', marginTop: 4, padding: '6px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
               ⚡ FORCE RUN
             </button>

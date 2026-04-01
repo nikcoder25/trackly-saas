@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
+import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 // Language removed from dashboard
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
@@ -350,6 +351,7 @@ export default function DashboardPage() {
 
   return (
     <div>
+      <LockedBrandBanner />
       {/* ═══ LIVE PROGRESS BAR (main content area) ═══ */}
       {(live.running || live.status === 'done') && (
         <div style={{ marginBottom: 14, padding: '12px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)' }}>

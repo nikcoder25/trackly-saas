@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 interface Brand {
   id: string;
   name: string;
+  lockedByPlan?: boolean;
   [key: string]: unknown;
 }
 
@@ -12,9 +13,15 @@ interface BrandContextType {
   brands: Brand[];
   sharedBrands: Brand[];
   selectedBrand: Brand | null;
-  setSelectedBrand: (brand: Brand) => void;
+  setSelectedBrand: (brand: Brand | null) => void;
+  selectBrandById: (id: string) => void;
   loading: boolean;
   refreshBrands: () => Promise<void>;
+  // Plan limit info
+  plan: string;
+  brandLimit: number;
+  overLimit: boolean;
+  selectedBrandLocked: boolean;
 }
 
 const BrandContext = createContext<BrandContextType>({
@@ -22,8 +29,13 @@ const BrandContext = createContext<BrandContextType>({
   sharedBrands: [],
   selectedBrand: null,
   setSelectedBrand: () => {},
+  selectBrandById: () => {},
   loading: true,
   refreshBrands: async () => {},
+  plan: 'free',
+  brandLimit: 1,
+  overLimit: false,
+  selectedBrandLocked: false,
 });
 
 export function BrandProvider({ children }: { children: ReactNode }) {
@@ -31,6 +43,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [sharedBrands, setSharedBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState('free');
+  const [brandLimit, setBrandLimit] = useState(1);
+  const [overLimit, setOverLimit] = useState(false);
 
   const refreshBrands = useCallback(async () => {
     try {
@@ -40,17 +55,38 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const sb = data.sharedBrands || [];
       setBrands(b);
       setSharedBrands(sb);
-      setSelectedBrand((prev) => (b.length && !prev ? b[0] : prev));
+      setPlan(data.plan || 'free');
+      setBrandLimit(data.brandLimit || 1);
+      setOverLimit(data.overLimit || false);
+      setSelectedBrand((prev) => {
+        if (prev) {
+          // Update the selected brand with fresh data
+          const updated = b.find((brand: Brand) => brand.id === prev.id);
+          return updated || (b.length ? b[0] : null);
+        }
+        return b.length ? b[0] : null;
+      });
     } catch (e) {
       console.error('[BrandProvider]', e);
     }
     setLoading(false);
   }, []);
 
+  const selectBrandById = useCallback((id: string) => {
+    const found = brands.find(b => b.id === id);
+    if (found) setSelectedBrand(found);
+  }, [brands]);
+
   useEffect(() => { refreshBrands(); }, []);
 
+  const selectedBrandLocked = selectedBrand?.lockedByPlan === true;
+
   return (
-    <BrandContext.Provider value={{ brands, sharedBrands, selectedBrand, setSelectedBrand, loading, refreshBrands }}>
+    <BrandContext.Provider value={{
+      brands, sharedBrands, selectedBrand, setSelectedBrand, selectBrandById,
+      loading, refreshBrands,
+      plan, brandLimit, overLimit, selectedBrandLocked,
+    }}>
       {children}
     </BrandContext.Provider>
   );
