@@ -226,113 +226,6 @@ function DemoSection() {
   );
 }
 
-/* ─── Interactive Brand Checker ─── */
-function BrandChecker() {
-  const [brand, setBrand] = useState('');
-  const [phase, setPhase] = useState<'idle' | 'scanning' | 'done'>('idle');
-  const [scanIndex, setScanIndex] = useState(-1);
-  const scanPlatforms = [
-    { name: 'ChatGPT', color: '#10a37f', icon: '⬡', found: true, delay: 600 },
-    { name: 'Perplexity', color: '#9b72ff', icon: '◎', found: true, delay: 900 },
-    { name: 'Claude', color: '#d97706', icon: '◈', found: true, delay: 1200 },
-    { name: 'Gemini', color: '#4285f4', icon: '✦', found: false, delay: 1500 },
-    { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, delay: 1800 },
-  ];
-
-  const handleScan = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!brand.trim() || phase === 'scanning') return;
-    setPhase('scanning');
-    setScanIndex(-1);
-
-    scanPlatforms.forEach((_, i) => {
-      setTimeout(() => setScanIndex(i), scanPlatforms[i].delay);
-    });
-    setTimeout(() => setPhase('done'), 2400);
-  };
-
-  const handleReset = () => {
-    setPhase('idle');
-    setBrand('');
-    setScanIndex(-1);
-  };
-
-  const foundCount = scanPlatforms.filter(p => p.found).length;
-
-  return (
-    <div className="tl-checker">
-      {phase === 'idle' && (
-        <form className="tl-checker-form" onSubmit={handleScan}>
-          <div className="tl-checker-input-wrap">
-            <svg className="tl-checker-search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="2"/>
-              <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Enter your brand name..."
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="tl-checker-input"
-            />
-            <button type="submit" className="tl-btn tl-btn--primary">
-              Check Visibility
-            </button>
-          </div>
-          <p className="tl-checker-hint">Free instant check &middot; No signup required</p>
-        </form>
-      )}
-
-      {phase === 'scanning' && (
-        <div className="tl-checker-scanning">
-          <p className="tl-checker-scanning-label">
-            Scanning AI platforms for <strong>&ldquo;{brand}&rdquo;</strong>...
-          </p>
-          <div className="tl-checker-platforms">
-            {scanPlatforms.map((p, i) => (
-              <div key={p.name} className={`tl-checker-plat ${i <= scanIndex ? 'tl-checker-plat--done' : i === scanIndex + 1 ? 'tl-checker-plat--active' : ''}`}>
-                <span className="tl-checker-plat-icon" style={{ color: p.color }}>{p.icon}</span>
-                <span className="tl-checker-plat-name">{p.name}</span>
-                {i <= scanIndex ? (
-                  <span className={`tl-checker-plat-result ${p.found ? 'tl-checker-plat-result--found' : 'tl-checker-plat-result--missed'}`}>
-                    {p.found ? '✓' : '✗'}
-                  </span>
-                ) : (
-                  <span className="tl-checker-plat-spinner" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {phase === 'done' && (
-        <div className="tl-checker-results">
-          <div className="tl-checker-results-header">
-            <div className="tl-checker-score">
-              <span className="tl-checker-score-num">{foundCount}/{scanPlatforms.length}</span>
-              <span className="tl-checker-score-label">AI platforms mention <strong>&ldquo;{brand}&rdquo;</strong></span>
-            </div>
-            <p className="tl-checker-verdict">
-              {foundCount >= 4 ? 'Good visibility! But are they recommending you positively?' :
-               foundCount >= 2 ? 'You\'re partially visible. There\'s room to grow.' :
-               'Low visibility. Most AI platforms don\'t mention you yet.'}
-            </p>
-          </div>
-          <div className="tl-checker-results-actions">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Get Full Report <span className="tl-arrow">&rarr;</span>
-            </Link>
-            <button onClick={handleReset} className="tl-btn tl-btn--ghost">
-              Try another brand
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ─── Auto-rotating Testimonial Carousel ─── */
 function TestimonialCarousel() {
   const [active, setActive] = useState(0);
@@ -524,8 +417,14 @@ export default function LivesovHomePage() {
           <p className="tl-hero-sub">
             {t.hero.description}
           </p>
-          {/* Interactive Brand Checker */}
-          <BrandChecker />
+          <div className="tl-hero-ctas">
+            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
+              {t.hero.cta} <span className="tl-arrow">&rarr;</span>
+            </Link>
+            <a href="#demo-section" onClick={(e) => smoothScrollTo(e)} className="tl-btn tl-btn--outline tl-btn--lg">
+              {t.hero.ctaDemo}
+            </a>
+          </div>
           <p className="tl-hero-note">Plans start at $9/mo &middot; Set up in 2 minutes</p>
         </div>
 
