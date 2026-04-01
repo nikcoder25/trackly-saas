@@ -239,6 +239,157 @@ function DemoSection() {
   );
 }
 
+/* ─── Interactive Brand Checker ─── */
+function BrandChecker() {
+  const [brand, setBrand] = useState('');
+  const [phase, setPhase] = useState<'idle' | 'scanning' | 'done'>('idle');
+  const [scanIndex, setScanIndex] = useState(-1);
+  const scanPlatforms = [
+    { name: 'ChatGPT', color: '#10a37f', icon: '⬡', found: true, delay: 600 },
+    { name: 'Perplexity', color: '#9b72ff', icon: '◎', found: true, delay: 900 },
+    { name: 'Claude', color: '#d97706', icon: '◈', found: true, delay: 1200 },
+    { name: 'Gemini', color: '#4285f4', icon: '✦', found: false, delay: 1500 },
+    { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, delay: 1800 },
+  ];
+
+  const handleScan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!brand.trim() || phase === 'scanning') return;
+    setPhase('scanning');
+    setScanIndex(-1);
+
+    scanPlatforms.forEach((_, i) => {
+      setTimeout(() => setScanIndex(i), scanPlatforms[i].delay);
+    });
+    setTimeout(() => setPhase('done'), 2400);
+  };
+
+  const handleReset = () => {
+    setPhase('idle');
+    setBrand('');
+    setScanIndex(-1);
+  };
+
+  const foundCount = scanPlatforms.filter(p => p.found).length;
+
+  return (
+    <div className="tl-checker">
+      {phase === 'idle' && (
+        <form className="tl-checker-form" onSubmit={handleScan}>
+          <div className="tl-checker-input-wrap">
+            <svg className="tl-checker-search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="2"/>
+              <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Enter your brand name..."
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              className="tl-checker-input"
+            />
+            <button type="submit" className="tl-btn tl-btn--primary">
+              Check Visibility
+            </button>
+          </div>
+          <p className="tl-checker-hint">Free instant check &middot; No signup required</p>
+        </form>
+      )}
+
+      {phase === 'scanning' && (
+        <div className="tl-checker-scanning">
+          <p className="tl-checker-scanning-label">
+            Scanning AI platforms for <strong>&ldquo;{brand}&rdquo;</strong>...
+          </p>
+          <div className="tl-checker-platforms">
+            {scanPlatforms.map((p, i) => (
+              <div key={p.name} className={`tl-checker-plat ${i <= scanIndex ? 'tl-checker-plat--done' : i === scanIndex + 1 ? 'tl-checker-plat--active' : ''}`}>
+                <span className="tl-checker-plat-icon" style={{ color: p.color }}>{p.icon}</span>
+                <span className="tl-checker-plat-name">{p.name}</span>
+                {i <= scanIndex ? (
+                  <span className={`tl-checker-plat-result ${p.found ? 'tl-checker-plat-result--found' : 'tl-checker-plat-result--missed'}`}>
+                    {p.found ? '✓' : '✗'}
+                  </span>
+                ) : (
+                  <span className="tl-checker-plat-spinner" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {phase === 'done' && (
+        <div className="tl-checker-results">
+          <div className="tl-checker-results-header">
+            <div className="tl-checker-score">
+              <span className="tl-checker-score-num">{foundCount}/{scanPlatforms.length}</span>
+              <span className="tl-checker-score-label">AI platforms mention <strong>&ldquo;{brand}&rdquo;</strong></span>
+            </div>
+            <p className="tl-checker-verdict">
+              {foundCount >= 4 ? 'Good visibility! But are they recommending you positively?' :
+               foundCount >= 2 ? 'You\'re partially visible. There\'s room to grow.' :
+               'Low visibility. Most AI platforms don\'t mention you yet.'}
+            </p>
+          </div>
+          <div className="tl-checker-results-actions">
+            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
+              Get Full Report <span className="tl-arrow">&rarr;</span>
+            </Link>
+            <button onClick={handleReset} className="tl-btn tl-btn--ghost">
+              Try another brand
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Auto-rotating Testimonial Carousel ─── */
+function TestimonialCarousel() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      setActive(prev => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [paused]);
+
+  return (
+    <div className="tl-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="tl-carousel-track" style={{ transform: `translateX(-${active * 100}%)` }}>
+        {testimonials.map(t => (
+          <div key={t.name} className="tl-carousel-slide">
+            <div className="tl-carousel-quote">
+              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <path d="M6 18C6 14.5 8 12 12 10L13 12C10 13.5 9.5 15.5 9.5 16.5H13V22H6V18ZM18 18C18 14.5 20 12 24 10L25 12C22 13.5 21.5 15.5 21.5 16.5H25V22H18V18Z" fill="currentColor" opacity="0.15"/>
+              </svg>
+              <p>&ldquo;{t.text}&rdquo;</p>
+            </div>
+            <div className="tl-carousel-author">
+              <div className="tl-testimonial-avatar">{t.initials}</div>
+              <div>
+                <div className="tl-testimonial-name">{t.name}</div>
+                <div className="tl-testimonial-role">{t.role}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="tl-carousel-dots">
+        {testimonials.map((_, i) => (
+          <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
+            onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Product Showcase — clean floating metrics ─── */
 function ProductShowcase() {
   const [sovValue, setSovValue] = useState(0);
@@ -508,21 +659,9 @@ export default function LivesovHomePage() {
           <p className="tl-hero-sub">
             {t.hero.description}
           </p>
-          <div className="tl-hero-ctas">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              {t.hero.cta} <span className="tl-arrow">&rarr;</span>
-            </Link>
-            <a href="#demo-section" onClick={(e) => smoothScrollTo(e)} className="tl-btn tl-btn--outline tl-btn--lg">
-              {t.hero.ctaDemo}
-            </a>
-          </div>
+          {/* Interactive Brand Checker */}
+          <BrandChecker />
           <p className="tl-hero-note">Plans start at $9/mo &middot; Set up in 2 minutes</p>
-          <div className="tl-hero-google">
-            <Link href="/signup" className="tl-btn-google">
-              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-              Sign up with Google
-            </Link>
-          </div>
         </div>
 
         {/* Platform pills floating */}
@@ -581,7 +720,13 @@ export default function LivesovHomePage() {
                 <div className="tl-step-num">{s.num}</div>
                 <h3>{s.title}</h3>
                 <p>{s.desc}</p>
-                {i < steps.length - 1 && <div className="tl-step-connector" />}
+                {i < steps.length - 1 && (
+                  <div className="tl-step-connector">
+                    <svg width="40" height="12" viewBox="0 0 40 12" fill="none">
+                      <path d="M0 6H32M32 6L26 1M32 6L26 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3"/>
+                    </svg>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -716,21 +861,7 @@ export default function LivesovHomePage() {
             <p>See what people are saying about Livesov.</p>
           </div>
 
-          <div className="tl-testimonials">
-            {testimonials.map(t => (
-              <div key={t.name} className="tl-testimonial-card">
-                <div className="tl-testimonial-stars">★★★★★</div>
-                <p className="tl-testimonial-text">&ldquo;{t.text}&rdquo;</p>
-                <div className="tl-testimonial-author">
-                  <div className="tl-testimonial-avatar">{t.initials}</div>
-                  <div>
-                    <div className="tl-testimonial-name">{t.name}</div>
-                    <div className="tl-testimonial-role">{t.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <TestimonialCarousel />
         </div>
       </section>
 
