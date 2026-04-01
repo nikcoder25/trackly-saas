@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
+import { runFactCheck } from '@/lib/fact-checker';
 
 interface FactRow {
   id: string;
@@ -9,95 +10,6 @@ interface FactRow {
   fact_value: string;
   category: string;
   updated_at: string;
-}
-
-interface RunRow {
-  id: string;
-  prompt: string;
-  platform: string;
-  model: string;
-  mentioned: boolean;
-  sentiment: string;
-  recommended: boolean;
-  created_at: string;
-  response_text?: string;
-}
-
-function computeAccuracy(facts: FactRow[], runs: RunRow[]) {
-  const issues: {
-    platform: string;
-    fact_key: string;
-    expected: string;
-    found: string;
-    severity: string;
-    date: string;
-    category: string;
-  }[] = [];
-
-  if (facts.length === 0 || runs.length === 0) {
-    return { issues, accuracyRate: facts.length === 0 ? null : 100, platformStats: {}, categoryStats: {} };
-  }
-
-  // Group runs by platform
-  const platformRuns: Record<string, RunRow[]> = {};
-  for (const run of runs) {
-    const p = run.platform || 'unknown';
-    if (!platformRuns[p]) platformRuns[p] = [];
-    platformRuns[p].push(run);
-  }
-
-  // For each fact, check if any run's response might contradict it
-  // Since we don't have full response text parsed, we use mention/sentiment as proxy signals
-  const platformStats: Record<string, { total: number; accurate: number }> = {};
-  const categoryStats: Record<string, { total: number; accurate: number }> = {};
-
-  for (const platform of Object.keys(platformRuns)) {
-    if (!platformStats[platform]) platformStats[platform] = { total: 0, accurate: 0 };
-    const pRuns = platformRuns[platform];
-
-    for (const fact of facts) {
-      platformStats[platform].total++;
-      const cat = fact.category || 'general';
-      if (!categoryStats[cat]) categoryStats[cat] = { total: 0, accurate: 0 };
-      categoryStats[cat].total++;
-
-      // Check if any run on this platform might have wrong info
-      // Use mentioned flag as a proxy — if brand isn't mentioned, fact can't be verified
-      const relevantRuns = pRuns.filter(r => r.mentioned);
-      if (relevantRuns.length === 0) {
-        // No relevant data — assume accurate (no evidence of inaccuracy)
-        platformStats[platform].accurate++;
-        categoryStats[cat].accurate++;
-        continue;
-      }
-
-      // Simulate accuracy based on sentiment and mentioned flags
-      // Negative sentiment runs are more likely to contain inaccuracies
-      const negativeRuns = relevantRuns.filter(r => r.sentiment === 'negative');
-      if (negativeRuns.length > 0 && Math.random() > 0.7) {
-        const run = negativeRuns[0];
-        const severity = negativeRuns.length > 2 ? 'high' : negativeRuns.length > 1 ? 'medium' : 'low';
-        issues.push({
-          platform,
-          fact_key: fact.fact_key,
-          expected: fact.fact_value,
-          found: 'Potentially inaccurate representation',
-          severity,
-          date: run.created_at,
-          category: cat,
-        });
-      } else {
-        platformStats[platform].accurate++;
-        categoryStats[cat].accurate++;
-      }
-    }
-  }
-
-  const totalChecks = Object.values(platformStats).reduce((sum, s) => sum + s.total, 0);
-  const totalAccurate = Object.values(platformStats).reduce((sum, s) => sum + s.accurate, 0);
-  const accuracyRate = totalChecks > 0 ? Math.round((totalAccurate / totalChecks) * 100) : null;
-
-  return { issues, accuracyRate, platformStats, categoryStats };
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -109,44 +21,51 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   try {
     const factsResult = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);
-    let runs = { rows: [] as RunRow[] };
+    const facts = (factsResult.rows as FactRow[]).map(f => ({ key: f.fact_key, value: f.fact_value, category: f.category || 'general' }));
+
+    // Get count of recent runs for display
+    let runCount = 0;
+    let lastChecked: string | null = null;
     try {
-      runs = await pool.query(
-        `SELECT id, prompt, platform, model, mentioned, sentiment, recommended, created_at
-         FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
-         ORDER BY created_at DESC LIMIT 50`, [id]
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int as count, MAX(created_at) as latest
+         FROM prompt_runs WHERE brand_id = $1 AND success = TRUE AND response_raw IS NOT NULL`,
+        [id]
       );
+      runCount = countResult.rows[0]?.count || 0;
+      lastChecked = countResult.rows[0]?.latest || null;
     } catch {
-      // prompt_runs table may not have all columns
+      // table may not exist
     }
 
-    const facts = factsResult.rows as FactRow[];
-    const { issues, accuracyRate, platformStats, categoryStats } = computeAccuracy(facts, runs.rows);
-
-    // Build trend data from runs grouped by date
-    const trendMap: Record<string, { total: number; accurate: number }> = {};
-    for (const run of runs.rows) {
-      const date = new Date(run.created_at).toISOString().split('T')[0];
-      if (!trendMap[date]) trendMap[date] = { total: 0, accurate: 0 };
-      trendMap[date].total++;
-      if (run.mentioned) trendMap[date].accurate++;
-    }
-    const trend = Object.entries(trendMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-14) // last 14 days
-      .map(([date, stats]) => ({
-        date,
-        rate: stats.total > 0 ? Math.round((stats.accurate / stats.total) * 100) : 100,
+    // Build basic trend from runs
+    let trend: { date: string; rate: number }[] = [];
+    try {
+      const trendResult = await pool.query(
+        `SELECT DATE(created_at) as date, COUNT(*)::int as total,
+                SUM(CASE WHEN mentioned THEN 1 ELSE 0 END)::int as mentioned_count
+         FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
+         GROUP BY DATE(created_at) ORDER BY date DESC LIMIT 14`,
+        [id]
+      );
+      trend = trendResult.rows.reverse().map((r: { date: string; total: number; mentioned_count: number }) => ({
+        date: r.date,
+        rate: r.total > 0 ? Math.round((r.mentioned_count / r.total) * 100) : 100,
       }));
+    } catch {
+      // fine if table missing
+    }
 
     return Response.json({
-      facts: facts.map(f => ({ key: f.fact_key, value: f.fact_value, category: f.category || 'general' })),
-      issues,
-      accuracyRate,
-      platformStats,
-      categoryStats,
+      facts,
+      issues: [],
+      accuracyRate: null,
+      platformStats: {},
+      categoryStats: {},
       trend,
-      lastChecked: runs.rows.length > 0 ? runs.rows[0].created_at : null,
+      lastChecked,
+      runCount,
+      aiPowered: true,
     });
   } catch (e) {
     console.error('[Accuracy]', (e as Error).message);
@@ -166,7 +85,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
   try {
-    // Delete existing facts and re-insert
     await pool.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
     for (const fact of facts) {
       const key = fact.key || fact.fact_key;
@@ -194,22 +112,62 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
   try {
+    // Get canonical facts
     const factsResult = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);
-    let runs = { rows: [] as RunRow[] };
-    try {
-      runs = await pool.query(
-        `SELECT id, prompt, platform, model, mentioned, sentiment, recommended, created_at
-         FROM prompt_runs WHERE brand_id = $1 AND success = TRUE
-         ORDER BY created_at DESC LIMIT 50`, [id]
-      );
-    } catch {
-      // prompt_runs table may not have all columns
+    const facts = (factsResult.rows as FactRow[]).map(f => ({
+      key: f.fact_key,
+      value: f.fact_value,
+      category: f.category || 'general',
+    }));
+
+    if (facts.length === 0) {
+      return Response.json({
+        issues: [],
+        accuracyRate: null,
+        platformStats: {},
+        categoryStats: {},
+        checkedRuns: 0,
+        message: 'No canonical facts defined. Add facts first to check accuracy.',
+      });
     }
 
-    const facts = factsResult.rows as FactRow[];
-    const { issues, accuracyRate, platformStats, categoryStats } = computeAccuracy(facts, runs.rows);
+    // Get recent prompt runs with response text
+    let runs: { id: string; platform: string; model: string; response_raw: string; created_at: string; prompt: string }[] = [];
+    try {
+      const runsResult = await pool.query(
+        `SELECT id, platform, model, response_raw, created_at, prompt
+         FROM prompt_runs
+         WHERE brand_id = $1 AND success = TRUE AND response_raw IS NOT NULL AND response_raw != ''
+         ORDER BY created_at DESC LIMIT 30`,
+        [id]
+      );
+      runs = runsResult.rows;
+    } catch {
+      // table may not have all columns
+    }
 
-    return Response.json({ issues, accuracyRate, platformStats, categoryStats });
+    if (runs.length === 0) {
+      return Response.json({
+        issues: [],
+        accuracyRate: null,
+        platformStats: {},
+        categoryStats: {},
+        checkedRuns: 0,
+        message: 'No AI responses found. Run some queries first from the Dashboard, then check accuracy.',
+      });
+    }
+
+    // Run AI-powered fact-checking
+    const result = await runFactCheck(facts, runs);
+
+    return Response.json({
+      issues: result.issues,
+      accuracyRate: result.accuracyRate,
+      platformStats: result.platformStats,
+      categoryStats: result.categoryStats,
+      checkedRuns: result.checkedRuns,
+      aiPowered: true,
+    });
   } catch (e) {
     console.error('[Accuracy PUT]', (e as Error).message);
     return Response.json({ error: 'Failed to run accuracy check' }, { status: 500 });

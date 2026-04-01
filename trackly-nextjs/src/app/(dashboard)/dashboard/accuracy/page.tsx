@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
-interface Issue { platform: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; }
+interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
@@ -82,7 +82,7 @@ function SeverityDonut({ issues }: { issues: Issue[] }) {
     return c;
   }, [issues]);
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
   if (total === 0) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: 12 }}>
@@ -197,6 +197,9 @@ export default function AccuracyPage() {
   const [categoryStats, setCategoryStats] = useState<Record<string, CategoryStat>>({});
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'issues' | 'facts'>('issues');
+  const [checkedRuns, setCheckedRuns] = useState(0);
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
+  const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -244,17 +247,31 @@ export default function AccuracyPage() {
   function checkNow() {
     if (!brand || checking) return;
     setChecking(true);
+    setCheckMessage(null);
     fetch(`/api/brands/${brand.id}/accuracy`, {
       method: 'PUT', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'check' }),
     }).then(r => r.json()).then(d => {
-      setIssues(d.issues || []);
-      setAccuracyRate(d.accuracyRate ?? null);
-      if (d.platformStats) setPlatformStats(d.platformStats);
-      if (d.categoryStats) setCategoryStats(d.categoryStats);
-      setLastChecked(new Date().toISOString());
-    }).catch(() => {}).finally(() => setChecking(false));
+      if (d.error) {
+        setCheckMessage(d.error);
+      } else if (d.message) {
+        setCheckMessage(d.message);
+      } else {
+        setIssues(d.issues || []);
+        setAccuracyRate(d.accuracyRate ?? null);
+        if (d.platformStats) setPlatformStats(d.platformStats);
+        if (d.categoryStats) setCategoryStats(d.categoryStats);
+        setCheckedRuns(d.checkedRuns || 0);
+        setLastChecked(new Date().toISOString());
+        setActiveTab('issues');
+        setCheckMessage(
+          d.checkedRuns > 0
+            ? `AI analyzed ${d.checkedRuns} response${d.checkedRuns > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''}`
+            : null
+        );
+      }
+    }).catch(() => setCheckMessage('Failed to run accuracy check. Please try again.')).finally(() => setChecking(false));
   }
 
   // Derived data
@@ -283,8 +300,17 @@ export default function AccuracyPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
         <div>
-          <div className="view-title">Accuracy Monitor</div>
-          <div className="view-sub">Verify how accurately AI platforms represent your brand information.</div>
+          <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Accuracy Monitor
+            <span style={{
+              fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))',
+              color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>
+              AI-Powered
+            </span>
+          </div>
+          <div className="view-sub">Uses AI to analyze actual responses from AI platforms against your canonical facts.</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {brands.length > 1 && (
@@ -297,12 +323,31 @@ export default function AccuracyPage() {
               {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           )}
-          <button className="pbtn" onClick={checkNow} disabled={checking}
-            style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, opacity: checking ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-            {checking ? 'Checking...' : 'Check Now'}
+          <button className="pbtn" onClick={checkNow} disabled={checking || facts.length === 0}
+            style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, opacity: (checking || facts.length === 0) ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+            {checking ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                Analyzing...
+              </span>
+            ) : 'Check Now'}
           </button>
         </div>
       </div>
+
+      {/* Status message */}
+      {checkMessage && (
+        <div style={{
+          padding: '8px 14px', marginBottom: 12, borderRadius: 6, fontSize: 12, fontFamily: 'var(--mono)',
+          background: checkMessage.includes('Failed') || checkMessage.includes('No ') ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)',
+          color: checkMessage.includes('Failed') || checkMessage.includes('No ') ? 'var(--red)' : 'var(--green)',
+          border: `1px solid ${checkMessage.includes('Failed') || checkMessage.includes('No ') ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span>{checkMessage}</span>
+          <button onClick={() => setCheckMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}>×</button>
+        </div>
+      )}
 
       {/* KPI Cards — 4 score cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
@@ -422,30 +467,64 @@ export default function AccuracyPage() {
         {activeTab === 'issues' && (
           <div style={{ padding: '16px 20px' }}>
             {issues.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>
-                Add canonical facts and click &quot;Check Now&quot; to verify AI accuracy.
+              <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
+                {facts.length === 0 ? (
+                  <>Switch to the <strong>Canonical Facts</strong> tab and add your brand facts first, then click <strong>&quot;Check Now&quot;</strong>.</>
+                ) : accuracyRate !== null ? (
+                  <>All facts verified accurately across AI platforms. No issues found.</>
+                ) : (
+                  <>Click <strong>&quot;Check Now&quot;</strong> to analyze AI responses against your {facts.length} canonical fact{facts.length !== 1 ? 's' : ''}.</>
+                )}
               </div>
             ) : (
               <div>
+                {checkedRuns > 0 && (
+                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
+                    AI analyzed {checkedRuns} response{checkedRuns > 1 ? 's' : ''} across {Object.keys(platformStats).length} platform{Object.keys(platformStats).length !== 1 ? 's' : ''}
+                  </div>
+                )}
                 {issues.map((issue, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
-                      color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
-                      background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
-                    }}>
-                      {issue.severity}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{issue.fact_key}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
+                  <div key={i} style={{ borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div
+                      onClick={() => setExpandedIssue(expandedIssue === i ? null : i)}
+                      style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
+                    >
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
+                        color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
+                        background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
+                      }}>
+                        {issue.severity}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{issue.fact_key}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
+                        </div>
+                        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
+                          {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
+                          {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
+                          {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4 }}>
-                        {issue.platform}{issue.date ? ` · ${new Date(issue.date).toLocaleDateString()}` : ''}
-                        {issue.category ? ` · ${issue.category}` : ''}
-                      </div>
+                      <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
+                        {expandedIssue === i ? '▼' : '▶'}
+                      </span>
                     </div>
+                    {/* Expanded explanation */}
+                    {expandedIssue === i && issue.explanation && (
+                      <div style={{
+                        margin: '0 0 12px 32px', padding: '10px 14px', borderRadius: 6,
+                        background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
+                        border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
+                      }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
+                          AI Analysis
+                        </div>
+                        {issue.explanation}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
