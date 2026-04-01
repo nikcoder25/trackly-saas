@@ -369,6 +369,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--tl-text);
+  text-decoration: none;
   box-shadow: var(--tl-shadow);
   transition: all var(--tl-transition);
 }
@@ -1530,6 +1531,22 @@
   .tl-section {
     padding: 64px 20px;
   }
+
+  .tl-email-input-wrap {
+    flex-direction: column;
+    padding: 8px;
+  }
+
+  .tl-email-input {
+    padding: 10px 12px;
+  }
+
+  .tl-back-to-top {
+    bottom: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1549,6 +1566,102 @@
   .tl-section-header h2 {
     font-size: 24px;
   }
+}
+
+/* ══════════════════════════════════════
+   EMAIL CAPTURE FORM
+   ══════════════════════════════════════ */
+.tl-email-form {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.tl-email-input-wrap {
+  display: flex;
+  gap: 8px;
+  background: var(--tl-white);
+  border: 2px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 6px 6px 6px 16px;
+  transition: border-color var(--tl-transition);
+}
+
+.tl-email-input-wrap:focus-within {
+  border-color: var(--tl-primary);
+  box-shadow: 0 0 0 3px var(--tl-primary-light);
+}
+
+.tl-email-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: var(--tl-font);
+  font-size: 15px;
+  color: var(--tl-text);
+  background: transparent;
+  min-width: 0;
+}
+
+.tl-email-input::placeholder {
+  color: var(--tl-text-3);
+}
+
+.tl-email-input--error {
+  color: var(--tl-danger);
+}
+
+.tl-email-error {
+  font-size: 13px;
+  color: var(--tl-danger);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.tl-email-success {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 18px 24px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--tl-radius);
+  color: var(--tl-success);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tl-email-success span {
+  font-size: 20px;
+}
+
+/* ══════════════════════════════════════
+   BACK TO TOP BUTTON
+   ══════════════════════════════════════ */
+.tl-back-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 90;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--tl-primary);
+  color: var(--tl-white);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  transition: all var(--tl-transition);
+  animation: tl-fadeUp 0.3s ease;
+}
+
+.tl-back-to-top:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+  background: var(--tl-primary-hover);
 }
 
 /* ══════════════════════════════════════
