@@ -1,6 +1,7 @@
 'use client';
 
 import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function AuthLayoutClient({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
@@ -36,6 +37,9 @@ export default function AuthLayoutClient({ children }: { children: React.ReactNo
 
       <div className="auth-form-panel">
         <div className="auth-form-inner">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <LanguageSwitcher variant="light" />
+          </div>
           {children}
         </div>
       </div>
