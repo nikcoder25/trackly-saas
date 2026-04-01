@@ -1,68 +1,134 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1e1b4b"/>
+      <stop offset="50%" stop-color="#15132d"/>
+      <stop offset="100%" stop-color="#0f172a"/>
     </linearGradient>
-    <linearGradient id="card1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
+    <linearGradient id="card-border1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.1"/>
     </linearGradient>
-    <linearGradient id="card2" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#06b6d4"/>
-      <stop offset="100%" stop-color="#6366f1"/>
+    <linearGradient id="card-border2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.1"/>
     </linearGradient>
+    <linearGradient id="card-border3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0.08"/>
+    </linearGradient>
+    <radialGradient id="ambient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
   </defs>
+
+  <!-- Background -->
   <rect width="1200" height="630" fill="url(#bg)"/>
-  <!-- Grid pattern -->
-  <g opacity="0.04" stroke="#fff" stroke-width="1">
-    <line x1="0" y1="100" x2="1200" y2="100"/><line x1="0" y1="200" x2="1200" y2="200"/>
-    <line x1="0" y1="300" x2="1200" y2="300"/><line x1="0" y1="400" x2="1200" y2="400"/>
-    <line x1="0" y1="500" x2="1200" y2="500"/>
-    <line x1="200" y1="0" x2="200" y2="630"/><line x1="400" y1="0" x2="400" y2="630"/>
-    <line x1="600" y1="0" x2="600" y2="630"/><line x1="800" y1="0" x2="800" y2="630"/>
-    <line x1="1000" y1="0" x2="1000" y2="630"/>
+
+  <!-- Ambient glow -->
+  <ellipse cx="600" cy="330" rx="450" ry="250" fill="url(#ambient)"/>
+
+  <!-- Card 3 (back) -->
+  <g opacity="0.5">
+    <rect x="640" y="160" width="380" height="280" rx="12" fill="#111827" stroke="url(#card-border3)" stroke-width="1.5"/>
+    <!-- Card header -->
+    <rect x="640" y="160" width="380" height="36" rx="12" fill="#1e1b4b" opacity="0.4"/>
+    <circle cx="662" cy="178" r="4" fill="#818cf8" opacity="0.5"/>
+    <rect x="676" y="174" width="80" height="8" rx="4" fill="#818cf8" opacity="0.25"/>
+    <!-- Mini chart -->
+    <rect x="670" y="220" width="30" height="60" rx="3" fill="#818cf8" opacity="0.15"/>
+    <rect x="710" y="240" width="30" height="40" rx="3" fill="#818cf8" opacity="0.12"/>
+    <rect x="750" y="225" width="30" height="55" rx="3" fill="#818cf8" opacity="0.1"/>
+    <rect x="790" y="250" width="30" height="30" rx="3" fill="#818cf8" opacity="0.08"/>
+    <!-- Lines -->
+    <rect x="670" y="300" width="160" height="6" rx="3" fill="#334155" opacity="0.4"/>
+    <rect x="670" y="316" width="120" height="6" rx="3" fill="#334155" opacity="0.3"/>
+    <rect x="670" y="332" width="140" height="6" rx="3" fill="#334155" opacity="0.2"/>
+    <!-- Stats -->
+    <rect x="670" y="370" width="50" height="20" rx="6" fill="#818cf8" opacity="0.15"/>
+    <rect x="730" y="370" width="50" height="20" rx="6" fill="#818cf8" opacity="0.1"/>
+    <rect x="790" y="370" width="50" height="20" rx="6" fill="#818cf8" opacity="0.08"/>
   </g>
-  <!-- Overlapping dashboard cards -->
-  <rect x="320" y="140" width="260" height="180" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1" opacity="0.8"/>
-  <rect x="330" y="150" width="240" height="8" rx="4" fill="#334155"/>
-  <rect x="330" y="170" width="100" height="6" rx="3" fill="#6366f1" opacity="0.5"/>
-  <circle cx="550" y="175" r="4" fill="#10b981"/>
-  <rect x="330" y="195" width="200" height="4" rx="2" fill="#334155"/>
-  <rect x="330" y="210" width="160" height="4" rx="2" fill="#334155"/>
-  <rect x="330" y="225" width="180" height="4" rx="2" fill="#334155"/>
-  <rect x="330" y="260" width="70" height="24" rx="6" fill="#6366f1" opacity="0.3"/>
-  <rect x="410" y="260" width="70" height="24" rx="6" fill="#10b981" opacity="0.3"/>
-  <rect x="490" y="260" width="70" height="24" rx="6" fill="#06b6d4" opacity="0.3"/>
-  <!-- Second card (overlapping) -->
-  <rect x="500" y="180" width="260" height="180" rx="12" fill="#1e293b" stroke="url(#card1)" stroke-width="1.5"/>
-  <rect x="510" y="190" width="240" height="8" rx="4" fill="#334155"/>
-  <rect x="510" y="210" width="120" height="6" rx="3" fill="#8b5cf6" opacity="0.6"/>
-  <circle cx="720" cy="215" r="4" fill="#f59e0b"/>
-  <rect x="510" y="235" width="200" height="4" rx="2" fill="#334155"/>
-  <rect x="510" y="250" width="140" height="4" rx="2" fill="#334155"/>
-  <rect x="510" y="265" width="170" height="4" rx="2" fill="#334155"/>
-  <rect x="510" y="300" width="70" height="24" rx="6" fill="#8b5cf6" opacity="0.3"/>
-  <rect x="590" y="300" width="70" height="24" rx="6" fill="#ef4444" opacity="0.3"/>
-  <rect x="670" y="300" width="70" height="24" rx="6" fill="#10b981" opacity="0.3"/>
-  <!-- Third card -->
-  <rect x="680" y="220" width="260" height="180" rx="12" fill="#1e293b" stroke="url(#card2)" stroke-width="1.5"/>
-  <rect x="690" y="230" width="240" height="8" rx="4" fill="#334155"/>
-  <rect x="690" y="250" width="90" height="6" rx="3" fill="#06b6d4" opacity="0.6"/>
-  <circle cx="900" cy="255" r="4" fill="#10b981"/>
-  <rect x="690" y="275" width="200" height="4" rx="2" fill="#334155"/>
-  <rect x="690" y="290" width="150" height="4" rx="2" fill="#334155"/>
-  <rect x="690" y="305" width="180" height="4" rx="2" fill="#334155"/>
-  <rect x="690" y="340" width="70" height="24" rx="6" fill="#06b6d4" opacity="0.3"/>
-  <rect x="770" y="340" width="70" height="24" rx="6" fill="#6366f1" opacity="0.3"/>
-  <!-- Connecting lines -->
-  <line x1="580" y1="360" x2="630" y2="400" stroke="#6366f1" stroke-width="1" opacity="0.3" stroke-dasharray="4 3"/>
-  <line x1="760" y1="400" x2="810" y2="420" stroke="#06b6d4" stroke-width="1" opacity="0.3" stroke-dasharray="4 3"/>
-  <!-- Users icon -->
-  <circle cx="600" cy="470" r="28" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.4"/>
-  <circle cx="600" cy="462" r="8" fill="#6366f1" opacity="0.4"/>
-  <path d="M584 482 a16 12 0 0 1 32 0" fill="#6366f1" opacity="0.3"/>
+
+  <!-- Card 2 (middle) -->
+  <g opacity="0.7">
+    <rect x="410" y="190" width="380" height="280" rx="12" fill="#111827" stroke="url(#card-border2)" stroke-width="1.5"/>
+    <!-- Card header -->
+    <rect x="410" y="190" width="380" height="36" rx="12" fill="#0c2a3d" opacity="0.5"/>
+    <circle cx="432" cy="208" r="4" fill="#06b6d4" opacity="0.6"/>
+    <rect x="446" y="204" width="90" height="8" rx="4" fill="#06b6d4" opacity="0.3"/>
+    <!-- Mini chart -->
+    <rect x="440" y="250" width="30" height="70" rx="3" fill="#06b6d4" opacity="0.2"/>
+    <rect x="480" y="270" width="30" height="50" rx="3" fill="#06b6d4" opacity="0.17"/>
+    <rect x="520" y="255" width="30" height="65" rx="3" fill="#06b6d4" opacity="0.14"/>
+    <rect x="560" y="280" width="30" height="40" rx="3" fill="#06b6d4" opacity="0.11"/>
+    <!-- Lines -->
+    <rect x="440" y="340" width="170" height="6" rx="3" fill="#334155" opacity="0.5"/>
+    <rect x="440" y="356" width="130" height="6" rx="3" fill="#334155" opacity="0.4"/>
+    <rect x="440" y="372" width="150" height="6" rx="3" fill="#334155" opacity="0.3"/>
+    <!-- Stats -->
+    <rect x="440" y="400" width="55" height="22" rx="6" fill="#06b6d4" opacity="0.2"/>
+    <rect x="505" y="400" width="55" height="22" rx="6" fill="#06b6d4" opacity="0.15"/>
+    <rect x="570" y="400" width="55" height="22" rx="6" fill="#06b6d4" opacity="0.1"/>
+  </g>
+
+  <!-- Card 1 (front) -->
+  <g opacity="0.95">
+    <rect x="180" y="160" width="380" height="320" rx="12" fill="#111827" stroke="url(#card-border1)" stroke-width="2"/>
+    <!-- Card header -->
+    <rect x="180" y="160" width="380" height="40" rx="12" fill="#1e1b4b" opacity="0.6"/>
+    <circle cx="204" cy="180" r="5" fill="#6366f1" opacity="0.8"/>
+    <rect x="220" y="175" width="100" height="10" rx="5" fill="#6366f1" opacity="0.4"/>
+    <!-- Status dot -->
+    <circle cx="536" cy="180" r="5" fill="#22c55e" opacity="0.7"/>
+
+    <!-- Mini bar chart -->
+    <rect x="210" y="225" width="35" height="85" rx="4" fill="#6366f1" opacity="0.35"/>
+    <rect x="255" y="250" width="35" height="60" rx="4" fill="#6366f1" opacity="0.3"/>
+    <rect x="300" y="235" width="35" height="75" rx="4" fill="#06b6d4" opacity="0.3"/>
+    <rect x="345" y="260" width="35" height="50" rx="4" fill="#6366f1" opacity="0.25"/>
+    <rect x="390" y="245" width="35" height="65" rx="4" fill="#06b6d4" opacity="0.25"/>
+
+    <!-- Content lines -->
+    <rect x="210" y="335" width="200" height="8" rx="4" fill="#334155" opacity="0.6"/>
+    <rect x="210" y="353" width="150" height="8" rx="4" fill="#334155" opacity="0.45"/>
+    <rect x="210" y="371" width="180" height="8" rx="4" fill="#334155" opacity="0.35"/>
+
+    <!-- Metric badges -->
+    <rect x="210" y="405" width="65" height="26" rx="8" fill="#6366f1" opacity="0.25"/>
+    <text x="242" y="423" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#6366f1" opacity="0.8">+12%</text>
+
+    <rect x="285" y="405" width="65" height="26" rx="8" fill="#06b6d4" opacity="0.2"/>
+    <text x="317" y="423" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#06b6d4" opacity="0.7">34 cites</text>
+
+    <rect x="360" y="405" width="65" height="26" rx="8" fill="#22c55e" opacity="0.15"/>
+    <text x="392" y="423" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#22c55e" opacity="0.6">Active</text>
+
+    <!-- Sparkline -->
+    <polyline points="210,460 230,452 250,456 270,445 290,448 310,440 330,436 350,442 370,430 390,425 410,428 430,420"
+              fill="none" stroke="#6366f1" stroke-width="1.5" opacity="0.5"/>
+  </g>
+
+  <!-- Floating notification badges -->
+  <g>
+    <rect x="100" y="250" width="90" height="35" rx="8" fill="#111827" stroke="#6366f1" stroke-width="1" opacity="0.6"/>
+    <circle cx="118" cy="267" r="5" fill="#6366f1" opacity="0.6"/>
+    <rect x="128" y="261" width="45" height="5" rx="2.5" fill="#6366f1" opacity="0.3"/>
+    <rect x="128" y="270" width="35" height="4" rx="2" fill="#334155" opacity="0.3"/>
+  </g>
+  <g>
+    <rect x="1010" y="300" width="90" height="35" rx="8" fill="#111827" stroke="#06b6d4" stroke-width="1" opacity="0.5"/>
+    <circle cx="1028" cy="317" r="5" fill="#06b6d4" opacity="0.5"/>
+    <rect x="1038" y="311" width="45" height="5" rx="2.5" fill="#06b6d4" opacity="0.25"/>
+    <rect x="1038" y="320" width="35" height="4" rx="2" fill="#334155" opacity="0.25"/>
+  </g>
+
   <!-- Title -->
-  <text x="600" y="550" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="800" fill="#fff" letter-spacing="-1">AI Brand Monitoring for Agencies</text>
-  <text x="600" y="580" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="16" fill="#94a3b8">Multi-client dashboards &middot; Proof exports &middot; Revenue growth</text>
+  <text x="600" y="70" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="white" letter-spacing="1">
+    Agency AI Brand Monitoring
+  </text>
+  <text x="600" y="600" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#94a3b8" letter-spacing="2">
+    MULTI-CLIENT DASHBOARD FOR AI VISIBILITY
+  </text>
 </svg>

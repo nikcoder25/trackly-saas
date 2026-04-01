@@ -1,119 +1,112 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1e293b"/>
+      <stop offset="50%" stop-color="#141233"/>
+      <stop offset="100%" stop-color="#0f172a"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="25"/>
-    </filter>
+    <linearGradient id="bar1" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="bar2" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.9"/>
+    </linearGradient>
+    <radialGradient id="donut-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
   <!-- Background -->
   <rect width="1200" height="630" fill="url(#bg)"/>
 
-  <!-- Ambient glow -->
-  <circle cx="420" cy="280" r="200" fill="#6366f1" opacity="0.05" filter="url(#glow)"/>
-  <circle cx="850" cy="300" r="180" fill="#06b6d4" opacity="0.04" filter="url(#glow)"/>
-
-  <!-- LEFT SIDE: Donut chart -->
-  <g transform="translate(400, 270)">
-    <!-- Outer ring glow -->
-    <circle cx="0" cy="0" r="130" fill="#6366f1" opacity="0.04" filter="url(#glow)"/>
-
-    <!-- Donut segments - using stroke-dasharray to create segments -->
-    <!-- Background ring -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="#1e293b" stroke-width="32"/>
-
-    <!-- Segment 1: 35% - Indigo -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="#6366f1" stroke-width="32" stroke-opacity="0.8"
-            stroke-dasharray="220 408.4" stroke-dashoffset="157" transform="rotate(-90)"/>
-
-    <!-- Segment 2: 25% - Cyan -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="#06b6d4" stroke-width="32" stroke-opacity="0.7"
-            stroke-dasharray="157 471.4" stroke-dashoffset="-63" transform="rotate(-90)"/>
-
-    <!-- Segment 3: 20% - Light indigo -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="#818cf8" stroke-width="32" stroke-opacity="0.5"
-            stroke-dasharray="125.6 502.8" stroke-dashoffset="-220" transform="rotate(-90)"/>
-
-    <!-- Segment 4: 12% - Slate -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="#475569" stroke-width="32" stroke-opacity="0.6"
-            stroke-dasharray="75.4 553" stroke-dashoffset="-345.6" transform="rotate(-90)"/>
-
-    <!-- Segment 5: 8% - Dark -->
-    <circle cx="0" cy="0" r="100" fill="none" stroke="#334155" stroke-width="32" stroke-opacity="0.6"
-            stroke-dasharray="50.3 578.1" stroke-dashoffset="-421" transform="rotate(-90)"/>
-
-    <!-- Inner circle -->
-    <circle cx="0" cy="0" r="82" fill="#0f172a"/>
-    <circle cx="0" cy="0" r="82" fill="#6366f1" opacity="0.03"/>
-
-    <!-- Center percentage -->
-    <text x="0" y="-8" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" fill="white">35%</text>
-    <text x="0" y="16" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="400" fill="#94a3b8" letter-spacing="1">SHARE OF VOICE</text>
-
-    <!-- Outer decorative ring -->
-    <circle cx="0" cy="0" r="122" fill="none" stroke="#6366f1" stroke-opacity="0.08" stroke-width="1"/>
+  <!-- Subtle grid lines -->
+  <g stroke="#6366f1" stroke-opacity="0.04" stroke-width="1">
+    <line x1="0" y1="160" x2="1200" y2="160"/>
+    <line x1="0" y1="260" x2="1200" y2="260"/>
+    <line x1="0" y1="360" x2="1200" y2="360"/>
+    <line x1="0" y1="460" x2="1200" y2="460"/>
   </g>
 
-  <!-- RIGHT SIDE: Bar chart -->
-  <g transform="translate(680, 130)">
-    <!-- Chart background -->
-    <rect x="0" y="0" width="380" height="280" rx="8" fill="#1e293b" opacity="0.3"/>
+  <!-- Left section: Donut chart -->
+  <ellipse cx="350" cy="340" rx="200" ry="200" fill="url(#donut-glow)"/>
 
-    <!-- Horizontal grid lines -->
-    <line x1="60" y1="40" x2="350" y2="40" stroke="#334155" stroke-width="1" stroke-opacity="0.3"/>
-    <line x1="60" y1="100" x2="350" y2="100" stroke="#334155" stroke-width="1" stroke-opacity="0.3"/>
-    <line x1="60" y1="160" x2="350" y2="160" stroke="#334155" stroke-width="1" stroke-opacity="0.3"/>
-    <line x1="60" y1="220" x2="350" y2="220" stroke="#334155" stroke-width="1" stroke-opacity="0.3"/>
+  <!-- Donut chart segments -->
+  <g transform="translate(350, 340)">
+    <!-- Background ring -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#1e293b" stroke-width="35"/>
 
-    <!-- Y-axis labels -->
-    <text x="45" y="44" text-anchor="end" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">100</text>
-    <text x="45" y="104" text-anchor="end" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">75</text>
-    <text x="45" y="164" text-anchor="end" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">50</text>
-    <text x="45" y="224" text-anchor="end" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">25</text>
+    <!-- Segment 1: 42% - indigo -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#6366f1" stroke-width="35" opacity="0.85"
+            stroke-dasharray="317 437" stroke-dashoffset="0" transform="rotate(-90)"/>
+
+    <!-- Segment 2: 28% - cyan -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#06b6d4" stroke-width="35" opacity="0.75"
+            stroke-dasharray="211 543" stroke-dashoffset="-317" transform="rotate(-90)"/>
+
+    <!-- Segment 3: 18% - lighter indigo -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#818cf8" stroke-width="35" opacity="0.5"
+            stroke-dasharray="136 618" stroke-dashoffset="-528" transform="rotate(-90)"/>
+
+    <!-- Segment 4: 12% - muted -->
+    <circle cx="0" cy="0" r="120" fill="none" stroke="#334155" stroke-width="35" opacity="0.6"
+            stroke-dasharray="90 664" stroke-dashoffset="-664" transform="rotate(-90)"/>
+
+    <!-- Center circle -->
+    <circle cx="0" cy="0" r="85" fill="#0f172a"/>
+
+    <!-- Percentage text -->
+    <text x="0" y="-8" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="700" fill="white">
+      42%
+    </text>
+    <text x="0" y="20" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#94a3b8">
+      Share of Voice
+    </text>
+  </g>
+
+  <!-- Right section: Bar chart -->
+  <g transform="translate(680, 180)">
+    <!-- Axis lines -->
+    <line x1="0" y1="0" x2="0" y2="310" stroke="#334155" stroke-width="1"/>
+    <line x1="0" y1="310" x2="400" y2="310" stroke="#334155" stroke-width="1"/>
+
+    <!-- Horizontal grid -->
+    <line x1="0" y1="77" x2="400" y2="77" stroke="#334155" stroke-width="0.5" opacity="0.4"/>
+    <line x1="0" y1="155" x2="400" y2="155" stroke="#334155" stroke-width="0.5" opacity="0.4"/>
+    <line x1="0" y1="232" x2="400" y2="232" stroke="#334155" stroke-width="0.5" opacity="0.4"/>
 
     <!-- Bars -->
-    <!-- Bar 1 - tallest -->
-    <rect x="80" y="55" width="36" height="195" rx="4" fill="#6366f1" opacity="0.8"/>
-    <rect x="80" y="55" width="36" height="40" rx="4" fill="#818cf8" opacity="0.3"/>
+    <rect x="30" y="60" width="40" height="250" rx="4" fill="url(#bar1)"/>
+    <rect x="100" y="120" width="40" height="190" rx="4" fill="url(#bar2)"/>
+    <rect x="170" y="155" width="40" height="155" rx="4" fill="url(#bar1)" opacity="0.7"/>
+    <rect x="240" y="190" width="40" height="120" rx="4" fill="url(#bar2)" opacity="0.7"/>
+    <rect x="310" y="230" width="40" height="80" rx="4" fill="url(#bar1)" opacity="0.5"/>
 
-    <!-- Bar 2 -->
-    <rect x="135" y="100" width="36" height="150" rx="4" fill="#06b6d4" opacity="0.7"/>
-    <rect x="135" y="100" width="36" height="30" rx="4" fill="#67e8f9" opacity="0.3"/>
+    <!-- Bar labels -->
+    <text x="50" y="330" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">ChatGPT</text>
+    <text x="120" y="330" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">Gemini</text>
+    <text x="190" y="330" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">Claude</text>
+    <text x="260" y="330" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">Perplexity</text>
+    <text x="330" y="330" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">Copilot</text>
 
-    <!-- Bar 3 -->
-    <rect x="190" y="130" width="36" height="120" rx="4" fill="#818cf8" opacity="0.6"/>
+    <!-- Value labels on bars -->
+    <text x="50" y="50" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#6366f1">42%</text>
+    <text x="120" y="110" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#06b6d4">28%</text>
+    <text x="190" y="145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#818cf8">18%</text>
+    <text x="260" y="180" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#06b6d4" opacity="0.8">8%</text>
+    <text x="330" y="220" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#6366f1" opacity="0.6">4%</text>
 
-    <!-- Bar 4 -->
-    <rect x="245" y="165" width="36" height="85" rx="4" fill="#475569" opacity="0.7"/>
-
-    <!-- Bar 5 -->
-    <rect x="300" y="190" width="36" height="60" rx="4" fill="#334155" opacity="0.7"/>
-
-    <!-- X-axis labels -->
-    <text x="98" y="265" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">You</text>
-    <text x="153" y="265" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">Comp A</text>
-    <text x="208" y="265" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">Comp B</text>
-    <text x="263" y="265" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">Comp C</text>
-    <text x="318" y="265" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">Other</text>
+    <!-- Trend line -->
+    <polyline points="50,55 120,115 190,150 260,185 330,225" fill="none" stroke="white" stroke-width="1.5" opacity="0.2" stroke-dasharray="4,4"/>
   </g>
 
-  <!-- Trend arrow indicator -->
-  <g transform="translate(750, 430)">
-    <polygon points="0,15 10,0 20,15" fill="#10b981" opacity="0.7"/>
-    <text x="30" y="14" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#10b981" opacity="0.8">+12%</text>
-    <text x="80" y="14" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">vs last month</text>
-  </g>
-
-  <!-- Decorative dots -->
-  <circle cx="150" cy="120" r="2" fill="#6366f1" opacity="0.2"/>
-  <circle cx="1080" cy="150" r="2" fill="#06b6d4" opacity="0.2"/>
-  <circle cx="130" cy="480" r="1.5" fill="#6366f1" opacity="0.15"/>
-  <circle cx="1100" cy="490" r="1.5" fill="#06b6d4" opacity="0.15"/>
-
-  <!-- Title text -->
-  <text x="600" y="545" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="700" fill="white" letter-spacing="0.5">Share of Voice in AI Search</text>
-  <text x="600" y="573" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#94a3b8" letter-spacing="1">MEASURE YOUR AI BRAND PRESENCE</text>
+  <!-- Title -->
+  <text x="600" y="70" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="white" letter-spacing="1">
+    Share of Voice in AI
+  </text>
+  <text x="600" y="600" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" fill="#94a3b8" letter-spacing="2">
+    MEASURE YOUR BRAND PRESENCE ACROSS AI ENGINES
+  </text>
 </svg>
