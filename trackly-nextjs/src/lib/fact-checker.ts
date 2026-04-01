@@ -42,6 +42,7 @@ export interface FactCheckResult {
   accuracyRate: number;
   platformStats: Record<string, { total: number; accurate: number }>;
   categoryStats: Record<string, { total: number; accurate: number }>;
+  error?: string;
 }
 
 interface PromptRun {
@@ -220,6 +221,7 @@ export async function runFactCheck(
       accuracyRate: 100,
       platformStats: {},
       categoryStats: {},
+      error: 'No AI API keys configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or CLAUDE_API_KEY to your environment.',
     };
   }
 

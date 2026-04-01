@@ -167,6 +167,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       categoryStats: result.categoryStats,
       checkedRuns: result.checkedRuns,
       aiPowered: true,
+      ...(result.error ? { message: result.error } : {}),
     });
   } catch (e) {
     console.error('[Accuracy PUT]', (e as Error).message);
