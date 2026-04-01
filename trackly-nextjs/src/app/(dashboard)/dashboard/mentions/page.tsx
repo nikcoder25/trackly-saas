@@ -192,14 +192,15 @@ export default function MentionsPage() {
             </div>
           ) : (
             <div className="card" style={{ padding:0,overflow:'hidden' }}>
-              <table style={{ width:'100%',borderCollapse:'collapse',fontSize:12 }}>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:600 }}>
                 <thead>
                   <tr style={{ background:'var(--bg3)' }}>
-                    <th className="th">Platform</th>
+                    <th className="th" style={{ width:'14%' }}>Platform</th>
                     <th className="th">Query</th>
-                    <th className="th">Status</th>
-                    <th className="th">Sentiment</th>
-                    <th className="th">Position</th>
+                    <th className="th" style={{ width:'12%' }}>Status</th>
+                    <th className="th" style={{ width:'12%' }}>Sentiment</th>
+                    <th className="th" style={{ width:'8%' }}>Position</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -211,39 +212,39 @@ export default function MentionsPage() {
                     const sentColor = r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
 
                     return (
-                      <tr key={globalIdx} className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
-                        <td className="td" colSpan={5} style={{ padding: 0 }}>
-                          {/* Main row */}
-                          <div style={{ display:'grid',gridTemplateColumns:'15% 1fr 12% 12% 8%',alignItems:'center',padding:'12px 14px' }}>
-                            <span style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</span>
-                            <span>{r.query}</span>
-                            <span>{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</span>
-                            <span>{!r.mentioned && !r.error ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</span>
-                            <span>{posLabel}</span>
-                          </div>
-
-                          {/* Expanded detail — shows full AI response */}
-                          {isExpanded && (
-                            <div style={{ padding:16,background:'var(--bg)',borderTop:'1px solid var(--bg3)' }}>
-                              {r.error ? (
-                                <div style={{ fontSize:12,color:'var(--red)',padding:12,background:'rgba(239,68,68,.05)',borderRadius:'var(--radius-xs)',border:'1px solid rgba(239,68,68,.15)' }}>
-                                  {r.errorMessage || r.error}
+                      <>
+                        <tr key={globalIdx} className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
+                          <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
+                          <td className="td">{r.query}</td>
+                          <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
+                          <td className="td">{!r.mentioned && !r.error ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
+                          <td className="td">{posLabel}</td>
+                        </tr>
+                        {isExpanded && (
+                          <tr key={`${globalIdx}-detail`}>
+                            <td colSpan={5} style={{ padding:0 }}>
+                              <div style={{ padding:16,background:'var(--bg)',borderTop:'1px solid var(--bg3)' }}>
+                                {r.error ? (
+                                  <div style={{ fontSize:12,color:'var(--red)',padding:12,background:'rgba(239,68,68,.05)',borderRadius:'var(--radius-xs)',border:'1px solid rgba(239,68,68,.15)' }}>
+                                    {r.errorMessage || r.error}
+                                  </div>
+                                ) : (
+                                  <div style={{ background:'var(--bg3)',padding:14,borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--text)',lineHeight:1.7,borderLeft:`3px solid ${r.mentioned ? 'var(--green)' : 'var(--red)'}`,whiteSpace:'pre-wrap' }}
+                                    dangerouslySetInnerHTML={{ __html: highlightBrand(responseText) }} />
+                                )}
+                                <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
+                                  Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.sentiment || 'neutral'} · Recommended: {r.recommended ? 'Yes' : 'No'}
                                 </div>
-                              ) : (
-                                <div style={{ background:'var(--bg3)',padding:14,borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--text)',lineHeight:1.7,borderLeft:`3px solid ${r.mentioned ? 'var(--green)' : 'var(--red)'}`,whiteSpace:'pre-wrap' }}
-                                  dangerouslySetInnerHTML={{ __html: highlightBrand(responseText) }} />
-                              )}
-                              <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
-                                Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.sentiment || 'neutral'} · Recommended: {r.recommended ? 'Yes' : 'No'}
                               </div>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
+                            </td>
+                          </tr>
+                        )}
+                      </>
                     );
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
