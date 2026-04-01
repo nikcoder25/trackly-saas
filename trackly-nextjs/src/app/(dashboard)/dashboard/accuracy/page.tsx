@@ -286,6 +286,8 @@ export default function AccuracyPage() {
   function autoDiscover() {
     if (!brand || discovering) return;
     setDiscovering(true);
+    setCheckMessage(null);
+    setActiveTab('facts');
     fetch(`/api/brands/${brand.id}/accuracy`, {
       method: 'PUT', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -296,17 +298,19 @@ export default function AccuracyPage() {
     }).then(d => {
       if (d.error && (!d.suggestedFacts || d.suggestedFacts.length === 0)) {
         setCheckMessage(d.error);
-      } else {
-        const suggestions = (d.suggestedFacts || []) as SuggestedFact[];
-        // Filter out facts that already exist
-        const existingKeys = new Set(facts.map(f => f.key));
-        const newSuggestions = suggestions.filter(s => !existingKeys.has(s.key));
-        setSuggestedFacts(newSuggestions);
-        if (newSuggestions.length === 0 && suggestions.length > 0) {
-          setCheckMessage('All discovered facts already exist in your canonical facts.');
-        }
+        return;
       }
-    }).catch(() => {
+      const suggestions = (d.suggestedFacts || []) as SuggestedFact[];
+      const existingKeys = new Set(facts.map(f => f.key));
+      const newSuggestions = suggestions.filter(s => !existingKeys.has(s.key));
+      setSuggestedFacts(newSuggestions);
+      if (newSuggestions.length === 0 && suggestions.length > 0) {
+        setCheckMessage('All discovered facts already exist in your canonical facts.');
+      } else if (newSuggestions.length > 0) {
+        setCheckMessage(`AI discovered ${newSuggestions.length} new fact${newSuggestions.length !== 1 ? 's' : ''} about your brand. Review and add them below.`);
+      }
+    }).catch((err) => {
+      console.error('[AutoDiscover]', err);
       setCheckMessage('Failed to auto-discover facts. Please try again.');
     }).finally(() => setDiscovering(false));
   }
