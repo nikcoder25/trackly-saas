@@ -17,17 +17,17 @@ export async function POST(request: NextRequest) {
   if (!email || !password) return Response.json({ error: 'Email/username and password required' }, { status: 400 });
 
   // IP-based rate limit to prevent brute-force across multiple accounts
-  const ipRl = rateLimit('login_ip:' + ip, 15 * 60 * 1000, 20);
+  const ipRl = await rateLimit('login_ip:' + ip, 15 * 60 * 1000, 20);
   if (!ipRl.allowed) return rateLimitResponse(ipRl.retryAfter);
 
   // Per-account rate limit
   const accountKey = 'login_account:' + email.toString().toLowerCase().trim();
-  const rl = rateLimit(accountKey, 15 * 60 * 1000, 10);
+  const rl = await rateLimit(accountKey, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   // 2FA rate limit
   if (totpCode) {
-    const twoFaRl = rateLimit('2fa:' + ip, 15 * 60 * 1000, 5);
+    const twoFaRl = await rateLimit('2fa:' + ip, 15 * 60 * 1000, 5);
     if (!twoFaRl.allowed) return rateLimitResponse(twoFaRl.retryAfter);
   }
 

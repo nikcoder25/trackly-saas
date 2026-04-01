@@ -29,7 +29,7 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('auth:' + ip, 15 * 60 * 1000, 20);
+  const rl = await rateLimit('auth:' + ip, 15 * 60 * 1000, 20);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const body = await request.json();

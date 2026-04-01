@@ -13,7 +13,7 @@ async function requireAdmin(request: Request) {
 
 export async function GET(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('admin:' + ip, 15 * 60 * 1000, 30);
+  const rl = await rateLimit('admin:' + ip, 15 * 60 * 1000, 30);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const admin = await requireAdmin(request);

@@ -13,7 +13,7 @@ async function requireAdmin(request: Request) {
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('admin_edit:' + ip, 15 * 60 * 1000, 30);
+  const rl = await rateLimit('admin_edit:' + ip, 15 * 60 * 1000, 30);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const admin = await requireAdmin(request);
@@ -71,7 +71,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('admin_delete:' + ip, 15 * 60 * 1000, 10);
+  const rl = await rateLimit('admin_delete:' + ip, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const admin = await requireAdmin(request);

@@ -7,7 +7,7 @@ import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('reset_password:' + ip, 60 * 60 * 1000, 10);
+  const rl = await rateLimit('reset_password:' + ip, 60 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { token, newPassword } = await request.json();

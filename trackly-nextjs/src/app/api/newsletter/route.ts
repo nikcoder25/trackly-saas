@@ -19,7 +19,7 @@ let tableReady = false;
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('newsletter:' + ip, 60 * 60 * 1000, 5);
+  const rl = await rateLimit('newsletter:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {

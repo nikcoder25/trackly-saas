@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     // Rate limit by IP: 3 checks per hour
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const { allowed, retryAfter } = rateLimit(`free-check:${ip}`, 60 * 60 * 1000, 3);
+    const { allowed, retryAfter } = await rateLimit(`free-check:${ip}`, 60 * 60 * 1000, 3);
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json();

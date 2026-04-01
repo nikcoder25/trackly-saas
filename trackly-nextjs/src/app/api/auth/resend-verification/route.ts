@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
-  const rl = rateLimit('resend_verify:' + user.id, 15 * 60 * 1000, 3);
+  const rl = await rateLimit('resend_verify:' + user.id, 15 * 60 * 1000, 3);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {

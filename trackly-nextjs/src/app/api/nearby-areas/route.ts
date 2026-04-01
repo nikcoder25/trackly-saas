@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = rateLimit('nearby:' + user.id, 15 * 60 * 1000, 10);
+  const rl = await rateLimit('nearby:' + user.id, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { city } = await request.json();

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   if (authResult instanceof Response) return authResult;
   const user = authResult;
 
-  const rl = rateLimit('aigen:' + user.id, 15 * 60 * 1000, 10);
+  const rl = await rateLimit('aigen:' + user.id, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { brandName, industry, city, existingQueries } = await request.json();
