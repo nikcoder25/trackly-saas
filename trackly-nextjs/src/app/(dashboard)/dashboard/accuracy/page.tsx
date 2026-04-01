@@ -355,6 +355,57 @@ export default function AccuracyPage() {
         </div>
       )}
 
+      {/* Canonical Facts Section */}
+      <div style={{ padding: '16px 20px' }}>
+        {/* Fact Coverage Indicator */}
+        <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg3)', borderRadius: 8 }}>
+          <FactCoverage facts={facts} />
+        </div>
+
+        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 10 }}>
+          Define what&apos;s true about your brand. We&apos;ll check if AI gets it right.
+        </div>
+
+        {facts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>
+            No facts defined yet. Add your brand&apos;s canonical facts below (e.g. founded year, pricing, phone number) to check AI accuracy.
+          </div>
+        ) : (
+          <div style={{ marginBottom: 14 }}>
+            {facts.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
+                <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
+                <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add Fact Form */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, marginTop: 12, alignItems: 'end' }}>
+          <div>
+            <label className="flbl">Fact Key</label>
+            <input className="finp" placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)} style={{ margin: 0 }} />
+          </div>
+          <div>
+            <label className="flbl">Fact Value</label>
+            <input className="finp" placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)} style={{ margin: 0 }} />
+          </div>
+          <div>
+            <label className="flbl">Category</label>
+            <select className="finp" value={factCategory} onChange={e => setFactCategory(e.target.value)} style={{ margin: 0 }}>
+              <option value="general">General</option>
+              <option value="pricing">Pricing</option>
+              <option value="features">Features</option>
+              <option value="company">Company</option>
+            </select>
+          </div>
+          <button className="pbtn" onClick={addFact} style={{ fontWeight: 700 }}>Add</button>
+        </div>
+      </div>
+
       {/* KPI Cards — 4 score cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
         <div className="score-card">
@@ -455,18 +506,6 @@ export default function AccuracyPage() {
           >
             Recent Issues ({issues.length})
           </button>
-          <button
-            onClick={() => setActiveTab('facts')}
-            style={{
-              flex: 1, padding: '12px 16px', border: 'none', cursor: 'pointer', fontSize: 11,
-              fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
-              color: activeTab === 'facts' ? 'var(--primary)' : 'var(--muted)',
-              background: activeTab === 'facts' ? 'var(--bg)' : 'var(--bg3)',
-              borderBottom: activeTab === 'facts' ? '2px solid var(--primary)' : '2px solid transparent',
-            }}
-          >
-            Canonical Facts ({facts.length})
-          </button>
         </div>
 
         {/* Issues Tab */}
@@ -538,59 +577,7 @@ export default function AccuracyPage() {
           </div>
         )}
 
-        {/* Facts Tab */}
-        {activeTab === 'facts' && (
-          <div style={{ padding: '16px 20px' }}>
-            {/* Fact Coverage Indicator */}
-            <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg3)', borderRadius: 8 }}>
-              <FactCoverage facts={facts} />
-            </div>
-
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 10 }}>
-              Define what&apos;s true about your brand. We&apos;ll check if AI gets it right.
-            </div>
-
-            {facts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>
-                No facts defined yet. Add your brand&apos;s canonical facts below (e.g. founded year, pricing, phone number) to check AI accuracy.
-              </div>
-            ) : (
-              <div style={{ marginBottom: 14 }}>
-                {facts.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
-                    <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
-                    <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add Fact Form */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, marginTop: 12, alignItems: 'end' }}>
-              <div>
-                <label className="flbl">Fact Key</label>
-                <input className="finp" placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)} style={{ margin: 0 }} />
-              </div>
-              <div>
-                <label className="flbl">Fact Value</label>
-                <input className="finp" placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)} style={{ margin: 0 }} />
-              </div>
-              <div>
-                <label className="flbl">Category</label>
-                <select className="finp" value={factCategory} onChange={e => setFactCategory(e.target.value)} style={{ margin: 0 }}>
-                  <option value="general">General</option>
-                  <option value="pricing">Pricing</option>
-                  <option value="features">Features</option>
-                  <option value="company">Company</option>
-                </select>
-              </div>
-              <button className="pbtn" onClick={addFact} style={{ fontWeight: 700 }}>Add</button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
-}
+                                   }
