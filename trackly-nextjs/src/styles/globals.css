@@ -43,10 +43,8 @@
   color: var(--amber);
 }
 .run-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
+  display: block;
+  width: 100%;
   padding: 10px;
   text-align: center;
   color: white;

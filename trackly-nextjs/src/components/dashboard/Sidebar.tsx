@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRun } from '@/contexts/RunContext';
 
 const navGroups = [
   {
@@ -40,6 +41,7 @@ const navGroups = [
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { live, startRun, forceRun } = useRun();
 
   return (
     <>
@@ -51,8 +53,35 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <aside className={`sidebar ${open ? 'mobile-open' : ''}`} style={{
         display: 'flex', flexDirection: 'column',
       }}>
+        {/* Run Queries Button */}
+        <div style={{ padding: '8px 8px 4px' }}>
+          <button
+            className={`run-btn${live.running ? ' running' : ''}`}
+            id="sidebar-run-btn"
+            style={{
+              margin: 0,
+              opacity: live.running ? 0.6 : 1,
+              cursor: live.running ? 'not-allowed' : 'pointer',
+              background: live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
+              fontSize: live.status === 'error' && live.errorMsg && live.errorMsg !== 'concurrent' ? '10px' : undefined,
+            }}
+            title={live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
+            disabled={live.running}
+            onClick={() => startRun(false)}
+          >
+            {live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + (live.statusText.length > 30 ? live.statusText.substring(0, 28) + '...' : live.statusText)) : '▶ RUN QUERIES'}
+          </button>
+
+          {/* Force-run button for concurrent lock errors */}
+          {live.status === 'error' && live.errorMsg === 'concurrent' && (
+            <button onClick={forceRun} style={{ width: '100%', marginTop: 4, padding: '6px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
+              ⚡ FORCE RUN
+            </button>
+          )}
+        </div>
+
         {/* Nav groups */}
-        <nav style={{ flex: 1, padding: '12px 8px 4px' }}>
+        <nav style={{ flex: 1, padding: '4px 8px' }}>
           {navGroups.map((group) => (
             <div key={group.label}>
               <div className="nav-group">{group.label}</div>

@@ -26,7 +26,7 @@ interface Brand {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { live, elapsed, pct, startRun, forceRun } = useRun();
+  const { live, elapsed, pct } = useRun();
   // Language removed
   const [brands, setBrands] = useState<Brand[]>([]);
   const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
@@ -388,27 +388,7 @@ export default function DashboardPage() {
       {/* HEADER */}
       <div className="ov-header">
         <div className="ov-header-left">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="view-title">{brand.name}</div>
-            <button
-              className={`run-btn${live.running ? ' running' : ''}`}
-              onClick={() => startRun(false)}
-              disabled={live.running}
-              style={{
-                margin: 0, padding: '6px 16px', fontSize: 11,
-                opacity: live.running ? 0.6 : 1,
-                cursor: live.running ? 'not-allowed' : 'pointer',
-                background: live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
-              }}
-            >
-              {live.running ? '⏳ Running...' : live.status === 'done' ? '✓ Done' : '▶ Run Queries'}
-            </button>
-            {live.status === 'error' && live.errorMsg === 'concurrent' && (
-              <button onClick={forceRun} style={{ padding: '6px 12px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
-                ⚡ Force
-              </button>
-            )}
-          </div>
+          <div className="view-title">{brand.name}</div>
           <div className="view-sub">{[brand.industry, brand.city].filter(Boolean).join(' · ') || 'Select a brand and queries run automatically on schedule.'}</div>
         </div>
         <div className="ov-header-right">
