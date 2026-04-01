@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.1"/>
+    </linearGradient>
+    <radialGradient id="node-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur1">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+    <filter id="blur2">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Ambient glow blobs -->
+  <circle cx="300" cy="250" r="200" fill="#6366f1" opacity="0.08" filter="url(#blur1)"/>
+  <circle cx="900" cy="400" r="250" fill="#06b6d4" opacity="0.06" filter="url(#blur1)"/>
+
+  <!-- Grid pattern -->
+  <g stroke="#6366f1" stroke-opacity="0.06" stroke-width="1">
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="200" x2="1200" y2="200"/>
+    <line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="400" x2="1200" y2="400"/>
+    <line x1="0" y1="500" x2="1200" y2="500"/>
+    <line x1="200" y1="0" x2="200" y2="630"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+    <line x1="1000" y1="0" x2="1000" y2="630"/>
+  </g>
+
+  <!-- Connection lines -->
+  <g stroke="#6366f1" stroke-opacity="0.25" stroke-width="1.5">
+    <line x1="600" y1="315" x2="350" y2="200"/>
+    <line x1="600" y1="315" x2="850" y2="200"/>
+    <line x1="600" y1="315" x2="300" y2="400"/>
+    <line x1="600" y1="315" x2="900" y2="420"/>
+    <line x1="600" y1="315" x2="450" y2="480"/>
+    <line x1="600" y1="315" x2="750" y2="480"/>
+    <line x1="350" y1="200" x2="300" y2="400"/>
+    <line x1="850" y1="200" x2="900" y2="420"/>
+    <line x1="450" y1="480" x2="300" y2="400"/>
+    <line x1="750" y1="480" x2="900" y2="420"/>
+    <line x1="350" y1="200" x2="500" y2="150"/>
+    <line x1="850" y1="200" x2="700" y2="150"/>
+    <line x1="500" y1="150" x2="700" y2="150"/>
+  </g>
+
+  <!-- Secondary connection lines -->
+  <g stroke="#06b6d4" stroke-opacity="0.15" stroke-width="1" stroke-dasharray="4 4">
+    <line x1="500" y1="150" x2="600" y2="315"/>
+    <line x1="700" y1="150" x2="600" y2="315"/>
+    <line x1="350" y1="200" x2="850" y2="200"/>
+    <line x1="300" y1="400" x2="900" y2="420"/>
+  </g>
+
+  <!-- Node glows -->
+  <circle cx="600" cy="315" r="50" fill="url(#node-glow)"/>
+
+  <!-- Central node -->
+  <circle cx="600" cy="315" r="18" fill="#6366f1" opacity="0.9"/>
+  <circle cx="600" cy="315" r="10" fill="#818cf8"/>
+  <circle cx="600" cy="315" r="24" fill="none" stroke="#6366f1" stroke-opacity="0.4" stroke-width="1.5"/>
+
+  <!-- Outer nodes - AI platforms -->
+  <circle cx="350" cy="200" r="12" fill="#6366f1" opacity="0.7"/>
+  <circle cx="350" cy="200" r="6" fill="#a5b4fc"/>
+
+  <circle cx="850" cy="200" r="12" fill="#6366f1" opacity="0.7"/>
+  <circle cx="850" cy="200" r="6" fill="#a5b4fc"/>
+
+  <circle cx="300" cy="400" r="10" fill="#06b6d4" opacity="0.7"/>
+  <circle cx="300" cy="400" r="5" fill="#67e8f9"/>
+
+  <circle cx="900" cy="420" r="10" fill="#06b6d4" opacity="0.7"/>
+  <circle cx="900" cy="420" r="5" fill="#67e8f9"/>
+
+  <circle cx="450" cy="480" r="9" fill="#6366f1" opacity="0.6"/>
+  <circle cx="450" cy="480" r="4.5" fill="#a5b4fc"/>
+
+  <circle cx="750" cy="480" r="9" fill="#6366f1" opacity="0.6"/>
+  <circle cx="750" cy="480" r="4.5" fill="#a5b4fc"/>
+
+  <circle cx="500" cy="150" r="8" fill="#06b6d4" opacity="0.6"/>
+  <circle cx="500" cy="150" r="4" fill="#67e8f9"/>
+
+  <circle cx="700" cy="150" r="8" fill="#06b6d4" opacity="0.6"/>
+  <circle cx="700" cy="150" r="4" fill="#67e8f9"/>
+
+  <!-- Tiny decorative dots -->
+  <circle cx="200" cy="150" r="2" fill="#6366f1" opacity="0.3"/>
+  <circle cx="1000" cy="300" r="2" fill="#06b6d4" opacity="0.3"/>
+  <circle cx="150" cy="500" r="2" fill="#6366f1" opacity="0.2"/>
+  <circle cx="1050" cy="180" r="2" fill="#06b6d4" opacity="0.2"/>
+  <circle cx="180" cy="300" r="1.5" fill="#6366f1" opacity="0.25"/>
+  <circle cx="1020" cy="500" r="1.5" fill="#06b6d4" opacity="0.25"/>
+
+  <!-- Pulsing rings on central node -->
+  <circle cx="600" cy="315" r="35" fill="none" stroke="#6366f1" stroke-opacity="0.15" stroke-width="1"/>
+  <circle cx="600" cy="315" r="50" fill="none" stroke="#6366f1" stroke-opacity="0.08" stroke-width="1"/>
+
+  <!-- Title text -->
+  <text x="600" y="570" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="700" fill="white" letter-spacing="0.5">Generative Engine Optimization</text>
+  <text x="600" y="598" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="400" fill="#94a3b8" letter-spacing="1">THE COMPLETE GUIDE</text>
+</svg>
