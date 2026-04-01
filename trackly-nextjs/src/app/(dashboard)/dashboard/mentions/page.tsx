@@ -134,11 +134,16 @@ export default function MentionsPage() {
       </div>
 
       {all.length === 0 ? (
-        <div className="card" style={{ textAlign:'center',padding:48 }}><p style={{ color:'var(--muted)' }}>No results yet — run queries to start tracking.</p></div>
+        <div className="card" style={{ textAlign:'center',padding:48 }}>
+          <div style={{ fontSize:36,opacity:.4,marginBottom:12 }}>◎</div>
+          <div style={{ fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:6 }}>No Mentions Yet</div>
+          <p style={{ color:'var(--muted)',fontSize:13,maxWidth:360,margin:'0 auto 16px' }}>Run queries to start tracking how AI platforms mention your brand.</p>
+          <a href="/dashboard" style={{ display:'inline-block',background:'var(--primary)',color:'#fff',padding:'8px 20px',borderRadius:'var(--radius-xs)',fontSize:12,fontWeight:700,textDecoration:'none' }}>Go to Overview</a>
+        </div>
       ) : (
         <>
           {/* KPI Cards — 4 score cards */}
-          <div style={{ display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16 }}>
+          <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)' }}>{sovPct}%</div>
               <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Mention Rate</div>
@@ -180,7 +185,11 @@ export default function MentionsPage() {
 
           {/* Results Table — matches legacy exactly */}
           {filtered.length === 0 ? (
-            <div className="card" style={{ textAlign:'center',padding:48 }}><p style={{ color:'var(--muted)' }}>No results match your filters.</p></div>
+            <div className="card" style={{ textAlign:'center',padding:48 }}>
+              <div style={{ fontSize:36,opacity:.4,marginBottom:12 }}>🔍</div>
+              <div style={{ fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:6 }}>No Matching Results</div>
+              <p style={{ color:'var(--muted)',fontSize:13 }}>Try adjusting your filters to see more results.</p>
+            </div>
           ) : (
             <div className="card" style={{ padding:0,overflow:'hidden' }}>
               <table style={{ width:'100%',borderCollapse:'collapse',fontSize:12 }}>

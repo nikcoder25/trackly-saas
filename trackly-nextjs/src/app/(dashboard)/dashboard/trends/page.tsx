@@ -126,8 +126,10 @@ export default function TrendsPage() {
             </svg>
           </div>
         ) : (
-          <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>Chart: Multi-line graph per platform (ChatGPT, Perplexity, Claude, etc.)</span>
+          <div style={{ minHeight: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 32 }}>
+            <div style={{ fontSize: 36, opacity: 0.4 }}>📈</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Not Enough Data Yet</div>
+            <p style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', margin: 0 }}>Run at least 2 query scans to see SOV trends across platforms.</p>
           </div>
         )}
       </div>

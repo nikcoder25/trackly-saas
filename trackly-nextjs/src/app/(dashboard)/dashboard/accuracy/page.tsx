@@ -14,8 +14,10 @@ interface CategoryStat { total: number; accurate: number; }
 function TrendChart({ data }: { data: TrendPoint[] }) {
   if (data.length < 2) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: 12 }}>
-        Not enough data for trend chart yet. Run more checks to see trends.
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
+        <div style={{ fontSize: 28, opacity: 0.4 }}>📉</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Not Enough Data</div>
+        <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center' }}>Run more checks to see accuracy trends over time.</div>
       </div>
     );
   }
@@ -86,8 +88,10 @@ function SeverityDonut({ issues }: { issues: Issue[] }) {
   const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
   if (total === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: 12 }}>
-        No issues detected
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, padding: 16 }}>
+        <div style={{ fontSize: 28, opacity: 0.4 }}>✓</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>No Issues Detected</div>
+        <div style={{ color: 'var(--muted)', fontSize: 12 }}>All accuracy checks passed.</div>
       </div>
     );
   }
@@ -421,7 +425,7 @@ export default function AccuracyPage() {
       )}
 
       {/* KPI Cards — 4 score cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
         <div className="score-card">
           <div className="score-val" style={{ fontSize: 24, color: accuracyRate != null ? (accuracyRate >= 80 ? 'var(--green)' : accuracyRate >= 50 ? 'var(--amber)' : 'var(--red)') : 'var(--muted)' }}>
             {accuracyRate != null ? `${accuracyRate}%` : '—'}

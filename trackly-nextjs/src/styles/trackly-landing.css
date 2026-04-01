@@ -257,7 +257,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 160px 24px 80px;
+  padding: 120px 24px 48px;
   overflow: hidden;
   background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 40%, #e0e7ff 100%);
 }
@@ -775,7 +775,7 @@
    SECTIONS (shared)
    ══════════════════════════════════════ */
 .tl-section {
-  padding: 96px 24px;
+  padding: 60px 24px;
 }
 
 .tl-section--alt {
@@ -794,7 +794,7 @@
 
 .tl-section-header {
   text-align: center;
-  margin-bottom: 56px;
+  margin-bottom: 36px;
 }
 
 .tl-section-tag {
@@ -1003,7 +1003,7 @@
 .tl-features-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 16px;
 }
 
 .tl-feature-card {
@@ -1714,7 +1714,7 @@
   }
 
   .tl-hero {
-    padding: 120px 20px 60px;
+    padding: 100px 20px 40px;
   }
 
   .tl-hero h1 {
@@ -1837,7 +1837,7 @@
   }
 
   .tl-section {
-    padding: 64px 20px;
+    padding: 48px 20px;
   }
 
   .tl-email-input-wrap {

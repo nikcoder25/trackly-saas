@@ -38,6 +38,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           #app{grid-template-columns:1fr!important;}
           #app .main{padding:12px 16px 24px!important;}
         }
+        @media(max-width:767px){
+          #app{grid-template-columns:1fr!important;}
+          #app .main{padding:8px 12px 20px!important;}
+        }
       `}</style>
     </div>
     </RunProvider>

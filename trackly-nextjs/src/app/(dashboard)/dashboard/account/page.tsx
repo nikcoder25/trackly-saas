@@ -256,7 +256,7 @@ export default function AccountPage() {
       {/* Choose Your Plan */}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="section-title">Choose Your Plan</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           {PLANS.map(p => (
             <div key={p.name} className="land-price-card" style={p.featured ? { borderColor: 'var(--primary)', boxShadow: '0 0 0 1px var(--primary), var(--card-shadow-lg)' } : p.enterprise ? { borderColor: 'var(--purple)' } : {}}>
               {p.featured && <span style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', padding: '4px 16px', letterSpacing: '.5px', borderRadius: 100 }}>MOST POPULAR</span>}

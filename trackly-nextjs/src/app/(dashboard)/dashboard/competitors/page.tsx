@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRun } from '@/contexts/RunContext';
+import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
 interface Brand { id: string; name: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
@@ -10,6 +12,7 @@ export default function CompetitorsPage() {
   const [brand, setBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
   const [newComp, setNewComp] = useState('');
+  const { startRun, live } = useRun();
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -56,6 +59,13 @@ export default function CompetitorsPage() {
   const total = allResults.length;
   const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
 
+  // Check if all data is 0%
+  const allZero = useMemo(() => {
+    if (!competitors.length || !allResults.length) return false;
+    const allCompZero = competitors.every(c => (compStats[c] || 0) === 0);
+    return allCompZero && brandPct === 0;
+  }, [competitors, allResults, compStats, brandPct]);
+
   // Per-platform breakdown
   const platBreakdown = useMemo(() => {
     const m: Record<string, Record<string, number>> = {};
@@ -99,8 +109,52 @@ export default function CompetitorsPage() {
         </div>
       </div>
 
+      {/* Empty state when all competitors show 0% */}
+      {competitors.length > 0 && allZero && (
+        <div className="card" style={{ marginTop: 14, padding: 32, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>📊</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
+            Once you run queries, we&apos;ll track how often competitors appear in AI responses alongside your brand.
+          </div>
+          <button
+            className="run-btn"
+            onClick={() => startRun(false)}
+            disabled={live.running}
+            style={{ margin: '0 auto 12px', display: 'block', opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
+          >
+            {live.running ? '⏳ Running...' : '▶ Run Queries'}
+          </button>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+            💡 Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
+          </div>
+        </div>
+      )}
+
+      {/* Empty state when no results at all */}
+      {competitors.length > 0 && allResults.length === 0 && (
+        <div className="card" style={{ marginTop: 14, padding: 32, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>📊</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
+            Run your first query scan to see how competitors appear in AI responses.
+          </div>
+          <button
+            className="run-btn"
+            onClick={() => startRun(false)}
+            disabled={live.running}
+            style={{ margin: '0 auto 12px', display: 'block', opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
+          >
+            {live.running ? '⏳ Running...' : '▶ Run Queries'}
+          </button>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+            💡 Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
+          </div>
+        </div>
+      )}
+
       {/* Competitor Comparison — horizontal bar chart */}
-      {competitors.length > 0 && allResults.length > 0 && (
+      {competitors.length > 0 && allResults.length > 0 && !allZero && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="section-title">Competitor Comparison</div>
           {/* Brand row */}

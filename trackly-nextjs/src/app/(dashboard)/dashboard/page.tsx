@@ -26,7 +26,7 @@ interface Brand {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { live, elapsed, pct } = useRun();
+  const { live, elapsed, pct, startRun, forceRun } = useRun();
   // Language removed
   const [brands, setBrands] = useState<Brand[]>([]);
   const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
@@ -367,7 +367,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, fontFamily: 'var(--mono)' }}>
               {live.foundCount > 0 && <span style={{ color: 'var(--green)', fontWeight: 700 }}>{live.foundCount} found</span>}
-              {live.errorCount > 0 && <span style={{ color: 'var(--red)', fontWeight: 700 }}>{live.errorCount} error{live.errorCount > 1 ? 's' : ''}</span>}
+              {live.errorCount > 0 && <span style={{ color: 'var(--red)', fontWeight: 700 }}>{live.errorCount} {live.errorCount === 1 ? 'error' : 'errors'}</span>}
               {live.running && elapsed && <span style={{ color: 'var(--muted)' }}>{elapsed}</span>}
             </div>
           </div>
@@ -388,7 +388,27 @@ export default function DashboardPage() {
       {/* HEADER */}
       <div className="ov-header">
         <div className="ov-header-left">
-          <div className="view-title">{brand.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="view-title">{brand.name}</div>
+            <button
+              className={`run-btn${live.running ? ' running' : ''}`}
+              onClick={() => startRun(false)}
+              disabled={live.running}
+              style={{
+                margin: 0, padding: '6px 16px', fontSize: 11,
+                opacity: live.running ? 0.6 : 1,
+                cursor: live.running ? 'not-allowed' : 'pointer',
+                background: live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
+              }}
+            >
+              {live.running ? '⏳ Running...' : live.status === 'done' ? '✓ Done' : '▶ Run Queries'}
+            </button>
+            {live.status === 'error' && live.errorMsg === 'concurrent' && (
+              <button onClick={forceRun} style={{ padding: '6px 12px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
+                ⚡ Force
+              </button>
+            )}
+          </div>
           <div className="view-sub">{[brand.industry, brand.city].filter(Boolean).join(' · ') || 'Select a brand and queries run automatically on schedule.'}</div>
         </div>
         <div className="ov-header-right">
@@ -464,8 +484,8 @@ export default function DashboardPage() {
           <span className="ov-health-dot" style={{ background: live.running ? 'var(--green)' : apiHealthColor }} />
           <span className="ov-health-text">
             {live.running
-              ? <>{live.received - live.errorCount} ok · {live.errorCount} errors · {live.received}/{live.totalExpected} total</>
-              : <>{apiHealthy}/{apiTotal} platforms healthy · {apiTotalResponses - apiErrors} ok · {apiErrors} errors · <Link href="/dashboard/platforms" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>View Errors →</Link></>
+              ? <>{live.received - live.errorCount} ok · {live.errorCount} {live.errorCount === 1 ? 'error' : 'errors'} · {live.received}/{live.totalExpected} total</>
+              : <>{apiHealthy}/{apiTotal} {apiTotal === 1 ? 'platform' : 'platforms'} healthy · {apiTotalResponses - apiErrors} ok · {apiErrors} {apiErrors === 1 ? 'error' : 'errors'} · <Link href="/dashboard/platforms" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>View {apiErrors === 1 ? 'Error' : 'Errors'} →</Link></>
             }
           </span>
         </div>
@@ -511,6 +531,8 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* ═══ PERFORMANCE OVERVIEW ═══ */}
+      {show('scores')&&<div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:10,marginTop:6}}>Performance Overview</div>}
       {/* GEO SCORE / AI SENTIMENT / AI RECOMMENDS */}
       {show('scores')&&<div className="ov-scores-row">
         <div className="ov-score-card"><div className="ov-score-val" style={{color:geoScore>=60?'var(--green)':geoScore>=30?'var(--amber)':geoScore>0?'var(--red)':'var(--muted)'}}>{geoScore}</div><div className="ov-score-label">GEO Score</div><div className="ov-score-bar"><div className="ov-score-bar-fill" style={{width:`${geoScore}%`,background:geoScore>=60?'var(--green)':geoScore>=30?'var(--amber)':'var(--red)'}}/></div><div style={{fontSize:11,color:'var(--muted)',marginTop:6}}>{geoScore>=70?'Strong':geoScore>=40?'Growing':geoScore>0?'Weak':'Not Visible'}</div></div>
@@ -544,6 +566,8 @@ export default function DashboardPage() {
         {sov===0&&<div className="ov-insight"><span className="ov-insight-icon">⭐</span><div className="ov-insight-text"><div className="ov-insight-head">Getting Started</div><div>Your SOV is 0%. Run queries from <Link href="/dashboard/setup" style={{color:'var(--primary)',textDecoration:'none'}}>Brand Setup</Link> and check <Link href="/dashboard/recommendations" style={{color:'var(--primary)',textDecoration:'none'}}>Recommendations</Link> for optimization tips.</div></div></div>}
       </div>}
 
+      {/* ═══ PLATFORM BREAKDOWN ═══ */}
+      {show('platforms')&&<div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:10}}>Platform Breakdown</div>}
       {/* PLATFORM CARDS */}
       {show('platforms')&&<div className="ov-plat-grid">{Object.entries(PLATFORM_COLORS).map(([name,color])=>{const n=normPlatform(platforms[name]);const isActive=n.total>0||n.sov>0;return <div key={name} className="ov-plat-card" style={{borderTop:`3px solid ${color}`}}><div className="ov-plat-name">{name}</div><div className="ov-plat-status" style={{color:isActive?'var(--green)':'var(--muted)'}}>● {isActive?'ACTIVE':'INACTIVE'}</div><div className="ov-plat-bar"><div className="ov-plat-bar-fill" style={{width:`${n.sov}%`,background:color}}/></div><div className="ov-plat-sov" style={{color:n.sov>=50?'var(--green)':n.sov>0?'var(--amber)':'var(--muted)'}}>{n.sov}%</div></div>;})}</div>}
 

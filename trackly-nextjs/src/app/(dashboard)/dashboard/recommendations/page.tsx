@@ -45,6 +45,16 @@ export default function RecommendationsPage() {
 
   useEffect(() => { loadRecs(); }, [selectedBrand, filterStatus, filterSeverity]);
 
+  // FIX 5: Auto-generate recommendations on page load if data exists but recommendations are empty
+  const [autoGenTriggered, setAutoGenTriggered] = useState(false);
+  useEffect(() => {
+    if (!selectedBrand || loading || generating || autoGenTriggered) return;
+    if (allRecs.length === 0 && brands.length > 0) {
+      setAutoGenTriggered(true);
+      generate();
+    }
+  }, [selectedBrand, loading, allRecs.length, brands.length]);
+
   const generate = async () => {
     if (!selectedBrand || generating) return;
     setGenerating(true);
@@ -85,7 +95,22 @@ export default function RecommendationsPage() {
   const sevColors: Record<string, string> = { critical: 'var(--red)', high: 'var(--red)', medium: 'var(--amber)', low: 'var(--blue)' };
   const sevLabels: Record<string, string> = { critical: 'HIGH', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
 
-  if (loading) return <div style={{ display:'flex',alignItems:'center',justifyContent:'center',padding:'80px 0' }}><div style={{ width:32,height:32,border:'2px solid var(--primary)',borderTopColor:'transparent',borderRadius:'50%',animation:'spin 1s linear infinite' }}/></div>;
+  if (loading || (generating && allRecs.length === 0)) return (
+    <div style={{ padding: '20px 0' }}>
+      <div className="view-title">Recommendations</div>
+      <div className="view-sub" style={{ marginBottom: 20 }}>AI-powered suggestions to improve your visibility across all platforms.</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="card" style={{ padding: '20px', opacity: 0.5 }}>
+            <div style={{ height: 14, width: '60%', background: 'var(--bg3)', borderRadius: 4, marginBottom: 10 }} />
+            <div style={{ height: 10, width: '90%', background: 'var(--bg3)', borderRadius: 4, marginBottom: 6 }} />
+            <div style={{ height: 10, width: '40%', background: 'var(--bg3)', borderRadius: 4 }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--muted)' }}>Analyzing your data and generating recommendations...</div>
+    </div>
+  );
 
   return (
     <div>
@@ -102,7 +127,7 @@ export default function RecommendationsPage() {
       </div>
 
       {/* KPI Cards — 4 score-cards matching screenshot */}
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16 }}>
+      <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
         <div className="score-card">
           <div className="score-val" style={{ fontSize:24 }}>{allRecs.length}</div>
           <div className="score-label">Total</div>
@@ -151,7 +176,7 @@ export default function RecommendationsPage() {
             <>
               <div style={{ fontSize:28,marginBottom:8 }}>&#9733;</div>
               <div style={{ fontWeight:700,fontSize:14,marginBottom:4 }}>No Recommendations Yet</div>
-              <div style={{ fontSize:12 }}>Click &quot;Generate&quot; to analyze your data and get actionable suggestions.</div>
+              <div style={{ fontSize:12 }}>Run your first query scan to get AI recommendations.</div>
             </>
           )}
         </div>

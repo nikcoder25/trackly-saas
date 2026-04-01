@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRun } from '@/contexts/RunContext';
 
 const navGroups = [
   {
@@ -11,21 +10,15 @@ const navGroups = [
     items: [
       { href: '/dashboard', label: 'Overview', icon: '📊' },
       { href: '/dashboard/mentions', label: 'Mentions', icon: '◎' },
-      { href: '/dashboard/recommendations', label: 'Recommendations', icon: '✦' },
+      { href: '/dashboard/proof', label: 'Evidence & Proof', icon: '◆' },
     ],
   },
   {
     label: 'Analysis',
     items: [
-      { href: '/dashboard/proof', label: 'Evidence & Proof', icon: '◆' },
-      { href: '/dashboard/query-performance', label: 'Query Performance', icon: '◻' },
-      { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '✦' },
-      { href: '/dashboard/prompt-details', label: 'Prompt Details', icon: '◇' },
-      { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/competitors', label: 'Competitors', icon: '⊘' },
-      { href: '/dashboard/citations', label: 'Citation Analysis', icon: '⬤' },
+      { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
-      { href: '/dashboard/platforms', label: 'Platform Status', icon: '◎' },
     ],
   },
   {
@@ -38,10 +31,7 @@ const navGroups = [
     label: 'Settings',
     items: [
       { href: '/dashboard/setup', label: 'Brand Setup', icon: '◇' },
-      { href: '/dashboard/alerts', label: 'Alerts & Notifications', icon: '⚡' },
-      { href: '/dashboard/billing', label: 'Billing', icon: '◻' },
       { href: '/dashboard/account', label: 'Account & Plan', icon: '◉' },
-      { href: '/dashboard/activity', label: 'Activity & Logs', icon: '◆' },
       { href: '/dashboard/admin', label: 'Admin Panel', icon: '⚑', adminOnly: true },
     ],
   },
@@ -50,7 +40,6 @@ const navGroups = [
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { live, startRun, forceRun } = useRun();
 
   return (
     <>
@@ -62,35 +51,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <aside className={`sidebar ${open ? 'mobile-open' : ''}`} style={{
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Run Queries Button */}
-        <div style={{ padding: '8px 8px 4px' }}>
-          <button
-            className={`run-btn${live.running ? ' running' : ''}`}
-            id="sidebar-run-btn"
-            style={{
-              margin: 0,
-              opacity: live.running ? 0.6 : 1,
-              cursor: live.running ? 'not-allowed' : 'pointer',
-              background: live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
-              fontSize: live.status === 'error' && live.errorMsg && live.errorMsg !== 'concurrent' ? '10px' : undefined,
-            }}
-            title={live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
-            disabled={live.running}
-            onClick={() => startRun(false)}
-          >
-            {live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + (live.statusText.length > 30 ? live.statusText.substring(0, 28) + '...' : live.statusText)) : '▶ RUN QUERIES'}
-          </button>
-
-          {/* Force-run button for concurrent lock errors */}
-          {live.status === 'error' && live.errorMsg === 'concurrent' && (
-            <button onClick={forceRun} style={{ width: '100%', marginTop: 4, padding: '6px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
-              ⚡ FORCE RUN
-            </button>
-          )}
-        </div>
-
         {/* Nav groups */}
-        <nav style={{ flex: 1, padding: '4px 8px' }}>
+        <nav style={{ flex: 1, padding: '12px 8px 4px' }}>
           {navGroups.map((group) => (
             <div key={group.label}>
               <div className="nav-group">{group.label}</div>
@@ -125,8 +87,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       </aside>
 
       <style>{`
-        @media(max-width:1023px){
+        @media(max-width:767px){
           .sidebar{display:none!important;position:fixed!important;top:52px!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;z-index:999!important;}
+          .sidebar.mobile-open{display:flex!important;}
+        }
+        @media(min-width:768px) and (max-width:1023px){
+          .sidebar{display:none!important;position:fixed!important;top:52px!important;left:0!important;bottom:0!important;width:260px!important;z-index:999!important;}
           .sidebar.mobile-open{display:flex!important;}
         }
       `}</style>

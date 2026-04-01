@@ -45,7 +45,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <button onClick={onMenuToggle} className="land-hamburger" style={{ display: 'none' }} aria-label="Menu">
           <span /><span /><span />
         </button>
-        <style>{`@media(max-width:1023px){.topbar .land-hamburger{display:flex!important;}}`}</style>
+        <style>{`@media(max-width:1023px){.topbar .land-hamburger{display:flex!important;}}@media(max-width:767px){.topbar-brand-sel select{max-width:120px;font-size:12px;}}`}</style>
 
         <span className="topbar-logo">Live<span>sov</span></span>
 
