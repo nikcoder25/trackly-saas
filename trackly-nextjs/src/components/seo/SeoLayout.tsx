@@ -8,6 +8,7 @@ const navLinks = [
   { href: '/#features', label: 'Features' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/how-it-works', label: 'How it Works' },
+  { href: '/free-check', label: 'Free Check' },
   { href: '/use-cases', label: 'Use Cases' },
   { href: '/integrations', label: 'Integrations' },
   { href: '/blog', label: 'Blog' },
@@ -87,6 +88,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/changelog">Changelog</Link>
+            <Link href="/partners">Partners</Link>
           </div>
           <div className="land-footer-col">
             <div className="land-footer-col-title">Legal</div>

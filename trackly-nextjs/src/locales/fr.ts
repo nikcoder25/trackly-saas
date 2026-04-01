@@ -133,17 +133,17 @@ const fr: Translations = {
     ],
   },
   testimonials: {
-    title: 'Ce que les gens disent',
-    subtitle: "Approuvé par les marketeurs, fondateurs et agences.",
+    title: 'Ce que disent les premiers utilisateurs',
+    subtitle: "Retours authentiques de marketeurs, agences et fondateurs utilisant Livesov.",
     items: [
-      { text: "\"Nous ne savions pas que ChatGPT recommandait notre concurrent. En un mois, notre Part de Voix IA est passée de 0% à 34%.\"", name: 'Sarah Kim', role: 'Directrice Croissance, NovaBrand', initials: 'SK' },
-      { text: "\"Livesov est comme Ahrefs mais pour la recherche IA. Notre agence l'utilise pour chaque client.\"", name: 'Marco Rivera', role: 'Fondateur, Altitude Digital Agency', initials: 'MR' },
-      { text: "\"En tant que fondateur solo, j'avais besoin de savoir si l'IA m'envoyait du trafic. Livesov m'a donné la clarté en minutes.\"", name: 'James Liu', role: 'Fondateur, StackPilot', initials: 'JL' },
+      { text: "\"Nous avons découvert que ChatGPT recommandait systématiquement un concurrent auquel nous n'avions même pas pensé. Une fois les données en main, nous avons ajusté notre stratégie de contenu.\"", name: 'S.K.', role: 'Directrice Marketing dans une startup SaaS', initials: 'SK' },
+      { text: "\"Notre agence avait besoin de montrer aux clients leur visibilité IA sans interroger manuellement cinq chatbots différents. Livesov a remplacé des heures de vérification manuelle.\"", name: 'M.R.', role: "Fondateur d'une agence digitale boutique", initials: 'MR' },
+      { text: "\"En tant que fondateur solo, je ne savais pas si les plateformes IA connaissaient mon produit. Il s'avère que non. Maintenant je peux suivre mes progrès.\"", name: 'J.L.', role: 'Fondateur SaaS indépendant', initials: 'JL' },
     ],
   },
   cta: {
     title: 'Prêt à suivre votre visibilité IA ?',
-    subtitle: "Rejoignez 500+ marques qui surveillent déjà leur présence sur les plateformes IA.",
+    subtitle: "Commencez a surveiller votre presence sur les plateformes IA des aujourd'hui.",
     button: 'Commencer le Suivi',
     note: "Plans à partir de 9$/mois. Configuration en moins de 2 minutes.",
   },

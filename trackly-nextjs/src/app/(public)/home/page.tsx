@@ -1,40 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
-
-/* ─── Animated counter hook (fixed memory leak) ─── */
-function useCounter(target: number, duration = 2000) {
-  const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
-  const nodeRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const node = nodeRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setStarted(true); observer.disconnect(); }
-    }, { threshold: 0.3 });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!started) return;
-    let start = 0;
-    const step = Math.ceil(target / (duration / 16));
-    const timer = setInterval(() => {
-      start += step;
-      if (start >= target) { setCount(target); clearInterval(timer); }
-      else setCount(start);
-    }, 16);
-    return () => clearInterval(timer);
-  }, [started, target, duration]);
-
-  return { count, ref: nodeRef };
-}
 
 /* ─── Smooth scroll helper ─── */
 function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>, closeMenu?: () => void) {
@@ -85,7 +54,7 @@ const steps = [
 
 const pricingPlans = [
   { name: 'Free', price: '$0', sub: 'Try it out', features: ['5 prompts/month', '1 brand', '2 AI platforms', 'Manual runs', 'Basic dashboard'], cta: 'Start Free' },
-  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'SOV tracking & export'], cta: 'Get Started' },
+  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Every 3 days tracking', 'SOV tracking & export', 'Competitor tracking (2)', 'Sentiment analysis'], cta: 'Get Started' },
   { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Email alerts'], cta: 'Start Pro' },
   { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'], cta: 'Start Agency' },
   { name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true, features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Priority support'], cta: 'Contact Sales' },
@@ -114,9 +83,9 @@ const faqs = [
 ];
 
 const testimonials = [
-  { text: 'We had no idea ChatGPT was recommending our competitor. Within a month of optimizing, our AI Share of Voice went from 0% to 34%.', name: 'Sarah Kim', role: 'Head of Growth, NovaBrand', initials: 'SK' },
-  { text: 'Livesov is like Ahrefs but for AI search. Our agency uses it for every client now. The proof exports make reporting effortless.', name: 'Marco Rivera', role: 'Founder, Altitude Digital', initials: 'MR' },
-  { text: 'As a solo founder, I needed to know if AI platforms were recommending me. Livesov gave me clarity in minutes.', name: 'James Liu', role: 'Founder, StackPilot', initials: 'JL' },
+  { text: 'We discovered that ChatGPT was consistently recommending a competitor we hadn\'t even considered. Once we saw the data, we adjusted our content strategy and started showing up within weeks.', name: 'S.K.', role: 'Marketing Director at a SaaS startup', initials: 'SK' },
+  { text: 'Our agency needed a way to show clients their AI visibility without manually querying five different chatbots. Livesov replaced hours of manual checking with an actual dashboard and exportable proof.', name: 'M.R.', role: 'Founder of a boutique digital agency', initials: 'MR' },
+  { text: 'As a solo founder, I had no idea whether AI platforms even knew my product existed. Turns out they didn\'t. Now I can track my progress as I work on improving it.', name: 'J.L.', role: 'Indie SaaS founder', initials: 'JL' },
 ];
 
 const demoResults = [
@@ -141,39 +110,6 @@ function useTypingEffect(text: string, speed = 50) {
   }, [started, displayed, text, speed, done]);
 
   return { displayed, done, start: () => setStarted(true) };
-}
-
-/* ─── Social Proof with animated counters ─── */
-function SocialProofBar() {
-  const brands = useCounter(500, 2000);
-  const platforms = useCounter(5, 1000);
-  const queries = useCounter(50, 1500);
-
-  return (
-    <section className="tl-proof">
-      <div className="tl-proof-inner">
-        <div className="tl-proof-item" ref={brands.ref}>
-          <span className="tl-proof-val">{brands.count}+</span>
-          <span className="tl-proof-label">Brands tracked</span>
-        </div>
-        <div className="tl-proof-divider" />
-        <div className="tl-proof-item" ref={platforms.ref}>
-          <span className="tl-proof-val">{platforms.count}</span>
-          <span className="tl-proof-label">AI platforms</span>
-        </div>
-        <div className="tl-proof-divider" />
-        <div className="tl-proof-item" ref={queries.ref}>
-          <span className="tl-proof-val">{queries.count}K+</span>
-          <span className="tl-proof-label">Queries analyzed</span>
-        </div>
-        <div className="tl-proof-divider" />
-        <div className="tl-proof-item">
-          <span className="tl-proof-val">Real-time</span>
-          <span className="tl-proof-label">Live results</span>
-        </div>
-      </div>
-    </section>
-  );
 }
 
 /* ─── Demo section with typing effect ─── */
@@ -282,46 +218,6 @@ function TestimonialCarousel() {
           <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
             onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`} />
         ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Social proof notification ─── */
-function SocialProofNotification() {
-  const [visible, setVisible] = useState(false);
-  const notifications = [
-    { name: 'Sarah K.', action: 'just tracked her brand across 5 platforms', time: '2m ago' },
-    { name: 'Marco R.', action: 'exported an AI visibility report', time: '5m ago' },
-    { name: 'James L.', action: 'discovered a new competitor mention', time: '8m ago' },
-  ];
-  const [current, setCurrent] = useState(0);
-
-  useEffect(() => {
-    const showTimer = setTimeout(() => setVisible(true), 3000);
-    return () => clearTimeout(showTimer);
-  }, []);
-
-  useEffect(() => {
-    if (!visible) return;
-    const cycle = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setCurrent(prev => (prev + 1) % notifications.length);
-        setVisible(true);
-      }, 500);
-    }, 6000);
-    return () => clearInterval(cycle);
-  }, [visible, notifications.length]);
-
-  const n = notifications[current];
-
-  return (
-    <div className={`tl-social-notif ${visible ? 'tl-social-notif--visible' : ''}`}>
-      <div className="tl-social-notif-dot" />
-      <div className="tl-social-notif-content">
-        <strong>{n.name}</strong> {n.action}
-        <span className="tl-social-notif-time">{n.time}</span>
       </div>
     </div>
   );
@@ -502,7 +398,7 @@ export default function LivesovHomePage() {
               {t.hero.ctaDemo}
             </a>
           </div>
-          <p className="tl-hero-note">Plans start at $9/mo &middot; Set up in 2 minutes</p>
+          <p className="tl-hero-note">No credit card required &middot; Plans start at $9/mo &middot; Set up in 2 minutes</p>
         </div>
 
         {/* Platform pills floating */}
@@ -515,9 +411,6 @@ export default function LivesovHomePage() {
           ))}
         </div>
       </section>
-
-      {/* ═══════ SOCIAL PROOF BAR ═══════ */}
-      <SocialProofBar />
 
       {/* ═══════ LIVE DEMO ═══════ */}
       <DemoSection />
@@ -674,9 +567,9 @@ export default function LivesovHomePage() {
       <section className="tl-section tl-section--alt tl-animate">
         <div className="tl-section-inner">
           <div className="tl-section-header">
-            <span className="tl-section-tag">Testimonials</span>
-            <h2>Trusted by marketers & agencies</h2>
-            <p>See what people are saying about Livesov.</p>
+            <span className="tl-section-tag">Early Feedback</span>
+            <h2>What Early Adopters Are Saying</h2>
+            <p>Real feedback from marketers, agency owners, and founders using Livesov.</p>
           </div>
 
           <TestimonialCarousel />
@@ -785,9 +678,6 @@ export default function LivesovHomePage() {
           </div>
         </div>
       </footer>
-
-      {/* ═══════ SOCIAL PROOF NOTIFICATION ═══════ */}
-      <SocialProofNotification />
 
       {/* ═══════ BACK TO TOP ═══════ */}
       {showBackToTop && (
