@@ -1,10 +1,11 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 async function requireAdmin(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return null;
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return null;
+  const user = authResult;
   const result = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);
   if (result.rows[0]?.role !== 'admin') return null;
   return user;

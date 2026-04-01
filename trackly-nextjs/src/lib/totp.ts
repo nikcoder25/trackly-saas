@@ -68,7 +68,10 @@ export function verifyTOTP(secret: string, token: string, window = 1): boolean {
   const now = Date.now() / 1000;
   for (let i = -window; i <= window; i++) {
     const time = now + i * TOTP_PERIOD;
-    if (generateTOTP(secret, time) === token) {
+    const expected = generateTOTP(secret, time);
+    // Use constant-time comparison to prevent timing attacks
+    if (expected.length === token.length &&
+        crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token))) {
       return true;
     }
   }

@@ -1,9 +1,10 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth } from '@/lib/auth';
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
   const { id } = await params;
   const body = await request.json();
 
@@ -32,8 +33,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
   const { id } = await params;
 
   const result = await pool.query('DELETE FROM alert_rules WHERE id = $1 AND user_id = $2 RETURNING id', [id, user.id]);

@@ -1,5 +1,6 @@
 import { pool } from '@/lib/db';
 import { NextRequest } from 'next/server';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Ensure the newsletter_subscribers table exists
 async function ensureTable() {
@@ -17,6 +18,10 @@ async function ensureTable() {
 let tableReady = false;
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+  const rl = rateLimit('newsletter:' + ip, 60 * 60 * 1000, 5);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
   try {
     const { email } = await request.json();
 
