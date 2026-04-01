@@ -337,4 +337,110 @@
 
 ---
 
-*This audit covers 100+ files across the entire Next.js frontend, API routes, authentication system, payment processing, dashboard, and Express backend.*
+---
+
+## SECTION 7: DASHBOARD & ADMIN ISSUES (Additional Findings)
+
+### DASH-1: 2FA Secret Leaked to Third-Party QR Code Service (HIGH)
+- **File:** `(dashboard)/dashboard/account/page.tsx:161`
+- The TOTP secret (most sensitive auth data) is sent to `api.qrserver.com` for QR generation
+- **Fix:** Generate QR codes client-side using a library like `qrcode`
+
+### DASH-2: XSS via dangerouslySetInnerHTML in 3 Dashboard Pages (HIGH)
+- **File:** `(dashboard)/dashboard/mentions/page.tsx:233` - AI response text
+- **File:** `(dashboard)/dashboard/proof/page.tsx:338` - AI response excerpts
+- **File:** `(dashboard)/dashboard/copilot/page.tsx:105` - Bot responses with regex-based markdown parsing
+- `escHtml()` only escapes `&`, `<`, `>` but not quotes/attributes. Brand names survive regex escaping but could be dangerous in HTML attribute contexts
+
+### DASH-3: Team Invite Adds Users Without Their Consent (HIGH)
+- **File:** `api/team/invite/route.ts:14-24`
+- Any authenticated user can add any registered user (by email) to their team instantly. No invitation acceptance flow
+- **Fix:** Add invite-accept workflow
+
+### DASH-4: Team Invite Endpoint is Broken (HIGH - Functional Bug)
+- **File:** `(dashboard)/dashboard/team/page.tsx:29`
+- Frontend POSTs to `/api/team` but that route only has a GET handler
+- The actual POST handler is at `/api/team/invite/route.ts`
+- **Impact:** Team invitations from the UI don't work at all
+
+### DASH-5: Brand Selector in Topbar is Non-Functional (HIGH - UX Bug)
+- **Files:** Nearly every dashboard page
+- Each page independently fetches `/api/brands` and uses `brands[0]`
+- The Topbar has a brand selector (Topbar.tsx:69) but changing it does NOT update any page content
+- **Impact:** Multi-brand dashboard is fundamentally broken. Users always see only their first brand
+
+### DASH-6: Open Redirect on Login Page (MEDIUM)
+- **File:** `(auth)/login/page.tsx:30`
+- `redirect` query parameter used directly in `router.push()` without validation
+- Attacker can craft `/login?redirect=https://evil.com` to redirect users post-login
+
+### DASH-7: Notifications Bell is Hardcoded "No new notifications" (MEDIUM)
+- **File:** `components/dashboard/Topbar.tsx:142-155`
+- Never fetches from `/api/notifications`. The notification API exists and works but is completely disconnected from the UI
+
+### DASH-8: 6+ Dashboard Buttons Are Non-Functional (LOW - UX)
+- Account page: Export Data (4 buttons), Plan switching buttons - no `onClick` handlers
+- Prompt Details: Save button, Export CSV button - no `onClick` handlers
+
+### DASH-9: Every Dashboard Page Fetches /api/brands Independently (MEDIUM)
+- BrandContext exists and wraps all pages but is unused by most
+- Creates N+1 API calls on every page navigation + state desynchronization
+
+### DASH-10: RunContext Uses window.location.reload() (MEDIUM)
+- **File:** `contexts/RunContext.tsx:137`
+- Full page reload after run completion destroys all client-side state
+
+---
+
+## SECTION 8: BACKEND INFRASTRUCTURE ISSUES (Additional Findings)
+
+### BACK-1: Hardcoded Admin Email in Database Init (HIGH)
+- **File:** `config/db.js:355-364`
+- `nikseo101@gmail.com` hardcoded, auto-promoted to admin/owner on every startup
+- **Fix:** Use environment variable for initial admin email
+
+### BACK-2: SQL Injection Risk in Cleanup Functions (MEDIUM)
+- **File:** `config/db.js:415,423,441,449,571`
+- Template literals inject retention day values directly into SQL instead of parameterized queries
+- Currently safe (integer constants) but dangerous pattern
+
+### BACK-3: Cluster Mode Multiplies Rate Limits (HIGH)
+- **File:** `server.js:182-216`
+- `express-rate-limit` uses in-memory store. With 4 workers, attackers get 4x the configured limits
+- **Fix:** Use `rate-limit-redis` for cluster deployments
+
+### BACK-4: No Database Transaction for Brand Run Save (HIGH)
+- **File:** `routes/brands.js:722-860`
+- Multiple operations (save brand, insert prompt_runs, insert citations, refresh stats, evaluate alerts) without transaction wrapping
+- Partial failure = inconsistent data
+
+### BACK-5: Static Assets Cached 7 Days + `immutable` Without Content Hash (MEDIUM)
+- **File:** `server.js:220-232`
+- Filename has no content hash, so updated CSS/JS files are stale for up to 7 days after deployment
+
+### BACK-6: Weak Default JWT_SECRET in .env.example (MEDIUM)
+- **File:** `.env.example:9`
+- `JWT_SECRET=livesov-super-secret-jwt-key-change-in-production` - developers commonly copy without changing
+
+### BACK-7: Duplicate Gemini Model Pricing (LOW)
+- **File:** `lib/ai-platforms.js:194-196`
+- `gemini-2.5-flash` appears twice with different prices. Second overwrites first silently
+
+### BACK-8: No Database Init Timeout (LOW)
+- **File:** `server.js:58-61`
+- `initDB()` can hang indefinitely if database is unreachable. Process appears started but never becomes ready
+
+---
+
+## UPDATED EXECUTIVE SUMMARY
+
+| Severity | Count | Key Risk |
+|----------|-------|----------|
+| **CRITICAL** | 7 | Billing bypass, auth bypass, broken features, SEO destruction |
+| **HIGH** | 23 | Revenue leakage, XSS, data exposure, cost exposure, broken features |
+| **MEDIUM** | 25 | Race conditions, UX gaps, compliance, performance |
+| **LOW** | 20+ | SEO, accessibility, dead code, conversion, non-functional UI |
+
+**Total issues found: 75+**
+
+*This audit covers 100+ files across the entire Next.js frontend, API routes, authentication system, payment processing, dashboard, admin panel, team management, and Express backend infrastructure.*
