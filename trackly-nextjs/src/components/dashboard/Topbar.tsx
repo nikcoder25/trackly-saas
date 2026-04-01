@@ -4,27 +4,34 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import { getPlanLimits } from '@/lib/constants';
 
 interface Brand { id: string; name: string; }
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
-  // Language removed from dashboard
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
+  const [showLimitPrompt, setShowLimitPrompt] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const limitRef = useRef<HTMLDivElement>(null);
+
+  const plan = user?.plan || 'free';
+  const limits = getPlanLimits(plan);
+  const atBrandLimit = brands.length >= limits.brands;
 
   // Close notification on outside click
   useEffect(() => {
-    if (!showNotifs) return;
+    if (!showNotifs && !showLimitPrompt) return;
     const handler = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+      if (showNotifs && notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+      if (showLimitPrompt && limitRef.current && !limitRef.current.contains(e.target as Node)) setShowLimitPrompt(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [showNotifs]);
+  }, [showNotifs, showLimitPrompt]);
 
   useEffect(() => {
     fetch('/api/brands', { credentials: 'include' })
@@ -36,6 +43,14 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
       })
       .catch(() => {});
   }, []);
+
+  const handleAddBrandClick = () => {
+    if (atBrandLimit) {
+      setShowLimitPrompt(true);
+    } else {
+      setShowAddBrand(true);
+    }
+  };
 
   return (
     <>
@@ -57,8 +72,60 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           </select>
         </div>
 
-        <button onClick={() => setShowAddBrand(true)} className="add-brand-btn" style={{ display: 'none', cursor: 'pointer' }}>+ ADD BRAND</button>
-        <style>{`@media(min-width:768px){.add-brand-btn{display:inline-block!important;}}`}</style>
+        {/* Add Brand button with limit-aware behavior */}
+        <div style={{ position: 'relative' }} ref={limitRef}>
+          <button
+            onClick={handleAddBrandClick}
+            className="add-brand-btn"
+            style={{
+              display: 'none',
+              cursor: 'pointer',
+              opacity: atBrandLimit ? 0.5 : 1,
+            }}
+          >
+            + ADD BRAND
+            {atBrandLimit && (
+              <span style={{ fontSize: 9, marginLeft: 4, opacity: 0.7 }}>
+                ({brands.length}/{limits.brands})
+              </span>
+            )}
+          </button>
+          <style>{`@media(min-width:768px){.add-brand-btn{display:inline-block!important;}}`}</style>
+
+          {/* Upgrade prompt dropdown */}
+          {showLimitPrompt && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, marginTop: 8,
+              width: 300, background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', boxShadow: '0 8px 30px rgba(0,0,0,.12)',
+              zIndex: 9999, padding: 20, textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🚀</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                Brand Limit Reached
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
+                Your <strong>{plan}</strong> plan allows up to <strong>{limits.brands} brand{limits.brands !== 1 ? 's' : ''}</strong>.
+                Upgrade your plan to add more brands.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setShowLimitPrompt(false)}
+                  style={{ flex: 1, padding: '8px 12px', background: 'var(--bg3)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <Link
+                  href="/dashboard/account"
+                  onClick={() => setShowLimitPrompt(false)}
+                  style={{ flex: 1, padding: '8px 12px', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer', textDecoration: 'none', textAlign: 'center' }}
+                >
+                  Upgrade Plan
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right side */}

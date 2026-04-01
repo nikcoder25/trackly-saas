@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 
@@ -112,7 +113,16 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
           ))}
         </div>
 
-        {error && <div style={{ background: 'var(--danger-light)', border: '1px solid rgba(239,68,68,.2)', color: 'var(--danger)', fontSize: 11, fontFamily: 'var(--mono)', padding: '8px 12px', borderRadius: 'var(--radius-xs)', marginBottom: 12 }}>{error}</div>}
+        {error && (
+          <div style={{ background: 'var(--danger-light)', border: '1px solid rgba(239,68,68,.2)', color: 'var(--danger)', fontSize: 11, fontFamily: 'var(--mono)', padding: '10px 12px', borderRadius: 'var(--radius-xs)', marginBottom: 12 }}>
+            <div>{error}</div>
+            {error.toLowerCase().includes('upgrade') && (
+              <Link href="/dashboard/account" onClick={onClose} style={{ display: 'inline-block', marginTop: 8, padding: '6px 14px', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 700, borderRadius: 'var(--radius-xs)', textDecoration: 'none' }}>
+                Upgrade Plan →
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Step 1: Brand Info */}
         {step === 1 && (
