@@ -92,11 +92,11 @@ export default function MentionsPage() {
 
   function highlightBrand(text: string): string {
     if (!selectedBrand || !text) return escHtml(text);
-    const escaped = selectedBrand.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = escHtml(selectedBrand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return escHtml(text).replace(new RegExp(`(${escaped})`, 'gi'),
       '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
   }
-  function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
   function exportCSV() {
     if (!filtered.length) return;

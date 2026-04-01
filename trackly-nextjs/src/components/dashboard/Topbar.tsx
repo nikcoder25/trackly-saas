@@ -12,6 +12,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{id: string; message: string; created_at: string; read: boolean}>>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const limitRef = useRef<HTMLDivElement>(null);
 
@@ -27,6 +28,14 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showNotifs, showLimitPrompt]);
+
+  useEffect(() => {
+    fetch('/api/notifications', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { notifications: [] })
+      .then(d => setNotifications(d.notifications || []))
+      .catch(() => {});
+  }, []);
+
 
   const handleAddBrandClick = () => {
     if (atBrandLimit) {
@@ -120,8 +129,18 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         {/* Notification bell with dropdown */}
         <div ref={notifRef} style={{ position: 'relative', zIndex: 200 }}>
           <button className="notif-bell" aria-label="Notifications" onClick={(e) => { e.stopPropagation(); setShowNotifs(!showNotifs); }}
-            style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 'var(--radius-xs)' }}>
+            style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 'var(--radius-xs)', position: 'relative' }}>
             🔔
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -4, background: 'var(--primary)',
+                color: '#fff', fontSize: 9, fontWeight: 700, minWidth: 16, height: 16,
+                borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 4px', lineHeight: 1,
+              }}>
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
           </button>
           {showNotifs && (
             <div style={{
@@ -134,7 +153,18 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Notifications</div>
                 <Link href="/dashboard/alerts" onClick={() => setShowNotifs(false)} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--primary)', textDecoration: 'none' }}>VIEW ALL →</Link>
               </div>
-              <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No new notifications.</p>
+              {notifications.length === 0 ? (
+                <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No new notifications.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
+                  {notifications.slice(0, 10).map(n => (
+                    <div key={n.id} style={{ fontSize: 12, color: n.read ? 'var(--muted)' : 'var(--text)', padding: '8px 0', borderBottom: '1px solid var(--border)', fontWeight: n.read ? 400 : 600 }}>
+                      <div>{n.message}</div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{new Date(n.created_at).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -24,13 +24,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/privacy',
     '/terms',
     '/cookies',
-    '/login',
-    '/signup',
+    '/home',
   ];
 
   return pages.map((path) => ({
     url: `${BASE_URL}${path}`,
-    lastModified: new Date(),
+    lastModified: new Date('2026-04-01'),
     changeFrequency: path === '/' ? 'weekly' : 'monthly',
     priority: path === '/' ? 1 : path === '/pricing' ? 0.9 : 0.7,
   }));

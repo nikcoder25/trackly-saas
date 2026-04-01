@@ -65,9 +65,22 @@ async function initTable() {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authResult = await requireVerifiedAuth(request, pool);
-  if (authResult instanceof Response) return authResult;
-  const user = authResult;
+  // Allow internal cron calls authenticated via x-cron-secret header
+  const cronSecret = process.env.CRON_SECRET;
+  const cronHeader = request.headers.get('x-cron-secret');
+  let user: { id: string; email?: string };
+
+  if (cronSecret && cronHeader && cronSecret === cronHeader) {
+    // Internal cron call — resolve brand owner from the brand record
+    const { id: brandId } = await params;
+    const brandRow = await pool.query('SELECT user_id FROM brands WHERE id = $1', [brandId]);
+    if (!brandRow.rows.length) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    user = { id: brandRow.rows[0].user_id };
+  } else {
+    const authResult = await requireVerifiedAuth(request, pool);
+    if (authResult instanceof Response) return authResult;
+    user = authResult;
+  }
 
   const { id } = await params;
   const forceRun = new URL(request.url).searchParams.get('force') === '1';
@@ -79,11 +92,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const brand = access.brand;
   const ownerId = brand.userId || user.id;
-  const planResult = await pool.query('SELECT plan, api_keys FROM users WHERE id = $1', [user.id]);
-  const ownerPlanResult = ownerId !== user.id
-    ? await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId])
-    : planResult;
-  const ownerPlan = ownerPlanResult.rows[0]?.plan || 'free';
+  // Use brand owner's plan for limits (not team member's plan)
+  const planResult = await pool.query('SELECT u.plan, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
+  const ownerPlan = planResult.rows[0]?.plan || 'free';
   const limits = getPlanLimits(ownerPlan);
 
   // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
@@ -113,17 +124,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 
+  // --- Check per-period prompt usage ---
+  try {
+    const usageResult = await pool.query(
+      `SELECT COUNT(*) as used FROM prompt_runs pr JOIN brands b ON pr.brand_id = b.id WHERE b.user_id = $1 AND pr.created_at >= NOW() - INTERVAL '30 days'`,
+      [user.id]
+    );
+    const used = parseInt(usageResult.rows[0]?.used, 10) || 0;
+    const requested = queries.length * activePlatforms.length;
+    if (used + requested > limits.prompts) {
+      return Response.json({ error: 'Monthly prompt limit reached. Please upgrade your plan.' }, { status: 429 });
+    }
+  } catch {
+    // If prompt_runs table doesn't exist yet, skip the check
+  }
+
   // --- Check for existing active run (DB-based locking) ---
   await initTable();
-  if (!forceRun) {
-    const existing = await pool.query(
-      `SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes' LIMIT 1`,
-      [id]
-    );
-    if (existing.rows.length > 0) {
-      return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
-    }
-  }
 
   // Force: mark any existing runs as error
   if (forceRun) {
@@ -136,12 +153,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const runId = uid();
   const totalExpected = queries.length * activePlatforms.length;
 
-  // --- Create run record in DB ---
-  await pool.query(
-    `INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
-     VALUES ($1, $2, $3, 'running', $4, $5, $6)`,
-    [runId, id, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
+  // --- Atomically check lock and create run record in DB ---
+  // Uses a CTE to avoid race conditions between checking and inserting
+  const lockResult = await pool.query(
+    `WITH lock_check AS (
+      SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'
+    )
+    INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
+    SELECT $2, $1, $3, 'running', $4, $5, $6
+    WHERE NOT EXISTS (SELECT 1 FROM lock_check)
+    RETURNING id`,
+    [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
   );
+
+  if (lockResult.rows.length === 0) {
+    return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
+  }
 
   // --- Return immediately, execute in background via after() ---
   after(async () => {

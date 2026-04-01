@@ -352,15 +352,17 @@ async function initDB() {
     // Add index for api_logs.run_id lookups (cost tracking queries)
     await client.query(`CREATE INDEX IF NOT EXISTS idx_api_logs_run_id ON api_logs(run_id) WHERE run_id IS NOT NULL;`);
     // Auto-promote designated admin email if no admin exists yet
-    const adminEmail = 'nikseo101@gmail.com';
-    const existingAdmin = await client.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
-    if (existingAdmin.rows.length === 0) {
-      const promoted = await client.query(
-        `UPDATE users SET role = 'admin', plan = 'owner' WHERE email = $1 AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin') RETURNING id`,
-        [adminEmail]
-      );
-      if (promoted.rows.length > 0) {
-        log.info(`Auto-promoted ${adminEmail} to admin`);
+    const adminEmail = process.env.INITIAL_ADMIN_EMAIL;
+    if (adminEmail) {
+      const existingAdmin = await client.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
+      if (existingAdmin.rows.length === 0) {
+        const promoted = await client.query(
+          `UPDATE users SET role = 'admin', plan = 'owner' WHERE email = $1 AND NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin') RETURNING id`,
+          [adminEmail]
+        );
+        if (promoted.rows.length > 0) {
+          log.info(`Auto-promoted ${adminEmail} to admin`);
+        }
       }
     }
     log.info('PostgreSQL tables ready');

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         payment_link: true,
         quantity: 1,
         customer: { email: u.email, name: u.name || u.email },
-        metadata: { userId: user.id, plan },
+        metadata: { userId: user.id },
         return_url: returnUrl,
       }),
     });

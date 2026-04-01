@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const entry = result.rows[0];
     const hash = await bcrypt.hash(newPassword, AUTH.bcryptRounds);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, entry.user_id]);
+    await pool.query('UPDATE users SET password_hash = $1, refresh_token = NULL WHERE id = $2', [hash, entry.user_id]);
     await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
 
     return Response.json({ message: 'Password reset successfully. You can now log in.' });

@@ -11,6 +11,7 @@ const { uid, safeUser, getServerKeys } = require('../lib/helpers');
 const { PLAN_LIMITS, getPlanLimits } = require('../lib/plans');
 const { cancelDodoSubscription } = require('./payments');
 const { PLATFORM_MODELS } = require('../lib/ai-platforms');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { RATE_LIMITS } = require('../config/constants');
 
@@ -347,11 +348,13 @@ router.post('/admin/make-first-admin', auth, async (req, res) => {
     if (existingAdmin.rows.length > 0) {
       return res.status(400).json({ error: 'Admin already exists' });
     }
-    // If ADMIN_SECRET is configured, require it for extra security
+    // ADMIN_SECRET is always required
     const adminSecret = process.env.ADMIN_SECRET;
-    if (adminSecret) {
-      const provided = req.headers['x-admin-key'] || '';
-      if (provided !== adminSecret) return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
+    if (!adminSecret) return res.status(500).json({ error: 'ADMIN_SECRET not configured' });
+    const provided = req.headers['x-admin-key'] || '';
+    if (typeof provided !== 'string' || provided.length !== adminSecret.length ||
+        !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(adminSecret))) {
+      return res.status(403).json({ error: 'Admin secret required. Provide X-Admin-Key header.' });
     }
     // Atomic check-and-promote: only promote if no admin exists yet (prevents race condition)
     const promoted = await pool.query(

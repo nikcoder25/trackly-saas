@@ -1,5 +1,5 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth } from '@/lib/auth';
 import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
 import { decryptApiKeys } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -29,8 +29,9 @@ const PLATFORM_DISPLAY: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const rl = rateLimit('aigen:' + user.id, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);

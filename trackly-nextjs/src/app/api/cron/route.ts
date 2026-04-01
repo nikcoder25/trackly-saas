@@ -12,13 +12,14 @@ import { getPlanLimits } from '@/lib/constants';
 export const maxDuration = 300; // 5 minutes max for cron
 
 export async function GET(request: Request) {
-  // Verify cron secret
+  // Verify cron secret (required)
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!cronSecret) {
+    return Response.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+  }
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -62,7 +63,7 @@ export async function GET(request: Request) {
           const runUrl = new URL(`/api/brands/${row.id}/run`, request.url);
           await fetch(runUrl.toString(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-cron-secret': cronSecret },
           });
         })
       );

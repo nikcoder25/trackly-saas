@@ -154,14 +154,11 @@ export default function AccountPage() {
         {/* QR Code + Verify Step */}
         {twoFASetup && (
           <div style={{ marginTop: 12 }}>
-            {/* QR Code rendered as SVG */}
+            {/* Manual TOTP setup key (no external QR service) */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Scan this QR code with your authenticator app</div>
-              <div style={{ display: 'inline-block', padding: 16, background: '#fff', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(twoFASetup.otpauthUrl)}`} alt="2FA QR Code" width={200} height={200} style={{ display: 'block' }} />
-              </div>
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
-                Can&apos;t scan? Enter this key manually:
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Add this key to your authenticator app</div>
+              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>
+                Open your authenticator app (Google Authenticator, Authy, etc.) and add a new account manually using the setup key below:
               </div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'inline-block', letterSpacing: 2, userSelect: 'all' as const }}>
                 {twoFASetup.secret}

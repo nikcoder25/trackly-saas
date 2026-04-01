@@ -49,7 +49,7 @@ export default function CookieConsent() {
         }
       `}</style>
       <p style={{ margin: 0, maxWidth: 600, lineHeight: 1.5 }}>
-        We use cookies to improve your experience. By continuing, you agree to our{' '}
+        We use essential cookies to provide our service. You can manage your preferences below.{' '}
         <Link href="/cookies" style={{ color: '#FF6154', textDecoration: 'underline' }}>Cookie Policy</Link>.
       </p>
       <div style={{ display: 'flex', gap: 8 }}>
@@ -85,5 +85,36 @@ export default function CookieConsent() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Small floating button to re-open cookie preferences after consent has been given. */
+export function CookiePreferencesButton() {
+  const [hasConsent, setHasConsent] = useState(false);
+
+  useEffect(() => {
+    setHasConsent(!!localStorage.getItem('cookie-consent'));
+  }, []);
+
+  if (!hasConsent) return null;
+
+  return (
+    <button
+      onClick={() => {
+        localStorage.removeItem('cookie-consent');
+        window.location.reload();
+      }}
+      style={{
+        background: 'none',
+        border: 'none',
+        color: 'rgba(255,255,255,0.45)',
+        fontSize: 11,
+        cursor: 'pointer',
+        textDecoration: 'underline',
+        padding: 0,
+      }}
+    >
+      Cookie Preferences
+    </button>
   );
 }
