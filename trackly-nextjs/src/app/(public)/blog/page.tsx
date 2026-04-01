@@ -4,213 +4,385 @@ import { useState } from 'react';
 import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
 import Link from 'next/link';
 
-const posts = [
+const articles = [
   {
-    id: 'chatgpt-brand-recommendation',
+    id: 'how-to-check-if-chatgpt-recommends-your-brand',
     title: 'How to Check if ChatGPT Recommends Your Brand',
-    desc: 'Learn how to find out whether ChatGPT mentions and recommends your brand — and what to do if it doesn\'t.',
+    description: 'A practical guide to discovering whether AI platforms mention your brand when users ask for recommendations — and what to do about it.',
     tag: 'Guide',
-    date: 'March 15, 2026',
-    readTime: '6 min read',
-    content: `When someone asks ChatGPT "What's the best project management tool?" or "Which CRM should I use for my startup?", does your brand come up in the answer?
-
-This is the question that keeps modern marketers up at night. With over 200 million weekly active users, ChatGPT has become one of the most influential recommendation engines on the planet — yet most brands have no idea whether they're being recommended or ignored.
-
-## Why ChatGPT Recommendations Matter
-
-Traditional search is changing. Instead of scrolling through 10 blue links on Google, users are increasingly asking AI assistants for direct recommendations. When ChatGPT recommends your brand, it carries enormous weight because:
-
-- **Users trust AI recommendations.** Studies show that 65% of users act on AI suggestions without further research.
-- **There's no "page 2."** Unlike Google where you can rank lower but still be visible, AI either mentions you or it doesn't.
-- **The recommendation includes context.** ChatGPT doesn't just name your brand — it explains why it's good, essentially writing your sales pitch for you.
-
-## How to Manually Check
-
-You can start by asking ChatGPT directly. Try these queries:
-
-1. **"What are the best [your industry] companies?"** — The broad recommendation query
-2. **"Which [product category] would you recommend for [use case]?"** — The specific use case query
-3. **"Compare [your brand] vs [competitor]"** — The head-to-head comparison
-4. **"What do people say about [your brand]?"** — The reputation query
-
-Run each query 3-5 times, because ChatGPT responses vary between sessions. Document the results.
-
-## The Problem with Manual Checking
-
-Manual checking has serious limitations:
-
-- **Inconsistency** — ChatGPT gives different answers each time. You'd need to check hundreds of times for reliable data.
-- **No historical tracking** — You can't measure whether your visibility is improving or declining over time.
-- **Only one platform** — Your customers also use Perplexity, Claude, Gemini, and Grok. Each has different training data and gives different recommendations.
-- **No competitor comparison** — You can't systematically compare your mention rate against competitors.
-- **Time-consuming** — Manually querying, reading, and documenting takes hours per week.
-
-## How to Automate AI Brand Tracking
-
-This is exactly the problem Livesov solves. Instead of manually querying AI chatbots, Livesov:
-
-- **Sends your custom queries** to all 5 major AI platforms automatically
-- **Captures the full AI responses** as verifiable proof
-- **Calculates your Share of Voice** — what percentage of responses mention your brand
-- **Tracks sentiment** — whether recommendations are positive, neutral, or negative
-- **Monitors competitors** — see how often competitors appear alongside your brand
-- **Runs on a schedule** — daily, every 6 hours, or hourly depending on your plan
-
-The result? Instead of spending hours manually checking, you get a dashboard showing exactly how visible your brand is across all AI platforms — with historical trends and actionable insights.
-
-## What to Do if You're Not Being Recommended
-
-If you discover that ChatGPT isn't mentioning your brand, here's your action plan:
-
-1. **Create authoritative, factual content** that AI models can reference during training
-2. **Get cited on high-authority websites** — AI models weight citations from trusted sources
-3. **Ensure your brand information is consistent** across all online sources
-4. **Build a strong presence on review platforms** that AI models use as training data
-5. **Track your progress** with an AI visibility tool so you can measure what's working
-
-The brands that start optimizing for AI visibility now will have an enormous advantage as AI assistants become the primary way people discover products and services.`,
+    date: 'January 15, 2026',
+    readTime: '8 min read',
   },
   {
-    id: 'what-is-geo',
+    id: 'what-is-generative-engine-optimization-geo',
     title: 'What is Generative Engine Optimization (GEO)?',
-    desc: 'GEO is the new frontier of marketing. Learn what it is, how it differs from SEO, and why every brand needs a GEO strategy in 2026.',
+    description: 'GEO is the practice of optimizing your brand and content to appear in AI-generated answers. Here is everything you need to know about this emerging discipline.',
     tag: 'GEO',
-    date: 'February 20, 2026',
-    readTime: '7 min read',
-    content: `Generative Engine Optimization — or GEO — is the practice of optimizing your brand's online presence to appear more frequently, more accurately, and more positively in AI-generated answers.
-
-If SEO is about ranking in Google's blue links, GEO is about being the brand that ChatGPT, Perplexity, Claude, and Gemini recommend when users ask for advice.
-
-## GEO vs SEO: Key Differences
-
-| Aspect | SEO | GEO |
-|---|---|---|
-| **Target** | Search engine result pages | AI-generated responses |
-| **Goal** | Rank higher in links | Get mentioned and recommended |
-| **Metric** | Position, CTR, traffic | Share of Voice, mention rate, sentiment |
-| **Competition** | 10 results per page | 2-5 brands mentioned per response |
-| **User behavior** | Click through to website | Accept recommendation directly |
-| **Content format** | Keywords, meta tags, backlinks | Authoritative facts, structured data, citations |
-
-The fundamental shift is this: **in traditional search, you compete for clicks. In AI search, you compete for recommendations.** There is no "page 2" in an AI response. Either the AI mentions your brand, or your potential customer never hears about you.
-
-## Why GEO Matters in 2026
-
-The numbers tell the story:
-
-- **ChatGPT** has over 200 million weekly active users asking for product recommendations
-- **Perplexity** processes millions of searches daily, often replacing Google for research queries
-- **Google's AI Overviews** now appear on 40%+ of search results, pushing organic links below the fold
-- **65% of Gen Z** prefers asking AI for recommendations over traditional search
-
-If your brand isn't showing up in these AI-generated answers, you're invisible to a rapidly growing segment of your potential customers.
-
-## Core GEO Strategies
-
-### 1. Create Authoritative, Factual Content
-
-AI models learn from the web. They prioritize content that is:
-- **Factual and well-sourced** — include statistics, citations, and references
-- **Structured clearly** — use headings, lists, and tables that AI can easily parse
-- **Comprehensive** — cover topics thoroughly rather than writing thin content
-- **Up-to-date** — regularly update content with current information
-
-### 2. Build Citation Authority
-
-AI models weight information based on how many authoritative sources corroborate it. To build citation authority:
-- Get featured on industry publications and review sites
-- Maintain consistent brand information across all platforms
-- Earn mentions from authoritative domains in your niche
-- Create original research and data that others cite
-
-### 3. Optimize for Entity Recognition
-
-AI models understand entities (brands, products, people) through knowledge graphs. Ensure:
-- Your brand has a Wikipedia page or Wikidata entry (if notable enough)
-- Your Google Business Profile is complete and accurate
-- Schema markup on your website identifies your brand clearly
-- Consistent NAP (Name, Address, Phone) across all directories
-
-### 4. Monitor and Measure
-
-You can't optimize what you don't measure. Use an AI visibility tracking tool like Livesov to:
-- Track how often each AI platform mentions your brand
-- Measure your Share of Voice against competitors
-- Identify which queries you're winning and losing
-- Monitor sentiment trends over time
-
-## Getting Started with GEO
-
-The brands that invest in GEO now will have a first-mover advantage. AI models are forming their "opinions" about brands based on the data available today. The longer you wait, the harder it becomes to change the AI's perception of your brand.
-
-Start by checking your current AI visibility with a free scan, then build a systematic GEO strategy based on the data.`,
+    date: 'February 10, 2026',
+    readTime: '8 min read',
   },
   {
-    id: 'ai-share-of-voice',
+    id: 'ai-share-of-voice-what-it-is-and-why-it-matters',
     title: 'AI Share of Voice: What It Is and Why It Matters',
-    desc: 'Share of Voice in AI is the most important metric for brand visibility in 2026. Here\'s how to measure it and why it matters.',
+    description: 'Share of Voice in the AI era measures how often AI platforms recommend your brand. Learn how to calculate it and why it is the defining metric for AI visibility.',
     tag: 'Metrics',
-    date: 'January 28, 2026',
-    readTime: '5 min read',
-    content: `Share of Voice (SOV) has been a cornerstone metric in advertising and PR for decades. Now, there's a new version that matters even more: **AI Share of Voice** — the percentage of AI-generated responses that mention your brand when users ask relevant questions.
-
-## What is AI Share of Voice?
-
-AI Share of Voice measures how visible your brand is across AI platforms relative to your competitors. The formula is simple:
-
-**AI SOV = (Number of AI responses mentioning your brand ÷ Total relevant AI responses) × 100**
-
-For example, if you track 100 queries across 5 AI platforms (500 total responses), and your brand is mentioned in 150 of them, your AI SOV is 30%.
-
-## Why AI SOV is the Key Metric
-
-Traditional SOV measured ad impressions or media mentions — things you could directly control through spending. AI SOV is fundamentally different because:
-
-1. **You can't buy your way in.** There are no ads in ChatGPT responses. Your brand either earns the recommendation or it doesn't.
-2. **It compounds over time.** As AI models are retrained, consistent brand visibility reinforces future recommendations.
-3. **It directly influences purchase decisions.** When ChatGPT recommends your brand, users often act on it immediately without further research.
-4. **It's a leading indicator.** Declining AI SOV today means declining revenue tomorrow as more consumers shift to AI-first discovery.
-
-## How to Measure AI SOV
-
-Measuring AI SOV requires:
-
-1. **Define your query set** — The questions your potential customers ask AI when looking for your type of product or service
-2. **Choose your platforms** — ChatGPT, Perplexity, Claude, Gemini, and Grok each have different user bases
-3. **Run queries consistently** — AI responses vary, so you need repeated measurements for reliable data
-4. **Track over time** — A single measurement is a snapshot. Trends reveal whether your strategy is working
-
-This is tedious to do manually, which is why tools like Livesov automate the entire process — running your queries across all platforms on a schedule and calculating SOV automatically.
-
-## Industry Benchmarks
-
-While the space is still emerging, early data suggests:
-
-- **Category leaders** typically have 40-60% AI SOV for their primary keywords
-- **Strong challengers** range from 15-35%
-- **Most brands** hover around 5-15%
-- **Unoptimized brands** often have 0-5% — meaning AI rarely or never mentions them
-
-## Improving Your AI SOV
-
-The levers for improving AI SOV align with GEO (Generative Engine Optimization) strategies:
-
-- **Create content that AI models can cite** — authoritative, well-structured, factual content
-- **Build citation authority** — get mentioned on trusted sources that AI models reference
-- **Maintain brand consistency** — ensure your brand information is accurate and consistent everywhere
-- **Target high-intent queries** — focus on the queries where purchase intent is highest
-- **Monitor competitors** — understand what they're doing to earn AI recommendations
-
-## Start Tracking Your AI SOV Today
-
-The most important step is simply starting to measure. You can't optimize what you don't track. Try a free AI visibility check to see where you stand, then set up automated tracking to measure your progress over time.
-
-The brands that own their AI Share of Voice today will dominate their categories as AI becomes the primary discovery channel.`,
+    date: 'March 5, 2026',
+    readTime: '6 min read',
   },
 ];
 
+function ArticleContent({ id }: { id: string }) {
+  switch (id) {
+    case 'how-to-check-if-chatgpt-recommends-your-brand':
+      return <Article1 />;
+    case 'what-is-generative-engine-optimization-geo':
+      return <Article2 />;
+    case 'ai-share-of-voice-what-it-is-and-why-it-matters':
+      return <Article3 />;
+    default:
+      return null;
+  }
+}
+
+function Article1() {
+  return (
+    <>
+      <p>
+        Every day, millions of people ask ChatGPT, Perplexity, Claude, and other AI platforms questions like
+        &quot;What is the best project management tool?&quot; or &quot;Which CRM should I use for a small business?&quot;
+        These AI platforms respond with specific brand recommendations — and if your brand is not among them, you are
+        losing potential customers without ever knowing it.
+      </p>
+      <p>
+        Unlike traditional search engines where you can check your ranking on Google, there is no obvious way to see
+        what AI platforms say about you. The responses are generated dynamically, they vary based on how the question
+        is phrased, and they can change from week to week as models are updated. This makes monitoring your AI
+        visibility a genuine challenge — but also an enormous opportunity for brands that get ahead of it.
+      </p>
+
+      <h2>Why AI Recommendations Matter</h2>
+      <p>
+        The shift from search engines to AI assistants is accelerating. Research from multiple sources suggests that
+        a growing share of product discovery now happens through conversational AI rather than traditional Google
+        searches. When someone asks ChatGPT for a recommendation, the response typically includes three to five
+        specific brands. If you are not on that list, your competitor is.
+      </p>
+      <p>
+        What makes this particularly important is the <strong>authority effect</strong>. Users tend to trust AI
+        recommendations the same way they trust a knowledgeable friend. There is no ad label, no &quot;sponsored&quot;
+        tag — just a direct answer. This means that the brands AI chooses to mention get an outsized share of trust
+        and attention.
+      </p>
+
+      <h2>Step-by-Step: Manual Checking Process</h2>
+      <p>
+        Before investing in any tool, it is worth understanding what manual checking looks like. Here is a practical
+        approach you can follow today:
+      </p>
+      <p>
+        <strong>Step 1: Identify your key queries.</strong> Think about the questions your potential customers would
+        ask an AI assistant. These are not keyword phrases like you would use for SEO — they are natural language
+        questions. For example: &quot;What is the best email marketing platform for ecommerce?&quot; or &quot;Which
+        accounting software do freelancers recommend?&quot; Write down 10 to 20 of these queries.
+      </p>
+      <p>
+        <strong>Step 2: Query each AI platform.</strong> Open ChatGPT, Perplexity, Claude, Gemini, and Grok. Enter
+        each of your queries and record the response. Pay attention to which brands are mentioned, in what order, and
+        whether the tone is positive, neutral, or negative.
+      </p>
+      <p>
+        <strong>Step 3: Document the results.</strong> Create a spreadsheet with columns for the query, the platform,
+        which brands were mentioned, your brand&apos;s position (if mentioned), and the sentiment. This gives you a
+        baseline snapshot.
+      </p>
+      <p>
+        <strong>Step 4: Check your competitors.</strong> Run the same queries but also look for queries where
+        competitors are specifically mentioned. This helps you understand your relative position.
+      </p>
+      <p>
+        <strong>Step 5: Repeat regularly.</strong> AI responses change as models are updated. What was true last month
+        may not be true today. Plan to re-run your checks at least monthly.
+      </p>
+
+      <h2>Limitations of Manual Checking</h2>
+      <p>
+        If the manual process sounds tedious, that is because it is. Here are the key problems with doing this by hand:
+      </p>
+      <p>
+        <strong>Scale.</strong> If you have 20 queries and 5 platforms, that is 100 individual checks per round. Do
+        this monthly and you are looking at 1,200 checks per year — just for one brand.
+      </p>
+      <p>
+        <strong>Consistency.</strong> AI responses can vary based on factors like your account history, the time of day,
+        and even minor phrasing differences. A single manual check is just one data point, not a trend.
+      </p>
+      <p>
+        <strong>No historical data.</strong> Unless you are meticulous about your spreadsheet, you lose the ability to
+        track changes over time. Did your visibility improve after that content update? Without consistent historical
+        data, you cannot answer that question.
+      </p>
+      <p>
+        <strong>Proof for stakeholders.</strong> Screenshots of AI conversations are easy to fabricate and hard to
+        verify. If you need to show a client or executive that your brand&apos;s AI visibility improved, you need
+        something more robust than a collection of screenshots.
+      </p>
+
+      <h2>Automating AI Brand Monitoring with Livesov</h2>
+      <p>
+        This is the problem Livesov was built to solve. Instead of manually querying five platforms with dozens of
+        prompts, Livesov automates the entire process. You set up your brand, define your key queries (or use
+        auto-generated ones based on your industry), and Livesov runs them on a schedule across all five major AI
+        platforms.
+      </p>
+      <p>
+        Every response is saved as verifiable evidence. You get a dashboard showing your <strong>AI Share of
+        Voice</strong> — the percentage of responses that mention your brand — along with sentiment analysis,
+        competitor tracking, and trend data over time. When your content strategy works, you see it reflected in
+        the data. When a competitor overtakes you, you know immediately.
+      </p>
+      <p>
+        The proof export feature is particularly valuable for agencies. Instead of presenting screenshots to clients,
+        you can export CSV reports with full AI responses, timestamps, and platform details. It is the difference
+        between &quot;trust me, I checked&quot; and &quot;here is the verified data.&quot;
+      </p>
+
+      <h2>Getting Started</h2>
+      <p>
+        Whether you start with the manual process or jump straight to automation, the important thing is to start
+        monitoring. AI platforms are becoming a primary discovery channel, and the brands that track their visibility
+        now will have a significant advantage over those that wait.
+      </p>
+    </>
+  );
+}
+
+function Article2() {
+  return (
+    <>
+      <p>
+        If you have spent any time in digital marketing, you know SEO — the practice of optimizing your website to
+        rank higher in search engine results. But there is a new discipline emerging that addresses a fundamentally
+        different problem: how to ensure your brand appears in <strong>AI-generated answers</strong>. This discipline
+        is called Generative Engine Optimization, or GEO.
+      </p>
+
+      <h2>Defining GEO</h2>
+      <p>
+        Generative Engine Optimization is the practice of structuring your brand&apos;s online presence — your website
+        content, data, reviews, citations, and authority signals — so that AI platforms like ChatGPT, Perplexity,
+        Claude, Gemini, and Grok are more likely to mention and recommend you when users ask relevant questions.
+      </p>
+      <p>
+        Unlike SEO, which focuses on matching keywords and building backlinks to rank in a list of blue links, GEO
+        focuses on making your brand <strong>the kind of entity that AI models recognize, trust, and reference</strong>.
+        The output is not a ranking position — it is whether or not you appear in a conversational answer at all.
+      </p>
+
+      <h2>How GEO Differs from SEO</h2>
+      <p>
+        The differences between GEO and traditional SEO are significant, even though they share some underlying
+        principles. Here are the key distinctions:
+      </p>
+      <p>
+        <strong>Discovery format.</strong> SEO targets a list of ranked links. GEO targets inclusion in a generated
+        paragraph or recommendation. There is no &quot;position 1&quot; in an AI response — there is mentioned or not
+        mentioned.
+      </p>
+      <p>
+        <strong>Ranking signals.</strong> SEO relies heavily on backlinks, page speed, and keyword optimization. GEO
+        relies more on <strong>entity authority</strong> — whether your brand is consistently mentioned across
+        authoritative sources, structured data, and factual references that AI training data and retrieval systems
+        can pick up.
+      </p>
+      <p>
+        <strong>Content strategy.</strong> For SEO, you optimize individual pages for specific keywords. For GEO, you
+        need your brand information to be <strong>consistently represented across the web</strong> — in directories,
+        review sites, industry publications, structured data, and your own content — so that AI models have strong,
+        unambiguous signals about what you do and why you are relevant.
+      </p>
+      <p>
+        <strong>Measurement.</strong> SEO success is measured in rankings, organic traffic, and click-through rates.
+        GEO success is measured in <strong>AI Share of Voice</strong> — how often AI platforms mention your brand in
+        response to relevant queries. This requires a completely different measurement approach.
+      </p>
+
+      <h2>Why GEO Matters in 2026</h2>
+      <p>
+        The urgency around GEO has grown dramatically. AI assistants are no longer a novelty — they are a primary
+        information source for millions of people. When a potential customer asks an AI assistant &quot;What is the
+        best tool for X?&quot; and your brand is not mentioned, you have lost that opportunity. No amount of Google
+        ranking will help you if the customer never opens a search engine.
+      </p>
+      <p>
+        The competitive landscape is also shifting. Early movers who optimize for AI visibility now are building
+        advantages that will be difficult to overcome later. AI models tend to reinforce existing patterns — if your
+        competitor is consistently mentioned in training data and retrieval sources, they will continue to be
+        recommended unless you actively work to change the signals.
+      </p>
+
+      <h2>Key GEO Strategies</h2>
+      <p>
+        While GEO is still an emerging field, several strategies have proven effective:
+      </p>
+      <p>
+        <strong>Structured data and schema markup.</strong> Implement comprehensive schema markup on your website.
+        AI systems that use retrieval-augmented generation (RAG) rely on structured data to understand what your
+        brand does, where you operate, and what makes you distinct. Organization schema, product schema, FAQ schema,
+        and review schema all help.
+      </p>
+      <p>
+        <strong>Authoritative, factual content.</strong> Create content that serves as a definitive reference in your
+        space. AI models are more likely to cite sources that provide clear, well-organized, factual information.
+        Avoid thin content and focus on depth and specificity.
+      </p>
+      <p>
+        <strong>Consistent entity presence.</strong> Ensure your brand information is consistent across directories,
+        review platforms, industry databases, and your own properties. Inconsistent information (different names,
+        descriptions, or details across sources) makes it harder for AI to confidently recommend you.
+      </p>
+      <p>
+        <strong>Citations and mentions in authoritative sources.</strong> Being mentioned in respected industry
+        publications, comparison sites, and expert roundups increases your authority signal. AI models — especially
+        those using retrieval — weight authoritative sources more heavily.
+      </p>
+      <p>
+        <strong>Clear brand positioning.</strong> AI models need to categorize you. If your positioning is vague or
+        tries to cover too many categories, AI will struggle to recommend you for any specific query. Be clear about
+        what you do and who you serve.
+      </p>
+
+      <h2>Measuring GEO Success</h2>
+      <p>
+        The biggest challenge with GEO is measurement. Unlike SEO where you can check your Google ranking anytime,
+        measuring your AI visibility requires systematically querying multiple AI platforms with relevant prompts and
+        tracking the results over time.
+      </p>
+      <p>
+        Key metrics to track include: <strong>AI Share of Voice</strong> (what percentage of relevant AI responses
+        mention your brand), <strong>mention sentiment</strong> (positive, neutral, or negative), <strong>platform
+        coverage</strong> (which AI platforms mention you and which do not), and <strong>competitive position</strong>
+        (how you compare to competitors in AI recommendations).
+      </p>
+      <p>
+        Tools like Livesov automate this measurement by running your key queries across ChatGPT, Perplexity, Claude,
+        Gemini, and Grok on a regular schedule, tracking all of these metrics in a single dashboard. This gives you
+        the feedback loop you need to know whether your GEO efforts are working — and where to focus next.
+      </p>
+
+      <h2>The Bottom Line</h2>
+      <p>
+        GEO is not replacing SEO — it is a complementary discipline that addresses a different discovery channel. But
+        as AI-driven discovery grows, brands that ignore GEO risk becoming invisible to a significant and growing
+        audience. The good news is that many GEO best practices (authoritative content, structured data, clear
+        positioning) also benefit your traditional SEO. The key difference is in how you measure success and where
+        you focus your optimization efforts.
+      </p>
+    </>
+  );
+}
+
+function Article3() {
+  return (
+    <>
+      <p>
+        Share of Voice (SOV) has been a marketing metric for decades. In traditional media, it measures the percentage
+        of total advertising in a market that belongs to your brand. In SEO, it approximates your visibility in search
+        results relative to competitors. But in the AI era, Share of Voice takes on an entirely new meaning — and it
+        may be the most important visibility metric for the next decade.
+      </p>
+
+      <h2>What is AI Share of Voice?</h2>
+      <p>
+        <strong>AI Share of Voice</strong> measures the percentage of AI-generated responses that mention or recommend
+        your brand when users ask relevant questions. If users ask 100 questions related to your industry across
+        AI platforms, and your brand appears in 23 of those responses, your AI SOV is 23%.
+      </p>
+      <p>
+        This metric is distinct from traditional SOV because it measures something fundamentally different: not how
+        much ad space you occupy, but <strong>how likely AI platforms are to recommend you</strong> during the moments
+        when potential customers are actively seeking solutions.
+      </p>
+
+      <h2>How to Calculate AI Share of Voice</h2>
+      <p>
+        Calculating AI SOV requires three components:
+      </p>
+      <p>
+        <strong>1. A set of relevant queries.</strong> These are the questions your potential customers would ask an
+        AI assistant. They should be phrased naturally, the way a real user would speak. For example: &quot;What are
+        the best tools for social media scheduling?&quot; rather than the keyword-style &quot;social media scheduling
+        tools.&quot;
+      </p>
+      <p>
+        <strong>2. Multi-platform coverage.</strong> Different AI platforms can give different answers. A comprehensive
+        SOV calculation should cover ChatGPT, Perplexity, Claude, Gemini, and Grok at minimum. Your brand might have
+        strong visibility on one platform and be completely absent from another.
+      </p>
+      <p>
+        <strong>3. Regular measurement.</strong> AI responses change over time as models are updated and retrieval
+        sources evolve. A single measurement is a snapshot, not a trend. To track real progress, you need consistent
+        measurement on at least a weekly or bi-weekly basis.
+      </p>
+      <p>
+        The formula is straightforward: <strong>AI SOV = (Number of responses mentioning your brand / Total number
+        of relevant responses) x 100</strong>. You can break this down further by platform, by query category, or
+        by sentiment to get more granular insights.
+      </p>
+
+      <h2>Why AI SOV is the Key Metric</h2>
+      <p>
+        There are several reasons why AI Share of Voice is emerging as the critical metric for brand visibility:
+      </p>
+      <p>
+        <strong>It reflects real discovery behavior.</strong> When someone asks an AI assistant for a recommendation,
+        the brands mentioned in the response are the ones that enter the consideration set. Unlike SEO where users
+        might scroll through multiple results, AI responses typically surface only three to five brands. If you are
+        not there, you do not exist in that user&apos;s decision process.
+      </p>
+      <p>
+        <strong>It is a leading indicator.</strong> Changes in AI SOV often precede changes in referral traffic and
+        conversions. If your SOV is growing, more users are hearing about you through AI. If it is declining, a
+        competitor is gaining ground.
+      </p>
+      <p>
+        <strong>It is actionable.</strong> When you know which queries you appear for and which you do not, you can
+        take specific actions to improve — updating content, building citations, or adjusting your brand positioning.
+      </p>
+
+      <h2>Industry Benchmarks</h2>
+      <p>
+        AI SOV benchmarks are still emerging as the field is new, but early data suggests some patterns. Market
+        leaders in established categories tend to see AI SOV between 30% and 50% for core queries. Challengers
+        typically range from 10% to 25%. Brands new to a category often start near 0% and can reach 15% to 20%
+        within a few months of focused GEO effort.
+      </p>
+      <p>
+        These numbers vary significantly by industry. In categories with a clear dominant player, that player may
+        capture 60% or more of AI mentions. In fragmented markets, the top brand might only reach 20% to 30%.
+      </p>
+
+      <h2>Tracking AI SOV with Livesov</h2>
+      <p>
+        Livesov was built specifically to track AI Share of Voice. You define your brand, your industry, and your key
+        queries. Livesov then runs those queries across all five major AI platforms on your chosen schedule — daily,
+        every few days, or more frequently on higher-tier plans.
+      </p>
+      <p>
+        The dashboard shows your overall AI SOV, broken down by platform, by query, and by time period. You can add
+        competitors to see how your SOV compares, track sentiment trends, and export verified AI responses as proof
+        for stakeholders or clients.
+      </p>
+      <p>
+        Whether you are a solo founder wanting to know if AI platforms are aware of your product, or an agency
+        managing AI visibility for multiple clients, tracking AI Share of Voice gives you the data you need to make
+        informed decisions about where to invest your efforts.
+      </p>
+    </>
+  );
+}
+
 export default function BlogPage() {
-  const [expandedPost, setExpandedPost] = useState<string | null>(null);
+  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
 
   return (
     <SeoLayout>
@@ -218,108 +390,78 @@ export default function BlogPage() {
         title="Livesov Blog"
         subtitle="Insights on AI visibility, generative engine optimization, and brand tracking across AI platforms."
       />
+
       <section className="px-6 pb-20">
         <div className="max-w-4xl mx-auto">
-          {expandedPost ? (
-            // Expanded article view
+          {expandedArticle ? (
             (() => {
-              const post = posts.find(p => p.id === expandedPost);
-              if (!post) return null;
+              const article = articles.find(a => a.id === expandedArticle);
+              if (!article) return null;
               return (
                 <article>
                   <button
-                    onClick={() => setExpandedPost(null)}
+                    onClick={() => setExpandedArticle(null)}
                     className="text-sm text-[#FF6154] font-bold mb-6 hover:underline"
                   >
                     &larr; Back to all articles
                   </button>
                   <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-[#FF6154]/10 text-[#FF6154]">{post.tag}</span>
-                    <span className="text-xs text-gray-400">{post.date}</span>
-                    <span className="text-xs text-gray-400">{post.readTime}</span>
+                    <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-[#FF6154]/10 text-[#FF6154]">
+                      {article.tag}
+                    </span>
+                    <span className="text-sm text-gray-400">{article.date}</span>
+                    <span className="text-sm text-gray-400">{article.readTime}</span>
                   </div>
-                  <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-6 leading-tight">{post.title}</h1>
-                  <div className="prose prose-gray max-w-none">
-                    {post.content.split('\n\n').map((paragraph, i) => {
-                      if (paragraph.startsWith('## ')) {
-                        return <h2 key={i} className="text-2xl font-bold text-gray-900 mt-10 mb-4">{paragraph.replace('## ', '')}</h2>;
-                      }
-                      if (paragraph.startsWith('### ')) {
-                        return <h3 key={i} className="text-xl font-bold text-gray-900 mt-8 mb-3">{paragraph.replace('### ', '')}</h3>;
-                      }
-                      if (paragraph.startsWith('| ')) {
-                        const rows = paragraph.split('\n').filter(r => r.trim());
-                        return (
-                          <div key={i} className="overflow-x-auto my-6">
-                            <table className="w-full text-sm border-collapse">
-                              <thead>
-                                <tr>
-                                  {rows[0].split('|').filter(Boolean).map((cell, j) => (
-                                    <th key={j} className="border border-gray-200 bg-gray-50 px-3 py-2 text-left font-bold text-gray-900">{cell.trim()}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.slice(2).map((row, ri) => (
-                                  <tr key={ri}>
-                                    {row.split('|').filter(Boolean).map((cell, ci) => (
-                                      <td key={ci} className="border border-gray-200 px-3 py-2 text-gray-600">{cell.trim()}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        );
-                      }
-                      if (paragraph.startsWith('- **') || paragraph.startsWith('1. **')) {
-                        const items = paragraph.split('\n');
-                        return (
-                          <ul key={i} className="my-4 space-y-2">
-                            {items.map((item, j) => {
-                              const text = item.replace(/^[-\d.]+\s*/, '');
-                              return (
-                                <li key={j} className="text-gray-600 leading-relaxed pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-[#FF6154]">
-                                  <span dangerouslySetInnerHTML={{ __html: text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900">$1</strong>') }} />
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        );
-                      }
-                      return (
-                        <p key={i} className="text-gray-600 leading-relaxed my-4">
-                          <span dangerouslySetInnerHTML={{ __html: paragraph.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-900">$1</strong>') }} />
-                        </p>
-                      );
-                    })}
+                  <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+                    {article.title}
+                  </h1>
+                  <p className="text-lg text-gray-600 leading-relaxed mb-8">
+                    {article.description}
+                  </p>
+
+                  <div className="[&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-gray-900 [&_h2]:mt-10 [&_h2]:mb-4 [&_p]:text-gray-700 [&_p]:leading-relaxed [&_p]:mb-4 [&_strong]:text-gray-900">
+                    <ArticleContent id={article.id} />
                   </div>
-                  <div className="mt-12 p-6 rounded-xl bg-gradient-to-r from-[#FF6154] to-[#ff8a7a] text-center">
-                    <h3 className="text-xl font-bold text-white mb-2">Ready to track your AI visibility?</h3>
-                    <p className="text-white/80 mb-4">Start monitoring your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.</p>
-                    <Link href="/signup" className="inline-block bg-white text-[#FF6154] font-bold px-6 py-2.5 rounded-lg hover:bg-gray-100 transition no-underline">
-                      Start Free — No Credit Card Required
+
+                  {/* CTA */}
+                  <div className="mt-12 p-8 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 text-center">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Ready to track your AI visibility?</h3>
+                    <p className="text-sm text-gray-600 mb-5">
+                      Livesov monitors your brand across ChatGPT, Perplexity, Claude, Gemini, and Grok — automatically.
+                    </p>
+                    <Link
+                      href="/signup"
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#FF6154] text-white font-semibold text-sm hover:bg-[#e5554a] transition-colors no-underline"
+                    >
+                      Start Tracking Free &rarr;
                     </Link>
+                    <p className="text-xs text-gray-400 mt-3">No credit card required</p>
                   </div>
                 </article>
               );
             })()
           ) : (
-            // Article listing
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {posts.map(post => (
+              {articles.map(article => (
                 <button
-                  key={post.id}
-                  onClick={() => setExpandedPost(post.id)}
+                  key={article.id}
+                  onClick={() => setExpandedArticle(article.id)}
                   className="rounded-xl border border-gray-200 bg-white p-6 text-left hover:shadow-lg hover:border-[#FF6154]/30 transition-all group"
                 >
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-[#FF6154]/10 text-[#FF6154]">{post.tag}</span>
-                    <span className="text-xs text-gray-400">{post.date}</span>
+                    <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-[#FF6154]/10 text-[#FF6154]">
+                      {article.tag}
+                    </span>
+                    <span className="text-xs text-gray-400">{article.readTime}</span>
                   </div>
-                  <h3 className="text-base font-bold text-gray-900 mb-2 leading-snug group-hover:text-[#FF6154] transition-colors">{post.title}</h3>
-                  <p className="text-sm text-gray-500 leading-relaxed mb-4">{post.desc}</p>
-                  <span className="text-sm font-bold text-[#FF6154]">Read article &rarr;</span>
+                  <h3 className="text-base font-bold text-gray-900 mb-2 leading-snug group-hover:text-[#FF6154] transition-colors">
+                    {article.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 leading-relaxed mb-3">{article.description}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">{article.date}</span>
+                    <span className="text-sm font-bold text-[#FF6154]">Read article &rarr;</span>
+                  </div>
                 </button>
               ))}
             </div>
