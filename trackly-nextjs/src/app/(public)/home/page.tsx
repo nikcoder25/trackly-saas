@@ -239,178 +239,122 @@ function DemoSection() {
   );
 }
 
-/* ─── Dashboard Preview Mockup ─── */
-function DashboardPreview() {
-  const [activeTab, setActiveTab] = useState(0);
-  const tabs = ['Overview', 'Mentions', 'Evidence'];
-
-  // Animated SOV ring
+/* ─── Product Showcase — clean floating metrics ─── */
+function ProductShowcase() {
   const [sovValue, setSovValue] = useState(0);
-  const sovRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const node = sovRef.current;
+    const node = containerRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) {
+        node.classList.add('tl-showcase--visible');
         let val = 0;
         const timer = setInterval(() => {
-          val += 2;
+          val += 1;
           if (val >= 67) { setSovValue(67); clearInterval(timer); }
           else setSovValue(val);
-        }, 20);
+        }, 18);
         observer.disconnect();
       }
-    }, { threshold: 0.3 });
+    }, { threshold: 0.2 });
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
 
-  const circumference = 2 * Math.PI * 54;
-  const strokeDashoffset = circumference - (sovValue / 100) * circumference;
+  const circumference = 2 * Math.PI * 42;
+  const offset = circumference - (sovValue / 100) * circumference;
 
   return (
-    <section className="tl-dashboard-preview" ref={sovRef}>
-      <div className="tl-section-inner">
-        <div className="tl-section-header">
-          <span className="tl-section-tag">Product Preview</span>
-          <h2>Your AI visibility command center</h2>
-          <p>See everything at a glance. Real data, real-time tracking, real proof.</p>
-        </div>
+    <section className="tl-showcase" ref={containerRef}>
+      <div className="tl-showcase-inner">
 
-        <div className="tl-dash-window">
-          {/* Window chrome */}
-          <div className="tl-dash-chrome">
-            <div className="tl-demo-dots">
-              <span className="tl-dot tl-dot--red" />
-              <span className="tl-dot tl-dot--yellow" />
-              <span className="tl-dot tl-dot--green" />
-            </div>
-            <div className="tl-dash-url">
-              <span className="tl-dash-lock">🔒</span>
-              app.livesov.com/dashboard
-            </div>
+        {/* Central SOV card */}
+        <div className="tl-showcase-main">
+          <div className="tl-showcase-ring-wrap">
+            <svg width="112" height="112" viewBox="0 0 112 112">
+              <circle cx="56" cy="56" r="42" fill="none" stroke="rgba(99,102,241,0.1)" strokeWidth="8" />
+              <circle cx="56" cy="56" r="42" fill="none" stroke="url(#sovGrad)" strokeWidth="8"
+                strokeDasharray={circumference} strokeDashoffset={offset}
+                strokeLinecap="round" transform="rotate(-90 56 56)"
+                style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+              <defs>
+                <linearGradient id="sovGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#6366f1" />
+                  <stop offset="100%" stopColor="#10b981" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="tl-showcase-ring-val">{sovValue}%</div>
           </div>
-
-          <div className="tl-dash-layout">
-            {/* Sidebar */}
-            <div className="tl-dash-sidebar">
-              <div className="tl-dash-sidebar-logo">Live<span>sov</span></div>
-              <div className="tl-dash-sidebar-btn">▶ RUN QUERIES</div>
-              <div className="tl-dash-sidebar-nav">
-                <div className="tl-dash-sidebar-group">Dashboard</div>
-                {['📊 Overview', '◎ Mentions', '✦ Recommendations'].map((item, i) => (
-                  <div key={item} className={`tl-dash-sidebar-item ${i === 0 ? 'tl-dash-sidebar-item--active' : ''}`}>{item}</div>
-                ))}
-                <div className="tl-dash-sidebar-group">Analysis</div>
-                {['◆ Evidence & Proof', '◻ Query Performance', '◆ SOV Trends', '⊘ Competitors'].map(item => (
-                  <div key={item} className="tl-dash-sidebar-item">{item}</div>
-                ))}
-              </div>
-            </div>
-
-            {/* Main content */}
-            <div className="tl-dash-main">
-              {/* Topbar */}
-              <div className="tl-dash-topbar">
-                <div className="tl-dash-tabs">
-                  {tabs.map((tab, i) => (
-                    <button key={tab} className={`tl-dash-tab ${activeTab === i ? 'tl-dash-tab--active' : ''}`} onClick={() => setActiveTab(i)}>{tab}</button>
-                  ))}
-                </div>
-                <div className="tl-dash-topbar-right">
-                  <span className="tl-dash-plan-badge">PRO</span>
-                </div>
-              </div>
-
-              {/* Dashboard body */}
-              <div className="tl-dash-body">
-                {/* SOV Hero */}
-                <div className="tl-dash-sov-hero">
-                  <div className="tl-dash-sov-ring-wrap">
-                    <svg width="128" height="128" viewBox="0 0 128 128">
-                      <circle cx="64" cy="64" r="54" fill="none" stroke="#e2e8f0" strokeWidth="10" />
-                      <circle cx="64" cy="64" r="54" fill="none" stroke="#10b981" strokeWidth="10"
-                        strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round" transform="rotate(-90 64 64)"
-                        style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
-                    </svg>
-                    <div className="tl-dash-sov-value">{sovValue}%</div>
-                  </div>
-                  <div className="tl-dash-sov-info">
-                    <div className="tl-dash-sov-label">Share of Voice</div>
-                    <div className="tl-dash-sov-delta">▲ 12% vs last week</div>
-                  </div>
-                </div>
-
-                {/* Stat cards row */}
-                <div className="tl-dash-stats-row">
-                  <div className="tl-dash-stat-card">
-                    <div className="tl-dash-stat-val">14 <span>/ 21</span></div>
-                    <div className="tl-dash-stat-label">Mentions</div>
-                  </div>
-                  <div className="tl-dash-stat-card">
-                    <div className="tl-dash-stat-val">5 <span>/ 5</span></div>
-                    <div className="tl-dash-stat-label">Platforms Active</div>
-                  </div>
-                  <div className="tl-dash-stat-card">
-                    <div className="tl-dash-stat-val">21</div>
-                    <div className="tl-dash-stat-label">Queries Tracked</div>
-                  </div>
-                  <div className="tl-dash-stat-card">
-                    <div className="tl-dash-stat-val">2h ago</div>
-                    <div className="tl-dash-stat-label">Last Run</div>
-                  </div>
-                </div>
-
-                {/* Score cards */}
-                <div className="tl-dash-scores">
-                  <div className="tl-dash-score-card">
-                    <div className="tl-dash-score-num tl-dash-score--green">78</div>
-                    <div className="tl-dash-score-title">GEO Score</div>
-                    <div className="tl-dash-score-sub">Strong</div>
-                  </div>
-                  <div className="tl-dash-score-card">
-                    <div className="tl-dash-score-num tl-dash-score--green">82</div>
-                    <div className="tl-dash-score-title">AI Sentiment</div>
-                    <div className="tl-dash-score-sub">+9 positive · 3 neutral</div>
-                  </div>
-                  <div className="tl-dash-score-card">
-                    <div className="tl-dash-score-num tl-dash-score--green">64%</div>
-                    <div className="tl-dash-score-title">AI Recommends You</div>
-                    <div className="tl-dash-score-sub">Strong endorsement</div>
-                  </div>
-                </div>
-
-                {/* Platform bars */}
-                <div className="tl-dash-platforms">
-                  {[
-                    { name: 'ChatGPT', sov: 80, color: '#10a37f' },
-                    { name: 'Perplexity', sov: 72, color: '#9b72ff' },
-                    { name: 'Claude', sov: 65, color: '#d97706' },
-                    { name: 'Gemini', sov: 58, color: '#4285f4' },
-                    { name: 'Grok', sov: 40, color: '#1d9bf0' },
-                  ].map(p => (
-                    <div key={p.name} className="tl-dash-platform-row">
-                      <span className="tl-dash-platform-name">{p.name}</span>
-                      <div className="tl-dash-platform-bar">
-                        <div className="tl-dash-platform-fill" style={{ width: `${p.sov}%`, background: p.color }} />
-                      </div>
-                      <span className="tl-dash-platform-pct">{p.sov}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Floating CTA overlay */}
-          <div className="tl-dash-overlay">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Get Your Dashboard <span className="tl-arrow">&rarr;</span>
-            </Link>
+          <div className="tl-showcase-main-label">Share of Voice</div>
+          <div className="tl-showcase-main-delta">
+            <span className="tl-showcase-delta-up">▲ 12%</span> vs last week
           </div>
         </div>
+
+        {/* Floating metric cards */}
+        <div className="tl-showcase-card tl-showcase-card--1">
+          <div className="tl-showcase-card-icon" style={{ background: '#10a37f' }}>⬡</div>
+          <div className="tl-showcase-card-body">
+            <div className="tl-showcase-card-title">ChatGPT</div>
+            <div className="tl-showcase-card-val">
+              <span className="tl-showcase-badge tl-showcase-badge--found">✓ Mentioned</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="tl-showcase-card tl-showcase-card--2">
+          <div className="tl-showcase-card-icon" style={{ background: '#6366f1' }}>◆</div>
+          <div className="tl-showcase-card-body">
+            <div className="tl-showcase-card-title">GEO Score</div>
+            <div className="tl-showcase-card-val tl-showcase-val--green">78 / 100</div>
+          </div>
+        </div>
+
+        <div className="tl-showcase-card tl-showcase-card--3">
+          <div className="tl-showcase-card-icon" style={{ background: '#f59e0b' }}>★</div>
+          <div className="tl-showcase-card-body">
+            <div className="tl-showcase-card-title">Sentiment</div>
+            <div className="tl-showcase-card-val tl-showcase-val--green">Positive</div>
+          </div>
+        </div>
+
+        <div className="tl-showcase-card tl-showcase-card--4">
+          <div className="tl-showcase-card-icon" style={{ background: '#ef4444' }}>⊘</div>
+          <div className="tl-showcase-card-body">
+            <div className="tl-showcase-card-title">Grok</div>
+            <div className="tl-showcase-card-val">
+              <span className="tl-showcase-badge tl-showcase-badge--missed">✗ Not found</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Platform mini bars */}
+        <div className="tl-showcase-platforms">
+          {[
+            { name: 'ChatGPT', pct: 80, color: '#10a37f' },
+            { name: 'Perplexity', pct: 72, color: '#9b72ff' },
+            { name: 'Claude', pct: 65, color: '#d97706' },
+            { name: 'Gemini', pct: 58, color: '#4285f4' },
+            { name: 'Grok', pct: 0, color: '#94a3b8' },
+          ].map(p => (
+            <div key={p.name} className="tl-showcase-pbar">
+              <span className="tl-showcase-pbar-name">{p.name}</span>
+              <div className="tl-showcase-pbar-track">
+                <div className="tl-showcase-pbar-fill" style={{ width: `${p.pct}%`, background: p.color }} />
+              </div>
+              <span className="tl-showcase-pbar-val">{p.pct}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="tl-showcase-cta">
+        <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
+          See Your Brand&apos;s Score <span className="tl-arrow">&rarr;</span>
+        </Link>
       </div>
     </section>
   );
@@ -592,21 +536,11 @@ export default function LivesovHomePage() {
         </div>
       </section>
 
-      {/* ═══════ DASHBOARD PREVIEW ═══════ */}
-      <DashboardPreview />
+      {/* ═══════ PRODUCT SHOWCASE ═══════ */}
+      <ProductShowcase />
 
       {/* ═══════ SOCIAL PROOF BAR ═══════ */}
       <SocialProofBar />
-
-      {/* ═══════ TRUSTED BY ═══════ */}
-      <section className="tl-trusted">
-        <p className="tl-trusted-label">Trusted by marketers, agencies & brands worldwide</p>
-        <div className="tl-trusted-logos">
-          {['NovaBrand', 'Altitude Digital', 'StackPilot', 'GreenLeaf Co', 'Apex Media', 'CloudSync'].map(name => (
-            <div key={name} className="tl-trusted-logo">{name}</div>
-          ))}
-        </div>
-      </section>
 
       {/* ═══════ LIVE DEMO ═══════ */}
       <DemoSection />
