@@ -6,6 +6,7 @@ import { BrandProvider } from '@/contexts/BrandContext';
 import { RunProvider } from '@/contexts/RunContext';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
+import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -28,6 +29,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main">
           <BrandProvider>
+            <GlobalRunProgress />
             {children}
           </BrandProvider>
       </main>
