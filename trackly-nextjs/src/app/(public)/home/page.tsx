@@ -330,14 +330,32 @@ function SocialProofNotification() {
 /* ─── Email capture component ─── */
 function EmailCapture() {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes('@')) { setStatus('error'); return; }
-    // TODO: integrate with email service
-    setStatus('success');
-    setEmail('');
+    if (!email || !email.includes('@')) { setStatus('error'); setErrorMsg('Please enter a valid email address.'); return; }
+
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(data.error || 'Something went wrong.');
+        return;
+      }
+      setStatus('success');
+      setEmail('');
+    } catch {
+      setStatus('error');
+      setErrorMsg('Network error. Please try again.');
+    }
   };
 
   return (
@@ -353,15 +371,16 @@ function EmailCapture() {
               type="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setStatus('idle'); }}
+              onChange={(e) => { setEmail(e.target.value); if (status === 'error') setStatus('idle'); }}
               className={`tl-email-input ${status === 'error' ? 'tl-email-input--error' : ''}`}
+              disabled={status === 'loading'}
               required
             />
-            <button type="submit" className="tl-btn tl-btn--primary">
-              Subscribe
+            <button type="submit" className="tl-btn tl-btn--primary" disabled={status === 'loading'}>
+              {status === 'loading' ? 'Subscribing...' : 'Subscribe'}
             </button>
           </div>
-          {status === 'error' && <p className="tl-email-error">Please enter a valid email address.</p>}
+          {status === 'error' && <p className="tl-email-error">{errorMsg}</p>}
         </>
       )}
     </form>
