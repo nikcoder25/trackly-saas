@@ -55,13 +55,25 @@ const platforms = [
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', href: '/grok-brand-tracking' },
 ];
 
+/* ─── SVG Icon components ─── */
+const icons = {
+  search: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>,
+  chart: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
+  shield: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>,
+  target: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+  settings: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+  trending: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+  users: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
+  zap: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+};
+
 const features = [
-  { icon: '🔍', title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok — all from a single dashboard.' },
-  { icon: '📊', title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.' },
-  { icon: '🛡️', title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.' },
-  { icon: '🎯', title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.' },
-  { icon: '⚙️', title: 'Custom Queries', desc: 'Define exactly what your customers ask. Track performance per query, per platform, per location.' },
-  { icon: '📈', title: 'Competitor Intelligence', desc: 'Add competitors to see how they appear in AI responses alongside your brand. Benchmark and outrank.' },
+  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok — all from a single dashboard.', accent: '#6366f1' },
+  { icon: icons.chart, title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.', accent: '#8b5cf6' },
+  { icon: icons.shield, title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.', accent: '#06b6d4' },
+  { icon: icons.target, title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.', accent: '#10b981' },
+  { icon: icons.settings, title: 'Custom Queries', desc: 'Define exactly what your customers ask. Track performance per query, per platform, per location.', accent: '#f59e0b' },
+  { icon: icons.trending, title: 'Competitor Intelligence', desc: 'Add competitors to see how they appear in AI responses alongside your brand. Benchmark and outrank.', accent: '#ef4444' },
 ];
 
 const steps = [
@@ -270,6 +282,46 @@ function TestimonialCarousel() {
   );
 }
 
+/* ─── Social proof notification ─── */
+function SocialProofNotification() {
+  const [visible, setVisible] = useState(false);
+  const notifications = [
+    { name: 'Sarah K.', action: 'just tracked her brand across 5 platforms', time: '2m ago' },
+    { name: 'Marco R.', action: 'exported an AI visibility report', time: '5m ago' },
+    { name: 'James L.', action: 'discovered a new competitor mention', time: '8m ago' },
+  ];
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const showTimer = setTimeout(() => setVisible(true), 3000);
+    return () => clearTimeout(showTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setCurrent(prev => (prev + 1) % notifications.length);
+        setVisible(true);
+      }, 500);
+    }, 6000);
+    return () => clearInterval(cycle);
+  }, [visible, notifications.length]);
+
+  const n = notifications[current];
+
+  return (
+    <div className={`tl-social-notif ${visible ? 'tl-social-notif--visible' : ''}`}>
+      <div className="tl-social-notif-dot" />
+      <div className="tl-social-notif-content">
+        <strong>{n.name}</strong> {n.action}
+        <span className="tl-social-notif-time">{n.time}</span>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Email capture component ─── */
 function EmailCapture() {
   const [email, setEmail] = useState('');
@@ -404,7 +456,9 @@ export default function LivesovHomePage() {
 
       {/* ═══════ HERO ═══════ */}
       <section className="tl-hero">
+        <div className="tl-hero-grid-bg" />
         <div className="tl-hero-glow" />
+        <div className="tl-hero-glow tl-hero-glow--2" />
         <div className="tl-hero-content">
           <div className="tl-badge">
             <span className="tl-badge-dot" />
@@ -456,7 +510,7 @@ export default function LivesovHomePage() {
 
           <div className="tl-features-grid">
             {features.map(f => (
-              <div key={f.title} className="tl-feature-card">
+              <div key={f.title} className="tl-feature-card" style={{ '--card-accent': f.accent } as React.CSSProperties}>
                 <div className="tl-feature-icon">{f.icon}</div>
                 <h3>{f.title}</h3>
                 <p>{f.desc}</p>
@@ -524,27 +578,6 @@ export default function LivesovHomePage() {
               <h3>Proof for clients</h3>
               <p>Real API responses, not screenshots. Export verifiable evidence as CSV reports.</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ USE CASES ═══════ */}
-      <section className="tl-section tl-section--alt tl-animate" id="use-cases">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Use Cases</span>
-            <h2>Built for every type of business</h2>
-            <p>From local shops to global agencies — Livesov helps you track and improve your AI visibility.</p>
-          </div>
-
-          <div className="tl-features-grid">
-            {useCases.map(u => (
-              <div key={u.title} className="tl-feature-card">
-                <div className="tl-feature-icon">{u.icon}</div>
-                <h3>{u.title}</h3>
-                <p>{u.desc}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -700,6 +733,9 @@ export default function LivesovHomePage() {
           </div>
         </div>
       </footer>
+
+      {/* ═══════ SOCIAL PROOF NOTIFICATION ═══════ */}
+      <SocialProofNotification />
 
       {/* ═══════ BACK TO TOP ═══════ */}
       {showBackToTop && (
