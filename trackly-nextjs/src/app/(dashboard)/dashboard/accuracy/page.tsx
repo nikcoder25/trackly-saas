@@ -204,7 +204,7 @@ export default function AccuracyPage() {
   const [platformStats, setPlatformStats] = useState<Record<string, PlatformStat>>({});
   const [categoryStats, setCategoryStats] = useState<Record<string, CategoryStat>>({});
   const [lastChecked, setLastChecked] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'issues' | 'facts'>('issues');
+  // activeTab removed — facts now in prominent card above, issues shown directly
   const [checkedRuns, setCheckedRuns] = useState(0);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
@@ -270,7 +270,6 @@ export default function AccuracyPage() {
       if (d.categoryStats) setCategoryStats(d.categoryStats);
       setCheckedRuns(d.checkedRuns || 0);
       setLastChecked(new Date().toISOString());
-      setActiveTab('issues');
       // Show message from API or generate a summary
       if (d.message) {
         setCheckMessage(d.message);
@@ -287,7 +286,6 @@ export default function AccuracyPage() {
     if (!brand || discovering) return;
     setDiscovering(true);
     setCheckMessage(null);
-    setActiveTab('facts');
     fetch(`/api/brands/${brand.id}/accuracy`, {
       method: 'PUT', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -605,236 +603,77 @@ export default function AccuracyPage() {
         </div>
       </div>
 
-      {/* Tabbed Section: Issues / Facts */}
+      {/* Recent Issues */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-          <button
-            onClick={() => setActiveTab('issues')}
-            style={{
-              flex: 1, padding: '12px 16px', border: 'none', cursor: 'pointer', fontSize: 11,
-              fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
-              color: activeTab === 'issues' ? 'var(--primary)' : 'var(--muted)',
-              background: activeTab === 'issues' ? 'var(--bg)' : 'var(--bg3)',
-              borderBottom: activeTab === 'issues' ? '2px solid var(--primary)' : '2px solid transparent',
-            }}
-          >
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text)' }}>
             Recent Issues ({issues.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('facts')}
-            style={{
-              flex: 1, padding: '12px 16px', border: 'none', cursor: 'pointer', fontSize: 11,
-              fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
-              color: activeTab === 'facts' ? 'var(--primary)' : 'var(--muted)',
-              background: activeTab === 'facts' ? 'var(--bg)' : 'var(--bg3)',
-              borderBottom: activeTab === 'facts' ? '2px solid var(--primary)' : '2px solid transparent',
-            }}
-          >
-            Canonical Facts ({facts.length})
-          </button>
+          </span>
         </div>
-
-        {/* Issues Tab */}
-        {activeTab === 'issues' && (
-          <div style={{ padding: '16px 20px' }}>
-            {issues.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
-                {facts.length === 0 ? (
-                  <>Add your brand&apos;s canonical facts above, then click <strong>&quot;Check Now&quot;</strong> to verify AI accuracy.</>
-                ) : accuracyRate !== null ? (
-                  <>All facts verified accurately across AI platforms. No issues found.</>
-                ) : (
-                  <>Click <strong>&quot;Check Now&quot;</strong> to analyze AI responses against your {facts.length} canonical fact{facts.length !== 1 ? 's' : ''}.</>
-                )}
-              </div>
-            ) : (
-              <div>
-                {checkedRuns > 0 && (
-                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
-                    AI analyzed {checkedRuns} response{checkedRuns > 1 ? 's' : ''} across {Object.keys(platformStats).length} platform{Object.keys(platformStats).length !== 1 ? 's' : ''}
-                  </div>
-                )}
-                {issues.map((issue, i) => (
-                  <div key={i} style={{ borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <div
-                      onClick={() => setExpandedIssue(expandedIssue === i ? null : i)}
-                      style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
-                    >
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
-                        color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
-                        background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
-                      }}>
-                        {issue.severity}
-                      </span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{issue.fact_key}</div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                          Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
-                        </div>
-                        <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
-                          {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
-                          {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
-                          {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
-                        {expandedIssue === i ? '▼' : '▶'}
-                      </span>
-                    </div>
-                    {/* Expanded explanation */}
-                    {expandedIssue === i && issue.explanation && (
-                      <div style={{
-                        margin: '0 0 12px 32px', padding: '10px 14px', borderRadius: 6,
-                        background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
-                        border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
-                      }}>
-                        <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
-                          AI Analysis
-                        </div>
-                        {issue.explanation}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Facts Tab */}
-        {activeTab === 'facts' && (
-          <div style={{ padding: '16px 20px' }}>
-            {/* Fact Coverage Indicator */}
-            <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg3)', borderRadius: 8 }}>
-              <FactCoverage facts={facts} />
+        <div style={{ padding: '16px 20px' }}>
+          {issues.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
+              {facts.length === 0 ? (
+                <>Add your brand&apos;s facts in the card above, then click <strong>&quot;Check Now&quot;</strong> to verify AI accuracy.</>
+              ) : accuracyRate !== null ? (
+                <>All facts verified accurately across AI platforms. No issues found.</>
+              ) : (
+                <>Click <strong>&quot;Check Now&quot;</strong> to analyze AI responses against your {facts.length} canonical fact{facts.length !== 1 ? 's' : ''}.</>
+              )}
             </div>
-
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>
-              Define what&apos;s true about your brand. We&apos;ll check if AI gets it right.
-            </div>
-
-            {/* AI Suggested Facts Panel */}
-            {(suggestedFacts.length > 0 || discovering) && (
-              <div style={{
-                marginBottom: 16, padding: 14, borderRadius: 8,
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
-                border: '1px solid rgba(124,58,237,0.15)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          ) : (
+            <div>
+              {checkedRuns > 0 && (
+                <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
+                  AI analyzed {checkedRuns} response{checkedRuns > 1 ? 's' : ''} across {Object.keys(platformStats).length} platform{Object.keys(platformStats).length !== 1 ? 's' : ''}
+                </div>
+              )}
+              {issues.map((issue, i) => (
+                <div key={i} style={{ borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div
+                    onClick={() => setExpandedIssue(expandedIssue === i ? null : i)}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
+                  >
                     <span style={{
-                      fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
-                      background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))',
-                      color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
+                      fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
+                      color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
+                      background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
                     }}>
-                      AI-Suggested
+                      {issue.severity}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                      {suggestedFacts.length} fact{suggestedFacts.length !== 1 ? 's' : ''} discovered
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{issue.fact_key}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
+                      </div>
+                      <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
+                        {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
+                        {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
+                        {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
+                      {expandedIssue === i ? '▼' : '▶'}
                     </span>
                   </div>
-                  {suggestedFacts.length > 1 && (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={acceptAllFacts} className="pbtn" style={{ fontWeight: 700, fontSize: 11, padding: '4px 10px', background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
-                        Add All
-                      </button>
-                      <button onClick={() => setSuggestedFacts([])} className="pbtn" style={{ fontWeight: 700, fontSize: 11, padding: '4px 10px' }}>
-                        Dismiss All
-                      </button>
+                  {expandedIssue === i && issue.explanation && (
+                    <div style={{
+                      margin: '0 0 12px 32px', padding: '10px 14px', borderRadius: 6,
+                      background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
+                      border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
+                    }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
+                        AI Analysis
+                      </div>
+                      {issue.explanation}
                     </div>
                   )}
                 </div>
-
-                {discovering ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20, color: '#7c3aed', fontSize: 12 }}>
-                    <span style={{ width: 14, height: 14, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                    AI is analyzing your brand...
-                  </div>
-                ) : (
-                  <div>
-                    {suggestedFacts.map((sf) => (
-                      <div key={sf.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid rgba(124,58,237,0.08)' }}>
-                        {/* Confidence dot */}
-                        <span style={{
-                          width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                          background: sf.confidence === 'high' ? 'var(--green)' : sf.confidence === 'medium' ? 'var(--amber)' : 'var(--red)',
-                        }} title={`${sf.confidence} confidence`} />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 110 }}>{sf.key}</span>
-                        <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{sf.value}</span>
-                        <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 6px', background: 'var(--bg3)', borderRadius: 4, textTransform: 'capitalize' }}>{sf.category}</span>
-                        <span style={{
-                          fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 600, padding: '2px 6px', borderRadius: 4,
-                          color: sf.source === 'website' ? '#3b82f6' : '#7c3aed',
-                          background: sf.source === 'website' ? 'rgba(59,130,246,0.08)' : 'rgba(124,58,237,0.08)',
-                        }}>
-                          {sf.source === 'website' ? 'Website' : 'AI Responses'}
-                        </span>
-                        <button onClick={() => acceptFact(sf)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '2px 4px' }} title="Add fact">+</button>
-                        <button onClick={() => dismissFact(sf.key)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }} title="Dismiss">×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {facts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>
-                No facts defined yet. Add your brand&apos;s canonical facts below or use <strong>Auto-Discover</strong> to let AI find them for you.
-              </div>
-            ) : (
-              <div style={{ marginBottom: 14 }}>
-                {facts.map((f, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
-                    <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
-                    <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add Fact Form */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto auto', gap: 8, marginTop: 12, alignItems: 'end' }}>
-              <div>
-                <label className="flbl">Fact Key</label>
-                <input className="finp" placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)} style={{ margin: 0 }} />
-              </div>
-              <div>
-                <label className="flbl">Fact Value</label>
-                <input className="finp" placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)} style={{ margin: 0 }} />
-              </div>
-              <div>
-                <label className="flbl">Category</label>
-                <select className="finp" value={factCategory} onChange={e => setFactCategory(e.target.value)} style={{ margin: 0 }}>
-                  <option value="general">General</option>
-                  <option value="pricing">Pricing</option>
-                  <option value="features">Features</option>
-                  <option value="company">Company</option>
-                </select>
-              </div>
-              <button className="pbtn" onClick={addFact} style={{ fontWeight: 700 }}>Add</button>
-              <button className="pbtn" onClick={autoDiscover} disabled={discovering}
-                style={{
-                  fontWeight: 700, whiteSpace: 'nowrap',
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.08))',
-                  color: '#7c3aed', borderColor: 'rgba(124,58,237,0.25)',
-                  opacity: discovering ? 0.6 : 1,
-                }}>
-                {discovering ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 10, height: 10, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                    Discovering...
-                  </span>
-                ) : 'Auto-Discover'}
-              </button>
+              ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
