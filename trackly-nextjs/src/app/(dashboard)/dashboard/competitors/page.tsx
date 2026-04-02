@@ -54,11 +54,16 @@ export default function CompetitorsPage() {
     return allCompZero && brandPct === 0;
   }, [competitors, allResults, compStats, brandPct]);
 
-  // Per-platform breakdown
+  // Per-platform breakdown — always include all competitors per platform
   const platBreakdown = useMemo(() => {
     const m: Record<string, Record<string, number>> = {};
     allResults.forEach(r => {
-      if (!m[r.platform]) m[r.platform] = {};
+      if (!m[r.platform]) {
+        // initialise every competitor to 0 for this platform
+        const seed: Record<string, number> = {};
+        competitors.forEach(c => { seed[c] = 0; });
+        m[r.platform] = seed;
+      }
       (r.competitorMentions || []).forEach(c => {
         if (competitors.includes(c)) m[r.platform][c] = (m[r.platform][c] || 0) + 1;
       });
@@ -195,25 +200,30 @@ export default function CompetitorsPage() {
       </div>
 
       {/* Per-Platform Breakdown */}
-      {Object.keys(platBreakdown).length > 0 && (
+      {competitors.length > 0 && allResults.length > 0 && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="section-title">Per-Platform Breakdown</div>
-          {Object.entries(platBreakdown).map(([plat, compCounts]) => (
-            <div key={plat} style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[plat] || 'var(--text)', marginBottom: 6 }}>{plat}</div>
-              {Object.entries(compCounts).map(([comp, count]) => {
-                const platTotal = allResults.filter(r => r.platform === plat).length;
-                const pct = platTotal ? Math.round((count / platTotal) * 100) : 0;
-                return (
-                  <div key={comp} className="qperf-bar-row">
-                    <div className="qperf-bar-label">{comp}</div>
-                    <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: PLATFORM_COLORS[plat] || 'var(--muted)' }} /></div>
-                    <div className="qperf-bar-value">{count}x</div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Competitor mentions broken down by AI platform.</div>
+          {Object.entries(platBreakdown).map(([plat, compCounts]) => {
+            const platTotal = allResults.filter(r => r.platform === plat).length;
+            return (
+              <div key={plat} style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[plat] || 'var(--text)', marginBottom: 6 }}>
+                  {plat} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>({platTotal} {platTotal === 1 ? 'query' : 'queries'})</span>
+                </div>
+                {Object.entries(compCounts).map(([comp, count]) => {
+                  const pct = platTotal ? Math.round((count / platTotal) * 100) : 0;
+                  return (
+                    <div key={comp} className="qperf-bar-row">
+                      <div className="qperf-bar-label">{comp}</div>
+                      <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: PLATFORM_COLORS[plat] || 'var(--muted)' }} /></div>
+                      <div className="qperf-bar-value">{count}x ({pct}%)</div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
