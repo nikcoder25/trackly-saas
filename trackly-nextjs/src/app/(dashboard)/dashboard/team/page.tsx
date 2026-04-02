@@ -16,7 +16,7 @@ export default function TeamPage() {
 
   useEffect(() => {
     fetch('/api/team', { credentials: 'include' })
-      .then(r => r.json()).then(d => { setMembers(d.members || []); setLoading(false); })
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { setMembers(d.members || []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
