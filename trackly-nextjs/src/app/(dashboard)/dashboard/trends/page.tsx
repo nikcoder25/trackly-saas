@@ -41,7 +41,13 @@ export default function TrendsPage() {
       {/* Overall SOV Trend — bar chart */}
       <div className="card" style={{ padding: 20 }}>
         <div className="card-title">Overall SOV Trend</div>
-        <div style={{ height: 200, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'flex', alignItems: 'flex-end', gap: 4, padding: 16 }}>
+        <div style={{ display: 'flex', height: 200 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 8, paddingTop: 16, paddingBottom: 16 }}>
+            {[100, 75, 50, 25, 0].map(v => (
+              <span key={v} style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)', lineHeight: 1 }}>{v}%</span>
+            ))}
+          </div>
+        <div style={{ flex: 1, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'flex', alignItems: 'flex-end', gap: 4, padding: 16 }}>
           {history.length > 0 ? history.map((h, i) => {
             const pct = Math.max((h.overall / 100) * 100, 4);
             const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
@@ -55,6 +61,7 @@ export default function TrendsPage() {
               <div key={i} style={{ flex: 1, background: 'var(--primary)', borderRadius: '3px 3px 0 0', height: `${h}%`, opacity: 0.4 + i * 0.06 }} />
             ))
           )}
+        </div>
         </div>
         {history.length > 1 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>

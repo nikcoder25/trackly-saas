@@ -428,7 +428,7 @@ export default function AccuracyPage() {
             {accuracyRate != null ? `${accuracyRate}%` : '—'}
           </div>
           <div className="score-label">Accuracy Rate</div>
-          {trend.length >= 2 && (
+          {accuracyRate != null && trend.length >= 2 && (
             <div style={{ fontSize: 10, fontFamily: 'var(--mono)', marginTop: 4, color: trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? 'var(--green)' : 'var(--red)' }}>
               {trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? '↑' : '↓'} vs prev
             </div>
