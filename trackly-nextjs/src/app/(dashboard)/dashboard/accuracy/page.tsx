@@ -173,7 +173,7 @@ function FactCoverage({ facts }: { facts: Fact[] }) {
           const isCovered = covered.includes(cat);
           return (
             <span key={cat} style={{
-              fontSize: 10, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 4,
+              fontSize: 11, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 4,
               background: isCovered ? 'rgba(34,197,94,0.08)' : 'var(--bg3)',
               color: isCovered ? 'var(--green)' : 'var(--muted)',
               border: `1px solid ${isCovered ? 'rgba(34,197,94,0.2)' : 'var(--border)'}`,
@@ -429,7 +429,7 @@ export default function AccuracyPage() {
           </div>
           <div className="score-label">Accuracy Rate</div>
           {accuracyRate != null && trend.length >= 2 && (
-            <div style={{ fontSize: 10, fontFamily: 'var(--mono)', marginTop: 4, color: trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? 'var(--green)' : 'var(--red)' }}>
+            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', marginTop: 4, color: trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? 'var(--green)' : 'var(--red)' }}>
               {trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? '↑' : '↓'} vs prev
             </div>
           )}
@@ -551,7 +551,7 @@ export default function AccuracyPage() {
             ) : (
               <div>
                 {checkedRuns > 0 && (
-                  <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
                     AI analyzed {checkedRuns} response{checkedRuns > 1 ? 's' : ''} across {Object.keys(platformStats).length} platform{Object.keys(platformStats).length !== 1 ? 's' : ''}
                   </div>
                 )}
@@ -562,7 +562,7 @@ export default function AccuracyPage() {
                       style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
                     >
                       <span style={{
-                        fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
+                        fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
                         color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
                         background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
                       }}>
@@ -573,14 +573,14 @@ export default function AccuracyPage() {
                         <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                           Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
                         </div>
-                        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
                           {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
                           {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
                           {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
                         </div>
                       </div>
-                      <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
                         {expandedIssue === i ? '▼' : '▶'}
                       </span>
                     </div>
@@ -612,7 +612,7 @@ export default function AccuracyPage() {
               <FactCoverage facts={facts} />
             </div>
 
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 10 }}>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>
               Define what&apos;s true about your brand. We&apos;ll check if AI gets it right.
             </div>
 
@@ -638,10 +638,10 @@ export default function AccuracyPage() {
                   </div>
                   {suggestedFacts.length > 1 && (
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={acceptAllFacts} className="pbtn" style={{ fontWeight: 700, fontSize: 10, padding: '4px 10px', background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
+                      <button onClick={acceptAllFacts} className="pbtn" style={{ fontWeight: 700, fontSize: 11, padding: '4px 10px', background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>
                         Add All
                       </button>
-                      <button onClick={() => setSuggestedFacts([])} className="pbtn" style={{ fontWeight: 700, fontSize: 10, padding: '4px 10px' }}>
+                      <button onClick={() => setSuggestedFacts([])} className="pbtn" style={{ fontWeight: 700, fontSize: 11, padding: '4px 10px' }}>
                         Dismiss All
                       </button>
                     </div>
@@ -664,7 +664,7 @@ export default function AccuracyPage() {
                         }} title={`${sf.confidence} confidence`} />
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 110 }}>{sf.key}</span>
                         <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{sf.value}</span>
-                        <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 6px', background: 'var(--bg3)', borderRadius: 4, textTransform: 'capitalize' }}>{sf.category}</span>
+                        <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 6px', background: 'var(--bg3)', borderRadius: 4, textTransform: 'capitalize' }}>{sf.category}</span>
                         <span style={{
                           fontSize: 9, fontFamily: 'var(--mono)', fontWeight: 600, padding: '2px 6px', borderRadius: 4,
                           color: sf.source === 'website' ? '#3b82f6' : '#7c3aed',
@@ -691,7 +691,7 @@ export default function AccuracyPage() {
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
                     <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
-                    <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
+                    <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
                     <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
                   </div>
                 ))}
