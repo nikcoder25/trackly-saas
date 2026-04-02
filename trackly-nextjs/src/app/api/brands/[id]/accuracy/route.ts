@@ -125,12 +125,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // ── Auto-Discover Facts ──────────────────────────────────────
   if (body.action === 'auto-discover') {
     try {
-      // Get brand info (name, website)
-      const brandResult = await pool.query('SELECT name, website FROM brands WHERE id = $1', [id]);
-      if (brandResult.rows.length === 0) {
-        return Response.json({ error: 'Brand not found' }, { status: 404 });
-      }
-      const brand = brandResult.rows[0] as { name: string; website: string | null };
+      // Use brand info already fetched by getBrandWithAccess (name/website are in the JSONB data column)
+      const brand = access.brand as { name: string; website?: string | null };
 
       // Get recent AI responses about this brand
       let aiResponses: string[] = [];
