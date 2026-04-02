@@ -553,7 +553,7 @@ export default function LivesovHomePage() {
                 </tbody>
               </table>
             </div>
-            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of 2026. Subject to change.</p>
+            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of {new Date().getFullYear()}. Subject to change.</p>
           </div>
 
         </div>

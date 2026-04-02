@@ -92,7 +92,7 @@ export default function PartnersPage() {
               className="rounded-xl p-8 text-center"
               style={{ background: 'var(--bg-secondary, rgba(255,255,255,0.04))', border: '1px solid var(--border-color, rgba(255,255,255,0.08))' }}
             >
-              <div className="text-4xl mb-4">{b.icon}</div>
+              <div className="text-4xl mb-4"><span role="img" aria-label={b.title}>{b.icon}</span></div>
               <h3 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{b.title}</h3>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{b.description}</p>
             </div>

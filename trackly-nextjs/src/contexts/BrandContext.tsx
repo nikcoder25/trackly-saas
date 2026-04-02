@@ -77,7 +77,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (found) setSelectedBrand(found);
   }, [brands]);
 
-  useEffect(() => { refreshBrands(); }, []);
+  useEffect(() => { refreshBrands(); }, [refreshBrands]);
 
   const selectedBrandLocked = selectedBrand?.lockedByPlan === true;
 
