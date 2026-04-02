@@ -207,7 +207,7 @@ export default function QueryTrackerPage() {
             <div className="kt-col kt-col-runs kt-sortable" onClick={() => handleSort('totalRuns')}>Runs{sortIcon('totalRuns')}</div>
             <div className="kt-col kt-col-plats kt-sortable" onClick={() => handleSort('platformCount')}>Platforms{sortIcon('platformCount')}</div>
             <div className="kt-col kt-col-pos kt-sortable" onClick={() => handleSort('avgPosition')}>Avg Position{sortIcon('avgPosition')}</div>
-            <div className="kt-col kt-col-spark">Movement</div>
+            <div className="kt-col kt-col-spark">Trend</div>
             <div className="kt-col kt-col-updated kt-sortable" onClick={() => handleSort('lastUpdated')}>Updated{sortIcon('lastUpdated')}</div>
           </div>
 

@@ -135,26 +135,35 @@ export default function ProofPage() {
 
       {/* Toolbar */}
       <div className="proof-toolbar">
-        <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)}>
-          {runs.map((r, i) => {
-            const d = new Date(r.time || r.date || 0);
-            const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — SOV ${r.sov || 0}%`;
-            return <option key={r.id || i} value={r.id || ''}>{label}</option>;
-          })}
-          {runs.length === 0 && <option value="">No runs yet</option>}
-        </select>
-        <select value={platFilter} onChange={e => setPlatFilter(e.target.value)}>
-          <option value="">All Platforms</option>
-          {uniquePlats.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={resultFilter} onChange={e => setResultFilter(e.target.value)}>
-          <option value="">All Results</option>
-          <option value="found">Found Only</option>
-          <option value="notfound">Not Found Only</option>
-        </select>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Run</label>
+          <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run">
+            {runs.map((r, i) => {
+              const d = new Date(r.time || r.date || 0);
+              const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — SOV ${r.sov || 0}%`;
+              return <option key={r.id || i} value={r.id || ''}>{label}</option>;
+            })}
+            {runs.length === 0 && <option value="">No runs yet</option>}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Platform</label>
+          <select value={platFilter} onChange={e => setPlatFilter(e.target.value)} aria-label="Filter by platform">
+            <option value="">All Platforms</option>
+            {uniquePlats.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Result</label>
+          <select value={resultFilter} onChange={e => setResultFilter(e.target.value)} aria-label="Filter by result">
+            <option value="">All Results</option>
+            <option value="found">Found Only</option>
+            <option value="notfound">Not Found Only</option>
+          </select>
+        </div>
         <div className="proof-vtoggle">
-          <button className={viewMode === 'grouped' ? 'active' : ''} onClick={() => setViewMode('grouped')}>By Query</button>
-          <button className={viewMode === 'flat' ? 'active' : ''} onClick={() => setViewMode('flat')}>All</button>
+          <button style={{ background: viewMode === 'grouped' ? 'var(--primary)' : 'var(--bg3)', color: viewMode === 'grouped' ? '#fff' : 'var(--muted)' }} onClick={() => setViewMode('grouped')}>By Query</button>
+          <button style={{ background: viewMode === 'flat' ? 'var(--primary)' : 'var(--bg3)', color: viewMode === 'flat' ? '#fff' : 'var(--muted)' }} onClick={() => setViewMode('flat')}>All</button>
         </div>
       </div>
 
