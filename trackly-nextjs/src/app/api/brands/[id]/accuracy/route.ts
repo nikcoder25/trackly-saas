@@ -57,23 +57,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // fine if table missing
     }
 
-    // Load persisted accuracy issues (including fixed status)
+    // Load persisted accuracy issues with expected values resolved via JOIN
     let issues: Record<string, unknown>[] = [];
     try {
       const issuesResult = await pool.query(
-        `SELECT id, platform, model, fact_key, expected, found, severity, category,
-                explanation, run_id, source_url, query, date, fixed, fixed_at
-         FROM accuracy_issues WHERE brand_id = $1
-         ORDER BY fixed ASC, created_at DESC`,
+        `SELECT ai.id, ai.platform, ai.model, ai.fact_key, ai.expected, ai.found,
+                ai.severity, ai.category, ai.explanation, ai.run_id, ai.source_url,
+                ai.query, ai.date, ai.fixed, ai.fixed_at,
+                bf.fact_value AS canonical_expected
+         FROM accuracy_issues ai
+         LEFT JOIN brand_facts bf
+           ON bf.brand_id = ai.brand_id
+           AND LOWER(REPLACE(REPLACE(bf.fact_key, ' ', '_'), '-', '_'))
+             = LOWER(REPLACE(REPLACE(ai.fact_key, ' ', '_'), '-', '_'))
+         WHERE ai.brand_id = $1
+         ORDER BY ai.fixed ASC, ai.created_at DESC`,
         [id]
       );
-      // Always fill in expected values from current canonical facts
-      // (handles cases where expected was stored empty, or canonical fact was updated)
-      const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
-      const factsByKey = new Map(facts.map(f => [normalizeKey(f.key), f.value]));
       issues = issuesResult.rows.map((row: Record<string, unknown>) => ({
         ...row,
-        expected: row.expected || factsByKey.get(normalizeKey(String(row.fact_key || ''))) || '',
+        expected: row.canonical_expected || row.expected || '',
+        canonical_expected: undefined,
       }));
     } catch {
       // table may not exist yet
@@ -265,21 +269,27 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       // table may not exist yet — continue without persisting
     }
 
-    // Reload all issues (including fixed ones) to return with DB ids
+    // Reload all issues (including fixed ones) with expected values via JOIN
     let allIssues: Record<string, unknown>[] = [];
-    const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
-    const factsByKey = new Map(facts.map(f => [normalizeKey(f.key), f.value]));
     try {
       const issuesResult = await pool.query(
-        `SELECT id, platform, model, fact_key, expected, found, severity, category,
-                explanation, run_id, source_url, query, date, fixed, fixed_at
-         FROM accuracy_issues WHERE brand_id = $1
-         ORDER BY fixed ASC, created_at DESC`,
+        `SELECT ai.id, ai.platform, ai.model, ai.fact_key, ai.expected, ai.found,
+                ai.severity, ai.category, ai.explanation, ai.run_id, ai.source_url,
+                ai.query, ai.date, ai.fixed, ai.fixed_at,
+                bf.fact_value AS canonical_expected
+         FROM accuracy_issues ai
+         LEFT JOIN brand_facts bf
+           ON bf.brand_id = ai.brand_id
+           AND LOWER(REPLACE(REPLACE(bf.fact_key, ' ', '_'), '-', '_'))
+             = LOWER(REPLACE(REPLACE(ai.fact_key, ' ', '_'), '-', '_'))
+         WHERE ai.brand_id = $1
+         ORDER BY ai.fixed ASC, ai.created_at DESC`,
         [id]
       );
       allIssues = issuesResult.rows.map((row: Record<string, unknown>) => ({
         ...row,
-        expected: row.expected || factsByKey.get(normalizeKey(String(row.fact_key || ''))) || '',
+        expected: row.canonical_expected || row.expected || '',
+        canonical_expected: undefined,
       }));
     } catch {
       // fallback to in-memory issues
