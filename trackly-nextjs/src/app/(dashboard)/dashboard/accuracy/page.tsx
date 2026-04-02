@@ -377,7 +377,9 @@ export default function AccuracyPage() {
   function getExpected(issue: Issue): string {
     if (issue.expected) return issue.expected;
     const normalize = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
-    return expectedLookup.get(issue.fact_key) || expectedLookup.get(normalize(issue.fact_key)) || '';
+    // Strip category suffix like "(company)" from fact_key before lookup
+    const baseKey = issue.fact_key.replace(/\s*\([^)]*\)\s*$/, '');
+    return expectedLookup.get(baseKey) || expectedLookup.get(normalize(baseKey)) || '';
   }
 
   // Derived data
