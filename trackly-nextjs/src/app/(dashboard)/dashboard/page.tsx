@@ -371,7 +371,7 @@ export default function DashboardPage() {
               borderRadius: 4, transition: 'width 0.4s ease',
             }} />
           </div>
-          <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 6 }}>
+          <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 6 }}>
             {live.statusText}
             {live.running && liveSOV !== null && ` · Live SOV: ${liveSOV}%`}
           </div>
@@ -389,7 +389,7 @@ export default function DashboardPage() {
           <div className="compare-toggle" style={{display:'flex',gap:4}}>
             {(['current','week','month'] as const).map(m => <button key={m} onClick={()=>setCompareMode(m)} className={compareMode===m?'active':''} style={{padding:'6px 12px',fontSize:11,fontWeight:600,borderRadius:'var(--radius-xs)',border:compareMode===m?'1px solid var(--primary)':'1px solid var(--border)',background:compareMode===m?'var(--primary)':'var(--bg2)',color:compareMode===m?'#fff':'var(--muted)',cursor:'pointer',fontFamily:'var(--font)'}}>{m==='current'?'Current':m==='week'?'vs Last Week':'vs Last Month'}</button>)}
           </div>
-          <select className="finp" value={preset} onChange={e=>setPreset(e.target.value as typeof preset)} style={{width:150,margin:0,fontSize:11,padding:'4px 8px'}}>
+          <select className="finp" value={preset} onChange={e=>setPreset(e.target.value as typeof preset)} style={{width:150,margin:0,fontSize:12,padding:'4px 8px'}}>
             <option value="all">All Sections</option>
             <option value="founder">Founder View</option>
             <option value="seo">SEO Manager</option>
@@ -470,7 +470,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
             <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--mono)' }}>LIVE Results Feed</span>
-            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', marginLeft: 'auto' }}>{live.results.length} results</span>
+            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginLeft: 'auto' }}>{live.results.length} results</span>
           </div>
           <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {live.results.slice(-30).reverse().map((r, i) => (
@@ -480,7 +480,7 @@ export default function DashboardPage() {
                 borderLeft: `3px solid ${r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)'}`,
                 animation: i === 0 ? 'fadeInUp .3s ease' : undefined,
               }}>
-                <span style={{ width: 22, height: 22, borderRadius: 6, background: PLATFORM_COLORS[r.platform] || 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', fontWeight: 700, flexShrink: 0 }}>
+                <span style={{ width: 22, height: 22, borderRadius: 6, background: PLATFORM_COLORS[r.platform] || 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#fff', fontWeight: 700, flexShrink: 0 }}>
                   {r.platform[0]}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -526,7 +526,7 @@ export default function DashboardPage() {
       {show('scores')&&<div className="ov-card ov-loc-card"><div className="ov-card-head"><div className="ov-card-title">📍 Location Visibility</div>{brand.city&&<div className="ov-card-sub">{brand.city}{nearbyAreas&&nearbyAreas.length>0?` + ${nearbyAreas.length} nearby areas`:''}</div>}</div>
         <div className="ov-loc-grid" style={{display:'grid',gridTemplateColumns:'auto 1fr',gap:20}}>
           <div className="ov-loc-stat"><div className="ov-loc-stat-val" style={{color:locationData.rate>=40?'var(--green)':locationData.rate>0?'var(--amber)':'var(--red)'}}>{locationData.rate}%</div><div className="ov-loc-stat-lbl">City Match Rate</div><div className="ov-loc-stat-sub">AI mentions your location</div></div>
-          <div className="ov-loc-areas"><div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}}>Areas where AI finds you</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{Object.entries(locationData.areas).length>0?Object.entries(locationData.areas).map(([area,count])=><span key={area} className="ov-loc-area-tag">{area} <span className="ov-loc-area-count">{count}</span></span>):<span style={{fontSize:11,color:'var(--muted)'}}>No location matches found yet. Run more queries with location-specific terms.</span>}</div></div>
+          <div className="ov-loc-areas"><div style={{fontSize:11,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}}>Areas where AI finds you</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{Object.entries(locationData.areas).length>0?Object.entries(locationData.areas).map(([area,count])=><span key={area} className="ov-loc-area-tag">{area} <span className="ov-loc-area-count">{count}</span></span>):<span style={{fontSize:11,color:'var(--muted)'}}>No location matches found yet. Run more queries with location-specific terms.</span>}</div></div>
         </div>
         {locationData.rate<30&&<div className="ov-loc-tip">💡 <strong>Tip:</strong> Include &quot;{brand.city}&quot; in your queries (e.g., &quot;best paving in {brand.city}&quot;) to test local AI visibility.</div>}
       </div>}
@@ -609,7 +609,7 @@ export default function DashboardPage() {
                 {t.platform[0]}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: PLATFORM_COLORS[t.platform] || 'var(--muted)', fontWeight: 700 }}>
+                <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: PLATFORM_COLORS[t.platform] || 'var(--muted)', fontWeight: 700 }}>
                   {t.platform}{t.model ? ` · ${t.model}` : ''}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

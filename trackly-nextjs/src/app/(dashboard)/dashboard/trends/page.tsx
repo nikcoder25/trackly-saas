@@ -44,7 +44,7 @@ export default function TrendsPage() {
         <div style={{ display: 'flex', height: 200 }}>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 8, paddingTop: 16, paddingBottom: 16 }}>
             {[100, 75, 50, 25, 0].map(v => (
-              <span key={v} style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)', lineHeight: 1 }}>{v}%</span>
+              <span key={v} style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', lineHeight: 1 }}>{v}%</span>
             ))}
           </div>
         <div style={{ flex: 1, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'flex', alignItems: 'flex-end', gap: 4, padding: 16 }}>
@@ -65,8 +65,8 @@ export default function TrendsPage() {
         </div>
         {history.length > 1 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-            <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{new Date(history[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-            <span style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{new Date(history[history.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{new Date(history[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{new Date(history[history.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
           </div>
         )}
       </div>
@@ -80,7 +80,7 @@ export default function TrendsPage() {
             {/* Legend */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
               {allPlatforms.map(p => (
-                <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
+                <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
                   <span style={{ display: 'inline-block', width: 16, height: 3, borderRadius: 2, background: PLATFORM_COLORS[p] || '#888' }} /> {p}
                 </span>
               ))}
@@ -94,14 +94,14 @@ export default function TrendsPage() {
                 return (
                   <g key={v}>
                     <line x1="40" y1={y} x2="680" y2={y} stroke="rgba(0,0,0,.06)" strokeWidth="0.5" />
-                    <text x="35" y={y + 3} textAnchor="end" style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+                    <text x="35" y={y + 3} textAnchor="end" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
                   </g>
                 );
               })}
 
               {/* X-axis labels */}
               {history.filter((_, i) => i === 0 || i === history.length - 1).map((h, i) => (
-                <text key={i} x={i === 0 ? 40 : 680} y={290} textAnchor={i === 0 ? 'start' : 'end'} style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
+                <text key={i} x={i === 0 ? 40 : 680} y={290} textAnchor={i === 0 ? 'start' : 'end'} style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
                   {new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </text>
               ))}

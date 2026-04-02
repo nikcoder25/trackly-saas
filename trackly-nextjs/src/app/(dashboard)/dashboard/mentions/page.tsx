@@ -127,19 +127,19 @@ export default function MentionsPage() {
           <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)' }}>{sovPct}%</div>
-              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Mention Rate</div>
+              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Mention Rate</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)' }}>{found.length}/{statsSource.length}</div>
-              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Found / Total</div>
+              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Found / Total</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)' }}>{Object.keys(platformCounts).length}</div>
-              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Platforms</div>
+              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Platforms</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--purple)' }}>{recPct}%</div>
-              <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Recommended</div>
+              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Recommended</div>
             </div>
           </div>
 
@@ -197,7 +197,7 @@ export default function MentionsPage() {
                         <tr key={globalIdx} className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
                           <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
                           <td className="td">{r.query}</td>
-                          <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
+                          <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
                           <td className="td">{!r.mentioned && !r.error ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
                           <td className="td">{posLabel === 'N/A' ? <span title="Position tracking not available for this result">{posLabel}</span> : posLabel}</td>
                         </tr>
