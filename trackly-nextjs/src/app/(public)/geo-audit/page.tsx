@@ -8,6 +8,7 @@ interface CategoryResult {
   name: string;
   score: number;
   findings: string[];
+  label?: string;
 }
 
 interface AuditResult {
