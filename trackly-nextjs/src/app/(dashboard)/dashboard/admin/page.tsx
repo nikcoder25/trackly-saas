@@ -115,19 +115,22 @@ export default function AdminPage() {
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-0">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--muted)', pointerEvents: 'none' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search by email, name, or username..."
             value={search}
             onChange={e => { setSearch(e.target.value); setOffset(0); }}
-            className="w-full h-11 pl-9 pr-3 rounded-lg text-sm bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition"
-            style={{ fontFamily: 'var(--font)' }}
+            style={{ width: '100%', height: 42, paddingLeft: 38, paddingRight: 14, borderRadius: 8, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', boxSizing: 'border-box' }}
+            onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,.15)'; }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
           />
         </div>
-        <button onClick={fetchUsers} className="shrink-0 h-11 px-5 rounded-lg text-sm font-semibold bg-[var(--primary)] text-white border-none cursor-pointer whitespace-nowrap hover:opacity-90 transition" style={{ fontFamily: 'var(--font)' }}>Refresh</button>
+        <button onClick={fetchUsers} style={{ flexShrink: 0, height: 42, padding: '0 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)', background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .15s' }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Refresh</button>
       </div>
 
       {/* Users Table */}
@@ -187,16 +190,20 @@ export default function AdminPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-[var(--muted)]" style={{ whiteSpace: 'nowrap' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={() => { setEditingUser(u); setEditPlan(u.plan); }}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)] border border-[color-mix(in_srgb,var(--primary)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] transition"
+                        style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)', whiteSpace: 'nowrap', background: 'rgba(99,102,241,.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,.2)', cursor: 'pointer', transition: 'background .15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,.16)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(99,102,241,.08)')}
                       >Edit</button>
                       {u.role !== 'admin' && (
                         <button
                           onClick={() => deleteUser(u.id, u.email)}
-                          className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap bg-[rgba(239,68,68,0.08)] text-[var(--red)] border border-[rgba(239,68,68,0.2)] hover:bg-[rgba(239,68,68,0.15)] transition"
+                          style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'var(--font)', whiteSpace: 'nowrap', background: 'rgba(239,68,68,.06)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)', cursor: 'pointer', transition: 'background .15s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,.14)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(239,68,68,.06)')}
                         >Delete</button>
                       )}
                     </div>
