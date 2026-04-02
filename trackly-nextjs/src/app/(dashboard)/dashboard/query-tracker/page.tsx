@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
+import { TableSkeleton } from '@/components/dashboard/Skeleton';
 
 interface KTKeyword { keyword: string; mentionRate: number; change: number | null; totalRuns: number; platformCount: number; avgPosition: number | null; lastUpdated: string; sparkline?: number[]; platforms?: Record<string, number>; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ date?: string; time?: string; sov?: number; platforms?: Record<string, unknown>; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }>; }
@@ -151,7 +152,15 @@ export default function QueryTrackerPage() {
     );
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
+  if (loading) return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
+        <div style={{ height: 13, width: 280, borderRadius: 4, background: 'var(--bg3)' }} />
+      </div>
+      <TableSkeleton rows={8} cols={6} />
+    </div>
+  );
 
   return (
     <div>

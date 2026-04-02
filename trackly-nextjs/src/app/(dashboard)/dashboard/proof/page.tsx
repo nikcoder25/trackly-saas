@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; error?: string; errorMessage?: string; competitorMentions?: string[]; citations?: string[]; }
@@ -109,7 +110,16 @@ export default function ProofPage() {
     setExpandedQueries(prev => { const n = new Set(prev); n.has(q) ? n.delete(q) : n.add(q); return n; });
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
+  if (loading) return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
+        <div style={{ height: 13, width: 320, borderRadius: 4, background: 'var(--bg3)' }} />
+      </div>
+      <KpiCardsSkeleton count={4} />
+      <CardsSkeleton count={4} />
+    </div>
+  );
 
   return (
     <div>

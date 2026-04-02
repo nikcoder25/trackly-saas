@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useBrands } from '@/contexts/BrandContext';
+import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
 
 interface PlatformData {
   sov?: number;
@@ -127,8 +128,13 @@ export default function PlatformsPage() {
   const worst = ranked.length > 1 ? ranked[ranked.length - 1] : null;
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-      <div style={{ width: 32, height: 32, border: '2.5px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
+        <div style={{ height: 13, width: 320, borderRadius: 4, background: 'var(--bg3)' }} />
+      </div>
+      <KpiCardsSkeleton count={4} />
+      <CardsSkeleton count={5} />
     </div>
   );
 
