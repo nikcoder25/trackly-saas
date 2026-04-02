@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { PRICING_PLANS } from '@/lib/constants';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 
 /* ─── Smooth scroll helper ─── */
@@ -52,12 +53,7 @@ const steps = [
   { num: '03', title: 'Analyze & Report', desc: 'See what each AI says about you. Track trends, export proof, and share data-backed reports.' },
 ];
 
-const pricingPlans = [
-  { name: 'Free', price: '$0', sub: 'Try it out', features: ['5 prompts/month', '1 brand', '2 AI platforms', 'Manual runs', 'Basic dashboard', '3 GEO audits/month'], cta: 'Start Free' },
-  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Every 3 days tracking', 'SOV tracking & export', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'], cta: 'Get Started' },
-  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Email alerts', '100 GEO audits/month'], cta: 'Start Pro' },
-  { name: 'Agency', price: '$89', sub: 'For agencies & teams', features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'], cta: 'Start Agency' },
-];
+const pricingPlans = PRICING_PLANS;
 
 const pricingComparison = {
   headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush', 'Manual Search'],

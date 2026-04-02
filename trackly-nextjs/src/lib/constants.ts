@@ -48,6 +48,24 @@ export const API_ENDPOINTS = {
   },
 };
 
+/* ── Marketing pricing plans (single source of truth for UI) ── */
+export interface PricingPlan {
+  name: string;
+  price: string;
+  annualPrice?: string;
+  sub: string;
+  features: string[];
+  cta: string;
+  featured?: boolean;
+}
+
+export const PRICING_PLANS: PricingPlan[] = [
+  { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['1 brand', '5 prompts/month', '2 AI platforms', 'Manual runs', 'Basic dashboard', '3 GEO audits/month'] },
+  { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'] },
+  { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'Sentiment analysis', 'Competitor tracking (5)', 'Email alerts', '100 GEO audits/month'] },
+  { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['20 brands', '1,000 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'] },
+];
+
 export const PLATFORM_COLORS: Record<string, string> = {
   ChatGPT: '#19c37d',
   Perplexity: '#20b8cd',
