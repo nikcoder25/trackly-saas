@@ -13,13 +13,18 @@ interface CategoryResult {
 interface AuditResult {
   url: string;
   overallScore: number;
-  categories: CategoryResult[];
+  categories: Record<string, CategoryResult> | CategoryResult[];
   recommendations: string[];
   meta: {
     title: string;
     wordCount: number;
     fetchTimeMs: number;
   };
+}
+
+function categoriesAsArray(cats: Record<string, CategoryResult> | CategoryResult[]): CategoryResult[] {
+  if (Array.isArray(cats)) return cats;
+  return Object.entries(cats).map(([key, val]) => ({ ...val, name: val.label || val.name || key }));
 }
 
 function ScoreGauge({ score }: { score: number }) {
@@ -327,7 +332,7 @@ export default function GeoAuditPage() {
                 marginBottom: 24,
               }}
             >
-              {result.categories.map((cat) => (
+              {categoriesAsArray(result.categories).map((cat) => (
                 <CategoryCard key={cat.name} category={cat} />
               ))}
             </div>

@@ -12,13 +12,18 @@ interface CategoryResult {
 interface AuditResult {
   url: string;
   overallScore: number;
-  categories: CategoryResult[];
+  categories: Record<string, CategoryResult> | CategoryResult[];
   recommendations: string[];
   meta: {
     title: string;
     wordCount: number;
     fetchTimeMs: number;
   };
+}
+
+function categoriesAsArray(cats: Record<string, CategoryResult> | CategoryResult[]): CategoryResult[] {
+  if (Array.isArray(cats)) return cats;
+  return Object.entries(cats).map(([key, val]) => ({ ...val, name: val.label || val.name || key }));
 }
 
 interface SavedAudit {
@@ -285,7 +290,7 @@ export default function DashboardGeoAuditPage() {
               marginBottom: 24,
             }}
           >
-            {result.categories.map((cat) => (
+            {categoriesAsArray(result.categories).map((cat) => (
               <div
                 key={cat.name || cat.label}
                 style={{
@@ -417,7 +422,7 @@ export default function DashboardGeoAuditPage() {
                       <strong style={{ color: 'var(--text)' }}>Title:</strong> {audit.result.meta.title} &middot; {audit.result.meta.wordCount} words
                     </div>
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                      {(Array.isArray(audit.result.categories) ? audit.result.categories : Object.values(audit.result.categories as any)).map((cat: any) => (
+                      {categoriesAsArray(audit.result.categories).map((cat) => (
                         <span
                           key={cat.name || cat.label}
                           style={{
