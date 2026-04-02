@@ -37,7 +37,7 @@ export default function ProofPage() {
   // Stats
   const totalResults = allResults.length;
   const foundCount = allResults.filter(r => r.mentioned).length;
-  const notFoundCount = totalResults - foundCount - allResults.filter(r => r.error).length;
+  const notFoundCount = totalResults - foundCount;
   const uniquePlats = [...new Set(allResults.map(r => r.platform))];
   const sovPct = run?.sov || 0;
   const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';

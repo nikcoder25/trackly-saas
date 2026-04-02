@@ -13,6 +13,7 @@ const navGroups = [
       { href: '/dashboard', label: 'Overview', icon: '📊' },
       { href: '/dashboard/mentions', label: 'Mentions', icon: '◎' },
       { href: '/dashboard/proof', label: 'Evidence & Proof', icon: '◆' },
+      { href: '/dashboard/platforms', label: 'Platform Status', icon: '●' },
     ],
   },
   {

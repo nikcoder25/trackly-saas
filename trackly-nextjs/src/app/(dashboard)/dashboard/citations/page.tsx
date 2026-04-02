@@ -76,7 +76,7 @@ export default function CitationsPage() {
         <div className="section-title">Top Cited Domains</div>
         {sortedDomains.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
-            No citation data yet. Run queries on platforms that provide source links (Perplexity, Gemini).
+            No citations captured yet. Citations will appear after your next run.
           </div>
         ) : (
           <div>

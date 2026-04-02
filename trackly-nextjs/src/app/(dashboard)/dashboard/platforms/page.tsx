@@ -42,6 +42,7 @@ function healthStatus(pd: unknown): { label: string; color: string; dot: string 
   const n = normPlatform(pd);
   if (n.sov === 0 && n.total === 0 && n.mentions === 0) return { label: 'No Data', color: 'var(--muted)', dot: 'var(--muted)' };
   if (n.errors && n.total && n.errors / n.total > 0.3) return { label: 'Degraded', color: 'var(--red)', dot: 'var(--red)' };
+  if (n.errors > 0) return { label: 'Issues', color: 'var(--amber)', dot: 'var(--amber)' };
   return { label: 'Healthy', color: 'var(--green)', dot: 'var(--green)' };
 }
 
@@ -73,7 +74,8 @@ export default function PlatformsPage() {
   const healthyCount = Object.entries(PLATFORM_COLORS).filter(([name]) => {
     const pd = platformData[name];
     if (pd === undefined || pd === null) return false;
-    return healthStatus(pd).label === 'Healthy';
+    const status = healthStatus(pd).label;
+    return status === 'Healthy';
   }).length;
   const totalPlatforms = Object.keys(PLATFORM_COLORS).length;
   const totalErrors = Object.values(platformData).reduce((s, pd) => s + normPlatform(pd).errors, 0);
@@ -108,7 +110,7 @@ export default function PlatformsPage() {
         {totalErrors > 0 && (
           <>
             <span className="text-xs text-[var(--muted)]">·</span>
-            <span className="text-xs text-[var(--red)]">{totalErrors} errors</span>
+            <span className="text-xs text-[var(--red)]">{totalErrors} {totalErrors === 1 ? 'error' : 'errors'}</span>
           </>
         )}
         {latestRun?.date && (

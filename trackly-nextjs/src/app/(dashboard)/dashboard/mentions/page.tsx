@@ -130,7 +130,7 @@ export default function MentionsPage() {
               <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Mention Rate</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)' }}>{found.length}/{ok.length}</div>
+              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)' }}>{found.length}/{statsSource.length}</div>
               <div style={{ fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Found / Total</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
@@ -189,7 +189,7 @@ export default function MentionsPage() {
                     const globalIdx = from + i;
                     const isExpanded = expandedRow === globalIdx;
                     const responseText = r.response || r.raw || r.context || r.snippet || '';
-                    const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : '—';
+                    const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : r.mentioned ? 'N/A' : '—';
                     const sentColor = r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
 
                     return (
@@ -199,7 +199,7 @@ export default function MentionsPage() {
                           <td className="td">{r.query}</td>
                           <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
                           <td className="td">{!r.mentioned && !r.error ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
-                          <td className="td">{posLabel}</td>
+                          <td className="td">{posLabel === 'N/A' ? <span title="Position tracking not available for this result">{posLabel}</span> : posLabel}</td>
                         </tr>
                         {isExpanded && (
                           <tr key={`${globalIdx}-detail`}>
