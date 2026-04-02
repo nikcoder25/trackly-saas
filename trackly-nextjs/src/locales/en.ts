@@ -94,10 +94,6 @@ const en = {
         name: 'Agency', price: '$89', sub: 'For agencies & teams',
         features: ['500 prompts/month', '10 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (10)', 'Sentiment analysis', 'Scheduled runs & webhooks'],
       },
-      {
-        name: 'Enterprise', price: '$499', sub: 'For large organizations', enterprise: true,
-        features: ['10,000+ prompts/month', '100+ brands', 'All 5 AI platforms', 'Daily tracking', 'Unlimited competitors', 'Sentiment analysis', 'API access', 'Priority support'],
-      },
     ],
     comparison: {
       title: 'How Livesov compares',

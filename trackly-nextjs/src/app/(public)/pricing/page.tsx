@@ -9,7 +9,6 @@ const monthlyPlans = [
   { name: 'Starter', price: '$9', annualPrice: '$7', period: '/mo', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'], cta: 'Get Started', highlighted: false, href: '/signup' },
   { name: 'Pro', price: '$29', annualPrice: '$23', period: '/mo', features: ['5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'Sentiment analysis', 'Competitor tracking (5)', 'Email alerts', '100 GEO audits/month'], cta: 'Start Pro', highlighted: true, href: '/signup' },
   { name: 'Agency', price: '$89', annualPrice: '$71', period: '/mo', features: ['20 brands', '1,000 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'], cta: 'Start Agency', highlighted: false, href: '/signup' },
-  { name: 'Enterprise', price: '$499', annualPrice: '$399', period: '/mo', features: ['100+ brands', '10,000+ prompts', '5 AI platforms', 'Hourly schedule', 'Unlimited competitors', 'Dedicated support', 'Custom integrations', 'White-label reports', '5,000 GEO audits/month'], cta: 'Contact Sales', highlighted: false, href: '/contact' },
 ];
 
 const comparisonData = {
@@ -50,7 +49,7 @@ export default function PricingPage() {
           )}
         </div>
 
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {monthlyPlans.map((plan) => {
             const displayPrice = annual ? plan.annualPrice : plan.price;
             const showStrike = annual && plan.price !== '$0' && plan.price !== plan.annualPrice;
