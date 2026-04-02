@@ -6,6 +6,7 @@
  * Example Vercel cron config (vercel.json):
  * { "crons": [{ "path": "/api/cron", "schedule": "0 * * * *" }] }
  */
+import crypto from 'crypto';
 import { pool } from '@/lib/db';
 import { getPlanLimits } from '@/lib/constants';
 
@@ -17,8 +18,10 @@ export async function GET(request: Request) {
   if (!cronSecret) {
     return Response.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
   }
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const authHeader = request.headers.get('authorization') || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token || token.length !== cronSecret.length ||
+      !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(cronSecret))) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
