@@ -2,14 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { PRICING_PLANS } from '@/lib/constants';
 
 interface BillingEntry { date: string; plan: string; amount: string; status: string; }
 
-const PLANS = [
-  { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking'] },
-  { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', '5 platforms', 'Competitors', 'Sentiment analysis'] },
-  { name: 'Agency', price: '$89', sub: 'Scale with confidence', features: ['1,000 prompts/month', '20 brands', '5 platforms', '20 competitors', 'Sentiment analysis'] },
-];
+// Exclude Free plan from the upgrade options
+const PLANS = PRICING_PLANS.filter(p => p.name !== 'Free');
 
 export default function AccountPage() {
   const { user, refreshUser } = useAuth();
