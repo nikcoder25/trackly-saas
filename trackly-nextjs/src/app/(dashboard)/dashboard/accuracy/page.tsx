@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useBrands } from '@/contexts/BrandContext';
 
@@ -193,6 +194,7 @@ export default function AccuracyPage() {
   const { brand: rawBrand, brands, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
   const { selectBrandById } = useBrands();
+  const { toast } = useToast();
   const [facts, setFacts] = useState<Fact[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [accuracyRate, setAccuracyRate] = useState<number | null>(null);
@@ -286,6 +288,7 @@ export default function AccuracyPage() {
     if (!brand || discovering) return;
     setDiscovering(true);
     setCheckMessage(null);
+    toast('Auto-discovering facts... This may take a moment.', 'info');
     fetch(`/api/brands/${brand.id}/accuracy`, {
       method: 'PUT', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -295,6 +298,7 @@ export default function AccuracyPage() {
       return r.json();
     }).then(d => {
       if (d.error && (!d.suggestedFacts || d.suggestedFacts.length === 0)) {
+        toast(d.error, 'error');
         setCheckMessage(d.error);
         return;
       }
@@ -303,13 +307,15 @@ export default function AccuracyPage() {
       const newSuggestions = suggestions.filter(s => !existingKeys.has(s.key));
       setSuggestedFacts(newSuggestions);
       if (newSuggestions.length === 0 && suggestions.length > 0) {
-        setCheckMessage('All discovered facts already exist in your canonical facts.');
+        toast('All discovered facts already exist.', 'info');
       } else if (newSuggestions.length > 0) {
-        setCheckMessage(`AI discovered ${newSuggestions.length} new fact${newSuggestions.length !== 1 ? 's' : ''} about your brand. Review and add them below.`);
+        toast(`Discovered ${newSuggestions.length} new fact${newSuggestions.length !== 1 ? 's' : ''}! Review them below.`);
+      } else {
+        toast('No facts could be discovered. Try adding a website URL to your brand or running more queries first.', 'error');
       }
     }).catch((err) => {
       console.error('[AutoDiscover]', err);
-      setCheckMessage('Failed to auto-discover facts. Please try again.');
+      toast('Failed to auto-discover facts. Please try again.', 'error');
     }).finally(() => setDiscovering(false));
   }
 
@@ -466,6 +472,13 @@ export default function AccuracyPage() {
         </div>
 
         <div style={{ padding: '16px 22px' }}>
+          {/* Discovering spinner */}
+          {discovering && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', marginBottom: 16, borderRadius: 8, background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))', border: '1px solid rgba(124,58,237,0.15)' }}>
+              <span style={{ width: 16, height: 16, border: '2.5px solid rgba(124,58,237,0.25)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: '#7c3aed', fontWeight: 600 }}>AI is analyzing your brand to discover facts...</span>
+            </div>
+          )}
           {/* Add Fact Form — inline */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 160px', minWidth: 140 }}>
