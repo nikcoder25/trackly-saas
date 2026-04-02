@@ -96,79 +96,77 @@ export function RunProvider({ children }: { children: ReactNode }) {
     let pollDelay = 2000;
     let lastResultCount = 0;
 
-    const poll = async (): Promise<void> => {
-      if (!pollRef.current) return; // stopped
-      try {
-        const res = await fetch(`/api/brands/${brandId}/run-status/${runId}?since=${lastResultCount}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Poll failed');
-        const data = await res.json();
-        pollErrors = 0;
+    // Use iterative loop instead of recursive calls to avoid stack overflow on long runs
+    const runPollLoop = async () => {
+      while (pollRef.current) {
+        try {
+          const res = await fetch(`/api/brands/${brandId}/run-status/${runId}?since=${lastResultCount}`, { credentials: 'include' });
+          if (!res.ok) throw new Error('Poll failed');
+          const data = await res.json();
+          pollErrors = 0;
 
-        // Merge new results
-        const newResults: LiveResult[] = (data.results || []).map((r: LiveResult) => ({ ...r, ts: Date.now() }));
-        if (newResults.length > 0) {
-          lastResultCount = data.totalResults || (lastResultCount + newResults.length);
-          pollDelay = 2000; // new data — stay responsive
-        } else {
-          pollDelay = Math.min(pollDelay + 500, 5000); // no new data — slow down gently
-        }
-
-        setLive(prev => ({
-          ...prev,
-          received: data.received || prev.received,
-          totalExpected: data.totalExpected || prev.totalExpected,
-          foundCount: data.foundCount || 0,
-          errorCount: data.errorCount || 0,
-          statusText: `${data.received || 0}/${data.totalExpected || 0} — ${data.foundCount || 0} found`,
-          results: newResults.length > 0 ? [...prev.results, ...newResults] : prev.results,
-        }));
-
-        if (data.status === 'done' || data.status === 'error') {
-          pollRef.current = false;
-          runningRef.current = false;
-          localStorage.removeItem('livesov_active_run');
-          const finalResult = data.finalData;
-          if (data.status === 'done' && finalResult) {
-            setLive(prev => ({
-              ...prev, running: false, status: 'done',
-              liveSov: finalResult.sov ?? null,
-              statusText: `Done! Found in ${finalResult.newMentions || finalResult.totalM || 0} of ${finalResult.totalQ || 0} responses`,
-            }));
-            setTimeout(() => { setLive(INITIAL_STATE); window.location.reload(); }, 2500);
+          const newResults: LiveResult[] = (data.results || []).map((r: LiveResult) => ({ ...r, ts: Date.now() }));
+          if (newResults.length > 0) {
+            lastResultCount = data.totalResults || (lastResultCount + newResults.length);
+            pollDelay = 2000;
           } else {
+            pollDelay = Math.min(pollDelay + 500, 5000);
+          }
+
+          setLive(prev => ({
+            ...prev,
+            received: data.received || prev.received,
+            totalExpected: data.totalExpected || prev.totalExpected,
+            foundCount: data.foundCount || 0,
+            errorCount: data.errorCount || 0,
+            statusText: `${data.received || 0}/${data.totalExpected || 0} — ${data.foundCount || 0} found`,
+            results: newResults.length > 0 ? [...prev.results, ...newResults] : prev.results,
+          }));
+
+          if (data.status === 'done' || data.status === 'error') {
+            pollRef.current = false;
+            runningRef.current = false;
+            localStorage.removeItem('livesov_active_run');
+            const finalResult = data.finalData;
+            if (data.status === 'done' && finalResult) {
+              setLive(prev => ({
+                ...prev, running: false, status: 'done',
+                liveSov: finalResult.sov ?? null,
+                statusText: `Done! Found in ${finalResult.newMentions || finalResult.totalM || 0} of ${finalResult.totalQ || 0} responses`,
+              }));
+              setTimeout(() => { setLive(INITIAL_STATE); window.location.reload(); }, 2500);
+            } else {
+              setLive(prev => ({
+                ...prev, running: false, status: 'error',
+                statusText: 'Run failed: ' + (data.error || 'Unknown error'),
+                errorMsg: data.error || 'Unknown error',
+              }));
+              setTimeout(() => setLive(INITIAL_STATE), 5000);
+            }
+            return;
+          }
+
+          await new Promise(r => setTimeout(r, pollDelay));
+        } catch {
+          pollErrors++;
+          if (pollErrors >= MAX_POLL_ERRORS) {
+            pollRef.current = false;
+            runningRef.current = false;
+            localStorage.removeItem('livesov_active_run');
             setLive(prev => ({
               ...prev, running: false, status: 'error',
-              statusText: 'Run failed: ' + (data.error || 'Unknown error'),
-              errorMsg: data.error || 'Unknown error',
+              statusText: 'Lost connection. Refresh to check status.',
+              errorMsg: 'Lost connection to server',
             }));
             setTimeout(() => setLive(INITIAL_STATE), 5000);
+            return;
           }
-          return;
+          pollDelay = Math.min(pollDelay * 2, 10000);
+          await new Promise(r => setTimeout(r, pollDelay));
         }
-
-        // Schedule next poll
-        await new Promise(r => setTimeout(r, pollDelay));
-        return poll();
-      } catch {
-        pollErrors++;
-        if (pollErrors >= MAX_POLL_ERRORS) {
-          pollRef.current = false;
-          runningRef.current = false;
-          localStorage.removeItem('livesov_active_run');
-          setLive(prev => ({
-            ...prev, running: false, status: 'error',
-            statusText: 'Lost connection. Refresh to check status.',
-            errorMsg: 'Lost connection to server',
-          }));
-          setTimeout(() => setLive(INITIAL_STATE), 5000);
-          return;
-        }
-        pollDelay = Math.min(pollDelay * 2, 10000);
-        await new Promise(r => setTimeout(r, pollDelay));
-        return poll();
       }
     };
-    return poll();
+    runPollLoop();
   }, []);
 
   // ── Resume active run on mount ─────────────────────
@@ -179,7 +177,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
     try { runInfo = JSON.parse(stored); } catch { localStorage.removeItem('livesov_active_run'); return; }
     if (Date.now() - runInfo.startedAt > 10 * 60 * 1000) { localStorage.removeItem('livesov_active_run'); return; }
 
-    fetch(`/api/brands/${runInfo.brandId}/run-status/${runInfo.runId}`, { credentials: 'include' })
+    const controller = new AbortController();
+    fetch(`/api/brands/${runInfo.brandId}/run-status/${runInfo.runId}`, { credentials: 'include', signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(data => {
         if (data.status === 'running') {
@@ -201,7 +200,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem('livesov_active_run');
         }
       })
-      .catch(() => { localStorage.removeItem('livesov_active_run'); });
+      .catch(() => { if (!controller.signal.aborted) localStorage.removeItem('livesov_active_run'); });
+    return () => controller.abort();
   }, [pollRunStatus]);
 
   // ── Start run (POST + poll) ────────────────────────
