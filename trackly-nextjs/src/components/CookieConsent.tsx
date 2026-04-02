@@ -50,13 +50,13 @@ export default function CookieConsent() {
       `}</style>
       <p style={{ margin: 0, maxWidth: 600, lineHeight: 1.5 }}>
         We use essential cookies to provide our service. You can manage your preferences below.{' '}
-        <Link href="/cookies" style={{ color: '#FF6154', textDecoration: 'underline' }}>Cookie Policy</Link>.
+        <Link href="/cookies" style={{ color: '#6366f1', textDecoration: 'underline' }}>Cookie Policy</Link>.
       </p>
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={() => handleChoice('accepted')}
           style={{
-            background: '#FF6154',
+            background: '#6366f1',
             color: '#fff',
             border: 'none',
             padding: '8px 20px',

@@ -7,7 +7,7 @@ export default function DashboardError({ error, reset }: { error: Error; reset: 
       <p style={{ color: '#666', marginBottom: '1.5rem' }}>{error.message || 'An unexpected error occurred.'}</p>
       <button
         onClick={reset}
-        style={{ padding: '0.5rem 1.5rem', background: '#FF6154', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
+        style={{ padding: '0.5rem 1.5rem', background: '#6366f1', color: 'white', border: 'none', borderRadius: '0.5rem', cursor: 'pointer', fontWeight: 'bold' }}
       >
         Try Again
       </button>

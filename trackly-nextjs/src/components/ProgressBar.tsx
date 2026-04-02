@@ -59,10 +59,10 @@ export default function ProgressBar() {
         style={{
           height: '100%',
           width: `${progress}%`,
-          background: '#FF6154',
+          background: '#6366f1',
           transition: progress === 100 ? 'width 0.2s ease, opacity 0.3s ease 0.1s' : 'width 0.4s ease',
           opacity: progress === 100 ? 0 : 1,
-          boxShadow: '0 0 8px rgba(255, 97, 84, 0.4)',
+          boxShadow: '0 0 8px rgba(99, 102, 241, 0.4)',
         }}
       />
     </div>
