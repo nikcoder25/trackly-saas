@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { uid } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Trim heavy fields from brand data for list responses
 function trimBrandData(data: Record<string, unknown>) {
@@ -74,7 +75,7 @@ export async function GET(request: Request) {
         id: row.id, userId: row.user_id, ...data,
         createdAt: row.created_at, updatedAt: row.updated_at,
         shared: true, teamRole: row.team_role,
-        ownerName: row.owner_name, ownerEmail: row.owner_email,
+        ownerName: row.owner_name,
       };
     });
 
@@ -103,6 +104,9 @@ export async function POST(request: Request) {
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
+
+  const { allowed, retryAfter } = await rateLimit(`brand_create:${user.id}`, 60 * 60 * 1000, 20);
+  if (!allowed) return rateLimitResponse(retryAfter);
 
   const body = await request.json();
   const { name, industry, website, city, goal, competitors, queries, nearbyAreas } = body;

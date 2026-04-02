@@ -1,9 +1,10 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth } from '@/lib/auth';
 
 export async function GET(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const result = await pool.query(
     `SELECT tm.id, tm.role, tm.created_at, u.email, u.name, u.username

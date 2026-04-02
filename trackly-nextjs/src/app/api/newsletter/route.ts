@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
       return Response.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
