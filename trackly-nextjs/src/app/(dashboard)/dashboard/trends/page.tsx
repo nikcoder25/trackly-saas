@@ -13,10 +13,15 @@ interface Brand { id: string; name: string; sovHistory?: SovPoint[]; runs?: Run[
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const fmtDateFull = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-/* ── Smooth curve path (catmull-rom → cubic bezier) ── */
-function smoothPath(pts: { x: number; y: number }[]): string {
+/* ── Smooth curve path with clamped control points ── */
+function smoothPath(pts: { x: number; y: number }[], yMin?: number, yMax?: number): string {
   if (pts.length < 2) return '';
   if (pts.length === 2) return `M${pts[0].x},${pts[0].y}L${pts[1].x},${pts[1].y}`;
+  const clampY = (v: number) => {
+    if (yMin !== undefined && v < yMin) return yMin;
+    if (yMax !== undefined && v > yMax) return yMax;
+    return v;
+  };
   let d = `M${pts[0].x},${pts[0].y}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[Math.max(i - 1, 0)];
@@ -24,9 +29,9 @@ function smoothPath(pts: { x: number; y: number }[]): string {
     const p2 = pts[i + 1];
     const p3 = pts[Math.min(i + 2, pts.length - 1)];
     const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp1y = clampY(p1.y + (p2.y - p0.y) / 6);
     const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    const cp2y = clampY(p2.y - (p3.y - p1.y) / 6);
     d += `C${cp1x},${cp1y},${cp2x},${cp2y},${p2.x},${p2.y}`;
   }
   return d;
@@ -137,22 +142,22 @@ function OverallChart({ history }: { history: SovPoint[] }) {
   const [hover, setHover] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const W = 900, H = 260, PL = 45, PR = 16, PT = 16, PB = 40;
+  const W = 960, H = 340, PL = 50, PR = 20, PT = 20, PB = 44;
   const chartW = W - PL - PR, chartH = H - PT - PB;
+  const yTop = PT, yBottom = PT + chartH;
 
   const pts = history.map((h, i) => ({
     x: PL + (i / Math.max(history.length - 1, 1)) * chartW,
-    y: PT + chartH - (h.overall / 100) * chartH,
+    y: PT + chartH - (Math.min(Math.max(h.overall, 0), 100) / 100) * chartH,
   }));
 
-  const pathD = smoothPath(pts);
-  const areaD = pathD + `L${pts[pts.length - 1].x},${PT + chartH}L${pts[0].x},${PT + chartH}Z`;
+  // Clamp smooth path so curves never go above 0% line or below 100% line
+  const pathD = smoothPath(pts, yTop, yBottom);
+  const areaD = pathD + `L${pts[pts.length - 1].x},${yBottom}L${pts[0].x},${yBottom}Z`;
 
-  // Grid lines
-  const yTicks = [0, 25, 50, 75, 100];
-  // X ticks — show evenly spaced dates
-  const xTickCount = Math.min(history.length, 8);
-  const xTicks = Array.from({ length: xTickCount }, (_, i) => Math.round(i * (history.length - 1) / (xTickCount - 1)));
+  const yTicks = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  const xTickCount = Math.min(history.length, 10);
+  const xTicks = Array.from({ length: xTickCount }, (_, i) => Math.round(i * (history.length - 1) / Math.max(xTickCount - 1, 1)));
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     if (!svgRef.current) return;
@@ -163,12 +168,13 @@ function OverallChart({ history }: { history: SovPoint[] }) {
   }
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', minHeight: 280 }}
       onMouseMove={handleMouseMove} onMouseLeave={() => setHover(null)}>
       <defs>
         <linearGradient id="sovGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.25} />
-          <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.2} />
+          <stop offset="60%" stopColor="var(--primary)" stopOpacity={0.06} />
+          <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
         </linearGradient>
       </defs>
 
@@ -177,15 +183,17 @@ function OverallChart({ history }: { history: SovPoint[] }) {
         const y = PT + chartH - (v / 100) * chartH;
         return (
           <g key={v}>
-            <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--border)" strokeWidth={0.5} strokeDasharray={v === 0 ? 'none' : '4,4'} />
-            <text x={PL - 8} y={y + 4} textAnchor="end" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+            <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--border)" strokeWidth={v === 0 ? 0.8 : 0.4} strokeDasharray={v === 0 ? 'none' : '3,4'} opacity={v % 20 === 0 ? 0.8 : 0.4} />
+            {v % 20 === 0 && (
+              <text x={PL - 10} y={y + 4} textAnchor="end" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+            )}
           </g>
         );
       })}
 
       {/* X labels */}
       {xTicks.map(idx => (
-        <text key={idx} x={pts[idx].x} y={H - 8} textAnchor="middle" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
+        <text key={idx} x={pts[idx].x} y={H - 10} textAnchor="middle" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
           {fmtDate(history[idx].date)}
         </text>
       ))}
@@ -198,24 +206,28 @@ function OverallChart({ history }: { history: SovPoint[] }) {
 
       {/* Data points */}
       {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={hover === i ? 5 : 3} fill={hover === i ? 'var(--primary)' : 'var(--bg2)'} stroke="var(--primary)" strokeWidth={2} style={{ transition: 'r 0.15s' }} />
+        <g key={i}>
+          {hover === i && <circle cx={p.x} cy={p.y} r={10} fill="var(--primary)" opacity={0.1} />}
+          <circle cx={p.x} cy={p.y} r={hover === i ? 5 : 3.5} fill={hover === i ? 'var(--primary)' : 'var(--bg2)'} stroke="var(--primary)" strokeWidth={2} style={{ transition: 'r 0.15s' }} />
+        </g>
       ))}
 
       {/* Hover tooltip */}
       {hover !== null && (() => {
         const h = history[hover];
         const p = pts[hover];
-        const tooltipW = 110, tooltipH = 42;
+        const tooltipW = 120, tooltipH = 50;
         let tx = p.x - tooltipW / 2;
         if (tx < PL) tx = PL;
         if (tx + tooltipW > W - PR) tx = W - PR - tooltipW;
-        const ty = p.y - tooltipH - 12;
+        let ty = p.y - tooltipH - 16;
+        if (ty < 4) ty = p.y + 16;
         return (
           <g>
-            <line x1={p.x} y1={PT} x2={p.x} y2={PT + chartH} stroke="var(--primary)" strokeWidth={0.5} strokeDasharray="4,3" opacity={0.4} />
-            <rect x={tx} y={ty} width={tooltipW} height={tooltipH} rx={6} fill="var(--text)" opacity={0.92} />
-            <text x={tx + tooltipW / 2} y={ty + 16} textAnchor="middle" style={{ fontSize: 10, fill: 'rgba(255,255,255,.6)', fontFamily: 'var(--mono)' }}>{fmtDate(h.date)}</text>
-            <text x={tx + tooltipW / 2} y={ty + 33} textAnchor="middle" style={{ fontSize: 16, fill: '#fff', fontWeight: 700, fontFamily: 'var(--mono)' }}>{h.overall}%</text>
+            <line x1={p.x} y1={yTop} x2={p.x} y2={yBottom} stroke="var(--primary)" strokeWidth={0.6} strokeDasharray="4,3" opacity={0.35} />
+            <rect x={tx} y={ty} width={tooltipW} height={tooltipH} rx={8} fill="var(--text)" opacity={0.93} />
+            <text x={tx + tooltipW / 2} y={ty + 18} textAnchor="middle" style={{ fontSize: 10, fill: 'rgba(255,255,255,.55)', fontFamily: 'var(--mono)' }}>{fmtDate(h.date)}</text>
+            <text x={tx + tooltipW / 2} y={ty + 38} textAnchor="middle" style={{ fontSize: 18, fill: '#fff', fontWeight: 800, fontFamily: 'var(--mono)' }}>{h.overall}%</text>
           </g>
         );
       })()}
@@ -229,12 +241,13 @@ function PlatformChart({ history, platforms }: { history: SovPoint[]; platforms:
   const [hover, setHover] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const W = 900, H = 320, PL = 45, PR = 16, PT = 16, PB = 40;
+  const W = 960, H = 380, PL = 50, PR = 20, PT = 20, PB = 44;
   const chartW = W - PL - PR, chartH = H - PT - PB;
+  const yTop = PT, yBottom = PT + chartH;
 
-  const yTicks = [0, 20, 40, 60, 80, 100];
-  const xTickCount = Math.min(history.length, 8);
-  const xTicks = Array.from({ length: xTickCount }, (_, i) => Math.round(i * (history.length - 1) / (xTickCount - 1)));
+  const yTicks = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  const xTickCount = Math.min(history.length, 10);
+  const xTicks = Array.from({ length: xTickCount }, (_, i) => Math.round(i * (history.length - 1) / Math.max(xTickCount - 1, 1)));
 
   function togglePlatform(p: string) {
     setActivePlatforms(prev => {
@@ -270,13 +283,14 @@ function PlatformChart({ history, platforms }: { history: SovPoint[]; platforms:
       </div>
 
       {/* Chart */}
-      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', minHeight: 320 }}
         onMouseMove={handleMouseMove} onMouseLeave={() => setHover(null)}>
         <defs>
           {platforms.map(p => (
             <linearGradient key={p} id={`grad-${p.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={PLATFORM_COLORS[p] || '#888'} stopOpacity={0.12} />
-              <stop offset="100%" stopColor={PLATFORM_COLORS[p] || '#888'} stopOpacity={0.01} />
+              <stop offset="0%" stopColor={PLATFORM_COLORS[p] || '#888'} stopOpacity={0.15} />
+              <stop offset="60%" stopColor={PLATFORM_COLORS[p] || '#888'} stopOpacity={0.04} />
+              <stop offset="100%" stopColor={PLATFORM_COLORS[p] || '#888'} stopOpacity={0} />
             </linearGradient>
           ))}
         </defs>
@@ -286,8 +300,10 @@ function PlatformChart({ history, platforms }: { history: SovPoint[]; platforms:
           const y = PT + chartH - (v / 100) * chartH;
           return (
             <g key={v}>
-              <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--border)" strokeWidth={0.5} strokeDasharray={v === 0 ? 'none' : '4,4'} />
-              <text x={PL - 8} y={y + 4} textAnchor="end" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+              <line x1={PL} y1={y} x2={W - PR} y2={y} stroke="var(--border)" strokeWidth={v === 0 ? 0.8 : 0.4} strokeDasharray={v === 0 ? 'none' : '3,4'} opacity={v % 20 === 0 ? 0.8 : 0.4} />
+              {v % 20 === 0 && (
+                <text x={PL - 10} y={y + 4} textAnchor="end" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
+              )}
             </g>
           );
         })}
@@ -296,7 +312,7 @@ function PlatformChart({ history, platforms }: { history: SovPoint[]; platforms:
         {xTicks.map(idx => {
           const x = PL + (idx / Math.max(history.length - 1, 1)) * chartW;
           return (
-            <text key={idx} x={x} y={H - 8} textAnchor="middle" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
+            <text key={idx} x={x} y={H - 10} textAnchor="middle" style={{ fontSize: 10, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>
               {fmtDate(history[idx].date)}
             </text>
           );
@@ -307,16 +323,19 @@ function PlatformChart({ history, platforms }: { history: SovPoint[]; platforms:
           const color = PLATFORM_COLORS[plat] || '#888';
           const pts = history.map((h, i) => ({
             x: PL + (i / Math.max(history.length - 1, 1)) * chartW,
-            y: PT + chartH - ((h.platforms?.[plat] || 0) / 100) * chartH,
+            y: PT + chartH - (Math.min(Math.max(h.platforms?.[plat] || 0, 0), 100) / 100) * chartH,
           }));
-          const pathD = smoothPath(pts);
-          const areaD = pathD + `L${pts[pts.length - 1].x},${PT + chartH}L${pts[0].x},${PT + chartH}Z`;
+          const pathD = smoothPath(pts, yTop, yBottom);
+          const areaD = pathD + `L${pts[pts.length - 1].x},${yBottom}L${pts[0].x},${yBottom}Z`;
           return (
             <g key={plat}>
               <path d={areaD} fill={`url(#grad-${plat.replace(/\s/g, '')})`} />
               <path d={pathD} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
               {pts.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r={hover === i ? 5 : 3} fill={hover === i ? color : 'var(--bg2)'} stroke={color} strokeWidth={2} style={{ transition: 'r 0.15s' }} />
+                <g key={i}>
+                  {hover === i && <circle cx={p.x} cy={p.y} r={9} fill={color} opacity={0.1} />}
+                  <circle cx={p.x} cy={p.y} r={hover === i ? 5 : 3.5} fill={hover === i ? color : 'var(--bg2)'} stroke={color} strokeWidth={2} style={{ transition: 'r 0.15s' }} />
+                </g>
               ))}
             </g>
           );
