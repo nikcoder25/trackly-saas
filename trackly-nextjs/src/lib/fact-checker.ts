@@ -131,6 +131,7 @@ async function callChecker(
         signal: controller.signal,
       });
       const d = await resp.json();
+      if (!resp.ok) throw new Error(d.error?.message || `OpenAI API error ${resp.status}`);
       return d.choices?.[0]?.message?.content || '';
     }
 
@@ -151,6 +152,7 @@ async function callChecker(
         signal: controller.signal,
       });
       const d = await resp.json();
+      if (!resp.ok) throw new Error(d.error?.message || `Claude API error ${resp.status}`);
       return d.content?.[0]?.text || '';
     }
 
@@ -166,6 +168,7 @@ async function callChecker(
         signal: controller.signal,
       });
       const d = await resp.json();
+      if (!resp.ok) throw new Error(d.error?.message || `Gemini API error ${resp.status}`);
       return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
 
@@ -189,8 +192,14 @@ function parseCheckerResponse(raw: string): Array<{
       json = json.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     }
     const parsed = JSON.parse(json);
-    if (!Array.isArray(parsed)) return [];
-    return parsed;
+    if (Array.isArray(parsed)) return parsed;
+    // Handle AI returning a JSON object wrapping the array (e.g. {"facts": [...]})
+    if (parsed && typeof parsed === 'object') {
+      for (const val of Object.values(parsed)) {
+        if (Array.isArray(val) && val.length > 0) return val;
+      }
+    }
+    return [];
   } catch {
     // Try to find JSON array in the response
     const match = raw.match(/\[[\s\S]*\]/);
