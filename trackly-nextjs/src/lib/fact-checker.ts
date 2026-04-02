@@ -45,6 +45,7 @@ export interface FactCheckIssue {
   run_id: string;
   source_url: string;
   query: string;
+  count: number;
 }
 
 export interface FactCheckResult {
@@ -102,7 +103,7 @@ function getAvailableChecker(userKeys?: Record<string, string | null>): { type: 
 function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string): string {
   const factsList = facts.map(f => `- ${f.key} (${f.category}): "${f.value}"`).join('\n');
 
-  return `You are a fact-checking assistant. Analyze the following AI-generated response and check it against the canonical facts provided.
+  return `You are a strict fact-checking assistant. Analyze the following AI-generated response and check it against the canonical facts provided.
 
 CANONICAL FACTS (these are the ground truth):
 ${factsList}
@@ -117,11 +118,22 @@ For each canonical fact, determine if the AI response:
 2. Mentions the topic but gets it WRONG → mark as "inaccurate" with what was found
 3. Does NOT mention the topic at all → mark as "not_mentioned"
 
+IMPORTANT — Avoid false positives. These are NOT inaccuracies:
+- Minor punctuation differences (periods, commas, hyphens): "C Brooks" vs "C. Brooks" → accurate
+- Case differences: "c brooks paving" vs "C. Brooks Paving" → accurate
+- Truncated but correct values: "480 Old B..." or "A family-owned busi..." → accurate (the start matches)
+- Semantically equivalent wording: "Family-owned business" vs "A family-owned business" → accurate
+- Abbreviations: "TX" vs "Texas", "St" vs "Street" → accurate
+- Minor word order changes that preserve meaning → accurate
+- Extra context added but core fact correct: "Founded in 2009 in Austin" when fact is "2009" → accurate
+
+Only flag as "inaccurate" if the information is genuinely WRONG or MISLEADING — the core factual claim must be incorrect.
+
 Respond ONLY with valid JSON array. Each item must have:
-- "fact_key": the fact key name
+- "fact_key": the exact fact key name from the CANONICAL FACTS list above (use the key before the parentheses, e.g. "company_name" not "company_name (company)")
 - "status": "accurate" | "inaccurate" | "not_mentioned"
 - "found": what the AI actually said (empty string if not mentioned or accurate)
-- "severity": "critical" | "high" | "medium" | "low" (only for inaccurate items — critical for completely wrong core facts like company name/founding, high for wrong numbers/prices, medium for partial errors, low for minor discrepancies)
+- "severity": "critical" | "high" | "medium" | "low" (only for inaccurate items — critical for completely wrong core facts like wrong company name/wrong founding year, high for wrong numbers/prices, medium for partial errors, low for truly minor differences)
 - "explanation": brief explanation of the finding
 
 Example response:
@@ -359,9 +371,31 @@ export async function runFactCheck(
                 ? PLATFORM_SEARCH_URLS[platform] + encodeURIComponent(run.prompt)
                 : ''),
             query: run.prompt,
+            count: 1,
           });
         }
       }
+    }
+  }
+
+  // Deduplicate: group by (fact_key + normalized found + platform)
+  const deduped: FactCheckIssue[] = [];
+  const seen = new Map<string, number>();
+  for (const issue of allIssues) {
+    const normFound = issue.found.toLowerCase().replace(/[.\s]+/g, ' ').trim();
+    const dedupKey = `${issue.fact_key}|${normFound}|${issue.platform}`;
+    const existingIdx = seen.get(dedupKey);
+    if (existingIdx !== undefined) {
+      deduped[existingIdx].count++;
+      // Keep the most severe version
+      const sevOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      if (sevOrder[issue.severity] < sevOrder[deduped[existingIdx].severity]) {
+        const count = deduped[existingIdx].count;
+        deduped[existingIdx] = { ...issue, count };
+      }
+    } else {
+      seen.set(dedupKey, deduped.length);
+      deduped.push(issue);
     }
   }
 
@@ -372,10 +406,10 @@ export async function runFactCheck(
 
   // Sort issues: critical first, then high, etc.
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-  allIssues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+  deduped.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
   return {
-    issues: allIssues,
+    issues: deduped,
     checkedRuns: runsToCheck.length,
     accuracyRate,
     platformStats,

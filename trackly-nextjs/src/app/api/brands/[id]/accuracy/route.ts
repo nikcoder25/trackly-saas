@@ -63,7 +63,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       const issuesResult = await pool.query(
         `SELECT ai.id, ai.platform, ai.model, ai.fact_key, ai.expected, ai.found,
                 ai.severity, ai.category, ai.explanation, ai.run_id, ai.source_url,
-                ai.query, ai.date, ai.fixed, ai.fixed_at,
+                ai.query, ai.date, ai.count, ai.fixed, ai.fixed_at,
                 bf.fact_value AS canonical_expected
          FROM accuracy_issues ai
          LEFT JOIN brand_facts bf
@@ -254,11 +254,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         for (const issue of result.issues) {
           await client.query(
             `INSERT INTO accuracy_issues (brand_id, platform, model, fact_key, expected, found,
-              severity, category, explanation, run_id, source_url, query, date)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              severity, category, explanation, run_id, source_url, query, date, count)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
             [id, issue.platform, issue.model, issue.fact_key, issue.expected, issue.found,
              issue.severity, issue.category, issue.explanation, issue.run_id,
-             issue.source_url, issue.query, issue.date]
+             issue.source_url, issue.query, issue.date, issue.count || 1]
           );
         }
         await client.query('COMMIT');
@@ -278,7 +278,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const issuesResult = await pool.query(
         `SELECT ai.id, ai.platform, ai.model, ai.fact_key, ai.expected, ai.found,
                 ai.severity, ai.category, ai.explanation, ai.run_id, ai.source_url,
-                ai.query, ai.date, ai.fixed, ai.fixed_at,
+                ai.query, ai.date, ai.count, ai.fixed, ai.fixed_at,
                 bf.fact_value AS canonical_expected
          FROM accuracy_issues ai
          LEFT JOIN brand_facts bf

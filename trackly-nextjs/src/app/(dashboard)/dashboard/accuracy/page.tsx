@@ -9,7 +9,7 @@ import { useBrands } from '@/contexts/BrandContext';
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
 interface SuggestedFact { key: string; value: string; category: string; source: 'website' | 'ai_responses'; confidence: 'high' | 'medium' | 'low'; }
-interface Issue { id?: number; platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; query?: string; fixed?: boolean; fixed_at?: string; }
+interface Issue { id?: number; platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; query?: string; count?: number; fixed?: boolean; fixed_at?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
@@ -212,6 +212,11 @@ export default function AccuracyPage() {
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
   const [suggestedFacts, setSuggestedFacts] = useState<SuggestedFact[]>([]);
   const [discovering, setDiscovering] = useState(false);
+  const [filterPlatform, setFilterPlatform] = useState('All');
+  const [filterSeverity, setFilterSeverity] = useState('All');
+  const [hideFixed, setHideFixed] = useState(true);
+  const [sortBy, setSortBy] = useState<'severity' | 'date' | 'platform'>('severity');
+  const [reverifying, setReverifying] = useState<number | null>(null);
 
   useEffect(() => {
     if (!brand) return;
@@ -363,6 +368,30 @@ export default function AccuracyPage() {
     }).catch(err => console.error('[ToggleFixed]', err));
   }
 
+  function reverifyIssue(issue: Issue) {
+    if (!brand || !issue.id || reverifying !== null) return;
+    setReverifying(issue.id);
+    fetch(`/api/brands/${brand.id}/accuracy/reverify`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: issue.platform, query: issue.query, factKey: issue.fact_key?.replace(/\s*\([^)]*\)\s*$/, '') }),
+    }).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }).then(d => {
+      if (d.stillInaccurate) {
+        // Issue returned — unfix it
+        setIssues(prev => prev.map(iss =>
+          iss.id === issue.id ? { ...iss, fixed: false, fixed_at: undefined, found: d.found || iss.found, explanation: d.explanation || iss.explanation } : iss
+        ));
+        toast('Issue still present — marked as unfixed.', 'error');
+      } else {
+        toast('Verified — issue is fixed!');
+      }
+    }).catch(() => toast('Re-verify failed. Try again.', 'error'))
+      .finally(() => setReverifying(null));
+  }
+
   // Build lookup from canonical facts to resolve expected values on the frontend
   const expectedLookup = useMemo(() => {
     const normalize = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
@@ -396,6 +425,51 @@ export default function AccuracyPage() {
       rate: stat.total > 0 ? Math.round((stat.accurate / stat.total) * 100) : 100,
     })).sort((a, b) => a.rate - b.rate);
   }, [categoryStats]);
+
+  // Filter, sort, and derive issue data
+  const filteredIssues = useMemo(() => {
+    let filtered = issues;
+    if (hideFixed) filtered = filtered.filter(i => !i.fixed);
+    if (filterPlatform !== 'All') filtered = filtered.filter(i => i.platform === filterPlatform);
+    if (filterSeverity !== 'All') filtered = filtered.filter(i => i.severity === filterSeverity.toLowerCase());
+    const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    if (sortBy === 'severity') filtered = [...filtered].sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4));
+    else if (sortBy === 'date') filtered = [...filtered].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    else if (sortBy === 'platform') filtered = [...filtered].sort((a, b) => a.platform.localeCompare(b.platform));
+    return filtered;
+  }, [issues, hideFixed, filterPlatform, filterSeverity, sortBy]);
+
+  const issueSummary = useMemo(() => {
+    const s = { total: issues.length, critical: 0, high: 0, medium: 0, low: 0, fixed: 0 };
+    for (const i of issues) {
+      if (i.fixed) s.fixed++;
+      if (i.severity === 'critical') s.critical++;
+      else if (i.severity === 'high') s.high++;
+      else if (i.severity === 'medium') s.medium++;
+      else if (i.severity === 'low') s.low++;
+    }
+    return s;
+  }, [issues]);
+
+  const allPlatforms = useMemo(() => [...new Set(issues.map(i => i.platform))].sort(), [issues]);
+
+  // Per-fact accuracy breakdown
+  const factBreakdown = useMemo(() => {
+    const map = new Map<string, { factKey: string; wrongPlatforms: Set<string>; totalPlatforms: Set<string> }>();
+    for (const issue of issues) {
+      const key = issue.fact_key?.replace(/\s*\([^)]*\)\s*$/, '') || issue.fact_key;
+      if (!map.has(key)) map.set(key, { factKey: key, wrongPlatforms: new Set(), totalPlatforms: new Set() });
+      const entry = map.get(key)!;
+      if (!issue.fixed) entry.wrongPlatforms.add(issue.platform);
+      entry.totalPlatforms.add(issue.platform);
+    }
+    // Also add platforms that were checked (from platformStats) to totalPlatforms
+    const checkedPlatforms = Object.keys(platformStats);
+    for (const entry of map.values()) {
+      for (const p of checkedPlatforms) entry.totalPlatforms.add(p);
+    }
+    return [...map.values()].sort((a, b) => b.wrongPlatforms.size - a.wrongPlatforms.size);
+  }, [issues, platformStats]);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
@@ -614,48 +688,133 @@ export default function AccuracyPage() {
 
       {/* Platform + Category Breakdown Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-        {/* Platform Breakdown */}
         <div className="card" style={{ padding: '16px 20px' }}>
           <div className="section-title">Platform Accuracy</div>
           {platformAccuracy.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>
-              Run accuracy checks to see platform-level breakdowns.
-            </div>
+            <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>Run accuracy checks to see platform-level breakdowns.</div>
           ) : (
-            <div style={{ marginTop: 8 }}>
-              {platformAccuracy.map(p => (
-                <HBar key={p.name} label={p.name} value={p.rate} max={100}
-                  color={p.rate >= 80 ? 'var(--green)' : p.rate >= 50 ? 'var(--amber)' : 'var(--red)'} />
-              ))}
-            </div>
+            <div style={{ marginTop: 8 }}>{platformAccuracy.map(p => (
+              <HBar key={p.name} label={p.name} value={p.rate} max={100} color={p.rate >= 80 ? 'var(--green)' : p.rate >= 50 ? 'var(--amber)' : 'var(--red)'} />
+            ))}</div>
           )}
         </div>
-
-        {/* Category Accuracy */}
         <div className="card" style={{ padding: '16px 20px' }}>
           <div className="section-title">Category Accuracy</div>
           {categoryAccuracy.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>
-              Add facts across categories and run checks to see category-level accuracy.
-            </div>
+            <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>Add facts across categories and run checks to see category-level accuracy.</div>
           ) : (
-            <div style={{ marginTop: 8 }}>
-              {categoryAccuracy.map(c => (
-                <HBar key={c.name} label={c.name} value={c.rate} max={100}
-                  color={c.rate >= 80 ? 'var(--green)' : c.rate >= 50 ? 'var(--amber)' : 'var(--red)'} />
-              ))}
-            </div>
+            <div style={{ marginTop: 8 }}>{categoryAccuracy.map(c => (
+              <HBar key={c.name} label={c.name} value={c.rate} max={100} color={c.rate >= 80 ? 'var(--green)' : c.rate >= 50 ? 'var(--amber)' : 'var(--red)'} />
+            ))}</div>
           )}
         </div>
       </div>
 
-      {/* Recent Issues */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-          <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text)' }}>
-            Recent Issues ({issues.length})
-          </span>
+      {/* ── Improvement 4: Per-Fact Accuracy Breakdown ── */}
+      {factBreakdown.length > 0 && (
+        <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
+          <div className="section-title">Fact Accuracy Breakdown</div>
+          <div style={{ marginTop: 8 }}>
+            {factBreakdown.map(fb => {
+              const wrong = fb.wrongPlatforms.size;
+              const total = fb.totalPlatforms.size;
+              const pct = total > 0 ? wrong / total : 0;
+              const dotColor = pct > 0.5 ? 'var(--red)' : pct > 0 ? 'var(--amber)' : 'var(--green)';
+              return (
+                <div key={fb.factKey} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--text)', minWidth: 140 }}>{fb.factKey}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{wrong}/{total} platform{total !== 1 ? 's' : ''} incorrect</span>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {[...fb.totalPlatforms].map(p => (
+                      <span key={p} style={{ width: 6, height: 6, borderRadius: '50%', background: fb.wrongPlatforms.has(p) ? 'var(--red)' : 'var(--green)' }} title={p} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+      )}
+
+      {/* ── Recent Issues ── */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {/* ── Improvement 6: Summary Bar ── */}
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text)' }}>
+              Recent Issues ({issues.length})
+            </span>
+            {issues.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--mono)' }}>
+                {issueSummary.critical > 0 && <span style={{ color: '#dc2626' }}>{issueSummary.critical} Critical</span>}
+                {issueSummary.high > 0 && <span style={{ color: '#ef4444' }}>{issueSummary.high} High</span>}
+                {issueSummary.medium > 0 && <span style={{ color: '#f59e0b' }}>{issueSummary.medium} Medium</span>}
+                {issueSummary.low > 0 && <span style={{ color: '#3b82f6' }}>{issueSummary.low} Low</span>}
+                {issueSummary.fixed > 0 && <span style={{ color: 'var(--green)' }}>{issueSummary.fixed} Fixed</span>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Improvement 3: Filter & Sort Toolbar ── */}
+        {issues.length > 0 && (
+          <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--bg)' }}>
+            {/* Platform filter */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['All', ...allPlatforms].map(p => (
+                <button key={p} onClick={() => setFilterPlatform(p)} style={{
+                  padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
+                  cursor: 'pointer', border: '1px solid', transition: 'all .15s',
+                  ...(filterPlatform === p
+                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: '#7c3aed', borderColor: 'rgba(124,58,237,0.3)' }
+                    : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
+                }}>{p}</button>
+              ))}
+            </div>
+            <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+            {/* Severity filter */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {['All', 'Critical', 'High', 'Medium', 'Low'].map(s => (
+                <button key={s} onClick={() => setFilterSeverity(s)} style={{
+                  padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
+                  cursor: 'pointer', border: '1px solid', transition: 'all .15s',
+                  ...(filterSeverity === s
+                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: '#7c3aed', borderColor: 'rgba(124,58,237,0.3)' }
+                    : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
+                }}>{s}</button>
+              ))}
+            </div>
+            <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+            {/* Hide Fixed toggle */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', fontFamily: 'var(--mono)' }}>
+              <span onClick={() => setHideFixed(!hideFixed)} style={{
+                width: 28, height: 16, borderRadius: 8, background: hideFixed ? '#7c3aed' : 'var(--bg3)',
+                position: 'relative', transition: 'background .15s', display: 'inline-block', cursor: 'pointer',
+              }}>
+                <span style={{
+                  position: 'absolute', top: 2, left: hideFixed ? 14 : 2, width: 12, height: 12,
+                  borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                }} />
+              </span>
+              Hide Fixed
+            </label>
+            <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+            {/* Sort */}
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} style={{
+              padding: '3px 8px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600,
+              background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', outline: 'none',
+            }}>
+              <option value="severity">By Severity</option>
+              <option value="date">By Date</option>
+              <option value="platform">By Platform</option>
+            </select>
+            <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', marginLeft: 'auto' }}>
+              Showing {filteredIssues.length} of {issues.length}
+            </span>
+          </div>
+        )}
+
         <div style={{ padding: '16px 20px' }}>
           {issues.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
@@ -667,26 +826,20 @@ export default function AccuracyPage() {
                 <>Click <strong>&quot;Check Now&quot;</strong> to analyze AI responses against your {facts.length} canonical fact{facts.length !== 1 ? 's' : ''}.</>
               )}
             </div>
+          ) : filteredIssues.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>
+              No issues match the current filters.
+            </div>
           ) : (
             <div>
-              {checkedRuns > 0 && (
-                <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
-                  AI analyzed {checkedRuns} response{checkedRuns > 1 ? 's' : ''} across {Object.keys(platformStats).length} platform{Object.keys(platformStats).length !== 1 ? 's' : ''}
-                </div>
-              )}
-              {issues.map((issue, i) => (
-                <div key={issue.id ?? i} style={{ borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none', opacity: issue.fixed ? 0.55 : 1 }}>
+              {filteredIssues.map((issue, i) => (
+                <div key={issue.id ?? i} style={{ borderBottom: i < filteredIssues.length - 1 ? '1px solid var(--border)' : 'none', opacity: issue.fixed ? 0.55 : 1 }}>
                   <div
                     onClick={() => setExpandedIssue(expandedIssue === i ? null : i)}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
                   >
                     {issue.fixed ? (
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
-                        color: 'var(--green)', background: 'rgba(34,197,94,0.08)',
-                      }}>
-                        FIXED
-                      </span>
+                      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0, color: 'var(--green)', background: 'rgba(34,197,94,0.08)' }}>FIXED</span>
                     ) : (
                       <span style={{
                         fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
@@ -697,7 +850,14 @@ export default function AccuracyPage() {
                       </span>
                     )}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, textDecoration: issue.fixed ? 'line-through' : 'none' }}>{issue.fact_key}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, textDecoration: issue.fixed ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {issue.fact_key}
+                        {(issue.count ?? 1) > 1 && (
+                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '1px 5px', borderRadius: 100, background: 'rgba(124,58,237,0.08)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.15)' }}>
+                            ×{issue.count}
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                         Expected: <strong style={{ color: 'var(--green)' }}>{getExpected(issue) || '(not set)'}</strong> · Found: <strong style={{ color: issue.fixed ? 'var(--muted)' : 'var(--red)' }}>{issue.found}</strong>
                       </div>
@@ -711,8 +871,7 @@ export default function AccuracyPage() {
                           let hostname = '';
                           try { hostname = new URL(issue.source_url).hostname.replace(/^www\./, ''); } catch { /* */ }
                           return (
-                            <a href={issue.source_url} target="_blank" rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
+                            <a href={issue.source_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                               style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
                               title={issue.source_url}>
                               {isSearchUrl ? `Verify on ${issue.platform} ↗` : `${hostname} ↗`}
@@ -721,24 +880,34 @@ export default function AccuracyPage() {
                         })()}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>
+                    {/* ── Improvement 5: Mark Fixed + Re-verify buttons ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
                       {issue.id && (
-                        <button
-                          onClick={e => { e.stopPropagation(); toggleFixed(issue); }}
-                          style={{
+                        <>
+                          <button onClick={e => { e.stopPropagation(); toggleFixed(issue); }} style={{
                             padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font)',
                             cursor: 'pointer', border: '1px solid', transition: 'all .15s',
                             ...(issue.fixed
                               ? { background: 'rgba(34,197,94,0.08)', color: 'var(--green)', borderColor: 'rgba(34,197,94,0.2)' }
                               : { background: 'var(--bg3)', color: 'var(--muted)', borderColor: 'var(--border)' }),
-                          }}
-                        >
-                          {issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
-                        </button>
+                          }}>
+                            {issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
+                          </button>
+                          {issue.fixed && (
+                            <button onClick={e => { e.stopPropagation(); reverifyIssue(issue); }}
+                              disabled={reverifying === issue.id}
+                              style={{
+                                padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
+                                cursor: reverifying === issue.id ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.2)',
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: '#7c3aed',
+                                opacity: reverifying === issue.id ? 0.6 : 1, transition: 'opacity .15s',
+                              }}>
+                              {reverifying === issue.id ? '...' : 'Re-verify ↻'}
+                            </button>
+                          )}
+                        </>
                       )}
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        {expandedIssue === i ? '▼' : '▶'}
-                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{expandedIssue === i ? '▼' : '▶'}</span>
                     </div>
                   </div>
                   {expandedIssue === i && (issue.explanation || issue.query) && (
@@ -749,19 +918,13 @@ export default function AccuracyPage() {
                     }}>
                       {issue.query && (
                         <div style={{ marginBottom: issue.explanation ? 10 : 0 }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
-                            Query Asked
-                          </div>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
-                            {issue.query}
-                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>Query Asked</div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>{issue.query}</div>
                         </div>
                       )}
                       {issue.explanation && (
                         <div>
-                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
-                            AI Analysis
-                          </div>
+                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>AI Analysis</div>
                           {issue.explanation}
                         </div>
                       )}

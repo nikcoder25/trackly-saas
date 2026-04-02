@@ -316,6 +316,7 @@ async function initDB() {
         source_url TEXT,
         query TEXT,
         date TIMESTAMPTZ,
+        count INTEGER DEFAULT 1,
         fixed BOOLEAN DEFAULT FALSE,
         fixed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
