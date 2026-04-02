@@ -19,7 +19,6 @@ const PLAN_COLORS: Record<string, string> = {
   starter: 'var(--primary)',
   pro: 'var(--primary)',
   agency: 'var(--purple)',
-  enterprise: 'var(--purple)',
 };
 
 export default function AdminPage() {
@@ -113,12 +112,12 @@ export default function AdminPage() {
       )}
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5 mb-4">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
         <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
           <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">Total Users</p>
           <p className="text-2xl font-extrabold font-mono text-[var(--text)]">{total}</p>
         </div>
-        {['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'].map(plan => (
+        {['free', 'starter', 'pro', 'agency', 'owner'].map(plan => (
           <div key={plan} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--app-shadow)]">
             <p className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold mb-1">{plan}</p>
             <p className="text-2xl font-extrabold font-mono" style={{ color: PLAN_COLORS[plan] }}>{planCounts[plan] || 0}</p>
@@ -127,18 +126,18 @@ export default function AdminPage() {
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ position: 'relative', flex: '1 1 0%', minWidth: 0 }}>
+          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search by email, name, or username..."
             value={search}
             onChange={e => { setSearch(e.target.value); setOffset(0); }}
-            className="w-full pl-9 pr-3 py-2 rounded-lg text-sm bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] outline-none placeholder:text-[var(--muted)]"
+            style={{ width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 9, paddingBottom: 9, borderRadius: 8, fontSize: 13, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', fontFamily: 'var(--font)' }}
           />
         </div>
-        <button onClick={fetchUsers} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:opacity-90 transition">Refresh</button>
+        <button onClick={fetchUsers} style={{ flexShrink: 0, padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'var(--font)', whiteSpace: 'nowrap' }}>Refresh</button>
       </div>
 
       {/* Users Table */}
@@ -149,8 +148,9 @@ export default function AdminPage() {
           <p className="text-[var(--muted)]">{search ? 'No users match your search.' : 'No users found.'}</p>
         </div>
       ) : (
-        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden overflow-x-auto shadow-[var(--app-shadow)]">
-          <table className="w-full text-sm min-w-[800px]">
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--app-shadow)' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', minWidth: 800 }}>
             <thead>
               <tr className="border-b border-[var(--border)]">
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Name / Email</th>
@@ -215,6 +215,7 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -262,7 +263,7 @@ export default function AdminPage() {
                   onChange={e => setEditPlan(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] outline-none"
                 >
-                  {['free', 'starter', 'pro', 'agency', 'enterprise'].map(p => (
+                  {['free', 'starter', 'pro', 'agency'].map(p => (
                     <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
                   ))}
                 </select>

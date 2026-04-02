@@ -74,7 +74,6 @@ const fr: Translations = {
       { name: 'Starter', price: '9$', sub: 'Parfait pour débuter', features: ['30 requêtes/mois', '1 marque', '2 plateformes IA', 'Suivi hebdomadaire', 'Suivi SOV et export'] },
       { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['250 requêtes/mois', '5 marques', 'Les 5 plateformes IA', 'Suivi quotidien', 'Suivi concurrents (5)', 'Analyse de sentiment', 'Exécutions planifiées'] },
       { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['1 000 requêtes/mois', '20 marques', 'Les 5 plateformes IA', 'Suivi quotidien', 'Suivi concurrents (20)', 'Analyse de sentiment', 'Exécutions planifiées'] },
-      { name: 'Enterprise', price: '499$', sub: 'Pour les grandes organisations', enterprise: true, features: ['10 000 requêtes/mois', '100 marques', 'Les 5 plateformes IA', 'Suivi quotidien', 'Suivi concurrents (100)', 'Analyse de sentiment', 'Accès API', 'Support prioritaire'] },
     ],
     comparison: {
       title: 'Comment Livesov se compare',

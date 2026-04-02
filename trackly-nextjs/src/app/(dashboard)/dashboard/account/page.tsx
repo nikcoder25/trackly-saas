@@ -9,7 +9,6 @@ const PLANS = [
   { name: 'Starter', price: '$9', sub: 'Perfect for getting started', features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking'] },
   { name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true, features: ['250 prompts/month', '5 brands', '5 platforms', 'Competitors', 'Sentiment analysis'] },
   { name: 'Agency', price: '$89', sub: 'Scale with confidence', features: ['1,000 prompts/month', '20 brands', '5 platforms', '20 competitors', 'Sentiment analysis'] },
-  { name: 'Enterprise', price: '$499', sub: 'Full power', enterprise: true, features: ['10,000 prompts/month', '100 brands', '5 platforms', '100 competitors', 'API access', 'Priority support'] },
 ];
 
 export default function AccountPage() {
