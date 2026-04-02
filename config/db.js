@@ -301,6 +301,27 @@ async function initDB() {
       );
       CREATE INDEX IF NOT EXISTS idx_brand_facts_brand ON brand_facts(brand_id);
 
+      CREATE TABLE IF NOT EXISTS accuracy_issues (
+        id SERIAL PRIMARY KEY,
+        brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL,
+        model TEXT,
+        fact_key TEXT NOT NULL,
+        expected TEXT,
+        found TEXT,
+        severity TEXT DEFAULT 'medium',
+        category TEXT DEFAULT 'general',
+        explanation TEXT,
+        run_id TEXT,
+        source_url TEXT,
+        query TEXT,
+        date TIMESTAMPTZ,
+        fixed BOOLEAN DEFAULT FALSE,
+        fixed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_accuracy_issues_brand ON accuracy_issues(brand_id);
+
       -- Persistent response cache (survives restarts, shared across instances)
       CREATE TABLE IF NOT EXISTS response_cache (
         cache_key TEXT PRIMARY KEY,

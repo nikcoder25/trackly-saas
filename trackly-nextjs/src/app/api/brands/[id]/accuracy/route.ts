@@ -57,9 +57,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // fine if table missing
     }
 
+    // Load persisted accuracy issues (including fixed status)
+    let issues: Record<string, unknown>[] = [];
+    try {
+      const issuesResult = await pool.query(
+        `SELECT id, platform, model, fact_key, expected, found, severity, category,
+                explanation, run_id, source_url, query, date, fixed, fixed_at
+         FROM accuracy_issues WHERE brand_id = $1
+         ORDER BY fixed ASC, created_at DESC`,
+        [id]
+      );
+      issues = issuesResult.rows;
+    } catch {
+      // table may not exist yet
+    }
+
     return Response.json({
       facts,
-      issues: [],
+      issues,
       accuracyRate: null,
       platformStats: {},
       categoryStats: {},
@@ -216,8 +231,51 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // Run AI-powered fact-checking
     const result = await runFactCheck(facts, runs);
 
+    // Persist issues to DB: remove old unfixed issues, keep fixed ones, insert new
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM accuracy_issues WHERE brand_id = $1 AND fixed = FALSE', [id]);
+        for (const issue of result.issues) {
+          await client.query(
+            `INSERT INTO accuracy_issues (brand_id, platform, model, fact_key, expected, found,
+              severity, category, explanation, run_id, source_url, query, date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+            [id, issue.platform, issue.model, issue.fact_key, issue.expected, issue.found,
+             issue.severity, issue.category, issue.explanation, issue.run_id,
+             issue.source_url, issue.query, issue.date]
+          );
+        }
+        await client.query('COMMIT');
+      } catch (dbErr) {
+        await client.query('ROLLBACK');
+        console.error('[Accuracy] Failed to persist issues:', (dbErr as Error).message);
+      } finally {
+        client.release();
+      }
+    } catch {
+      // table may not exist yet — continue without persisting
+    }
+
+    // Reload all issues (including fixed ones) to return with DB ids
+    let allIssues: Record<string, unknown>[] = [];
+    try {
+      const issuesResult = await pool.query(
+        `SELECT id, platform, model, fact_key, expected, found, severity, category,
+                explanation, run_id, source_url, query, date, fixed, fixed_at
+         FROM accuracy_issues WHERE brand_id = $1
+         ORDER BY fixed ASC, created_at DESC`,
+        [id]
+      );
+      allIssues = issuesResult.rows;
+    } catch {
+      // fallback to in-memory issues
+      allIssues = result.issues.map(i => ({ ...i, fixed: false, fixed_at: null }));
+    }
+
     return Response.json({
-      issues: result.issues,
+      issues: allIssues,
       accuracyRate: result.accuracyRate,
       platformStats: result.platformStats,
       categoryStats: result.categoryStats,

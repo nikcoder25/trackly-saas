@@ -9,7 +9,7 @@ import { useBrands } from '@/contexts/BrandContext';
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
 interface SuggestedFact { key: string; value: string; category: string; source: 'website' | 'ai_responses'; confidence: 'high' | 'medium' | 'low'; }
-interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; query?: string; }
+interface Issue { id?: number; platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; query?: string; fixed?: boolean; fixed_at?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
@@ -349,6 +349,20 @@ export default function AccuracyPage() {
     setSuggestedFacts(prev => prev.filter(f => f.key !== key));
   }
 
+  function toggleFixed(issue: Issue) {
+    if (!brand || !issue.id) return;
+    fetch(`/api/brands/${brand.id}/accuracy/issues/${issue.id}`, {
+      method: 'PATCH', credentials: 'include',
+    }).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    }).then(d => {
+      setIssues(prev => prev.map(iss =>
+        iss.id === issue.id ? { ...iss, fixed: d.fixed, fixed_at: d.fixed_at } : iss
+      ));
+    }).catch(err => console.error('[ToggleFixed]', err));
+  }
+
   // Derived data
   const platformAccuracy = useMemo(() => {
     return Object.entries(platformStats).map(([name, stat]) => ({
@@ -642,22 +656,31 @@ export default function AccuracyPage() {
                 </div>
               )}
               {issues.map((issue, i) => (
-                <div key={i} style={{ borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div key={issue.id ?? i} style={{ borderBottom: i < issues.length - 1 ? '1px solid var(--border)' : 'none', opacity: issue.fixed ? 0.55 : 1 }}>
                   <div
                     onClick={() => setExpandedIssue(expandedIssue === i ? null : i)}
                     style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
                   >
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
-                      color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
-                      background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
-                    }}>
-                      {issue.severity}
-                    </span>
+                    {issue.fixed ? (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
+                        color: 'var(--green)', background: 'rgba(34,197,94,0.08)',
+                      }}>
+                        FIXED
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
+                        color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
+                        background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
+                      }}>
+                        {issue.severity}
+                      </span>
+                    )}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{issue.fact_key}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, textDecoration: issue.fixed ? 'line-through' : 'none' }}>{issue.fact_key}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
+                        Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected || '(not set)'}</strong> · Found: <strong style={{ color: issue.fixed ? 'var(--muted)' : 'var(--red)' }}>{issue.found}</strong>
                       </div>
                       <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
@@ -673,9 +696,25 @@ export default function AccuracyPage() {
                         )}
                       </div>
                     </div>
-                    <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
-                      {expandedIssue === i ? '▼' : '▶'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>
+                      {issue.id && (
+                        <button
+                          onClick={e => { e.stopPropagation(); toggleFixed(issue); }}
+                          style={{
+                            padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font)',
+                            cursor: 'pointer', border: '1px solid', transition: 'all .15s',
+                            ...(issue.fixed
+                              ? { background: 'rgba(34,197,94,0.08)', color: 'var(--green)', borderColor: 'rgba(34,197,94,0.2)' }
+                              : { background: 'var(--bg3)', color: 'var(--muted)', borderColor: 'var(--border)' }),
+                          }}
+                        >
+                          {issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
+                        </button>
+                      )}
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {expandedIssue === i ? '▼' : '▶'}
+                      </span>
+                    </div>
                   </div>
                   {expandedIssue === i && (issue.explanation || issue.query) && (
                     <div style={{

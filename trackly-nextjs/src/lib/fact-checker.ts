@@ -323,7 +323,11 @@ export async function runFactCheck(
       if (!platformStats[platform]) platformStats[platform] = { total: 0, accurate: 0 };
 
       for (const finding of findings) {
-        const cat = facts.find(f => f.key === finding.fact_key)?.category || 'general';
+        // Normalize key for lookup — AI may return slightly different casing/spacing
+        const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+        const normalizedFindingKey = normalizeKey(finding.fact_key);
+        const matchedFact = facts.find(f => normalizeKey(f.key) === normalizedFindingKey);
+        const cat = matchedFact?.category || 'general';
         if (!categoryStats[cat]) categoryStats[cat] = { total: 0, accurate: 0 };
 
         if (finding.status === 'not_mentioned') continue; // Skip — no claim to check
@@ -338,8 +342,8 @@ export async function runFactCheck(
           allIssues.push({
             platform,
             model: run.model,
-            fact_key: finding.fact_key,
-            expected: facts.find(f => f.key === finding.fact_key)?.value || '',
+            fact_key: matchedFact?.key || finding.fact_key,
+            expected: matchedFact?.value || '',
             found: finding.found,
             severity: (['critical', 'high', 'medium', 'low'].includes(finding.severity)
               ? finding.severity
