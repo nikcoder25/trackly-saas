@@ -83,10 +83,18 @@ export default function AlertsPage() {
         {rules.map(r => (
           <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{r.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{r.condition} · Threshold: {r.threshold}% · Cooldown: {r.cooldown}h</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: r.enabled ? 'var(--green)' : '#888', flexShrink: 0 }} />
+                {r.name}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 16 }}>{r.condition} · Threshold: {r.threshold}% · Cooldown: {r.cooldown}h</div>
             </div>
-            <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: r.enabled ? 'var(--green)' : 'var(--muted)', fontWeight: 700 }}>{r.enabled ? 'Active' : 'Disabled'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: r.enabled ? 'var(--green)' : 'var(--muted)', fontWeight: 700 }}>{r.enabled ? 'Active' : 'Disabled'}</span>
+              <div style={{ width: 32, height: 18, borderRadius: 9, background: r.enabled ? 'var(--green)' : '#555', position: 'relative', cursor: 'default', transition: 'background 0.2s' }}>
+                <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: r.enabled ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -158,7 +166,8 @@ export default function AlertsPage() {
           <input className="finp" type="url" placeholder="https://hooks.slack.com/services/..." value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} style={{ flex: 1, margin: 0 }} />
           <button className="pbtn" onClick={saveWebhook} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' }}>SAVE</button>
         </div>
-        <div style={{ marginTop: 8, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{webhookStatus || (webhookUrl ? 'Webhook configured' : 'No webhook configured')}</div>
+        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>Receive real-time alert notifications via webhook</div>
+        <div style={{ marginTop: 4, fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{webhookStatus || (webhookUrl ? 'Webhook configured' : 'No webhook configured')}</div>
       </div>
 
       {/* Recent Notifications */}

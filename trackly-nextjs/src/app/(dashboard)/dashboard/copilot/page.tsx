@@ -44,7 +44,13 @@ export default function CopilotPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 52px - 40px)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 52px - 40px)' }}>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
       <div className="view-title">Copilot</div>
       <div className="view-sub" style={{ marginBottom: 12 }}>AI-powered assistant for visibility strategy and analysis.</div>
 
@@ -125,7 +131,7 @@ export default function CopilotPage() {
         <div style={{ display: 'flex', gap: 8, borderTop: '1px solid var(--border)', padding: 12, flexShrink: 0 }}>
           <input className="finp" value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') send(); }}
-            placeholder="Ask about your AI visibility..."
+            placeholder="e.g., Why is my SOV low on Gemini?"
             style={{ flex: 1, margin: 0, padding: '10px 14px' }} />
           <button onClick={() => send()} disabled={sending}
             style={{ padding: '10px 20px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', fontFamily: 'var(--font)', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: sending ? 0.6 : 1 }}>
