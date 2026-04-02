@@ -450,6 +450,106 @@ export default function AccuracyPage() {
         </div>
       </div>
 
+      {/* ── Brand Facts (prominent) ── */}
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--app-shadow)', marginBottom: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Your Brand Facts</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Define what&apos;s true about your brand — AI accuracy is checked against these.</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={autoDiscover} disabled={discovering}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', cursor: discovering ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: '#7c3aed', opacity: discovering ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' }}>
+              {discovering ? (
+                <><span style={{ width: 12, height: 12, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />Discovering...</>
+              ) : '✦ Auto-Discover'}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: '16px 22px' }}>
+          {/* Add Fact Form — inline */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Fact Key</label>
+              <input placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', boxSizing: 'border-box' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')} />
+            </div>
+            <div style={{ flex: '1 1 160px', minWidth: 140 }}>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Fact Value</label>
+              <input placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', boxSizing: 'border-box' }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')} />
+            </div>
+            <div style={{ minWidth: 100 }}>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Category</label>
+              <select value={factCategory} onChange={e => setFactCategory(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', cursor: 'pointer' }}>
+                <option value="general">General</option>
+                <option value="pricing">Pricing</option>
+                <option value="features">Features</option>
+                <option value="company">Company</option>
+              </select>
+            </div>
+            <button onClick={addFact}
+              style={{ padding: '8px 18px', borderRadius: 6, fontSize: 13, fontWeight: 700, fontFamily: 'var(--font)', background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .15s' }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Add Fact</button>
+          </div>
+
+          {/* AI Suggested Facts (if any) */}
+          {suggestedFacts.length > 0 && (
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 8, background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))', border: '1px solid rgba(124,58,237,0.15)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>✦ {suggestedFacts.length} AI-suggested fact{suggestedFacts.length !== 1 ? 's' : ''}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={acceptAllFacts} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}>Add All</button>
+                  <button onClick={() => setSuggestedFacts([])} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Dismiss</button>
+                </div>
+              </div>
+              {suggestedFacts.map(sf => (
+                <div key={sf.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: '1px solid rgba(124,58,237,0.08)', fontSize: 12 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: sf.confidence === 'high' ? 'var(--green)' : sf.confidence === 'medium' ? 'var(--amber)' : 'var(--red)' }} />
+                  <span style={{ fontWeight: 600, color: 'var(--text)', minWidth: 100 }}>{sf.key}</span>
+                  <span style={{ color: 'var(--muted)', flex: 1 }}>{sf.value}</span>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '1px 6px', background: 'var(--bg3)', borderRadius: 4 }}>{sf.category}</span>
+                  <button onClick={() => acceptFact(sf)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: 14, fontWeight: 700, padding: '0 4px' }}>+</button>
+                  <button onClick={() => dismissFact(sf.key)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Fact Coverage */}
+          {facts.length > 0 && (
+            <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg3)', borderRadius: 6 }}>
+              <FactCoverage facts={facts} />
+            </div>
+          )}
+
+          {/* Existing Facts List */}
+          {facts.length > 0 ? (
+            <div>
+              {facts.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < facts.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
+                  <span style={{ fontSize: 13, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
+                  <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--muted)', fontSize: 12 }}>
+              No facts yet. Add your brand&apos;s facts above or click <strong>Auto-Discover</strong> to let AI find them.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
         {/* Accuracy Trend */}
