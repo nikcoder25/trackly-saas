@@ -706,13 +706,19 @@ export default function AccuracyPage() {
                         {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
                         {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
-                        {issue.source_url && (
-                          <a href={issue.source_url} target="_blank" rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer' }}>
-                            Verify on {issue.platform} ↗
-                          </a>
-                        )}
+                        {issue.source_url && (() => {
+                          const isSearchUrl = issue.source_url.includes('/search?q=') || issue.source_url.includes('/?q=') || issue.source_url.includes('/new?q=') || issue.source_url.includes('/app?q=') || issue.source_url.includes('?text=');
+                          let hostname = '';
+                          try { hostname = new URL(issue.source_url).hostname.replace(/^www\./, ''); } catch { /* */ }
+                          return (
+                            <a href={issue.source_url} target="_blank" rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
+                              title={issue.source_url}>
+                              {isSearchUrl ? `Verify on ${issue.platform} ↗` : `${hostname} ↗`}
+                            </a>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: 2 }}>

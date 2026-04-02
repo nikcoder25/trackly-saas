@@ -63,6 +63,7 @@ interface PromptRun {
   response_raw: string;
   created_at: string;
   prompt: string;
+  citations: string[];
 }
 
 function parseKeys(envVar: string): string[] {
@@ -352,9 +353,11 @@ export async function runFactCheck(
             category: cat,
             explanation: finding.explanation || '',
             run_id: run.id,
-            source_url: PLATFORM_SEARCH_URLS[platform]
-              ? PLATFORM_SEARCH_URLS[platform] + encodeURIComponent(run.prompt)
-              : '',
+            source_url: (run.citations && run.citations.length > 0)
+              ? run.citations[0]
+              : (PLATFORM_SEARCH_URLS[platform]
+                ? PLATFORM_SEARCH_URLS[platform] + encodeURIComponent(run.prompt)
+                : ''),
             query: run.prompt,
           });
         }
