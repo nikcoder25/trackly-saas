@@ -237,28 +237,34 @@ export default function AdminPage() {
 
       {/* Edit Modal */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setEditingUser(null)}>
-          <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl w-full max-w-md p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[var(--text)]">Edit User</h3>
-              <button onClick={() => setEditingUser(null)} className="text-[var(--muted)] hover:text-[var(--text)] text-lg">&times;</button>
+        <div onClick={() => setEditingUser(null)} style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.4)', backdropFilter: 'blur(4px)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 440, padding: '28px 28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,.2)', animation: 'modalIn .2s ease' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Edit User</h3>
+              <button onClick={() => setEditingUser(null)} style={{ background: 'var(--bg3)', border: 'none', width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: 'var(--muted)', transition: 'background .15s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg4)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--bg3)')}>×</button>
             </div>
 
-            <div className="space-y-3 mb-4">
+            {/* Fields */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 24 }}>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Email</label>
-                <p className="text-sm text-[var(--text)]">{editingUser.email}</p>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Email</label>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>{editingUser.email}</p>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Name</label>
-                <p className="text-sm text-[var(--text)]">{editingUser.name || '—'}</p>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Name</label>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>{editingUser.name || '—'}</p>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold block mb-1">Plan</label>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Plan</label>
                 <select
                   value={editPlan}
                   onChange={e => setEditPlan(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg text-sm bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] outline-none"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 14, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(99,102,241,.15)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
                   {['free', 'starter', 'pro', 'agency'].map(p => (
                     <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
@@ -267,20 +273,24 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => updateUser(editingUser.id, { plan: editPlan })}
                 disabled={saving || editPlan === editingUser.plan}
-                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:opacity-90 transition disabled:opacity-50"
+                style={{ flex: 1, padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, fontFamily: 'var(--font)', background: 'var(--primary)', color: '#fff', border: 'none', cursor: saving || editPlan === editingUser.plan ? 'not-allowed' : 'pointer', opacity: saving || editPlan === editingUser.plan ? 0.5 : 1, transition: 'opacity .15s' }}
               >{saving ? 'Saving...' : 'Save Changes'}</button>
               <button
                 onClick={() => setEditingUser(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--text)] transition"
+                style={{ padding: '10px 20px', borderRadius: 8, fontSize: 14, fontWeight: 600, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'color .15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
               >Cancel</button>
             </div>
           </div>
         </div>
       )}
+      <style>{`@keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: none; } }`}</style>
     </div>
   );
 }
