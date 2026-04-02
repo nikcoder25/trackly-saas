@@ -9,7 +9,7 @@ import { useBrands } from '@/contexts/BrandContext';
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
 interface SuggestedFact { key: string; value: string; category: string; source: 'website' | 'ai_responses'; confidence: 'high' | 'medium' | 'low'; }
-interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; }
+interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; query?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
@@ -667,9 +667,8 @@ export default function AccuracyPage() {
                         {issue.source_url && (
                           <a href={issue.source_url} target="_blank" rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
-                            title={issue.source_url}>
-                            {(() => { try { return new URL(issue.source_url).hostname; } catch { return 'Source'; } })() + ' ↗'}
+                            style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer' }}>
+                            Verify on {issue.platform} ↗
                           </a>
                         )}
                       </div>
@@ -678,16 +677,30 @@ export default function AccuracyPage() {
                       {expandedIssue === i ? '▼' : '▶'}
                     </span>
                   </div>
-                  {expandedIssue === i && issue.explanation && (
+                  {expandedIssue === i && (issue.explanation || issue.query) && (
                     <div style={{
                       margin: '0 0 12px 32px', padding: '10px 14px', borderRadius: 6,
                       background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
                       border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
                     }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
-                        AI Analysis
-                      </div>
-                      {issue.explanation}
+                      {issue.query && (
+                        <div style={{ marginBottom: issue.explanation ? 10 : 0 }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
+                            Query Asked
+                          </div>
+                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>
+                            {issue.query}
+                          </div>
+                        </div>
+                      )}
+                      {issue.explanation && (
+                        <div>
+                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
+                            AI Analysis
+                          </div>
+                          {issue.explanation}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

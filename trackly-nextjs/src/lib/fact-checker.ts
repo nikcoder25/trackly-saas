@@ -10,6 +10,15 @@ const API_ENDPOINTS = {
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models/',
 };
 
+// Platform search URLs for verifying inaccuracies directly
+const PLATFORM_SEARCH_URLS: Record<string, string> = {
+  Perplexity: 'https://www.perplexity.ai/search?q=',
+  ChatGPT: 'https://chatgpt.com/?q=',
+  Claude: 'https://claude.ai/new?q=',
+  Gemini: 'https://gemini.google.com/app?q=',
+  Grok: 'https://x.com/i/grok?text=',
+};
+
 // Prefer cheaper models for fact-checking
 const CHECKER_MODELS = {
   gemini: 'gemini-2.5-flash',
@@ -35,6 +44,7 @@ export interface FactCheckIssue {
   explanation: string;
   run_id: string;
   source_url: string;
+  query: string;
 }
 
 export interface FactCheckResult {
@@ -53,7 +63,6 @@ interface PromptRun {
   response_raw: string;
   created_at: string;
   prompt: string;
-  citations: string[];
 }
 
 function parseKeys(envVar: string): string[] {
@@ -339,7 +348,10 @@ export async function runFactCheck(
             category: cat,
             explanation: finding.explanation || '',
             run_id: run.id,
-            source_url: (run.citations && run.citations.length > 0) ? run.citations[0] : '',
+            source_url: PLATFORM_SEARCH_URLS[platform]
+              ? PLATFORM_SEARCH_URLS[platform] + encodeURIComponent(run.prompt)
+              : '',
+            query: run.prompt,
           });
         }
       }
