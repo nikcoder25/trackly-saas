@@ -25,6 +25,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       setLocaleState(saved);
       setT(getTranslations(saved));
     }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'livesov-lang' && e.newValue) {
+        const newLocale = e.newValue as Locale;
+        if (SUPPORTED_LOCALES.some(l => l.code === newLocale)) {
+          setLocaleState(newLocale);
+          setT(getTranslations(newLocale));
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   const setLocale = (newLocale: Locale) => {

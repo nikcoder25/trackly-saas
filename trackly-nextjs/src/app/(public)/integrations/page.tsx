@@ -56,7 +56,7 @@ export default function IntegrationsPage() {
           {extras.map(section => (
             <div key={section.title} className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl">{section.icon}</span>
+                <span className="text-2xl" role="img" aria-label={section.title}>{section.icon}</span>
                 <h3 className="text-lg font-bold text-gray-900">{section.title}</h3>
               </div>
               <ul className="space-y-2">
