@@ -667,8 +667,9 @@ export default function AccuracyPage() {
                         {issue.source_url && (
                           <a href={issue.source_url} target="_blank" rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer' }}>
-                            Source ↗
+                            style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
+                            title={issue.source_url}>
+                            {(() => { try { return new URL(issue.source_url).hostname; } catch { return 'Source'; } })() + ' ↗'}
                           </a>
                         )}
                       </div>

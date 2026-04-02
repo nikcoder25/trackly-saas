@@ -188,16 +188,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Get recent prompt runs with response text
-    let runs: { id: string; platform: string; model: string; response_raw: string; created_at: string; prompt: string }[] = [];
+    let runs: { id: string; platform: string; model: string; response_raw: string; created_at: string; prompt: string; citations: string[] }[] = [];
     try {
       const runsResult = await pool.query(
-        `SELECT id, platform, model, response_raw, created_at, prompt
+        `SELECT id, platform, model, response_raw, created_at, prompt, citations
          FROM prompt_runs
          WHERE brand_id = $1 AND success = TRUE AND response_raw IS NOT NULL AND response_raw != ''
          ORDER BY created_at DESC LIMIT 30`,
         [id]
       );
-      runs = runsResult.rows;
+      runs = runsResult.rows.map((r: Record<string, unknown>) => ({
+        ...r,
+        citations: Array.isArray(r.citations) ? r.citations as string[] : [],
+      })) as typeof runs;
     } catch {
       // table may not have all columns
     }

@@ -10,13 +10,6 @@ const API_ENDPOINTS = {
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models/',
 };
 
-const PLATFORM_URLS: Record<string, string> = {
-  ChatGPT: 'https://chatgpt.com',
-  Claude: 'https://claude.ai',
-  Gemini: 'https://gemini.google.com',
-  Perplexity: 'https://perplexity.ai',
-};
-
 // Prefer cheaper models for fact-checking
 const CHECKER_MODELS = {
   gemini: 'gemini-2.5-flash',
@@ -60,6 +53,7 @@ interface PromptRun {
   response_raw: string;
   created_at: string;
   prompt: string;
+  citations: string[];
 }
 
 function parseKeys(envVar: string): string[] {
@@ -345,7 +339,7 @@ export async function runFactCheck(
             category: cat,
             explanation: finding.explanation || '',
             run_id: run.id,
-            source_url: PLATFORM_URLS[platform] || '',
+            source_url: (run.citations && run.citations.length > 0) ? run.citations[0] : '',
           });
         }
       }
