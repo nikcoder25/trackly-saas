@@ -87,7 +87,7 @@ export function getOTPAuthURL(secret: string, email: string, issuer = 'Livesov')
 export function generateBackupCodes(count = 8): string[] {
   const codes: string[] = [];
   for (let i = 0; i < count; i++) {
-    codes.push(crypto.randomBytes(4).toString('hex'));
+    codes.push(crypto.randomBytes(6).toString('hex'));
   }
   return codes;
 }

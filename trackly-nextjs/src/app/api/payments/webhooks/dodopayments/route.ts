@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { pool, auditLog } from '@/lib/db';
 import crypto from 'crypto';
 
 const PLAN_MAP: Record<string, string> = {};
@@ -27,9 +27,7 @@ export async function POST(request: Request) {
     const webhookSecret = process.env.DODO_WEBHOOK_SECRET;
     if (!webhookSecret) {
       console.error('[Webhook] DODO_WEBHOOK_SECRET is not set');
-      if (process.env.NODE_ENV === 'production') {
-        return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
-      }
+      return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
     if (webhookSecret) {
       const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
@@ -64,6 +62,18 @@ export async function POST(request: Request) {
     if (eventType === 'payment.succeeded' || eventType === 'subscription.active') {
       const metadata = body.metadata || body.data?.metadata || {};
       const userId = metadata.userId;
+
+      if (!userId || typeof userId !== 'string') {
+        console.error('[Webhook] Missing or invalid userId in metadata');
+        return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
+      }
+      // Verify user actually exists
+      const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+      if (!userCheck.rows.length) {
+        console.error('[Webhook] userId not found:', userId);
+        return Response.json({ error: 'User not found' }, { status: 400 });
+      }
+
       const productId = body.product_id || body.data?.product_id;
       const plan = productId ? PLAN_MAP[productId] : null;
 
@@ -78,12 +88,25 @@ export async function POST(request: Request) {
           );
         }
         console.log(`[Webhook] Upgraded user ${userId} to ${plan}`);
+        auditLog('system', 'webhook_plan_change', 'user', userId, { plan, eventId, eventType }, 'webhook');
       }
     }
 
     if (eventType === 'subscription.cancelled' || eventType === 'subscription.expired') {
       const metadata = body.metadata || body.data?.metadata || {};
       const userId = metadata.userId;
+
+      if (!userId || typeof userId !== 'string') {
+        console.error('[Webhook] Missing or invalid userId in metadata');
+        return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
+      }
+      // Verify user actually exists
+      const userCheck2 = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+      if (!userCheck2.rows.length) {
+        console.error('[Webhook] userId not found:', userId);
+        return Response.json({ error: 'User not found' }, { status: 400 });
+      }
+
       if (userId) {
         await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
         await pool.query(
@@ -91,6 +114,7 @@ export async function POST(request: Request) {
           [userId]
         );
         console.log(`[Webhook] Downgraded user ${userId} to free`);
+        auditLog('system', 'webhook_plan_change', 'user', userId, { plan: 'free', eventId, eventType }, 'webhook');
       }
     }
 

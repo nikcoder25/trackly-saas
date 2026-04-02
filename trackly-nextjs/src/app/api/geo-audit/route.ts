@@ -6,6 +6,19 @@ import { pool } from '@/lib/db';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function isPrivateHost(hostname: string): boolean {
+  if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(hostname)) return true;
+  const parts = hostname.split('.').map(Number);
+  if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    if (parts[0] === 169 && parts[1] === 254) return true;
+    if (parts[0] === 127) return true;
+  }
+  return false;
+}
+
 function isValidUrl(str: string): boolean {
   try {
     const u = new URL(str);
@@ -384,6 +397,16 @@ export async function POST(req: NextRequest) {
     const trimmedUrl = url.trim();
     if (!isValidUrl(trimmedUrl)) {
       return Response.json({ error: 'Invalid URL. Must be a valid http or https URL.' }, { status: 400 });
+    }
+
+    // Block private/internal network addresses (SSRF protection)
+    try {
+      const urlObj = new URL(trimmedUrl);
+      if (isPrivateHost(urlObj.hostname)) {
+        return Response.json({ error: 'URL points to a private/internal network address' }, { status: 400 });
+      }
+    } catch {
+      return Response.json({ error: 'Invalid URL' }, { status: 400 });
     }
 
     // Fetch the page

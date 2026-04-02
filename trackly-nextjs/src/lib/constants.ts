@@ -4,7 +4,7 @@
 
 export const AUTH = {
   accessTokenMaxAge: 15 * 60 * 1000, // 15 minutes
-  refreshTokenMaxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  refreshTokenMaxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   passwordResetExpiry: 3600000, // 1 hour
   bcryptRounds: 12,
 };

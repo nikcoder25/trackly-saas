@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
           const retryAfter = Math.ceil((lockedUntil - Date.now()) / 1000);
           auditLog(user.id, 'login_locked', 'user', user.id, { failedAttempts, ip }, ip);
           return Response.json({
-            error: `Account temporarily locked due to too many failed attempts. Try again in ${Math.ceil(retryAfter / 60)} minutes.`,
+            error: 'Invalid email or password',
+            locked: true,
             retryAfter,
           }, { status: 429 });
         }
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
         );
         auditLog(user.id, 'login_failed', 'user', user.id, { attempt: currentFails + 1, ip }, ip);
       }
-      return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+      return Response.json({ error: 'Invalid email or password' }, { status: 400 });
     }
 
     // Check 2FA

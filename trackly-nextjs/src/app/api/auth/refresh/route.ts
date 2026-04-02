@@ -4,10 +4,9 @@ import { pool } from '@/lib/db';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}));
   const cookieHeader = request.headers.get('cookie') || '';
   const refreshMatch = cookieHeader.match(/livesov_refresh=([^;]+)/);
-  const refreshToken = body.refreshToken || refreshMatch?.[1];
+  const refreshToken = refreshMatch?.[1];
 
   if (!refreshToken) return Response.json({ error: 'Refresh token required' }, { status: 400 });
 

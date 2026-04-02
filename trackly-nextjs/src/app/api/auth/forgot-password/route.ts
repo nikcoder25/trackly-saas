@@ -16,10 +16,12 @@ export async function POST(request: NextRequest) {
   const successMsg = 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.';
 
   try {
-    const result = await pool.query('SELECT id, email FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    const result = await pool.query('SELECT id, email, email_verified FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (!result.rows.length) return Response.json({ message: successMsg });
 
     const user = result.rows[0];
+
+    if (!user.email_verified) return Response.json({ message: successMsg });
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
 

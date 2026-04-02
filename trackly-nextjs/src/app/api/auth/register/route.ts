@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
        RETURNING id`,
       [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
     );
-    if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try a different email or sign in.' }, { status: 400 });
+    if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try again or use a different email.' }, { status: 400 });
 
     sendVerificationEmail(email.toLowerCase(), verifyToken).catch((e) => {
       console.error('[Register] Failed to send verification email:', e.message);
