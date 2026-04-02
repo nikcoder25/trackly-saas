@@ -135,10 +135,10 @@ export default function AdminPage() {
             value={search}
             onChange={e => { setSearch(e.target.value); setOffset(0); }}
             className="w-full h-11 pl-9 pr-3 rounded-lg text-sm bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition"
-            style={{ fontFamily: 'var(--font)', paddingLeft: 36 }}
+            style={{ fontFamily: 'var(--font)' }}
           />
         </div>
-        <button onClick={fetchUsers} className="shrink-0 h-11 px-5 rounded-lg text-sm font-semibold bg-[var(--primary)] text-white border-none cursor-pointer whitespace-nowrap hover:opacity-90 transition" style={{ fontFamily: 'var(--font)', padding: '0 20px' }}>Refresh</button>
+        <button onClick={fetchUsers} className="shrink-0 h-11 px-5 rounded-lg text-sm font-semibold bg-[var(--primary)] text-white border-none cursor-pointer whitespace-nowrap hover:opacity-90 transition" style={{ fontFamily: 'var(--font)' }}>Refresh</button>
       </div>
 
       {/* Users Table */}
@@ -203,13 +203,11 @@ export default function AdminPage() {
                       <button
                         onClick={() => { setEditingUser(u); setEditPlan(u.plan); }}
                         className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)] border border-[color-mix(in_srgb,var(--primary)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] transition"
-                        style={{ padding: '6px 12px' }}
                       >Edit</button>
                       {u.role !== 'admin' && (
                         <button
                           onClick={() => deleteUser(u.id, u.email)}
                           className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap bg-[rgba(239,68,68,0.08)] text-[var(--red)] border border-[rgba(239,68,68,0.2)] hover:bg-[rgba(239,68,68,0.15)] transition"
-                          style={{ padding: '6px 12px' }}
                         >Delete</button>
                       )}
                     </div>
