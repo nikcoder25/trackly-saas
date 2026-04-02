@@ -363,6 +363,23 @@ export default function AccuracyPage() {
     }).catch(err => console.error('[ToggleFixed]', err));
   }
 
+  // Build lookup from canonical facts to resolve expected values on the frontend
+  const expectedLookup = useMemo(() => {
+    const normalize = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+    const map = new Map<string, string>();
+    for (const f of facts) {
+      map.set(f.key, f.value);
+      map.set(normalize(f.key), f.value);
+    }
+    return map;
+  }, [facts]);
+
+  function getExpected(issue: Issue): string {
+    if (issue.expected) return issue.expected;
+    const normalize = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+    return expectedLookup.get(issue.fact_key) || expectedLookup.get(normalize(issue.fact_key)) || '';
+  }
+
   // Derived data
   const platformAccuracy = useMemo(() => {
     return Object.entries(platformStats).map(([name, stat]) => ({
@@ -680,7 +697,7 @@ export default function AccuracyPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, textDecoration: issue.fixed ? 'line-through' : 'none' }}>{issue.fact_key}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected || '(not set)'}</strong> · Found: <strong style={{ color: issue.fixed ? 'var(--muted)' : 'var(--red)' }}>{issue.found}</strong>
+                        Expected: <strong style={{ color: 'var(--green)' }}>{getExpected(issue) || '(not set)'}</strong> · Found: <strong style={{ color: issue.fixed ? 'var(--muted)' : 'var(--red)' }}>{issue.found}</strong>
                       </div>
                       <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
