@@ -31,8 +31,6 @@ export default function DashboardPage() {
   const { live, elapsed, pct } = useRun();
   const { brand: contextBrand, brands, loading, reload: fetchBrands } = useBrandData();
   // Language removed
-  const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
-  const toastIdRef = useRef(0);
   const [newQuery, setNewQuery] = useState('');
   const [compareMode, setCompareMode] = useState<'current' | 'week' | 'month'>('current');
   const [preset, setPreset] = useState<'all' | 'founder' | 'seo' | 'agency'>('all');
@@ -59,21 +57,6 @@ export default function DashboardPage() {
   // Hydration-safe: initialize to 0, set real value in useEffect
   const [now, setNow] = useState(0);
   const [nextRunText, setNextRunText] = useState('');
-
-  // Toast notifications — spawn a card for each new result
-  const lastResultCountRef = useRef(0);
-  useEffect(() => {
-    if (live.results.length <= lastResultCountRef.current) return;
-    const newResults = live.results.slice(lastResultCountRef.current);
-    lastResultCountRef.current = live.results.length;
-    const newToasts = newResults.map(r => ({ ...r, id: ++toastIdRef.current }));
-    setToasts(prev => [...prev, ...newToasts].slice(-6)); // keep max 6 visible
-    // Auto-dismiss each toast after 4s
-    const ids = newToasts.map(t => t.id);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => !ids.includes(t.id)));
-    }, 4000);
-  }, [live.results.length]);
 
   // Live computed scores (override static values during run)
   const liveSOV = live.running && live.received > 0
@@ -584,60 +567,11 @@ export default function DashboardPage() {
         {showClearConfirm&&<div style={{background:'rgba(239,68,68,.06)',border:'1px solid rgba(239,68,68,.2)',borderRadius:'var(--radius-xs)',padding:14,marginTop:12}}><div style={{fontSize:13,fontWeight:600,color:'var(--red)',marginBottom:8}}>Remove all {queries.length} queries?</div><div style={{display:'flex',gap:8}}><button className="pbtn" onClick={()=>setShowClearConfirm(false)}>Cancel</button><button className="pbtn" style={{background:'var(--red)',color:'#fff',borderColor:'var(--red)'}} onClick={()=>{if(!brand)return;fetch(`/api/brands/${brand.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({queries:[]})}).then(()=>{fetchBrands();setShowClearConfirm(false);});}}>Yes, Remove All</button></div></div>}
       </div>}
 
-      {/* ═══ TOAST NOTIFICATIONS (fixed bottom-right) ═══ */}
-      {toasts.length > 0 && (
-        <div style={{
-          position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
-          display: 'flex', flexDirection: 'column-reverse', gap: 8,
-          maxHeight: '50vh', pointerEvents: 'none',
-        }}>
-          {toasts.map(t => (
-            <div key={t.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-              background: 'var(--bg2)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-xs)', boxShadow: '0 4px 12px rgba(0,0,0,.15)',
-              minWidth: 280, maxWidth: 380, animation: 'toastIn .35s ease',
-              pointerEvents: 'auto',
-              borderLeft: `3px solid ${t.error ? 'var(--amber)' : t.mentioned ? 'var(--green)' : 'var(--red)'}`,
-            }}>
-              <span style={{
-                width: 28, height: 28, borderRadius: 8,
-                background: PLATFORM_COLORS[t.platform] || 'var(--bg3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, color: '#fff', fontWeight: 700, flexShrink: 0,
-              }}>
-                {t.platform[0]}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: PLATFORM_COLORS[t.platform] || 'var(--muted)', fontWeight: 700 }}>
-                  {t.platform}{t.model ? ` · ${t.model}` : ''}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {t.query}
-                </div>
-              </div>
-              <span style={{
-                fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100,
-                background: t.error ? 'rgba(245,158,11,.1)' : t.mentioned ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)',
-                color: t.error ? 'var(--amber)' : t.mentioned ? 'var(--green)' : 'var(--red)',
-                whiteSpace: 'nowrap',
-              }}>
-                {t.error ? 'ERROR' : t.mentioned ? 'FOUND' : 'NOT FOUND'}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Animations */}
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes toastIn {
-          from { opacity: 0; transform: translateX(40px); }
-          to { opacity: 1; transform: translateX(0); }
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
