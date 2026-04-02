@@ -355,7 +355,7 @@ export default function AccuracyPage() {
   }
 
   function toggleFixed(issue: Issue) {
-    if (!brand || !issue.id) return;
+    if (!brand || issue.id == null) return;
     fetch(`/api/brands/${brand.id}/accuracy/issues/${issue.id}`, {
       method: 'PATCH', credentials: 'include',
     }).then(r => {
@@ -369,7 +369,7 @@ export default function AccuracyPage() {
   }
 
   function reverifyIssue(issue: Issue) {
-    if (!brand || !issue.id || reverifying !== null) return;
+    if (!brand || issue.id == null || reverifying !== null) return;
     setReverifying(issue.id);
     fetch(`/api/brands/${brand.id}/accuracy/reverify`, {
       method: 'POST', credentials: 'include',
@@ -882,7 +882,7 @@ export default function AccuracyPage() {
                     </div>
                     {/* ── Improvement 5: Mark Fixed + Re-verify buttons ── */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
-                      {issue.id && (
+                      {issue.id != null ? (
                         <>
                           <button onClick={e => { e.stopPropagation(); toggleFixed(issue); }} style={{
                             padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font)',
@@ -906,7 +906,7 @@ export default function AccuracyPage() {
                             </button>
                           )}
                         </>
-                      )}
+                      ) : null}
                       <span style={{ fontSize: 11, color: 'var(--muted)' }}>{expandedIssue === i ? '▼' : '▶'}</span>
                     </div>
                   </div>
