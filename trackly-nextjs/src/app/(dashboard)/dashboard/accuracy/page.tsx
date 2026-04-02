@@ -9,7 +9,7 @@ import { useBrands } from '@/contexts/BrandContext';
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
 interface SuggestedFact { key: string; value: string; category: string; source: 'website' | 'ai_responses'; confidence: 'high' | 'medium' | 'low'; }
-interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; }
+interface Issue { platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
@@ -659,11 +659,18 @@ export default function AccuracyPage() {
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                         Expected: <strong style={{ color: 'var(--green)' }}>{issue.expected}</strong> · Found: <strong style={{ color: 'var(--red)' }}>{issue.found}</strong>
                       </div>
-                      <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
                         {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
                         {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
+                        {issue.source_url && (
+                          <a href={issue.source_url} target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer' }}>
+                            Source ↗
+                          </a>
+                        )}
                       </div>
                     </div>
                     <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>
