@@ -15,8 +15,11 @@ const fmtDateFull = (d: string) => new Date(d).toLocaleDateString('en-US', { mon
 
 /* ── Smooth curve path with clamped control points ── */
 function smoothPath(pts: { x: number; y: number }[], yMin?: number, yMax?: number): string {
-  if (pts.length < 2) return '';
-  if (pts.length === 2) return `M${pts[0].x},${pts[0].y}L${pts[1].x},${pts[1].y}`;
+  // Filter out any NaN points
+  const valid = pts.filter(p => !isNaN(p.x) && !isNaN(p.y));
+  if (valid.length < 2) return '';
+  if (valid.length === 2) return `M${valid[0].x},${valid[0].y}L${valid[1].x},${valid[1].y}`;
+  pts = valid;
   const clampY = (v: number) => {
     if (yMin !== undefined && v < yMin) return yMin;
     if (yMax !== undefined && v > yMax) return yMax;
@@ -42,12 +45,18 @@ export default function TrendsPage() {
   const brand = rawBrand as Brand | null;
 
   const history: SovPoint[] = useMemo(() => {
-    if (brand?.sovHistory?.length) return brand.sovHistory;
-    return (brand?.runs || []).filter(r => r.date && r.sov !== undefined).map(r => ({
-      date: r.date!,
-      overall: r.sov!,
-      platforms: r.platforms ? Object.fromEntries(Object.entries(r.platforms).map(([k, v]) => [k, v.sov || 0])) : {},
-    }));
+    if (brand?.sovHistory?.length) {
+      return brand.sovHistory.map(h => ({ ...h, overall: Number(h.overall) || 0 }));
+    }
+    return (brand?.runs || [])
+      .filter(r => r.date && r.sov != null && !isNaN(Number(r.sov)))
+      .map(r => ({
+        date: r.date!,
+        overall: Number(r.sov) || 0,
+        platforms: r.platforms
+          ? Object.fromEntries(Object.entries(r.platforms).map(([k, v]) => [k, Number(v.sov) || 0]))
+          : {},
+      }));
   }, [brand]);
 
   const allPlatforms = useMemo(() => {
@@ -56,13 +65,14 @@ export default function TrendsPage() {
     return [...set];
   }, [history]);
 
-  // Stats
+  // Stats — guard against NaN with || 0
   const latest = history.length > 0 ? history[history.length - 1] : null;
   const prev = history.length > 1 ? history[history.length - 2] : null;
-  const sovDelta = latest && prev ? latest.overall - prev.overall : null;
-  const avgSov = history.length > 0 ? Math.round(history.reduce((s, h) => s + h.overall, 0) / history.length) : 0;
-  const peakSov = history.length > 0 ? Math.max(...history.map(h => h.overall)) : 0;
-  const lowSov = history.length > 0 ? Math.min(...history.map(h => h.overall)) : 0;
+  const sovDelta = latest && prev ? (latest.overall - prev.overall) : null;
+  const validOveralls = history.map(h => h.overall).filter(v => !isNaN(v));
+  const avgSov = validOveralls.length > 0 ? Math.round(validOveralls.reduce((s, v) => s + v, 0) / validOveralls.length) : 0;
+  const peakSov = validOveralls.length > 0 ? Math.max(...validOveralls) : 0;
+  const lowSov = validOveralls.length > 0 ? Math.min(...validOveralls) : 0;
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
@@ -146,14 +156,18 @@ function OverallChart({ history }: { history: SovPoint[] }) {
   const chartW = W - PL - PR, chartH = H - PT - PB;
   const yTop = PT, yBottom = PT + chartH;
 
-  const pts = history.map((h, i) => ({
-    x: PL + (i / Math.max(history.length - 1, 1)) * chartW,
-    y: PT + chartH - (Math.min(Math.max(h.overall, 0), 100) / 100) * chartH,
-  }));
+  const pts = history.map((h, i) => {
+    const val = Number(h.overall) || 0;
+    return {
+      x: PL + (i / Math.max(history.length - 1, 1)) * chartW,
+      y: PT + chartH - (Math.min(Math.max(val, 0), 100) / 100) * chartH,
+    };
+  });
 
-  // Clamp smooth path so curves never go above 0% line or below 100% line
   const pathD = smoothPath(pts, yTop, yBottom);
-  const areaD = pathD + `L${pts[pts.length - 1].x},${yBottom}L${pts[0].x},${yBottom}Z`;
+  const areaD = pts.length >= 2
+    ? pathD + `L${pts[pts.length - 1].x},${yBottom}L${pts[0].x},${yBottom}Z`
+    : '';
 
   const yTicks = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
   const xTickCount = Math.min(history.length, 10);
