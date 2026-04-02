@@ -309,9 +309,9 @@ export default function DashboardPage() {
   // API Health summary — normalize platform data (handles both number and object formats)
   const apiTotalResponses = Object.values(platforms).reduce((s, p) => s + normPlatform(p).total, 0);
   const apiErrors = Object.values(platforms).reduce((s, p) => s + normPlatform(p).errors, 0);
-  const apiHealthy = Object.values(platforms).filter(p => { const n = normPlatform(p); return n.total > 0 && (n.errors === 0 || n.errors / n.total < 0.3); }).length;
+  const apiHealthy = Object.values(platforms).filter(p => { const n = normPlatform(p); return n.total > 0 && n.errors === 0; }).length;
   const apiTotal = Object.values(platforms).filter(p => normPlatform(p).total > 0).length;
-  const apiHealthColor = apiErrors === 0 && apiTotalResponses > 0 ? 'var(--green)' : apiErrors > 0 ? 'var(--red)' : 'var(--muted)';
+  const apiHealthColor = apiErrors === 0 && apiTotalResponses > 0 ? 'var(--green)' : apiErrors > 0 ? 'var(--amber)' : 'var(--muted)';
 
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
@@ -532,7 +532,7 @@ export default function DashboardPage() {
       </div>}
 
       {/* ACTIONABLE INSIGHTS */}
-      {show('insights')&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">Actionable Insights</div><div className="ov-card-sub">{alerts.length} tip{alerts.length!==1?'s':''}</div></div>
+      {show('insights')&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">Actionable Insights</div><div className="ov-card-sub">{((sovChange!==null&&sovChange<-5?1:0)+(sov>0&&sov<50?1:0)+(sentTotal>0&&negCount>0?1:0)+(sov===0?1:0))} tip{((sovChange!==null&&sovChange<-5?1:0)+(sov>0&&sov<50?1:0)+(sentTotal>0&&negCount>0?1:0)+(sov===0?1:0))!==1?'s':''}</div></div>
         {sovChange!==null&&sovChange<-5&&<div className="ov-insight"><span className="ov-insight-icon">⚡</span><div className="ov-insight-text"><div className="ov-insight-head">Platform Gap Detected</div><div>Strong on <strong>ChatGPT</strong> but invisible on <strong>Gemini</strong>. Different AI platforms pull from different sources — diversify your online presence.</div></div></div>}
         {sov>0&&sov<50&&<div className="ov-insight"><span className="ov-insight-icon">📈</span><div className="ov-insight-text"><div className="ov-insight-head">Growing Your AI Presence</div><div>You&apos;re appearing in {sov}% of queries. To boost this, create <strong>FAQ-style content</strong> that directly answers common questions, and ensure your <strong><Link href="/dashboard/setup" style={{color:'var(--primary)',textDecoration:'none'}}>Google Business Profile</Link></strong> is fully optimized.</div></div></div>}
         {sentTotal>0&&negCount>0&&<div className="ov-insight"><span className="ov-insight-icon">⚠️</span><div className="ov-insight-text"><div className="ov-insight-head">Negative Sentiment Detected</div><div>{negCount} AI response{negCount>1?'s':''} show{negCount===1?'s':''} negative sentiment about your brand. Check <Link href="/dashboard/mentions" style={{color:'var(--primary)',textDecoration:'none'}}>All Results</Link> to see what AI is saying and address underlying issues.</div></div></div>}
@@ -562,7 +562,7 @@ export default function DashboardPage() {
 
       {/* CITATION SOURCES */}
       {show('citations')&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">Citation Sources</div><div className="ov-card-sub">Where AI pulls information from</div></div>
-        {topCitations.length>0?<div className="ov-cit-list">{(()=>{const max=topCitations[0]?topCitations[0][1]:1;return topCitations.map(([domain,count],i)=><div key={i} className="ov-cit-item"><div className={`ov-cit-domain ${brand.name&&domain.includes(brand.name.toLowerCase().replace(/\s+/g,''))?'ov-cit-own':''}`}>{brand.name&&domain.includes(brand.name.toLowerCase().replace(/\s+/g,''))?'★ ':''}{domain}</div><div className="ov-cit-bar"><div className="ov-cit-bar-fill" style={{width:`${(count/max)*100}%`}}/></div><div className="ov-cit-count">{count}</div></div>);})()}</div>:<div style={{fontSize:12,color:'var(--muted)'}}>Citation tracking requires AI platforms that provide source links.</div>}
+        {topCitations.length>0?<div className="ov-cit-list">{(()=>{const max=topCitations[0]?topCitations[0][1]:1;return topCitations.map(([domain,count],i)=><div key={i} className="ov-cit-item"><div className={`ov-cit-domain ${brand.name&&domain.includes(brand.name.toLowerCase().replace(/\s+/g,''))?'ov-cit-own':''}`}>{brand.name&&domain.includes(brand.name.toLowerCase().replace(/\s+/g,''))?'★ ':''}{domain}</div><div className="ov-cit-bar"><div className="ov-cit-bar-fill" style={{width:`${(count/max)*100}%`}}/></div><div className="ov-cit-count">{count}</div></div>);})()}</div>:<div style={{fontSize:12,color:'var(--muted)'}}>No citations captured yet. Citations will appear after your next run.</div>}
       </div>}
 
       {/* LAST RUN */}
