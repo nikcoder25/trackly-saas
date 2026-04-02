@@ -44,11 +44,15 @@ function renderContent(content: string) {
   let inCode = false;
   let codeLines: string[] = [];
 
+  const escHtml = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const parseInline = (text: string) => {
-    // Bold, links, inline code
-    return text
+    // Escape HTML first, then apply markdown formatting
+    return escHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="blog-link">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
+        const safeUrl = /^https?:\/\//.test(url) || url.startsWith('/') ? url : '#';
+        return `<a href="${safeUrl}" class="blog-link">${label}</a>`;
+      })
       .replace(/`([^`]+)`/g, '<code class="blog-code">$1</code>');
   };
 
