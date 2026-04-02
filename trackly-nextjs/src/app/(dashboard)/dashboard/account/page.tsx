@@ -30,7 +30,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     fetch('/api/payments/history', { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => {
         const history = (d.history || []).map((h: Record<string, unknown>) => ({
           date: h.date || h.processed_at || h.created_at || '',
@@ -42,7 +42,7 @@ export default function AccountPage() {
       })
       .catch(() => {});
     fetch('/api/auth/2fa/status', { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => { setTwoFAEnabled(d.enabled); setTwoFAStatus(d.enabled ? 'Enabled' : 'Not enabled'); })
       .catch(() => setTwoFAStatus('Not enabled'));
   }, []);

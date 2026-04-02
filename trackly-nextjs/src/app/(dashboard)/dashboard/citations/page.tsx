@@ -14,7 +14,7 @@ export default function CitationsPage() {
   useEffect(() => {
     if (!brand) return;
     fetch(`/api/brands/${brand.id}/citation-analysis`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => setCitData({ domains: d?.domains ?? {}, totalCitations: d?.totalCitations ?? 0, ownDomain: d?.ownDomain, ownDomainName: d?.ownDomainName }))
       .catch(() => {
         // Compute from runs if API not available

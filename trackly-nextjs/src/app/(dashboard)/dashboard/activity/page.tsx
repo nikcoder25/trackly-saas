@@ -18,8 +18,8 @@ export default function ActivityPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/activity-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [] })),
-      fetch('/api/api-logs', { credentials: 'include' }).then(r => r.json()).catch(() => ({ logs: [], errors: 0 })),
+      fetch('/api/activity-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [] })),
+      fetch('/api/api-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [], errors: 0 })),
     ]).then(([actData, apiData]) => {
       setActivityLogs((actData.logs || []).map((l: Record<string, unknown>) => ({ ...l, timestamp: l.timestamp || l.created_at || '' })));
       setApiLogs(apiData.logs || []);

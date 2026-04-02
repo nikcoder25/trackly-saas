@@ -24,7 +24,7 @@ export default function AlertsPage() {
   useEffect(() => {
     if (!brand) return;
     fetch(`/api/brands/${brand.id}/alerts`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); setWebhookUrl(d.webhookUrl || ''); setReportFreq(d.reportFreq || 'off'); })
       .catch(() => {});
   }, [brand]);
@@ -34,7 +34,7 @@ export default function AlertsPage() {
     fetch(`/api/brands/${brand.id}/alerts`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: alertName, condition: alertCondition, threshold: alertThreshold, action: alertAction, cooldown: alertCooldown }),
-    }).then(r => r.json()).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); });
+    }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); });
   }
 
   function saveWebhook() {

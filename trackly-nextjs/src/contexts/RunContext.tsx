@@ -180,7 +180,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
     if (Date.now() - runInfo.startedAt > 10 * 60 * 1000) { localStorage.removeItem('livesov_active_run'); return; }
 
     fetch(`/api/brands/${runInfo.brandId}/run-status/${runInfo.runId}`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(data => {
         if (data.status === 'running') {
           runningRef.current = true;

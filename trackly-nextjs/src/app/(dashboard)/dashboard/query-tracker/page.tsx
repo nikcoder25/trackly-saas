@@ -23,7 +23,7 @@ export default function QueryTrackerPage() {
     if (!brand) return;
     // Try API first, fall back to computing from brand data
     fetch(`/api/brands/${brand.id}/keyword-tracker?period=${period}`, { credentials: 'include' })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => {
         if (d.keywords && d.keywords.length > 0) {
           setKeywords(d.keywords);
@@ -36,7 +36,7 @@ export default function QueryTrackerPage() {
     function computeFromBrand() {
       // Fetch full brand data to get queries and runs
       fetch(`/api/brands/${brand!.id}`, { credentials: 'include' })
-        .then(r => r.json())
+        .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
         .then(d => {
           const fullBrand = d.brand || brand;
           computeFromRuns(fullBrand);
