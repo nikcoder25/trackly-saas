@@ -509,7 +509,7 @@ export default function LivesovHomePage() {
 
           <div className="tl-pricing-grid">
             {pricingPlans.map(plan => (
-              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''} ${plan.enterprise ? 'tl-price-card--enterprise' : ''}`}>
+              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
                 {plan.featured && <div className="tl-price-badge">Most Popular</div>}
                 <h3>{plan.name}</h3>
                 <div className="tl-price-amount">
