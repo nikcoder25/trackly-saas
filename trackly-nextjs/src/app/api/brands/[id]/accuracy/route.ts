@@ -1,6 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getBrandWithAccess } from '@/lib/helpers';
+import { getBrandWithAccess, decryptApiKeys } from '@/lib/helpers';
 import { runFactCheck, autoDiscoverFacts } from '@/lib/fact-checker';
 
 interface FactRow {
@@ -126,7 +126,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (body.action === 'auto-discover') {
     try {
       // Use brand info already fetched by getBrandWithAccess (name/website are in the JSONB data column)
-      const brand = access.brand as { name: string; website?: string | null };
+      const brand = access.brand as { name: string; website?: string | null; userId?: string };
 
       // Get recent AI responses about this brand
       let aiResponses: string[] = [];
@@ -142,7 +142,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         // table may not exist
       }
 
-      const result = await autoDiscoverFacts(brand.name, brand.website || '', aiResponses);
+      // Fetch the brand owner's API keys so the checker can use them as fallback
+      let userApiKeys: Record<string, string | null> = {};
+      try {
+        const ownerId = brand.userId || user.id;
+        const keysResult = await pool.query('SELECT api_keys FROM users WHERE id = $1', [ownerId]);
+        if (keysResult.rows[0]?.api_keys) {
+          userApiKeys = decryptApiKeys(keysResult.rows[0].api_keys);
+        }
+      } catch {
+        // non-critical
+      }
+
+      const result = await autoDiscoverFacts(brand.name, brand.website || '', aiResponses, userApiKeys);
 
       return Response.json({
         suggestedFacts: result.facts,
