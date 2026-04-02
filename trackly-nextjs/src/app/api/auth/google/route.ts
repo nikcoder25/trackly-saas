@@ -25,7 +25,15 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const { credential, access_token } = await request.json();
+
+  let credential: string | undefined, access_token: string | undefined;
+  try {
+    const body = await request.json();
+    credential = body.credential;
+    access_token = body.access_token;
+  } catch {
+    return Response.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
   if (!credential && !access_token) return Response.json({ error: 'Google credential required' }, { status: 400 });
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -51,7 +59,7 @@ export async function POST(request: NextRequest) {
       avatarUrl = userInfo.picture || null;
     } else {
       // Validate ID token via Google's tokeninfo API
-      const resp = await fetch(`${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential)}`);
+      const resp = await fetch(`${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential!)}`);
       if (!resp.ok) return Response.json({ error: 'Invalid token' }, { status: 400 });
       const payload = await resp.json();
       // Verify audience matches our client ID (prevents token reuse attacks)

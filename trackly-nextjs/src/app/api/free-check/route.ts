@@ -20,11 +20,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { brandName, industry } = body;
 
-    if (!brandName || typeof brandName !== 'string' || !brandName.trim()) {
-      return Response.json({ error: 'Brand name is required.' }, { status: 400 });
+    if (!brandName || typeof brandName !== 'string' || !brandName.trim() || brandName.length > 200) {
+      return Response.json({ error: 'Brand name is required (max 200 chars).' }, { status: 400 });
     }
-    if (!industry || typeof industry !== 'string' || !industry.trim()) {
-      return Response.json({ error: 'Industry is required.' }, { status: 400 });
+    if (!industry || typeof industry !== 'string' || !industry.trim() || industry.length > 200) {
+      return Response.json({ error: 'Industry is required (max 200 chars).' }, { status: 400 });
     }
 
     // Find the first platform with an available API key

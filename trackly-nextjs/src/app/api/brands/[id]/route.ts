@@ -32,7 +32,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot edit brands.' }, { status: 403 });
 
     const brand = access.brand;
-    const body = await request.json();
+    let body: Record<string, unknown>;
+    try { body = await request.json(); } catch {
+      return Response.json({ error: 'Invalid request body' }, { status: 400 });
+    }
 
     // Plan limit checks — always check against the brand OWNER's plan and count
     const ownerId = brand.userId || user.id;
