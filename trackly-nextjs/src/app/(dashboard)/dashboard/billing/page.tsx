@@ -133,12 +133,18 @@ export default function BillingPage() {
       <div className="card" style={{ padding: 16, marginTop: 16 }} id="plan-comparison">
         <div className="card-title">Plan Comparison</div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'center' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'center', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '20%' }} />
+              {visiblePlans.map(p => (
+                <col key={p} style={{ width: `${80 / visiblePlans.length}%` }} />
+              ))}
+            </colgroup>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
                 <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, color: 'var(--text)' }}>Feature</th>
                 {visiblePlans.map(p => (
-                  <th key={p} style={{ padding: '10px 14px', fontWeight: 700, color: p === currentPlan ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', fontSize: 11, letterSpacing: .5 }}>
+                  <th key={p} style={{ padding: '10px 8px', fontWeight: 700, color: p === currentPlan ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', fontSize: 11, letterSpacing: .5 }}>
                     {p}{p === currentPlan && ' ★'}
                     <div style={{ fontSize: 13, fontWeight: 800, color: p === currentPlan ? 'var(--primary)' : 'var(--text)', marginTop: 2 }}>{PLAN_PRICES[p]}<span style={{ fontSize: 9, fontWeight: 400, color: 'var(--muted)' }}>{p !== 'free' && p !== 'owner' ? '/mo' : ''}</span></div>
                   </th>
@@ -155,7 +161,7 @@ export default function BillingPage() {
                     const isDash = val === '—';
                     const isCurrent = p === currentPlan;
                     return (
-                      <td key={p} style={{ padding: '10px 14px', color: isCheck ? 'var(--green)' : isDash ? 'var(--muted)' : isCurrent ? 'var(--primary)' : 'var(--text)', fontWeight: isCurrent ? 700 : 400, fontFamily: !isCheck && !isDash ? 'var(--mono)' : 'var(--font)' }}>
+                      <td key={p} style={{ padding: '10px 8px', color: isCheck ? 'var(--green)' : isDash ? 'var(--muted)' : isCurrent ? 'var(--primary)' : 'var(--text)', fontWeight: isCurrent ? 700 : 400, fontFamily: !isCheck && !isDash ? 'var(--mono)' : 'var(--font)' }}>
                         {val}
                       </td>
                     );
