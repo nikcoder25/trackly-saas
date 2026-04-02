@@ -126,18 +126,19 @@ export default function AdminPage() {
       </div>
 
       {/* Search */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <div style={{ position: 'relative', flex: '1 1 0%', minWidth: 0 }}>
-          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 min-w-0">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
             type="text"
             placeholder="Search by email, name, or username..."
             value={search}
             onChange={e => { setSearch(e.target.value); setOffset(0); }}
-            style={{ width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 9, paddingBottom: 9, borderRadius: 8, fontSize: 13, background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', fontFamily: 'var(--font)' }}
+            className="w-full h-11 pl-9 pr-3 rounded-lg text-sm bg-[var(--bg2)] text-[var(--text)] border border-[var(--border)] outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] transition"
+            style={{ fontFamily: 'var(--font)' }}
           />
         </div>
-        <button onClick={fetchUsers} style={{ flexShrink: 0, padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'var(--font)', whiteSpace: 'nowrap' }}>Refresh</button>
+        <button onClick={fetchUsers} className="shrink-0 h-11 px-5 rounded-lg text-sm font-semibold bg-[var(--primary)] text-white border-none cursor-pointer whitespace-nowrap hover:opacity-90 transition" style={{ fontFamily: 'var(--font)' }}>Refresh</button>
       </div>
 
       {/* Users Table */}
@@ -150,7 +151,7 @@ export default function AdminPage() {
       ) : (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--app-shadow)' }}>
           <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse', minWidth: 800 }}>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead>
               <tr className="border-b border-[var(--border)]">
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Name / Email</th>
@@ -198,15 +199,15 @@ export default function AdminPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-[var(--muted)]" style={{ whiteSpace: 'nowrap' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => { setEditingUser(u); setEditPlan(u.plan); }}
-                        className="px-2.5 py-1 rounded text-[10px] font-medium bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:border-[var(--primary)] transition"
+                        className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)] border border-[color-mix(in_srgb,var(--primary)_20%,transparent)] hover:bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] transition"
                       >Edit</button>
                       {u.role !== 'admin' && (
                         <button
                           onClick={() => deleteUser(u.id, u.email)}
-                          className="px-2.5 py-1 rounded text-[10px] font-medium bg-[rgba(239,68,68,0.05)] text-[var(--red)] border border-[rgba(239,68,68,0.2)] hover:bg-[rgba(239,68,68,0.1)] transition"
+                          className="px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap bg-[rgba(239,68,68,0.08)] text-[var(--red)] border border-[rgba(239,68,68,0.2)] hover:bg-[rgba(239,68,68,0.15)] transition"
                         >Delete</button>
                       )}
                     </div>
