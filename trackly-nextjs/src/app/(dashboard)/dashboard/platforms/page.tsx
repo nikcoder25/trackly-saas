@@ -154,60 +154,60 @@ export default function PlatformsPage() {
             : null;
 
           return (
-            <div key={name} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5 shadow-[var(--app-shadow)] hover:shadow-[var(--app-shadow-lg)] hover:-translate-y-px transition" style={{ borderLeft: `3px solid ${color}` }}>
+            <div key={name} className="bg-[var(--bg2)] border border-[var(--border)] rounded-xl shadow-[var(--app-shadow)] hover:shadow-[var(--app-shadow-lg)] hover:-translate-y-px transition" style={{ borderLeft: `3px solid ${color}`, padding: '20px 22px' }}>
               {/* Header */}
-              <div className="flex items-center gap-3 mb-3">
-                <span className="w-4 h-4 rounded-full" style={{ background: color }} />
-                <h3 className="font-semibold text-[var(--text)]">{name}</h3>
-                <div className="ml-auto flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ background: health.dot }} />
-                  <span className="text-[10px] font-medium" style={{ color: health.color }}>{health.label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <span style={{ width: 14, height: 14, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{name}</h3>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: health.dot }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: health.color }}>{health.label}</span>
                 </div>
               </div>
 
               {hasData ? (
                 <>
                   {/* SOV */}
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-2xl font-extrabold font-mono" style={{ color: n.sov >= 50 ? 'var(--green)' : n.sov > 0 ? 'var(--amber)' : 'var(--muted)' }}>{n.sov}%</span>
-                    <span className="text-[10px] text-[var(--muted)] uppercase tracking-wider">SOV</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: n.sov >= 50 ? 'var(--green)' : n.sov > 0 ? 'var(--amber)' : 'var(--muted)', lineHeight: 1 }}>{n.sov}%</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>SOV</span>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="w-full bg-[var(--bg)] rounded-full h-1.5 mb-4">
-                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(n.sov, 100)}%`, background: color }} />
+                  <div style={{ width: '100%', background: 'var(--bg)', borderRadius: 99, height: 6, marginBottom: 18 }}>
+                    <div style={{ height: 6, borderRadius: 99, width: `${Math.min(n.sov, 100)}%`, background: color, transition: 'width 0.3s' }} />
                   </div>
 
                   {/* Stats */}
-                  <div className="space-y-2 text-[12px]">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--muted)]">Mentions</span>
-                      <span className="font-mono text-[var(--text)] font-medium">{n.mentions} / {n.total}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>Mentions</span>
+                      <span style={{ fontSize: 13, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--text)' }}>{n.mentions} / {n.total}</span>
                     </div>
                     {successRate !== null && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-[var(--muted)]">Success Rate</span>
-                        <span className={`font-mono font-medium ${successRate >= 90 ? 'text-[var(--green)]' : successRate >= 70 ? 'text-[var(--amber)]' : 'text-[var(--red)]'}`}>{successRate}%</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Success Rate</span>
+                        <span style={{ fontSize: 13, fontFamily: 'var(--mono)', fontWeight: 600, color: successRate >= 90 ? 'var(--green)' : successRate >= 70 ? 'var(--amber)' : 'var(--red)' }}>{successRate}%</span>
                       </div>
                     )}
                     {n.errors > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-[var(--muted)]">Errors</span>
-                        <span className="font-mono text-[var(--red)] font-medium">{n.errors}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Errors</span>
+                        <span style={{ fontSize: 13, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--red)' }}>{n.errors}</span>
                       </div>
                     )}
                     {stats && stats.totalCalls > 0 && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-[var(--muted)]">Total Calls <span className="text-[10px]">(last 10 runs)</span></span>
-                        <span className="font-mono text-[var(--text)] font-medium">{stats.totalCalls}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Total Calls <span style={{ fontSize: 11 }}>(last 10 runs)</span></span>
+                        <span style={{ fontSize: 13, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--text)' }}>{stats.totalCalls}</span>
                       </div>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="text-center py-4">
-                  <p className="text-2xl font-bold text-[var(--muted)]">—</p>
-                  <p className="text-xs text-[var(--muted)] mt-1">No data yet. Run queries to see results.</p>
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <p style={{ fontSize: 24, fontWeight: 700, color: 'var(--muted)' }}>—</p>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>No data yet. Run queries to see results.</p>
                 </div>
               )}
             </div>
