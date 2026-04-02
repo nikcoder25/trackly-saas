@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRICING_PLANS } from '@/lib/constants';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface BillingEntry { date: string; plan: string; amount: string; status: string; }
 
@@ -11,6 +12,7 @@ const PLANS = PRICING_PLANS.filter(p => p.name !== 'Free');
 
 export default function AccountPage() {
   const { user, refreshUser } = useAuth();
+  const { toast } = useToast();
   const [billingHistory, setBillingHistory] = useState<BillingEntry[]>([]);
   const [pwCurrent, setPwCurrent] = useState('');
   const [pwNew, setPwNew] = useState('');
@@ -52,8 +54,9 @@ export default function AccountPage() {
       const res = await fetch('/api/auth/change-password', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }) });
       const d = await res.json();
       setPwMsg(res.ok ? 'Password updated!' : d.error || 'Failed');
-      if (res.ok) { setPwCurrent(''); setPwNew(''); setPwConfirm(''); }
-    } catch { setPwMsg('Failed'); }
+      if (res.ok) { setPwCurrent(''); setPwNew(''); setPwConfirm(''); toast('Password updated successfully'); }
+      else { toast(d.error || 'Failed to update password', 'error'); }
+    } catch { setPwMsg('Failed'); toast('Failed to update password', 'error'); }
   }
 
   async function saveUsername() {
@@ -61,18 +64,19 @@ export default function AccountPage() {
       await fetch('/api/auth/username', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: usernameVal }) });
       refreshUser();
       setUsernameEdit(false);
-    } catch {}
+      toast('Username updated');
+    } catch { toast('Failed to update username', 'error'); }
   }
 
   async function deleteAccount() {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     if (!confirm('This will permanently delete ALL your data. Are you absolutely sure?')) return;
-    try { await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' }); window.location.href = '/'; } catch {}
+    try { await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' }); toast('Account deleted'); window.location.href = '/'; } catch { toast('Failed to delete account', 'error'); }
   }
 
   async function cancelSubscription() {
     if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
-    try { await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' }); refreshUser(); } catch {}
+    try { await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' }); refreshUser(); toast('Subscription cancelled'); } catch { toast('Failed to cancel subscription', 'error'); }
   }
 
   const roleNames = ['owner', 'admin', 'member', 'viewer'];
@@ -141,10 +145,10 @@ export default function AccountPage() {
             try {
               const res = await fetch('/api/auth/2fa/setup', { method: 'POST', credentials: 'include' });
               const data = await res.json();
-              if (!res.ok) { setTwoFAMsg(data.error || 'Failed to setup 2FA'); return; }
+              if (!res.ok) { setTwoFAMsg(data.error || 'Failed to setup 2FA'); toast('Failed to setup 2FA', 'error'); return; }
               setTwoFASetup({ secret: data.secret, otpauthUrl: data.otpauthUrl });
               setTwoFAMsg('');
-            } catch { setTwoFAMsg('Failed to connect'); }
+            } catch { setTwoFAMsg('Failed to connect'); toast('Failed to connect', 'error'); }
           }} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, fontSize: 11 }}>
             ENABLE 2FA
           </button>
@@ -171,14 +175,15 @@ export default function AccountPage() {
                 try {
                   const res = await fetch('/api/auth/2fa/verify', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: twoFACode }) });
                   const data = await res.json();
-                  if (!res.ok) { setTwoFAMsg(data.error || 'Invalid code'); return; }
+                  if (!res.ok) { setTwoFAMsg(data.error || 'Invalid code'); toast('Invalid 2FA code', 'error'); return; }
                   setTwoFAEnabled(true);
                   setTwoFASetup(null);
                   setTwoFACode('');
                   setTwoFAStatus('Enabled');
                   setTwoFAMsg('2FA enabled successfully!');
+                  toast('2FA enabled successfully');
                   if (data.backupCodes) setBackupCodes(data.backupCodes);
-                } catch { setTwoFAMsg('Failed to verify'); }
+                } catch { setTwoFAMsg('Failed to verify'); toast('Failed to verify 2FA code', 'error'); }
               }} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', whiteSpace: 'nowrap', fontWeight: 700 }}>VERIFY</button>
             </div>
           </div>

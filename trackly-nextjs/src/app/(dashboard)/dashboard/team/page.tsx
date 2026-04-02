@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface Member { id: string; name: string; email: string; role: string; }
 
@@ -13,6 +14,7 @@ export default function TeamPage() {
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch('/api/team', { credentials: 'include' })
@@ -37,8 +39,10 @@ export default function TeamPage() {
       setInviteEmail(''); setInviteRole('viewer'); setShowInvite(false);
       setSuccess(`Invite sent to ${inviteEmail.trim()}`);
       setTimeout(() => setSuccess(''), 5000);
+      toast('Invitation sent');
     } catch (e) {
       setError((e as Error).message);
+      toast('Failed to send invitation', 'error');
     }
     setInviting(false);
   };
@@ -55,8 +59,10 @@ export default function TeamPage() {
       setMembers(prev => prev.filter(m => m.id !== memberId));
       setSuccess(`${email} removed from team`);
       setTimeout(() => setSuccess(''), 5000);
+      toast('Member removed');
     } catch (e) {
       setError((e as Error).message);
+      toast('Failed to remove member', 'error');
     }
   };
 

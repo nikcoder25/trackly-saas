@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface AlertRule { id: string; name: string; condition: string; threshold: number; action: string; cooldown: number; enabled: boolean; }
 interface Notification { id: string; title: string; message: string; timestamp: string; read: boolean; }
 
 export default function AlertsPage() {
   const { brand, loading } = useBrandData();
+  const { toast } = useToast();
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -34,7 +36,7 @@ export default function AlertsPage() {
     fetch(`/api/brands/${brand.id}/alerts`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: alertName, condition: alertCondition, threshold: alertThreshold, action: alertAction, cooldown: alertCooldown }),
-    }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); });
+    }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); toast('Alert saved successfully'); }).catch(() => { toast('Failed to save alert', 'error'); });
   }
 
   function saveWebhook() {
@@ -42,7 +44,7 @@ export default function AlertsPage() {
     fetch(`/api/brands/${brand.id}/alerts`, {
       method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ webhookUrl }),
-    }).then(() => setWebhookStatus('Saved!')).catch(() => setWebhookStatus('Failed'));
+    }).then(() => { setWebhookStatus('Saved!'); toast('Webhook saved successfully'); }).catch(() => { setWebhookStatus('Failed'); toast('Failed to save webhook', 'error'); });
   }
 
   function saveReport() {
@@ -50,7 +52,7 @@ export default function AlertsPage() {
     fetch(`/api/brands/${brand.id}/alerts`, {
       method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reportFreq }),
-    }).then(() => { setReportSaved(true); setTimeout(() => setReportSaved(false), 3000); });
+    }).then(() => { setReportSaved(true); setTimeout(() => setReportSaved(false), 3000); toast('Report schedule saved'); }).catch(() => { toast('Failed to save report schedule', 'error'); });
   }
 
   const notifTypes = [

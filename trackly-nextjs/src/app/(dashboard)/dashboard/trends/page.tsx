@@ -3,6 +3,7 @@
 import { useMemo, useState, useRef } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import { KpiCardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
 
 interface SovPoint { date: string; overall: number; platforms?: Record<string, number>; }
@@ -75,8 +76,14 @@ export default function TrendsPage() {
   const lowSov = validOveralls.length > 0 ? Math.min(...validOveralls) : 0;
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-      <div style={{ width: 32, height: 32, border: '2.5px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ height: 22, width: 160, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
+        <div style={{ height: 13, width: 340, borderRadius: 4, background: 'var(--bg3)' }} />
+      </div>
+      <KpiCardsSkeleton count={4} />
+      <ChartSkeleton h={280} />
+      <div style={{ marginTop: 20 }}><ChartSkeleton h={320} /></div>
     </div>
   );
 

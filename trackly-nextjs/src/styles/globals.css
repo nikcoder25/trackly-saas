@@ -10,6 +10,18 @@
   }
 }
 
+/* Global focus styles for keyboard accessibility */
+.main button:focus-visible,
+.main a:focus-visible,
+.main select:focus-visible,
+.main input:focus-visible,
+.main textarea:focus-visible,
+.main [role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
 /* Dashboard sidebar/topbar classes used by Next.js components */
 .nav-group-label {
   padding: 14px 12px 6px;

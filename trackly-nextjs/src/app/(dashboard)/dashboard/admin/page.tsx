@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface AdminUser {
   id: string;
@@ -31,7 +32,7 @@ export default function AdminPage() {
   const [editPlan, setEditPlan] = useState('');
   const [saving, setSaving] = useState(false);
   const [offset, setOffset] = useState(0);
-  const [adminMsg, setAdminMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const { toast } = useToast();
   const LIMIT = 50;
 
   const fetchUsers = useCallback(() => {
@@ -78,9 +79,9 @@ export default function AdminPage() {
         body: JSON.stringify(data),
       });
       const d = await res.json();
-      if (d.error) { setAdminMsg({ type: 'error', text: d.error }); }
-      else { setEditingUser(null); fetchUsers(); setAdminMsg({ type: 'success', text: 'User updated' }); }
-    } catch { setAdminMsg({ type: 'error', text: 'Failed to update user' }); }
+      if (d.error) { toast(d.error, 'error'); }
+      else { setEditingUser(null); fetchUsers(); toast('User updated'); }
+    } catch { toast('Failed to update user', 'error'); }
     setSaving(false);
   }
 
@@ -89,27 +90,15 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE', credentials: 'include' });
       const d = await res.json();
-      if (d.error) { setAdminMsg({ type: 'error', text: d.error }); }
-      else { fetchUsers(); setAdminMsg({ type: 'success', text: 'User deleted' }); }
-    } catch { setAdminMsg({ type: 'error', text: 'Failed to delete user' }); }
+      if (d.error) { toast(d.error, 'error'); }
+      else { fetchUsers(); toast('User deleted'); }
+    } catch { toast('Failed to delete user', 'error'); }
   }
 
   return (
     <div>
       <h1 className="view-title">Admin Panel</h1>
       <p className="view-sub" style={{ marginBottom: 14 }}>User management and system overview.</p>
-
-      {adminMsg && (
-        <div style={{
-          background: adminMsg.type === 'error' ? 'var(--danger-light)' : 'var(--success-light)',
-          border: `1px solid ${adminMsg.type === 'error' ? 'rgba(239,68,68,.2)' : 'rgba(16,185,129,.2)'}`,
-          color: adminMsg.type === 'error' ? 'var(--danger)' : 'var(--success)',
-          padding: '10px 14px', fontSize: 13, borderRadius: 'var(--radius-xs)', marginBottom: 14,
-        }}>
-          {adminMsg.text}
-          <button onClick={() => setAdminMsg(null)} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }}>&times;</button>
-        </div>
-      )}
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
