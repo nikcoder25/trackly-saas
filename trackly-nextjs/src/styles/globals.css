@@ -79,15 +79,18 @@
    utility only sets width, not color. These rules ensure all
    dashboard elements get proper borders and spacing. */
 
-/* CRITICAL FIX: Tailwind .border class only sets width in v4.
-   Force border-color on ALL elements with .border class inside .main */
-.main .border {
-  border-color: var(--border) !important;
+/* Tailwind v4 .border class only sets width — add color for dashboard cards/containers.
+   Scoped to direct children and common card patterns to avoid overriding component-level borders. */
+.main > div > .border,
+.main .card.border,
+.main .stat-card.border,
+.main .rounded-xl.border {
+  border-color: var(--border);
 }
 
-/* All rounded-xl cards in main get proper shadow */
-.main .rounded-xl {
-  border-radius: var(--radius) !important;
+/* Dashboard card containers get proper radius and shadow */
+.main > div > .rounded-xl {
+  border-radius: var(--radius);
   box-shadow: var(--app-shadow);
 }
 
@@ -98,7 +101,7 @@
 
 /* Main content area proper padding */
 .main {
-  padding: 20px 32px 40px !important;
+  padding: 20px 32px 40px;
 }
 
 /* Page title spacing */
@@ -111,55 +114,54 @@
 
 /* All .card elements: consistent padding, radius, shadow */
 .card {
-  padding: 22px !important;
-  margin-bottom: 16px !important;
-  border-radius: var(--radius) !important;
-  box-shadow: var(--app-shadow) !important;
-  border: 1px solid var(--border) !important;
-  background: var(--bg2) !important;
+  padding: 22px;
+  margin-bottom: 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--app-shadow);
+  border: 1px solid var(--border);
+  background: var(--bg2);
 }
 
 /* Stat grid spacing */
 .stat-grid {
-  gap: 16px !important;
-  margin-bottom: 16px !important;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 .stat-card {
-  padding: 20px !important;
-  border-radius: var(--radius) !important;
-  box-shadow: var(--app-shadow) !important;
-  border: 1px solid var(--border) !important;
-  background: var(--bg2) !important;
+  padding: 20px;
+  border-radius: var(--radius);
+  box-shadow: var(--app-shadow);
+  border: 1px solid var(--border);
+  background: var(--bg2);
 }
 
 /* Card title consistent styling */
 .card-title {
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.5px !important;
-  color: var(--muted) !important;
-  text-transform: uppercase !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  text-transform: uppercase;
   margin-bottom: 14px;
 }
 
-/* Ensure p-4 and p-5 classes render proper padding */
-.main .p-4 { padding: 16px !important; }
-.main .p-5 { padding: 20px !important; }
-.main .p-8 { padding: 32px !important; }
-.main .mb-4 { margin-bottom: 16px !important; }
-.main .mb-6 { margin-bottom: 24px !important; }
+/* Tailwind v4 spacing/font fallbacks — only applied if Tailwind utilities aren't generating.
+   No !important so component-level Tailwind classes can still override. */
+.main .p-4 { padding: 16px; }
+.main .p-5 { padding: 20px; }
+.main .p-8 { padding: 32px; }
+.main .mb-4 { margin-bottom: 16px; }
+.main .mb-6 { margin-bottom: 24px; }
 
-/* Fix KPI/stat card text sizing */
-.main .text-2xl { font-size: 24px !important; line-height: 1.2 !important; }
-.main .text-xl { font-size: 20px !important; }
-.main .text-lg { font-size: 18px !important; }
-.main .text-sm { font-size: 14px !important; }
-.main .text-xs { font-size: 12px !important; }
+.main .text-2xl { font-size: 24px; line-height: 1.2; }
+.main .text-xl { font-size: 20px; }
+.main .text-lg { font-size: 18px; }
+.main .text-sm { font-size: 14px; }
+.main .text-xs { font-size: 12px; }
 
-/* Font weights */
-.main .font-bold { font-weight: 700 !important; }
-.main .font-extrabold { font-weight: 800 !important; }
-.main .font-mono { font-family: var(--mono) !important; }
+.main .font-bold { font-weight: 700; }
+.main .font-extrabold { font-weight: 800; }
+.main .font-mono { font-family: var(--mono); }
 
 /* Tables inside cards */
 .tbl { width: 100%; border-collapse: collapse; }
@@ -222,14 +224,16 @@
 }
 .pill-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary-border); }
 
-/* Select/Input form elements in dashboard */
-.main select,
-.main input[type="text"],
-.main input[type="email"],
-.main input[type="search"],
-.main input[type="number"],
-.main input[type="url"],
-.main textarea {
+/* Default form element styles in dashboard — only applies to unstyled inputs.
+   Inputs with explicit Tailwind classes (h-11, pl-9, etc.) won't be overridden
+   since these rules have low specificity and no !important. */
+.main select:not([class*="h-"]),
+.main input[type="text"]:not([class*="h-"]):not([class*="pl-"]),
+.main input[type="email"]:not([class*="h-"]),
+.main input[type="search"]:not([class*="h-"]),
+.main input[type="number"]:not([class*="h-"]),
+.main input[type="url"]:not([class*="h-"]),
+.main textarea:not([class*="h-"]) {
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
