@@ -52,7 +52,7 @@ export default function LanguageSwitcher({ variant = 'light' }: { variant?: 'lig
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                 padding: '8px 14px', fontSize: 12, fontWeight: locale === l.code ? 700 : 500,
-                color: locale === l.code ? 'var(--primary, #FF6154)' : textColor,
+                color: locale === l.code ? 'var(--primary, #6366f1)' : textColor,
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 fontFamily: 'var(--font)', textAlign: 'left',
               }}

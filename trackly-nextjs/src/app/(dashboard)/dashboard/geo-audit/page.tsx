@@ -193,7 +193,7 @@ export default function DashboardGeoAuditPage() {
               padding: '10px 24px',
               borderRadius: 8,
               border: 'none',
-              background: loading ? 'var(--muted)' : '#FF6154',
+              background: loading ? 'var(--muted)' : '#6366f1',
               color: '#fff',
               fontSize: 14,
               fontWeight: 600,
@@ -213,7 +213,7 @@ export default function DashboardGeoAuditPage() {
                 style={{
                   width: `${progress}%`,
                   height: '100%',
-                  background: '#FF6154',
+                  background: '#6366f1',
                   borderRadius: 2,
                   transition: 'width 0.3s',
                 }}
@@ -362,7 +362,7 @@ export default function DashboardGeoAuditPage() {
                     borderRadius: 8,
                     border: '1px solid var(--border)',
                     cursor: 'pointer',
-                    background: expandedIdx === idx ? 'rgba(255,97,84,.04)' : 'transparent',
+                    background: expandedIdx === idx ? 'rgba(99,102,241,.04)' : 'transparent',
                     transition: 'background .15s',
                   }}
                 >
@@ -462,7 +462,7 @@ export default function DashboardGeoAuditPage() {
                         borderRadius: 6,
                         border: '1px solid var(--border)',
                         background: 'transparent',
-                        color: '#FF6154',
+                        color: '#6366f1',
                         cursor: 'pointer',
                       }}
                     >

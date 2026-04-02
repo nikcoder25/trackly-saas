@@ -56,13 +56,13 @@
   font-weight: 700;
   letter-spacing: 0.3px;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(255,97,84,.2);
+  box-shadow: 0 1px 3px rgba(99,102,241,.2);
   transition: all 0.15s;
 }
 .run-btn:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(255,97,84,.3);
+  box-shadow: 0 3px 8px rgba(99,102,241,.3);
 }
 
 /* Responsive: dashboard sidebar collapses on mobile */

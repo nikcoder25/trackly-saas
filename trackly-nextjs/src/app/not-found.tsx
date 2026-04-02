@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <SeoLayout>
       <section className="py-24 px-6 text-center" style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <h1 className="text-8xl font-extrabold tracking-tight" style={{ color: '#FF6154', lineHeight: 1 }}>404</h1>
+        <h1 className="text-8xl font-extrabold tracking-tight" style={{ color: '#6366f1', lineHeight: 1 }}>404</h1>
         <h2 className="text-2xl font-bold mt-4 mb-2" style={{ color: '#0f172a' }}>Page not found</h2>
         <p className="text-base mb-8" style={{ color: '#64748b', maxWidth: 440 }}>
           The page you&apos;re looking for doesn&apos;t exist or has been moved.

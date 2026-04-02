@@ -71,7 +71,7 @@ export default function SetupPage() {
           background: 'var(--primary)', color: '#fff', border: 'none',
           padding: '9px 18px', borderRadius: 'var(--radius-xs)', fontSize: 13,
           fontWeight: 700, fontFamily: 'var(--font)', cursor: 'pointer',
-          boxShadow: '0 1px 2px rgba(255,97,84,.2)', transition: 'all .15s',
+          boxShadow: '0 1px 2px rgba(99,102,241,.2)', transition: 'all .15s',
         }}>+ New Brand</button>
       </div>
 
