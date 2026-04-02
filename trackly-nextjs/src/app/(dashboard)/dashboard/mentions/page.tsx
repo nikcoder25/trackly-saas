@@ -231,14 +231,14 @@ export default function MentionsPage() {
 
           {/* Pagination — matches legacy exactly */}
           <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',flexWrap:'wrap',gap:8 }}>
-            <div style={{ fontFamily:'var(--mono)',fontSize:10,color:'var(--muted)' }}>
+            <div style={{ fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)' }}>
               Showing {from+1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length} results
             </div>
             <div style={{ display:'flex',alignItems:'center',gap:8 }}>
               <span style={{ fontSize:11,color:'var(--muted)' }}>Show:</span>
               {[15, 25, 50, 100].map(n => (
                 <button key={n} onClick={() => { setPerPage(n); setPage(0); setExpandedRow(null); }}
-                  style={{ padding:'4px 10px',border:`1px solid ${perPage===n?'var(--primary)':'var(--border)'}`,background:perPage===n?'var(--primary)':'var(--bg2)',color:perPage===n?'#fff':'var(--muted)',fontFamily:'var(--mono)',fontSize:10,fontWeight:600,cursor:'pointer',borderRadius:'var(--radius-xs)' }}>{n}</button>
+                  style={{ padding:'4px 10px',border:`1px solid ${perPage===n?'var(--primary)':'var(--border)'}`,background:perPage===n?'var(--primary)':'var(--bg2)',color:perPage===n?'#fff':'var(--muted)',fontFamily:'var(--mono)',fontSize:11,fontWeight:600,cursor:'pointer',borderRadius:'var(--radius-xs)' }}>{n}</button>
               ))}
             </div>
           </div>
