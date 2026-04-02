@@ -67,7 +67,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
          ORDER BY fixed ASC, created_at DESC`,
         [id]
       );
-      issues = issuesResult.rows;
+      // Always fill in expected values from current canonical facts
+      // (handles cases where expected was stored empty, or canonical fact was updated)
+      const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+      const factsByKey = new Map(facts.map(f => [normalizeKey(f.key), f.value]));
+      issues = issuesResult.rows.map((row: Record<string, unknown>) => ({
+        ...row,
+        expected: row.expected || factsByKey.get(normalizeKey(String(row.fact_key || ''))) || '',
+      }));
     } catch {
       // table may not exist yet
     }
@@ -260,6 +267,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Reload all issues (including fixed ones) to return with DB ids
     let allIssues: Record<string, unknown>[] = [];
+    const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+    const factsByKey = new Map(facts.map(f => [normalizeKey(f.key), f.value]));
     try {
       const issuesResult = await pool.query(
         `SELECT id, platform, model, fact_key, expected, found, severity, category,
@@ -268,7 +277,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
          ORDER BY fixed ASC, created_at DESC`,
         [id]
       );
-      allIssues = issuesResult.rows;
+      allIssues = issuesResult.rows.map((row: Record<string, unknown>) => ({
+        ...row,
+        expected: row.expected || factsByKey.get(normalizeKey(String(row.fact_key || ''))) || '',
+      }));
     } catch {
       // fallback to in-memory issues
       allIssues = result.issues.map(i => ({ ...i, fixed: false, fixed_at: null }));
