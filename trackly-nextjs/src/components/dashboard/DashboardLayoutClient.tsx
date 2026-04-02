@@ -7,6 +7,7 @@ import { RunProvider } from '@/contexts/RunContext';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
+import GlobalLiveToasts from '@/components/dashboard/GlobalLiveToasts';
 import Link from 'next/link';
 
 function OverLimitBanner() {
@@ -56,6 +57,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           <GlobalRunProgress />
           {children}
       </main>
+      <GlobalLiveToasts />
       <style>{`
         @media(max-width:1023px){
           #app{grid-template-columns:1fr!important;}
