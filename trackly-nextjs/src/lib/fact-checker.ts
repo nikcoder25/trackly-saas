@@ -65,8 +65,9 @@ function parseKeys(envVar: string): string[] {
   return [...new Set(keys)];
 }
 
-function getAvailableChecker(): { type: 'gemini' | 'openai' | 'claude'; key: string; model: string } | null {
+function getAvailableChecker(userKeys?: Record<string, string | null>): { type: 'gemini' | 'openai' | 'claude'; key: string; model: string } | null {
   // Prefer Gemini (cheapest), then OpenAI, then Claude
+  // Check server env vars first, then fall back to user-provided API keys
   const geminiKeys = parseKeys('GEMINI_API_KEY');
   if (geminiKeys.length) return { type: 'gemini', key: geminiKeys[0], model: CHECKER_MODELS.gemini };
 
@@ -75,6 +76,13 @@ function getAvailableChecker(): { type: 'gemini' | 'openai' | 'claude'; key: str
 
   const claudeKeys = parseKeys('CLAUDE_API_KEY');
   if (claudeKeys.length) return { type: 'claude', key: claudeKeys[0], model: CHECKER_MODELS.claude };
+
+  // Fall back to user-configured keys from database
+  if (userKeys) {
+    if (userKeys.gemini) return { type: 'gemini', key: userKeys.gemini, model: CHECKER_MODELS.gemini };
+    if (userKeys.openai) return { type: 'openai', key: userKeys.openai, model: CHECKER_MODELS.openai };
+    if (userKeys.claude) return { type: 'claude', key: userKeys.claude, model: CHECKER_MODELS.claude };
+  }
 
   return null;
 }
@@ -124,7 +132,7 @@ async function callChecker(
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${checker.key}` },
         body: JSON.stringify({
           model: checker.model,
-          max_tokens: 1500,
+          max_tokens: 4096,
           temperature: 0,
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -145,7 +153,7 @@ async function callChecker(
         },
         body: JSON.stringify({
           model: checker.model,
-          max_tokens: 1500,
+          max_tokens: 4096,
           temperature: 0,
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -163,13 +171,17 @@ async function callChecker(
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 1500, temperature: 0 },
+          generationConfig: { maxOutputTokens: 4096, temperature: 0 },
         }),
         signal: controller.signal,
       });
       const d = await resp.json();
       if (!resp.ok) throw new Error(d.error?.message || `Gemini API error ${resp.status}`);
-      return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      // Handle safety-blocked or empty responses
+      if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked the request: ${d.promptFeedback.blockReason}`);
+      const candidate = d.candidates?.[0];
+      if (candidate && candidate.finishReason === 'SAFETY') throw new Error('Gemini blocked the response due to safety filters');
+      return candidate?.content?.parts?.[0]?.text || '';
     }
 
     return '';
@@ -206,6 +218,22 @@ function parseCheckerResponse(raw: string): Array<{
     if (match) {
       try {
         return JSON.parse(match[0]);
+      } catch {
+        // Handle truncated JSON (missing closing bracket due to token limits)
+        const truncated = match[0].replace(/,?\s*\{[^}]*$/, '') + ']';
+        try {
+          return JSON.parse(truncated);
+        } catch {
+          return [];
+        }
+      }
+    }
+    // Last resort: try adding a closing bracket if the response starts with [
+    const arrayStart = raw.indexOf('[');
+    if (arrayStart >= 0) {
+      const truncated = raw.slice(arrayStart).replace(/,?\s*\{[^}]*$/, '') + ']';
+      try {
+        return JSON.parse(truncated);
       } catch {
         return [];
       }
@@ -451,11 +479,12 @@ Important:
 export async function autoDiscoverFacts(
   brandName: string,
   websiteUrl: string,
-  existingResponses?: string[]
+  existingResponses?: string[],
+  userApiKeys?: Record<string, string | null>
 ): Promise<AutoDiscoverResult> {
-  const checker = getAvailableChecker();
+  const checker = getAvailableChecker(userApiKeys);
   if (!checker) {
-    return { facts: [], error: 'No AI API keys configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or CLAUDE_API_KEY to your environment.' };
+    return { facts: [], error: 'No AI API keys configured. Add API keys in Settings, or set GEMINI_API_KEY, OPENAI_API_KEY, or CLAUDE_API_KEY in your environment.' };
   }
 
   // Fetch website text if URL provided
@@ -473,9 +502,16 @@ export async function autoDiscoverFacts(
   try {
     const prompt = buildDiscoverPrompt(brandName, websiteText, aiResponses);
     const raw = await callChecker(checker, prompt);
+
+    if (!raw || !raw.trim()) {
+      console.error('[AutoDiscover] AI returned empty response via', checker.type);
+      return { facts: [], error: `AI returned an empty response (${checker.type}). The request may have been blocked. Try again or check your API key.` };
+    }
+
     const parsed = parseCheckerResponse(raw) as unknown as SuggestedFact[];
 
     if (!Array.isArray(parsed) || parsed.length === 0) {
+      console.error('[AutoDiscover] Could not parse facts from response:', raw.slice(0, 200));
       return { facts: [], error: 'AI could not extract facts from the available data. Try adding more content to your website or running more queries.' };
     }
 
