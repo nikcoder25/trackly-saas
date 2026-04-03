@@ -14,7 +14,7 @@ const fr: Translations = {
     badge: "Suivi de Visibilité IA",
     title: 'Votre marque est-elle visible dans les ',
     titleHighlight: "réponses IA ?",
-    description: "Suivez comment ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overview mentionnent votre marque. Obtenez des preuves réelles, mesurez la part de voix et optimisez votre stratégie GEO.",
+    description: "Suivez comment ChatGPT, Perplexity, Claude, Gemini et Grok mentionnent votre marque. Obtenez des preuves réelles, mesurez la part de voix et optimisez votre stratégie GEO.",
     cta: 'Commencer le Suivi',
     ctaDemo: 'Voir la Démo',
   },
@@ -96,7 +96,7 @@ const fr: Translations = {
     title: "Pourquoi la Visibilité IA est le Nouveau SEO",
     subtitle: "Les chatbots IA deviennent la première façon de découvrir des marques. Si vous n'êtes pas visible, vous êtes invisible.",
     items: [
-      { title: "40% des recherches utilisent l'IA", desc: "Les utilisateurs passent de Google aux chatbots IA. ChatGPT, Perplexity et Google AI Overview remplacent la recherche traditionnelle.", icon: '\u25B2' },
+      { title: "40% des recherches utilisent l'IA", desc: "Les utilisateurs passent de Google aux chatbots IA. ChatGPT, Perplexity et d'autres plateformes IA remplacent la recherche traditionnelle.", icon: '\u25B2' },
       { title: 'Le SEO traditionnel ne suffit plus', desc: "Être #1 sur Google ne signifie pas que l'IA vous recommandera. Les modèles IA utilisent différents signaux.", icon: '\u25CE' },
       { title: "Le GEO est l'avenir du marketing", desc: "L'Optimisation de Moteur Génératif (GEO) assure votre présence dans les réponses IA. Livesov vous donne les données pour mesurer et améliorer.", icon: '\u25C6' },
       { title: 'Des preuves pour vos clients', desc: "Si vous êtes une agence, Livesov fournit des preuves vérifiables de visibilité IA \u2014 des réponses API réelles.", icon: '\u25A0' },

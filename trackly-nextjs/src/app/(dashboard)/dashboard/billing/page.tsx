@@ -18,9 +18,9 @@ const PLAN_FEATURES = [
   { feature: 'Brands', free: '1', starter: '1', pro: '5', agency: '20', owner: '∞' },
   { feature: 'Competitors', free: '0', starter: '2', pro: '5', agency: '20', owner: '∞' },
   { feature: 'Platforms', free: '2', starter: '2', pro: '5', agency: '5', owner: '5' },
-  { feature: 'Sentiment', free: '—', starter: '—', pro: '✓', agency: '✓', owner: '✓' },
+  { feature: 'Sentiment', free: '—', starter: '✓', pro: '✓', agency: '✓', owner: '✓' },
   { feature: 'API Access', free: '—', starter: '—', pro: '—', agency: '—', owner: '✓' },
-  { feature: 'Priority Support', free: '—', starter: '—', pro: '—', agency: '—', owner: '✓' },
+  { feature: 'Priority Support', free: '—', starter: '—', pro: '—', agency: '✓', owner: '✓' },
   { feature: 'GEO Audits/month', free: '3', starter: '25', pro: '100', agency: '500', owner: '∞' },
 ];
 

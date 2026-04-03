@@ -18,7 +18,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free: { brands: 1, prompts: 5, queries: 5, competitors: 0, platforms: 2, apiAccess: false, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 999, geoAudits: 3 },
   starter: { brands: 1, prompts: 30, queries: 30, competitors: 2, platforms: 2, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 72, geoAudits: 25 },
   pro: { brands: 5, prompts: 250, queries: 250, competitors: 5, platforms: 5, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 24, geoAudits: 100 },
-  agency: { brands: 20, prompts: 1000, queries: 1000, competitors: 20, platforms: 5, apiAccess: false, prioritySupport: false, sentiment: true, scheduledRuns: true, minScheduleHours: 12, geoAudits: 500 },
+  agency: { brands: 20, prompts: 1000, queries: 1000, competitors: 20, platforms: 5, apiAccess: false, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 12, geoAudits: 500 },
   enterprise: { brands: 100, prompts: 10000, queries: 10000, competitors: 100, platforms: 5, apiAccess: true, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 6, geoAudits: 5000 },
   owner: { brands: 9999, prompts: 99999, queries: 99999, competitors: 9999, platforms: 5, apiAccess: true, prioritySupport: true, sentiment: true, scheduledRuns: true, minScheduleHours: 1, geoAudits: 99999 },
 };
@@ -60,10 +60,10 @@ export interface PricingPlan {
 }
 
 export const PRICING_PLANS: PricingPlan[] = [
-  { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['1 brand', '5 prompts/month', '2 AI platforms', 'Manual runs', 'Basic dashboard', '3 GEO audits/month'] },
+  { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['1 brand', '5 prompts/month', '2 AI platforms', 'Manual runs only', 'Basic dashboard', 'No competitor tracking', '3 GEO audits/month'] },
   { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'] },
-  { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'Sentiment analysis', 'Competitor tracking (5)', 'Email alerts', '100 GEO audits/month'] },
-  { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['20 brands', '1,000 prompts/month', '5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'] },
+  { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', '5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'SOV tracking', 'Sentiment analysis', 'Competitor tracking (5)', 'Evidence & proof export', 'Custom queries', 'Email alerts', '100 GEO audits/month'] },
+  { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['Everything in Pro, plus:', '20 brands', '1,000 prompts/month', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'] },
 ];
 
 export const PLATFORM_COLORS: Record<string, string> = {

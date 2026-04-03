@@ -101,6 +101,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // fine
     }
 
+    // If no accuracy check has been run yet but we have issues and facts, compute a rate
+    if (accuracyRate === null && facts.length > 0 && issues.length > 0) {
+      const unfixedIssues = issues.filter((i: Record<string, unknown>) => !i.fixed).length;
+      const totalClaims = facts.length;
+      accuracyRate = totalClaims > 0 ? Math.round(((totalClaims - unfixedIssues) / totalClaims) * 100) : null;
+    }
+
     return Response.json({
       facts,
       issues,

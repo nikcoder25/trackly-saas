@@ -79,9 +79,8 @@ export default function AccountPage() {
     try { await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' }); refreshUser(); toast('Subscription cancelled'); } catch { toast('Failed to cancel subscription', 'error'); }
   }
 
-  const roleNames = ['owner', 'admin', 'member', 'viewer'];
   const rawPlan = user?.plan || 'free';
-  const plan = roleNames.includes(rawPlan.toLowerCase()) ? 'free' : rawPlan;
+  const plan = rawPlan;
   const emailVerified = user?.emailVerified;
 
   return (

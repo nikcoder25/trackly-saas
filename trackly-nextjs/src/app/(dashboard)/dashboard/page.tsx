@@ -421,7 +421,7 @@ export default function DashboardPage() {
           <span className="ov-health-text">
             {live.running
               ? <>{live.received - live.errorCount} ok · {live.errorCount} {live.errorCount === 1 ? 'error' : 'errors'} · {live.received}/{live.totalExpected} total</>
-              : <>{apiHealthy}/{apiTotal} {apiTotal === 1 ? 'platform' : 'platforms'} healthy · {apiTotalResponses - apiErrors} ok · {apiErrors} {apiErrors === 1 ? 'error' : 'errors'} · <Link href="/dashboard/platforms" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>View {apiErrors === 1 ? 'Error' : 'Errors'} →</Link></>
+              : <>{apiHealthy}/{apiTotal} {apiTotal === 1 ? 'platform' : 'platforms'} healthy · {apiTotalResponses - apiErrors} ok · {apiErrors} {apiErrors === 1 ? 'error' : 'errors'} · <Link href="/dashboard/mentions" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>View {apiErrors === 1 ? 'Error' : 'Errors'} →</Link></>
             }
           </span>
         </div>

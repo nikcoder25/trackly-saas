@@ -273,7 +273,8 @@ async function executeRunBackground(
           throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
         }
         const keyName = PLATFORM_KEY_MAP[plat];
-        const rawKey = userKeys[keyName] || serverKeys[keyName]?.[0];
+        const serverKeyList = serverKeys[keyName] || [];
+        const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
         if (!rawKey) throw new Error('No API key available for ' + plat);
         const result = await queryAI(plat, q, rawKey, getDefaultModel(plat), brand);
         platFailCount[plat] = 0;

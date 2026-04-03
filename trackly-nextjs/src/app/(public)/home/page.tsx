@@ -64,8 +64,8 @@ const pricingComparison = {
     ['Competitor tracking', '✓ Up to 10+', '✗', '✗', '~ Manual'],
     ['Proof & evidence export', '✓ CSV + API', '✗', '✗', '~ Screenshots'],
     ['AI response monitoring', '✓ Daily', '✗', '✗', '~ Occasional'],
-    ['GEO URL Audits', '✓ Up to 5,000/mo', '✗', '✗', '✗'],
-    ['Price', 'From $9/mo', '$99/mo', '$119/mo', 'Free (your time)'],
+    ['GEO URL Audits', '✓ Up to 500/mo', '✗', '✗', '✗'],
+    ['Price', 'From $0/mo', '$99/mo', '$129/mo', 'Free (your time)'],
   ],
 };
 
@@ -75,7 +75,7 @@ const faqs = [
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Plans start at $9/mo (Starter). Pro is $29/mo and Agency is $89/mo — the best value in AI visibility tracking.' },
+  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan to get started. Paid plans start at $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo.' },
 ];
 
 const testimonials = [

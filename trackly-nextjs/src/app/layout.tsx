@@ -53,7 +53,7 @@ const jsonLd = [
     name: 'Livesov',
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'Web',
-    description: 'AI Visibility Tracker \u2014 Monitor how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overview mention your brand.',
+    description: 'AI Visibility Tracker \u2014 Monitor how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand.',
     url: 'https://livesov.com',
     offers: [
       { '@type': 'Offer', name: 'Starter', price: '9', priceCurrency: 'USD' },
@@ -65,12 +65,12 @@ const jsonLd = [
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
     mainEntity: [
-      { '@type': 'Question', name: 'What is AI visibility tracking?', acceptedAnswer: { '@type': 'Answer', text: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overview mention your brand when users ask questions.' } },
+      { '@type': 'Question', name: 'What is AI visibility tracking?', acceptedAnswer: { '@type': 'Answer', text: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions.' } },
       { '@type': 'Question', name: 'How does Livesov track brand mentions in AI?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov sends your custom queries to real AI platforms via their official APIs and captures the complete, unmodified responses.' } },
       { '@type': 'Question', name: 'Which AI platforms does Livesov support?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov tracks your brand across 5 AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' } },
       { '@type': 'Question', name: 'What is Share of Voice in AI?', acceptedAnswer: { '@type': 'Answer', text: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked.' } },
       { '@type': 'Question', name: 'What is Generative Engine Optimization (GEO)?', acceptedAnswer: { '@type': 'Answer', text: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers.' } },
-      { '@type': 'Question', name: 'How much does Livesov cost?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov starts at $9/mo (Starter plan) with 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' } },
+      { '@type': 'Question', name: 'How much does Livesov cost?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan to get started. Paid plans start at $9/mo (Starter) with 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' } },
     ],
   },
   {
