@@ -657,7 +657,12 @@ router.post('/:id/run', auth, async (req, res) => {
 
       function processError(plat, q, err) {
         const errMsg = err?.message || 'Unknown error';
-        platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+        // Rate-limit and transient errors (429, 503, capacity) don't count toward
+        // consecutive failure threshold — the platform isn't broken, just busy.
+        const isTransient = err?.isRateLimit || err?.isTransient;
+        if (!isTransient) {
+          platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+        }
         if (platFailCount[plat] <= FAIL_THRESHOLD) {
           console.error(`[${plat}] API error for query "${q}":`, errMsg);
         }
@@ -1638,7 +1643,11 @@ async function runBrandQueries(brand) {
         platFailCount[plat] = 0;
         cronResults[idx] = { status: 'fulfilled', value: { plat, q, result } };
       } catch(err) {
-        platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+        // Rate-limit and transient errors don't count toward consecutive failure threshold
+        const isTransient = err?.isRateLimit || err?.isTransient;
+        if (!isTransient) {
+          platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+        }
         cronResults[idx] = { status: 'rejected', reason: err };
       }
     }
@@ -1703,7 +1712,10 @@ async function runBrandQueries(brand) {
         totalQ++;
       }
     } else {
-      platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+      const isTransient = s.reason?.isRateLimit || s.reason?.isTransient;
+      if (!isTransient) {
+        platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+      }
       const errMsg = s.reason?.message || 'Unknown error';
       if (platFailCount[plat] <= FAIL_THRESHOLD) console.error(`[Cron][${plat}] API error for "${q}":`, errMsg);
       allResults.push({

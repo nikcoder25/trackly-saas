@@ -111,11 +111,11 @@ const AUTH = {
 const AI = {
     maxOutputTokens: 300,
     geminiMaxOutputTokens: 800,    // Higher limit for Gemini (needs more tokens for grounded search responses)
-  systemPrompt: 'Recommendation ssistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.',
-  fetchMaxRetries: 2,
+  systemPrompt: 'Recommendation Assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.',
+  fetchMaxRetries: 4,
   networkBaseDelay: 500,      // 0.5s backoff for network errors
-  rateLimitBaseDelay: 3000,   // 3s backoff for rate limits
-  rateLimitJitterMax: 3000,   // 0-3s jitter
+  rateLimitBaseDelay: 5000,   // 5s backoff for rate limits
+  rateLimitJitterMax: 5000,   // 0-5s jitter
   anthropicVersion: '2023-06-01',
 };
 
@@ -130,7 +130,7 @@ const BATCH = {
 // ─── BRAND RUN SETTINGS ─────────────────────────────────────────
 const RUN = {
   maxLockAgeMs: 10 * 60 * 1000,  // 10 min — auto-release stuck locks
-  failThreshold: 3,               // skip platform after N consecutive failures
+  failThreshold: 5,               // skip platform after N consecutive failures
   stableRunThreshold: 3,          // reuse results after N identical runs
   webhookMaxRetries: 3,
   maxCitationsPerResult: 10,
