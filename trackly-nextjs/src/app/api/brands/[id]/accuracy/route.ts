@@ -83,15 +83,34 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // table may not exist yet
     }
 
+    // Load last accuracy check results from brand data
+    let accuracyRate: number | null = null;
+    let platformStats: Record<string, { total: number; accurate: number }> = {};
+    let categoryStats: Record<string, { total: number; accurate: number }> = {};
+    let checkedRuns = 0;
+    try {
+      const brandData = (access.brand as Record<string, unknown>) || {};
+      const lastCheck = brandData.accuracy_last_check as Record<string, unknown> | undefined;
+      if (lastCheck) {
+        accuracyRate = (lastCheck.accuracyRate as number) ?? null;
+        platformStats = (lastCheck.platformStats as typeof platformStats) || {};
+        categoryStats = (lastCheck.categoryStats as typeof categoryStats) || {};
+        checkedRuns = (lastCheck.checkedRuns as number) || 0;
+      }
+    } catch {
+      // fine
+    }
+
     return Response.json({
       facts,
       issues,
-      accuracyRate: null,
-      platformStats: {},
-      categoryStats: {},
+      accuracyRate,
+      platformStats,
+      categoryStats,
       trend,
       lastChecked,
       runCount,
+      checkedRuns,
       aiPowered: true,
     });
   } catch (e) {
@@ -244,6 +263,26 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Run AI-powered fact-checking
     const result = await runFactCheck(facts, runs);
+
+    // Persist accuracy rate and stats into brand data for GET to read
+    try {
+      await pool.query(
+        `UPDATE brands SET data = jsonb_set(
+           COALESCE(data, '{}'::jsonb),
+           '{accuracy_last_check}',
+           $2::jsonb
+         ), updated_at = NOW() WHERE id = $1`,
+        [id, JSON.stringify({
+          accuracyRate: result.accuracyRate,
+          platformStats: result.platformStats,
+          categoryStats: result.categoryStats,
+          checkedRuns: result.checkedRuns,
+          checkedAt: new Date().toISOString(),
+        })]
+      );
+    } catch (e) {
+      console.error('[Accuracy] Failed to persist check results:', (e as Error).message);
+    }
 
     // Persist issues to DB: remove old unfixed issues, keep fixed ones, insert new
     try {
