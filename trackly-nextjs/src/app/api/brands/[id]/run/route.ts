@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
@@ -70,7 +71,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const cronHeader = request.headers.get('x-cron-secret');
   let user: { id: string; email?: string };
 
-  if (cronSecret && cronHeader && cronSecret === cronHeader) {
+  if (cronSecret && cronHeader && cronSecret.length === cronHeader.length &&
+      crypto.timingSafeEqual(Buffer.from(cronSecret), Buffer.from(cronHeader))) {
     // Internal cron call — resolve brand owner from the brand record
     const { id: brandId } = await params;
     const brandRow = await pool.query('SELECT user_id FROM brands WHERE id = $1', [brandId]);

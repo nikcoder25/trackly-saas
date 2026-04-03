@@ -75,6 +75,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     }
 
+    // Validate webhookUrl is a valid HTTPS URL (prevent SSRF via javascript: or internal URLs)
+    if (safeBody.webhookUrl && typeof safeBody.webhookUrl === 'string') {
+      try {
+        const parsed = new URL(safeBody.webhookUrl as string);
+        if (parsed.protocol !== 'https:') {
+          return Response.json({ error: 'Webhook URL must use HTTPS' }, { status: 400 });
+        }
+        // Block private/internal hostnames
+        const host = parsed.hostname.toLowerCase();
+        if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' ||
+            host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.') ||
+            host.endsWith('.local') || host.endsWith('.internal')) {
+          return Response.json({ error: 'Webhook URL must point to a public endpoint' }, { status: 400 });
+        }
+      } catch {
+        return Response.json({ error: 'Webhook URL is not a valid URL' }, { status: 400 });
+      }
+    }
+
     // Deduplicate queries
     if (safeBody.queries && Array.isArray(safeBody.queries)) {
       const seen = new Set<string>();

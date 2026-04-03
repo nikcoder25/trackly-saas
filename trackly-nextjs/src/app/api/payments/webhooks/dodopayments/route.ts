@@ -7,17 +7,6 @@ if (process.env.DODO_PRO_PRODUCT_ID) PLAN_MAP[process.env.DODO_PRO_PRODUCT_ID] =
 if (process.env.DODO_AGENCY_PRODUCT_ID) PLAN_MAP[process.env.DODO_AGENCY_PRODUCT_ID] = 'agency';
 if (process.env.DODO_ENTERPRISE_PRODUCT_ID) PLAN_MAP[process.env.DODO_ENTERPRISE_PRODUCT_ID] = 'enterprise';
 
-async function isWebhookProcessed(eventId: string): Promise<boolean> {
-  const result = await pool.query('SELECT event_id FROM webhook_events WHERE event_id = $1', [eventId]);
-  return result.rows.length > 0;
-}
-
-async function markWebhookProcessed(eventId: string, eventType: string) {
-  await pool.query(
-    'INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING',
-    [eventId, eventType]
-  );
-}
 
 export async function POST(request: Request) {
   try {
@@ -29,19 +18,17 @@ export async function POST(request: Request) {
       console.error('[Webhook] DODO_WEBHOOK_SECRET is not set');
       return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
-    if (webhookSecret) {
-      const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
-      if (!signature) {
-        console.error('[Webhook] Missing signature header');
-        return Response.json({ error: 'Missing signature' }, { status: 401 });
-      }
-      const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-      const sigBuffer = Buffer.from(signature, 'hex');
-      const expectedBuffer = Buffer.from(expected, 'hex');
-      if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-        console.error('[Webhook] Invalid signature');
-        return Response.json({ error: 'Invalid signature' }, { status: 401 });
-      }
+    const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
+    if (!signature) {
+      console.error('[Webhook] Missing signature header');
+      return Response.json({ error: 'Missing signature' }, { status: 401 });
+    }
+    const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      console.error('[Webhook] Invalid signature');
+      return Response.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     const body = JSON.parse(rawBody);
@@ -53,8 +40,13 @@ export async function POST(request: Request) {
     }
     const eventType = body.type || body.event_type || '';
 
-    // Idempotency check
-    if (await isWebhookProcessed(eventId)) {
+    // Idempotency: atomically mark as processed to prevent race conditions
+    // INSERT ... ON CONFLICT DO NOTHING returns 0 rows if already exists
+    const inserted = await pool.query(
+      'INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING RETURNING event_id',
+      [eventId, eventType]
+    );
+    if (inserted.rows.length === 0) {
       return Response.json({ received: true, duplicate: true });
     }
 
@@ -118,10 +110,9 @@ export async function POST(request: Request) {
       }
     }
 
-    await markWebhookProcessed(eventId, eventType);
     return Response.json({ received: true });
   } catch (e) {
     console.error('[Webhook] Processing error:', (e as Error).message);
-    return Response.json({ error: 'Webhook processing failed' }, { status: 200 });
+    return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }
