@@ -56,7 +56,6 @@ export default function DashboardPage() {
 
   // Hydration-safe: initialize to 0, set real value in useEffect
   const [now, setNow] = useState(0);
-  const [nextRunText, setNextRunText] = useState('');
 
   // Live computed scores (override static values during run)
   const liveSOV = live.running && live.received > 0
@@ -241,24 +240,6 @@ export default function DashboardPage() {
       .then(() => fetchBrands());
   };
 
-  // Next run badge — client-only to avoid hydration mismatch
-  useEffect(() => {
-    if (!lastRun?.date || !now) { setNextRunText(''); return; }
-    const runTime = new Date(lastRun.date).getTime();
-    const nextRunMs = runTime + 6 * 3600 * 1000;
-    const diffMs = nextRunMs - now;
-    if (diffMs > 0) {
-      const h = Math.floor(diffMs / 3600000);
-      const m = Math.floor((diffMs % 3600000) / 60000);
-      setNextRunText(`next|Next run in ${h}h ${m}m`);
-    } else {
-      const overdueMs = Math.abs(diffMs);
-      const oh = Math.floor(overdueMs / 3600000);
-      const om = Math.floor((overdueMs % 3600000) / 60000);
-      setNextRunText(`overdue|Overdue by ${oh > 0 ? `${oh}h ${om}m` : `${om}m`} — waiting for next scheduled run`);
-    }
-  }, [lastRun?.date, now]);
-
   // Last run age
   const lastRunAge = useMemo(() => {
     if (!lastRun?.date) return '';
@@ -368,7 +349,6 @@ export default function DashboardPage() {
           <div className="view-sub">{[brand.industry, brand.city].filter(Boolean).join(' · ') || 'Select a brand and queries run automatically on schedule.'}</div>
         </div>
         <div className="ov-header-right">
-          {nextRunText && (() => { const [type, text] = nextRunText.split('|'); return <div className="next-run-badge" style={{ display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:'var(--radius-xs)',fontSize:12,fontFamily:'var(--mono)',fontWeight:600,background:type==='overdue'?'rgba(245,158,11,.06)':'rgba(59,130,246,.06)',color:type==='overdue'?'var(--amber)':'var(--blue)',border:`1px solid ${type==='overdue'?'rgba(245,158,11,.15)':'rgba(59,130,246,.15)'}` }}><span>⏱</span> {text}</div>; })()}
           <div className="compare-toggle" style={{display:'flex',gap:4}}>
             {(['current','week','month'] as const).map(m => <button key={m} onClick={()=>setCompareMode(m)} className={compareMode===m?'active':''} style={{padding:'6px 12px',fontSize:12,fontWeight:600,borderRadius:'var(--radius-xs)',border:compareMode===m?'1px solid var(--primary)':'1px solid var(--border)',background:compareMode===m?'var(--primary)':'var(--bg2)',color:compareMode===m?'#fff':'var(--muted)',cursor:'pointer',fontFamily:'var(--font)'}}>{m==='current'?'Current':m==='week'?'vs Last Week':'vs Last Month'}</button>)}
           </div>
