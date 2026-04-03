@@ -829,6 +829,11 @@ router.post('/:id/run', auth, async (req, res) => {
 
       // Persist citations in batches
       const citRows = [];
+      const competitorDomains = (brand.competitors || []).map(c => {
+        // Strip protocol, www, path, and TLD to get base domain for matching
+        let d = c.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
+        return d;
+      }).filter(d => d.length >= 2);
       for (const r of allResults) {
         if (!r.citations || !r.citations.length || r.error) continue;
         for (let ci = 0; ci < r.citations.length; ci++) {
@@ -839,7 +844,8 @@ router.post('/:id/run', auth, async (req, res) => {
             const daScore = scoreDomainAuthority(domain);
             const domainType = classifyDomain(domain);
             const isBrand = brand.website ? domain.includes(new URL(brand.website.startsWith('http') ? brand.website : 'https://' + brand.website).hostname.replace(/^www\./, '')) : false;
-            citRows.push([brand.id, citUrl, domain, domainType, daScore, ci + 1, isBrand]);
+            const isCompetitor = competitorDomains.some(cd => domain.includes(cd) || cd.includes(domain));
+            citRows.push([brand.id, citUrl, domain, domainType, daScore, ci + 1, isBrand, isCompetitor]);
           } catch(_) { /* skip invalid URLs */ }
         }
       }
@@ -849,13 +855,13 @@ router.post('/:id/run', auth, async (req, res) => {
         const params = [];
         let pi = 1;
         for (const row of batch) {
-          values.push(`(NULL,$${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6})`);
+          values.push(`(NULL,$${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7})`);
           params.push(...row);
-          pi += 7;
+          pi += 8;
         }
         try {
           await pool.query(
-            `INSERT INTO citations (prompt_run_id, brand_id, url, domain, domain_type, domain_authority_score, position, is_brand)
+            `INSERT INTO citations (prompt_run_id, brand_id, url, domain, domain_type, domain_authority_score, position, is_brand, is_competitor)
              VALUES ${values.join(',')}`,
             params
           );

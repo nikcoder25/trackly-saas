@@ -1,19 +1,40 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRun } from '@/contexts/RunContext';
 import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 
-interface Brand { id: string; name: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
+interface Brand { id: string; name: string; website?: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
+interface CitationRow { domain: string; domain_type: string; is_brand: boolean; is_competitor: boolean; total: string; avg_position: string; last_seen: string; }
 
 export default function CompetitorsPage() {
-  const { brand: rawBrand, loading, reload } = useBrandData();
+  const { brand: rawBrand, loading, reload } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
   const [newComp, setNewComp] = useState('');
   const { startRun, live } = useRun();
+
+  // Citation-based competitor discovery
+  const [citations, setCitations] = useState<CitationRow[]>([]);
+  const [citLoading, setCitLoading] = useState(false);
+
+  const fetchCitations = useCallback(async (brandId: string) => {
+    setCitLoading(true);
+    try {
+      const res = await fetch(`/api/brands/${brandId}/citation-analysis`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setCitations(data.citations || []);
+      }
+    } catch { /* ignore */ }
+    setCitLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (brand?.id) fetchCitations(brand.id);
+  }, [brand?.id, fetchCitations]);
 
   const competitors = brand?.competitors || [];
   const lastRun = brand?.runs?.length ? brand.runs[brand.runs.length - 1] : null;
@@ -24,6 +45,14 @@ export default function CompetitorsPage() {
     const updated = [...competitors, newComp.trim()];
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
       .then(() => { setNewComp(''); reload(); });
+  }
+
+  function addDiscoveredComp(domain: string) {
+    if (!brand) return;
+    if (competitors.some(c => c.toLowerCase() === domain.toLowerCase())) return;
+    const updated = [...competitors, domain];
+    fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
+      .then(() => reload());
   }
 
   function removeComp(idx: number) {
@@ -71,6 +100,26 @@ export default function CompetitorsPage() {
     return m;
   }, [allResults, competitors]);
 
+  // Discovered competitors from citations — filter out brand's own domain and already-tracked competitors
+  const discoveredCompetitors = useMemo(() => {
+    if (!citations.length) return [];
+    const brandDomain = brand?.website
+      ? brand.website.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '').toLowerCase()
+      : '';
+    const competitorLower = new Set(competitors.map(c => c.toLowerCase()));
+    return citations
+      .filter((c: CitationRow) => {
+        if (c.is_brand) return false;
+        const domLower = c.domain.toLowerCase();
+        if (brandDomain && domLower.includes(brandDomain)) return false;
+        if (competitorLower.has(domLower)) return false;
+        if (['social', 'encyclopedia', 'government', 'academic'].includes(c.domain_type)) return false;
+        return true;
+      })
+      .sort((a: CitationRow, b: CitationRow) => Number(b.total) - Number(a.total))
+      .slice(0, 15);
+  }, [citations, brand?.website, competitors]);
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
@@ -103,10 +152,57 @@ export default function CompetitorsPage() {
         </div>
       </div>
 
+      {/* Discovered in AI Responses — citation-based competitor discovery */}
+      {discoveredCompetitors.length > 0 && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="section-title">Discovered in AI Responses</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Domains that AI platforms cite alongside your brand. These may be competitors worth tracking.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {discoveredCompetitors.map((c: CitationRow) => {
+              const maxTotal = Math.max(...discoveredCompetitors.map((d: CitationRow) => Number(d.total)), 1);
+              const pct = (Number(c.total) / maxTotal) * 100;
+              const alreadyTracked = competitors.some(comp => comp.toLowerCase() === c.domain.toLowerCase());
+              return (
+                <div key={c.domain} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="qperf-bar-row" style={{ margin: 0 }}>
+                      <div className="qperf-bar-label" style={{ fontSize: 12 }}>
+                        {c.domain}
+                        {c.is_competitor && <span style={{ fontSize: 9, color: 'var(--primary)', marginLeft: 6, fontWeight: 600 }}>TRACKED</span>}
+                        <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 6 }}>{c.domain_type === 'review_site' ? 'Review' : c.domain_type === 'news' ? 'News' : ''}</span>
+                      </div>
+                      <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: c.is_competitor ? 'var(--primary)' : '#6366f1' }} /></div>
+                      <div className="qperf-bar-value" style={{ color: 'var(--text)', minWidth: 50, textAlign: 'right' }}>
+                        {c.total}x
+                        {c.avg_position && <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4 }}>#{Math.round(Number(c.avg_position))}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  {!alreadyTracked && !c.is_competitor && (
+                    <button
+                      onClick={() => addDiscoveredComp(c.domain)}
+                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: 'var(--primary)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    >
+                      + Track
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {citLoading && !discoveredCompetitors.length && (
+        <div className="card" style={{ marginTop: 14, textAlign: 'center', padding: 24 }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Loading citation data...</div>
+        </div>
+      )}
+
       {/* Empty state when all competitors show 0% */}
       {competitors.length > 0 && allZero && (
         <div className="card" style={{ marginTop: 14, padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>📊</div>
+          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
           <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
             Once you run queries, we&apos;ll track how often competitors appear in AI responses alongside your brand.
@@ -117,10 +213,10 @@ export default function CompetitorsPage() {
             disabled={live.running}
             style={{ margin: '0 auto 12px', display: 'block', opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
           >
-            {live.running ? '⏳ Running...' : '▶ Run Queries'}
+            {live.running ? 'Running...' : 'Run Queries'}
           </button>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            💡 Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
+            Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
           </div>
         </div>
       )}
@@ -128,7 +224,7 @@ export default function CompetitorsPage() {
       {/* Empty state when no results at all */}
       {competitors.length > 0 && allResults.length === 0 && (
         <div className="card" style={{ marginTop: 14, padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>📊</div>
+          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
           <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
             Run your first query scan to see how competitors appear in AI responses.
@@ -139,10 +235,10 @@ export default function CompetitorsPage() {
             disabled={live.running}
             style={{ margin: '0 auto 12px', display: 'block', opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
           >
-            {live.running ? '⏳ Running...' : '▶ Run Queries'}
+            {live.running ? 'Running...' : 'Run Queries'}
           </button>
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            💡 Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
+            Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
           </div>
         </div>
       )}
