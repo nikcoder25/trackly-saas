@@ -422,7 +422,6 @@ export default function LivesovHomePage() {
             <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
             <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
             <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
-            <Link href="/free-check">Free Check</Link>
             <Link href="/geo-audit">GEO Audit</Link>
             <Link href="/blog">Blog</Link>
             <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
@@ -441,7 +440,6 @@ export default function LivesovHomePage() {
           <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
           <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
           <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
-          <Link href="/free-check" onClick={closeMenu}>Free Check</Link>
           <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
           <Link href="/blog" onClick={closeMenu}>Blog</Link>
           <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
