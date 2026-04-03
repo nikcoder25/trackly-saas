@@ -7,8 +7,7 @@ import { useToast } from '@/components/dashboard/Toast';
 
 interface BillingEntry { date: string; plan: string; amount: string; status: string; }
 
-// Exclude Free plan from the upgrade options
-const PLANS = PRICING_PLANS.filter(p => p.name !== 'Free');
+const PLANS = PRICING_PLANS;
 
 export default function AccountPage() {
   const { user, refreshUser } = useAuth();

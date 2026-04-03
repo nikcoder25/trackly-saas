@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
@@ -70,7 +71,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const cronHeader = request.headers.get('x-cron-secret');
   let user: { id: string; email?: string };
 
-  if (cronSecret && cronHeader && cronSecret === cronHeader) {
+  if (cronSecret && cronHeader && cronSecret.length === cronHeader.length &&
+      crypto.timingSafeEqual(Buffer.from(cronSecret), Buffer.from(cronHeader))) {
     // Internal cron call — resolve brand owner from the brand record
     const { id: brandId } = await params;
     const brandRow = await pool.query('SELECT user_id FROM brands WHERE id = $1', [brandId]);
@@ -339,12 +341,26 @@ async function executeRunBackground(
     delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
     if (!brandData.runs) brandData.runs = [];
     const lightResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+
+    // Aggregate citation URLs into domain counts for the dashboard
+    const citationCounts: Record<string, number> = {};
+    for (const r of allResults) {
+      const cites = (r as { citations?: string[] }).citations || [];
+      for (const url of cites) {
+        try {
+          const domain = new URL(url).hostname.replace(/^www\./, '');
+          citationCounts[domain] = (citationCounts[domain] || 0) + 1;
+        } catch { /* skip invalid URLs */ }
+      }
+    }
+
     brandData.runs.push({
       id: runId, date: new Date().toISOString().split('T')[0],
       time: new Date().toISOString(), durationMs,
       sov: overallSov, totalQ, totalM,
       platforms: platformStats, allResults: lightResults,
       queries: [...queries], activePlatforms: [...activePlatforms],
+      citations: citationCounts,
     });
     if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
 
