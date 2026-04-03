@@ -4243,57 +4243,57 @@ async function renderCompetitors(){
   // Competitor comparison from run data
   const compDiv = el('comp-comparison');
   const competitors = b.competitors || [];
+  if (!competitors.length) return;
+
   const lastRun = b.runs && b.runs.length ? b.runs[b.runs.length - 1] : null;
-  if (!competitors.length || !lastRun || !lastRun.allResults) {
-    compDiv.innerHTML = competitors.length ? `<div class="card" style="text-align:center;padding:24px;">
+  if (!lastRun || !lastRun.allResults) {
+    compDiv.innerHTML = `<div class="card" style="text-align:center;padding:24px;">
       <div style="font-size:28px;margin-bottom:8px;">&#8856;</div>
       <div style="font-weight:700;font-size:14px;margin-bottom:4px;">No Comparison Data</div>
       <div style="color:var(--muted);font-size:12px;">Run queries to see how your brand compares against competitors.</div>
-    </div>` : '';
-    el('comp-cooccurrence').innerHTML = '';
-    el('comp-platform-breakdown').innerHTML = '';
-    return;
+    </div>`;
+  } else {
+    const allResults = lastRun.allResults || [];
+    const brandMentions = allResults.filter(r => r.mentioned).length;
+    const compStats = {};
+    competitors.forEach(c => { compStats[c] = 0; });
+    allResults.forEach(r => {
+      const cm = r.competitorMentions || [];
+      cm.forEach(c => { if (compStats[c] !== undefined) compStats[c]++; });
+    });
+
+    const total = allResults.length;
+    const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
+
+    // Build horizontal bar chart for comparison
+    let html = `<div class="card"><div class="section-title">Competitor Comparison</div>`;
+
+    // Brand row (always first, red/primary color)
+    html += `<div class="qperf-bar-row">
+      <div class="qperf-bar-label" style="font-weight:700;">${esc(b.name)} <span style="font-size:10px;color:var(--muted);font-weight:400;">(You)</span></div>
+      <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${brandPct}%;background:var(--primary);"></div></div>
+      <div class="qperf-bar-value" style="color:var(--primary);">${brandPct}%</div>
+    </div>`;
+
+    // Competitor rows sorted by mention count
+    const sorted = competitors.slice().sort((a,b2) => (compStats[b2]||0) - (compStats[a]||0));
+    sorted.forEach((c, i) => {
+      const cnt = compStats[c] || 0;
+      const pct = total ? Math.round((cnt / total) * 100) : 0;
+      const clr = COMP_BAR_COLORS[(i + 1) % COMP_BAR_COLORS.length];
+      html += `<div class="qperf-bar-row">
+        <div class="qperf-bar-label">${esc(c)}</div>
+        <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${clr};"></div></div>
+        <div class="qperf-bar-value" style="color:${clr};">${pct}%</div>
+      </div>`;
+    });
+
+    html += `</div>`;
+    compDiv.innerHTML = html;
   }
 
-  const allResults = lastRun.allResults || [];
-  const brandMentions = allResults.filter(r => r.mentioned).length;
-  const compStats = {};
-  competitors.forEach(c => { compStats[c] = 0; });
-  allResults.forEach(r => {
-    const cm = r.competitorMentions || [];
-    cm.forEach(c => { if (compStats[c] !== undefined) compStats[c]++; });
-  });
-
-  const total = allResults.length;
-  const brandPct = total ? Math.round((brandMentions / total) * 100) : 0;
-
-  // Build horizontal bar chart for comparison
-  let html = `<div class="card"><div class="section-title">Competitor Comparison</div>`;
-
-  // Brand row (always first, red/primary color)
-  html += `<div class="qperf-bar-row">
-    <div class="qperf-bar-label" style="font-weight:700;">${esc(b.name)} <span style="font-size:10px;color:var(--muted);font-weight:400;">(You)</span></div>
-    <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${brandPct}%;background:var(--primary);"></div></div>
-    <div class="qperf-bar-value" style="color:var(--primary);">${brandPct}%</div>
-  </div>`;
-
-  // Competitor rows sorted by mention count
-  const sorted = competitors.slice().sort((a,b2) => (compStats[b2]||0) - (compStats[a]||0));
-  sorted.forEach((c, i) => {
-    const cnt = compStats[c] || 0;
-    const pct = total ? Math.round((cnt / total) * 100) : 0;
-    const clr = COMP_BAR_COLORS[(i + 1) % COMP_BAR_COLORS.length];
-    html += `<div class="qperf-bar-row">
-      <div class="qperf-bar-label">${esc(c)}</div>
-      <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${clr};"></div></div>
-      <div class="qperf-bar-value" style="color:${clr};">${pct}%</div>
-    </div>`;
-  });
-
-  html += `</div>`;
-  compDiv.innerHTML = html;
-
-  // Fetch co-occurrence data from prompt_runs
+  // Fetch co-occurrence and per-platform data from prompt_runs (historical API data,
+  // independent of last run — always load when competitors are configured)
   const cooccDiv = el('comp-cooccurrence');
   const platBreakDiv = el('comp-platform-breakdown');
   try {
