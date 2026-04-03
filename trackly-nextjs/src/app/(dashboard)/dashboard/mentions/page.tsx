@@ -83,7 +83,7 @@ export default function MentionsPage() {
     const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview'].join(',')];
     filtered.forEach(m => {
       const preview = (m.response || m.raw || m.context || m.snippet || '').replace(/[\n\r]/g,' ').substring(0, 300);
-      rows.push([csvSafe(m.platform), csvSafe(m.model||''), csvSafe(m.query), m.error?'ERROR':m.mentioned?'Found':'Not Found', m.sentiment||'neutral', m.recommended?'Yes':'No', csvSafe(preview)].join(','));
+      rows.push([csvSafe(m.platform), csvSafe(m.model||''), csvSafe(m.query), m.error?'ERROR':m.mentioned?'Found':'Not Found', m.error?'N/A':(m.sentiment||'neutral'), m.error?'N/A':(m.recommended?'Yes':'No'), csvSafe(preview)].join(','));
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
@@ -137,7 +137,7 @@ export default function MentionsPage() {
           <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)' }}>{sovPct}%</div>
-              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Mention Rate</div>
+              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }} title="Mention Rate excludes errored queries from the denominator. SOV on the Overview page includes all queries.">Mention Rate</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)' }}>{found.length}/{statsSource.length}</div>
@@ -208,7 +208,7 @@ export default function MentionsPage() {
                           <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
                           <td className="td">{r.query}</td>
                           <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
-                          <td className="td">{!r.mentioned && !r.error ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
+                          <td className="td">{r.error ? '—' : !r.mentioned ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
                           <td className="td">{posLabel === 'N/A' ? <span title="Position tracking not available for this result">{posLabel}</span> : posLabel}</td>
                         </tr>
                         {isExpanded && (
@@ -224,7 +224,7 @@ export default function MentionsPage() {
                                     dangerouslySetInnerHTML={{ __html: highlightBrand(responseText) }} />
                                 )}
                                 <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
-                                  Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.sentiment || 'neutral'} · Recommended: {r.recommended ? 'Yes' : 'No'}
+                                  Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.error ? '—' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '—' : (r.recommended ? 'Yes' : 'No')}
                                 </div>
                               </div>
                             </td>

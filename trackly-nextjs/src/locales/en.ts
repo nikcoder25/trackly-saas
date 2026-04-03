@@ -15,7 +15,7 @@ const en = {
     badge: 'AI Visibility Tracker',
     title: 'Is your brand visible in ',
     titleHighlight: 'AI answers?',
-    description: 'Track how ChatGPT, Perplexity, Claude, Gemini, Grok and Google AI Overview mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.',
+    description: 'Track how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.',
     cta: 'Start Tracking',
     ctaDemo: 'See Demo',
   },
@@ -118,7 +118,7 @@ const en = {
     title: 'Why AI Visibility is the New SEO',
     subtitle: 'AI chatbots are becoming the #1 way people discover brands. If you\'re not visible, you\'re invisible.',
     items: [
-      { title: '40% of searches now use AI', desc: 'Users are shifting from Google to AI chatbots for recommendations. ChatGPT, Perplexity, and Google AI Overview are replacing traditional search for buying decisions.', icon: '\u25B2' },
+      { title: '40% of searches now use AI', desc: 'Users are shifting from Google to AI chatbots for recommendations. ChatGPT, Perplexity, and other AI platforms are replacing traditional search for buying decisions.', icon: '\u25B2' },
       { title: 'Traditional SEO isn\'t enough', desc: 'Ranking #1 on Google doesn\'t mean AI will recommend you. AI models pull from different signals \u2014 reviews, authority, content quality, and brand mentions across the web.', icon: '\u25CE' },
       { title: 'GEO is the future of marketing', desc: 'Generative Engine Optimization (GEO) is how brands ensure they appear in AI-generated answers. Livesov gives you the data to measure and improve your GEO strategy.', icon: '\u25C6' },
       { title: 'Proof for your clients', desc: 'If you\'re an agency or SEO consultant, Livesov provides verifiable evidence of AI visibility \u2014 real API responses, not screenshots. Export proof as CSV reports.', icon: '\u25A0' },
@@ -146,7 +146,7 @@ const en = {
     title: 'Frequently Asked Questions',
     subtitle: 'Everything you need to know about AI visibility tracking.',
     items: [
-      { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overview mention your brand when users ask questions. It helps you understand your brand\'s presence in AI-generated answers.' },
+      { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It helps you understand your brand\'s presence in AI-generated answers.' },
       { q: 'How does Livesov track brand mentions in AI?', a: 'Livesov sends your custom queries to real AI platforms via their official APIs and captures the complete, unmodified responses. It then analyzes each response to detect if your brand was mentioned, the sentiment, and whether your brand was recommended.' },
       { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
       { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users.' },

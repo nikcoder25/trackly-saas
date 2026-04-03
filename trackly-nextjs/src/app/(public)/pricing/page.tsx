@@ -20,7 +20,7 @@ const comparisonData = {
     ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
     ['Share of Voice', '\u2713', 'Limited', 'Limited'],
     ['Sentiment Analysis', '\u2713', '\u2717', '\u2717'],
-    ['GEO URL Audits', '\u2713 (up to 5,000/mo)', '\u2717', '\u2717'],
+    ['GEO URL Audits', '\u2713 (up to 500/mo)', '\u2717', '\u2717'],
   ],
 };
 

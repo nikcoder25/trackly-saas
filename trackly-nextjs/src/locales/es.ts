@@ -14,7 +14,7 @@ const es: Translations = {
     badge: 'Rastreador de Visibilidad IA',
     title: '¿Tu marca es visible en las ',
     titleHighlight: 'respuestas de IA?',
-    description: 'Rastrea cómo ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overview mencionan tu marca. Obtén pruebas reales, mide la cuota de voz y optimiza tu estrategia GEO.',
+    description: 'Rastrea cómo ChatGPT, Perplexity, Claude, Gemini y Grok mencionan tu marca. Obtén pruebas reales, mide la cuota de voz y optimiza tu estrategia GEO.',
     cta: 'Comenzar Rastreo',
     ctaDemo: 'Ver Demo',
   },
@@ -96,7 +96,7 @@ const es: Translations = {
     title: 'Por qué la Visibilidad IA es el Nuevo SEO',
     subtitle: 'Los chatbots de IA se están convirtiendo en la forma #1 de descubrir marcas. Si no eres visible, eres invisible.',
     items: [
-      { title: '40% de búsquedas usan IA', desc: 'Los usuarios están pasando de Google a chatbots de IA para recomendaciones. ChatGPT, Perplexity y Google AI Overview están reemplazando la búsqueda tradicional.', icon: '\u25B2' },
+      { title: '40% de búsquedas usan IA', desc: 'Los usuarios están pasando de Google a chatbots de IA para recomendaciones. ChatGPT, Perplexity y otras plataformas de IA están reemplazando la búsqueda tradicional.', icon: '\u25B2' },
       { title: 'El SEO tradicional no es suficiente', desc: 'Estar #1 en Google no significa que la IA te recomendará. Los modelos de IA usan diferentes señales \u2014 reseñas, autoridad, calidad de contenido.', icon: '\u25CE' },
       { title: 'GEO es el futuro del marketing', desc: 'La Optimización de Motor Generativo (GEO) es cómo las marcas aseguran aparecer en respuestas de IA. Livesov te da los datos para medir y mejorar tu estrategia GEO.', icon: '\u25C6' },
       { title: 'Pruebas para tus clientes', desc: 'Si eres agencia o consultor SEO, Livesov proporciona evidencia verificable de visibilidad IA \u2014 respuestas API reales, no capturas de pantalla.', icon: '\u25A0' },
@@ -120,7 +120,7 @@ const es: Translations = {
     title: 'Preguntas Frecuentes',
     subtitle: 'Todo lo que necesitas saber sobre rastreo de visibilidad IA.',
     items: [
-      { q: '¿Qué es el rastreo de visibilidad IA?', a: 'El rastreo de visibilidad IA monitorea cómo plataformas de IA como ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overview mencionan tu marca cuando los usuarios hacen preguntas.' },
+      { q: '¿Qué es el rastreo de visibilidad IA?', a: 'El rastreo de visibilidad IA monitorea cómo plataformas de IA como ChatGPT, Perplexity, Claude, Gemini y Grok mencionan tu marca cuando los usuarios hacen preguntas.' },
       { q: '¿Cómo rastrea Livesov las menciones de marca en IA?', a: 'Livesov envía tus consultas personalizadas a plataformas de IA reales a través de sus APIs oficiales y captura las respuestas completas y sin modificar.' },
       { q: '¿Qué plataformas de IA soporta Livesov?', a: 'Livesov rastrea tu marca en 5 plataformas de IA: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini y Grok (xAI).' },
       { q: '¿Qué es la Cuota de Voz en IA?', a: 'La Cuota de Voz (SOV) en IA mide qué porcentaje de respuestas generadas por IA mencionan tu marca cuando se hacen consultas relevantes.' },

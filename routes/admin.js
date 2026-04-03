@@ -391,8 +391,14 @@ router.put('/settings', auth, async (req, res) => {
   try {
     const { settings } = req.body;
     if (!settings || typeof settings !== 'object') return res.status(400).json({ error: 'Invalid settings' });
+    // Whitelist allowed settings keys to prevent injection of sensitive fields
+    const ALLOWED_KEYS = ['models', 'theme', 'language', 'notifications', 'timezone', 'dashboard_preset', 'email_alerts'];
+    const sanitized = {};
+    for (const key of ALLOWED_KEYS) {
+      if (key in settings) sanitized[key] = settings[key];
+    }
     // Validate model selections
-    const modelPrefs = settings.models || {};
+    const modelPrefs = sanitized.models || {};
     for (const [platform, modelId] of Object.entries(modelPrefs)) {
       const platformModels = PLATFORM_MODELS[platform];
       if (!platformModels) continue;
@@ -403,7 +409,7 @@ router.put('/settings', auth, async (req, res) => {
     }
     const result = await pool.query(
       'UPDATE users SET settings = settings || $1::jsonb WHERE id = $2 RETURNING *',
-      [JSON.stringify(settings), req.user.id]
+      [JSON.stringify(sanitized), req.user.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     res.json({ settings: result.rows[0].settings || {}, message: 'Settings saved' });
