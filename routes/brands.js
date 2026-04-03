@@ -691,7 +691,7 @@ router.post('/:id/run', auth, async (req, res) => {
           const stableResult = stableQueries.get(stableKey);
           if (stableResult) {
             stableSkipCount++;
-            processResult(plat, q, { text: stableResult.context || '', model: stableResult.model, simulated: false, citations: stableResult.citations || [], cached: true, tokensIn: 0, tokensOut: 0 });
+            processResult(plat, q, { text: stableResult.raw || stableResult.context || '', model: stableResult.model, simulated: false, citations: stableResult.citations || [], cached: true, tokensIn: 0, tokensOut: 0 });
             continue;
           }
 
@@ -1633,7 +1633,7 @@ async function runBrandQueries(brand) {
       if (stableResult) {
         stableSkipCount++;
         // Reuse the last result as-is (mark as cached for cost tracking)
-        cronResults[idx] = { status: 'fulfilled', value: { plat, q, result: { text: stableResult.context || '', model: stableResult.model, simulated: false, citations: stableResult.citations || [], cached: true, tokensIn: 0, tokensOut: 0 } } };
+        cronResults[idx] = { status: 'fulfilled', value: { plat, q, result: { text: stableResult.raw || stableResult.context || '', model: stableResult.model, simulated: false, citations: stableResult.citations || [], cached: true, tokensIn: 0, tokensOut: 0 } } };
         continue;
       }
 
