@@ -1,3 +1,7 @@
+// TODO: Add CAPTCHA verification (e.g. Cloudflare Turnstile or hCaptcha) to prevent spam signups.
+// The frontend should embed the CAPTCHA widget and send the token in the request body.
+// Verify the token here before creating the account.
+
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';

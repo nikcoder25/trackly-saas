@@ -87,7 +87,7 @@ export default function BillingPage() {
               <div className="billing-meter-label">{m.label}</div>
               <div className="billing-meter-value" style={{ color: 'var(--text)' }}>
                 <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)' }}>{m.used}</span>
-                <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}> / {m.max > 9999 ? '∞' : m.max}</span>
+                <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}> / {m.max >= 9999 ? '∞' : m.max}</span>
               </div>
               <div className="billing-meter-bar">
                 <div className="billing-meter-fill" style={{ width: `${pct}%`, background: m.color }} />

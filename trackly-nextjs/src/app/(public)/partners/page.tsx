@@ -104,7 +104,7 @@ export default function PartnersPage() {
             <div
               key={b.title}
               className="rounded-xl p-8 text-center"
-              style={{ background: 'var(--bg-secondary, rgba(255,255,255,0.04))', border: '1px solid var(--border-color, rgba(255,255,255,0.08))' }}
+              style={{ background: 'var(--bg-section, #f5f3f0)', border: '1px solid var(--card-border, #e8e5e1)' }}
             >
               <div className="text-4xl mb-4"><span role="img" aria-label={b.title}>{b.icon}</span></div>
               <h3 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{b.title}</h3>
@@ -146,7 +146,7 @@ export default function PartnersPage() {
               <div
                 key={a}
                 className="flex items-center gap-3 rounded-lg p-4"
-                style={{ background: 'var(--bg-secondary, rgba(255,255,255,0.04))', border: '1px solid var(--border-color, rgba(255,255,255,0.08))' }}
+                style={{ background: 'var(--bg-section, #f5f3f0)', border: '1px solid var(--card-border, #e8e5e1)' }}
               >
                 <span className="text-[#FF6154] font-bold text-lg">&#10003;</span>
                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{a}</span>
@@ -164,7 +164,7 @@ export default function PartnersPage() {
         <div className="max-w-4xl mx-auto px-6 overflow-x-auto">
           <table className="w-full text-sm" style={{ color: 'var(--text-primary)' }}>
             <thead>
-              <tr style={{ borderBottom: '2px solid var(--border-color, rgba(255,255,255,0.15))' }}>
+              <tr style={{ borderBottom: '2px solid var(--card-border, #e8e5e1)' }}>
                 <th className="text-left py-3 px-4 font-semibold">Tier</th>
                 <th className="text-left py-3 px-4 font-semibold">Referrals</th>
                 <th className="text-left py-3 px-4 font-semibold">Commission</th>
@@ -173,7 +173,7 @@ export default function PartnersPage() {
             </thead>
             <tbody>
               {tiers.map((t) => (
-                <tr key={t.tier} style={{ borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.08))' }}>
+                <tr key={t.tier} style={{ borderBottom: '1px solid var(--card-border, #e8e5e1)' }}>
                   <td className="py-3 px-4 font-semibold" style={{ color: '#FF6154' }}>{t.tier}</td>
                   <td className="py-3 px-4" style={{ color: 'var(--text-secondary)' }}>{t.referrals}</td>
                   <td className="py-3 px-4 font-semibold">{t.commission}</td>
@@ -208,7 +208,7 @@ export default function PartnersPage() {
             <div
               key={faq.question}
               className="rounded-lg p-6"
-              style={{ background: 'var(--bg-secondary, rgba(255,255,255,0.04))', border: '1px solid var(--border-color, rgba(255,255,255,0.08))' }}
+              style={{ background: 'var(--bg-section, #f5f3f0)', border: '1px solid var(--card-border, #e8e5e1)' }}
             >
               <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{faq.question}</h3>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{faq.answer}</p>

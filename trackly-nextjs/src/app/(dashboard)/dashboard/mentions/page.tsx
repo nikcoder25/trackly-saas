@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -77,6 +77,30 @@ export default function MentionsPage() {
       '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
   }
   function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  function renderMarkdown(text: string): string {
+    if (!text) return '';
+    let html = escHtml(text);
+    // Bold
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg3);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;">$1</code>');
+    // Headers (lines starting with #)
+    html = html.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
+    // Bullet points
+    html = html.replace(/^[-•]\s+(.+)$/gm, '&nbsp;&nbsp;• $1');
+    // Numbered lists
+    html = html.replace(/^\d+\.\s+(.+)$/gm, (_, content) => `&nbsp;&nbsp;${_[0]}. ${content}`);
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">$1</a>');
+    // Highlight brand name
+    if (selectedBrand) {
+      const escaped = escHtml(selectedBrand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      html = html.replace(new RegExp(`(${escaped})`, 'gi'),
+        '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
+    }
+    return html;
+  }
 
   function exportCSV() {
     if (!filtered.length) return;
@@ -191,7 +215,7 @@ export default function MentionsPage() {
                     <th className="th">Query</th>
                     <th className="th" style={{ width:'12%' }}>Status</th>
                     <th className="th" style={{ width:'12%' }}>Sentiment</th>
-                    <th className="th" style={{ width:'8%' }}>Position</th>
+                    <th className="th" style={{ width:'8%' }} title="List position where your brand appears in the AI response. Available when AI provides numbered lists.">Position</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -203,16 +227,16 @@ export default function MentionsPage() {
                     const sentColor = r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
 
                     return (
-                      <>
-                        <tr key={globalIdx} className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
+                      <React.Fragment key={globalIdx}>
+                        <tr className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
                           <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
                           <td className="td">{r.query}</td>
                           <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
                           <td className="td">{r.error ? '—' : !r.mentioned ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
-                          <td className="td">{posLabel === 'N/A' ? <span title="Position tracking not available for this result">{posLabel}</span> : posLabel}</td>
+                          <td className="td">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" style={{ color: 'var(--muted)' }}>—</span> : posLabel}</td>
                         </tr>
                         {isExpanded && (
-                          <tr key={`${globalIdx}-detail`}>
+                          <tr>
                             <td colSpan={5} style={{ padding:0 }}>
                               <div style={{ padding:16,background:'var(--bg)',borderTop:'1px solid var(--bg3)' }}>
                                 {r.error ? (
@@ -221,7 +245,7 @@ export default function MentionsPage() {
                                   </div>
                                 ) : (
                                   <div style={{ background:'var(--bg3)',padding:14,borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--text)',lineHeight:1.7,borderLeft:`3px solid ${r.mentioned ? 'var(--green)' : 'var(--red)'}`,whiteSpace:'pre-wrap' }}
-                                    dangerouslySetInnerHTML={{ __html: highlightBrand(responseText) }} />
+                                    dangerouslySetInnerHTML={{ __html: renderMarkdown(responseText) }} />
                                 )}
                                 <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
                                   Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.error ? '—' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '—' : (r.recommended ? 'Yes' : 'No')}
@@ -230,7 +254,7 @@ export default function MentionsPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

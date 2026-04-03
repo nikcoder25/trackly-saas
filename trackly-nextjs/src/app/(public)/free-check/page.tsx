@@ -75,6 +75,7 @@ export default function FreeCheckPage() {
             color: 'rgba(255,255,255,.7)',
             maxWidth: 540,
             margin: '0 auto',
+            paddingBottom: 24,
           }}
         >
           Find out in 30 seconds — completely free, no signup required
@@ -82,7 +83,7 @@ export default function FreeCheckPage() {
       </section>
 
       {/* Form Section */}
-      <section style={{ padding: '0 24px 64px', maxWidth: 560, margin: '0 auto' }}>
+      <section style={{ padding: '0 24px 64px', maxWidth: 560, margin: '-12px auto 0' }}>
         <div
           style={{
             background: '#fff',

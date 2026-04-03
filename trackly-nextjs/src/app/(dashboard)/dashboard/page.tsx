@@ -215,8 +215,22 @@ export default function DashboardPage() {
     Object.entries(competitorData).sort((a, b) => b[1] - a[1]).slice(0, 8),
   [competitorData]);
 
-  // Citations
-  const citationData = lastRun?.citations || {};
+  // Citations — use run-level aggregation, or extract from allResults for older runs
+  const citationData = useMemo(() => {
+    if (lastRun?.citations && Object.keys(lastRun.citations).length > 0) return lastRun.citations as Record<string, number>;
+    // Fallback: extract from individual results
+    const counts: Record<string, number> = {};
+    for (const r of allResultsArr) {
+      const cites = (r.citations || []) as string[];
+      for (const url of cites) {
+        try {
+          const domain = new URL(String(url)).hostname.replace(/^www\./, '');
+          counts[domain] = (counts[domain] || 0) + 1;
+        } catch { /* skip */ }
+      }
+    }
+    return counts;
+  }, [lastRun, allResultsArr]);
   const topCitations = useMemo(() =>
     Object.entries(citationData).sort((a, b) => b[1] - a[1]).slice(0, 10),
   [citationData]);

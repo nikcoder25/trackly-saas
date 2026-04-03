@@ -119,9 +119,16 @@ function DemoSection() {
     if (!node) return;
     const observer = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { typing.start(); observer.unobserve(node); }
-    }, { threshold: 0.3 });
+    }, { threshold: 0.2 });
     observer.observe(node);
   };
+
+  // Fallback: if typing hasn't started after 3s (e.g. section already in view), start it
+  useEffect(() => {
+    const fallback = setTimeout(() => { typing.start(); }, 3000);
+    return () => clearTimeout(fallback);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (typing.done) {
@@ -415,6 +422,9 @@ export default function LivesovHomePage() {
             <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
             <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
             <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+            <Link href="/free-check">Free Check</Link>
+            <Link href="/geo-audit">GEO Audit</Link>
+            <Link href="/blog">Blog</Link>
             <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
           </div>
 
@@ -430,8 +440,10 @@ export default function LivesovHomePage() {
         <div className="tl-mobile-menu">
           <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
           <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
-          <a href="#use-cases" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.useCases}</a>
           <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+          <Link href="/free-check" onClick={closeMenu}>Free Check</Link>
+          <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
+          <Link href="/blog" onClick={closeMenu}>Blog</Link>
           <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
           <div className="tl-mobile-menu-actions">
             <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>{t.nav.login}</Link>

@@ -161,6 +161,7 @@ export default function GeoAuditPage() {
             color: 'rgba(255,255,255,.7)',
             maxWidth: 540,
             margin: '0 auto',
+            paddingBottom: 24,
           }}
         >
           Get your GEO score in seconds — free, no signup required
@@ -168,7 +169,7 @@ export default function GeoAuditPage() {
       </section>
 
       {/* Form Section */}
-      <section style={{ padding: '0 24px 64px', maxWidth: 600, margin: '0 auto' }}>
+      <section style={{ padding: '0 24px 64px', maxWidth: 600, margin: '-12px auto 0' }}>
         <div
           style={{
             background: '#fff',
