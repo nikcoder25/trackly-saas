@@ -51,25 +51,31 @@ export default function PricingPage() {
           )}
         </div>
 
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {monthlyPlans.map((plan) => {
-            const displayPrice = annual ? plan.annualPrice : plan.price;
-            const showStrike = annual && plan.price !== '$0' && plan.price !== plan.annualPrice;
+            const isCustom = plan.price === 'Custom';
+            const displayPrice = isCustom ? 'Custom' : annual ? plan.annualPrice : plan.price;
+            const showStrike = !isCustom && annual && plan.price !== '$0' && plan.price !== plan.annualPrice;
+            const isEnterprise = plan.name === 'Enterprise';
 
             return (
-              <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[#FF6154] text-white ring-2 ring-[#FF6154] shadow-lg shadow-[#FF6154]/20' : 'bg-white border border-gray-200'}`}>
-                <h3 className={`text-lg font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
+              <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[#FF6154] text-white ring-2 ring-[#FF6154] shadow-lg shadow-[#FF6154]/20' : isEnterprise ? 'bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200' : 'bg-white border border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <h3 className={`text-lg font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
+                  {isEnterprise && <span className="text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Custom</span>}
+                </div>
                 <div className="mt-3 mb-1">
                   {showStrike && (
                     <span className={`text-lg line-through mr-2 ${plan.highlighted ? 'text-white/50' : 'text-gray-300'}`}>{plan.price}</span>
                   )}
                   <span className={`text-3xl font-extrabold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{displayPrice}</span>
-                  <span className={`text-sm ${plan.highlighted ? 'text-white/70' : 'text-gray-400'}`}>{plan.period}</span>
+                  {!isCustom && <span className={`text-sm ${plan.highlighted ? 'text-white/70' : 'text-gray-400'}`}>{plan.period}</span>}
                 </div>
-                {annual && plan.price !== '$0' && (
+                {!isCustom && annual && plan.price !== '$0' && (
                   <p className={`text-xs mb-4 ${plan.highlighted ? 'text-white/60' : 'text-gray-400'}`}>billed annually</p>
                 )}
-                {(!annual || plan.price === '$0') && <div className="mb-6" />}
+                {isCustom && <p className="text-xs mb-4 text-indigo-500 font-medium">tailored to your needs</p>}
+                {!isCustom && (!annual || plan.price === '$0') && <div className="mb-6" />}
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map((f) => (
                     <li key={f} className={`text-sm flex items-start gap-2 ${plan.highlighted ? 'text-white/90' : 'text-gray-500'}`}>
@@ -78,9 +84,15 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href={plan.href} className={`block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition ${plan.highlighted ? 'bg-white text-[#FF6154] hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
-                  {plan.cta}
-                </Link>
+                {isEnterprise ? (
+                  <a href="mailto:sales@livesov.com?subject=Enterprise Plan Inquiry" className="block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition bg-indigo-600 text-white hover:bg-indigo-700">
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <Link href={plan.href} className={`block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition ${plan.highlighted ? 'bg-white text-[#FF6154] hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
+                    {plan.cta}
+                  </Link>
+                )}
               </div>
             );
           })}

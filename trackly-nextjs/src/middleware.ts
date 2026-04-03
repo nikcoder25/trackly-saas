@@ -23,8 +23,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // If user is on any dashboard page but not logged in, redirect to login
-  if (pathname.startsWith('/dashboard') && !hasValidToken) {
+  // If user is on any dashboard or onboarding page but not logged in, redirect to login
+  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')) && !hasValidToken) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
@@ -34,5 +34,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/signup', '/reset-password'],
+  matcher: ['/dashboard/:path*', '/onboarding', '/login', '/signup', '/reset-password'],
 };

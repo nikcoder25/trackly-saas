@@ -11,6 +11,18 @@ import GlobalLiveToasts from '@/components/dashboard/GlobalLiveToasts';
 import { ToastProvider } from '@/components/dashboard/Toast';
 import { SkeletonStyles } from '@/components/dashboard/Skeleton';
 import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+
+function OnboardingRedirect() {
+  const { brands, loading } = useBrands();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  if (!loading && brands.length === 0 && pathname !== '/onboarding') {
+    router.replace('/onboarding');
+  }
+  return null;
+}
 
 function OverLimitBanner() {
   const { overLimit, brands, brandLimit, plan } = useBrands();
@@ -50,6 +62,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
 
   return (
     <BrandProvider>
+    <OnboardingRedirect />
     <RunProvider>
     <ToastProvider>
     <SkeletonStyles />

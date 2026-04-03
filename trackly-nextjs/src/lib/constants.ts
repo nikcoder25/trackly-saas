@@ -64,6 +64,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['1 brand', '30 prompts/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (2)', 'Sentiment analysis', '25 GEO audits/month'] },
   { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', '5 brands', '250 prompts/month', '5 AI platforms', 'Daily schedule', 'SOV tracking', 'Sentiment analysis', 'Competitor tracking (5)', 'Evidence & proof export', 'Custom queries', 'Email alerts', '100 GEO audits/month'] },
   { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['Everything in Pro, plus:', '20 brands', '1,000 prompts/month', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '500 GEO audits/month'] },
+  { name: 'Enterprise', price: 'Custom', annualPrice: 'Custom', sub: 'For large organizations', cta: 'Contact Us', features: ['Everything in Agency, plus:', '100 brands', '10,000 prompts/month', '6-hour schedule', 'Competitor tracking (100)', 'API access', 'Dedicated support', '5,000 GEO audits/month', 'Custom integrations'] },
 ];
 
 export const PLATFORM_COLORS: Record<string, string> = {
