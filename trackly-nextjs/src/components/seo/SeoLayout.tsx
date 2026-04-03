@@ -8,7 +8,6 @@ const navLinks = [
   { href: '/#features', label: 'Features' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/how-it-works', label: 'How it Works' },
-  { href: '/free-check', label: 'Free Check' },
   { href: '/geo-audit', label: 'GEO Audit' },
   { href: '/use-cases', label: 'Use Cases' },
   { href: '/integrations', label: 'Integrations' },
