@@ -199,31 +199,47 @@ export default function CompetitorsPage() {
         )}
       </div>
 
-      {/* Per-Platform Breakdown */}
+      {/* Per-Platform Breakdown — compact card grid */}
       {competitors.length > 0 && allResults.length > 0 && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div className="section-title">Per-Platform Breakdown</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Competitor mentions broken down by AI platform.</div>
-          {Object.entries(platBreakdown).map(([plat, compCounts]) => {
-            const platTotal = allResults.filter(r => r.platform === plat).length;
-            return (
-              <div key={plat} style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: PLATFORM_COLORS[plat] || 'var(--text)', marginBottom: 6 }}>
-                  {plat} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>({platTotal} {platTotal === 1 ? 'query' : 'queries'})</span>
+        <div style={{ marginTop: 14 }}>
+          <div className="section-title" style={{ marginBottom: 4 }}>Per-Platform Breakdown</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Competitor mentions broken down by AI platform.</div>
+          <div className="plat-breakdown-grid">
+            {Object.entries(platBreakdown).map(([plat, compCounts]) => {
+              const platColor = PLATFORM_COLORS[plat] || 'var(--muted)';
+              const platTotal = allResults.filter(r => r.platform === plat).length;
+              const maxCount = Math.max(...Object.values(compCounts), 1);
+              return (
+                <div key={plat} className="plat-breakdown-card">
+                  {/* Platform header badge */}
+                  <div className="plat-breakdown-header" style={{ borderColor: platColor }}>
+                    <span className="plat-breakdown-dot" style={{ background: platColor }} />
+                    <span className="plat-breakdown-name" style={{ color: platColor }}>{plat}</span>
+                    <span className="plat-breakdown-count">{platTotal} {platTotal === 1 ? 'query' : 'queries'}</span>
+                  </div>
+                  {/* Compact competitor rows */}
+                  <div className="plat-breakdown-body">
+                    {Object.entries(compCounts).map(([comp, count]) => {
+                      const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
+                      const ratePct = platTotal ? Math.round((count / platTotal) * 100) : 0;
+                      return (
+                        <div key={comp} className="plat-breakdown-row">
+                          <div className="plat-breakdown-comp">{comp}</div>
+                          <div className="plat-breakdown-bar">
+                            <div className="plat-breakdown-bar-fill" style={{ width: `${pct}%`, background: platColor }} />
+                          </div>
+                          <div className="plat-breakdown-val">{count}<span className="plat-breakdown-rate">{ratePct}%</span></div>
+                        </div>
+                      );
+                    })}
+                    {Object.keys(compCounts).length === 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--muted)', padding: '8px 0', textAlign: 'center' }}>No data</div>
+                    )}
+                  </div>
                 </div>
-                {Object.entries(compCounts).map(([comp, count]) => {
-                  const pct = platTotal ? Math.round((count / platTotal) * 100) : 0;
-                  return (
-                    <div key={comp} className="qperf-bar-row">
-                      <div className="qperf-bar-label">{comp}</div>
-                      <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: PLATFORM_COLORS[plat] || 'var(--muted)' }} /></div>
-                      <div className="qperf-bar-value">{count}x ({pct}%)</div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
