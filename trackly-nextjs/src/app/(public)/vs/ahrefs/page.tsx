@@ -1,16 +1,31 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
   description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
   keywords: 'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai',
   alternates: { canonical: '/vs/ahrefs' },
+  openGraph: {
+    title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
+    description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
+    url: 'https://livesov.com/vs/ahrefs',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
+    description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function VsAhrefsPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'vs Ahrefs', url: '/vs/ahrefs' }]} />
       <SeoHero
         title={<>Livesov vs <span className="text-[#FF6154]">Ahrefs</span></>}
         subtitle="Complementary tools for the AI era. Livesov monitors AI visibility while Ahrefs dominates backlink analysis."

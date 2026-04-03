@@ -1,15 +1,30 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'How Livesov Works — AI Brand Tracking Methodology',
   description: 'Learn how Livesov tracks your brand across AI platforms. Our methodology for measuring AI visibility, share of voice, and brand mentions.',
   alternates: { canonical: '/how-it-works' },
+  openGraph: {
+    title: 'How Livesov Works — AI Brand Tracking Methodology',
+    description: 'Learn how Livesov tracks your brand across AI platforms. Our methodology for measuring AI visibility, share of voice, and brand mentions.',
+    url: 'https://livesov.com/how-it-works',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'How Livesov Works — AI Brand Tracking Methodology' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'How Livesov Works — AI Brand Tracking Methodology',
+    description: 'Learn how Livesov tracks your brand across AI platforms. Our methodology for measuring AI visibility, share of voice, and brand mentions.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function HowItWorksPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'How It Works', url: '/how-it-works' }]} />
       <SeoHero
         title={<>How <span className="text-[#FF6154]">Livesov</span> Works</>}
         subtitle="A systematic, data-driven approach to tracking your brand's visibility across AI platforms."

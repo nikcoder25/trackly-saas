@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import Link from 'next/link';
 
 const articles = [
@@ -386,6 +386,7 @@ export default function BlogPage() {
 
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Blog', url: '/blog' }]} />
       <SeoHero
         title="Livesov Blog"
         subtitle="Insights on AI visibility, generative engine optimization, and brand tracking across AI platforms."

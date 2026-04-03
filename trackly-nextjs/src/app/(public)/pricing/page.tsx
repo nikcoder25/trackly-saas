@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import SeoLayout from '@/components/seo/SeoLayout';
+import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
 import { PRICING_PLANS } from '@/lib/constants';
 
 const monthlyPlans = PRICING_PLANS.map(p => ({
@@ -29,6 +29,7 @@ export default function PricingPage() {
 
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
       <section className="py-20 px-6 text-center">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Simple, transparent pricing</h1>
         <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start free. Upgrade as your AI visibility needs grow.</p>

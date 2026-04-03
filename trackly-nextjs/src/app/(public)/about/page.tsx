@@ -1,15 +1,30 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'About Livesov — AI Visibility Tracking Platform',
   description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
   alternates: { canonical: '/about' },
+  openGraph: {
+    title: 'About Livesov — AI Visibility Tracking Platform',
+    description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+    url: 'https://livesov.com/about',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'About Livesov — AI Visibility Tracking Platform' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'About Livesov — AI Visibility Tracking Platform',
+    description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function AboutPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'About', url: '/about' }]} />
       <SeoHero
         title={<>About <span className="text-[#FF6154]">Livesov</span></>}
         subtitle="We're building the analytics layer for AI visibility — helping brands understand and optimize how AI platforms mention and recommend them."

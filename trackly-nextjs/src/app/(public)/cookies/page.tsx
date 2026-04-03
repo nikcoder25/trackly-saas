@@ -5,6 +5,20 @@ export const metadata: Metadata = {
   title: 'Cookie Policy — Livesov',
   description: 'Livesov Cookie Policy — learn what cookies and local storage we use, how they work, and how to manage them.',
   alternates: { canonical: '/cookies' },
+  openGraph: {
+    title: 'Cookie Policy — Livesov',
+    description: 'Livesov Cookie Policy — learn what cookies and local storage we use, how they work, and how to manage them.',
+    url: 'https://livesov.com/cookies',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Cookie Policy — Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Cookie Policy — Livesov',
+    description: 'Livesov Cookie Policy — learn what cookies and local storage we use, how they work, and how to manage them.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function CookiesPage() {

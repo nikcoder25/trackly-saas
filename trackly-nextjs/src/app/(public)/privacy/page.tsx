@@ -5,6 +5,20 @@ export const metadata: Metadata = {
   title: 'Privacy Policy — Livesov',
   description: 'Livesov Privacy Policy — learn how we collect, use, store, and protect your personal data. GDPR and CCPA compliant.',
   alternates: { canonical: '/privacy' },
+  openGraph: {
+    title: 'Privacy Policy — Livesov',
+    description: 'Livesov Privacy Policy — learn how we collect, use, store, and protect your personal data. GDPR and CCPA compliant.',
+    url: 'https://livesov.com/privacy',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Privacy Policy — Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Privacy Policy — Livesov',
+    description: 'Livesov Privacy Policy — learn how we collect, use, store, and protect your personal data. GDPR and CCPA compliant.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function PrivacyPage() {

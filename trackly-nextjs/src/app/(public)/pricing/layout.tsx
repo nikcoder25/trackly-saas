@@ -4,6 +4,20 @@ export const metadata: Metadata = {
   title: 'Pricing — Livesov AI Visibility Tracker',
   description: 'Simple, transparent pricing for AI brand tracking. Start free, upgrade as you grow. Track your brand across ChatGPT, Claude, Gemini, Perplexity & Grok.',
   alternates: { canonical: '/pricing' },
+  openGraph: {
+    title: 'Pricing — Livesov AI Visibility Tracker',
+    description: 'Simple, transparent pricing for AI brand tracking. Start free, upgrade as you grow.',
+    url: 'https://livesov.com/pricing',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov Pricing — AI Visibility Tracker Plans' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Pricing — Livesov AI Visibility Tracker',
+    description: 'Free plan available. Paid plans from $9/mo. Track your brand across 5 AI platforms.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function PricingLayout({ children }: { children: React.ReactNode }) {

@@ -36,7 +36,19 @@ const nextConfig: NextConfig = {
       ],
     },
     {
-      source: '/((?!_next|favicon|.*\\..*$).*)',
+      source: '/dashboard/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+      ],
+    },
+    {
+      source: '/api/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'no-store, must-revalidate' },
+      ],
+    },
+    {
+      source: '/(login|signup|reset-password)',
       headers: [
         { key: 'Cache-Control', value: 'no-store, must-revalidate' },
       ],

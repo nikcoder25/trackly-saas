@@ -1,16 +1,31 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
   description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
   keywords: 'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity brand mentions',
   alternates: { canonical: '/perplexity-brand-tracking' },
+  openGraph: {
+    title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
+    description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
+    url: 'https://livesov.com/perplexity-brand-tracking',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
+    description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function PerplexityBrandTrackingPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Perplexity Brand Tracking', url: '/perplexity-brand-tracking' }]} />
       <SeoHero
         title={<>Track Your Brand in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#20b8cd] to-[#1a96a5]">Perplexity</span></>}
         subtitle="Monitor how Perplexity AI references, cites, and recommends your brand in its AI-powered search results."

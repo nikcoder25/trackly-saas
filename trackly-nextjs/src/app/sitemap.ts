@@ -3,37 +3,42 @@ import type { MetadataRoute } from 'next';
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const pages = [
-    '/',
-    '/pricing',
-    '/about',
-    '/contact',
-    '/how-it-works',
-    '/use-cases',
-    '/integrations',
-    '/blog',
-    '/changelog',
-    '/chatgpt-brand-tracking',
-    '/perplexity-brand-tracking',
-    '/gemini-brand-tracking',
-    '/claude-brand-tracking',
-    '/grok-brand-tracking',
-    '/geo-optimization',
-    '/vs/semrush',
-    '/vs/ahrefs',
-    '/partners',
-    '/privacy',
-    '/terms',
-    '/cookies',
-    '/home',
-    '/free-check',
-    '/geo-audit',
-  ];
+  return [
+    // Core pages — highest priority
+    { url: `${BASE_URL}/`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 1.0 },
+    { url: `${BASE_URL}/pricing`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${BASE_URL}/free-check`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/geo-audit`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.9 },
 
-  return pages.map((path) => ({
-    url: `${BASE_URL}${path}`,
-    lastModified: new Date('2026-04-01'),
-    changeFrequency: path === '/' ? 'weekly' : 'monthly',
-    priority: path === '/' ? 1 : path === '/pricing' ? 0.9 : 0.7,
-  }));
+    // Product & feature pages
+    { url: `${BASE_URL}/how-it-works`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/use-cases`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/integrations`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/geo-optimization`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+
+    // Platform-specific tracking pages (programmatic SEO)
+    { url: `${BASE_URL}/chatgpt-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/perplexity-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/gemini-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/claude-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/grok-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
+
+    // Comparison pages
+    { url: `${BASE_URL}/vs/semrush`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/vs/ahrefs`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.7 },
+
+    // Content pages
+    { url: `${BASE_URL}/blog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE_URL}/changelog`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.5 },
+
+    // Company pages
+    { url: `${BASE_URL}/about`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/contact`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE_URL}/partners`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.6 },
+
+    // Legal (low priority but needed for trust)
+    { url: `${BASE_URL}/privacy`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${BASE_URL}/terms`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${BASE_URL}/cookies`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },
+  ];
 }

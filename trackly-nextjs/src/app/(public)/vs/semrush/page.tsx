@@ -1,16 +1,31 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
   description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
   keywords: 'livesov vs semrush, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison',
   alternates: { canonical: '/vs/semrush' },
+  openGraph: {
+    title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
+    description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
+    url: 'https://livesov.com/vs/semrush',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
+    description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function VsSemrushPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'vs Semrush', url: '/vs/semrush' }]} />
       <SeoHero
         title={<>Livesov vs <span className="text-[#FF6154]">Semrush</span></>}
         subtitle="Different tools for different problems. Livesov tracks AI visibility. Semrush tracks traditional search. Here's how they compare."

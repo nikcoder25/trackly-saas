@@ -1,15 +1,30 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Use Cases — AI Visibility Tracking | Livesov',
   description: 'Discover how SaaS companies, agencies, e-commerce brands, and enterprises use Livesov to track and optimize their AI visibility.',
   alternates: { canonical: '/use-cases' },
+  openGraph: {
+    title: 'Use Cases — AI Visibility Tracking | Livesov',
+    description: 'Discover how SaaS companies, agencies, e-commerce brands, and enterprises use Livesov to track and optimize their AI visibility.',
+    url: 'https://livesov.com/use-cases',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Use Cases — AI Visibility Tracking | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Use Cases — AI Visibility Tracking | Livesov',
+    description: 'Discover how SaaS companies, agencies, e-commerce brands, and enterprises use Livesov to track and optimize their AI visibility.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function UseCasesPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Use Cases', url: '/use-cases' }]} />
       <SeoHero
         title={<>Who Uses <span className="text-[#FF6154]">Livesov</span>?</>}
         subtitle="From startups to enterprises, brands across industries use Livesov to track and optimize their AI visibility."

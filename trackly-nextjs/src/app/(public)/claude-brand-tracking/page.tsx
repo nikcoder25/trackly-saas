@@ -1,16 +1,31 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
   description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
   keywords: 'claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions',
   alternates: { canonical: '/claude-brand-tracking' },
+  openGraph: {
+    title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+    description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
+    url: 'https://livesov.com/claude-brand-tracking',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+    description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function ClaudeBrandTrackingPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Claude Brand Tracking', url: '/claude-brand-tracking' }]} />
       <SeoHero
         title={<>Track Your Brand in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#d97706] to-[#b45309]">Claude</span></>}
         subtitle="Monitor how Anthropic's Claude AI mentions, recommends, and describes your brand in its responses."

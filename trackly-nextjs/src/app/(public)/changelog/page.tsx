@@ -5,6 +5,20 @@ export const metadata: Metadata = {
   title: 'Changelog — What\'s New | Livesov',
   description: 'Latest updates and improvements to Livesov AI visibility tracker.',
   alternates: { canonical: '/changelog' },
+  openGraph: {
+    title: 'Changelog — What\'s New | Livesov',
+    description: 'Latest updates and improvements to Livesov AI visibility tracker.',
+    url: 'https://livesov.com/changelog',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Changelog — What\'s New | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Changelog — What\'s New | Livesov',
+    description: 'Latest updates and improvements to Livesov AI visibility tracker.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function ChangelogPage() {

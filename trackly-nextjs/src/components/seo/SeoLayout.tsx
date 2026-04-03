@@ -132,3 +132,26 @@ export function SeoContent({ children }: { children: React.ReactNode }) {
     </article>
   );
 }
+
+/**
+ * Breadcrumb JSON-LD structured data for sub-pages.
+ * Usage: <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
+ */
+export function Breadcrumbs({ items }: { items: Array<{ name: string; url: string }> }) {
+  const breadcrumb = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://livesov.com/' },
+      ...items.map((item, i) => ({
+        '@type': 'ListItem',
+        position: i + 2,
+        name: item.name,
+        item: `https://livesov.com${item.url}`,
+      })),
+    ],
+  };
+  return (
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+  );
+}

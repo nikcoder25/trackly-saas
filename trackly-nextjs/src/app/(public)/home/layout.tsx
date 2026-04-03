@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Livesov — AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini & Grok',
   description:
-    'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini & Grok. Plans from $9/mo.',
+    'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini & Grok. Free plan available.',
   keywords: [
     'AI visibility tracking',
     'AI brand monitoring',
@@ -23,17 +23,23 @@ export const metadata: Metadata = {
     description:
       'Track how ChatGPT, Perplexity, Claude, Gemini & Grok mention your brand. Get real proof, measure share of voice, and optimize your AI visibility.',
     type: 'website',
-    url: 'https://livesov.com/home',
+    url: 'https://livesov.com/',
     siteName: 'Livesov',
+    images: [{
+      url: 'https://livesov.com/og-image.png',
+      width: 1200,
+      height: 630,
+      alt: 'Livesov — AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini and Grok',
+    }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Livesov — AI Visibility Tracker',
     description:
-      'Monitor your brand across 5 AI platforms. Track mentions, sentiment & share of voice. Plans from $9/mo.',
+      'Monitor your brand across 5 AI platforms. Track mentions, sentiment & share of voice. Free plan available.',
   },
   alternates: {
-    canonical: 'https://livesov.com/home',
+    canonical: '/',
   },
 };
 
@@ -98,7 +104,7 @@ const jsonLd = {
         {
           '@type': 'Question',
           name: 'How much does Livesov cost?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Plans start at $9/mo (Starter). Pro is $29/mo and Agency is $89/mo — the best value in AI visibility tracking.' },
+          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan to get started. Paid plans start at $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo.' },
         },
       ],
     },

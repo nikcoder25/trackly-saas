@@ -1,16 +1,31 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero, SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
   description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
   keywords: 'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions',
   alternates: { canonical: '/chatgpt-brand-tracking' },
+  openGraph: {
+    title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
+    description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
+    url: 'https://livesov.com/chatgpt-brand-tracking',
+    siteName: 'Livesov',
+    type: 'website',
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
+    description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
+    images: ['https://livesov.com/og-image.png'],
+  },
 };
 
 export default function ChatGPTBrandTrackingPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'ChatGPT Brand Tracking', url: '/chatgpt-brand-tracking' }]} />
       <SeoHero
         title={<>Track Your Brand in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#19c37d] to-[#10a37f]">ChatGPT</span></>}
         subtitle="Monitor how OpenAI's ChatGPT mentions, recommends, and describes your brand. Track share of voice, detect hallucinations, and optimize your AI visibility."
