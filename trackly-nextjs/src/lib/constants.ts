@@ -9,6 +9,8 @@ export const AUTH = {
   bcryptRounds: 12,
 };
 
+export const BILLING_PORTAL_URL = 'https://customer.dodopayments.com/';
+
 export const TOTP_CONFIG = {
   period: 30,
   digits: 6,

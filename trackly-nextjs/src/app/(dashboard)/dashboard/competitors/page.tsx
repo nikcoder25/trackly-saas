@@ -67,7 +67,8 @@ export default function CompetitorsPage() {
     if (!newComp.trim() || !brand) return;
     const updated = [...competitors, newComp.trim()];
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
-      .then(() => { setNewComp(''); reload(); });
+      .then(() => { setNewComp(''); reload(); })
+      .catch(err => console.error('[Competitors] Failed to add competitor:', err));
   }
 
   function addDiscoveredComp(domain: string) {
@@ -75,7 +76,8 @@ export default function CompetitorsPage() {
     if (competitors.some(c => c.toLowerCase() === domain.toLowerCase())) return;
     const updated = [...competitors, domain];
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
-      .then(() => reload());
+      .then(() => reload())
+      .catch(err => console.error('[Competitors] Failed to add discovered competitor:', err));
   }
 
   async function reprocessCompetitors() {

@@ -33,7 +33,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     fetch('/api/notifications', { credentials: 'include' })
       .then(r => r.ok ? r.json() : { notifications: [] })
       .then(d => setNotifications(d.notifications || []))
-      .catch(() => {});
+      .catch(err => console.error('[Topbar] Failed to fetch notifications:', err));
   }, []);
 
 
@@ -132,7 +132,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
             style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 'var(--radius-xs)', position: 'relative' }}>
             🔔
             {notifications.filter(n => !n.read).length > 0 && (
-              <span style={{
+              <span aria-label={`${notifications.filter(n => !n.read).length} unread notifications`} style={{
                 position: 'absolute', top: -4, right: -4, background: 'var(--primary)',
                 color: '#fff', fontSize: 9, fontWeight: 700, minWidth: 16, height: 16,
                 borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
