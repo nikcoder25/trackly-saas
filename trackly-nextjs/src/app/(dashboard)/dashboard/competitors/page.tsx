@@ -15,6 +15,8 @@ export default function CompetitorsPage() {
   const brand = rawBrand as Brand | null;
   const [newComp, setNewComp] = useState('');
   const { startRun, live } = useRun();
+  const [reprocessing, setReprocessing] = useState(false);
+  const [reprocessMsg, setReprocessMsg] = useState('');
 
   // Citation-based competitor discovery
   const [citations, setCitations] = useState<CitationRow[]>([]);
@@ -53,6 +55,25 @@ export default function CompetitorsPage() {
     const updated = [...competitors, domain];
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) })
       .then(() => reload());
+  }
+
+  async function reprocessCompetitors() {
+    if (!brand || reprocessing) return;
+    setReprocessing(true);
+    setReprocessMsg('');
+    try {
+      const res = await fetch(`/api/brands/${brand.id}/reprocess-competitors`, { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (res.ok) {
+        setReprocessMsg(`Reprocessed ${data.runsProcessed} results. Reloading...`);
+        setTimeout(() => { reload(); setReprocessMsg(''); }, 1500);
+      } else {
+        setReprocessMsg(data.error || 'Reprocessing failed');
+      }
+    } catch {
+      setReprocessMsg('Reprocessing failed');
+    }
+    setReprocessing(false);
   }
 
   function removeComp(idx: number) {
@@ -205,16 +226,27 @@ export default function CompetitorsPage() {
           <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
           <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
-            Once you run queries, we&apos;ll track how often competitors appear in AI responses alongside your brand.
+            If you already have run data, reprocess it to detect competitors with improved matching. Otherwise, run a new query scan.
           </div>
-          <button
-            className="run-btn"
-            onClick={() => startRun(false)}
-            disabled={live.running}
-            style={{ margin: '0 auto 12px', display: 'block', opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
-          >
-            {live.running ? 'Running...' : 'Run Queries'}
-          </button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+            <button
+              className="pbtn"
+              onClick={reprocessCompetitors}
+              disabled={reprocessing}
+              style={{ opacity: reprocessing ? 0.6 : 1, cursor: reprocessing ? 'not-allowed' : 'pointer' }}
+            >
+              {reprocessing ? 'Reprocessing...' : 'Reprocess Existing Data'}
+            </button>
+            <button
+              className="run-btn"
+              onClick={() => startRun(false)}
+              disabled={live.running}
+              style={{ opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
+            >
+              {live.running ? 'Running...' : 'Run New Queries'}
+            </button>
+          </div>
+          {reprocessMsg && <div style={{ fontSize: 12, color: 'var(--primary)', marginBottom: 8 }}>{reprocessMsg}</div>}
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
             Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
           </div>

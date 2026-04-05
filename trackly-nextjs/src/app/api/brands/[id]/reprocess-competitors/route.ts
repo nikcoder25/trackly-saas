@@ -60,35 +60,57 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
-  // Also update the brand's in-memory mentions data
+  // Update the brand's stored data (runs[].allResults[] and mentions[])
   const brandRow = await pool.query('SELECT data FROM brands WHERE id = $1', [id]);
   const brandData = typeof brandRow.rows[0]?.data === 'string'
     ? JSON.parse(brandRow.rows[0].data) : brandRow.rows[0]?.data;
 
-  if (brandData?.mentions?.length) {
-    const mentionRuns = await pool.query(
-      `SELECT prompt, platform, competitor_mentions FROM prompt_runs
-       WHERE brand_id = $1 AND success = true AND competitor_mentions != '[]'::jsonb
-       ORDER BY created_at DESC LIMIT 500`,
-      [id]
-    );
+  if (brandData) {
+    let brandChanged = false;
 
-    const compLookup = new Map<string, string[]>();
-    for (const row of mentionRuns.rows) {
-      const key = `${row.platform}|${row.prompt}`;
-      const comps = typeof row.competitor_mentions === 'string'
-        ? JSON.parse(row.competitor_mentions) : row.competitor_mentions;
-      if (comps.length) compLookup.set(key, comps);
+    // Reprocess allResults in each stored run — this is what the competitors page reads
+    if (brandData.runs?.length) {
+      for (const run of brandData.runs) {
+        if (!run.allResults?.length) continue;
+        for (const result of run.allResults) {
+          const rawText = result.raw || result.context || '';
+          if (!rawText) continue;
+          const newComps = detectCompetitors(rawText, matcher);
+          result.competitorMentions = newComps;
+        }
+      }
+      brandChanged = true;
     }
 
-    for (const mention of brandData.mentions) {
-      const key = `${mention.platform}|${mention.query}`;
-      const comps = compLookup.get(key);
-      if (comps) mention.competitorMentions = comps;
+    // Also reprocess the mentions array
+    if (brandData.mentions?.length) {
+      const mentionRuns = await pool.query(
+        `SELECT prompt, platform, competitor_mentions FROM prompt_runs
+         WHERE brand_id = $1 AND success = true AND competitor_mentions != '[]'::jsonb
+         ORDER BY created_at DESC LIMIT 500`,
+        [id]
+      );
+
+      const compLookup = new Map<string, string[]>();
+      for (const row of mentionRuns.rows) {
+        const key = `${row.platform}|${row.prompt}`;
+        const comps = typeof row.competitor_mentions === 'string'
+          ? JSON.parse(row.competitor_mentions) : row.competitor_mentions;
+        if (comps.length) compLookup.set(key, comps);
+      }
+
+      for (const mention of brandData.mentions) {
+        const key = `${mention.platform}|${mention.query}`;
+        const comps = compLookup.get(key);
+        if (comps) mention.competitorMentions = comps;
+      }
+      brandChanged = true;
     }
 
-    await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2',
-      [JSON.stringify(brandData), id]);
+    if (brandChanged) {
+      await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2',
+        [JSON.stringify(brandData), id]);
+    }
   }
 
   return Response.json({
