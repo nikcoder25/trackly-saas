@@ -65,7 +65,7 @@ const SEGMENT_WORDS = [
   'sure', 'safe', 'home', 'land', 'city', 'town', 'east', 'west',
   'king', 'duke', 'iron', 'flex', 'apex', 'core', 'edge', 'mark',
   'tech', 'link', 'plus', 'blue', 'gold', 'gray', 'grey',
-  'cars', 'auto', 'motor', 'ride', 'fleet', 'drive', 'cargo', 'transport',
+  'cars', 'auto', 'motor', 'ride', 'fleet', 'drive', 'cargo',
   'lukes', 'johns', 'mikes', 'daves', 'bobs', 'jacks', 'steves',
   'scotts', 'franks', 'adams', 'nicks', 'tonys', 'bills', 'ricks',
   'jeffs', 'gregs', 'brads', 'alans', 'garys', 'carls', 'dales',
@@ -348,4 +348,50 @@ export function parseResponse(text: string, brand: BrandInput, query: string, ma
 export function detectCompetitors(text: string, matcher: BrandMatcher): string[] {
   if (!text || !matcher.compRes.length) return [];
   return _matchCompetitors(text, matcher.compRes);
+}
+
+/** Aggregate competitorMentions arrays into a count map. */
+export function aggregateCompetitorCounts(results: Array<{ competitorMentions?: string[] }>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const r of results) {
+    for (const c of (r.competitorMentions || [])) { counts[c] = (counts[c] || 0) + 1; }
+  }
+  return counts;
+}
+
+/** Display a domain-based competitor as a friendly name using the parser's segmentation. */
+export function friendlyCompetitorName(comp: string): string {
+  if (!COMMON_TLDS.test(comp)) return comp;
+  const words = segmentDomainWords(comp);
+  if (words.length === 0) return comp;
+  // Reconstruct with hyphens preserved for numeric prefixes (e.g. "a-1")
+  let base = comp.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+    .replace(/^www\./, '').replace(COMMON_TLDS, '');
+  const hasHyphen = base.includes('-');
+  const parts: string[] = [];
+  if (hasHyphen) {
+    for (const part of base.split('-')) {
+      if (!part) continue;
+      const alpha = part.replace(/^\d+/, '');
+      const prefix = part.slice(0, part.length - alpha.length);
+      // Purely numeric or short alphanumeric like "a", "1" — keep as-is
+      if (part.length <= 2) { parts.push(part.toUpperCase()); continue; }
+      if (prefix && alpha.length < 3) { parts.push(part.toUpperCase()); continue; }
+      if (prefix) parts.push(prefix);
+      const sub = alpha.length >= 5 ? _greedySegment(alpha).filter(w => w.length >= 3) : [alpha];
+      parts.push(...sub);
+    }
+  } else {
+    parts.push(...words);
+  }
+  // Join short parts with hyphens (e.g. "A", "1" → "A-1") then title-case the rest
+  const merged: string[] = [];
+  for (const w of parts) {
+    if (w.length <= 2 && merged.length > 0 && merged[merged.length - 1].length <= 2) {
+      merged[merged.length - 1] += '-' + w;
+    } else {
+      merged.push(w);
+    }
+  }
+  return merged.map(w => w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || comp;
 }

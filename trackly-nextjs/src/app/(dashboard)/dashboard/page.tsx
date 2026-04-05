@@ -8,22 +8,7 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';
-
-function friendlyCompName(comp: string): string {
-  const isDomain = /\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i.test(comp);
-  if (!isDomain) return comp;
-  let base = comp.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-    .replace(/^www\./, '').replace(/\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i, '');
-  const parts = base.split('-').flatMap(part => {
-    const alpha = part.replace(/^\d+/, '');
-    const prefix = part.slice(0, part.length - alpha.length);
-    if (alpha.length < 5) return [part];
-    const split = alpha.replace(/(metro|airport|cars|auto|transport|trans|paving|asphalt|star|lone|city|east|west|north|south|creek|stone|green|clean|solar|power|home|land|king|steel|prime|elite|express|premier|diamond|classic|service|services|brothers|repair|custom|design|master|expert|valley|harbor|forest|bridge|spring|coast|coastal|comfort|eagle|royal|golden|silver)/gi, ' $1 ')
-      .trim().replace(/\s+/g, ' ');
-    return prefix ? [prefix + split] : [split];
-  });
-  return parts.join(' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
+import { friendlyCompetitorName as friendlyCompName } from '@/lib/parser';
 
 interface Brand {
   id: string;
@@ -234,7 +219,7 @@ export default function DashboardPage() {
       for (const c of comps) { counts[c] = (counts[c] || 0) + 1; }
     }
     return counts;
-  }, [lastRun, allResultsArr]);
+  }, [lastRun]);
   const topCompetitors = useMemo(() =>
     Object.entries(competitorData).sort((a, b) => b[1] - a[1]).slice(0, 8),
   [competitorData]);

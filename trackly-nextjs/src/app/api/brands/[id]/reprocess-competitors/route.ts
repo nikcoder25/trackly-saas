@@ -28,14 +28,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     competitors,
   });
 
-  // Fetch all prompt_runs with stored raw responses for this brand
+  // Reprocess prompt_runs using response_raw (the only place full text is stored)
   const runsResult = await pool.query(
-    `SELECT id, response_raw FROM prompt_runs WHERE brand_id = $1 AND response_raw IS NOT NULL`,
+    `SELECT id, response_raw, batch_id, prompt, platform FROM prompt_runs
+     WHERE brand_id = $1 AND response_raw IS NOT NULL`,
     [id]
   );
 
   let updated = 0;
   const BATCH_SIZE = 100;
+  // Build lookup: batch_id -> platform|prompt -> competitorMentions
+  const batchLookup = new Map<string, Map<string, string[]>>();
 
   for (let i = 0; i < runsResult.rows.length; i += BATCH_SIZE) {
     const batch = runsResult.rows.slice(i, i + BATCH_SIZE);
@@ -44,11 +47,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let pi = 1;
 
     for (const row of batch) {
-      const newCompetitors = detectCompetitors(row.response_raw, matcher);
+      const newComps = detectCompetitors(row.response_raw, matcher);
       cases.push(`WHEN id = $${pi} THEN $${pi + 1}::jsonb`);
-      vals.push(row.id, JSON.stringify(newCompetitors));
+      vals.push(row.id, JSON.stringify(newComps));
       pi += 2;
       updated++;
+
+      // Track results by batch_id for updating brand runs
+      if (row.batch_id) {
+        if (!batchLookup.has(row.batch_id)) batchLookup.set(row.batch_id, new Map());
+        batchLookup.get(row.batch_id)!.set(`${row.platform}|${row.prompt}`, newComps);
+      }
     }
 
     if (cases.length > 0) {
@@ -60,7 +69,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
-  // Update the brand's stored data (runs[].allResults[] and mentions[])
+  // Update brand's stored data using the DB-reprocessed results
+  // (allResults[].raw is stripped before storage, so we use the batchLookup from prompt_runs)
   const brandRow = await pool.query('SELECT data FROM brands WHERE id = $1', [id]);
   const brandData = typeof brandRow.rows[0]?.data === 'string'
     ? JSON.parse(brandRow.rows[0].data) : brandRow.rows[0]?.data;
@@ -68,34 +78,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (brandData) {
     let brandChanged = false;
 
-    // Reprocess allResults in each stored run and rebuild competitors aggregate
     if (brandData.runs?.length) {
       for (const run of brandData.runs) {
         if (!run.allResults?.length) continue;
-        const competitorCounts: Record<string, number> = {};
+        const lookup = run.id ? batchLookup.get(run.id) : null;
+        const compCounts: Record<string, number> = {};
         for (const result of run.allResults) {
-          const rawText = result.raw || result.context || '';
-          if (!rawText) continue;
-          const newComps = detectCompetitors(rawText, matcher);
-          result.competitorMentions = newComps;
-          for (const c of newComps) {
-            competitorCounts[c] = (competitorCounts[c] || 0) + 1;
-          }
+          const key = `${result.platform}|${result.query}`;
+          const comps = lookup?.get(key) || [];
+          result.competitorMentions = comps;
+          for (const c of comps) { compCounts[c] = (compCounts[c] || 0) + 1; }
         }
-        run.competitors = competitorCounts;
+        run.competitors = compCounts;
       }
       brandChanged = true;
     }
 
-    // Also reprocess the mentions array
     if (brandData.mentions?.length) {
       const mentionRuns = await pool.query(
         `SELECT prompt, platform, competitor_mentions FROM prompt_runs
-         WHERE brand_id = $1 AND success = true AND competitor_mentions != '[]'::jsonb
-         ORDER BY created_at DESC LIMIT 500`,
+         WHERE brand_id = $1 AND success = true AND competitor_mentions != '[]'::jsonb`,
         [id]
       );
-
       const compLookup = new Map<string, string[]>();
       for (const row of mentionRuns.rows) {
         const key = `${row.platform}|${row.prompt}`;
@@ -103,7 +107,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           ? JSON.parse(row.competitor_mentions) : row.competitor_mentions;
         if (comps.length) compLookup.set(key, comps);
       }
-
       for (const mention of brandData.mentions) {
         const key = `${mention.platform}|${mention.query}`;
         const comps = compLookup.get(key);

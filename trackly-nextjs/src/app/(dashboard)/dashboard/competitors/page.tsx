@@ -6,30 +6,10 @@ import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
+import { friendlyCompetitorName as friendlyName } from '@/lib/parser';
 
 interface Brand { id: string; name: string; website?: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
 interface CitationRow { domain: string; domain_type: string; is_brand: boolean; is_competitor: boolean; total: string; avg_position: string; last_seen: string; }
-
-// Display domain-based competitor names in a friendly format
-// e.g. "www.metrocars.com" → "Metro Cars" / "a-1airportcars.com" → "A-1 Airport Cars"
-function friendlyName(comp: string): string {
-  const isDomain = /\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i.test(comp);
-  if (!isDomain) return comp;
-  let base = comp.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-    .replace(/^www\./, '').replace(/\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i, '');
-  // Split on hyphens, then try to split compound words
-  const parts = base.split('-').flatMap(part => {
-    const alpha = part.replace(/^\d+/, '');
-    const prefix = part.slice(0, part.length - alpha.length);
-    if (alpha.length < 5) return [part];
-    // Try splitting on common word boundaries using lookahead
-    const split = alpha.replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/(metro|airport|cars|auto|transport|trans|paving|asphalt|star|lone|city|east|west|north|south|creek|stone|green|clean|solar|power|home|land|king|steel|prime|elite|express|premier|diamond|classic|service|services|brothers|repair|custom|design|master|expert|valley|harbor|forest|bridge|spring|coast|coastal|comfort|creek|eagle|royal|golden|silver)/gi, ' $1 ')
-      .trim().replace(/\s+/g, ' ');
-    return prefix ? [prefix + split] : [split];
-  });
-  return parts.join(' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
 
 export default function CompetitorsPage() {
   const { brand: rawBrand, loading, reload } = useBrandData({ fullData: true });

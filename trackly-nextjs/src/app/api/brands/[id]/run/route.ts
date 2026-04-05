@@ -4,7 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
 import { queryAI, getDefaultModel, estimateCost } from '@/lib/ai-platforms';
-import { parseResponse, buildBrandMatcher, detectCompetitors } from '@/lib/parser';
+import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -355,14 +355,7 @@ async function executeRunBackground(
       }
     }
 
-    // Aggregate competitor mentions into counts for the dashboard
-    const competitorCounts: Record<string, number> = {};
-    for (const r of allResults) {
-      const comps = (r as { competitorMentions?: string[] }).competitorMentions || [];
-      for (const c of comps) {
-        competitorCounts[c] = (competitorCounts[c] || 0) + 1;
-      }
-    }
+    const competitorCounts = aggregateCompetitorCounts(allResults);
 
     brandData.runs.push({
       id: runId, date: new Date().toISOString().split('T')[0],
@@ -438,18 +431,12 @@ async function executeRunBackground(
         const brandData = { ...brand } as any;
         delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
         if (!brandData.runs) brandData.runs = [];
-        // Emergency competitor aggregation
-        const emergCompCounts: Record<string, number> = {};
-        for (const r of allResults) {
-          const comps = (r as { competitorMentions?: string[] }).competitorMentions || [];
-          for (const c of comps) { emergCompCounts[c] = (emergCompCounts[c] || 0) + 1; }
-        }
         brandData.runs.push({
           id: runId, date: new Date().toISOString().split('T')[0],
           time: new Date().toISOString(), allResults: emergResults,
           sov: emergSov, totalQ, totalM, queries: brand.queries || [],
           activePlatforms: [], emergencySave: true, crashError: (err as Error).message,
-          competitors: emergCompCounts,
+          competitors: aggregateCompetitorCounts(allResults),
         });
         brandData.updatedAt = new Date().toISOString();
         await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
