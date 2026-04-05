@@ -88,15 +88,17 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000): Pr
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function queryAI(platform: string, query: string, apiKey: string, model?: string, brand?: any): Promise<QueryResult> {
+export async function queryAI(platform: string, query: string, apiKey: string, model?: string, brand?: any, options?: { systemPrompt?: string; maxTokens?: number }): Promise<QueryResult> {
   const useModel = model || getDefaultModel(platform);
+  const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
+  const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
 
   if (platform === 'ChatGPT') {
     const isSearch = useModel.includes('search');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload: any = {
-      model: useModel, max_tokens: MAX_OUTPUT_TOKENS,
-      messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: query }],
+      model: useModel, max_tokens: maxTok,
+      messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
     };
     if (isSearch) {
       payload.web_search_options = {};
@@ -113,7 +115,7 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
   if (platform === 'Claude') {
     const d = await fetchAI(API_ENDPOINTS.claude.messages, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: useModel, max_tokens: MAX_OUTPUT_TOKENS, system: SYSTEM_PROMPT, messages: [{ role: 'user', content: query }] }),
+      body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
     });
     return { text: d.content?.[0]?.text || '', model: d.model || useModel, tokensIn: d.usage?.input_tokens || 0, tokensOut: d.usage?.output_tokens || 0, citations: [] };
   }
@@ -122,7 +124,7 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
     const url = `${API_ENDPOINTS.gemini.base}${useModel}:generateContent`;
     const d = await fetchAI(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({ contents: [{ parts: [{ text: SYSTEM_PROMPT + '\n\n' + query }] }], generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS } }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: sysPrompt + '\n\n' + query }] }], generationConfig: { maxOutputTokens: maxTok } }),
     });
     const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return { text, model: useModel, tokensIn: d.usageMetadata?.promptTokenCount || 0, tokensOut: d.usageMetadata?.candidatesTokenCount || 0, citations: [] };
@@ -131,7 +133,7 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
   if (platform === 'Perplexity') {
     const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: useModel, max_tokens: MAX_OUTPUT_TOKENS, return_citations: true, messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: query }] }),
+      body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
     });
     const citations = d.citations || [];
     return { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations };
@@ -140,7 +142,7 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
   if (platform === 'Grok') {
     const d = await fetchAI(API_ENDPOINTS.grok.chat, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: useModel, max_tokens: MAX_OUTPUT_TOKENS, messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: query }] }),
+      body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
     });
     return { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [] };
   }

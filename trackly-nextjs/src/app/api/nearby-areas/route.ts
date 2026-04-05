@@ -69,16 +69,21 @@ export async function POST(request: Request) {
 
   try {
     const model = getDefaultModel(platform);
-    const result = await queryAI(platform, prompt, apiKey, model);
+    const result = await queryAI(platform, prompt, apiKey, model, undefined, {
+      systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
+      maxTokens: 800,
+    });
 
     if (!result?.text) {
       return Response.json({ error: 'AI returned empty response. Please try again.' }, { status: 500 });
     }
 
-    // Parse JSON array from response
-    const jsonMatch = result.text.match(/\[[\s\S]*\]/);
+    // Strip markdown code fences if present, then parse JSON array
+    const cleaned = result.text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      return Response.json({ error: 'Could not parse nearby areas from AI response' }, { status: 500 });
+      console.error('[NearbyAreas] Could not parse JSON from AI response:', result.text.substring(0, 500));
+      return Response.json({ error: 'Could not parse nearby areas from AI response. Please try again.' }, { status: 500 });
     }
 
     let areas: string[];
