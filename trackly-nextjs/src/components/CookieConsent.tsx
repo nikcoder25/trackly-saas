@@ -23,6 +23,8 @@ export default function CookieConsent() {
 
   return (
     <div
+      role="dialog"
+      aria-label="Cookie consent"
       style={{
         position: 'fixed',
         bottom: 0,
@@ -55,6 +57,7 @@ export default function CookieConsent() {
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={() => handleChoice('accepted')}
+          aria-label="Accept cookies"
           style={{
             background: '#6366f1',
             color: '#fff',
@@ -70,6 +73,7 @@ export default function CookieConsent() {
         </button>
         <button
           onClick={() => handleChoice('declined')}
+          aria-label="Decline cookies"
           style={{
             background: 'transparent',
             color: 'rgba(255,255,255,0.6)',

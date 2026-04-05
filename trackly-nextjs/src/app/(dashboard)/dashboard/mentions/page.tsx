@@ -179,10 +179,10 @@ export default function MentionsPage() {
 
           {/* Platform filter chips */}
           <div style={{ display:'flex',gap:5,marginBottom:14,flexWrap:'wrap' }}>
-            <span className={`plat-filter ${platformFilter==='all'?'active-filter':''}`} onClick={()=>{setPlatformFilter('all');}} style={{ cursor:'pointer' }}>All</span>
+            <button type="button" className={`plat-filter ${platformFilter==='all'?'active-filter':''}`} onClick={()=>{setPlatformFilter('all');}} style={{ cursor:'pointer' }}>All</button>
             {Object.keys(PLATFORM_COLORS).map(p => {
               const c = platformCounts[p];
-              return <span key={p} className={`plat-filter ${platformFilter===p?'active-filter':''}`} onClick={()=>setPlatformFilter(platformFilter===p?'all':p)} style={{ cursor:'pointer', opacity: c?.t ? 1 : 0.45 }}>{p}</span>;
+              return <button type="button" key={p} className={`plat-filter ${platformFilter===p?'active-filter':''}`} onClick={()=>setPlatformFilter(platformFilter===p?'all':p)} style={{ cursor:'pointer', opacity: c?.t ? 1 : 0.45 }}>{p}</button>;
             })}
           </div>
 
@@ -228,7 +228,7 @@ export default function MentionsPage() {
 
                     return (
                       <React.Fragment key={globalIdx}>
-                        <tr className="trow" style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }}>
+                        <tr className="trow" role={responseText || r.error ? 'button' : undefined} tabIndex={responseText || r.error ? 0 : undefined} style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && (responseText || r.error)) { e.preventDefault(); setExpandedRow(isExpanded ? null : globalIdx); } }}>
                           <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
                           <td className="td">{r.query}</td>
                           <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>

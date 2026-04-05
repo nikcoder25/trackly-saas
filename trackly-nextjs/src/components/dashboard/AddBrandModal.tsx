@@ -45,7 +45,8 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const [queryMsg, setQueryMsg] = useState('');
   const autoGenTriggered = useRef(false);
 
-  // Auto-generate queries when entering Step 3 for the first time with no queries
+  // Auto-generate queries once when entering Step 3 for the first time.
+  // Only depends on `step`; autoGenTriggered ref prevents re-runs.
   useEffect(() => {
     if (step === 3 && queries.length === 0 && name && !autoGenTriggered.current) {
       autoGenTriggered.current = true;

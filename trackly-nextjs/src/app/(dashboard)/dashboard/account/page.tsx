@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { PRICING_PLANS } from '@/lib/constants';
+import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
 
 interface BillingEntry { date: string; plan: string; amount: string; status: string; }
@@ -113,7 +113,7 @@ export default function AccountPage() {
         <div className="card" style={{ marginTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div className="section-title" style={{ margin: 0 }}>Billing History</div>
-            <a href="https://customer.dodopayments.com/" target="_blank" rel="noopener" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--primary)', textDecoration: 'none', letterSpacing: '.5px' }}>MANAGE BILLING →</a>
+            <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--primary)', textDecoration: 'none', letterSpacing: '.5px' }}>MANAGE BILLING →</a>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
             <thead><tr style={{ borderBottom: '2px solid var(--border)' }}><th className="th">Date</th><th className="th">Plan</th><th className="th">Amount</th><th className="th">Status</th></tr></thead>
