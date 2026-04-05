@@ -254,6 +254,14 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setError(''); setMessage('');
   }, [brand]);
 
+  // Auto-generate aliases on first load if none exist
+  useEffect(() => {
+    if (brand.name && (!brand.aliases || brand.aliases.length === 0)) {
+      autoGenerateAliases();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brand.id]);
+
   const addAlias = () => { if (aliasInput.trim() && !aliases.includes(aliasInput.trim())) { setAliases([...aliases, aliasInput.trim()]); setAliasInput(''); } };
 
   const autoGenerateAliases = () => {

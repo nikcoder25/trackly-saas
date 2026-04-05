@@ -138,12 +138,41 @@ export async function POST(request: Request) {
       ? queries.filter((q: unknown) => typeof q === 'string').map((q: string) => q.trim()).filter(Boolean).slice(0, 300)
       : defaultQueries;
 
+    // Auto-generate aliases from brand name & website
+    const autoAliases = new Set<string>();
+    const trimmedName = (name as string).trim();
+    const lowerName = trimmedName.toLowerCase();
+    const nameWords = trimmedName.split(/\s+/);
+    const lowerWords = lowerName.split(/\s+/);
+    autoAliases.add(lowerName);
+    if (nameWords.length > 1) {
+      autoAliases.add(nameWords.join(''));
+      autoAliases.add(lowerWords.join(''));
+      autoAliases.add(lowerWords.join('-'));
+    }
+    // Possessive
+    const mainWord = nameWords.length >= 2 ? nameWords.slice(0, -1).join(' ') : trimmedName;
+    if (!mainWord.endsWith("'s") && !mainWord.endsWith("s'")) {
+      autoAliases.add(mainWord + "'s");
+    }
+    // Website domain variations
+    if (website) {
+      const domain = (website as string).replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+      if (domain) {
+        autoAliases.add(domain);
+        autoAliases.add(domain.split('.')[0]);
+        autoAliases.add('www.' + domain);
+      }
+    }
+    const safeAliases = [...autoAliases].filter(a => a.length >= 2);
+
     const id = uid();
     const data = {
       name, industry: industry || '', website: website || '', city: city || '',
       goal: goal || 70,
       competitors: safeComps,
       nearbyAreas: safeNearby,
+      aliases: safeAliases,
       queries: safeQueries,
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
       citations: {}, notes: {}, schedule: null,
