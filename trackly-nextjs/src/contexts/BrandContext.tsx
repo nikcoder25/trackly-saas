@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 
 interface Brand {
   id: string;
@@ -46,19 +46,35 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [plan, setPlan] = useState('free');
   const [brandLimit, setBrandLimit] = useState(1);
   const [overLimit, setOverLimit] = useState(false);
+  // Track the server-saved brand ID to avoid redundant saves
+  const serverBrandIdRef = useRef<string | null>(null);
 
-  // Wrap setSelectedBrand to persist selection to localStorage
+  // Persist selection to both localStorage (instant) and server (for team sync)
   const setSelectedBrand = useCallback((brand: Brand | null) => {
     _setSelectedBrand(brand);
     if (brand?.id) {
       try { localStorage.setItem('trackly_selected_brand', brand.id); } catch {}
+      // Save to server if it changed
+      if (brand.id !== serverBrandIdRef.current) {
+        serverBrandIdRef.current = brand.id;
+        fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ selectedBrandId: brand.id }),
+        }).catch(() => {}); // fire-and-forget
+      }
     }
   }, []);
 
   const refreshBrands = useCallback(async () => {
     try {
-      const res = await fetch('/api/brands', { credentials: 'include' });
-      const data = await res.json();
+      // Fetch brands and user settings in parallel
+      const [brandsRes, settingsRes] = await Promise.all([
+        fetch('/api/brands', { credentials: 'include' }),
+        fetch('/api/settings', { credentials: 'include' }),
+      ]);
+      const data = await brandsRes.json();
       const b = data.brands || [];
       const sb = data.sharedBrands || [];
       setBrands(b);
@@ -66,21 +82,34 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setPlan(data.plan || 'free');
       setBrandLimit(data.brandLimit || 1);
       setOverLimit(data.overLimit || false);
-      _setSelectedBrand((prev) => {
-        // Try to restore from localStorage if no previous selection
-        let savedId: string | null = null;
-        try { savedId = localStorage.getItem('trackly_selected_brand'); } catch {}
 
+      // Get server-saved brand preference
+      let serverBrandId: string | null = null;
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        serverBrandId = settingsData.settings?.selectedBrandId || null;
+        if (serverBrandId) serverBrandIdRef.current = serverBrandId;
+      }
+
+      _setSelectedBrand((prev) => {
         if (prev) {
           // Update the selected brand with fresh data
           const updated = b.find((brand: Brand) => brand.id === prev.id);
           return updated || (b.length ? b[0] : null);
         }
-        // Restore persisted selection
-        if (savedId) {
-          const saved = b.find((brand: Brand) => brand.id === savedId);
+        // 1. Try server-saved preference (works across devices/team members)
+        if (serverBrandId) {
+          const saved = b.find((brand: Brand) => brand.id === serverBrandId);
           if (saved) return saved;
         }
+        // 2. Fallback to localStorage (instant, same browser)
+        let localId: string | null = null;
+        try { localId = localStorage.getItem('trackly_selected_brand'); } catch {}
+        if (localId) {
+          const local = b.find((brand: Brand) => brand.id === localId);
+          if (local) return local;
+        }
+        // 3. Default to first brand
         return b.length ? b[0] : null;
       });
     } catch (e) {

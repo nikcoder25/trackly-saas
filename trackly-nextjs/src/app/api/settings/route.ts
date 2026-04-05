@@ -33,6 +33,7 @@ export async function PUT(request: Request) {
     notifyWebhook: ['true', 'false'],
     webhookUrl: [], // allow any string
     webhookStatus: ['none', 'active', 'error'],
+    selectedBrandId: [], // allow any brand id string
   };
   const booleanKeys = ['emailNotifications', 'notifyInApp', 'notifyEmail', 'notifyWebhook'];
   const updates: Record<string, unknown> = {};
