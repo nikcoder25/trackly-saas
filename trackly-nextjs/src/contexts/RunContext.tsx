@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useBrands } from './BrandContext';
 
 // ── Types ────────────────────────────────────────────
 export interface LiveResult {
@@ -65,6 +66,7 @@ function fmtTime(ms: number): string {
 
 // ── Provider ─────────────────────────────────────────
 export function RunProvider({ children }: { children: ReactNode }) {
+  const { selectedBrand } = useBrands();
   const [live, setLive] = useState<RunLiveState>(INITIAL_STATE);
   const [elapsed, setElapsed] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -215,18 +217,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
     });
 
     try {
-      // Fetch brand
-      const brandRes = await fetch('/api/brands', { credentials: 'include' });
-      const brandData = await brandRes.json();
-      const b = (brandData.brands || [])[0];
-      if (!b) {
+      // Use the currently selected brand from BrandContext
+      if (!selectedBrand) {
         runningRef.current = false;
         setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'No brand set up', errorMsg: 'No brand set up' }));
         setTimeout(() => setLive(INITIAL_STATE), 3000);
         return;
       }
 
-      const brandId = b.id;
+      const brandId = selectedBrand.id;
       const forceParam = force ? '&force=1' : '';
 
       // POST to start the run — returns immediately with runId
@@ -270,18 +269,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
       }));
       setTimeout(() => setLive(INITIAL_STATE), 5000);
     }
-  }, [pollRunStatus]);
+  }, [pollRunStatus, selectedBrand]);
 
   // ── Force-run ──────────────────────────────────────
   const forceRun = useCallback(async () => {
     pollRef.current = false; // stop any active poll
     try {
       let brandId = live.brandId;
-      if (!brandId) {
-        const brandRes = await fetch('/api/brands', { credentials: 'include' });
-        const brandData = await brandRes.json();
-        const b = (brandData.brands || [])[0];
-        if (b) brandId = b.id;
+      if (!brandId && selectedBrand) {
+        brandId = selectedBrand.id;
       }
       if (brandId) {
         await fetch(`/api/brands/${brandId}/force-release`, { method: 'POST', credentials: 'include' });
@@ -293,7 +289,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       setLive(prev => ({ ...prev, statusText: 'Failed to release lock.', status: 'error' }));
       setTimeout(() => setLive(INITIAL_STATE), 3000);
     }
-  }, [live.brandId, startRun]);
+  }, [live.brandId, startRun, selectedBrand]);
 
   return (
     <RunContext.Provider value={{ live, elapsed, pct, startRun, forceRun }}>
