@@ -18,6 +18,17 @@ const PLATFORM_DISPLAY: Record<string, string> = {
   grok: 'Grok',
 };
 
+function parseKeys(envVar: string): string[] {
+  const keys: string[] = [];
+  const raw = (process.env[envVar] || '').trim();
+  if (raw) raw.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(k => keys.push(k));
+  for (let i = 1; i <= 10; i++) {
+    const numbered = (process.env[envVar + '_' + i] || '').trim();
+    if (numbered) numbered.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(k => keys.push(k));
+  }
+  return [...new Set(keys)];
+}
+
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
@@ -42,7 +53,7 @@ export async function POST(request: Request) {
 
   for (const p of platformOrder) {
     const envVar = PLATFORM_KEY_MAP[p];
-    const keys = (process.env[envVar] || '').split(',').map(k => k.trim()).filter(Boolean);
+    const keys = parseKeys(envVar);
     if (keys.length > 0) {
       platform = PLATFORM_DISPLAY[p];
       apiKey = keys[0];
