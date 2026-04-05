@@ -41,11 +41,19 @@ const BrandContext = createContext<BrandContextType>({
 export function BrandProvider({ children }: { children: ReactNode }) {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [sharedBrands, setSharedBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [selectedBrand, setSelectedBrandState] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState('free');
   const [brandLimit, setBrandLimit] = useState(1);
   const [overLimit, setOverLimit] = useState(false);
+
+  // Persist selected brand to localStorage
+  const setSelectedBrand = useCallback((brand: Brand | null) => {
+    setSelectedBrandState(brand);
+    if (brand?.id) {
+      try { localStorage.setItem('livesov_brand', brand.id); } catch {}
+    }
+  }, []);
 
   const refreshBrands = useCallback(async () => {
     try {
@@ -58,12 +66,14 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setPlan(data.plan || 'free');
       setBrandLimit(data.brandLimit || 1);
       setOverLimit(data.overLimit || false);
-      setSelectedBrand((prev) => {
-        if (prev) {
-          // Update the selected brand with fresh data
-          const updated = b.find((brand: Brand) => brand.id === prev.id);
-          return updated || (b.length ? b[0] : null);
+      setSelectedBrandState((prev) => {
+        // Try to restore from localStorage if no previous selection
+        const savedId = prev?.id || (() => { try { return localStorage.getItem('livesov_brand'); } catch { return null; } })();
+        if (savedId) {
+          const found = b.find((brand: Brand) => brand.id === savedId);
+          if (found) return found;
         }
+        // Default to first brand only if nothing else works
         return b.length ? b[0] : null;
       });
     } catch (e) {
@@ -74,8 +84,10 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   const selectBrandById = useCallback((id: string) => {
     const found = brands.find(b => b.id === id);
-    if (found) setSelectedBrand(found);
-  }, [brands]);
+    if (found) {
+      setSelectedBrand(found);
+    }
+  }, [brands, setSelectedBrand]);
 
   useEffect(() => { refreshBrands(); }, [refreshBrands]);
 

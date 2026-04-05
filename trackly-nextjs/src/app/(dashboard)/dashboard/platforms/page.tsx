@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
-import { useBrands } from '@/contexts/BrandContext';
+
 import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
 
 interface PlatformData {
@@ -85,7 +85,6 @@ function Sparkline({ values, color, w = 100, h = 28 }: { values: number[]; color
 export default function PlatformsPage() {
   const { brand: rawBrand, brands, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
-  const { selectBrandById } = useBrands();
 
   const latestRun = selectedBrand?.runs?.length ? selectedBrand.runs[selectedBrand.runs.length - 1] : null;
   const platformData = latestRun?.platforms || {};
@@ -155,14 +154,6 @@ export default function PlatformsPage() {
             {latestRun?.date && <span> · Last run {new Date(latestRun.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
           </p>
         </div>
-        {brands.length > 1 && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            {brands.map(b => (
-              <button key={b.id} onClick={() => selectBrandById(b.id)}
-                style={{ padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', transition: 'all .15s', background: selectedBrand?.id === b.id ? 'var(--primary)' : 'var(--bg3)', color: selectedBrand?.id === b.id ? '#fff' : 'var(--muted)' }}>{b.name}</button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── Top summary row: overall SOV ring + KPI chips ── */}

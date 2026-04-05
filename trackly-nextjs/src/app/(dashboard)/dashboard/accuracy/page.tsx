@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
-import { useBrands } from '@/contexts/BrandContext';
+
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
@@ -193,7 +193,7 @@ function FactCoverage({ facts }: { facts: Fact[] }) {
 export default function AccuracyPage() {
   const { brand: rawBrand, brands, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
-  const { selectBrandById } = useBrands();
+
   const { toast } = useToast();
   const [facts, setFacts] = useState<Fact[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -496,16 +496,6 @@ export default function AccuracyPage() {
           <div className="view-sub">Uses AI to analyze actual responses from AI platforms against your canonical facts.</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {brands.length > 1 && (
-            <select
-              className="finp"
-              value={brand?.id || ''}
-              onChange={e => selectBrandById(e.target.value)}
-              style={{ margin: 0, fontSize: 11 }}
-            >
-              {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
           <button className="pbtn" onClick={checkNow} disabled={checking}
             style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, opacity: checking ? 0.6 : 1, whiteSpace: 'nowrap' }}>
             {checking ? (

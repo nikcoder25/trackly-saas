@@ -48,8 +48,7 @@ export default function SetupPage() {
   useEffect(() => {
     if (ctxLoading) return;
     setBrands(ctxBrands as Brand[]);
-    if (ctxSelectedBrand && !selectedBrand) setSelectedBrand(ctxSelectedBrand as Brand);
-    else if (ctxBrands.length && !selectedBrand) setSelectedBrand(ctxBrands[0] as Brand);
+    if (!selectedBrand && ctxSelectedBrand) setSelectedBrand(ctxSelectedBrand as Brand);
     setLoading(false);
   }, [ctxLoading, ctxBrands, ctxSelectedBrand]);
 
