@@ -64,6 +64,12 @@ export function BrandProvider({ children }: { children: ReactNode }) {
           const updated = b.find((brand: Brand) => brand.id === prev.id);
           return updated || (b.length ? b[0] : null);
         }
+        // On first load (no prev), restore from localStorage
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('livesov_selected_brand') : null;
+        if (savedId) {
+          const saved = b.find((brand: Brand) => brand.id === savedId);
+          if (saved) return saved;
+        }
         return b.length ? b[0] : null;
       });
     } catch (e) {
@@ -74,8 +80,18 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   const selectBrandById = useCallback((id: string) => {
     const found = brands.find(b => b.id === id);
-    if (found) setSelectedBrand(found);
+    if (found) {
+      setSelectedBrand(found);
+      try { localStorage.setItem('livesov_selected_brand', id); } catch {}
+    }
   }, [brands]);
+
+  // Persist selected brand to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedBrand?.id) {
+      try { localStorage.setItem('livesov_selected_brand', selectedBrand.id); } catch {}
+    }
+  }, [selectedBrand]);
 
   useEffect(() => { refreshBrands(); }, [refreshBrands]);
 
