@@ -736,7 +736,9 @@ router.post('/:id/run', auth, async (req, res) => {
         const { raw, ...rest } = r;
         return rest;
       });
-      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), durationMs, mentions: newMentions, allResults: lightResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+      const compCounts = {};
+      for (const r of allResults) { for (const c of (r.competitorMentions || [])) { compCounts[c] = (compCounts[c] || 0) + 1; } }
+      saveBrandObj.runs.push({ id: runId, date: today, time: new Date().toISOString(), durationMs, mentions: newMentions, allResults: lightResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms], competitors: compCounts });
 
       // Archive old runs
       if (saveBrandObj.runs.length > 30) {
@@ -944,6 +946,8 @@ router.post('/:id/run', auth, async (req, res) => {
           // Strip raw text from emergency save (same as normal save) to prevent
           // brand object from growing 20-100MB+ and freezing the browser later
           const emergResults = (allResults || []).map(r => { const { raw, ...rest } = r; return rest; });
+          const emergCompCounts = {};
+          for (const r of (allResults || [])) { for (const c of (r.competitorMentions || [])) { emergCompCounts[c] = (emergCompCounts[c] || 0) + 1; } }
           eBrand.runs.push({
             id: runId,
             date: new Date().toISOString().split('T')[0],
@@ -954,7 +958,8 @@ router.post('/:id/run', auth, async (req, res) => {
             queries: brand.queries || [],
             activePlatforms: [],
             emergencySave: true,
-            crashError: e.message
+            crashError: e.message,
+            competitors: emergCompCounts,
           });
           eBrand.updatedAt = new Date().toISOString();
           await saveBrand(eBrand);
@@ -1747,7 +1752,9 @@ async function runBrandQueries(brand) {
   // Strip raw text from allResults before storing in brand JSON — full raw text
   // is in prompt_runs table. Prevents brand object from growing 20-100MB+ over time.
   const lightResults = allResults.map(r => { const { raw, ...rest } = r; return rest; });
-  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), durationMs: Date.now() - cronStartTime, mentions: newMentions, allResults: lightResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms] });
+  const cronCompCounts = {};
+  for (const r of allResults) { for (const c of (r.competitorMentions || [])) { cronCompCounts[c] = (cronCompCounts[c] || 0) + 1; } }
+  brand.runs.push({ id: uid(), date: today, time: new Date().toISOString(), durationMs: Date.now() - cronStartTime, mentions: newMentions, allResults: lightResults, sov, platforms: platSOV, totalQ, totalM, queries: [...queries], activePlatforms: [...activePlatforms], competitors: cronCompCounts });
 
   // Archive old runs
   if (brand.runs.length > 30) {

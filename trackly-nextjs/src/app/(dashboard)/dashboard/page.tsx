@@ -9,6 +9,22 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
+function friendlyCompName(comp: string): string {
+  const isDomain = /\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i.test(comp);
+  if (!isDomain) return comp;
+  let base = comp.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+    .replace(/^www\./, '').replace(/\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i, '');
+  const parts = base.split('-').flatMap(part => {
+    const alpha = part.replace(/^\d+/, '');
+    const prefix = part.slice(0, part.length - alpha.length);
+    if (alpha.length < 5) return [part];
+    const split = alpha.replace(/(metro|airport|cars|auto|transport|trans|paving|asphalt|star|lone|city|east|west|north|south|creek|stone|green|clean|solar|power|home|land|king|steel|prime|elite|express|premier|diamond|classic|service|services|brothers|repair|custom|design|master|expert|valley|harbor|forest|bridge|spring|coast|coastal|comfort|eagle|royal|golden|silver)/gi, ' $1 ')
+      .trim().replace(/\s+/g, ' ');
+    return prefix ? [prefix + split] : [split];
+  });
+  return parts.join(' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 interface Brand {
   id: string;
   name: string;
@@ -541,7 +557,7 @@ export default function DashboardPage() {
           {(queryPerfData.length>0?queryPerfData:queries.map(q=>({query:q,rate:0}))).slice(0,8).map((q,i)=><div key={i} className="ov-qp-bar" style={{marginBottom:6}}><div className="ov-qp-query" title={q.query}>{q.query}</div><div className="ov-qp-track"><div className="ov-qp-fill" style={{width:`${q.rate}%`,background:q.rate>40?'var(--green)':'var(--amber)'}}/></div><div className="ov-qp-rate" style={{color:q.rate>40?'var(--green)':'var(--amber)'}}>{q.rate}%</div></div>)}
         </div>
         <div className="ov-card" style={{marginBottom:0}}><div className="ov-card-head"><div className="ov-card-title">Competitors in AI</div><div className="ov-card-sub">{topCompetitors.length||(brand.competitors||[]).length} brands</div></div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>{topCompetitors.length>0?topCompetitors.map(([name,count],i)=><span key={i} className="ov-comp-chip">{name} <span className="ov-comp-count">{count}x</span></span>):(brand.competitors||[]).length>0?(brand.competitors||[]).map((c,i)=><span key={i} className="ov-comp-chip">{c}</span>):<span style={{fontSize:12,color:'var(--muted)'}}>Add competitors in Brand Setup</span>}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>{topCompetitors.length>0?topCompetitors.map(([name,count],i)=><span key={i} className="ov-comp-chip" title={name}>{friendlyCompName(name)} <span className="ov-comp-count">{count}x</span></span>):(brand.competitors||[]).length>0?(brand.competitors||[]).map((c,i)=><span key={i} className="ov-comp-chip" title={c}>{friendlyCompName(c)}</span>):<span style={{fontSize:12,color:'var(--muted)'}}>Add competitors in Brand Setup</span>}</div>
         </div>
       </div>}
 

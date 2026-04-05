@@ -10,6 +10,27 @@ import { useBrandData } from '@/hooks/useBrandData';
 interface Brand { id: string; name: string; website?: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
 interface CitationRow { domain: string; domain_type: string; is_brand: boolean; is_competitor: boolean; total: string; avg_position: string; last_seen: string; }
 
+// Display domain-based competitor names in a friendly format
+// e.g. "www.metrocars.com" → "Metro Cars" / "a-1airportcars.com" → "A-1 Airport Cars"
+function friendlyName(comp: string): string {
+  const isDomain = /\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i.test(comp);
+  if (!isDomain) return comp;
+  let base = comp.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+    .replace(/^www\./, '').replace(/\.(com|net|org|co|io|biz|info|us|uk|ca|au)$/i, '');
+  // Split on hyphens, then try to split compound words
+  const parts = base.split('-').flatMap(part => {
+    const alpha = part.replace(/^\d+/, '');
+    const prefix = part.slice(0, part.length - alpha.length);
+    if (alpha.length < 5) return [part];
+    // Try splitting on common word boundaries using lookahead
+    const split = alpha.replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/(metro|airport|cars|auto|transport|trans|paving|asphalt|star|lone|city|east|west|north|south|creek|stone|green|clean|solar|power|home|land|king|steel|prime|elite|express|premier|diamond|classic|service|services|brothers|repair|custom|design|master|expert|valley|harbor|forest|bridge|spring|coast|coastal|comfort|creek|eagle|royal|golden|silver)/gi, ' $1 ')
+      .trim().replace(/\s+/g, ' ');
+    return prefix ? [prefix + split] : [split];
+  });
+  return parts.join(' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 export default function CompetitorsPage() {
   const { brand: rawBrand, loading, reload } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
@@ -161,8 +182,8 @@ export default function CompetitorsPage() {
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             {competitors.map((c, i) => (
-              <span key={i} className="comp-chip">
-                {c} <button onClick={() => removeComp(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14, marginLeft: 4 }}>×</button>
+              <span key={i} className="comp-chip" title={c}>
+                {friendlyName(c)} <button onClick={() => removeComp(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14, marginLeft: 4 }}>×</button>
               </span>
             ))}
           </div>
@@ -293,7 +314,7 @@ export default function CompetitorsPage() {
             const clr = colors[i % colors.length];
             return (
               <div key={c} className="qperf-bar-row">
-                <div className="qperf-bar-label">{c}</div>
+                <div className="qperf-bar-label" title={c}>{friendlyName(c)}</div>
                 <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: clr }} /></div>
                 <div className="qperf-bar-value" style={{ color: clr }}>{pct}%</div>
               </div>
@@ -317,7 +338,7 @@ export default function CompetitorsPage() {
               const clr = colors[i % colors.length];
               return (
                 <div key={c} className="qperf-bar-row">
-                  <div className="qperf-bar-label">{c}</div>
+                  <div className="qperf-bar-label" title={c}>{friendlyName(c)}</div>
                   <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: clr }} /></div>
                   <div className="qperf-bar-value" style={{ color: 'var(--text)' }}>{count}x</div>
                 </div>
@@ -333,7 +354,7 @@ export default function CompetitorsPage() {
           <div className="section-title" style={{ marginBottom: 4 }}>Per-Platform Breakdown</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Competitor mentions broken down by AI platform.</div>
           <div className="plat-breakdown-grid">
-            {Object.entries(platBreakdown).map(([plat, compCounts]) => {
+            {(Object.entries(platBreakdown) as [string, Record<string, number>][]).map(([plat, compCounts]) => {
               const platColor = PLATFORM_COLORS[plat] || 'var(--muted)';
               const platTotal = allResults.filter(r => r.platform === plat).length;
               const maxCount = Math.max(...Object.values(compCounts), 1);
@@ -352,7 +373,7 @@ export default function CompetitorsPage() {
                       const ratePct = platTotal ? Math.round((count / platTotal) * 100) : 0;
                       return (
                         <div key={comp} className="plat-breakdown-row">
-                          <div className="plat-breakdown-comp">{comp}</div>
+                          <div className="plat-breakdown-comp" title={comp}>{friendlyName(comp)}</div>
                           <div className="plat-breakdown-bar">
                             <div className="plat-breakdown-bar-fill" style={{ width: `${pct}%`, background: platColor }} />
                           </div>
