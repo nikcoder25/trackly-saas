@@ -18,6 +18,178 @@ const NEG_WORDS = ['avoid', 'complaint', 'poor', 'bad', 'worst', 'unreliable', '
 const POS_RE = new RegExp(POS_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
 const NEG_RE = new RegExp(NEG_WORDS.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'gi');
 
+// ── Domain-aware competitor matching ─────────────────────────────
+// Competitors may be stored as domain names (e.g. "www.metrocars.com")
+// but AI models write natural business names ("Metro Cars").
+// These utilities bridge that gap with multi-strategy matching.
+
+const COMMON_TLDS = /\.(com|net|org|co|io|biz|info|us|uk|ca|au|de|fr|nz|edu|gov)$/i;
+
+const TRAILING_SUFFIXES = /(?:llc|inc|corp|ltd|group|usa|hq|tx|ca|ny|fl|az|oh|pa|nj|il|va|ma|ga|nc|mi|wa|md|mn|wi|mo|tn|la|ky|or|ok|ct|ia|ms|ar|ks|ut|nv|nm|ne|wv|id|hi|nh|me|mt|ri|de|sd|nd|ak|vt|wy|dc)$/i;
+
+function isDomainLike(str: string): boolean {
+  return COMMON_TLDS.test(str);
+}
+
+const SEGMENT_WORDS = [
+  'construction', 'installation', 'landscaping', 'restoration', 'remodeling',
+  'maintenance', 'enterprises', 'engineering', 'performance', 'improvement',
+  'residential', 'commercial', 'contracting', 'mechanical', 'foundation',
+  'demolition', 'excavation', 'insulation', 'management', 'consulting',
+  'blacktopping', 'refinishing', 'waterproof',
+  'sealcoat', 'services', 'brothers', 'painting', 'plumbing', 'cleaning',
+  'flooring', 'concrete', 'driveway', 'masonry', 'roofing', 'fencing',
+  'grading', 'hauling', 'towing', 'heating', 'cooling', 'removal',
+  'outdoor', 'kitchen', 'premium', 'quality', 'classic', 'express',
+  'precise', 'supreme', 'premier', 'diamond', 'western', 'eastern',
+  'pacific', 'america', 'country', 'capital', 'central', 'weather',
+  'trusted', 'patriot', 'liberty', 'freedom', 'comfort', 'coastal',
+  'service', 'parking', 'overlay', 'striping', 'sealing', 'curbing',
+  'milling', 'patching', 'marking', 'coating', 'surfing', 'cutting',
+  'asphalt', 'paving', 'repair', 'custom', 'design', 'supply',
+  'source', 'master', 'expert', 'golden', 'silver', 'garage',
+  'window', 'garden', 'valley', 'island', 'harbor', 'forest',
+  'bridge', 'spring', 'estate', 'austin', 'dallas', 'houston',
+  'denver', 'phoenix', 'tampa', 'vegas', 'miami', 'portland',
+  'texas', 'texan', 'north', 'south', 'metro', 'stone', 'creek',
+  'maple', 'cedar', 'eagle', 'royal', 'solar', 'power', 'house',
+  'smart', 'rapid', 'steel', 'hydro', 'green', 'clean', 'water',
+  'black', 'white', 'trust', 'prime', 'local', 'grand', 'great',
+  'super', 'elite', 'level', 'point', 'ridge', 'haven', 'plaza',
+  'crown', 'crest', 'right', 'craft', 'works', 'build',
+  'modern', 'total', 'alpha', 'omega', 'delta', 'sigma',
+  'pave', 'seal', 'line', 'roof', 'tree', 'lawn', 'hvac', 'bath',
+  'door', 'pool', 'rock', 'lake', 'hill', 'peak', 'pine', 'wolf',
+  'bear', 'hawk', 'bull', 'star', 'lone', 'best', 'fast', 'true',
+  'sure', 'safe', 'home', 'land', 'city', 'town', 'east', 'west',
+  'king', 'duke', 'iron', 'flex', 'apex', 'core', 'edge', 'mark',
+  'tech', 'link', 'plus', 'blue', 'gold', 'gray', 'grey',
+  'cars', 'auto', 'motor', 'ride', 'fleet', 'drive', 'cargo', 'transport',
+  'lukes', 'johns', 'mikes', 'daves', 'bobs', 'jacks', 'steves',
+  'scotts', 'franks', 'adams', 'nicks', 'tonys', 'bills', 'ricks',
+  'jeffs', 'gregs', 'brads', 'alans', 'garys', 'carls', 'dales',
+  'deans', 'todds', 'matts', 'pauls', 'marks', 'ryans',
+  'luke', 'john', 'mike', 'dave', 'jack', 'pete', 'scott', 'brian',
+  'steve', 'chris', 'james', 'frank', 'adam', 'eric', 'nick', 'tony',
+  'bill', 'rick', 'jeff', 'greg', 'brad', 'alan', 'gary', 'carl',
+  'dale', 'dean', 'todd', 'troy', 'neil', 'kurt', 'glen', 'andy',
+  'matt', 'paul', 'ryan', 'jose', 'juan', 'luis', 'jose',
+  'max', 'pro', 'new', 'top', 'one', 'two', 'tri', 'big', 'red',
+  'sun', 'bay', 'oak', 'elm', 'air', 'all', 'ace',
+].sort((a, b) => b.length - a.length);
+
+function _greedySegment(str: string): string[] {
+  const result: string[] = [];
+  let remaining = str;
+  let unmatched = '';
+  while (remaining.length > 0) {
+    let found = false;
+    for (const word of SEGMENT_WORDS) {
+      if (word.length <= remaining.length && remaining.startsWith(word)) {
+        if (unmatched.length >= 3) result.push(unmatched);
+        unmatched = '';
+        result.push(word);
+        remaining = remaining.substring(word.length);
+        found = true;
+        break;
+      }
+    }
+    if (!found) { unmatched += remaining[0]; remaining = remaining.substring(1); }
+  }
+  if (unmatched.length >= 3) result.push(unmatched);
+  return result;
+}
+
+function segmentDomainWords(competitor: string): string[] {
+  let base = competitor.toLowerCase().trim()
+    .replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+    .replace(/^www\./, '').replace(COMMON_TLDS, '');
+  if (base.includes('-')) return base.split('-').filter(w => w.length >= 2);
+  const cleaned = base.replace(TRAILING_SUFFIXES, '');
+  if (cleaned.length <= 2) return [base];
+  const segments = _greedySegment(cleaned);
+  const covered = segments.reduce((sum, w) => sum + w.length, 0);
+  if (segments.length === 0 || covered < cleaned.length * 0.5) return [cleaned];
+  return segments.filter(w => w.length >= 3);
+}
+
+function _makeWordRegex(word: string): RegExp {
+  const esc = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (word.length >= 4 && word.endsWith('s')) {
+    const baseEsc = word.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('\\b' + baseEsc + "[''']?s\\b", 'i');
+  }
+  return new RegExp('\\b' + esc + '\\b', 'i');
+}
+
+interface CompetitorMatcher {
+  name: string;
+  exactRe: RegExp;
+  baseDomain: string | null;
+  baseDomainClean: string | null;
+  baseRe: RegExp | null;
+  domainWordRes: RegExp[];
+}
+
+function _buildCompetitorMatcher(comp: string): CompetitorMatcher | null {
+  const cLower = comp.toLowerCase().trim();
+  if (cLower.length < 2) return null;
+  const cEsc = cLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const exactRe = new RegExp('\\b' + cEsc + '\\b', 'i');
+
+  let baseDomain: string | null = null;
+  let baseDomainClean: string | null = null;
+  let baseRe: RegExp | null = null;
+  let domainWordRes: RegExp[] = [];
+
+  if (isDomainLike(cLower)) {
+    baseDomain = cLower.replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+      .replace(/^www\./, '').replace(COMMON_TLDS, '');
+    if (baseDomain.length >= 3) {
+      const baseEsc = baseDomain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      baseRe = new RegExp('\\b' + baseEsc + '\\b', 'i');
+    }
+    const stripped = baseDomain.replace(TRAILING_SUFFIXES, '');
+    if (stripped.length >= 3 && stripped !== baseDomain) baseDomainClean = stripped;
+    const words = segmentDomainWords(comp);
+    if (words.length >= 2) domainWordRes = words.filter(w => w.length >= 3).map(w => _makeWordRegex(w));
+  }
+
+  return { name: comp, exactRe, baseDomain, baseDomainClean, baseRe, domainWordRes };
+}
+
+function _matchCompetitors(text: string, compMatchers: CompetitorMatcher[]): string[] {
+  const found: string[] = [];
+  let _collapsed: string | null = null;
+  function getCollapsed() {
+    if (_collapsed === null) _collapsed = text.toLowerCase().replace(/[\s\-_'''.,:;!?()[\]]/g, '');
+    return _collapsed;
+  }
+  for (const c of compMatchers) {
+    if (c.exactRe.test(text)) { found.push(c.name); continue; }
+    if (c.baseRe && c.baseRe.test(text)) { found.push(c.name); continue; }
+    if (c.baseDomain && c.baseDomain.length >= 5) {
+      const collapsed = getCollapsed();
+      if (collapsed.includes(c.baseDomain)) { found.push(c.name); continue; }
+      if (c.baseDomainClean && collapsed.includes(c.baseDomainClean)) { found.push(c.name); continue; }
+    }
+    if (c.domainWordRes.length >= 2) {
+      const positions: number[] = [];
+      let allFound = true;
+      for (const rx of c.domainWordRes) {
+        const m = rx.exec(text);
+        if (m) { positions.push(m.index); }
+        else { allFound = false; break; }
+      }
+      if (allFound && positions.length >= 2) {
+        const span = Math.max(...positions) - Math.min(...positions);
+        if (span <= 120) { found.push(c.name); }
+      }
+    }
+  }
+  return found;
+}
+
 export interface BrandInput {
   name: string;
   website?: string;
@@ -33,7 +205,7 @@ export interface BrandMatcher {
   sigWords: string[]; sigWordRes: RegExp[];
   domain: string | null; aliasMatchers: Array<{ exact: RegExp; noPunc: RegExp | null }>;
   positionRes: RegExp[]; allLocations: string[];
-  compRes: Array<{ name: string; re: RegExp }>; hasCity: boolean;
+  compRes: CompetitorMatcher[]; hasCity: boolean;
 }
 
 export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
@@ -81,13 +253,11 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
     if (brand.nearbyAreas?.length) brand.nearbyAreas.forEach((a: string) => allLocations.push(a.toLowerCase().trim()));
   }
 
-  const compRes: Array<{ name: string; re: RegExp }> = [];
+  const compRes: CompetitorMatcher[] = [];
   if (brand.competitors?.length) {
     for (const comp of brand.competitors) {
-      const cLower = comp.toLowerCase().trim();
-      if (cLower.length < 2) continue;
-      const cEsc = cLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      compRes.push({ name: comp, re: new RegExp('\\b' + cEsc + '\\b', 'i') });
+      const m = _buildCompetitorMatcher(comp);
+      if (m) compRes.push(m);
     }
   }
 
@@ -154,5 +324,5 @@ export function parseResponse(text: string, brand: BrandInput, query: string, ma
 
 export function detectCompetitors(text: string, matcher: BrandMatcher): string[] {
   if (!text || !matcher.compRes.length) return [];
-  return matcher.compRes.filter(c => c.re.test(text)).map(c => c.name);
+  return _matchCompetitors(text, matcher.compRes);
 }
