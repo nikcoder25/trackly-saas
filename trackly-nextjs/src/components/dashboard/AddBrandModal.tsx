@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
@@ -40,6 +40,19 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const [queryInput, setQueryInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [queryMsg, setQueryMsg] = useState('');
+  const autoGenTriggered = useRef(false);
+
+  // Auto-generate queries when entering Step 3 for the first time with no queries
+  useEffect(() => {
+    if (step === 3 && queries.length === 0 && name && !autoGenTriggered.current) {
+      autoGenTriggered.current = true;
+      handleAiGenerate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // Nearby areas
   const [newArea, setNewArea] = useState('');
@@ -48,6 +61,50 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
 
   const addComp = () => { if (compInput.trim() && !competitors.includes(compInput.trim())) { setCompetitors([...competitors, compInput.trim()]); setCompInput(''); } };
   const addQuery = () => { if (queryInput.trim() && !queries.includes(queryInput.trim())) { setQueries([...queries, queryInput.trim()]); setQueryInput(''); } };
+
+  const handleSuggestQueries = async () => {
+    if (!name) { setError('Set brand name first'); return; }
+    setSuggesting(true); setQueryMsg(''); setError('');
+    try {
+      const res = await fetch('/api/ai-generate-queries', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries, mode: 'suggest' }),
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      const suggestions = (data.queries || []).filter((s: string) => !queries.includes(s));
+      if (suggestions.length) { setQueries([...queries, ...suggestions]); setQueryMsg(`Added ${suggestions.length} suggested queries`); }
+      else { setQueryMsg('All suggestions already added'); }
+    } catch {
+      const ind = industry || 'services';
+      const c = city || '';
+      const fallback = [`best ${ind} in ${c || 'my area'}`, `top rated ${ind} near me`, `${name} reviews`, `recommended ${ind} companies`, `${ind} cost ${c}`, `${name} ${ind} quality`, `hire ${ind} in ${c}`, `${ind} services ${c}`, `why choose ${name}`, `${name} testimonials`].filter(s => !queries.includes(s));
+      if (fallback.length) { setQueries([...queries, ...fallback]); setQueryMsg(`Added ${fallback.length} suggested queries`); }
+      else { setQueryMsg('All suggestions already added'); }
+    }
+    setSuggesting(false);
+  };
+
+  const handleAiGenerate = async () => {
+    if (!name) { setError('Set brand name first'); return; }
+    setAiGenerating(true); setQueryMsg(''); setError('');
+    try {
+      const res = await fetch('/api/ai-generate-queries', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries }),
+      });
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      const generated = (data.queries || []).filter((s: string) => !queries.includes(s));
+      if (generated.length) { setQueries([...queries, ...generated]); setQueryMsg(`Added ${generated.length} AI-generated queries`); }
+      else { setQueryMsg('All AI suggestions already added'); }
+    } catch {
+      const fallback = [`what is ${name}`, `is ${name} good`, `${name} vs competitors`, `${name} pricing`, `alternatives to ${name}`, `${name} reputation`, `does ${name} offer good service`, `${name} customer experience`, `compare ${name} to others`, `is ${name} worth it`].filter(s => !queries.includes(s));
+      if (fallback.length) { setQueries([...queries, ...fallback]); setQueryMsg(`Added ${fallback.length} AI-generated queries`); }
+      else { setQueryMsg('All AI suggestions already added'); }
+    }
+    setAiGenerating(false);
+  };
 
   const handleCreate = async () => {
     setSaving(true); setError('');
@@ -177,6 +234,15 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
         {step === 3 && (
           <div>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>These queries will be sent to AI platforms to check if your brand is mentioned.</p>
+            {queryMsg && <p style={{ fontSize: 11, color: 'var(--green)', marginBottom: 8, fontFamily: 'var(--mono)' }}>{queryMsg}</p>}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+              <button type="button" className="setup-mono-btn" style={{ background: 'var(--success-light)', color: 'var(--green)', border: '1px solid var(--green)', opacity: suggesting ? 0.5 : 1 }} disabled={suggesting} onClick={handleSuggestQueries}>
+                {suggesting ? 'SUGGESTING...' : 'SUGGEST'}
+              </button>
+              <button type="button" className="setup-mono-btn" style={{ background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary-border)', opacity: aiGenerating ? 0.5 : 1 }} disabled={aiGenerating} onClick={handleAiGenerate}>
+                {aiGenerating ? 'GENERATING...' : 'AI GENERATE'}
+              </button>
+            </div>
             <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
               {queries.map((q, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', padding: '8px 12px', fontSize: 13, color: 'var(--text)', marginBottom: 4 }}>
