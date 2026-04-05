@@ -68,16 +68,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (brandData) {
     let brandChanged = false;
 
-    // Reprocess allResults in each stored run — this is what the competitors page reads
+    // Reprocess allResults in each stored run and rebuild competitors aggregate
     if (brandData.runs?.length) {
       for (const run of brandData.runs) {
         if (!run.allResults?.length) continue;
+        const competitorCounts: Record<string, number> = {};
         for (const result of run.allResults) {
           const rawText = result.raw || result.context || '';
           if (!rawText) continue;
           const newComps = detectCompetitors(rawText, matcher);
           result.competitorMentions = newComps;
+          for (const c of newComps) {
+            competitorCounts[c] = (competitorCounts[c] || 0) + 1;
+          }
         }
+        run.competitors = competitorCounts;
       }
       brandChanged = true;
     }

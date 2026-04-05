@@ -209,8 +209,16 @@ export default function DashboardPage() {
       .sort((a, b) => b.rate - a.rate);
   }, [lastRun]);
 
-  // Competitors
-  const competitorData = lastRun?.competitors || {};
+  // Competitors — use run-level aggregation, or extract from allResults for older runs
+  const competitorData = useMemo(() => {
+    if (lastRun?.competitors && Object.keys(lastRun.competitors).length > 0) return lastRun.competitors;
+    const counts: Record<string, number> = {};
+    for (const r of allResultsArr) {
+      const comps = ((r as Record<string, unknown>).competitorMentions || []) as string[];
+      for (const c of comps) { counts[c] = (counts[c] || 0) + 1; }
+    }
+    return counts;
+  }, [lastRun, allResultsArr]);
   const topCompetitors = useMemo(() =>
     Object.entries(competitorData).sort((a, b) => b[1] - a[1]).slice(0, 8),
   [competitorData]);
