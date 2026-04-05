@@ -233,6 +233,7 @@ async function executeRunBackground(
       citations: parsed.cites, competitorMentions: competitors,
       context: result.text.substring(0, ctxLen),
       snippet: result.text.substring(0, 200),
+      raw: result.text,
       tokensIn: result.tokensIn, tokensOut: result.tokensOut, cost,
     };
     allResults.push(entry);
@@ -391,16 +392,17 @@ async function executeRunBackground(
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
-        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12})`);
+        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13})`);
         p.push(prId, brandId, r.query, r.platform, r.model || null,
           r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
           r.listPosition || null, JSON.stringify(r.citations || []),
-          JSON.stringify(r.competitorMentions || []), !r.error, runId);
-        pi += 13;
+          JSON.stringify(r.competitorMentions || []), !r.error, runId,
+          r.raw || null);
+        pi += 14;
       }
       try {
         await pool.query(
-          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id) VALUES ${values.join(',')}`, p,
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
         );
       } catch { /* ignore */ }
     }
