@@ -5,11 +5,10 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
 
-
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
-interface SuggestedFact { key: string; value: string; category: string; source: 'website' | 'ai_responses'; confidence: 'high' | 'medium' | 'low'; }
-interface Issue { id?: number; platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; run_id?: string; source_url?: string; query?: string; count?: number; fixed?: boolean; fixed_at?: string; }
+interface SuggestedFact { key: string; value: string; category: string; confidence: 'high' | 'medium' | 'low'; }
+interface Issue { id?: number; platform: string; model?: string; fact_key: string; expected: string; found: string; severity: string; date?: string; category?: string; explanation?: string; source_url?: string; query?: string; count?: number; fixed?: boolean; fixed_at?: string; }
 interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
@@ -21,12 +20,15 @@ const stripCategorySuffix = (k: string) => k.replace(/\s*\([^)]*\)\s*$/, '');
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 const SEVERITY_LABELS = ['All', 'Critical', 'High', 'Medium', 'Low'];
 const rateColor = (rate: number) => rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--amber)' : 'var(--red)';
+const ACCENT_GRADIENT = 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))';
+const ACCENT_GRADIENT_BOLD = 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))';
+const ACCENT_GRADIENT_SUBTLE = 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))';
 
 const filterPillStyle = (isActive: boolean): React.CSSProperties => ({
   padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
   cursor: 'pointer', border: '1px solid', transition: 'all .15s',
   ...(isActive
-    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
+    ? { background: ACCENT_GRADIENT_BOLD, color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
     : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
 });
 
@@ -289,10 +291,10 @@ export default function AccuracyPage() {
     setChecking(true);
     setCheckMessage(null);
     brandApi(brand.id, '', 'PUT', { action: 'check' })
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    }).then(d => {
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).then(d => {
       if (d.error) {
         setCheckMessage({ text: d.error, isError: true });
         return;
@@ -323,10 +325,10 @@ export default function AccuracyPage() {
     setCheckMessage(null);
     toast('Auto-discovering facts... This may take a moment.', 'info');
     brandApi(brand.id, '', 'PUT', { action: 'auto-discover' })
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    }).then(d => {
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).then(d => {
       if (d.error && (!d.suggestedFacts || d.suggestedFacts.length === 0)) {
         toast(d.error, 'error');
         setCheckMessage({ text: d.error, isError: true });
@@ -376,10 +378,10 @@ export default function AccuracyPage() {
   function toggleFixed(issue: Issue) {
     if (!brand || issue.id == null) return;
     brandApi(brand.id, `/issues/${issue.id}`, 'PATCH')
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    }).then(d => {
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).then(d => {
       setIssues(prev => prev.map(iss =>
         iss.id === issue.id ? { ...iss, fixed: d.fixed, fixed_at: d.fixed_at } : iss
       ));
@@ -390,10 +392,10 @@ export default function AccuracyPage() {
     if (!brand || issue.id == null || reverifying !== null) return;
     setReverifying(issue.id);
     brandApi(brand.id, '/reverify', 'POST', { platform: issue.platform, query: issue.query, factKey: stripCategorySuffix(issue.fact_key ?? '') })
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    }).then(d => {
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).then(d => {
       if (d.stillInaccurate) {
         // Issue returned — unfix it
         setIssues(prev => prev.map(iss =>
@@ -424,19 +426,14 @@ export default function AccuracyPage() {
   }
 
   // Derived data
-  const platformAccuracy = useMemo(() => {
-    return Object.entries(platformStats).map(([name, stat]) => ({
+  const toAccuracyList = (stats: Record<string, { total: number; accurate: number }>) =>
+    Object.entries(stats).map(([name, stat]) => ({
       name,
       rate: stat.total > 0 ? Math.round((stat.accurate / stat.total) * 100) : 100,
-    })).sort((a, b) => b.rate - a.rate);
-  }, [platformStats]);
+    }));
 
-  const categoryAccuracy = useMemo(() => {
-    return Object.entries(categoryStats).map(([name, stat]) => ({
-      name,
-      rate: stat.total > 0 ? Math.round((stat.accurate / stat.total) * 100) : 100,
-    })).sort((a, b) => a.rate - b.rate);
-  }, [categoryStats]);
+  const platformAccuracy = useMemo(() => toAccuracyList(platformStats).sort((a, b) => b.rate - a.rate), [platformStats]);
+  const categoryAccuracy = useMemo(() => toAccuracyList(categoryStats).sort((a, b) => a.rate - b.rate), [categoryStats]);
 
   // Filter, sort, and derive issue data
   const filteredIssues = useMemo(() => {
@@ -496,7 +493,7 @@ export default function AccuracyPage() {
             Accuracy Monitor
             <span style={{
               fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))',
+              background: ACCENT_GRADIENT_BOLD,
               color: ACCENT_PURPLE, border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
             }}>
               AI-Powered
@@ -572,7 +569,7 @@ export default function AccuracyPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={autoDiscover} disabled={discovering}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', cursor: discovering ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: ACCENT_PURPLE, opacity: discovering ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', cursor: discovering ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.25)', background: ACCENT_GRADIENT, color: ACCENT_PURPLE, opacity: discovering ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' }}>
               {discovering ? (
                 <><span style={{ width: 12, height: 12, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />Discovering...</>
               ) : '✦ Auto-Discover'}
@@ -583,7 +580,7 @@ export default function AccuracyPage() {
         <div style={{ padding: '16px 22px' }}>
           {/* Discovering spinner */}
           {discovering && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', marginBottom: 16, borderRadius: 8, background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))', border: '1px solid rgba(124,58,237,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', marginBottom: 16, borderRadius: 8, background: ACCENT_GRADIENT_SUBTLE, border: '1px solid rgba(124,58,237,0.15)' }}>
               <span style={{ width: 16, height: 16, border: '2.5px solid rgba(124,58,237,0.25)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: ACCENT_PURPLE, fontWeight: 600 }}>AI is analyzing your brand to discover facts...</span>
             </div>
@@ -621,7 +618,7 @@ export default function AccuracyPage() {
 
           {/* AI Suggested Facts (if any) */}
           {suggestedFacts.length > 0 && (
-            <div style={{ marginBottom: 16, padding: 14, borderRadius: 8, background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))', border: '1px solid rgba(124,58,237,0.15)' }}>
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 8, background: ACCENT_GRADIENT_SUBTLE, border: '1px solid rgba(124,58,237,0.15)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT_PURPLE }}>✦ {suggestedFacts.length} AI-suggested fact{suggestedFacts.length !== 1 ? 's' : ''}</span>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -708,7 +705,7 @@ export default function AccuracyPage() {
         </div>
       </div>
 
-      {/* ── Improvement 4: Per-Fact Accuracy Breakdown ── */}
+      {/* Per-Fact Accuracy Breakdown */}
       {factBreakdown.length > 0 && (
         <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
           <div className="section-title">Fact Accuracy Breakdown</div>
@@ -737,7 +734,7 @@ export default function AccuracyPage() {
 
       {/* ── Recent Issues ── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {/* ── Improvement 6: Summary Bar ── */}
+        {/* Summary Bar */}
         <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text)' }}>
@@ -755,7 +752,7 @@ export default function AccuracyPage() {
           </div>
         </div>
 
-        {/* ── Improvement 3: Filter & Sort Toolbar ── */}
+        {/* Filter & Sort Toolbar */}
         {issues.length > 0 && (
           <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--bg)' }}>
             {/* Platform filter */}
@@ -855,7 +852,7 @@ export default function AccuracyPage() {
                         <SourceUrlLink issue={issue} />
                       </div>
                     </div>
-                    {/* ── Improvement 5: Mark Fixed + Re-verify buttons ── */}
+                    {/* Mark Fixed + Re-verify */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
                       {issue.id != null ? (
                         <>
@@ -874,7 +871,7 @@ export default function AccuracyPage() {
                               style={{
                                 padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
                                 cursor: reverifying === issue.id ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.2)',
-                                background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: ACCENT_PURPLE,
+                                background: ACCENT_GRADIENT, color: ACCENT_PURPLE,
                                 opacity: reverifying === issue.id ? 0.6 : 1, transition: 'opacity .15s',
                               }}>
                               {reverifying === issue.id ? '...' : 'Re-verify ↻'}
@@ -888,7 +885,7 @@ export default function AccuracyPage() {
                   {expandedIssue === i && (issue.explanation || issue.query) && (
                     <div style={{
                       margin: '0 0 12px 32px', padding: '10px 14px', borderRadius: 6,
-                      background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))',
+                      background: ACCENT_GRADIENT_SUBTLE,
                       border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
                     }}>
                       {issue.query && (
