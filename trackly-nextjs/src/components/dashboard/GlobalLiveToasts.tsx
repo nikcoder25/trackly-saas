@@ -24,7 +24,7 @@ export default function GlobalLiveToasts() {
     const ids = newToasts.map(t => t.id);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => !ids.includes(t.id)));
-    }, 4000);
+    }, 3500);
   }, [live.results.length]);
 
   // Reset counter when run finishes
@@ -38,7 +38,7 @@ export default function GlobalLiveToasts() {
 
   return (
     <>
-      <div style={{
+      <div role="log" aria-live="polite" aria-label="Live query results" style={{
         position: 'fixed', bottom: 16, right: 16, zIndex: 9999,
         display: 'flex', flexDirection: 'column-reverse', gap: 8,
         maxHeight: '50vh', pointerEvents: 'none',

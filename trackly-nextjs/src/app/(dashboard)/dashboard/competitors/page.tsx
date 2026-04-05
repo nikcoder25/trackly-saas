@@ -51,7 +51,7 @@ export default function CompetitorsPage() {
         const data = await res.json();
         setCitations(data.citations || []);
       }
-    } catch { /* ignore */ }
+    } catch (err) { console.error('[Competitors] Failed to fetch citations:', err); }
     setCitLoading(false);
   }, []);
 
