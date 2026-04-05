@@ -66,7 +66,7 @@ function fmtTime(ms: number): string {
 
 // ── Provider ─────────────────────────────────────────
 export function RunProvider({ children }: { children: ReactNode }) {
-  const { selectedBrand } = useBrands();
+  const { selectedBrand, refreshBrands } = useBrands();
   const [live, setLive] = useState<RunLiveState>(INITIAL_STATE);
   const [elapsed, setElapsed] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -136,7 +136,8 @@ export function RunProvider({ children }: { children: ReactNode }) {
                 liveSov: finalResult.sov ?? null,
                 statusText: `Done! Found in ${finalResult.newMentions || finalResult.totalM || 0} of ${finalResult.totalQ || 0} responses`,
               }));
-              setTimeout(() => { setLive(INITIAL_STATE); window.location.reload(); }, 2500);
+              setTimeout(() => { setLive(INITIAL_STATE); refreshBrands();
+                window.dispatchEvent(new CustomEvent('livesov:run-complete')); }, 2500);
             } else {
               setLive(prev => ({
                 ...prev, running: false, status: 'error',
@@ -169,7 +170,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       }
     };
     runPollLoop();
-  }, []);
+  }, [refreshBrands]);
 
   // ── Resume active run on mount ─────────────────────
   useEffect(() => {
@@ -197,14 +198,15 @@ export function RunProvider({ children }: { children: ReactNode }) {
           pollRunStatus(runInfo.brandId, runInfo.runId);
         } else if (data.status === 'done') {
           localStorage.removeItem('livesov_active_run');
-          window.location.reload();
+          refreshBrands();
+                window.dispatchEvent(new CustomEvent('livesov:run-complete'));
         } else {
           localStorage.removeItem('livesov_active_run');
         }
       })
       .catch(() => { if (!controller.signal.aborted) localStorage.removeItem('livesov_active_run'); });
     return () => controller.abort();
-  }, [pollRunStatus]);
+  }, [pollRunStatus, refreshBrands]);
 
   // ── Start run (POST + poll) ────────────────────────
   const startRun = useCallback(async (force = false) => {
