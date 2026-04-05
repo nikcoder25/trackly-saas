@@ -36,7 +36,8 @@ const SEGMENT_WORDS = [
   'maintenance', 'enterprises', 'engineering', 'performance', 'improvement',
   'residential', 'commercial', 'contracting', 'mechanical', 'foundation',
   'demolition', 'excavation', 'insulation', 'management', 'consulting',
-  'blacktopping', 'refinishing', 'waterproof',
+  'blacktopping', 'refinishing', 'waterproof', 'transportation',
+  'airport', 'transport', 'transfer', 'shuttle', 'limousine', 'dispatch',
   'sealcoat', 'services', 'brothers', 'painting', 'plumbing', 'cleaning',
   'flooring', 'concrete', 'driveway', 'masonry', 'roofing', 'fencing',
   'grading', 'hauling', 'towing', 'heating', 'cooling', 'removal',
@@ -104,7 +105,24 @@ function segmentDomainWords(competitor: string): string[] {
   let base = competitor.toLowerCase().trim()
     .replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     .replace(/^www\./, '').replace(COMMON_TLDS, '');
-  if (base.includes('-')) return base.split('-').filter(w => w.length >= 2);
+  if (base.includes('-')) {
+    // Split on hyphens, then greedily segment any compound parts
+    const allWords: string[] = [];
+    for (const part of base.split('-').filter(w => w.length >= 2)) {
+      // Strip leading digits from compound parts (e.g. "1airportcars" → "airportcars")
+      const alpha = part.replace(/^\d+/, '');
+      if (alpha.length >= 5) {
+        const sub = _greedySegment(alpha);
+        const covered = sub.reduce((sum, w) => sum + w.length, 0);
+        if (sub.length >= 2 && covered >= alpha.length * 0.5) {
+          allWords.push(...sub.filter(w => w.length >= 3));
+          continue;
+        }
+      }
+      if (part.length >= 2) allWords.push(part);
+    }
+    return allWords.length >= 2 ? allWords : [base.replace(/-/g, '')];
+  }
   const cleaned = base.replace(TRAILING_SUFFIXES, '');
   if (cleaned.length <= 2) return [base];
   const segments = _greedySegment(cleaned);
@@ -170,8 +188,13 @@ function _matchCompetitors(text: string, compMatchers: CompetitorMatcher[]): str
     if (c.baseRe && c.baseRe.test(text)) { found.push(c.name); continue; }
     if (c.baseDomain && c.baseDomain.length >= 5) {
       const collapsed = getCollapsed();
-      if (collapsed.includes(c.baseDomain)) { found.push(c.name); continue; }
-      if (c.baseDomainClean && collapsed.includes(c.baseDomainClean)) { found.push(c.name); continue; }
+      // Also strip hyphens/special chars from baseDomain for fair comparison
+      const collapsedBase = c.baseDomain.replace(/[\-_.']/g, '');
+      if (collapsed.includes(collapsedBase)) { found.push(c.name); continue; }
+      if (c.baseDomainClean) {
+        const collapsedClean = c.baseDomainClean.replace(/[\-_.']/g, '');
+        if (collapsed.includes(collapsedClean)) { found.push(c.name); continue; }
+      }
     }
     if (c.domainWordRes.length >= 2) {
       const positions: number[] = [];
