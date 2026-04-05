@@ -28,7 +28,7 @@ export default function AlertsPage() {
     fetch(`/api/brands/${brand.id}/alerts`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); setWebhookUrl(d.webhookUrl || ''); setReportFreq(d.reportFreq || 'off'); })
-      .catch(() => {});
+      .catch(err => console.error('[Alerts] Failed to load alerts:', err));
   }, [brand]);
 
   function saveAlert() {

@@ -5,7 +5,7 @@ export default function TagList({ items, onRemove }: { items: string[]; onRemove
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minHeight: 28 }}>
       {items.map((item, i) => (
-        <span key={i} className="query-tag">
+        <span key={`${item}-${i}`} className="query-tag">
           {item}
           <button type="button" onClick={() => onRemove(i)}>&times;</button>
         </span>

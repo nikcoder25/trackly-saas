@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
+import SeoLayout from '@/components/seo/SeoLayout';
 import { PRICING_PLANS } from '@/lib/constants';
 
 const monthlyPlans = PRICING_PLANS.map(p => ({

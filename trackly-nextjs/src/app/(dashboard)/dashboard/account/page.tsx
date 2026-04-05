@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRICING_PLANS } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
@@ -10,6 +11,7 @@ interface BillingEntry { date: string; plan: string; amount: string; status: str
 const PLANS = PRICING_PLANS;
 
 export default function AccountPage() {
+  const router = useRouter();
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const [billingHistory, setBillingHistory] = useState<BillingEntry[]>([]);
@@ -70,7 +72,7 @@ export default function AccountPage() {
   async function deleteAccount() {
     if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
     if (!confirm('This will permanently delete ALL your data. Are you absolutely sure?')) return;
-    try { await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' }); toast('Account deleted'); window.location.href = '/'; } catch { toast('Failed to delete account', 'error'); }
+    try { await fetch('/api/auth/account', { method: 'DELETE', credentials: 'include' }); toast('Account deleted'); router.push('/'); } catch { toast('Failed to delete account', 'error'); }
   }
 
   async function cancelSubscription() {

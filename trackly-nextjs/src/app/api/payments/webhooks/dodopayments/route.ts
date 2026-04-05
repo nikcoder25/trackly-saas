@@ -79,7 +79,7 @@ export async function POST(request: Request) {
             [JSON.stringify({ subscription_id: subscriptionId, subscription_status: 'active' }), userId]
           );
         }
-        console.log(`[Webhook] Upgraded user ${userId} to ${plan}`);
+        console.log(`[Webhook] Upgraded user to ${plan}`);
         auditLog('system', 'webhook_plan_change', 'user', userId, { plan, eventId, eventType }, 'webhook');
       }
     }
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
           `UPDATE users SET settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
           [userId]
         );
-        console.log(`[Webhook] Downgraded user ${userId} to free`);
+        console.log('[Webhook] Downgraded user to free');
         auditLog('system', 'webhook_plan_change', 'user', userId, { plan: 'free', eventId, eventType }, 'webhook');
       }
     }
