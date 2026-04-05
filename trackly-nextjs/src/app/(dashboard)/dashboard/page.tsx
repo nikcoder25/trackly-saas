@@ -70,7 +70,7 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const brand = (contextBrand as Brand) || brands[0];
+  const brand = (contextBrand as Brand) || null;
   const allRuns = brand?.runs || [];
   const lastRun = allRuns.length ? allRuns[allRuns.length - 1] : null;
   const prevRun = allRuns.length >= 2 ? allRuns[allRuns.length - 2] : null;

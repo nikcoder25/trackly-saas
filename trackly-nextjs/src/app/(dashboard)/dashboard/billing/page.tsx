@@ -41,7 +41,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (brandsLoading) return;
-    const b = selectedBrand || brands[0];
+    const b = selectedBrand;
     setBilling({
       plan: currentPlan,
       memberSince: user?.createdAt || '',

@@ -543,10 +543,13 @@ router.post('/nearby-areas', auth, async (req, res) => {
     const result = await queryAI(prompt, platform, {}, keys, {});
     if (!result || !result.text) return res.status(500).json({ error: 'AI returned empty response' });
 
-    // Parse the JSON array from the response
-    const text = result.text.trim();
+    // Strip markdown code fences if present, then parse JSON array
+    const text = result.text.trim().replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
     const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) return res.status(500).json({ error: 'Could not parse nearby areas from AI response' });
+    if (!jsonMatch) {
+      console.error('[Nearby Areas] Could not parse JSON from AI response:', result.text.substring(0, 500));
+      return res.status(500).json({ error: 'Could not parse nearby areas from AI response. Please try again.' });
+    }
 
     let areas;
     try {
