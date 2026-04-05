@@ -14,6 +14,10 @@ interface TrendPoint { date: string; rate: number; }
 interface PlatformStat { total: number; accurate: number; }
 interface CategoryStat { total: number; accurate: number; }
 
+const SEVERITY_COLORS: Record<string, string> = { critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
+const ACCENT_PURPLE = '#7c3aed';
+const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+
 // ── Mini SVG Line Chart ──────────────────────────────────────────
 function TrendChart({ data }: { data: TrendPoint[] }) {
   if (data.length < 2) {
@@ -29,7 +33,6 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
   const w = 460, h = 140, px = 36, py = 16;
   const minR = Math.min(...data.map(d => d.rate));
   const maxR = Math.max(...data.map(d => d.rate));
-  const range = maxR - minR || 10;
   const yMin = Math.max(0, minR - 5);
   const yMax = Math.min(100, maxR + 5);
   const yRange = yMax - yMin || 10;
@@ -81,12 +84,12 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
 // ── Donut Chart (CSS) ───────────────────────────────────────────
 function SeverityDonut({ issues }: { issues: Issue[] }) {
   const counts = useMemo(() => {
-    const c = { critical: 0, high: 0, medium: 0, low: 0 };
+    const acc = { critical: 0, high: 0, medium: 0, low: 0 };
     for (const issue of issues) {
-      const s = issue.severity as keyof typeof c;
-      if (s in c) c[s]++;
+      const sev = issue.severity as keyof typeof acc;
+      if (sev in acc) acc[sev]++;
     }
-    return c;
+    return acc;
   }, [issues]);
 
   const total = Object.values(counts).reduce((a: number, b: number) => a + b, 0);
@@ -100,14 +103,13 @@ function SeverityDonut({ issues }: { issues: Issue[] }) {
     );
   }
 
-  const colors = { critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
   let cumulative = 0;
   const segments = Object.entries(counts)
     .filter(([, v]) => v > 0)
     .map(([key, val]) => {
       const start = cumulative;
       cumulative += (val / total) * 100;
-      return { key, val, start, end: cumulative, color: colors[key as keyof typeof colors] };
+      return { key, val, start, end: cumulative, color: SEVERITY_COLORS[key] };
     });
 
   const gradient = segments.map(s => `${s.color} ${s.start}% ${s.end}%`).join(', ');
@@ -189,6 +191,30 @@ function FactCoverage({ facts }: { facts: Fact[] }) {
   );
 }
 
+function brandApi(brandId: string, path = '', method = 'GET', body?: unknown) {
+  const opts: RequestInit = { method, credentials: 'include' };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  return fetch(`/api/brands/${brandId}/accuracy${path}`, opts);
+}
+
+// ── Source URL Link (extracted from IIFE) ──────────────────────
+function SourceUrlLink({ issue }: { issue: Issue }) {
+  if (!issue.source_url) return null;
+  const isSearchUrl = issue.source_url.includes('/search?q=') || issue.source_url.includes('/?q=') || issue.source_url.includes('/new?q=') || issue.source_url.includes('/app?q=') || issue.source_url.includes('?text=');
+  let hostname = '';
+  try { hostname = new URL(issue.source_url).hostname.replace(/^www\./, ''); } catch { /* */ }
+  return (
+    <a href={issue.source_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+      style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
+      title={issue.source_url}>
+      {isSearchUrl ? `Verify on ${issue.platform} ↗` : `${hostname} ↗`}
+    </a>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────
 export default function AccuracyPage() {
   const { brand: rawBrand, brands, loading } = useBrandData();
@@ -207,8 +233,7 @@ export default function AccuracyPage() {
   const [categoryStats, setCategoryStats] = useState<Record<string, CategoryStat>>({});
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   // activeTab removed — facts now in prominent card above, issues shown directly
-  const [checkedRuns, setCheckedRuns] = useState(0);
-  const [checkMessage, setCheckMessage] = useState<string | null>(null);
+  const [checkMessage, setCheckMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
   const [suggestedFacts, setSuggestedFacts] = useState<SuggestedFact[]>([]);
   const [discovering, setDiscovering] = useState(false);
@@ -220,7 +245,7 @@ export default function AccuracyPage() {
 
   useEffect(() => {
     if (!brand) return;
-    fetch(`/api/brands/${brand.id}/accuracy`, { credentials: 'include' })
+    brandApi(brand.id)
       .then(r => r.json())
       .then(d => {
         setFacts(d.facts || []);
@@ -237,37 +262,28 @@ export default function AccuracyPage() {
   function addFact() {
     if (!factKey.trim() || !factValue.trim() || !brand) return;
     const updated = [...facts, { key: factKey.trim(), value: factValue.trim(), category: factCategory }];
-    fetch(`/api/brands/${brand.id}/accuracy`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facts: updated }),
-    }).then(() => { setFacts(updated); setFactKey(''); setFactValue(''); });
+    brandApi(brand.id, '', 'POST', { facts: updated })
+      .then(() => { setFacts(updated); setFactKey(''); setFactValue(''); });
   }
 
   function removeFact(idx: number) {
     if (!brand) return;
     const updated = facts.filter((_, i) => i !== idx);
-    fetch(`/api/brands/${brand.id}/accuracy`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facts: updated }),
-    }).then(() => setFacts(updated));
+    brandApi(brand.id, '', 'POST', { facts: updated })
+      .then(() => setFacts(updated));
   }
 
   function checkNow() {
     if (!brand || checking) return;
     setChecking(true);
     setCheckMessage(null);
-    fetch(`/api/brands/${brand.id}/accuracy`, {
-      method: 'PUT', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'check' }),
-    }).then(r => {
+    brandApi(brand.id, '', 'PUT', { action: 'check' })
+    .then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     }).then(d => {
       if (d.error) {
-        setCheckMessage(d.error);
+        setCheckMessage({ text: d.error, isError: true });
         return;
       }
       // Always update data when present
@@ -275,17 +291,18 @@ export default function AccuracyPage() {
       setAccuracyRate(d.accuracyRate ?? null);
       if (d.platformStats) setPlatformStats(d.platformStats);
       if (d.categoryStats) setCategoryStats(d.categoryStats);
-      setCheckedRuns(d.checkedRuns || 0);
       setLastChecked(new Date().toISOString());
       // Show message from API or generate a summary
       if (d.message) {
-        setCheckMessage(d.message);
-      } else if (d.checkedRuns > 0) {
-        setCheckMessage(`AI analyzed ${d.checkedRuns} response${d.checkedRuns > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''} — found ${(d.issues || []).length} issue${(d.issues || []).length !== 1 ? 's' : ''}`);
+        setCheckMessage({ text: d.message, isError: false });
+      } else if (d.checkedRuns) {
+        const runs = d.checkedRuns;
+        const issueCount = (d.issues || []).length;
+        setCheckMessage({ text: `AI analyzed ${runs} response${runs > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''} — found ${issueCount} issue${issueCount !== 1 ? 's' : ''}`, isError: false });
       }
     }).catch((err) => {
       console.error('[Accuracy Check]', err);
-      setCheckMessage('Failed to run accuracy check. Please try again.');
+      setCheckMessage({ text: 'Failed to run accuracy check. Please try again.', isError: true });
     }).finally(() => setChecking(false));
   }
 
@@ -294,17 +311,14 @@ export default function AccuracyPage() {
     setDiscovering(true);
     setCheckMessage(null);
     toast('Auto-discovering facts... This may take a moment.', 'info');
-    fetch(`/api/brands/${brand.id}/accuracy`, {
-      method: 'PUT', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'auto-discover' }),
-    }).then(r => {
+    brandApi(brand.id, '', 'PUT', { action: 'auto-discover' })
+    .then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     }).then(d => {
       if (d.error && (!d.suggestedFacts || d.suggestedFacts.length === 0)) {
         toast(d.error, 'error');
-        setCheckMessage(d.error);
+        setCheckMessage({ text: d.error, isError: true });
         return;
       }
       const suggestions = (d.suggestedFacts || []) as SuggestedFact[];
@@ -327,27 +341,21 @@ export default function AccuracyPage() {
   function acceptFact(sf: SuggestedFact) {
     if (!brand) return;
     const updated = [...facts, { key: sf.key, value: sf.value, category: sf.category }];
-    fetch(`/api/brands/${brand.id}/accuracy`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facts: updated }),
-    }).then(() => {
-      setFacts(updated);
-      setSuggestedFacts(prev => prev.filter(f => f.key !== sf.key));
-    });
+    brandApi(brand.id, '', 'POST', { facts: updated })
+      .then(() => {
+        setFacts(updated);
+        setSuggestedFacts(prev => prev.filter(f => f.key !== sf.key));
+      });
   }
 
   function acceptAllFacts() {
     if (!brand || suggestedFacts.length === 0) return;
     const updated = [...facts, ...suggestedFacts.map(sf => ({ key: sf.key, value: sf.value, category: sf.category }))];
-    fetch(`/api/brands/${brand.id}/accuracy`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facts: updated }),
-    }).then(() => {
-      setFacts(updated);
-      setSuggestedFacts([]);
-    });
+    brandApi(brand.id, '', 'POST', { facts: updated })
+      .then(() => {
+        setFacts(updated);
+        setSuggestedFacts([]);
+      });
   }
 
   function dismissFact(key: string) {
@@ -356,9 +364,8 @@ export default function AccuracyPage() {
 
   function toggleFixed(issue: Issue) {
     if (!brand || issue.id == null) return;
-    fetch(`/api/brands/${brand.id}/accuracy/issues/${issue.id}`, {
-      method: 'PATCH', credentials: 'include',
-    }).then(r => {
+    brandApi(brand.id, `/issues/${issue.id}`, 'PATCH')
+    .then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     }).then(d => {
@@ -371,11 +378,8 @@ export default function AccuracyPage() {
   function reverifyIssue(issue: Issue) {
     if (!brand || issue.id == null || reverifying !== null) return;
     setReverifying(issue.id);
-    fetch(`/api/brands/${brand.id}/accuracy/reverify`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: issue.platform, query: issue.query, factKey: issue.fact_key?.replace(/\s*\([^)]*\)\s*$/, '') }),
-    }).then(r => {
+    brandApi(brand.id, '/reverify', 'POST', { platform: issue.platform, query: issue.query, factKey: issue.fact_key?.replace(/\s*\([^)]*\)\s*$/, '') })
+    .then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     }).then(d => {
@@ -394,21 +398,18 @@ export default function AccuracyPage() {
 
   // Build lookup from canonical facts to resolve expected values on the frontend
   const expectedLookup = useMemo(() => {
-    const normalize = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
     const map = new Map<string, string>();
     for (const f of facts) {
       map.set(f.key, f.value);
-      map.set(normalize(f.key), f.value);
+      map.set(normalizeKey(f.key), f.value);
     }
     return map;
   }, [facts]);
 
   function getExpected(issue: Issue): string {
     if (issue.expected) return issue.expected;
-    const normalize = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
-    // Strip category suffix like "(company)" from fact_key before lookup
     const baseKey = issue.fact_key.replace(/\s*\([^)]*\)\s*$/, '');
-    return expectedLookup.get(baseKey) || expectedLookup.get(normalize(baseKey)) || '';
+    return expectedLookup.get(baseKey) || expectedLookup.get(normalizeKey(baseKey)) || '';
   }
 
   // Derived data
@@ -488,7 +489,7 @@ export default function AccuracyPage() {
             <span style={{
               fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
               background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))',
-              color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
+              color: ACCENT_PURPLE, border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
             }}>
               AI-Powered
             </span>
@@ -512,12 +513,12 @@ export default function AccuracyPage() {
       {checkMessage && (
         <div style={{
           padding: '8px 14px', marginBottom: 12, borderRadius: 6, fontSize: 12, fontFamily: 'var(--mono)',
-          background: checkMessage.includes('Failed') || checkMessage.includes('No ') ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)',
-          color: checkMessage.includes('Failed') || checkMessage.includes('No ') ? 'var(--red)' : 'var(--green)',
-          border: `1px solid ${checkMessage.includes('Failed') || checkMessage.includes('No ') ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)'}`,
+          background: checkMessage.isError ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)',
+          color: checkMessage.isError ? 'var(--red)' : 'var(--green)',
+          border: `1px solid ${checkMessage.isError ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <span>{checkMessage}</span>
+          <span>{checkMessage.text}</span>
           <button onClick={() => setCheckMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}>×</button>
         </div>
       )}
@@ -560,9 +561,9 @@ export default function AccuracyPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={autoDiscover} disabled={discovering}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', cursor: discovering ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: '#7c3aed', opacity: discovering ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', cursor: discovering ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.25)', background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: ACCENT_PURPLE, opacity: discovering ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' }}>
               {discovering ? (
-                <><span style={{ width: 12, height: 12, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />Discovering...</>
+                <><span style={{ width: 12, height: 12, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />Discovering...</>
               ) : '✦ Auto-Discover'}
             </button>
           </div>
@@ -572,8 +573,8 @@ export default function AccuracyPage() {
           {/* Discovering spinner */}
           {discovering && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', marginBottom: 16, borderRadius: 8, background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))', border: '1px solid rgba(124,58,237,0.15)' }}>
-              <span style={{ width: 16, height: 16, border: '2.5px solid rgba(124,58,237,0.25)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: '#7c3aed', fontWeight: 600 }}>AI is analyzing your brand to discover facts...</span>
+              <span style={{ width: 16, height: 16, border: '2.5px solid rgba(124,58,237,0.25)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: ACCENT_PURPLE, fontWeight: 600 }}>AI is analyzing your brand to discover facts...</span>
             </div>
           )}
           {/* Add Fact Form — inline */}
@@ -612,7 +613,7 @@ export default function AccuracyPage() {
           {suggestedFacts.length > 0 && (
             <div style={{ marginBottom: 16, padding: 14, borderRadius: 8, background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(168,85,247,0.04))', border: '1px solid rgba(124,58,237,0.15)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed' }}>✦ {suggestedFacts.length} AI-suggested fact{suggestedFacts.length !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT_PURPLE }}>✦ {suggestedFacts.length} AI-suggested fact{suggestedFacts.length !== 1 ? 's' : ''}</span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={acceptAllFacts} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}>Add All</button>
                   <button onClick={() => setSuggestedFacts([])} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Dismiss</button>
@@ -737,10 +738,10 @@ export default function AccuracyPage() {
             </span>
             {issues.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--mono)' }}>
-                {issueSummary.critical > 0 && <span style={{ color: '#dc2626' }}>{issueSummary.critical} Critical</span>}
-                {issueSummary.high > 0 && <span style={{ color: '#ef4444' }}>{issueSummary.high} High</span>}
-                {issueSummary.medium > 0 && <span style={{ color: '#f59e0b' }}>{issueSummary.medium} Medium</span>}
-                {issueSummary.low > 0 && <span style={{ color: '#3b82f6' }}>{issueSummary.low} Low</span>}
+                {issueSummary.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>{issueSummary.critical} Critical</span>}
+                {issueSummary.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>{issueSummary.high} High</span>}
+                {issueSummary.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>{issueSummary.medium} Medium</span>}
+                {issueSummary.low > 0 && <span style={{ color: SEVERITY_COLORS.low }}>{issueSummary.low} Low</span>}
                 {issueSummary.fixed > 0 && <span style={{ color: 'var(--green)' }}>{issueSummary.fixed} Fixed</span>}
               </div>
             )}
@@ -757,7 +758,7 @@ export default function AccuracyPage() {
                   padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
                   cursor: 'pointer', border: '1px solid', transition: 'all .15s',
                   ...(filterPlatform === p
-                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: '#7c3aed', borderColor: 'rgba(124,58,237,0.3)' }
+                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
                     : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
                 }}>{p}</button>
               ))}
@@ -770,7 +771,7 @@ export default function AccuracyPage() {
                   padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
                   cursor: 'pointer', border: '1px solid', transition: 'all .15s',
                   ...(filterSeverity === s
-                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: '#7c3aed', borderColor: 'rgba(124,58,237,0.3)' }
+                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
                     : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
                 }}>{s}</button>
               ))}
@@ -779,7 +780,7 @@ export default function AccuracyPage() {
             {/* Hide Fixed toggle */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', fontFamily: 'var(--mono)' }}>
               <span onClick={() => setHideFixed(!hideFixed)} style={{
-                width: 28, height: 16, borderRadius: 8, background: hideFixed ? '#7c3aed' : 'var(--bg3)',
+                width: 28, height: 16, borderRadius: 8, background: hideFixed ? ACCENT_PURPLE : 'var(--bg3)',
                 position: 'relative', transition: 'background .15s', display: 'inline-block', cursor: 'pointer',
               }}>
                 <span style={{
@@ -843,7 +844,7 @@ export default function AccuracyPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, textDecoration: issue.fixed ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
                         {issue.fact_key}
                         {(issue.count ?? 1) > 1 && (
-                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '1px 5px', borderRadius: 100, background: 'rgba(124,58,237,0.08)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.15)' }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '1px 5px', borderRadius: 100, background: 'rgba(124,58,237,0.08)', color: ACCENT_PURPLE, border: '1px solid rgba(124,58,237,0.15)' }}>
                             ×{issue.count}
                           </span>
                         )}
@@ -856,18 +857,7 @@ export default function AccuracyPage() {
                         {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
                         {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
-                        {issue.source_url && (() => {
-                          const isSearchUrl = issue.source_url.includes('/search?q=') || issue.source_url.includes('/?q=') || issue.source_url.includes('/new?q=') || issue.source_url.includes('/app?q=') || issue.source_url.includes('?text=');
-                          let hostname = '';
-                          try { hostname = new URL(issue.source_url).hostname.replace(/^www\./, ''); } catch { /* */ }
-                          return (
-                            <a href={issue.source_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                              style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
-                              title={issue.source_url}>
-                              {isSearchUrl ? `Verify on ${issue.platform} ↗` : `${hostname} ↗`}
-                            </a>
-                          );
-                        })()}
+                        <SourceUrlLink issue={issue} />
                       </div>
                     </div>
                     {/* ── Improvement 5: Mark Fixed + Re-verify buttons ── */}
@@ -889,7 +879,7 @@ export default function AccuracyPage() {
                               style={{
                                 padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
                                 cursor: reverifying === issue.id ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.2)',
-                                background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: '#7c3aed',
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.06))', color: ACCENT_PURPLE,
                                 opacity: reverifying === issue.id ? 0.6 : 1, transition: 'opacity .15s',
                               }}>
                               {reverifying === issue.id ? '...' : 'Re-verify ↻'}
@@ -914,7 +904,7 @@ export default function AccuracyPage() {
                       )}
                       {issue.explanation && (
                         <div>
-                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: '#7c3aed', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>AI Analysis</div>
+                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: ACCENT_PURPLE, textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>AI Analysis</div>
                           {issue.explanation}
                         </div>
                       )}
