@@ -17,6 +17,18 @@ interface CategoryStat { total: number; accurate: number; }
 const SEVERITY_COLORS: Record<string, string> = { critical: '#dc2626', high: '#ef4444', medium: '#f59e0b', low: '#3b82f6' };
 const ACCENT_PURPLE = '#7c3aed';
 const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
+const stripCategorySuffix = (k: string) => k.replace(/\s*\([^)]*\)\s*$/, '');
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+const SEVERITY_LABELS = ['All', 'Critical', 'High', 'Medium', 'Low'];
+const rateColor = (rate: number) => rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--amber)' : 'var(--red)';
+
+const filterPillStyle = (isActive: boolean): React.CSSProperties => ({
+  padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
+  cursor: 'pointer', border: '1px solid', transition: 'all .15s',
+  ...(isActive
+    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
+    : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
+});
 
 // ── Mini SVG Line Chart ──────────────────────────────────────────
 function TrendChart({ data }: { data: TrendPoint[] }) {
@@ -30,7 +42,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
     );
   }
 
-  const w = 460, h = 140, px = 36, py = 16;
+  const chartWidth = 460, chartHeight = 140, chartPadX = 36, chartPadY = 16;
   const minR = Math.min(...data.map(d => d.rate));
   const maxR = Math.max(...data.map(d => d.rate));
   const yMin = Math.max(0, minR - 5);
@@ -38,26 +50,26 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
   const yRange = yMax - yMin || 10;
 
   const points = data.map((d, i) => {
-    const x = px + (i / (data.length - 1)) * (w - px * 2);
-    const y = py + (1 - (d.rate - yMin) / yRange) * (h - py * 2);
+    const x = chartPadX + (i / (data.length - 1)) * (chartWidth - chartPadX * 2);
+    const y = chartPadY + (1 - (d.rate - yMin) / yRange) * (chartHeight - chartPadY * 2);
     return { x, y, ...d };
   });
 
   const line = points.map(p => `${p.x},${p.y}`).join(' ');
-  const area = `${points[0].x},${h - py} ${line} ${points[points.length - 1].x},${h - py}`;
+  const area = `${points[0].x},${chartHeight - chartPadY} ${line} ${points[points.length - 1].x},${chartHeight - chartPadY}`;
 
   // Y-axis labels
   const yLabels = [yMin, Math.round((yMin + yMax) / 2), yMax];
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} style={{ overflow: 'visible' }}>
+    <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} width="100%" height={chartHeight} style={{ overflow: 'visible' }}>
       {/* Grid lines */}
       {yLabels.map(val => {
-        const y = py + (1 - (val - yMin) / yRange) * (h - py * 2);
+        const y = chartPadY + (1 - (val - yMin) / yRange) * (chartHeight - chartPadY * 2);
         return (
           <g key={val}>
-            <line x1={px} y1={y} x2={w - px} y2={y} stroke="var(--border)" strokeDasharray="3,3" />
-            <text x={px - 6} y={y + 3} textAnchor="end" fontSize={9} fill="var(--muted)" fontFamily="var(--mono)">{val}%</text>
+            <line x1={chartPadX} y1={y} x2={chartWidth - chartPadX} y2={y} stroke="var(--border)" strokeDasharray="3,3" />
+            <text x={chartPadX - 6} y={y + 3} textAnchor="end" fontSize={9} fill="var(--muted)" fontFamily="var(--mono)">{val}%</text>
           </g>
         );
       })}
@@ -71,7 +83,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
           <circle cx={p.x} cy={p.y} r={3} fill="var(--bg)" stroke="var(--primary)" strokeWidth={2} />
           {/* X labels — show first, last, and middle */}
           {(i === 0 || i === points.length - 1 || i === Math.floor(points.length / 2)) && (
-            <text x={p.x} y={h - 2} textAnchor="middle" fontSize={8} fill="var(--muted)" fontFamily="var(--mono)">
+            <text x={p.x} y={chartHeight - 2} textAnchor="middle" fontSize={8} fill="var(--muted)" fontFamily="var(--mono)">
               {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </text>
           )}
@@ -217,7 +229,7 @@ function SourceUrlLink({ issue }: { issue: Issue }) {
 
 // ── Main Page ───────────────────────────────────────────────────
 export default function AccuracyPage() {
-  const { brand: rawBrand, brands, loading } = useBrandData();
+  const { brand: rawBrand, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
 
   const { toast } = useToast();
@@ -232,7 +244,6 @@ export default function AccuracyPage() {
   const [platformStats, setPlatformStats] = useState<Record<string, PlatformStat>>({});
   const [categoryStats, setCategoryStats] = useState<Record<string, CategoryStat>>({});
   const [lastChecked, setLastChecked] = useState<string | null>(null);
-  // activeTab removed — facts now in prominent card above, issues shown directly
   const [checkMessage, setCheckMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [expandedIssue, setExpandedIssue] = useState<number | null>(null);
   const [suggestedFacts, setSuggestedFacts] = useState<SuggestedFact[]>([]);
@@ -378,7 +389,7 @@ export default function AccuracyPage() {
   function reverifyIssue(issue: Issue) {
     if (!brand || issue.id == null || reverifying !== null) return;
     setReverifying(issue.id);
-    brandApi(brand.id, '/reverify', 'POST', { platform: issue.platform, query: issue.query, factKey: issue.fact_key?.replace(/\s*\([^)]*\)\s*$/, '') })
+    brandApi(brand.id, '/reverify', 'POST', { platform: issue.platform, query: issue.query, factKey: stripCategorySuffix(issue.fact_key ?? '') })
     .then(r => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
@@ -408,7 +419,7 @@ export default function AccuracyPage() {
 
   function getExpected(issue: Issue): string {
     if (issue.expected) return issue.expected;
-    const baseKey = issue.fact_key.replace(/\s*\([^)]*\)\s*$/, '');
+    const baseKey = stripCategorySuffix(issue.fact_key);
     return expectedLookup.get(baseKey) || expectedLookup.get(normalizeKey(baseKey)) || '';
   }
 
@@ -433,23 +444,20 @@ export default function AccuracyPage() {
     if (hideFixed) filtered = filtered.filter(i => !i.fixed);
     if (filterPlatform !== 'All') filtered = filtered.filter(i => i.platform === filterPlatform);
     if (filterSeverity !== 'All') filtered = filtered.filter(i => i.severity === filterSeverity.toLowerCase());
-    const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-    if (sortBy === 'severity') filtered = [...filtered].sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4));
+    if (sortBy === 'severity') filtered = [...filtered].sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 4) - (SEVERITY_ORDER[b.severity] ?? 4));
     else if (sortBy === 'date') filtered = [...filtered].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
     else if (sortBy === 'platform') filtered = [...filtered].sort((a, b) => a.platform.localeCompare(b.platform));
     return filtered;
   }, [issues, hideFixed, filterPlatform, filterSeverity, sortBy]);
 
   const issueSummary = useMemo(() => {
-    const s = { total: issues.length, critical: 0, high: 0, medium: 0, low: 0, fixed: 0 };
-    for (const i of issues) {
-      if (i.fixed) s.fixed++;
-      if (i.severity === 'critical') s.critical++;
-      else if (i.severity === 'high') s.high++;
-      else if (i.severity === 'medium') s.medium++;
-      else if (i.severity === 'low') s.low++;
+    const summary = { total: issues.length, critical: 0, high: 0, medium: 0, low: 0, fixed: 0 };
+    for (const issue of issues) {
+      if (issue.fixed) summary.fixed++;
+      const sev = issue.severity as keyof typeof summary;
+      if (sev in summary && sev !== 'total' && sev !== 'fixed') summary[sev]++;
     }
-    return s;
+    return summary;
   }, [issues]);
 
   const allPlatforms = useMemo(() => [...new Set(issues.map(i => i.platform))].sort(), [issues]);
@@ -458,7 +466,7 @@ export default function AccuracyPage() {
   const factBreakdown = useMemo(() => {
     const map = new Map<string, { factKey: string; wrongPlatforms: Set<string>; totalPlatforms: Set<string> }>();
     for (const issue of issues) {
-      const key = issue.fact_key?.replace(/\s*\([^)]*\)\s*$/, '') || issue.fact_key;
+      const key = stripCategorySuffix(issue.fact_key ?? '') || issue.fact_key;
       if (!map.has(key)) map.set(key, { factKey: key, wrongPlatforms: new Set(), totalPlatforms: new Set() });
       const entry = map.get(key)!;
       if (!issue.fixed) entry.wrongPlatforms.add(issue.platform);
@@ -526,15 +534,18 @@ export default function AccuracyPage() {
       {/* KPI Cards — 4 score cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
         <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24, color: accuracyRate != null ? (accuracyRate >= 80 ? 'var(--green)' : accuracyRate >= 50 ? 'var(--amber)' : 'var(--red)') : 'var(--muted)' }}>
+          <div className="score-val" style={{ fontSize: 24, color: accuracyRate != null ? rateColor(accuracyRate) : 'var(--muted)' }}>
             {accuracyRate != null ? `${accuracyRate}%` : '—'}
           </div>
           <div className="score-label">Accuracy Rate</div>
-          {accuracyRate != null && trend.length >= 2 && (
-            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', marginTop: 4, color: trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? 'var(--green)' : 'var(--red)' }}>
-              {trend[trend.length - 1].rate >= trend[trend.length - 2].rate ? '↑' : '↓'} vs prev
-            </div>
-          )}
+          {accuracyRate != null && trend.length >= 2 && (() => {
+            const trendUp = trend[trend.length - 1].rate >= trend[trend.length - 2].rate;
+            return (
+              <div style={{ fontSize: 11, fontFamily: 'var(--mono)', marginTop: 4, color: trendUp ? 'var(--green)' : 'var(--red)' }}>
+                {trendUp ? '↑' : '↓'} vs prev
+              </div>
+            );
+          })()}
         </div>
         <div className="score-card">
           <div className="score-val" style={{ fontSize: 24, color: issues.length > 0 ? 'var(--red)' : 'var(--green)' }}>{issues.length}</div>
@@ -597,10 +608,9 @@ export default function AccuracyPage() {
               <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Category</label>
               <select value={factCategory} onChange={e => setFactCategory(e.target.value)}
                 style={{ width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', cursor: 'pointer' }}>
-                <option value="general">General</option>
-                <option value="pricing">Pricing</option>
-                <option value="features">Features</option>
-                <option value="company">Company</option>
+                {RECOMMENDED_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                ))}
               </select>
             </div>
             <button onClick={addFact}
@@ -667,13 +677,10 @@ export default function AccuracyPage() {
           <TrendChart data={trend} />
         </div>
 
-        {/* Right column: Severity + Platform */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Severity Distribution */}
-          <div className="card" style={{ padding: '16px 20px', flex: 1 }}>
-            <div className="section-title">Severity Distribution</div>
-            <SeverityDonut issues={issues} />
-          </div>
+        {/* Severity Distribution */}
+        <div className="card" style={{ padding: '16px 20px' }}>
+          <div className="section-title">Severity Distribution</div>
+          <SeverityDonut issues={issues} />
         </div>
       </div>
 
@@ -685,7 +692,7 @@ export default function AccuracyPage() {
             <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>Run accuracy checks to see platform-level breakdowns.</div>
           ) : (
             <div style={{ marginTop: 8 }}>{platformAccuracy.map(p => (
-              <HBar key={p.name} label={p.name} value={p.rate} max={100} color={p.rate >= 80 ? 'var(--green)' : p.rate >= 50 ? 'var(--amber)' : 'var(--red)'} />
+              <HBar key={p.name} label={p.name} value={p.rate} max={100} color={rateColor(p.rate)} />
             ))}</div>
           )}
         </div>
@@ -695,7 +702,7 @@ export default function AccuracyPage() {
             <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>Add facts across categories and run checks to see category-level accuracy.</div>
           ) : (
             <div style={{ marginTop: 8 }}>{categoryAccuracy.map(c => (
-              <HBar key={c.name} label={c.name} value={c.rate} max={100} color={c.rate >= 80 ? 'var(--green)' : c.rate >= 50 ? 'var(--amber)' : 'var(--red)'} />
+              <HBar key={c.name} label={c.name} value={c.rate} max={100} color={rateColor(c.rate)} />
             ))}</div>
           )}
         </div>
@@ -754,26 +761,14 @@ export default function AccuracyPage() {
             {/* Platform filter */}
             <div style={{ display: 'flex', gap: 4 }}>
               {['All', ...allPlatforms].map(p => (
-                <button key={p} onClick={() => setFilterPlatform(p)} style={{
-                  padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
-                  cursor: 'pointer', border: '1px solid', transition: 'all .15s',
-                  ...(filterPlatform === p
-                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
-                    : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
-                }}>{p}</button>
+                <button key={p} onClick={() => setFilterPlatform(p)} style={filterPillStyle(filterPlatform === p)}>{p}</button>
               ))}
             </div>
             <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
             {/* Severity filter */}
             <div style={{ display: 'flex', gap: 4 }}>
-              {['All', 'Critical', 'High', 'Medium', 'Low'].map(s => (
-                <button key={s} onClick={() => setFilterSeverity(s)} style={{
-                  padding: '3px 10px', borderRadius: 100, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
-                  cursor: 'pointer', border: '1px solid', transition: 'all .15s',
-                  ...(filterSeverity === s
-                    ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1))', color: ACCENT_PURPLE, borderColor: 'rgba(124,58,237,0.3)' }
-                    : { background: 'var(--bg)', color: 'var(--muted)', borderColor: 'var(--border)' }),
-                }}>{s}</button>
+              {SEVERITY_LABELS.map(s => (
+                <button key={s} onClick={() => setFilterSeverity(s)} style={filterPillStyle(filterSeverity === s)}>{s}</button>
               ))}
             </div>
             <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
