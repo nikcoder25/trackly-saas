@@ -12,6 +12,67 @@ interface FactRow {
   updated_at: string;
 }
 
+// Ensure required tables exist (created by Express backend but may be missing in Next.js-only setups)
+const _g = globalThis as unknown as { _accuracyTablesReady?: boolean };
+async function ensureAccuracyTables() {
+  if (_g._accuracyTablesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS prompt_runs (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      prompt TEXT NOT NULL,
+      platform TEXT NOT NULL,
+      model TEXT,
+      run_index INTEGER DEFAULT 0,
+      response_raw TEXT,
+      response_parsed JSONB DEFAULT '{}',
+      mentioned BOOLEAN DEFAULT FALSE,
+      sentiment TEXT DEFAULT 'neutral',
+      recommended BOOLEAN DEFAULT FALSE,
+      list_position INTEGER,
+      citations JSONB DEFAULT '[]',
+      competitor_mentions JSONB DEFAULT '[]',
+      latency_ms INTEGER,
+      success BOOLEAN DEFAULT TRUE,
+      error_message TEXT,
+      meta JSONB DEFAULT '{}',
+      batch_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS brand_facts (
+      id SERIAL PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      fact_key TEXT NOT NULL,
+      fact_value TEXT NOT NULL,
+      category TEXT DEFAULT 'general',
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(brand_id, fact_key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_brand_facts_brand ON brand_facts(brand_id);
+    CREATE TABLE IF NOT EXISTS accuracy_issues (
+      id SERIAL PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      platform TEXT NOT NULL,
+      model TEXT,
+      fact_key TEXT NOT NULL,
+      expected TEXT,
+      found TEXT,
+      severity TEXT DEFAULT 'medium',
+      category TEXT DEFAULT 'general',
+      explanation TEXT,
+      run_id TEXT,
+      source_url TEXT,
+      query TEXT,
+      date TIMESTAMPTZ,
+      fixed BOOLEAN DEFAULT FALSE,
+      fixed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_accuracy_issues_brand ON accuracy_issues(brand_id);
+  `);
+  _g._accuracyTablesReady = true;
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
@@ -19,6 +80,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+
+  await ensureAccuracyTables();
 
   try {
     const factsResult = await pool.query('SELECT * FROM brand_facts WHERE brand_id = $1 ORDER BY category, fact_key', [id]);
@@ -135,6 +198,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot edit facts' }, { status: 403 });
 
+  await ensureAccuracyTables();
+
   const { facts } = await request.json();
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
@@ -171,6 +236,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+
+  await ensureAccuracyTables();
 
   const body = await request.json();
 

@@ -57,12 +57,49 @@ async function ensureActiveRunsTable() {
   `);
 }
 
-// Ensure table exists on first call (cached in globalThis)
-const g = globalThis as unknown as { _activeRunsTableReady?: boolean };
+// Auto-create the prompt_runs table if it doesn't exist
+async function ensurePromptRunsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS prompt_runs (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+      prompt TEXT NOT NULL,
+      platform TEXT NOT NULL,
+      model TEXT,
+      run_index INTEGER DEFAULT 0,
+      response_raw TEXT,
+      response_parsed JSONB DEFAULT '{}',
+      mentioned BOOLEAN DEFAULT FALSE,
+      sentiment TEXT DEFAULT 'neutral',
+      recommended BOOLEAN DEFAULT FALSE,
+      list_position INTEGER,
+      citations JSONB DEFAULT '[]',
+      competitor_mentions JSONB DEFAULT '[]',
+      latency_ms INTEGER,
+      success BOOLEAN DEFAULT TRUE,
+      error_message TEXT,
+      meta JSONB DEFAULT '{}',
+      batch_id TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_prompt_runs_brand_id ON prompt_runs(brand_id);
+    CREATE INDEX IF NOT EXISTS idx_prompt_runs_platform ON prompt_runs(platform);
+    CREATE INDEX IF NOT EXISTS idx_prompt_runs_created_at ON prompt_runs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_prompt_runs_batch_id ON prompt_runs(batch_id);
+  `);
+}
+
+// Ensure tables exist on first call (cached in globalThis)
+const g = globalThis as unknown as { _activeRunsTableReady?: boolean; _promptRunsTableReady?: boolean };
 async function initTable() {
   if (g._activeRunsTableReady) return;
   await ensureActiveRunsTable();
   g._activeRunsTableReady = true;
+}
+async function initPromptRunsTable() {
+  if (g._promptRunsTableReady) return;
+  await ensurePromptRunsTable();
+  g._promptRunsTableReady = true;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -382,6 +419,9 @@ async function executeRunBackground(
     brandData.updatedAt = new Date().toISOString();
 
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
+
+    // Ensure prompt_runs table exists before inserting
+    await initPromptRunsTable();
 
     // Persist prompt_runs in batches
     for (let i = 0; i < allResults.length; i += 100) {
