@@ -8,6 +8,7 @@ import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
+import AddBrandModal from '@/components/dashboard/AddBrandModal';
 
 interface Brand {
   id: string;
@@ -76,15 +77,20 @@ export default function SetupPage() {
         }}>+ New Brand</button>
       </div>
 
-      {(showCreate || brands.length === 0) ? (
-        <CreateBrandWizard onCreated={brand => {
-          setBrands([...brands, brand]);
-          setSelectedBrand(brand);
-          setCtxSelectedBrand(brand);
-          setShowCreate(false);
-          refreshBrands().then(() => { setTimeout(() => startRun(false), 500); });
-        }} />
-      ) : selectedBrand ? (
+      {showCreate && (
+        <AddBrandModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(brand) => {
+            setShowCreate(false);
+            setBrands([...brands, brand]);
+            setSelectedBrand(brand);
+            setCtxSelectedBrand(brand);
+            refreshBrands().then(() => { setTimeout(() => startRun(false), 500); });
+          }}
+        />
+      )}
+
+      {selectedBrand ? (
         <EditBrandForm brand={selectedBrand} planLimit={planLimit}
           onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
           onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
