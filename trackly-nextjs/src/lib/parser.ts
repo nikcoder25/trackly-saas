@@ -37,6 +37,7 @@ const SEGMENT_WORDS = [
   'residential', 'commercial', 'contracting', 'mechanical', 'foundation',
   'demolition', 'excavation', 'insulation', 'management', 'consulting',
   'blacktopping', 'refinishing', 'waterproof', 'transportation',
+  'neighbors', 'financial', 'insurance', 'mortgage', 'property',
   'airport', 'transport', 'transfer', 'shuttle', 'limousine', 'dispatch',
   'sealcoat', 'services', 'brothers', 'painting', 'plumbing', 'cleaning',
   'flooring', 'concrete', 'driveway', 'masonry', 'roofing', 'fencing',
@@ -47,24 +48,28 @@ const SEGMENT_WORDS = [
   'trusted', 'patriot', 'liberty', 'freedom', 'comfort', 'coastal',
   'service', 'parking', 'overlay', 'striping', 'sealing', 'curbing',
   'milling', 'patching', 'marking', 'coating', 'surfing', 'cutting',
+  'funding', 'lending', 'banking', 'housing', 'finance', 'trading',
   'asphalt', 'paving', 'repair', 'custom', 'design', 'supply',
   'source', 'master', 'expert', 'golden', 'silver', 'garage',
   'window', 'garden', 'valley', 'island', 'harbor', 'forest',
-  'bridge', 'spring', 'estate', 'austin', 'dallas', 'houston',
+  'bridge', 'spring', 'estate', 'market', 'realty', 'rental',
+  'austin', 'dallas', 'houston',
   'denver', 'phoenix', 'tampa', 'vegas', 'miami', 'portland',
+  'credit', 'invest', 'equity', 'wealth',
   'texas', 'texan', 'north', 'south', 'metro', 'stone', 'creek',
   'maple', 'cedar', 'eagle', 'royal', 'solar', 'power', 'house',
   'smart', 'rapid', 'steel', 'hydro', 'green', 'clean', 'water',
   'black', 'white', 'trust', 'prime', 'local', 'grand', 'great',
   'super', 'elite', 'level', 'point', 'ridge', 'haven', 'plaza',
   'crown', 'crest', 'right', 'craft', 'works', 'build',
-  'modern', 'total', 'alpha', 'omega', 'delta', 'sigma',
+  'modern', 'total', 'alpha', 'omega', 'delta', 'sigma', 'offer',
   'pave', 'seal', 'line', 'roof', 'tree', 'lawn', 'hvac', 'bath',
   'door', 'pool', 'rock', 'lake', 'hill', 'peak', 'pine', 'wolf',
   'bear', 'hawk', 'bull', 'star', 'lone', 'best', 'fast', 'true',
   'sure', 'safe', 'home', 'land', 'city', 'town', 'east', 'west',
   'king', 'duke', 'iron', 'flex', 'apex', 'core', 'edge', 'mark',
   'tech', 'link', 'plus', 'blue', 'gold', 'gray', 'grey',
+  'bank', 'fund', 'loan',
   'cars', 'auto', 'motor', 'ride', 'fleet', 'drive', 'cargo',
   'lukes', 'johns', 'mikes', 'daves', 'bobs', 'jacks', 'steves',
   'scotts', 'franks', 'adams', 'nicks', 'tonys', 'bills', 'ricks',
@@ -180,7 +185,7 @@ function _matchCompetitors(text: string, compMatchers: CompetitorMatcher[]): str
   const found: string[] = [];
   let _collapsed: string | null = null;
   function getCollapsed() {
-    if (_collapsed === null) _collapsed = text.toLowerCase().replace(/[\s\-_'''.,:;!?()[\]]/g, '');
+    if (_collapsed === null) _collapsed = text.toLowerCase().replace(/[^a-z0-9]/g, '');
     return _collapsed;
   }
   for (const c of compMatchers) {
@@ -189,10 +194,10 @@ function _matchCompetitors(text: string, compMatchers: CompetitorMatcher[]): str
     if (c.baseDomain && c.baseDomain.length >= 5) {
       const collapsed = getCollapsed();
       // Also strip hyphens/special chars from baseDomain for fair comparison
-      const collapsedBase = c.baseDomain.replace(/[\-_.']/g, '');
+      const collapsedBase = c.baseDomain.replace(/[^a-z0-9]/g, '');
       if (collapsed.includes(collapsedBase)) { found.push(c.name); continue; }
       if (c.baseDomainClean) {
-        const collapsedClean = c.baseDomainClean.replace(/[\-_.']/g, '');
+        const collapsedClean = c.baseDomainClean.replace(/[^a-z0-9]/g, '');
         if (collapsed.includes(collapsedClean)) { found.push(c.name); continue; }
       }
     }
