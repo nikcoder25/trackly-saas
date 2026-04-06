@@ -7,7 +7,7 @@ import { AUTH } from './constants';
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (process.env.NODE_ENV === 'production' && (!JWT_SECRET || JWT_SECRET.length < 32)) {
-  console.error('[Auth] JWT_SECRET must be at least 32 characters in production');
+  throw new Error('[Auth] JWT_SECRET must be at least 32 characters in production');
 }
 
 function getSecret(): string {

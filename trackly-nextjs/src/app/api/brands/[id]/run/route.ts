@@ -406,7 +406,7 @@ async function executeRunBackground(
         await pool.query(
           `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
         );
-      } catch { /* ignore */ }
+      } catch (e) { console.error('[Run] Failed to persist prompt_runs batch:', (e as Error).message); }
     }
 
     auditLog(userId, 'run_queries', 'brand', brandId, { runId, queries: totalQ, mentions: totalM, sov: overallSov }, '');
@@ -420,7 +420,7 @@ async function executeRunBackground(
          WHERE id = $5`,
         [(err as Error).message, received, foundCount, errorCount, runId]
       );
-    } catch { /* ignore */ }
+    } catch (e) { console.error('[Run] Failed to mark run as error:', (e as Error).message); }
 
     // Emergency save partial results to brand data
     if (allResults.length > 0) {
@@ -440,7 +440,7 @@ async function executeRunBackground(
         });
         brandData.updatedAt = new Date().toISOString();
         await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
-      } catch { /* ignore */ }
+      } catch (e) { console.error('[Run] Emergency save failed:', (e as Error).message); }
     }
     console.error('[Run] Background execution failed:', (err as Error).message);
   }
