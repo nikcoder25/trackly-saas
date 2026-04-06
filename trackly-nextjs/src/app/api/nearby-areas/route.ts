@@ -72,32 +72,49 @@ export async function POST(request: Request) {
     const result = await queryAI(platform, prompt, apiKey, model, undefined, {
       systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
       maxTokens: 800,
+      jsonMode: true,
     });
 
     if (!result?.text) {
       return Response.json({ error: 'AI returned empty response. Please try again.' }, { status: 500 });
     }
 
-    // Strip markdown code fences if present, then parse JSON array
-    const cleaned = result.text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.error('[NearbyAreas] Could not parse JSON from AI response:', result.text.substring(0, 500));
-      return Response.json({ error: 'Could not parse nearby areas from AI response. Please try again.' }, { status: 500 });
+    // Try multiple parsing strategies
+    let areas: string[] = [];
+    const rawText = result.text.trim();
+
+    // Strategy 1: Direct JSON parse
+    try {
+      const parsed = JSON.parse(rawText);
+      if (Array.isArray(parsed)) {
+        areas = parsed.filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0).map((a: string) => a.trim());
+      }
+    } catch {
+      // Strategy 2: Strip markdown fences and extract JSON array
+      const cleaned = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        try {
+          areas = JSON.parse(jsonMatch[0])
+            .filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0)
+            .map((a: string) => a.trim());
+        } catch { /* fall through */ }
+      }
+
+      // Strategy 3: Extract quoted strings as fallback
+      if (!areas.length) {
+        const quoted = rawText.match(/"([^"]{2,80})"/g);
+        if (quoted && quoted.length >= 3) {
+          areas = quoted.map(q => q.replace(/^"|"$/g, '').trim()).filter(a => a.length > 0);
+        }
+      }
     }
 
-    let areas: string[];
-    try {
-      areas = JSON.parse(jsonMatch[0])
-        .filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0)
-        .map((a: string) => a.trim())
-        .slice(0, 15);
-    } catch {
-      return Response.json({ error: 'AI returned malformed data. Please try again.' }, { status: 500 });
-    }
+    areas = areas.slice(0, 15);
 
     if (!areas.length) {
-      return Response.json({ error: 'No nearby areas found for this city' }, { status: 500 });
+      console.error('[NearbyAreas] Could not parse areas from AI response:', rawText.substring(0, 500));
+      return Response.json({ error: 'Could not parse nearby areas from AI response. Please try again.' }, { status: 500 });
     }
 
     return Response.json({ areas, city: sanitizedCity, platform });

@@ -88,7 +88,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000): Pr
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function queryAI(platform: string, query: string, apiKey: string, model?: string, brand?: any, options?: { systemPrompt?: string; maxTokens?: number }): Promise<QueryResult> {
+export async function queryAI(platform: string, query: string, apiKey: string, model?: string, brand?: any, options?: { systemPrompt?: string; maxTokens?: number; jsonMode?: boolean }): Promise<QueryResult> {
   const useModel = model || getDefaultModel(platform);
   const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
   const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
@@ -122,9 +122,18 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
 
   if (platform === 'Gemini') {
     const url = `${API_ENDPOINTS.gemini.base}${useModel}:generateContent`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const geminiPayload: any = {
+      systemInstruction: { parts: [{ text: sysPrompt }] },
+      contents: [{ parts: [{ text: query }] }],
+      generationConfig: { maxOutputTokens: maxTok },
+    };
+    if (options?.jsonMode) {
+      geminiPayload.generationConfig.responseMimeType = 'application/json';
+    }
     const d = await fetchAI(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({ contents: [{ parts: [{ text: sysPrompt + '\n\n' + query }] }], generationConfig: { maxOutputTokens: maxTok } }),
+      body: JSON.stringify(geminiPayload),
     });
     const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return { text, model: useModel, tokensIn: d.usageMetadata?.promptTokenCount || 0, tokensOut: d.usageMetadata?.candidatesTokenCount || 0, citations: [] };
