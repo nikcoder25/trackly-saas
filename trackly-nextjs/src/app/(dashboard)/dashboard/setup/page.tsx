@@ -76,25 +76,6 @@ export default function SetupPage() {
         }}>+ New Brand</button>
       </div>
 
-      {brands.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 8 }}>
-          {brands.map(b => {
-            const isActive = selectedBrand?.id === b.id && !showCreate;
-            return (
-              <button key={b.id} onClick={() => { setSelectedBrand(b); setShowCreate(false); }}
-                style={{
-                  flexShrink: 0, padding: '8px 16px', borderRadius: 'var(--radius-xs)',
-                  fontSize: 13, fontFamily: 'var(--font)', fontWeight: isActive ? 600 : 500,
-                  cursor: 'pointer', transition: 'all .15s',
-                  background: isActive ? 'var(--primary)' : 'var(--bg2)',
-                  color: isActive ? '#fff' : 'var(--muted)',
-                  border: isActive ? '1px solid var(--primary)' : '1px solid var(--border)',
-                }}>{b.name}</button>
-            );
-          })}
-        </div>
-      )}
-
       {(showCreate || brands.length === 0) ? (
         <CreateBrandWizard onCreated={brand => {
           setBrands([...brands, brand]);
@@ -105,8 +86,8 @@ export default function SetupPage() {
         }} />
       ) : selectedBrand ? (
         <EditBrandForm brand={selectedBrand} planLimit={planLimit}
-          onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); }}
-          onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); }} />
+          onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
+          onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
       ) : null}
     </div>
   );
