@@ -278,42 +278,8 @@ export default function CompetitorsPage() {
         </div>
       )}
 
-      {/* Empty state: has query data but all competitors show 0% — offer reprocessing */}
-      {competitors.length > 0 && hasData && allCompZero && (
-        <div className="card" style={{ marginTop: 14, padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128270;</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>No competitor mentions detected yet</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 480, margin: '0 auto 20px' }}>
-            Your brand was found in {brandPct}% of responses, but none of your competitors were detected.
-            This can happen if competitors were added after your last query run. Reprocess existing data or run new queries.
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-            <button
-              className="pbtn"
-              onClick={reprocessCompetitors}
-              disabled={reprocessing}
-              style={{ opacity: reprocessing ? 0.6 : 1, cursor: reprocessing ? 'not-allowed' : 'pointer' }}
-            >
-              {reprocessing ? 'Reprocessing...' : 'Reprocess Existing Data'}
-            </button>
-            <button
-              className="run-btn"
-              onClick={() => startRun(false)}
-              disabled={live.running}
-              style={{ opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
-            >
-              {live.running ? 'Running...' : 'Run New Queries'}
-            </button>
-          </div>
-          {reprocessMsg && <div style={{ fontSize: 12, color: 'var(--primary)', marginBottom: 8 }}>{reprocessMsg}</div>}
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            Tip: Make sure competitor names match how they appear in AI responses (e.g., &quot;Metro Cars&quot; not &quot;metrocars.com&quot;).
-          </div>
-        </div>
-      )}
-
       {/* Competitor Comparison — horizontal bar chart */}
-      {competitors.length > 0 && hasData && !allCompZero && (
+      {competitors.length > 0 && hasData && (
         <div className="card" style={{ marginTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div className="section-title" style={{ marginBottom: 0 }}>Competitor Comparison</div>
@@ -340,6 +306,13 @@ export default function CompetitorsPage() {
             );
           })}
 
+          {allCompZero && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 6, fontSize: 12, color: 'var(--muted)' }}>
+              No competitor mentions detected yet. This can happen if competitors were added after your last query run.
+              Try reprocessing existing data or running new queries.
+            </div>
+          )}
+
           {/* Reprocess button inline */}
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
@@ -355,7 +328,7 @@ export default function CompetitorsPage() {
       )}
 
       {/* Co-occurrence (30 days) */}
-      {competitors.length > 0 && hasData && !allCompZero && (
+      {competitors.length > 0 && hasData && (
         <div className="card" style={{ marginTop: 14 }}>
           <div className="section-title">Competitor Co-occurrence (30 days)</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>How often competitors appear in AI responses across all prompts and platforms.</div>
@@ -379,7 +352,7 @@ export default function CompetitorsPage() {
       )}
 
       {/* Per-Platform Breakdown */}
-      {competitors.length > 0 && hasData && !allCompZero && Object.keys(platBreakdown).length > 0 && (
+      {competitors.length > 0 && hasData && Object.keys(platBreakdown).length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div className="section-title" style={{ marginBottom: 4 }}>Per-Platform Breakdown</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Competitor mentions broken down by AI platform.</div>
