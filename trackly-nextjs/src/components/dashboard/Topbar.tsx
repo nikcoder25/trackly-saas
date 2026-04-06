@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
+import { useRun } from '@/contexts/RunContext';
 import Link from 'next/link';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
-  const { brands, selectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit } = useBrands();
+  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit } = useBrands();
+  const { startRun } = useRun();
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
@@ -187,9 +189,12 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     {showAddBrand && (
       <AddBrandModal
         onClose={() => setShowAddBrand(false)}
-        onCreated={() => {
+        onCreated={(brand) => {
           setShowAddBrand(false);
-          refreshBrands();
+          setSelectedBrand(brand);
+          refreshBrands().then(() => {
+            setTimeout(() => startRun(false), 500);
+          });
         }}
       />
     )}

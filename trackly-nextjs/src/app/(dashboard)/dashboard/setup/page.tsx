@@ -7,6 +7,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { useBrands } from '@/contexts/BrandContext';
+import { useRun } from '@/contexts/RunContext';
 
 interface Brand {
   id: string;
@@ -38,7 +39,8 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 export default function SetupPage() {
   const { user } = useAuth();
   const planLimit = (user?.limits as Record<string, number>)?.prompts || 250;
-  const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
+  const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
+  const { startRun } = useRun();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,13 @@ export default function SetupPage() {
       )}
 
       {(showCreate || brands.length === 0) ? (
-        <CreateBrandWizard onCreated={brand => { setBrands([...brands, brand]); setSelectedBrand(brand); setShowCreate(false); }} />
+        <CreateBrandWizard onCreated={brand => {
+          setBrands([...brands, brand]);
+          setSelectedBrand(brand);
+          setCtxSelectedBrand(brand);
+          setShowCreate(false);
+          refreshBrands().then(() => { setTimeout(() => startRun(false), 500); });
+        }} />
       ) : selectedBrand ? (
         <EditBrandForm brand={selectedBrand} planLimit={planLimit}
           onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); }}
