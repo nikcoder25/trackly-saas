@@ -2,11 +2,11 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; issueId: string }> }) {
+async function handleToggleFixed(request: Request, params: { id: string; issueId: string }) {
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
-  const { id, issueId } = await params;
+  const { id, issueId } = params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot modify issues' }, { status: 403 });
@@ -27,7 +27,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     return Response.json(result.rows[0]);
   } catch (e) {
-    console.error('[Accuracy Issue PATCH]', (e as Error).message);
+    console.error('[Accuracy Issue Toggle]', (e as Error).message);
     return Response.json({ error: 'Failed to update issue' }, { status: 500 });
   }
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; issueId: string }> }) {
+  return handleToggleFixed(request, await params);
+}
+
+// POST fallback for environments where PATCH may be blocked by proxies
+export async function POST(request: Request, { params }: { params: Promise<{ id: string; issueId: string }> }) {
+  return handleToggleFixed(request, await params);
 }

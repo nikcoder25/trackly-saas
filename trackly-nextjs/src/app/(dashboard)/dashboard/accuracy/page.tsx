@@ -255,6 +255,7 @@ export default function AccuracyPage() {
   const [hideFixed, setHideFixed] = useState(true);
   const [sortBy, setSortBy] = useState<'severity' | 'date' | 'platform'>('severity');
   const [reverifying, setReverifying] = useState<number | null>(null);
+  const [togglingFixed, setTogglingFixed] = useState<number | null>(null);
 
   useEffect(() => {
     if (!brand) return;
@@ -375,17 +376,26 @@ export default function AccuracyPage() {
     setSuggestedFacts(prev => prev.filter(f => f.key !== key));
   }
 
-  function toggleFixed(issue: Issue) {
-    if (!brand || issue.id == null) return;
-    brandApi(brand.id, `/issues/${issue.id}`, 'PATCH')
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      }).then(d => {
+  async function toggleFixed(issue: Issue) {
+    if (!brand || issue.id == null || togglingFixed !== null) return;
+    setTogglingFixed(issue.id);
+    try {
+      const r = await brandApi(brand.id, `/issues/${issue.id}`, 'POST');
+      if (!r.ok) {
+        const errData = await r.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${r.status}`);
+      }
+      const d = await r.json();
       setIssues(prev => prev.map(iss =>
         iss.id === issue.id ? { ...iss, fixed: d.fixed, fixed_at: d.fixed_at } : iss
       ));
-    }).catch(err => console.error('[ToggleFixed]', err));
+      toast(d.fixed ? 'Issue marked as fixed.' : 'Issue marked as unfixed.');
+    } catch (err) {
+      console.error('[ToggleFixed]', err);
+      toast(`Failed to update issue: ${(err as Error).message}`, 'error');
+    } finally {
+      setTogglingFixed(null);
+    }
   }
 
   function reverifyIssue(issue: Issue) {
@@ -856,14 +866,17 @@ export default function AccuracyPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
                       {issue.id != null ? (
                         <>
-                          <button onClick={e => { e.stopPropagation(); toggleFixed(issue); }} style={{
+                          <button onClick={e => { e.stopPropagation(); toggleFixed(issue); }}
+                            disabled={togglingFixed === issue.id}
+                            style={{
                             padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font)',
-                            cursor: 'pointer', border: '1px solid', transition: 'all .15s',
+                            cursor: togglingFixed === issue.id ? 'not-allowed' : 'pointer', border: '1px solid', transition: 'all .15s',
+                            opacity: togglingFixed === issue.id ? 0.6 : 1,
                             ...(issue.fixed
                               ? { background: 'rgba(34,197,94,0.08)', color: 'var(--green)', borderColor: 'rgba(34,197,94,0.2)' }
                               : { background: 'var(--bg3)', color: 'var(--muted)', borderColor: 'var(--border)' }),
                           }}>
-                            {issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
+                            {togglingFixed === issue.id ? 'Updating...' : issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
                           </button>
                           {issue.fixed && (
                             <button onClick={e => { e.stopPropagation(); reverifyIssue(issue); }}
