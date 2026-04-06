@@ -29,26 +29,56 @@ export default function SignupPage() {
 
   // Load Google OAuth - prefer build-time env var, fallback to API
   useEffect(() => {
+    const loadGsiScript = (onReady: () => void) => {
+      const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if (existing && window.google?.accounts) {
+        onReady();
+        return;
+      }
+      if (existing) {
+        // Script tag exists but not yet loaded — poll for it
+        let tries = 0;
+        const poll = setInterval(() => {
+          if (window.google?.accounts) { clearInterval(poll); onReady(); }
+          if (++tries > 50) clearInterval(poll);
+        }, 200);
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.onload = () => onReady();
+      s.onerror = () => {
+        // Retry once after 2 seconds
+        setTimeout(() => {
+          s.remove();
+          const retry = document.createElement('script');
+          retry.src = 'https://accounts.google.com/gsi/client';
+          retry.async = true;
+          retry.onload = () => onReady();
+          document.head.appendChild(retry);
+        }, 2000);
+      };
+      document.head.appendChild(s);
+    };
+
     const initGoogle = (clientId: string) => {
       googleClientIdRef.current = clientId;
-      if (!gsiLoadedRef.current && !document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
-        const s = document.createElement('script');
-        s.src = 'https://accounts.google.com/gsi/client';
-        s.async = true;
-        s.onload = () => { gsiLoadedRef.current = true; setGoogleReady(true); };
-        document.head.appendChild(s);
-      } else {
-        gsiLoadedRef.current = true;
-        setGoogleReady(true);
-      }
+      loadGsiScript(() => { gsiLoadedRef.current = true; setGoogleReady(true); });
     };
+
     const envClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (envClientId) {
       initGoogle(envClientId);
     } else {
-      fetch('/api/config').then(r => r.json()).then(d => {
-        if (d.googleClientId) initGoogle(d.googleClientId);
-      }).catch(() => {});
+      const fetchConfig = (attempt = 0) => {
+        fetch('/api/config').then(r => r.json()).then(d => {
+          if (d.googleClientId) initGoogle(d.googleClientId);
+        }).catch(() => {
+          if (attempt < 2) setTimeout(() => fetchConfig(attempt + 1), 1000);
+        });
+      };
+      fetchConfig();
     }
   }, []);
 
