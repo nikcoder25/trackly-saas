@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBrands } from '@/contexts/BrandContext';
+import { useRun } from '@/contexts/RunContext';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
 const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
@@ -24,7 +25,8 @@ async function api(method: string, path: string, body?: unknown) {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { refreshBrands } = useBrands();
+  const { setSelectedBrand, refreshBrands } = useBrands();
+  const { startRun } = useRun();
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
@@ -45,7 +47,7 @@ export default function OnboardingPage() {
     setSaving(true);
     setError('');
     try {
-      await api('POST', '/api/brands', {
+      const data = await api('POST', '/api/brands', {
         name,
         industry: effectiveIndustry,
         city,
@@ -53,8 +55,10 @@ export default function OnboardingPage() {
         competitors: [],
         selected_platforms: platforms,
       });
+      setSelectedBrand(data.brand);
       await refreshBrands();
       router.push('/dashboard');
+      setTimeout(() => startRun(false), 800);
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
