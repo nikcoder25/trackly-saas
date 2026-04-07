@@ -234,7 +234,7 @@ export default function MentionsPage() {
                           <td className="td">{r.query}</td>
                           <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
                           <td className="td">{r.error ? '—' : !r.mentioned ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
-                          <td className="td">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" style={{ color: 'var(--muted)' }}>—</span> : posLabel}</td>
+                          <td className="td">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" style={{ color: 'var(--muted)', cursor: 'help', borderBottom: '1px dotted var(--muted)' }}>N/A</span> : posLabel}</td>
                         </tr>
                         {isExpanded && (
                           <tr>
