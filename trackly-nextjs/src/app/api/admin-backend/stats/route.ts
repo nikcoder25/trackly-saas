@@ -47,14 +47,22 @@ export async function GET(request: Request) {
       // Top users by query count (last 30 days)
       pool.query(`
         SELECT u.id, u.email, u.name, u.plan,
-          COUNT(pr.id)::int AS query_count,
-          COALESCE(SUM(al.cost), 0)::numeric AS total_cost
+          COALESCE(pr_counts.query_count, 0)::int AS query_count,
+          COALESCE(al_costs.total_cost, 0)::numeric AS total_cost
         FROM users u
-        LEFT JOIN prompt_runs pr ON pr.brand_id IN (SELECT id FROM brands WHERE user_id = u.id)
-          AND pr.created_at >= NOW() - INTERVAL '30 days'
-        LEFT JOIN api_logs al ON al.user_id = u.id
-          AND al.created_at >= NOW() - INTERVAL '30 days'
-        GROUP BY u.id, u.email, u.name, u.plan
+        LEFT JOIN (
+          SELECT b.user_id, COUNT(pr.id)::int AS query_count
+          FROM prompt_runs pr
+          JOIN brands b ON b.id = pr.brand_id
+          WHERE pr.created_at >= NOW() - INTERVAL '30 days'
+          GROUP BY b.user_id
+        ) pr_counts ON pr_counts.user_id = u.id
+        LEFT JOIN (
+          SELECT user_id, SUM(cost)::numeric AS total_cost
+          FROM api_logs
+          WHERE created_at >= NOW() - INTERVAL '30 days'
+          GROUP BY user_id
+        ) al_costs ON al_costs.user_id = u.id
         ORDER BY query_count DESC
         LIMIT 10
       `),

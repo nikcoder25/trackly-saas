@@ -28,7 +28,7 @@ interface UserDetail {
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  free: '#71717a', starter: '#3b82f6', pro: '#6366f1', agency: '#8b5cf6', enterprise: '#f59e0b', owner: '#ef4444',
+  free: 'var(--muted)', starter: '#3b82f6', pro: 'var(--primary)', agency: 'var(--purple)', enterprise: 'var(--amber)', owner: 'var(--red)',
 };
 
 const PLANS = ['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'];
@@ -119,17 +119,17 @@ export default function AdminUsersPage() {
     setSaving(false);
   }
 
-  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 13, fontFamily: 'system-ui', background: '#18181b', color: '#fafafa', border: '1px solid #27272a', outline: 'none', boxSizing: 'border-box' as const };
-  const labelStyle = { display: 'block', fontSize: 10, fontWeight: 700 as const, color: '#52525b', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: 6 };
+  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 13, fontFamily: 'system-ui', background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', boxSizing: 'border-box' as const };
+  const labelStyle = { display: 'block', fontSize: 10, fontWeight: 700 as const, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: 6 };
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fafafa', marginBottom: 4 }}>User Management</h1>
-          <p style={{ fontSize: 13, color: '#52525b' }}>Manage all registered users, their plans, and account details.</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>User Management</h1>
+          <p style={{ fontSize: 13, color: 'var(--muted)' }}>Manage all registered users, their plans, and account details.</p>
         </div>
-        <button onClick={() => setCreateModal(true)} style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#6366f1', color: '#fff', border: 'none', cursor: 'pointer' }}>
+        <button onClick={() => setCreateModal(true)} style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--primary)', color: 'var(--text)', border: 'none', cursor: 'pointer' }}>
           + Create User
         </button>
       </div>
@@ -137,7 +137,7 @@ export default function AdminUsersPage() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
         <div style={{ flex: 1, position: 'relative' }}>
-          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: '#52525b', pointerEvents: 'none' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: 'var(--muted)', pointerEvents: 'none' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input type="text" placeholder="Search by email, name, or username..." value={search}
             onChange={e => { setSearch(e.target.value); setOffset(0); }}
             style={{ ...inputStyle, paddingLeft: 36 }}
@@ -148,14 +148,14 @@ export default function AdminUsersPage() {
           <option value="">All Plans</option>
           {PLANS.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
         </select>
-        <button onClick={fetchUsers} style={{ padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#18181b', color: '#a1a1aa', border: '1px solid #27272a', cursor: 'pointer' }}>
+        <button onClick={fetchUsers} style={{ padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>
           Refresh
         </button>
       </div>
 
       {/* Stats bar */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, color: '#52525b' }}>Total: <strong style={{ color: '#fafafa' }}>{total}</strong></span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Total: <strong style={{ color: 'var(--text)' }}>{total}</strong></span>
         {PLANS.map(p => {
           const count = users.filter(u => u.plan === p).length;
           return count > 0 ? (
@@ -167,20 +167,20 @@ export default function AdminUsersPage() {
       {/* Users Table */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-          <div style={{ width: 28, height: 28, border: '2px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+          <div style={{ width: 28, height: 28, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         </div>
       ) : users.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#52525b', background: '#0f0f17', borderRadius: 12, border: '1px solid #1e1e2e' }}>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', background: 'var(--bg2)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
           {search || planFilter ? 'No users match your filters.' : 'No users found.'}
         </div>
       ) : (
-        <div style={{ background: '#0f0f17', border: '1px solid #1e1e2e', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #1e1e2e' }}>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 {['User', 'Plan', 'Role', 'Brands', 'Queries', 'Verified', 'Joined', 'Actions'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '12px 14px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#52525b' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: '12px 14px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -190,12 +190,12 @@ export default function AdminUsersPage() {
                   onClick={() => viewUser(u.id)}>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: PLAN_COLORS[u.plan], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: PLAN_COLORS[u.plan], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
                         {(u.name || u.email)?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
-                        {u.name && <p style={{ fontSize: 12, fontWeight: 600, color: '#fafafa' }}>{u.name}</p>}
-                        <p style={{ fontSize: 11, color: '#71717a' }}>{u.email}</p>
+                        {u.name && <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{u.name}</p>}
+                        <p style={{ fontSize: 11, color: 'var(--muted)' }}>{u.email}</p>
                       </div>
                     </div>
                   </td>
@@ -206,22 +206,22 @@ export default function AdminUsersPage() {
                   </td>
                   <td style={{ padding: '12px 14px' }}>
                     {u.role === 'admin' ? (
-                      <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: '#ef444415', color: '#ef4444' }}>Admin</span>
-                    ) : <span style={{ fontSize: 12, color: '#52525b' }}>User</span>}
+                      <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: 'rgba(239,68,68,.06)', color: 'var(--red)' }}>Admin</span>
+                    ) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>User</span>}
                   </td>
-                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: '#a1a1aa' }}>{u.brand_count}</td>
-                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: '#a1a1aa' }}>{u.total_queries}</td>
+                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: 'var(--muted)' }}>{u.brand_count}</td>
+                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: 'var(--muted)' }}>{u.total_queries}</td>
                   <td style={{ padding: '12px 14px' }}>
-                    {u.email_verified ? <span style={{ color: '#22c55e', fontSize: 12 }}>Yes</span> : <span style={{ color: '#f59e0b', fontSize: 12 }}>No</span>}
+                    {u.email_verified ? <span style={{ color: 'var(--green)', fontSize: 12 }}>Yes</span> : <span style={{ color: 'var(--amber)', fontSize: 12 }}>No</span>}
                   </td>
-                  <td style={{ padding: '12px 14px', fontSize: 11, color: '#52525b', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '12px 14px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '—'}
                   </td>
                   <td style={{ padding: '12px 14px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => openEdit(u)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#6366f115', color: '#6366f1', border: '1px solid #6366f130', cursor: 'pointer' }}>Edit</button>
+                      <button onClick={() => openEdit(u)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'rgba(99,102,241,.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,.2)', cursor: 'pointer' }}>Edit</button>
                       {u.role !== 'admin' && (
-                        <button onClick={() => deleteUser(u.id, u.email)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#ef444410', color: '#ef4444', border: '1px solid #ef444425', cursor: 'pointer' }}>Delete</button>
+                        <button onClick={() => deleteUser(u.id, u.email)} style={{ padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'rgba(239,68,68,.06)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)', cursor: 'pointer' }}>Delete</button>
                       )}
                     </div>
                   </td>
@@ -236,12 +236,12 @@ export default function AdminUsersPage() {
       {/* Pagination */}
       {total > LIMIT && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-          <span style={{ fontSize: 12, color: '#52525b' }}>Showing {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Showing {offset + 1}–{Math.min(offset + LIMIT, total)} of {total}</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setOffset(o => Math.max(0, o - LIMIT))} disabled={offset === 0}
-              style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, background: '#18181b', color: '#a1a1aa', border: '1px solid #27272a', cursor: offset === 0 ? 'not-allowed' : 'pointer', opacity: offset === 0 ? 0.4 : 1 }}>Prev</button>
+              style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: offset === 0 ? 'not-allowed' : 'pointer', opacity: offset === 0 ? 0.4 : 1 }}>Prev</button>
             <button onClick={() => setOffset(o => o + LIMIT)} disabled={offset + LIMIT >= total}
-              style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, background: '#18181b', color: '#a1a1aa', border: '1px solid #27272a', cursor: offset + LIMIT >= total ? 'not-allowed' : 'pointer', opacity: offset + LIMIT >= total ? 0.4 : 1 }}>Next</button>
+              style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: offset + LIMIT >= total ? 'not-allowed' : 'pointer', opacity: offset + LIMIT >= total ? 0.4 : 1 }}>Next</button>
           </div>
         </div>
       )}
@@ -249,24 +249,24 @@ export default function AdminUsersPage() {
       {/* User Detail Drawer */}
       {selectedUser && (
         <div onClick={() => setSelectedUser(null)} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'flex-end' }}>
-          <div onClick={e => e.stopPropagation()} style={{ width: 480, maxWidth: '90vw', height: '100vh', overflowY: 'auto', background: '#0f0f17', borderLeft: '1px solid #1e1e2e', padding: 24, animation: 'slideIn .2s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: 480, maxWidth: '90vw', height: '100vh', overflowY: 'auto', background: 'var(--bg2)', borderLeft: '1px solid var(--border)', padding: 24, animation: 'slideIn .2s ease' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fafafa' }}>User Details</h3>
-              <button onClick={() => setSelectedUser(null)} style={{ background: '#18181b', border: 'none', width: 28, height: 28, borderRadius: 6, color: '#71717a', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>x</button>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>User Details</h3>
+              <button onClick={() => setSelectedUser(null)} style={{ background: 'var(--bg3)', border: 'none', width: 28, height: 28, borderRadius: 6, color: 'var(--muted)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>x</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div><label style={labelStyle}>Email</label><p style={{ fontSize: 13, color: '#fafafa', wordBreak: 'break-all' }}>{selectedUser.user.email}</p></div>
-                <div><label style={labelStyle}>Name</label><p style={{ fontSize: 13, color: '#fafafa' }}>{selectedUser.user.name || '—'}</p></div>
+                <div><label style={labelStyle}>Email</label><p style={{ fontSize: 13, color: 'var(--text)', wordBreak: 'break-all' }}>{selectedUser.user.email}</p></div>
+                <div><label style={labelStyle}>Name</label><p style={{ fontSize: 13, color: 'var(--text)' }}>{selectedUser.user.name || '—'}</p></div>
                 <div><label style={labelStyle}>Plan</label><p style={{ fontSize: 13, color: PLAN_COLORS[selectedUser.user.plan], fontWeight: 600, textTransform: 'capitalize' }}>{selectedUser.user.plan}</p></div>
-                <div><label style={labelStyle}>Role</label><p style={{ fontSize: 13, color: '#fafafa' }}>{selectedUser.user.role || 'user'}</p></div>
-                <div><label style={labelStyle}>Brands</label><p style={{ fontSize: 13, color: '#fafafa', fontFamily: 'monospace' }}>{selectedUser.user.brand_count}</p></div>
-                <div><label style={labelStyle}>Total Queries</label><p style={{ fontSize: 13, color: '#fafafa', fontFamily: 'monospace' }}>{selectedUser.user.total_queries}</p></div>
-                <div><label style={labelStyle}>Total Cost</label><p style={{ fontSize: 13, color: '#f59e0b', fontFamily: 'monospace' }}>${Number(selectedUser.user.total_cost).toFixed(4)}</p></div>
-                <div><label style={labelStyle}>Verified</label><p style={{ fontSize: 13, color: selectedUser.user.email_verified ? '#22c55e' : '#f59e0b' }}>{selectedUser.user.email_verified ? 'Yes' : 'No'}</p></div>
-                <div><label style={labelStyle}>2FA</label><p style={{ fontSize: 13, color: selectedUser.user.totp_enabled ? '#22c55e' : '#52525b' }}>{selectedUser.user.totp_enabled ? 'Enabled' : 'Off'}</p></div>
-                <div><label style={labelStyle}>Google</label><p style={{ fontSize: 13, color: selectedUser.user.has_google ? '#3b82f6' : '#52525b' }}>{selectedUser.user.has_google ? 'Linked' : 'No'}</p></div>
+                <div><label style={labelStyle}>Role</label><p style={{ fontSize: 13, color: 'var(--text)' }}>{selectedUser.user.role || 'user'}</p></div>
+                <div><label style={labelStyle}>Brands</label><p style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'monospace' }}>{selectedUser.user.brand_count}</p></div>
+                <div><label style={labelStyle}>Total Queries</label><p style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'monospace' }}>{selectedUser.user.total_queries}</p></div>
+                <div><label style={labelStyle}>Total Cost</label><p style={{ fontSize: 13, color: 'var(--amber)', fontFamily: 'monospace' }}>${Number(selectedUser.user.total_cost).toFixed(4)}</p></div>
+                <div><label style={labelStyle}>Verified</label><p style={{ fontSize: 13, color: selectedUser.user.email_verified ? 'var(--green)' : 'var(--amber)' }}>{selectedUser.user.email_verified ? 'Yes' : 'No'}</p></div>
+                <div><label style={labelStyle}>2FA</label><p style={{ fontSize: 13, color: selectedUser.user.totp_enabled ? 'var(--green)' : 'var(--muted)' }}>{selectedUser.user.totp_enabled ? 'Enabled' : 'Off'}</p></div>
+                <div><label style={labelStyle}>Google</label><p style={{ fontSize: 13, color: selectedUser.user.has_google ? '#3b82f6' : 'var(--muted)' }}>{selectedUser.user.has_google ? 'Linked' : 'No'}</p></div>
               </div>
 
               {selectedUser.user.brands && selectedUser.user.brands.length > 0 && (
@@ -274,7 +274,7 @@ export default function AdminUsersPage() {
                   <label style={labelStyle}>Brands</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {selectedUser.user.brands.map(b => (
-                      <div key={b.id} style={{ padding: '8px 12px', background: '#18181b', borderRadius: 6, fontSize: 12, color: '#a1a1aa' }}>
+                      <div key={b.id} style={{ padding: '8px 12px', background: 'var(--bg3)', borderRadius: 6, fontSize: 12, color: 'var(--muted)' }}>
                         {b.name || 'Unnamed'}
                       </div>
                     ))}
@@ -287,8 +287,8 @@ export default function AdminUsersPage() {
                   <label style={labelStyle}>Recent Activity</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 300, overflowY: 'auto' }}>
                     {selectedUser.recentActivity.map((a, i) => (
-                      <div key={i} style={{ padding: '6px 10px', background: '#18181b', borderRadius: 6, fontSize: 11, color: '#71717a', display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#a1a1aa' }}>{a.action}</span>
+                      <div key={i} style={{ padding: '6px 10px', background: 'var(--bg3)', borderRadius: 6, fontSize: 11, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--muted)' }}>{a.action}</span>
                         <span>{new Date(a.created_at).toLocaleString()}</span>
                       </div>
                     ))}
@@ -303,8 +303,8 @@ export default function AdminUsersPage() {
       {/* Edit Modal */}
       {editModal && (
         <div onClick={() => setEditModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(4px)' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#0f0f17', border: '1px solid #1e1e2e', borderRadius: 14, width: '100%', maxWidth: 460, padding: 28, animation: 'modalIn .2s ease' }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fafafa', marginBottom: 20 }}>Edit User</h3>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 460, padding: 28, animation: 'modalIn .2s ease' }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Edit User</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div><label style={labelStyle}>Email</label><input value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })} style={inputStyle} /></div>
               <div><label style={labelStyle}>Name</label><input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} style={inputStyle} /></div>
@@ -316,14 +316,14 @@ export default function AdminUsersPage() {
               <div><label style={labelStyle}>New Password (leave blank to keep)</label><input type="password" value={editForm.password} onChange={e => setEditForm({ ...editForm, password: e.target.value })} placeholder="••••••••" style={inputStyle} /></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input type="checkbox" id="verified" checked={editForm.email_verified} onChange={e => setEditForm({ ...editForm, email_verified: e.target.checked })} />
-                <label htmlFor="verified" style={{ fontSize: 12, color: '#a1a1aa' }}>Email Verified</label>
+                <label htmlFor="verified" style={{ fontSize: 12, color: 'var(--muted)' }}>Email Verified</label>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={saveEdit} disabled={saving} style={{ flex: 1, padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#6366f1', color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+              <button onClick={saveEdit} disabled={saving} style={{ flex: 1, padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--primary)', color: 'var(--text)', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
-              <button onClick={() => setEditModal(null)} style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#18181b', color: '#71717a', border: '1px solid #27272a', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setEditModal(null)} style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -332,8 +332,8 @@ export default function AdminUsersPage() {
       {/* Create Modal */}
       {createModal && (
         <div onClick={() => setCreateModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(4px)' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#0f0f17', border: '1px solid #1e1e2e', borderRadius: 14, width: '100%', maxWidth: 460, padding: 28, animation: 'modalIn .2s ease' }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, color: '#fafafa', marginBottom: 20 }}>Create New User</h3>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 460, padding: 28, animation: 'modalIn .2s ease' }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Create New User</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div><label style={labelStyle}>Email *</label><input value={createForm.email} onChange={e => setCreateForm({ ...createForm, email: e.target.value })} style={inputStyle} placeholder="user@example.com" /></div>
               <div><label style={labelStyle}>Password *</label><input type="password" value={createForm.password} onChange={e => setCreateForm({ ...createForm, password: e.target.value })} style={inputStyle} placeholder="Strong password" /></div>
@@ -345,10 +345,10 @@ export default function AdminUsersPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={createUser} disabled={saving} style={{ flex: 1, padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#22c55e', color: '#fff', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+              <button onClick={createUser} disabled={saving} style={{ flex: 1, padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--green)', color: 'var(--text)', border: 'none', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
                 {saving ? 'Creating...' : 'Create User'}
               </button>
-              <button onClick={() => setCreateModal(false)} style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: '#18181b', color: '#71717a', border: '1px solid #27272a', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setCreateModal(false)} style={{ padding: '10px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Cancel</button>
             </div>
           </div>
         </div>

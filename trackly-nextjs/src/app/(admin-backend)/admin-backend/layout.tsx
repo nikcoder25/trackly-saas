@@ -21,8 +21,8 @@ export default function AdminBackendLayout({ children }: { children: React.React
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f' }}>
-        <div style={{ width: 32, height: 32, border: '2px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -30,11 +30,11 @@ export default function AdminBackendLayout({ children }: { children: React.React
 
   if (!user || (user.role !== 'admin' && user.plan !== 'owner')) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f', color: '#ef4444' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', color: 'var(--red)' }}>
         <div style={{ textAlign: 'center', padding: 40 }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Access Denied</h1>
-          <p style={{ color: '#71717a', fontSize: 14 }}>This area is restricted to administrators.</p>
-          <Link href="/dashboard" style={{ display: 'inline-block', marginTop: 20, padding: '10px 24px', background: '#6366f1', color: '#fff', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>This area is restricted to administrators.</p>
+          <Link href="/dashboard" style={{ display: 'inline-block', marginTop: 20, padding: '10px 24px', background: 'var(--primary)', color: '#fff', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
             Go to Dashboard
           </Link>
         </div>
@@ -45,48 +45,41 @@ export default function AdminBackendLayout({ children }: { children: React.React
   const isActive = (href: string) => href === '/admin-backend' ? pathname === href : pathname.startsWith(href);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#09090b', color: '#fafafa', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Mobile overlay */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'var(--font)' }}>
       {sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 40 }} />
+        <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 40 }} />
       )}
 
       {/* Sidebar */}
       <aside style={{
-        width: 240, flexShrink: 0, background: '#0a0a0f', borderRight: '1px solid #1e1e2e',
+        width: 240, flexShrink: 0, background: 'var(--bg2)', borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, bottom: 0, left: 0, zIndex: 50,
         transform: sidebarOpen ? 'translateX(0)' : undefined,
       }}
       className="admin-sidebar"
       >
-        {/* Logo */}
-        <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid #1e1e2e' }}>
+        <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#fff' }}>A</div>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--primary), #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#fff' }}>A</div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fafafa', lineHeight: 1.2 }}>Admin Backend</div>
-              <div style={{ fontSize: 10, color: '#6366f1', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Control Panel</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>Admin Backend</div>
+              <div style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Control Panel</div>
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
         <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV_ITEMS.map(item => {
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
+              <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8,
                   fontSize: 13, fontWeight: active ? 600 : 500, textDecoration: 'none', transition: 'all .15s',
-                  color: active ? '#fff' : '#a1a1aa',
-                  background: active ? 'rgba(99,102,241,.12)' : 'transparent',
-                }}
-              >
-                <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} style={{ flexShrink: 0, color: active ? '#6366f1' : '#71717a' }}>
+                  color: active ? 'var(--text)' : 'var(--muted)',
+                  background: active ? 'rgba(99,102,241,.1)' : 'transparent',
+                }}>
+                <svg width={18} height={18} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} style={{ flexShrink: 0, color: active ? 'var(--primary)' : 'var(--muted)' }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                 </svg>
                 {item.label}
@@ -95,37 +88,33 @@ export default function AdminBackendLayout({ children }: { children: React.React
           })}
         </nav>
 
-        {/* Footer */}
-        <div style={{ padding: '12px 8px', borderTop: '1px solid #1e1e2e' }}>
-          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, fontSize: 12, color: '#71717a', textDecoration: 'none', transition: 'color .15s' }}>
+        <div style={{ padding: '12px 8px', borderTop: '1px solid var(--border)' }}>
+          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}>
             <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>
             Back to App
           </Link>
-          <button onClick={logout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, fontSize: 12, color: '#71717a', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'color .15s' }}>
+          <button onClick={logout} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <svg width={16} height={16} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             Logout
           </button>
-          <div style={{ padding: '8px 12px', fontSize: 10, color: '#3f3f46' }}>
+          <div style={{ padding: '8px 12px', fontSize: 10, color: 'var(--muted)' }}>
             Signed in as {user.email}
           </div>
         </div>
       </aside>
 
-      {/* Main content */}
       <div style={{ flex: 1, marginLeft: 240, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        {/* Top bar */}
-        <header style={{ height: 52, borderBottom: '1px solid #1e1e2e', display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12, flexShrink: 0, background: '#09090b' }}>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="admin-menu-btn" style={{ display: 'none', background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: 4 }}>
+        <header style={{ height: 52, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12, flexShrink: 0, background: 'var(--bg)' }}>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="admin-menu-btn" style={{ display: 'none', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4 }}>
             <svg width={20} height={20} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
-            <span style={{ fontSize: 12, color: '#71717a' }}>System Online</span>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)' }} />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>System Online</span>
           </div>
         </header>
 
-        {/* Content */}
         <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}>
           {children}
         </main>
