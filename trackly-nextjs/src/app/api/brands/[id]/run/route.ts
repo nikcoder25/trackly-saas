@@ -4,6 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
 import { queryAI, getDefaultModel, estimateCost } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
 
@@ -196,7 +197,12 @@ async function executeRunBackground(
   let totalQ = 0, totalM = 0, nextIdx = 0;
   let received = 0, foundCount = 0, errorCount = 0;
 
-  for (const plat of activePlatforms) platFailCount[plat] = 0;
+  // Pre-load admin-selected models for all platforms
+  const adminModels: Record<string, string> = {};
+  for (const plat of activePlatforms) {
+    adminModels[plat] = await getAdminModel(plat);
+    platFailCount[plat] = 0;
+  }
 
   // Build interleaved task list
   const tasks: Array<{ plat: string; q: string }> = [];
@@ -279,7 +285,7 @@ async function executeRunBackground(
         const serverKeyList = serverKeys[keyName] || [];
         const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
         if (!rawKey) throw new Error('No API key available for ' + plat);
-        const result = await queryAI(plat, q, rawKey, getDefaultModel(plat), brand);
+        const result = await queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand);
         platFailCount[plat] = 0;
         processResult(plat, q, result);
       } catch (err) {

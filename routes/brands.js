@@ -415,7 +415,13 @@ router.post('/:id/run', auth, async (req, res) => {
     keys = getServerKeys();
     const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [req.user.id]);
     userSettings = userRow.rows[0]?.settings || {};
-    modelPrefs = userSettings.models || {};
+    // Read admin-selected models from site_config, fall back to user prefs
+    let adminModelPrefs = {};
+    try {
+      const siteConfig = await pool.query(`SELECT value FROM site_config WHERE key = 'platform_models'`);
+      adminModelPrefs = siteConfig.rows[0]?.value || {};
+    } catch { /* table may not exist yet */ }
+    modelPrefs = { ...userSettings.models, ...adminModelPrefs };
     const enabledPlatforms = userSettings.enabledPlatforms || {};
     queries = brand.queries || [];
     if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
