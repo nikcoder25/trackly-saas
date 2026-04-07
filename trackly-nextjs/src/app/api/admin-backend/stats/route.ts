@@ -47,7 +47,10 @@ export async function GET(request: Request) {
       pool.query(`
         SELECT u.id, u.email, u.name, u.plan,
           COALESCE(pr_counts.query_count, 0)::int AS query_count,
-          COALESCE(al_counts.api_calls, 0)::int AS api_calls
+          COALESCE(al_counts.api_calls, 0)::int AS api_calls,
+          COALESCE(al_counts.tokens_in, 0)::bigint AS tokens_in,
+          COALESCE(al_counts.tokens_out, 0)::bigint AS tokens_out,
+          COALESCE(al_counts.total_cost, 0)::numeric AS total_cost
         FROM users u
         LEFT JOIN (
           SELECT b.user_id, COUNT(pr.id)::int AS query_count
@@ -57,7 +60,11 @@ export async function GET(request: Request) {
           GROUP BY b.user_id
         ) pr_counts ON pr_counts.user_id = u.id
         LEFT JOIN (
-          SELECT user_id, COUNT(*)::int AS api_calls
+          SELECT user_id,
+            COUNT(*)::int AS api_calls,
+            COALESCE(SUM(tokens_in), 0)::bigint AS tokens_in,
+            COALESCE(SUM(tokens_out), 0)::bigint AS tokens_out,
+            COALESCE(SUM(cost), 0)::numeric AS total_cost
           FROM api_logs
           WHERE created_at >= NOW() - INTERVAL '30 days'
           GROUP BY user_id

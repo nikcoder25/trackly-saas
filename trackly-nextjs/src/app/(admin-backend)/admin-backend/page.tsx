@@ -7,7 +7,7 @@ interface Stats {
   planDistribution: Array<{ plan: string; count: number }>;
   recentSignups: Array<{ id: string; email: string; name: string; plan: string; role: string; email_verified: boolean; created_at: string }>;
   apiUsage24h: { total_calls: number; active_users: number; total_errors: number };
-  topUsers: Array<{ id: string; email: string; name: string; plan: string; query_count: number; api_calls: number }>;
+  topUsers: Array<{ id: string; email: string; name: string; plan: string; query_count: number; api_calls: number; tokens_in: string; tokens_out: string; total_cost: string }>;
   dailySignups: Array<{ date: string; count: number }>;
   verificationStats: { verified: number; unverified: number };
 }
@@ -156,19 +156,35 @@ export default function AdminDashboard() {
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20, boxShadow: 'var(--app-shadow)' }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>Top Users (30d)</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {topUsers.map((u, i) => (
-              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', width: 18, textAlign: 'center' }}>#{i + 1}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
-                  <p style={{ fontSize: 10, color: 'var(--muted)' }}>{u.plan}</p>
+            {topUsers.map((u, i) => {
+              const tokensIn = Number(u.tokens_in);
+              const tokensOut = Number(u.tokens_out);
+              const totalTokens = tokensIn + tokensOut;
+              const cost = Number(u.total_cost);
+              return (
+                <div key={u.id} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', width: 18, textAlign: 'center' }}>#{i + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
+                      <p style={{ fontSize: 10, color: 'var(--muted)' }}>{u.plan}</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{u.query_count.toLocaleString()} queries</p>
+                      <p style={{ fontSize: 12, fontFamily: 'monospace', color: cost > 0 ? 'var(--amber)' : 'var(--muted)', fontWeight: 600 }}>${cost.toFixed(4)}</p>
+                    </div>
+                  </div>
+                  {/* Token breakdown */}
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, marginLeft: 28, fontSize: 10, fontFamily: 'monospace' }}>
+                    <span style={{ color: 'var(--muted)' }}>{u.api_calls} API calls</span>
+                    <span style={{ color: 'var(--muted)' }}>{totalTokens > 0 ? totalTokens.toLocaleString() : '0'} tokens</span>
+                    {totalTokens > 0 && (
+                      <span style={{ color: 'var(--muted)' }}>({tokensIn.toLocaleString()} in / {tokensOut.toLocaleString()} out)</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{u.query_count} queries</p>
-                  <p style={{ fontSize: 10, color: 'var(--muted)' }}>{u.api_calls} API calls</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
