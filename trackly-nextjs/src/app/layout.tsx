@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
@@ -46,6 +47,8 @@ export const metadata: Metadata = {
 };
 
 // JSON-LD structured data
+const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-M3E0LVFCEB';
+
 const jsonLd = [
   {
     '@context': 'https://schema.org',
@@ -112,6 +115,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </AuthProvider>
         </LanguageProvider>
         <CookieConsent />
+        <Script src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} strategy="afterInteractive" />
+        <Script id="google-analytics" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_ID}');
+        `}</Script>
       </body>
     </html>
   );
