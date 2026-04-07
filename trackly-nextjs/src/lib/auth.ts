@@ -24,7 +24,7 @@ export interface JWTPayload {
   exp?: number;
 }
 
-export function signAccessToken(payload: { id: string; email: string }): string {
+export function signAccessToken(payload: { id: string; email: string; role?: string }): string {
   return jwt.sign(payload, getSecret(), { expiresIn: '15m', algorithm: 'HS256' });
 }
 
