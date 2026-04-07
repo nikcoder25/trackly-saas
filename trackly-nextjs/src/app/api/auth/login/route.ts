@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email });
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined });
     const refreshToken = crypto.randomBytes(40).toString('hex');
 
     // Reset failed login attempts on successful login
