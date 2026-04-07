@@ -28,7 +28,7 @@ export default function AdminBackendLayout({ children }: { children: React.React
     );
   }
 
-  if (!user || user.role !== 'admin') {
+  if (!user || (user.role !== 'admin' && user.plan !== 'owner')) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f', color: '#ef4444' }}>
         <div style={{ textAlign: 'center', padding: 40 }}>

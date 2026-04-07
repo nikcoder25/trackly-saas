@@ -175,7 +175,7 @@ router.post('/register', async (req, res) => {
       console.error('[Register] Failed to send verification email:', e.message);
     });
 
-    const accessToken = jwt.sign({ id, email: email.toLowerCase() }, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id, email: email.toLowerCase(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 
@@ -252,7 +252,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
       }
     }
 
-    const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id]);
 
@@ -318,12 +318,12 @@ router.post('/refresh', async (req, res) => {
     // refresh requests both read the same token before either rotates it
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     const result = await pool.query(
-      'UPDATE users SET refresh_token = $1 WHERE refresh_token = $2 RETURNING id, email',
+      'UPDATE users SET refresh_token = $1 WHERE refresh_token = $2 RETURNING id, email, role, plan',
       [newRefreshToken, refreshToken]
     );
     if (!result.rows.length) return res.status(401).json({ error: 'Invalid refresh token' });
     const user = result.rows[0];
-    const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     setTokenCookies(res, accessToken, newRefreshToken);
     res.json({ token: accessToken, refreshToken: newRefreshToken });
   } catch(e) {
@@ -667,7 +667,7 @@ router.post('/google', async (req, res) => {
     }
 
     // Issue tokens
-    const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
 

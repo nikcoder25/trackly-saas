@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       console.error('[Register] Failed to send verification email:', e.message);
     });
 
-    const accessToken = signAccessToken({ id, email: email.toLowerCase() });
+    const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'free' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 

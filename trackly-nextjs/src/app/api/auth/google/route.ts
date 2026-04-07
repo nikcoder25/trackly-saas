@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email });
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: user.plan || undefined });
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
 

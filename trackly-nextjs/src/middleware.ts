@@ -12,10 +12,9 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-function getTokenRole(token: string): string | null {
+function getTokenPayload(token: string): { role?: string; plan?: string } | null {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.role || null;
+    return JSON.parse(atob(token.split('.')[1]));
   } catch {
     return null;
   }
@@ -31,8 +30,8 @@ export function middleware(request: NextRequest) {
     if (!hasValidToken) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    const role = getTokenRole(token);
-    if (role !== 'admin') {
+    const payload = getTokenPayload(token);
+    if (payload?.role !== 'admin' && payload?.plan !== 'owner') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     return NextResponse.next();

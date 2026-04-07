@@ -21,10 +21,14 @@ export async function requireAdmin(request: Request): Promise<AdminUser | Respon
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 });
 
-  const result = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);
-  if (!result.rows.length || result.rows[0].role !== 'admin') {
+  const result = await pool.query('SELECT role, plan FROM users WHERE id = $1', [user.id]);
+  if (!result.rows.length) {
+    return Response.json({ error: 'Not found' }, { status: 404 });
+  }
+  const { role, plan } = result.rows[0];
+  if (role !== 'admin' && plan !== 'owner') {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
-  return { ...user, role: 'admin' };
+  return { ...user, role: role || 'user' };
 }
