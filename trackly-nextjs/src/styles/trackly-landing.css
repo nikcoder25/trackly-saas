@@ -14,10 +14,11 @@
   --tl-dark-3: #334155;
   --tl-text: #0f172a;
   --tl-text-2: #475569;
-  --tl-text-3: #94a3b8;
+  --tl-text-3: #64748b;
   --tl-white: #ffffff;
   --tl-bg: #ffffff;
   --tl-bg-alt: #f8fafc;
+  --tl-bg-surface: #ffffff;
   --tl-border: #e2e8f0;
   --tl-border-light: #f1f5f9;
   --tl-success: #10b981;
@@ -39,10 +40,10 @@
   :root {
     --tl-text: #f1f5f9;
     --tl-text-2: #cbd5e1;
-    --tl-text-3: #94a3b8;
+    --tl-text-3: #a1afc4;
     --tl-bg: #0f172a;
     --tl-bg-alt: #1e293b;
-    --tl-white: #0f172a;
+    --tl-bg-surface: #0f172a;
     --tl-border: #334155;
     --tl-border-light: #1e293b;
     --tl-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
@@ -262,7 +263,7 @@
 
 .tl-btn--primary {
   background: var(--tl-primary);
-  color: var(--tl-white);
+  color: #ffffff;
   box-shadow: 0 1px 2px rgba(99, 102, 241, 0.3), 0 0 0 0 rgba(99, 102, 241, 0);
 }
 
@@ -317,7 +318,7 @@
 }
 
 .tl-btn--white {
-  background: var(--tl-white);
+  background: #ffffff;
   color: var(--tl-primary);
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(0,0,0,0.15);
@@ -448,7 +449,7 @@
 .tl-hero-sub {
   font-size: 19px;
   line-height: 1.7;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255,255,255,0.75);
   margin-bottom: 40px;
   max-width: 600px;
   margin-left: auto;
@@ -464,7 +465,7 @@
 
 .tl-hero-note {
   font-size: 13px;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.55);
   margin-top: 20px;
 }
 
@@ -905,7 +906,7 @@
 
 .tl-section--dark {
   background: var(--tl-dark);
-  color: var(--tl-white);
+  color: #f1f5f9;
 }
 
 .tl-section-inner {
@@ -948,7 +949,7 @@
 }
 
 .tl-section--dark .tl-section-header h2 {
-  color: var(--tl-white);
+  color: #ffffff;
 }
 
 .tl-section-header p {
@@ -956,11 +957,11 @@
   color: var(--tl-text-2);
   max-width: 560px;
   margin: 0 auto;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .tl-section--dark .tl-section-header p {
-  color: var(--tl-text-3);
+  color: rgba(255,255,255,0.7);
 }
 
 /* ══════════════════════════════════════
@@ -1209,7 +1210,7 @@
   height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--tl-primary) 0%, #a855f7 100%);
-  color: var(--tl-white);
+  color: #ffffff;
   font-size: 20px;
   font-weight: 800;
   font-family: var(--tl-mono);
@@ -1283,13 +1284,13 @@
 .tl-why-card h3 {
   font-size: 16px;
   font-weight: 700;
-  color: var(--tl-white);
+  color: #f1f5f9;
   margin-bottom: 10px;
 }
 
 .tl-why-card p {
   font-size: 13px;
-  color: var(--tl-text-3);
+  color: rgba(255,255,255,0.65);
   line-height: 1.6;
 }
 
@@ -1339,7 +1340,7 @@
   left: 50%;
   transform: translateX(-50%);
   background: var(--tl-primary);
-  color: var(--tl-white);
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -1541,7 +1542,7 @@
   height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--tl-primary), #a855f7);
-  color: var(--tl-white);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1666,21 +1667,21 @@
 .tl-cta h2 {
   font-size: clamp(28px, 4vw, 42px);
   font-weight: 800;
-  color: var(--tl-white);
+  color: #ffffff;
   letter-spacing: -1.5px;
   margin-bottom: 16px;
 }
 
 .tl-cta p {
   font-size: 18px;
-  color: rgba(255,255,255,0.6);
+  color: rgba(255,255,255,0.75);
   margin-bottom: 36px;
 }
 
 .tl-cta-note {
   display: block;
   font-size: 13px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.55);
   margin-top: 20px;
 }
 
@@ -1722,7 +1723,7 @@
 .tl-footer-col h4 {
   font-size: 13px;
   font-weight: 700;
-  color: var(--tl-white);
+  color: #f1f5f9;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   margin-bottom: 6px;
@@ -1730,13 +1731,13 @@
 
 .tl-footer-col a {
   font-size: 14px;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.65);
   text-decoration: none;
   transition: color var(--tl-transition);
 }
 
 .tl-footer-col a:hover {
-  color: var(--tl-white);
+  color: #ffffff;
 }
 
 .tl-footer-bottom {
@@ -1754,14 +1755,14 @@
 }
 
 .tl-footer-social a {
-  color: rgba(255,255,255,0.4);
+  color: rgba(255,255,255,0.6);
   text-decoration: none;
   font-size: 16px;
   transition: color var(--tl-transition);
 }
 
 .tl-footer-social a:hover {
-  color: var(--tl-white);
+  color: #ffffff;
 }
 
 /* ══════════════════════════════════════
@@ -2399,7 +2400,7 @@
   height: 44px;
   border-radius: 50%;
   background: var(--tl-primary);
-  color: var(--tl-white);
+  color: #ffffff;
   border: none;
   cursor: pointer;
   display: flex;
