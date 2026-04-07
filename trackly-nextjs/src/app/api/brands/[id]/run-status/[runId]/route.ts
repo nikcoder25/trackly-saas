@@ -6,7 +6,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (authResult instanceof Response) return authResult;
   const user = authResult;
 
-  const { runId } = await params;
+  const { id, runId } = await params;
 
   // Read from active_runs table (DB-persisted state)
   const result = await pool.query(
@@ -23,8 +23,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const run = result.rows[0];
 
-  // Verify ownership
+  // Verify ownership and that this run belongs to the requested brand
   if (run.user_id !== user.id) return Response.json({ error: 'Forbidden' }, { status: 403 });
+  if (run.brand_id !== id) return Response.json({ error: 'Run does not belong to this brand' }, { status: 403 });
 
   // Support "since" param — only return results after a given index
   const since = parseInt(new URL(request.url).searchParams.get('since') || '0', 10);

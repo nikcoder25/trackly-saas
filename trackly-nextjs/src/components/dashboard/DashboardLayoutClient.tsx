@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
 import { RunProvider } from '@/contexts/RunContext';
@@ -18,9 +18,12 @@ function OnboardingRedirect() {
   const router = useRouter();
   const pathname = usePathname();
 
-  if (!loading && brands.length === 0 && pathname !== '/onboarding') {
-    router.replace('/onboarding');
-  }
+  useEffect(() => {
+    if (!loading && brands.length === 0 && pathname !== '/onboarding') {
+      router.replace('/onboarding');
+    }
+  }, [loading, brands.length, pathname, router]);
+
   return null;
 }
 

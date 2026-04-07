@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
-import { verifyTOTP } from '@/lib/totp';
+import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 const DUMMY_HASH = '$2a$12$000000000000000000000uGiltNn9J1kOXqSqMpNQHCbSZkHm5mZS';
@@ -14,7 +14,9 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { email, password, totpCode } = body;
 
-  if (!email || !password) return Response.json({ error: 'Email/username and password required' }, { status: 400 });
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+    return Response.json({ error: 'Email/username and password required' }, { status: 400 });
+  }
 
   // IP-based rate limit to prevent brute-force across multiple accounts
   const ipRl = await rateLimit('login_ip:' + ip, 15 * 60 * 1000, 20);
@@ -80,9 +82,11 @@ export async function POST(request: NextRequest) {
       if (!totpCode) {
         return Response.json({ requires2FA: true, message: 'Enter your 2FA code' }, { status: 202 });
       }
-      const backupCodes = user.settings?.totp_backup_codes || [];
+      const backupCodes: string[] = user.settings?.totp_backup_codes || [];
       const isValidTotp = verifyTOTP(totpSecret, totpCode);
-      const backupIndex = backupCodes.indexOf(totpCode);
+      // Support both hashed and legacy plaintext backup codes
+      let backupIndex = findBackupCodeIndex(totpCode, backupCodes);
+      if (backupIndex === -1) backupIndex = backupCodes.indexOf(totpCode);
 
       if (!isValidTotp && backupIndex === -1) {
         return Response.json({ error: 'Invalid 2FA code' }, { status: 400 });
@@ -98,8 +102,9 @@ export async function POST(request: NextRequest) {
             await client.query('ROLLBACK');
             return Response.json({ error: 'User not found' }, { status: 400 });
           }
-          const freshCodes = freshUser.rows[0]?.settings?.totp_backup_codes || [];
-          const freshIndex = freshCodes.indexOf(totpCode);
+          const freshCodes: string[] = freshUser.rows[0]?.settings?.totp_backup_codes || [];
+          let freshIndex = findBackupCodeIndex(totpCode, freshCodes);
+          if (freshIndex === -1) freshIndex = freshCodes.indexOf(totpCode);
           if (freshIndex === -1) {
             await client.query('ROLLBACK');
             return Response.json({ error: 'Backup code already used' }, { status: 400 });

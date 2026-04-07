@@ -237,7 +237,8 @@ export interface BrandMatcher {
 }
 
 export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
-  const name = (brand.name || '').trim().slice(0, 200); // Limit length to prevent ReDoS
+  // Limit length and strip regex-dangerous patterns to prevent ReDoS
+  const name = (brand.name || '').trim().slice(0, 200).replace(/[(){}|\\]/g, '');
   const nameLower = name.toLowerCase();
   const nameEsc = nameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const exactRe = new RegExp('\\b' + nameEsc + '\\b', 'i');

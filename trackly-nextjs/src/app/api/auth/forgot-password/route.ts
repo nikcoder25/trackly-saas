@@ -16,12 +16,24 @@ export async function POST(request: NextRequest) {
   const successMsg = 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.';
 
   try {
+    // Add consistent delay to prevent timing-based account enumeration
+    const startTime = Date.now();
+    const minResponseTime = 200; // minimum ms before responding
+
     const result = await pool.query('SELECT id, email, email_verified FROM users WHERE LOWER(email) = LOWER($1)', [email]);
-    if (!result.rows.length) return Response.json({ message: successMsg });
+    if (!result.rows.length) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minResponseTime) await new Promise(r => setTimeout(r, minResponseTime - elapsed));
+      return Response.json({ message: successMsg });
+    }
 
     const user = result.rows[0];
 
-    if (!user.email_verified) return Response.json({ message: successMsg });
+    if (!user.email_verified) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed < minResponseTime) await new Promise(r => setTimeout(r, minResponseTime - elapsed));
+      return Response.json({ message: successMsg });
+    }
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
 

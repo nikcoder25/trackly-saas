@@ -6,7 +6,8 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   const { email, role } = await request.json();
-  if (!email) return Response.json({ error: 'Email required' }, { status: 400 });
+  if (!email || typeof email !== 'string') return Response.json({ error: 'Email required' }, { status: 400 });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return Response.json({ error: 'Invalid email format' }, { status: 400 });
   const validRoles = ['viewer', 'editor'];
   const safeRole = validRoles.includes(role) ? role : 'viewer';
 

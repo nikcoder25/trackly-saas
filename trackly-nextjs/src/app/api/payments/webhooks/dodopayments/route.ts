@@ -70,6 +70,18 @@ export async function POST(request: Request) {
       const plan = productId ? PLAN_MAP[productId] : null;
 
       if (userId && plan) {
+        // Verify the userId from metadata matches the payment customer for extra security
+        const customerId = body.customer_id || body.data?.customer_id;
+        if (customerId) {
+          const customerCheck = await pool.query(
+            `SELECT id FROM users WHERE id = $1 AND (settings->>'dodo_customer_id' = $2 OR settings->>'dodo_customer_id' IS NULL)`,
+            [userId, customerId]
+          );
+          if (!customerCheck.rows.length) {
+            console.error('[Webhook] userId/customerId mismatch:', { userId, customerId });
+            return Response.json({ error: 'User/customer mismatch' }, { status: 400 });
+          }
+        }
         await pool.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
         // Store subscription ID if available
         const subscriptionId = body.subscription_id || body.data?.subscription_id;

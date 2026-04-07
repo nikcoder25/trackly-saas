@@ -117,15 +117,9 @@ export async function POST(request: Request) {
   if (website && (typeof website !== 'string' || website.length > 500)) return Response.json({ error: 'Website URL too long' }, { status: 400 });
 
   try {
-    const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM brands WHERE user_id = $1', [user.id]);
     const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
     const plan = planResult.rows[0]?.plan || 'free';
     const limits = getPlanLimits(plan);
-    const brandCount = parseInt(countResult.rows[0]?.count, 10) || 0;
-
-    if (brandCount >= limits.brands) {
-      return Response.json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true }, { status: 403 });
-    }
 
     const safeComps = Array.isArray(competitors) ? competitors.filter((c: unknown) => typeof c === 'string').map((c: string) => c.trim()).filter(Boolean).slice(0, limits.competitors) : [];
     const safeNearby = Array.isArray(nearbyAreas) ? nearbyAreas.filter((a: unknown) => typeof a === 'string').map((a: string) => a.trim()).filter(Boolean).slice(0, 100) : [];
@@ -178,7 +172,17 @@ export async function POST(request: Request) {
       citations: {}, notes: {}, schedule: null,
     };
 
-    await pool.query('INSERT INTO brands (id, user_id, data) VALUES ($1, $2, $3)', [id, user.id, JSON.stringify(data)]);
+    // Atomic insert with plan limit check to prevent race conditions
+    const insertResult = await pool.query(
+      `INSERT INTO brands (id, user_id, data)
+       SELECT $1, $2, $3::jsonb
+       WHERE (SELECT COUNT(*) FROM brands WHERE user_id = $2) < $4
+       RETURNING id`,
+      [id, user.id, JSON.stringify(data), limits.brands]
+    );
+    if (insertResult.rows.length === 0) {
+      return Response.json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true }, { status: 403 });
+    }
     const brand = { id, userId: user.id, ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     return Response.json({ brand });
   } catch (e) {

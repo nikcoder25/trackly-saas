@@ -91,3 +91,25 @@ export function generateBackupCodes(count = 8): string[] {
   }
   return codes;
 }
+
+/**
+ * Hash a backup code for secure storage.
+ * Uses SHA-256 (fast enough for 12-char hex codes with high entropy).
+ */
+export function hashBackupCode(code: string): string {
+  return crypto.createHash('sha256').update(code).digest('hex');
+}
+
+/**
+ * Check if a plaintext code matches any hashed backup code.
+ * Returns the index of the matched code, or -1 if not found.
+ */
+export function findBackupCodeIndex(plaintextCode: string, hashedCodes: string[]): number {
+  const hashed = hashBackupCode(plaintextCode);
+  for (let i = 0; i < hashedCodes.length; i++) {
+    if (crypto.timingSafeEqual(Buffer.from(hashed, 'hex'), Buffer.from(hashedCodes[i], 'hex'))) {
+      return i;
+    }
+  }
+  return -1;
+}

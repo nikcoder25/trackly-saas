@@ -1,9 +1,14 @@
-import { pool } from '@/lib/db';
+import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function PUT(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  // Rate limit: 5 username changes per day
+  const rl = await rateLimit('username_change:' + user.id, 24 * 60 * 60 * 1000, 5);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { username } = await request.json();
   const trimmed = username ? username.trim().toLowerCase() : null;
@@ -18,6 +23,8 @@ export async function PUT(request: Request) {
 
   try {
     await pool.query('UPDATE users SET username = $1 WHERE id = $2', [trimmed, user.id]);
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    auditLog(user.id, 'username_change', 'user', user.id, { newUsername: trimmed }, ip);
     return Response.json({ username: trimmed, message: 'Username updated' });
   } catch {
     return Response.json({ error: 'Failed to update username' }, { status: 500 });

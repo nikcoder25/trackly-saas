@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface Message { role: 'bot' | 'user'; content: string; }
 
@@ -109,7 +110,7 @@ export default function CopilotPage() {
                       .replace(/`(.+?)`/g, '<code style="background:var(--bg);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;">$1</code>');
                     if (/^#{1,3}\s/.test(line)) html = `<strong>${html.replace(/^#{1,3}\s/, '')}</strong>`;
                     if (/^[-•]\s/.test(line)) html = `&nbsp;&nbsp;• ${html.replace(/^[-•]\s/, '')}`;
-                    return <div key={li} dangerouslySetInnerHTML={{ __html: html || '&nbsp;' }} />;
+                    return <div key={li} dangerouslySetInnerHTML={{ __html: sanitizeHtml(html || '&nbsp;') }} />;
                   }
                   return <div key={li}>{line || '\u00A0'}</div>;
                 })}

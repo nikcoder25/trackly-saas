@@ -11,11 +11,35 @@ export async function POST(request: NextRequest) {
   if (!refreshToken) return Response.json({ error: 'Refresh token required' }, { status: 400 });
 
   try {
-    const newRefreshToken = crypto.randomBytes(40).toString('hex');
-    const result = await pool.query(
-      'UPDATE users SET refresh_token = $1 WHERE refresh_token = $2 RETURNING id, email',
-      [newRefreshToken, refreshToken]
-    );
+    // Atomic token rotation: SELECT FOR UPDATE prevents race conditions
+    // where two concurrent refresh requests could both succeed with the same old token
+    const client = await pool.connect();
+    let result;
+    try {
+      await client.query('BEGIN');
+      const lockResult = await client.query(
+        'SELECT id, email FROM users WHERE refresh_token = $1 FOR UPDATE',
+        [refreshToken]
+      );
+      if (!lockResult.rows.length) {
+        await client.query('ROLLBACK');
+        client.release();
+        return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
+      }
+      const newRefreshToken_inner = crypto.randomBytes(40).toString('hex');
+      await client.query(
+        'UPDATE users SET refresh_token = $1 WHERE id = $2',
+        [newRefreshToken_inner, lockResult.rows[0].id]
+      );
+      await client.query('COMMIT');
+      result = { rows: lockResult.rows, newRefreshToken: newRefreshToken_inner };
+    } catch (txErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      client.release();
+    }
+    const newRefreshToken = result.newRefreshToken;
     if (!result.rows.length) return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
 
     const user = result.rows[0];

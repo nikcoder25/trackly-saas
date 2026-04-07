@@ -15,7 +15,8 @@ export async function GET(request: Request) {
 // Keys that must NEVER be set via the settings endpoint
 const SETTINGS_BLOCKED_KEYS = new Set([
   'totp_secret', 'totp_enabled', 'totp_backup_codes', 'totp_secret_pending',
-  'dodo_subscription_id', 'password_hash', 'role', 'plan', 'id', 'email',
+  'dodo_subscription_id', 'dodo_customer_id', 'password_hash', 'role', 'plan', 'id', 'email',
+  'subscription_id', 'subscription_status', 'failed_login_attempts', 'last_failed_login',
 ]);
 
 export async function PUT(request: Request) {

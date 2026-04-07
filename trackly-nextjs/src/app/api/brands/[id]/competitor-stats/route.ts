@@ -57,9 +57,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         }
       }
 
-      const mentions: string[] = typeof row.competitor_mentions === 'string'
-        ? JSON.parse(row.competitor_mentions)
-        : (row.competitor_mentions || []);
+      let mentions: string[];
+      try {
+        mentions = typeof row.competitor_mentions === 'string'
+          ? JSON.parse(row.competitor_mentions)
+          : Array.isArray(row.competitor_mentions) ? row.competitor_mentions : [];
+      } catch {
+        mentions = [];
+      }
 
       for (const comp of mentions) {
         if (competitorCounts[comp] !== undefined) {
