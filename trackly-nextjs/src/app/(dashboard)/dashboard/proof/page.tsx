@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -350,7 +351,7 @@ function ProofRow({ r, highlightBrand, showQuery }: { r: { platform: string; mod
         {showQuery && <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, marginBottom: 4, fontFamily: 'var(--mono)' }}>{r.query}</div>}
         <div className={`ep-row-excerpt ${statusClass}`}>
           {r.error ? <span style={{ color: 'var(--amber)' }}>{r.errorMessage || r.error}</span>
-            : <span dangerouslySetInnerHTML={{ __html: '\u201c' + highlightBrand(excerpt) + (excerpt.length >= 260 ? '...' : '') + '\u201d' }} />}
+            : <span dangerouslySetInnerHTML={{ __html: sanitizeHtml('\u201c' + highlightBrand(excerpt) + (excerpt.length >= 260 ? '...' : '') + '\u201d') }} />}
         </div>
         <div className="ep-row-tags">
           {pos && <span className="ep-tag"><span className="ep-tag-dot" style={{ background: 'var(--blue)' }} />Rank {pos}</span>}

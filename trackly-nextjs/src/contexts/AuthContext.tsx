@@ -23,6 +23,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  authError: string | null;
   login: (email: string, password: string, totpCode?: string) => Promise<{ requires2FA?: boolean; error?: string }>;
   register: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
   loginWithGoogle: (accessToken: string) => Promise<{ error?: string }>;
@@ -48,20 +49,28 @@ async function api(method: string, path: string, body?: unknown) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const router = useRouter();
 
   const refreshUser = useCallback(async () => {
     try {
       const data = await api('GET', '/api/auth/me');
       setUser(data.user);
+      setAuthError(null);
     } catch {
       // Try refresh token
       try {
         await api('POST', '/api/auth/refresh');
         const data = await api('GET', '/api/auth/me');
         setUser(data.user);
-      } catch {
+        setAuthError(null);
+      } catch (e) {
         setUser(null);
+        // Only set error if this wasn't a normal "not logged in" scenario
+        const msg = (e as Error).message;
+        if (msg && msg !== 'Request failed' && msg !== 'No token') {
+          setAuthError(msg);
+        }
       }
     }
   }, []);
@@ -110,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, loginWithGoogle, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, authError, login, register, loginWithGoogle, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

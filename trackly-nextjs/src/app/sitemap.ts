@@ -1,8 +1,17 @@
 import type { MetadataRoute } from 'next';
+import { blogPosts } from '@/data/blog-posts';
 
 const BASE_URL = process.env.APP_URL || 'https://livesov.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  // Generate blog post entries dynamically
+  const blogEntries: MetadataRoute.Sitemap = blogPosts.map(post => ({
+    url: `${BASE_URL}/blog/${post.slug}`,
+    lastModified: new Date(post.date),
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }));
+
   return [
     // Core pages — highest priority
     { url: `${BASE_URL}/`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 1.0 },
@@ -39,5 +48,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/privacy`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },
     { url: `${BASE_URL}/terms`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },
     { url: `${BASE_URL}/cookies`, lastModified: new Date('2026-04-01'), changeFrequency: 'yearly', priority: 0.3 },
+
+    // Blog posts
+    ...blogEntries,
   ];
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -245,7 +246,7 @@ export default function MentionsPage() {
                                   </div>
                                 ) : (
                                   <div style={{ background:'var(--bg3)',padding:14,borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--text)',lineHeight:1.7,borderLeft:`3px solid ${r.mentioned ? 'var(--green)' : 'var(--red)'}`,whiteSpace:'pre-wrap' }}
-                                    dangerouslySetInnerHTML={{ __html: renderMarkdown(responseText) }} />
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(responseText)) }} />
                                 )}
                                 <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
                                   Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.error ? '—' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '—' : (r.recommended ? 'Yes' : 'No')}

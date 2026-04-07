@@ -79,10 +79,16 @@ export function safeUser(u: any) {
   const plan = u.plan || 'free';
   const rawKeys = u.api_keys || {};
   const decrypted = decryptApiKeys(rawKeys);
-  const settings = { ...(u.settings || {}) };
-  delete settings.totp_secret;
-  delete settings.totp_secret_pending;
-  delete settings.totp_backup_codes;
+  // Explicitly strip ALL sensitive keys from settings (defense-in-depth)
+  const rawSettings = u.settings || {};
+  const SENSITIVE_KEYS = new Set([
+    'totp_secret', 'totp_secret_pending', 'totp_backup_codes',
+    'password_hash', 'failed_login_attempts', 'last_failed_login',
+  ]);
+  const settings: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rawSettings)) {
+    if (!SENSITIVE_KEYS.has(key)) settings[key] = value;
+  }
   return {
     id: u.id,
     email: u.email,

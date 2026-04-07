@@ -101,11 +101,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       // fine
     }
 
-    // If no accuracy check has been run yet but we have issues and facts, compute a rate
-    if (accuracyRate === null && facts.length > 0 && issues.length > 0) {
-      const unfixedIssues = issues.filter((i: Record<string, unknown>) => !i.fixed).length;
-      const totalClaims = facts.length;
-      accuracyRate = totalClaims > 0 ? Math.round(((totalClaims - unfixedIssues) / totalClaims) * 100) : null;
+    // If no accuracy check has been run yet, compute a basic rate from issues
+    if (accuracyRate === null && facts.length > 0) {
+      if (issues.length === 0) {
+        // No issues found — assume facts are accurate
+        accuracyRate = 100;
+      } else {
+        // Count unique fact_keys with unfixed issues (not total issues, to avoid double-counting)
+        const factsWithIssues = new Set(
+          issues.filter((i: Record<string, unknown>) => !i.fixed).map((i: Record<string, unknown>) => i.fact_key)
+        );
+        const accurateFacts = facts.length - factsWithIssues.size;
+        accuracyRate = Math.round((Math.max(0, accurateFacts) / facts.length) * 100);
+      }
     }
 
     return Response.json({
@@ -146,11 +154,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const key = fact.key || fact.fact_key;
       const value = fact.value || fact.fact_value;
       if (!key || !value) continue;
+      // Validate types and lengths
+      if (typeof key !== 'string' || typeof value !== 'string') continue;
+      if (key.length > 500 || value.length > 5000) continue;
+      const category = typeof fact.category === 'string' ? fact.category.slice(0, 100) : 'general';
       await client.query(
         `INSERT INTO brand_facts (brand_id, fact_key, fact_value, category, updated_at)
          VALUES ($1, $2, $3, $4, NOW())
          ON CONFLICT (brand_id, fact_key) DO UPDATE SET fact_value = $3, category = $4, updated_at = NOW()`,
-        [id, key, value, fact.category || 'general']
+        [id, key, value, category]
       );
     }
     await client.query('COMMIT');

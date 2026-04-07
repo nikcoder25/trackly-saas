@@ -12,7 +12,9 @@ export async function POST(request: NextRequest) {
 
   const { token, newPassword } = await request.json();
   if (!token || !newPassword) return Response.json({ error: 'Invalid request' }, { status: 400 });
-  if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid request' }, { status: 400 });
+  if (typeof token !== 'string' || typeof newPassword !== 'string') return Response.json({ error: 'Invalid request' }, { status: 400 });
+  // Validate token format (64-char hex string from crypto.randomBytes(32))
+  if (!/^[a-f0-9]{64}$/.test(token)) return Response.json({ error: 'Invalid or expired reset token' }, { status: 400 });
   const pwError = validatePasswordComplexity(newPassword);
   if (pwError) return Response.json({ error: pwError }, { status: 400 });
 

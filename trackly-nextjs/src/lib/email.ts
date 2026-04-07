@@ -15,7 +15,8 @@ interface EmailResult {
 
 async function sendEmail(to: string, subject: string, html: string): Promise<EmailResult> {
   if (!EMAIL_API_KEY) {
-    console.log(`[Email] DEV MODE — Would send to ${to}: ${subject}`);
+    // Don't log full HTML (may contain tokens) — just log recipient and subject
+    console.log(`[Email] DEV MODE — Would send to ${to}: ${subject} (HTML body omitted for security)`);
     return { sent: true };
   }
 

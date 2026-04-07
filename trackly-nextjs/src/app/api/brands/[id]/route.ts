@@ -82,16 +82,50 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         if (parsed.protocol !== 'https:') {
           return Response.json({ error: 'Webhook URL must use HTTPS' }, { status: 400 });
         }
-        // Block private/internal hostnames
+        // Block private/internal hostnames (comprehensive SSRF protection)
         const host = parsed.hostname.toLowerCase();
-        if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' ||
-            host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('172.') ||
-            host.endsWith('.local') || host.endsWith('.internal')) {
+        const isPrivate =
+          host === 'localhost' ||
+          host === '0.0.0.0' ||
+          host === '::1' || host === '[::1]' ||
+          /^127\.\d+\.\d+\.\d+$/.test(host) ||       // 127.0.0.0/8
+          host.startsWith('10.') ||                     // 10.0.0.0/8
+          host.startsWith('192.168.') ||                // 192.168.0.0/16
+          /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||   // 172.16.0.0/12
+          host.startsWith('169.254.') ||                // link-local
+          host.startsWith('fc') || host.startsWith('fd') || // IPv6 private
+          host.startsWith('fe80') ||                    // IPv6 link-local
+          host.endsWith('.local') ||
+          host.endsWith('.internal') ||
+          host.endsWith('.localhost') ||
+          /^0+\d/.test(host);                          // Octal notation
+        if (isPrivate) {
           return Response.json({ error: 'Webhook URL must point to a public endpoint' }, { status: 400 });
         }
       } catch {
         return Response.json({ error: 'Webhook URL is not a valid URL' }, { status: 400 });
       }
+    }
+
+    // Validate array fields
+    if (safeBody.aliases !== undefined) {
+      if (!Array.isArray(safeBody.aliases)) return Response.json({ error: 'Aliases must be an array' }, { status: 400 });
+      if (safeBody.aliases.length > 50) return Response.json({ error: 'Maximum 50 aliases allowed' }, { status: 400 });
+      safeBody.aliases = (safeBody.aliases as string[]).filter((a: unknown) => typeof a === 'string' && (a as string).trim().length >= 2).map((a: string) => a.trim().slice(0, 200));
+    }
+    if (safeBody.locations !== undefined) {
+      if (!Array.isArray(safeBody.locations)) return Response.json({ error: 'Locations must be an array' }, { status: 400 });
+      if (safeBody.locations.length > 100) return Response.json({ error: 'Maximum 100 locations allowed' }, { status: 400 });
+      safeBody.locations = (safeBody.locations as string[]).filter((l: unknown) => typeof l === 'string').map((l: string) => l.trim().slice(0, 200));
+    }
+    if (safeBody.goal !== undefined) {
+      const goal = Number(safeBody.goal);
+      if (isNaN(goal) || goal < 0 || goal > 100) return Response.json({ error: 'Goal must be a number between 0 and 100' }, { status: 400 });
+      safeBody.goal = goal;
+    }
+    if (safeBody.platforms !== undefined) {
+      if (!Array.isArray(safeBody.platforms)) return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
+      if (safeBody.platforms.length > 20) return Response.json({ error: 'Maximum 20 platforms allowed' }, { status: 400 });
     }
 
     // Deduplicate queries
@@ -141,8 +175,30 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   const { id } = await params;
   try {
-    const result = await pool.query('DELETE FROM brands WHERE id = $1 AND user_id = $2 RETURNING id', [id, user.id]);
-    if (!result.rows.length) return Response.json({ error: 'Brand not found' }, { status: 404 });
+    // Cascading delete in a transaction to clean up all related data
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Verify ownership first
+      const check = await client.query('SELECT id FROM brands WHERE id = $1 AND user_id = $2', [id, user.id]);
+      if (!check.rows.length) {
+        await client.query('ROLLBACK');
+        client.release();
+        return Response.json({ error: 'Brand not found' }, { status: 404 });
+      }
+      await client.query('DELETE FROM accuracy_issues WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM prompt_runs WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM active_runs WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM alert_rules WHERE brand_id = $1', [id]);
+      await client.query('DELETE FROM brands WHERE id = $1 AND user_id = $2', [id, user.id]);
+      await client.query('COMMIT');
+    } catch (txErr) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txErr;
+    } finally {
+      client.release();
+    }
     return Response.json({ success: true });
   } catch {
     return Response.json({ error: 'Failed to delete brand' }, { status: 500 });
