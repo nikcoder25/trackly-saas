@@ -217,7 +217,7 @@ async function runQueries(){
     // to avoid sending massive payloads that freeze the browser)
     invalidateCache('/api/brands');
     try {
-      const freshData = await api('GET', '/api/brands');
+      const freshData = await api('GET', '/api/brands?_t=' + Date.now());
       if (freshData.brands) {
         brands = freshData.brands;
         renderBrandSelect();
@@ -313,7 +313,7 @@ async function runQueries(){
     // Reload brand data (emergency save may have stored partial results)
     invalidateCache('/api/brands');
     try {
-      const freshData = await api('GET', '/api/brands');
+      const freshData = await api('GET', '/api/brands?_t=' + Date.now());
       if (freshData.brands) {
         brands = freshData.brands;
         renderBrandSelect();
@@ -416,7 +416,7 @@ async function pollRunStatus(brandId, runId, opts) {
             // Reload fresh brand data
             invalidateCache('/api/brands');
             try {
-              const freshData = await api('GET', '/api/brands');
+              const freshData = await api('GET', '/api/brands?_t=' + Date.now());
               if (freshData.brands) {
                 brands = freshData.brands;
                 renderBrandSelect();
@@ -467,7 +467,7 @@ async function pollRunStatus(brandId, runId, opts) {
             // Reload brand data (emergency save may have stored partial results)
             invalidateCache('/api/brands');
             try {
-              const freshData = await api('GET', '/api/brands');
+              const freshData = await api('GET', '/api/brands?_t=' + Date.now());
               if (freshData.brands) { brands = freshData.brands; renderBrandSelect(); if (currentBrandId) el('brand-select').value = currentBrandId; }
             } catch(_e) { console.warn('[Livesov]', _e.message || _e); }
 
@@ -547,7 +547,7 @@ async function checkActiveRun() {
       localStorage.removeItem('livesov_active_run');
       invalidateCache('/api/brands');
       try {
-        const freshData = await api('GET', '/api/brands');
+        const freshData = await api('GET', '/api/brands?_t=' + Date.now());
         if (freshData.brands) {
           brands = freshData.brands;
           renderBrandSelect();
