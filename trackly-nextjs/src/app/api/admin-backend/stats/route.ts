@@ -38,9 +38,8 @@ export async function GET(request: Request) {
       pool.query(`
         SELECT
           COUNT(*)::int AS total_calls,
-          COALESCE(SUM(tokens_in + tokens_out), 0)::bigint AS total_tokens,
-          COALESCE(SUM(cost), 0)::numeric AS total_cost,
-          COUNT(DISTINCT user_id)::int AS active_users
+          COUNT(DISTINCT user_id)::int AS active_users,
+          COUNT(*) FILTER (WHERE status != 'ok')::int AS total_errors
         FROM api_logs
         WHERE created_at >= NOW() - INTERVAL '24 hours'
       `),
@@ -48,7 +47,7 @@ export async function GET(request: Request) {
       pool.query(`
         SELECT u.id, u.email, u.name, u.plan,
           COALESCE(pr_counts.query_count, 0)::int AS query_count,
-          COALESCE(al_costs.total_cost, 0)::numeric AS total_cost
+          COALESCE(al_counts.api_calls, 0)::int AS api_calls
         FROM users u
         LEFT JOIN (
           SELECT b.user_id, COUNT(pr.id)::int AS query_count
@@ -58,11 +57,11 @@ export async function GET(request: Request) {
           GROUP BY b.user_id
         ) pr_counts ON pr_counts.user_id = u.id
         LEFT JOIN (
-          SELECT user_id, SUM(cost)::numeric AS total_cost
+          SELECT user_id, COUNT(*)::int AS api_calls
           FROM api_logs
           WHERE created_at >= NOW() - INTERVAL '30 days'
           GROUP BY user_id
-        ) al_costs ON al_costs.user_id = u.id
+        ) al_counts ON al_counts.user_id = u.id
         ORDER BY query_count DESC
         LIMIT 10
       `),

@@ -7,7 +7,7 @@ interface SystemInfo {
   tables: Array<{ table_name: string; row_count: number }>;
   cache: { total_entries: number; expired_entries: number };
   apiKeys: Record<string, boolean>;
-  recentErrors: Array<{ platform: string; model: string; error_message: string; created_at: string }>;
+  recentErrors: Array<{ platform: string; model: string; error: string; created_at: string }>;
   environment: { nodeEnv: string; appUrl: string; hasEncryptionKey: boolean };
 }
 
@@ -159,8 +159,8 @@ export default function AdminSystemPage() {
                   <span style={{ color: 'var(--muted)' }}>{new Date(e.created_at).toLocaleString()}</span>
                 </div>
                 {e.model && <p style={{ color: 'var(--muted)', fontSize: 10 }}>Model: {e.model}</p>}
-                {e.error_message && (
-                  <p style={{ color: 'var(--muted)', fontSize: 10, marginTop: 2, wordBreak: 'break-all' }}>{e.error_message.slice(0, 200)}</p>
+                {e.error && (
+                  <p style={{ color: 'var(--muted)', fontSize: 10, marginTop: 2, wordBreak: 'break-all' }}>{e.error.slice(0, 200)}</p>
                 )}
               </div>
             ))}

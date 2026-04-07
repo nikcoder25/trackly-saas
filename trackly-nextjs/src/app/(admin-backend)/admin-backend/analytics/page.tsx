@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 
 interface Analytics {
-  platformUsage: Array<{ platform: string; calls: number; tokens_in: string; tokens_out: string; cost: string; avg_latency_ms: number }>;
-  dailyCosts: Array<{ date: string; calls: number; cost: string; active_users: number }>;
-  topPlatforms: Array<{ platform: string; model: string; calls: number; cost: string }>;
+  platformUsage: Array<{ platform: string; calls: number; avg_latency_ms: number; errors: number }>;
+  dailyCosts: Array<{ date: string; calls: number; active_users: number; avg_latency: number }>;
+  topPlatforms: Array<{ platform: string; model: string; calls: number }>;
   errorRates: Array<{ platform: string; total: number; errors: number; error_rate: string }>;
-  costByUser: Array<{ email: string; plan: string; calls: number; cost: string }>;
+  costByUser: Array<{ email: string; plan: string; calls: number }>;
   period: number;
 }
 
@@ -41,8 +41,8 @@ export default function AdminAnalyticsPage() {
 
   if (!data) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--red)' }}>Failed to load analytics</div>;
 
-  const totalCost = data.platformUsage.reduce((s, p) => s + Number(p.cost), 0);
   const totalCalls = data.platformUsage.reduce((s, p) => s + p.calls, 0);
+  const totalErrors = data.platformUsage.reduce((s, p) => s + p.errors, 0);
 
   return (
     <div>
@@ -68,16 +68,16 @@ export default function AdminAnalyticsPage() {
           <p style={{ fontSize: 28, fontWeight: 800, fontFamily: 'monospace', color: 'var(--primary)' }}>{totalCalls.toLocaleString()}</p>
         </div>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 18px' }}>
-          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)', marginBottom: 8 }}>Total Cost</p>
-          <p style={{ fontSize: 28, fontWeight: 800, fontFamily: 'monospace', color: 'var(--amber)' }}>${totalCost.toFixed(2)}</p>
+          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)', marginBottom: 8 }}>Total Errors</p>
+          <p style={{ fontSize: 28, fontWeight: 800, fontFamily: 'monospace', color: totalErrors > 0 ? 'var(--red)' : 'var(--green)' }}>{totalErrors.toLocaleString()}</p>
         </div>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 18px' }}>
           <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)', marginBottom: 8 }}>Platforms Used</p>
           <p style={{ fontSize: 28, fontWeight: 800, fontFamily: 'monospace', color: 'var(--green)' }}>{data.platformUsage.length}</p>
         </div>
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 18px' }}>
-          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)', marginBottom: 8 }}>Avg Cost/Call</p>
-          <p style={{ fontSize: 28, fontWeight: 800, fontFamily: 'monospace', color: 'var(--purple)' }}>${totalCalls > 0 ? (totalCost / totalCalls).toFixed(4) : '0'}</p>
+          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)', marginBottom: 8 }}>Error Rate</p>
+          <p style={{ fontSize: 28, fontWeight: 800, fontFamily: 'monospace', color: 'var(--purple)' }}>{totalCalls > 0 ? (totalErrors / totalCalls * 100).toFixed(1) : '0'}%</p>
         </div>
       </div>
 
@@ -92,14 +92,14 @@ export default function AdminAnalyticsPage() {
                 <div key={p.platform}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: PLATFORM_COLORS[p.platform] || 'var(--muted)' }}>{p.platform}</span>
-                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)' }}>{p.calls.toLocaleString()} calls &middot; ${Number(p.cost).toFixed(2)}</span>
+                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)' }}>{p.calls.toLocaleString()} calls</span>
                   </div>
                   <div style={{ height: 6, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${pct}%`, borderRadius: 3, background: PLATFORM_COLORS[p.platform] || 'var(--primary)', transition: 'width .5s' }} />
                   </div>
                   <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 10, color: 'var(--muted)' }}>
                     <span>Avg latency: {p.avg_latency_ms}ms</span>
-                    <span>Tokens: {Number(p.tokens_in).toLocaleString()} in / {Number(p.tokens_out).toLocaleString()} out</span>
+                    <span>Errors: {p.errors}</span>
                   </div>
                 </div>
               );
@@ -139,10 +139,7 @@ export default function AdminAnalyticsPage() {
                   <span style={{ color: PLATFORM_COLORS[p.platform] || 'var(--muted)', fontWeight: 600 }}>{p.platform}</span>
                   {p.model && <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 11 }}>{p.model}</span>}
                 </div>
-                <div style={{ textAlign: 'right', fontFamily: 'monospace' }}>
-                  <span style={{ color: 'var(--muted)' }}>{p.calls.toLocaleString()}</span>
-                  <span style={{ color: 'var(--muted)', marginLeft: 8 }}>${Number(p.cost).toFixed(2)}</span>
-                </div>
+                <span style={{ fontFamily: 'monospace', color: 'var(--muted)' }}>{p.calls.toLocaleString()} calls</span>
               </div>
             ))}
             {data.topPlatforms.length === 0 && <p style={{ fontSize: 12, color: 'var(--muted)' }}>No data</p>}
@@ -151,7 +148,7 @@ export default function AdminAnalyticsPage() {
 
         {/* Cost by User */}
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>Top Users by Cost</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>Top Users by API Calls</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {data.costByUser.map((u, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg3)', borderRadius: 6, fontSize: 12 }}>
@@ -159,7 +156,7 @@ export default function AdminAnalyticsPage() {
                   <p style={{ color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</p>
                   <p style={{ fontSize: 10, color: 'var(--muted)' }}>{u.plan} &middot; {u.calls} calls</p>
                 </div>
-                <span style={{ fontFamily: 'monospace', color: 'var(--amber)', fontWeight: 600, flexShrink: 0, marginLeft: 8 }}>${Number(u.cost).toFixed(2)}</span>
+                <span style={{ fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600, flexShrink: 0, marginLeft: 8 }}>{u.calls.toLocaleString()}</span>
               </div>
             ))}
             {data.costByUser.length === 0 && <p style={{ fontSize: 12, color: 'var(--muted)' }}>No data</p>}
@@ -170,15 +167,15 @@ export default function AdminAnalyticsPage() {
       {/* Daily Trend */}
       {data.dailyCosts.length > 0 && (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 20, marginTop: 16 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>Daily API Cost Trend</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 }}>Daily API Calls Trend</h3>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
             {data.dailyCosts.map((d, i) => {
-              const maxCost = Math.max(...data.dailyCosts.map(x => Number(x.cost)), 0.01);
-              const h = Math.max(2, (Number(d.cost) / maxCost) * 80);
+              const maxCalls = Math.max(...data.dailyCosts.map(x => x.calls), 1);
+              const h = Math.max(2, (d.calls / maxCalls) * 80);
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-                  title={`${new Date(d.date).toLocaleDateString()}: $${Number(d.cost).toFixed(2)} (${d.calls} calls, ${d.active_users} users)`}>
-                  <div style={{ width: '100%', minWidth: 3, maxWidth: 20, height: h, background: 'linear-gradient(180deg, var(--amber), var(--amber))', borderRadius: 2 }} />
+                  title={`${new Date(d.date).toLocaleDateString()}: ${d.calls} calls, ${d.active_users} users`}>
+                  <div style={{ width: '100%', minWidth: 3, maxWidth: 20, height: h, background: 'var(--primary)', borderRadius: 2 }} />
                 </div>
               );
             })}

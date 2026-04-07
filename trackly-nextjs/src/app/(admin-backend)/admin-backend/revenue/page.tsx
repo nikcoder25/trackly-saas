@@ -6,7 +6,7 @@ interface Revenue {
   totalMrr: number;
   planRevenue: Array<{ plan: string; count: number; price_per_user: number; estimated_mrr: number }>;
   subscriptionStats: { paid_users: number; free_users: number; active_subscriptions: number };
-  recentPayments: Array<{ event_type: string; subscription_id: string; product_id: string; created_at: string }>;
+  recentPayments: Array<{ event_id: string; event_type: string; created_at: string }>;
   monthlyGrowth: Array<{ month: string; new_users: number; new_paid: number }>;
   churnedUsers: Array<{ email: string; plan: string; details: Record<string, unknown>; created_at: string }>;
 }
@@ -126,7 +126,7 @@ export default function AdminRevenuePage() {
                     <span style={{ color: isSuccess ? 'var(--green)' : isFail ? 'var(--red)' : 'var(--amber)', fontWeight: 600 }}>
                       {p.event_type || 'unknown'}
                     </span>
-                    {p.product_id && <span style={{ color: 'var(--muted)', marginLeft: 6 }}>{p.product_id}</span>}
+                    {p.event_id && <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 10 }}>{p.event_id.slice(0, 12)}...</span>}
                   </div>
                   <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>{new Date(p.created_at).toLocaleString()}</span>
                 </div>

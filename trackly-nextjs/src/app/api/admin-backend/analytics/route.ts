@@ -11,38 +11,35 @@ export async function GET(request: Request) {
   try {
     const [
       platformUsage,
-      dailyCosts,
+      dailyStats,
       topPlatforms,
       errorRates,
-      costByUser,
+      topUsersByQueries,
     ] = await Promise.all([
       // Usage by platform
       pool.query(`
         SELECT platform,
           COUNT(*)::int AS calls,
-          COALESCE(SUM(tokens_in), 0)::bigint AS tokens_in,
-          COALESCE(SUM(tokens_out), 0)::bigint AS tokens_out,
-          COALESCE(SUM(cost), 0)::numeric AS cost,
-          COALESCE(AVG(response_ms), 0)::int AS avg_latency_ms
+          COALESCE(AVG(response_ms), 0)::int AS avg_latency_ms,
+          COUNT(*) FILTER (WHERE status != 'ok')::int AS errors
         FROM api_logs
         WHERE created_at >= NOW() - INTERVAL '1 day' * $1
-        GROUP BY platform ORDER BY cost DESC
+        GROUP BY platform ORDER BY calls DESC
       `, [days]),
-      // Daily cost trend
+      // Daily call trend
       pool.query(`
         SELECT DATE(created_at) AS date,
           COUNT(*)::int AS calls,
-          COALESCE(SUM(cost), 0)::numeric AS cost,
-          COUNT(DISTINCT user_id)::int AS active_users
+          COUNT(DISTINCT user_id)::int AS active_users,
+          COALESCE(AVG(response_ms), 0)::int AS avg_latency
         FROM api_logs
         WHERE created_at >= NOW() - INTERVAL '1 day' * $1
         GROUP BY DATE(created_at) ORDER BY date ASC
       `, [days]),
-      // Top platforms by call count
+      // Top platforms by model
       pool.query(`
         SELECT platform, model,
-          COUNT(*)::int AS calls,
-          COALESCE(SUM(cost), 0)::numeric AS cost
+          COUNT(*)::int AS calls
         FROM api_logs
         WHERE created_at >= NOW() - INTERVAL '1 day' * $1
         GROUP BY platform, model ORDER BY calls DESC LIMIT 20
@@ -51,30 +48,29 @@ export async function GET(request: Request) {
       pool.query(`
         SELECT platform,
           COUNT(*)::int AS total,
-          COUNT(*) FILTER (WHERE success = false)::int AS errors,
-          ROUND(COUNT(*) FILTER (WHERE success = false)::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS error_rate
+          COUNT(*) FILTER (WHERE status != 'ok')::int AS errors,
+          ROUND(COUNT(*) FILTER (WHERE status != 'ok')::numeric / NULLIF(COUNT(*), 0) * 100, 1) AS error_rate
         FROM api_logs
         WHERE created_at >= NOW() - INTERVAL '1 day' * $1
         GROUP BY platform ORDER BY error_rate DESC
       `, [days]),
-      // Cost by user (top 15)
+      // Top users by API call count
       pool.query(`
         SELECT u.email, u.plan,
-          COUNT(al.id)::int AS calls,
-          COALESCE(SUM(al.cost), 0)::numeric AS cost
+          COUNT(al.id)::int AS calls
         FROM api_logs al
         JOIN users u ON u.id = al.user_id
         WHERE al.created_at >= NOW() - INTERVAL '1 day' * $1
-        GROUP BY u.email, u.plan ORDER BY cost DESC LIMIT 15
+        GROUP BY u.email, u.plan ORDER BY calls DESC LIMIT 15
       `, [days]),
     ]);
 
     return Response.json({
       platformUsage: platformUsage.rows,
-      dailyCosts: dailyCosts.rows,
+      dailyCosts: dailyStats.rows,
       topPlatforms: topPlatforms.rows,
       errorRates: errorRates.rows,
-      costByUser: costByUser.rows,
+      costByUser: topUsersByQueries.rows,
       period: days,
     });
   } catch (e) {

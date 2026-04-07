@@ -35,14 +35,21 @@ export async function GET(request: Request) {
           COUNT(*) FILTER (WHERE expires_at < NOW())::int AS expired_entries
         FROM response_cache
       `).catch(() => ({ rows: [{ total_entries: 0, expired_entries: 0 }] })),
-      // Which API keys are configured
+      // Which API keys are configured (check base key OR numbered variants like _1, _2, etc.)
       pool.query(`SELECT 1`).then(() => {
+        function hasKey(base: string): boolean {
+          if (process.env[base]) return true;
+          for (let i = 1; i <= 10; i++) {
+            if (process.env[`${base}_${i}`]) return true;
+          }
+          return false;
+        }
         const keys = {
-          OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
-          CLAUDE_API_KEY: !!process.env.CLAUDE_API_KEY,
-          GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
-          GROK_API_KEY: !!process.env.GROK_API_KEY,
-          PERPLEXITY_API_KEY: !!process.env.PERPLEXITY_API_KEY,
+          OPENAI_API_KEY: hasKey('OPENAI_API_KEY'),
+          CLAUDE_API_KEY: hasKey('CLAUDE_API_KEY'),
+          GEMINI_API_KEY: hasKey('GEMINI_API_KEY'),
+          GROK_API_KEY: hasKey('GROK_API_KEY'),
+          PERPLEXITY_API_KEY: hasKey('PERPLEXITY_API_KEY'),
           DODO_PAYMENTS_API_KEY: !!process.env.DODO_PAYMENTS_API_KEY,
           EMAIL_API_KEY: !!process.env.EMAIL_API_KEY,
           ADMIN_SECRET: !!process.env.ADMIN_SECRET,
@@ -51,9 +58,9 @@ export async function GET(request: Request) {
       }),
       // Recent failed API calls
       pool.query(`
-        SELECT platform, model, error_message, created_at
+        SELECT platform, model, error, created_at
         FROM api_logs
-        WHERE success = false
+        WHERE status != 'ok'
         ORDER BY created_at DESC LIMIT 15
       `).catch(() => ({ rows: [] })),
     ]);

@@ -9,11 +9,11 @@ export async function GET(request: Request) {
     const [
       planRevenue,
       subscriptionStats,
-      recentPayments,
+      recentWebhooks,
       monthlyGrowth,
       churnedUsers,
     ] = await Promise.all([
-      // Estimated MRR by plan (based on current user counts × plan prices)
+      // Estimated MRR by plan
       pool.query(`
         SELECT plan, COUNT(*)::int AS count,
           CASE plan
@@ -31,24 +31,22 @@ export async function GET(request: Request) {
             ELSE 0
           END AS estimated_mrr
         FROM users
-        WHERE plan != 'free' AND plan != 'owner'
+        WHERE plan NOT IN ('free', 'owner')
         GROUP BY plan ORDER BY estimated_mrr DESC
       `),
       // Users with subscriptions vs free
       pool.query(`
         SELECT
-          COUNT(*) FILTER (WHERE plan != 'free' AND plan != 'owner')::int AS paid_users,
+          COUNT(*) FILTER (WHERE plan NOT IN ('free', 'owner'))::int AS paid_users,
           COUNT(*) FILTER (WHERE plan = 'free')::int AS free_users,
           COUNT(*) FILTER (WHERE settings->>'dodo_subscription_id' IS NOT NULL)::int AS active_subscriptions
         FROM users
       `),
-      // Recent webhook/payment events
+      // Recent webhook events (table only has event_id, event_type, processed_at)
       pool.query(`
-        SELECT event_type, payload->>'subscription_id' AS subscription_id,
-          payload->>'product_id' AS product_id,
-          created_at
+        SELECT event_id, event_type, processed_at AS created_at
         FROM webhook_events
-        ORDER BY created_at DESC LIMIT 25
+        ORDER BY processed_at DESC LIMIT 25
       `),
       // Monthly user growth (last 6 months)
       pool.query(`
@@ -78,7 +76,7 @@ export async function GET(request: Request) {
       totalMrr,
       planRevenue: planRevenue.rows,
       subscriptionStats: subscriptionStats.rows[0],
-      recentPayments: recentPayments.rows,
+      recentPayments: recentWebhooks.rows,
       monthlyGrowth: monthlyGrowth.rows,
       churnedUsers: churnedUsers.rows,
     });

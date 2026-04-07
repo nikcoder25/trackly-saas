@@ -6,8 +6,8 @@ interface Stats {
   overview: { total_users: number; users_this_week: number; users_this_month: number; users_today: number };
   planDistribution: Array<{ plan: string; count: number }>;
   recentSignups: Array<{ id: string; email: string; name: string; plan: string; role: string; email_verified: boolean; created_at: string }>;
-  apiUsage24h: { total_calls: number; total_tokens: string; total_cost: string; active_users: number };
-  topUsers: Array<{ id: string; email: string; name: string; plan: string; query_count: number; total_cost: string }>;
+  apiUsage24h: { total_calls: number; active_users: number; total_errors: number };
+  topUsers: Array<{ id: string; email: string; name: string; plan: string; query_count: number; api_calls: number }>;
   dailySignups: Array<{ date: string; count: number }>;
   verificationStats: { verified: number; unverified: number };
 }
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
         <StatCard label="This Week" value={overview.users_this_week} sub="new signups" color="#3b82f6" />
         <StatCard label="This Month" value={overview.users_this_month} sub="new signups" color="var(--purple)" />
         <StatCard label="API Calls (24h)" value={Number(apiUsage24h.total_calls).toLocaleString()} sub={`${apiUsage24h.active_users} active users`} color="var(--green)" />
-        <StatCard label="API Cost (24h)" value={`$${Number(apiUsage24h.total_cost).toFixed(2)}`} sub={`${Number(apiUsage24h.total_tokens).toLocaleString()} tokens`} color="var(--amber)" />
+        <StatCard label="Errors (24h)" value={apiUsage24h.total_errors} sub={`${apiUsage24h.total_calls > 0 ? ((apiUsage24h.total_errors / apiUsage24h.total_calls) * 100).toFixed(1) : 0}% error rate`} color={apiUsage24h.total_errors > 0 ? "var(--red)" : "var(--green)"} />
         <StatCard label="Verified" value={verificationStats.verified} sub={`${verificationStats.unverified} unverified`} color="var(--green)" />
       </div>
 
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 600 }}>{u.query_count} queries</p>
-                  <p style={{ fontSize: 10, color: 'var(--muted)' }}>${Number(u.total_cost).toFixed(2)} cost</p>
+                  <p style={{ fontSize: 10, color: 'var(--muted)' }}>{u.api_calls} API calls</p>
                 </div>
               </div>
             ))}
