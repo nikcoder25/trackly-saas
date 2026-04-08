@@ -155,7 +155,7 @@ export default function AccountPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: target }),
+        body: JSON.stringify({ plan: target.toLowerCase() }),
       });
       const data = await res.json();
       if (!res.ok) {
