@@ -27,6 +27,59 @@ function OnboardingRedirect() {
   return null;
 }
 
+function EmailVerificationBanner() {
+  const { user } = useAuth();
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!user || user.emailVerified) return null;
+
+  const handleResend = async () => {
+    setSending(true);
+    setError('');
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      setSent(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', marginBottom: 14,
+      background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)',
+      borderRadius: 'var(--radius-xs)', fontSize: 12, color: '#ef4444',
+    }}>
+      <span style={{ fontSize: 16 }}>&#9993;</span>
+      <div style={{ flex: 1 }}>
+        <strong>Email not verified.</strong> Please check your inbox for a verification link.
+        {sent
+          ? <span style={{ color: '#10b981', fontWeight: 600, marginLeft: 8 }}>Verification email sent!</span>
+          : (
+            <button
+              onClick={handleResend}
+              disabled={sending}
+              style={{
+                background: 'none', border: 'none', color: 'var(--primary)', cursor: sending ? 'default' : 'pointer',
+                fontWeight: 700, fontSize: 12, marginLeft: 8, textDecoration: 'underline', textUnderlineOffset: 2, padding: 0,
+              }}
+            >{sending ? 'Sending...' : 'Resend verification email'}</button>
+          )}
+        {error && <span style={{ color: '#ef4444', marginLeft: 8 }}>{error}</span>}
+      </div>
+    </div>
+  );
+}
+
 function OverLimitBanner() {
   const { overLimit, brands, brandLimit, plan } = useBrands();
   const [dismissed, setDismissed] = useState(false);
@@ -73,6 +126,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main">
+          <EmailVerificationBanner />
           <OverLimitBanner />
           <GlobalRunProgress />
           {children}
