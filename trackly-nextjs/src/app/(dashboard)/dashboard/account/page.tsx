@@ -127,6 +127,51 @@ export default function AccountPage() {
   const plan = rawPlan;
   const emailVerified = user?.emailVerified;
 
+  const PLAN_TIERS: Record<string, number> = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4 };
+
+  async function switchPlan(targetPlan: string) {
+    const target = targetPlan.toLowerCase();
+
+    if (target === 'enterprise') {
+      window.location.href = 'mailto:support@trackly.so?subject=Enterprise%20Plan%20Inquiry';
+      return;
+    }
+
+    if (target === 'free') {
+      await cancelSubscription();
+      return;
+    }
+
+    const currentTier = PLAN_TIERS[plan] ?? 0;
+    const targetTier = PLAN_TIERS[target] ?? 0;
+
+    if (targetTier <= currentTier) {
+      toast('To downgrade, please cancel your current subscription first or manage billing via the customer portal.', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/payments/checkout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: target }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast(data.error || 'Failed to start checkout', 'error');
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast('No checkout URL returned. Please try again.', 'error');
+      }
+    } catch {
+      toast('Failed to start checkout. Please try again.', 'error');
+    }
+  }
+
   return (
     <div>
       <div className="view-title">Account &amp; Plan</div>
@@ -311,7 +356,9 @@ export default function AccountPage() {
               {plan === p.name.toLowerCase() ? (
                 <button className="land-btn land-btn-primary" style={{ width: '100%', opacity: 0.7, cursor: 'default' }}>CURRENT PLAN</button>
               ) : (
-                <button className="land-btn land-btn-primary" style={{ width: '100%' }}>SWITCH TO {p.name.toUpperCase()}</button>
+                <button className="land-btn land-btn-primary" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
+                  {p.name.toLowerCase() === 'enterprise' ? 'CONTACT US' : (PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `DOWNGRADE TO ${p.name.toUpperCase()}` : `UPGRADE TO ${p.name.toUpperCase()}`}
+                </button>
               )}
             </div>
           ))}
