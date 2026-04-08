@@ -85,7 +85,7 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 {isEnterprise ? (
-                  <a href="mailto:sales@livesov.com?subject=Enterprise Plan Inquiry" className="block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition bg-indigo-600 text-white hover:bg-indigo-700">
+                  <a href="mailto:hello@livesov.com?subject=Enterprise Plan Inquiry" className="block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition bg-indigo-600 text-white hover:bg-indigo-700">
                     {plan.cta}
                   </a>
                 ) : (
