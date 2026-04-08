@@ -215,11 +215,9 @@ export default function PlatformsPage() {
           const sovHistory = stats?.sovHistory || [];
 
           return (
-            <div key={name} tabIndex={0} role="article" aria-label={`${name} platform stats`} style={{ ...s.card, padding: 0, overflow: 'hidden', transition: 'box-shadow .2s, transform .2s' }}
+            <div key={name} role="region" aria-label={`${name} platform stats`} style={{ ...s.card, padding: 0, overflow: 'hidden', transition: 'box-shadow .2s, transform .2s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--app-shadow-lg)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--app-shadow)'; (e.currentTarget as HTMLDivElement).style.transform = 'none'; }}
-              onFocus={e => { e.currentTarget.style.boxShadow = 'var(--app-shadow-lg)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onBlur={e => { e.currentTarget.style.boxShadow = 'var(--app-shadow)'; e.currentTarget.style.transform = 'none'; }}>
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--app-shadow)'; (e.currentTarget as HTMLDivElement).style.transform = 'none'; }}>
               {/* Colored top bar */}
               <div style={{ height: 3, background: color }} />
 

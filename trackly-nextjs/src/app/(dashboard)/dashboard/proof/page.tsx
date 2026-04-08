@@ -114,12 +114,17 @@ export default function ProofPage() {
   }
 
   function exportCSV() {
-    const rows = [['Platform', 'Query', 'Mentioned', 'Sentiment', 'Recommended', 'Model', 'Response'].join(',')];
-    allResults.forEach(r => rows.push([csvSafe(r.platform), csvSafe(r.query), r.mentioned ? 'Yes' : 'No', r.sentiment || '', r.recommended ? 'Yes' : 'No', csvSafe(r.model || ''), csvSafe(r.response || r.raw || r.context || r.snippet || '')].join(',')));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
-    a.download = `livesov-proof-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    try {
+      const rows = [['Platform', 'Query', 'Mentioned', 'Sentiment', 'Recommended', 'Model', 'Response'].join(',')];
+      allResults.forEach(r => rows.push([csvSafe(r.platform), csvSafe(r.query), r.mentioned ? 'Yes' : 'No', r.sentiment || '', r.recommended ? 'Yes' : 'No', csvSafe(r.model || ''), csvSafe(r.response || r.raw || r.context || r.snippet || '')].join(',')));
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `livesov-proof-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* export failed silently */ }
   }
 
   function toggleQuery(q: string) {

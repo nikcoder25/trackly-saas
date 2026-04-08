@@ -130,22 +130,22 @@ export default function PromptDetailsPage() {
       {/* Toolbar */}
       <div className="pd-toolbar">
         <div className="pd-toolbar-select-wrap">
-          <label className="pd-toolbar-label">Query</label>
-          <select className="finp pd-select" value={selectedQuery} onChange={e => setSelectedQuery(e.target.value)}>
+          <label className="pd-toolbar-label" htmlFor="pd-query">Query</label>
+          <select id="pd-query" className="finp pd-select" value={selectedQuery} onChange={e => setSelectedQuery(e.target.value)}>
             {queries.map(q => <option key={q} value={q}>{q}</option>)}
             {!queries.length && <option value="">No queries</option>}
           </select>
         </div>
         <div className="pd-toolbar-select-wrap pd-toolbar-plat">
-          <label className="pd-toolbar-label">Platform</label>
-          <select className="finp pd-select" value={platFilter} onChange={e => setPlatFilter(e.target.value)}>
+          <label className="pd-toolbar-label" htmlFor="pd-platform">Platform</label>
+          <select id="pd-platform" className="finp pd-select" value={platFilter} onChange={e => setPlatFilter(e.target.value)}>
             <option value="">All Platforms</option>
             {platforms.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="pd-toolbar-select-wrap pd-toolbar-days">
-          <label className="pd-toolbar-label">Period</label>
-          <select className="finp pd-select" value={periodDays} onChange={e => setPeriodDays(Number(e.target.value))}>
+          <label className="pd-toolbar-label" htmlFor="pd-period">Period</label>
+          <select id="pd-period" className="finp pd-select" value={periodDays} onChange={e => setPeriodDays(Number(e.target.value))}>
             <option value={7}>Last 7 days</option>
             <option value={14}>Last 14 days</option>
             <option value={30}>Last 30 days</option>

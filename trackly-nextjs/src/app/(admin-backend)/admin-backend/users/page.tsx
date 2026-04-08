@@ -141,10 +141,11 @@ export default function AdminUsersPage() {
           <input type="text" placeholder="Search by email, name, or username..." value={search}
             onChange={e => { setSearch(e.target.value); setOffset(0); }}
             style={{ ...inputStyle, paddingLeft: 36 }}
+            aria-label="Search users"
           />
         </div>
         <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setOffset(0); }}
-          style={{ ...inputStyle, width: 140, cursor: 'pointer' }}>
+          style={{ ...inputStyle, width: 140, cursor: 'pointer' }} aria-label="Filter by plan">
           <option value="">All Plans</option>
           {PLANS.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
         </select>
