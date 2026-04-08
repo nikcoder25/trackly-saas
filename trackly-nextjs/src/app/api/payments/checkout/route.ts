@@ -32,9 +32,10 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        product_id: PRODUCT_IDS[plan],
         payment_link: true,
-        quantity: 1,
+        product_cart: [
+          { product_id: PRODUCT_IDS[plan], quantity: 1 },
+        ],
         customer: { email: u.email, name: u.name || u.email },
         metadata: { userId: user.id },
         return_url: returnUrl,
