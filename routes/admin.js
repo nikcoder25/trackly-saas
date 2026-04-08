@@ -455,8 +455,18 @@ router.get('/query-suggestions', auth, (req, res) => {
   res.json({ suggestions });
 });
 
+// Rate limit for AI-powered routes — 5 requests per minute per user
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: { error: 'Too many AI generation requests. Please wait a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
 // AI-powered query generation
-router.post('/ai-generate-queries', auth, async (req, res) => {
+router.post('/ai-generate-queries', auth, aiLimiter, async (req, res) => {
   const { brandName, industry, city, existingQueries } = req.body;
   if (!brandName || !industry) return res.status(400).json({ error: 'Brand name and industry are required' });
 
@@ -514,7 +524,7 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
 });
 
 // Auto-fetch nearby areas for a city using AI
-router.post('/nearby-areas', auth, async (req, res) => {
+router.post('/nearby-areas', auth, aiLimiter, async (req, res) => {
   const { city } = req.body;
   if (!city || !city.trim()) return res.status(400).json({ error: 'City is required' });
   // Sanitize city input to prevent prompt injection — allow only letters, numbers, spaces, commas, periods, hyphens

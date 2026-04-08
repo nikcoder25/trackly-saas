@@ -33,7 +33,6 @@ export default function AdminRevenuePage() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
         <div style={{ width: 28, height: 28, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }

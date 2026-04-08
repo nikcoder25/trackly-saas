@@ -122,7 +122,6 @@ export default function AdminBackendLayout({ children }: { children: React.React
       </div>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
           .admin-sidebar { transform: translateX(-100%); transition: transform .2s; }
           .admin-sidebar[style*="translateX(0)"] { transform: translateX(0) !important; }
