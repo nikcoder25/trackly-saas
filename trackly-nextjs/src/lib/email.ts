@@ -42,11 +42,15 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Ema
     const resp = await fetch(EMAIL_API_URL, { method: 'POST', headers, body });
     if (!resp.ok) {
       const text = await resp.text();
-      return { sent: false, reason: `Email API returned ${resp.status}: ${text}` };
+      const reason = `Email API returned ${resp.status}: ${text}`;
+      console.error(`[Email] Send failed to=${to} subject="${subject}" reason=${reason}`);
+      return { sent: false, reason };
     }
     return { sent: true };
   } catch (e) {
-    return { sent: false, reason: (e as Error).message };
+    const reason = (e as Error).message;
+    console.error(`[Email] Send error to=${to} subject="${subject}" error=${reason}`);
+    return { sent: false, reason };
   }
 }
 
