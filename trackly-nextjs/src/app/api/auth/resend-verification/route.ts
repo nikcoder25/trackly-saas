@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { sendVerificationEmail } from '@/lib/email';
+import { AUTH } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
 
     const email = result.rows[0].email;
     const verifyToken = crypto.randomBytes(32).toString('hex');
-    await pool.query('UPDATE users SET verify_token = $1 WHERE id = $2', [verifyToken, user.id]);
+    const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
+    await pool.query('UPDATE users SET verify_token = $1, verify_token_expires = $2 WHERE id = $3', [verifyToken, verifyTokenExpires, user.id]);
 
     const emailResult = await sendVerificationEmail(email, verifyToken);
     if (!emailResult.sent) {

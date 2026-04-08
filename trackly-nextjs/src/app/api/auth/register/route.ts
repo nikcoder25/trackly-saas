@@ -110,19 +110,21 @@ export async function POST(request: NextRequest) {
     const id = uid();
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
 
     const insertResult = await pool.query(
-      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (email) DO NOTHING
        RETURNING id`,
-      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
+      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken, verifyTokenExpires]
     );
     if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try again or use a different email.' }, { status: 400 });
 
-    sendVerificationEmail(email.toLowerCase(), verifyToken).catch((e) => {
-      console.error('[Register] Failed to send verification email:', e.message);
-    });
+    const emailResult = await sendVerificationEmail(email.toLowerCase(), verifyToken);
+    if (!emailResult.sent) {
+      console.error('[Register] Failed to send verification email:', emailResult.reason);
+    }
 
     const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'free' });
     const refreshToken = crypto.randomBytes(40).toString('hex');

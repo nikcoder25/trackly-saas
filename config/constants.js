@@ -104,6 +104,7 @@ const AUTH = {
   accessTokenMaxAge: 15 * 60 * 1000,         // 15 minutes
   refreshTokenMaxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   passwordResetExpiry: 3600000,               // 1 hour
+  emailVerificationExpiry: 24 * 60 * 60 * 1000, // 24 hours
   bcryptRounds: 12,
 };
 

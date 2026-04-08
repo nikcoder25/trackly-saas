@@ -235,21 +235,23 @@ router.post('/register', registerLimiter, async (req, res) => {
     const id = uid();
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
     // Use INSERT...ON CONFLICT to atomically prevent duplicate email registration
     // (eliminates race condition between SELECT check and INSERT)
     const insertResult = await pool.query(
-      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (email) DO NOTHING
        RETURNING id`,
-      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken]
+      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken, verifyTokenExpires]
     );
     if (!insertResult.rows.length) return res.status(400).json({ error: 'Email already registered' });
 
     // Send verification email
-    sendVerificationEmail(email.toLowerCase(), verifyToken).catch(e => {
-      console.error('[Register] Failed to send verification email:', e.message);
-    });
+    const emailResult = await sendVerificationEmail(email.toLowerCase(), verifyToken);
+    if (!emailResult.sent) {
+      console.error('[Register] Failed to send verification email:', emailResult.reason);
+    }
 
     const accessToken = jwt.sign({ id, email: email.toLowerCase(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
@@ -346,9 +348,12 @@ router.get('/verify-email', verifyEmailLimiter, async (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).json({ error: 'Verification token required' });
   try {
-    const result = await pool.query('SELECT id, email FROM users WHERE verify_token = $1', [token]);
+    const result = await pool.query(
+      'SELECT id, email FROM users WHERE verify_token = $1 AND (verify_token_expires IS NULL OR verify_token_expires > NOW())',
+      [token]
+    );
     if (!result.rows.length) return res.status(400).json({ error: 'Invalid or expired verification token' });
-    await pool.query('UPDATE users SET email_verified = TRUE, verify_token = NULL WHERE id = $1', [result.rows[0].id]);
+    await pool.query('UPDATE users SET email_verified = TRUE, verify_token = NULL, verify_token_expires = NULL WHERE id = $1', [result.rows[0].id]);
     auditLog(result.rows[0].id, 'email_verified', 'user', result.rows[0].id, {}, req.ip);
     res.json({ message: 'Email verified successfully!' });
   } catch(e) {
@@ -367,16 +372,17 @@ const resendLimiter = rateLimit({
 });
 router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
   try {
-    const result = await pool.query('SELECT email_verified FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT email, email_verified FROM users WHERE id = $1', [req.user.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     if (result.rows[0].email_verified) return res.json({ message: 'Email already verified' });
     const verifyToken = crypto.randomBytes(32).toString('hex');
-    await pool.query('UPDATE users SET verify_token = $1 WHERE id = $2', [verifyToken, req.user.id]);
-    const userEmail = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.id]);
-    if (userEmail.rows.length) {
-      sendVerificationEmail(userEmail.rows[0].email, verifyToken).catch(e => {
-        console.error('[Resend] Failed to send verification email:', e.message);
-      });
+    const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
+    await pool.query('UPDATE users SET verify_token = $1, verify_token_expires = $2 WHERE id = $3', [verifyToken, verifyTokenExpires, req.user.id]);
+
+    const emailResult = await sendVerificationEmail(result.rows[0].email, verifyToken);
+    if (!emailResult.sent) {
+      console.error('[Resend] Failed to send verification email:', emailResult.reason, { userId: req.user.id });
+      return res.status(500).json({ error: 'Failed to send verification email. Please try again later.' });
     }
     res.json({ message: 'Verification email sent.' });
   } catch(e) {

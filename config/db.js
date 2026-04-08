@@ -46,6 +46,7 @@ async function initDB() {
         settings JSONB DEFAULT '{}',
         email_verified BOOLEAN DEFAULT FALSE,
         verify_token TEXT,
+        verify_token_expires TIMESTAMPTZ,
         refresh_token TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -365,6 +366,7 @@ async function initDB() {
       ALTER TABLE api_logs ADD COLUMN IF NOT EXISTS run_id TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token_expires TIMESTAMPTZ;
       ALTER TABLE daily_cost_tracker ALTER COLUMN total_cost TYPE NUMERIC(16,8);
     `);
     // Add unique index on username (only for non-null values)
