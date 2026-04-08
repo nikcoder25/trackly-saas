@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
+import { CookiePreferencesButton } from '@/components/CookieConsent';
 
 interface SeoLayoutProps {
   children: React.ReactNode;
@@ -15,27 +19,9 @@ const navLinks = [
   { href: '/about', label: 'About' },
 ];
 
-const footerLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/how-it-works', label: 'How it Works' },
-  { href: '/use-cases', label: 'Use Cases' },
-  { href: '/about', label: 'About' },
-  { href: '/contact', label: 'Contact' },
-  { href: '/changelog', label: 'Changelog' },
-  { href: '/chatgpt-brand-tracking', label: 'ChatGPT Tracking' },
-  { href: '/perplexity-brand-tracking', label: 'Perplexity Tracking' },
-  { href: '/gemini-brand-tracking', label: 'Gemini Tracking' },
-  { href: '/claude-brand-tracking', label: 'Claude Tracking' },
-  { href: '/grok-brand-tracking', label: 'Grok Tracking' },
-  { href: '/geo-optimization', label: 'GEO Guide' },
-  { href: '/vs/semrush', label: 'vs Semrush' },
-  { href: '/vs/ahrefs', label: 'vs Ahrefs' },
-  { href: '/privacy', label: 'Privacy' },
-  { href: '/terms', label: 'Terms' },
-];
-
 export default function SeoLayout({ children }: SeoLayoutProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div id="landing-page">
       {/* Nav — uses legacy .land-nav classes */}
@@ -43,9 +29,20 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <Link href="/" className="land-nav-logo" style={{ textDecoration: 'none' }}>
           Live<span>sov</span>
         </Link>
-        <div className="land-nav-links">
+
+        {/* Hamburger button for mobile */}
+        <button
+          className="land-hamburger"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={menuOpen}
+        >
+          <span /><span /><span />
+        </button>
+
+        <div className={`land-nav-links${menuOpen ? ' open' : ''}`}>
           {navLinks.map((link) => (
-            <Link key={link.href} href={link.href}>{link.label}</Link>
+            <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>
           ))}
         </div>
         <div className="land-nav-right">
@@ -67,7 +64,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginTop: 16 }}>No credit card required.</p>
       </section>
 
-      {/* Footer — uses legacy .land-footer classes */}
+      {/* Footer */}
       <footer className="land-footer">
         <div className="land-footer-grid">
           <div className="land-footer-brand">
@@ -80,6 +77,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/pricing">Pricing</Link>
             <Link href="/how-it-works">How it Works</Link>
             <Link href="/use-cases">Use Cases</Link>
+            <Link href="/integrations">Integrations</Link>
           </div>
           <div className="land-footer-col">
             <div className="land-footer-col-title">Resources</div>
@@ -91,17 +89,28 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/partners">Partners</Link>
           </div>
           <div className="land-footer-col">
+            <div className="land-footer-col-title">AI Platforms</div>
+            <Link href="/chatgpt-brand-tracking">ChatGPT Tracking</Link>
+            <Link href="/perplexity-brand-tracking">Perplexity Tracking</Link>
+            <Link href="/claude-brand-tracking">Claude Tracking</Link>
+            <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
+            <Link href="/grok-brand-tracking">Grok Tracking</Link>
+          </div>
+          <div className="land-footer-col">
             <div className="land-footer-col-title">Legal</div>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
             <Link href="/cookies">Cookies</Link>
+            <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
+            <Link href="/vs/semrush">Livesov vs Semrush</Link>
           </div>
         </div>
         <div className="land-footer-bottom">
           <div className="land-footer-text">&copy; {new Date().getFullYear()} Livesov. All rights reserved.</div>
+          <CookiePreferencesButton />
           <div className="land-footer-social">
             <a href="mailto:hello@livesov.com" aria-label="Email">✉</a>
-            <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">✕</a>
+            <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>
             <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
           </div>
         </div>

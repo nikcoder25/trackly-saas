@@ -26,7 +26,7 @@ export default function HowItWorksPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'How It Works', url: '/how-it-works' }]} />
       <SeoHero
-        title={<>How <span className="text-[#FF6154]">Livesov</span> Works</>}
+        title={<>How <span className="text-[var(--brand)]">Livesov</span> Works</>}
         subtitle="A systematic, data-driven approach to tracking your brand's visibility across AI platforms."
       />
       <SeoContent>

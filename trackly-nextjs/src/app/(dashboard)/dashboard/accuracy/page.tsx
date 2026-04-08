@@ -314,8 +314,7 @@ export default function AccuracyPage() {
         const issueCount = (d.issues || []).length;
         setCheckMessage({ text: `AI analyzed ${runs} response${runs > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''} — found ${issueCount} issue${issueCount !== 1 ? 's' : ''}`, isError: false });
       }
-    }).catch((err) => {
-      console.error('[Accuracy Check]', err);
+    }).catch(() => {
       setCheckMessage({ text: 'Failed to run accuracy check. Please try again.', isError: true });
     }).finally(() => setChecking(false));
   }
@@ -346,8 +345,7 @@ export default function AccuracyPage() {
       } else {
         toast('No facts could be discovered. Try adding a website URL to your brand or running more queries first.', 'error');
       }
-    }).catch((err) => {
-      console.error('[AutoDiscover]', err);
+    }).catch(() => {
       toast('Failed to auto-discover facts. Please try again.', 'error');
     }).finally(() => setDiscovering(false));
   }
@@ -391,7 +389,6 @@ export default function AccuracyPage() {
       ));
       toast(d.fixed ? 'Issue marked as fixed.' : 'Issue marked as unfixed.');
     } catch (err) {
-      console.error('[ToggleFixed]', err);
       toast(`Failed to update issue: ${(err as Error).message}`, 'error');
     } finally {
       setTogglingFixed(null);

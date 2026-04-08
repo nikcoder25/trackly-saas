@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useBrandData } from '@/hooks/useBrandData';
-// Language removed from dashboard
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { PLATFORM_COLORS } from '@/lib/constants';

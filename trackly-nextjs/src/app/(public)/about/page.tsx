@@ -26,7 +26,7 @@ export default function AboutPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'About', url: '/about' }]} />
       <SeoHero
-        title={<>About <span className="text-[#FF6154]">Livesov</span></>}
+        title={<>About <span className="text-[var(--brand)]">Livesov</span></>}
         subtitle="We're building the analytics layer for AI visibility — helping brands understand and optimize how AI platforms mention and recommend them."
       />
       <SeoContent>

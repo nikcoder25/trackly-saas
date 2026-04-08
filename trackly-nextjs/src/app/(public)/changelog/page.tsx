@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Changelog — What\'s New | Livesov',
@@ -24,12 +24,13 @@ export const metadata: Metadata = {
 export default function ChangelogPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Changelog', url: '/changelog' }]} />
       <SeoHero
         title="Changelog"
         subtitle="Track every improvement, new feature, and bug fix we ship."
       />
       <div className="max-w-3xl mx-auto px-6 pb-16 space-y-8">
-        <div className="border-l-2 border-[#FF6154] pl-6">
+        <div className="border-l-2 border-[var(--brand)] pl-6">
           <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">March 2026</p>
           <h3 className="text-lg font-bold text-gray-900 mt-1">Next.js Migration</h3>
           <p className="text-gray-500 text-sm mt-1">Migrated from Express to Next.js for improved SSR, SEO, and performance. All existing features preserved with the same database.</p>

@@ -294,7 +294,7 @@ function PlatformChart({ history, platforms }: { history: SovPoint[]; platforms:
           const active = activePlatforms.has(p);
           const color = PLATFORM_COLORS[p] || '#888';
           return (
-            <button key={p} onClick={() => togglePlatform(p)}
+            <button key={p} onClick={() => togglePlatform(p)} aria-label={`${active ? 'Hide' : 'Show'} ${p}`} aria-pressed={active}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid', transition: 'all .15s', background: active ? `color-mix(in srgb, ${color} 10%, transparent)` : 'var(--bg3)', borderColor: active ? `color-mix(in srgb, ${color} 30%, transparent)` : 'var(--border)', color: active ? color : 'var(--muted)', opacity: active ? 1 : 0.5 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? color : 'var(--muted)' }} />
               {p}

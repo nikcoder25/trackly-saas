@@ -35,6 +35,7 @@ export default function CopilotPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg, history: [...messages, userMsg].map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.content })) }),
       });
+      if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'bot', content: data.reply || data.message || 'Sorry, I could not generate a response.' }]);
     } catch {

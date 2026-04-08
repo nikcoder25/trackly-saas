@@ -22,6 +22,9 @@ const navGroups = [
       { href: '/dashboard/competitors', label: 'Competitors', icon: '⊘' },
       { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
+      { href: '/dashboard/citations', label: 'Citations', icon: '◇' },
+      { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '◈' },
+      { href: '/dashboard/recommendations', label: 'Recommendations', icon: '◆' },
     ],
   },
   {
@@ -36,6 +39,9 @@ const navGroups = [
     items: [
       { href: '/dashboard/setup', label: 'Brand Setup', icon: '◇' },
       { href: '/dashboard/account', label: 'Account & Plan', icon: '◉' },
+      { href: '/dashboard/billing', label: 'Billing & Usage', icon: '◆' },
+      { href: '/dashboard/team', label: 'Team', icon: '◎' },
+      { href: '/dashboard/alerts', label: 'Alerts', icon: '◈' },
       { href: '/dashboard/admin', label: 'Admin Panel', icon: '⚑', adminOnly: true },
     ],
   },

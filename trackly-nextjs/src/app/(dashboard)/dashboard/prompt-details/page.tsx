@@ -96,6 +96,21 @@ export default function PromptDetailsPage() {
     return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
+  function exportCSV() {
+    if (queryResults.length === 0) return;
+    const headers = ['Date', 'Platform', 'Model', 'Query', 'Mentioned', 'Sentiment', 'Position'];
+    const rows = queryResults.map(r => [
+      r.date || '', r.platform, r.model || '', r.query,
+      r.mentioned ? 'Yes' : 'No', r.sentiment || '', String(r.listPosition || r.position || ''),
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `prompt-details-${selectedQuery.slice(0, 30)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
@@ -108,29 +123,29 @@ export default function PromptDetailsPage() {
         </div>
         <div className="pd-header-actions">
           <button className="pbtn pd-btn-outline" onClick={() => window.location.reload()}>↻ Refresh</button>
-          <button className="pbtn pd-btn-primary">↓ Export CSV</button>
+          <button className="pbtn pd-btn-primary" onClick={exportCSV}>↓ Export CSV</button>
         </div>
       </div>
 
       {/* Toolbar */}
       <div className="pd-toolbar">
         <div className="pd-toolbar-select-wrap">
-          <label className="pd-toolbar-label">Query</label>
-          <select className="finp pd-select" value={selectedQuery} onChange={e => setSelectedQuery(e.target.value)}>
+          <label className="pd-toolbar-label" htmlFor="pd-query">Query</label>
+          <select id="pd-query" className="finp pd-select" value={selectedQuery} onChange={e => setSelectedQuery(e.target.value)}>
             {queries.map(q => <option key={q} value={q}>{q}</option>)}
             {!queries.length && <option value="">No queries</option>}
           </select>
         </div>
         <div className="pd-toolbar-select-wrap pd-toolbar-plat">
-          <label className="pd-toolbar-label">Platform</label>
-          <select className="finp pd-select" value={platFilter} onChange={e => setPlatFilter(e.target.value)}>
+          <label className="pd-toolbar-label" htmlFor="pd-platform">Platform</label>
+          <select id="pd-platform" className="finp pd-select" value={platFilter} onChange={e => setPlatFilter(e.target.value)}>
             <option value="">All Platforms</option>
             {platforms.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="pd-toolbar-select-wrap pd-toolbar-days">
-          <label className="pd-toolbar-label">Period</label>
-          <select className="finp pd-select" value={periodDays} onChange={e => setPeriodDays(Number(e.target.value))}>
+          <label className="pd-toolbar-label" htmlFor="pd-period">Period</label>
+          <select id="pd-period" className="finp pd-select" value={periodDays} onChange={e => setPeriodDays(Number(e.target.value))}>
             <option value={7}>Last 7 days</option>
             <option value={14}>Last 14 days</option>
             <option value={30}>Last 30 days</option>

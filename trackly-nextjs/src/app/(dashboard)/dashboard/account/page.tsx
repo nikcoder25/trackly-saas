@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
 
@@ -14,6 +15,7 @@ export default function AccountPage() {
   const router = useRouter();
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
+  const { selectedBrand, brands } = useBrands();
   const [billingHistory, setBillingHistory] = useState<BillingEntry[]>([]);
   const [pwCurrent, setPwCurrent] = useState('');
   const [pwNew, setPwNew] = useState('');
@@ -58,6 +60,47 @@ export default function AccountPage() {
       if (res.ok) { setPwCurrent(''); setPwNew(''); setPwConfirm(''); toast('Password updated successfully'); }
       else { toast(d.error || 'Failed to update password', 'error'); }
     } catch { setPwMsg('Failed'); toast('Failed to update password', 'error'); }
+  }
+
+  async function exportBrand(format: 'json' | 'csv') {
+    if (!selectedBrand) { toast('No brand selected', 'error'); return; }
+    try {
+      const res = await fetch(`/api/export/brand/${selectedBrand.id}`, { credentials: 'include' });
+      if (!res.ok) { toast('Export failed', 'error'); return; }
+      const data = await res.json();
+      let blob: Blob;
+      let filename: string;
+      if (format === 'csv') {
+        const brand = data.brand;
+        const rows = [['Field', 'Value'], ['Name', brand.name || ''], ['Industry', brand.industry || ''], ['City', brand.city || '']];
+        const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        blob = new Blob([csvContent], { type: 'text/csv' });
+        filename = `brand-${selectedBrand.id}.csv`;
+      } else {
+        blob = new Blob([JSON.stringify(data.brand, null, 2)], { type: 'application/json' });
+        filename = `brand-${selectedBrand.id}.json`;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      toast(`Brand exported as ${format.toUpperCase()}`);
+    } catch { toast('Export failed', 'error'); }
+  }
+
+  async function exportAll() {
+    try {
+      const results = await Promise.all(
+        brands.map(b => fetch(`/api/export/brand/${b.id}`, { credentials: 'include' }).then(r => r.json()))
+      );
+      const allBrands = results.map(r => r.brand);
+      const blob = new Blob([JSON.stringify(allBrands, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'all-brands.json'; a.click();
+      URL.revokeObjectURL(url);
+      toast('All brands exported');
+    } catch { toast('Export failed', 'error'); }
   }
 
   async function saveUsername() {
@@ -228,10 +271,10 @@ export default function AccountPage() {
       <div className="card" style={{ marginTop: 14 }}>
         <div className="section-title">Export Data</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="pbtn">EXPORT BRAND (JSON)</button>
-          <button className="pbtn">EXPORT BRAND (CSV)</button>
-          <button className="pbtn">EXPORT ALL (JSON)</button>
-          <button className="pbtn" style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>IMPORT BRAND</button>
+          <button className="pbtn" onClick={() => exportBrand('json')}>EXPORT BRAND (JSON)</button>
+          <button className="pbtn" onClick={() => exportBrand('csv')}>EXPORT BRAND (CSV)</button>
+          <button className="pbtn" onClick={exportAll}>EXPORT ALL (JSON)</button>
+          <button className="pbtn" onClick={() => toast('Import coming soon', 'error')} style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>IMPORT BRAND</button>
         </div>
       </div>
 

@@ -106,7 +106,7 @@ export default function AdminBackendLayout({ children }: { children: React.React
 
       <div style={{ flex: 1, marginLeft: 240, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <header style={{ height: 52, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 24px', gap: 12, flexShrink: 0, background: 'var(--bg)' }}>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="admin-menu-btn" style={{ display: 'none', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4 }}>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="admin-menu-btn" aria-label="Toggle admin sidebar" style={{ display: 'none', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4 }}>
             <svg width={20} height={20} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
           <div style={{ flex: 1 }} />
@@ -122,7 +122,6 @@ export default function AdminBackendLayout({ children }: { children: React.React
       </div>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
           .admin-sidebar { transform: translateX(-100%); transition: transform .2s; }
           .admin-sidebar[style*="translateX(0)"] { transform: translateX(0) !important; }

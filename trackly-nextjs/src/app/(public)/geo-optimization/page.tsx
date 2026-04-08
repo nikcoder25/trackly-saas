@@ -27,7 +27,7 @@ export default function GeoOptimizationPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'GEO Optimization', url: '/geo-optimization' }]} />
       <SeoHero
-        title={<>Generative Engine <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF6154] to-[#6366f1]">Optimization (GEO)</span></>}
+        title={<>Generative Engine <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--brand)] to-[#6366f1]">Optimization (GEO)</span></>}
         subtitle="The complete guide to optimizing your brand's visibility across AI-powered search engines and language models."
       />
       <SeoContent>

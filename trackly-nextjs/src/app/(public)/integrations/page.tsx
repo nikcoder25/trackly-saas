@@ -47,7 +47,7 @@ export default function IntegrationsPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Integrations', url: '/integrations' }]} />
       <SeoHero
-        title={<>Integrated with <span className="text-[#FF6154]">5 AI Platforms</span></>}
+        title={<>Integrated with <span className="text-[var(--brand)]">5 AI Platforms</span></>}
         subtitle="Livesov connects directly to the APIs of all major AI platforms to track your brand visibility in real-time."
       />
 
@@ -56,7 +56,7 @@ export default function IntegrationsPage() {
           {platforms.map(p => (
             <div key={p.name} className="rounded-xl border border-gray-200 bg-white p-6 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl" style={{ color: p.color }}>{p.icon}</span>
+                <span className="text-2xl" style={{ color: p.color }} aria-hidden="true">{p.icon}</span>
                 <h3 className="text-lg font-bold text-gray-900">{p.name}</h3>
               </div>
               <p className="text-sm text-gray-500 mb-3">{p.desc}</p>
@@ -77,7 +77,7 @@ export default function IntegrationsPage() {
               <ul className="space-y-2">
                 {section.items.map(item => (
                   <li key={item} className="text-sm text-gray-500 flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">&#10003;</span>
+                    <span className="text-green-500 mt-0.5" aria-hidden="true">&#10003;</span>
                     {item}
                   </li>
                 ))}

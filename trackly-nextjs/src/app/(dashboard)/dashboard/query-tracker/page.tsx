@@ -176,7 +176,8 @@ export default function QueryTrackerPage() {
       <div className="kt-period-tabs">
         {['day', 'week', 'month'].map(p => (
           <button key={p} className={`kt-period-tab ${period === p ? 'active' : ''}`}
-            onClick={() => { setPeriod(p); setExpanded(null); setSortField(null); setFilterText(''); }}>
+            onClick={() => { setPeriod(p); setExpanded(null); setSortField(null); setFilterText(''); }}
+            aria-label={`Show ${p} view`} aria-pressed={period === p}>
             {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
@@ -185,7 +186,7 @@ export default function QueryTrackerPage() {
       {/* Filter Input */}
       <div className="kt-filter-row">
         <input type="text" className="finp kt-filter-input" placeholder="Type to filter keywords"
-          value={filterText} onChange={e => setFilterText(e.target.value)} />
+          value={filterText} onChange={e => setFilterText(e.target.value)} aria-label="Filter keywords" />
       </div>
 
       {/* Empty State */}

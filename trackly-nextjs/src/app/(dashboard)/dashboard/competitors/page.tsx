@@ -44,7 +44,7 @@ export default function CompetitorsPage() {
         const data = await res.json();
         setCompStatsData(data);
       }
-    } catch (err) { console.error('[Competitors] Failed to fetch competitor stats:', err); }
+    } catch { /* fetch failed */ }
     setCompStatsLoading(false);
   }, []);
 
@@ -56,7 +56,7 @@ export default function CompetitorsPage() {
         const data = await res.json();
         setCitations(data.citations || []);
       }
-    } catch (err) { console.error('[Competitors] Failed to fetch citations:', err); }
+    } catch { /* fetch failed */ }
     setCitLoading(false);
   }, []);
 
@@ -104,9 +104,7 @@ export default function CompetitorsPage() {
       await reload();
       // Auto-reprocess existing data for the new competitor
       await triggerReprocess(brand.id);
-    } catch (err) {
-      console.error('[Competitors] Failed to add competitor:', err);
-    }
+    } catch { /* failed to add */ }
   }
 
   async function addDiscoveredComp(domain: string) {
@@ -117,9 +115,7 @@ export default function CompetitorsPage() {
       await fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ competitors: updated }) });
       await reload();
       await triggerReprocess(brand.id);
-    } catch (err) {
-      console.error('[Competitors] Failed to add discovered competitor:', err);
-    }
+    } catch { /* failed to add */ }
   }
 
   async function triggerReprocess(brandId: string) {

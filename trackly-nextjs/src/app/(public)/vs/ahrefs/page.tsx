@@ -27,7 +27,7 @@ export default function VsAhrefsPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'vs Ahrefs', url: '/vs/ahrefs' }]} />
       <SeoHero
-        title={<>Livesov vs <span className="text-[#FF6154]">Ahrefs</span></>}
+        title={<>Livesov vs <span className="text-[var(--brand)]">Ahrefs</span></>}
         subtitle="Complementary tools for the AI era. Livesov monitors AI visibility while Ahrefs dominates backlink analysis."
       />
       <SeoContent>

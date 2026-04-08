@@ -40,7 +40,7 @@ export default function PricingPage() {
           <span className={`text-sm font-medium ${!annual ? 'text-gray-900' : 'text-gray-400'}`}>Monthly</span>
           <button
             onClick={() => setAnnual(!annual)}
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${annual ? 'bg-[#FF6154]' : 'bg-gray-300'}`}
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${annual ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
             aria-label="Toggle annual pricing"
           >
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${annual ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -59,7 +59,7 @@ export default function PricingPage() {
             const isEnterprise = plan.name === 'Enterprise';
 
             return (
-              <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[#FF6154] text-white ring-2 ring-[#FF6154] shadow-lg shadow-[#FF6154]/20' : isEnterprise ? 'bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200' : 'bg-white border border-gray-200'}`}>
+              <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[var(--brand)] text-white ring-2 ring-[var(--brand)] shadow-lg shadow-[var(--brand)]/20' : isEnterprise ? 'bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200' : 'bg-white border border-gray-200'}`}>
                 <div className="flex items-center gap-2">
                   <h3 className={`text-lg font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
                   {isEnterprise && <span className="text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Custom</span>}
@@ -89,7 +89,7 @@ export default function PricingPage() {
                     {plan.cta}
                   </a>
                 ) : (
-                  <Link href={plan.href} className={`block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition ${plan.highlighted ? 'bg-white text-[#FF6154] hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
+                  <Link href={plan.href} className={`block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition ${plan.highlighted ? 'bg-white text-[var(--brand)] hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
                     {plan.cta}
                   </Link>
                 )}
@@ -108,7 +108,7 @@ export default function PricingPage() {
               <thead>
                 <tr>
                   {comparisonData.headers.map((h, i) => (
-                    <th key={h} className={`py-3 px-4 text-left font-bold border-b-2 border-gray-200 ${i === 1 ? 'text-[#FF6154]' : 'text-gray-700'}`}>{h}</th>
+                    <th key={h} className={`py-3 px-4 text-left font-bold border-b-2 border-gray-200 ${i === 1 ? 'text-[var(--brand)]' : 'text-gray-700'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -116,7 +116,7 @@ export default function PricingPage() {
                 {comparisonData.rows.map((row, ri) => (
                   <tr key={ri} className="border-b border-gray-100">
                     {row.map((cell, ci) => (
-                      <td key={ci} className={`py-3 px-4 ${ci === 0 ? 'font-medium text-gray-700' : ci === 1 ? 'text-[#FF6154] font-semibold' : 'text-gray-500'}`}>
+                      <td key={ci} className={`py-3 px-4 ${ci === 0 ? 'font-medium text-gray-700' : ci === 1 ? 'text-[var(--brand)] font-semibold' : 'text-gray-500'}`}>
                         {cell}
                       </td>
                     ))}

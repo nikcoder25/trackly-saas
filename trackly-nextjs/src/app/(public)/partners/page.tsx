@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Agency Partner Program — Livesov AI Visibility Tracker',
@@ -81,9 +81,10 @@ const faqs = [
 export default function PartnersPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Partners', url: '/partners' }]} />
       {/* Hero */}
       <SeoHero
-        title={<>Grow Your Agency with <span className="text-[#FF6154]">AI Visibility Tracking</span></>}
+        title={<>Grow Your Agency with <span className="text-[var(--brand)]">AI Visibility Tracking</span></>}
         subtitle="Partner with Livesov to offer AI brand monitoring to your clients. Earn 20% recurring commission on every referral."
       />
 
@@ -124,7 +125,7 @@ export default function PartnersPage() {
             <div key={s.step} className="text-center">
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg mx-auto mb-4"
-                style={{ background: '#FF6154' }}
+                style={{ background: 'var(--brand)' }}
               >
                 {s.step}
               </div>
@@ -148,7 +149,7 @@ export default function PartnersPage() {
                 className="flex items-center gap-3 rounded-lg p-4"
                 style={{ background: 'var(--bg-section, #f5f3f0)', border: '1px solid var(--card-border, #e8e5e1)' }}
               >
-                <span className="text-[#FF6154] font-bold text-lg">&#10003;</span>
+                <span className="text-[var(--brand)] font-bold text-lg">&#10003;</span>
                 <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{a}</span>
               </div>
             ))}
@@ -174,7 +175,7 @@ export default function PartnersPage() {
             <tbody>
               {tiers.map((t) => (
                 <tr key={t.tier} style={{ borderBottom: '1px solid var(--card-border, #e8e5e1)' }}>
-                  <td className="py-3 px-4 font-semibold" style={{ color: '#FF6154' }}>{t.tier}</td>
+                  <td className="py-3 px-4 font-semibold" style={{ color: 'var(--brand)' }}>{t.tier}</td>
                   <td className="py-3 px-4" style={{ color: 'var(--text-secondary)' }}>{t.referrals}</td>
                   <td className="py-3 px-4 font-semibold">{t.commission}</td>
                   <td className="py-3 px-4" style={{ color: 'var(--text-secondary)' }}>{t.perks}</td>

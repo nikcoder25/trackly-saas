@@ -37,7 +37,7 @@ export default function RecommendationsPage() {
 
   useEffect(() => { loadRecs(); }, [selectedBrand, filterStatus, filterSeverity]);
 
-  // FIX 5: Auto-generate recommendations on page load if data exists but recommendations are empty
+  // Auto-generate recommendations on page load if data exists but recommendations are empty
   const [autoGenTriggered, setAutoGenTriggered] = useState(false);
   useEffect(() => {
     if (!selectedBrand || loading || generating || autoGenTriggered) return;

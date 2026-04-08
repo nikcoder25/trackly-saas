@@ -6,7 +6,7 @@ import { PLAN_LIMITS } from '@/lib/constants';
 import Link from 'next/link';
 import { useBrands } from '@/contexts/BrandContext';
 
-interface BillingData { plan: string; memberSince: string; runsToday?: number; brandCount?: number; queryCount?: number; platformCount?: number; }
+interface BillingData { plan: string; memberSince: string; brandCount?: number; queryCount?: number; platformCount?: number; }
 
 const PLAN_PRICES: Record<string, string> = {
   free: '$0', starter: '$9', pro: '$29', agency: '$89', owner: '—',
@@ -48,14 +48,12 @@ export default function BillingPage() {
       brandCount: brands.length,
       queryCount: (b as Record<string, unknown>)?.queries ? ((b as Record<string, unknown>).queries as string[]).length : 0,
       platformCount: ((b as Record<string, unknown>)?.selected_platforms as string[] || []).length || 5,
-      runsToday: 0,
     });
     setLoading(false);
   }, [brandsLoading, brands, selectedBrand, currentPlan, user]);
 
   const meters = [
     { label: 'Brands', used: billing?.brandCount || 0, max: limits.brands || 1, color: 'var(--blue)' },
-    { label: 'Runs Today', used: billing?.runsToday || 0, max: 1, color: 'var(--muted)' },
     { label: 'Queries', used: billing?.queryCount || 0, max: limits.prompts || 5, color: 'var(--amber)' },
     { label: 'Platforms', used: billing?.platformCount || 0, max: 7, color: 'var(--purple)' },
   ];
