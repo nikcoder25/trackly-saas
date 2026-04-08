@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
     const baseUrl = env === 'live_mode' ? 'https://live.dodopayments.com' : 'https://test.dodopayments.com';
-    const returnUrl = process.env.DODO_PAYMENTS_RETURN_URL || process.env.APP_URL || 'http://localhost:3000';
+    const returnUrl = process.env.DODO_PAYMENTS_RETURN_URL || process.env.APP_URL || '';
 
     const resp = await fetch(`${baseUrl}/checkouts`, {
       method: 'POST',

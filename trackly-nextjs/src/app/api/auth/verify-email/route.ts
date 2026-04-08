@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { pool, auditLog } from '@/lib/db';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
+const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+
 export async function GET(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
   const rl = await rateLimit('verify_email:' + ip, 60 * 60 * 1000, 20);
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
     auditLog(result.rows[0].id, 'email_verified', 'user', result.rows[0].id, {}, ip);
 
     // Redirect to login with success message
-    return Response.redirect(new URL('/login?verified=1', request.url));
+    return Response.redirect(`${APP_URL}/login?verified=1`);
   } catch {
     return Response.json({ error: 'Verification failed' }, { status: 500 });
   }
