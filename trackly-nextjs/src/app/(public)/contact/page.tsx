@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Contact Us — Livesov',
@@ -24,11 +24,13 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Contact', url: '/contact' }]} />
       <SeoHero
         title="Get in Touch"
         subtitle="We'd love to hear from you. Reach out for support, enterprise plans, partnerships, or just to say hello."
       />
       <div className="max-w-xl mx-auto px-6 pb-16">
+        <h2 className="sr-only">Contact Options</h2>
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 space-y-6">
           <div>
             <h3 className="font-bold text-gray-900 mb-1">General Support</h3>

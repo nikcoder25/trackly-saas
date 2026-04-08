@@ -739,7 +739,7 @@ export default function LivesovHomePage() {
             </div>
             <div className="tl-footer-col">
               <h4>{t.footer.product}</h4>
-              <Link href="/home#features">{t.footer.links.features}</Link>
+              <Link href="/#features">{t.footer.links.features}</Link>
               <Link href="/pricing">{t.footer.links.pricing}</Link>
               <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
               <Link href="/integrations">{t.footer.links.integrations}</Link>

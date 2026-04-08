@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Agency Partner Program — Livesov AI Visibility Tracker',
@@ -81,6 +81,7 @@ const faqs = [
 export default function PartnersPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Partners', url: '/partners' }]} />
       {/* Hero */}
       <SeoHero
         title={<>Grow Your Agency with <span className="text-[#FF6154]">AI Visibility Tracking</span></>}

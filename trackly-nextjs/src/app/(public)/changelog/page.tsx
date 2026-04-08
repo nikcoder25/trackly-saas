@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoHero } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Changelog — What\'s New | Livesov',
@@ -24,6 +24,7 @@ export const metadata: Metadata = {
 export default function ChangelogPage() {
   return (
     <SeoLayout>
+      <Breadcrumbs items={[{ name: 'Changelog', url: '/changelog' }]} />
       <SeoHero
         title="Changelog"
         subtitle="Track every improvement, new feature, and bug fix we ship."
