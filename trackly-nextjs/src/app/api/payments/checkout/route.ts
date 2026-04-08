@@ -12,7 +12,8 @@ export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
-  const { plan } = await request.json();
+  const { plan: rawPlan } = await request.json();
+  const plan = typeof rawPlan === 'string' ? rawPlan.toLowerCase() : '';
   if (!plan || !PRODUCT_IDS[plan]) return Response.json({ error: 'Invalid plan' }, { status: 400 });
 
   const apiKey = process.env.DODO_PAYMENTS_API_KEY;
