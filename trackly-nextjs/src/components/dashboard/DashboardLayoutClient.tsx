@@ -39,10 +39,22 @@ function EmailVerificationBanner() {
     setSending(true);
     setError('');
     try {
-      const res = await fetch('/api/auth/resend-verification', {
+      let res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
         credentials: 'include',
       });
+
+      // If token expired, refresh and retry once
+      if (res.status === 401) {
+        const refreshRes = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+        if (refreshRes.ok) {
+          res = await fetch('/api/auth/resend-verification', {
+            method: 'POST',
+            credentials: 'include',
+          });
+        }
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send');
       setSent(true);
