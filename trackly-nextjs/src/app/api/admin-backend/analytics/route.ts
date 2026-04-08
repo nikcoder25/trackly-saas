@@ -15,6 +15,10 @@ export async function GET(request: Request) {
       topPlatforms,
       errorRates,
       topUsersByQueries,
+      costSummary,
+      costByPlatform,
+      dailyCostTrend,
+      costByUserRanked,
     ] = await Promise.all([
       // Usage by platform
       pool.query(`
@@ -63,6 +67,49 @@ export async function GET(request: Request) {
         WHERE al.created_at >= NOW() - INTERVAL '1 day' * $1
         GROUP BY u.email, u.plan ORDER BY calls DESC LIMIT 15
       `, [days]),
+      // Total cost summary
+      pool.query(`
+        SELECT
+          COALESCE(SUM(cost), 0)::numeric AS total_cost,
+          COALESCE(SUM(tokens_in), 0)::bigint AS total_tokens_in,
+          COALESCE(SUM(tokens_out), 0)::bigint AS total_tokens_out,
+          COALESCE(SUM(tokens_in) + SUM(tokens_out), 0)::bigint AS total_tokens
+        FROM api_logs
+        WHERE created_at >= NOW() - INTERVAL '1 day' * $1 AND status = 'ok'
+      `, [days]),
+      // Cost breakdown by platform
+      pool.query(`
+        SELECT platform,
+          COALESCE(SUM(cost), 0)::numeric AS cost,
+          COALESCE(SUM(tokens_in), 0)::bigint AS tokens_in,
+          COALESCE(SUM(tokens_out), 0)::bigint AS tokens_out,
+          COUNT(*) FILTER (WHERE status = 'ok')::int AS successful_calls
+        FROM api_logs
+        WHERE created_at >= NOW() - INTERVAL '1 day' * $1
+        GROUP BY platform ORDER BY cost DESC
+      `, [days]),
+      // Daily cost trend
+      pool.query(`
+        SELECT DATE(created_at) AS date,
+          COALESCE(SUM(cost), 0)::numeric AS cost,
+          COALESCE(SUM(tokens_in), 0)::bigint AS tokens_in,
+          COALESCE(SUM(tokens_out), 0)::bigint AS tokens_out
+        FROM api_logs
+        WHERE created_at >= NOW() - INTERVAL '1 day' * $1 AND status = 'ok'
+        GROUP BY DATE(created_at) ORDER BY date ASC
+      `, [days]),
+      // Top users by cost
+      pool.query(`
+        SELECT u.email, u.plan,
+          COALESCE(SUM(al.cost), 0)::numeric AS cost,
+          COALESCE(SUM(al.tokens_in), 0)::bigint AS tokens_in,
+          COALESCE(SUM(al.tokens_out), 0)::bigint AS tokens_out,
+          COUNT(al.id)::int AS calls
+        FROM api_logs al
+        JOIN users u ON u.id = al.user_id
+        WHERE al.created_at >= NOW() - INTERVAL '1 day' * $1 AND al.status = 'ok'
+        GROUP BY u.email, u.plan ORDER BY cost DESC LIMIT 15
+      `, [days]),
     ]);
 
     return Response.json({
@@ -71,6 +118,10 @@ export async function GET(request: Request) {
       topPlatforms: topPlatforms.rows,
       errorRates: errorRates.rows,
       costByUser: topUsersByQueries.rows,
+      costSummary: costSummary.rows[0] || { total_cost: 0, total_tokens_in: 0, total_tokens_out: 0, total_tokens: 0 },
+      costByPlatform: costByPlatform.rows,
+      dailyCostTrend: dailyCostTrend.rows,
+      costByUserRanked: costByUserRanked.rows,
       period: days,
     });
   } catch (e) {
