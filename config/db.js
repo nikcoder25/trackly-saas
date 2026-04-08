@@ -607,4 +607,21 @@ async function cleanupDailyCosts() {
   }
 }
 
-module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, refreshPromptRunStats, getDbCachedResponse, setDbCachedResponse, cleanupResponseCache, getDailyCost, incrementDailyCost, cleanupDailyCosts };
+// Cleanup unverified accounts older than 48 hours (spam signups)
+async function cleanupUnverifiedAccounts() {
+  try {
+    // Only delete free accounts that never verified email and have no brands
+    const result = await pool.query(`
+      DELETE FROM users
+      WHERE email_verified = FALSE
+        AND plan = 'free'
+        AND created_at < NOW() - INTERVAL '48 hours'
+        AND id NOT IN (SELECT DISTINCT user_id FROM brands)
+    `);
+    if (result.rowCount > 0) log.info(`Cleaned up ${result.rowCount} unverified spam accounts`);
+  } catch(e) {
+    log.error('Unverified account cleanup failed', { error: e.message });
+  }
+}
+
+module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, refreshPromptRunStats, getDbCachedResponse, setDbCachedResponse, cleanupResponseCache, getDailyCost, incrementDailyCost, cleanupDailyCosts, cleanupUnverifiedAccounts };

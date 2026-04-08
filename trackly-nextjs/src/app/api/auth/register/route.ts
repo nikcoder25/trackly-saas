@@ -1,7 +1,3 @@
-// TODO: Add CAPTCHA verification (e.g. Cloudflare Turnstile or hCaptcha) to prevent spam signups.
-// The frontend should embed the CAPTCHA widget and send the token in the request body.
-// Verify the token here before creating the account.
-
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -11,6 +7,41 @@ import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePas
 import { getPlanLimits, AUTH } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+
+// ─── Anti-spam helpers ──────────────────────────────────────────
+
+function isGibberishName(name: string): boolean {
+  if (!name || name.length < 4) return false;
+  const cleaned = name.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (cleaned.length < 4) return false;
+  const vowels = (cleaned.match(/[aeiou]/g) || []).length;
+  if (vowels / cleaned.length < 0.15) return true;
+  if (/[^aeiou]{5,}/i.test(cleaned)) return true;
+  const original = name.replace(/[^a-zA-Z]/g, '');
+  if (original.length > 6) {
+    const caseChanges = original.split('').filter((c, i) => i > 0 && ((c === c.toUpperCase() && c !== c.toLowerCase()) !== (original[i-1] === original[i-1].toUpperCase() && original[i-1] !== original[i-1].toLowerCase()))).length;
+    if (caseChanges / original.length > 0.4) return true;
+  }
+  return false;
+}
+
+const DISPOSABLE_DOMAINS = new Set([
+  'tempmail.com', 'throwaway.email', 'guerrillamail.com', 'mailinator.com',
+  'trashmail.com', 'yopmail.com', 'sharklasers.com', 'guerrillamailblock.com',
+  'grr.la', 'dispostable.com', 'mailnesia.com', 'maildrop.cc', 'discard.email',
+  'temp-mail.org', 'fakeinbox.com', 'tempail.com', 'mohmal.com', 'burpcollaborator.net',
+]);
+
+function isDisposableEmail(email: string): boolean {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return domain ? DISPOSABLE_DOMAINS.has(domain) : false;
+}
+
+function isDotTrickedGmail(email: string): boolean {
+  const [local, domain] = email.toLowerCase().split('@');
+  if (!domain?.endsWith('gmail.com')) return false;
+  return (local.match(/\./g) || []).length >= 3;
+}
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
   let base = (nameOrEmail || '').trim().toLowerCase();
@@ -46,6 +77,17 @@ export async function POST(request: NextRequest) {
   const pwError = validatePasswordComplexity(password);
   if (pwError) return Response.json({ error: pwError }, { status: 400 });
   if (name && (typeof name !== 'string' || name.length > 100)) return Response.json({ error: 'Name must be 100 characters or less' }, { status: 400 });
+
+  // ── Anti-spam checks ──────────────────────────────────────
+  if (body.website) return Response.json({ error: 'Registration failed' }, { status: 400 });
+  if (body._formLoadedAt && Date.now() - Number(body._formLoadedAt) < 2000) {
+    return Response.json({ error: 'Registration failed' }, { status: 400 });
+  }
+  if (isDisposableEmail(email)) return Response.json({ error: 'Please use a permanent email address' }, { status: 400 });
+  if (isDotTrickedGmail(email)) return Response.json({ error: 'Please use a valid email address' }, { status: 400 });
+  if (name && isGibberishName(name)) {
+    await new Promise(r => setTimeout(r, 3000));
+  }
 
   let trimmedUsername = username ? username.trim().toLowerCase() : null;
   if (trimmedUsername) {
