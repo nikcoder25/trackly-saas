@@ -1,4 +1,3 @@
-import '../../sentry.client.config';
 import type { Metadata } from 'next';
 import Script from 'next/script';
 import '@/styles/globals.css';
