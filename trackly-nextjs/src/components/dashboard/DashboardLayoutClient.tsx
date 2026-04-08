@@ -62,8 +62,8 @@ function EmailVerificationBanner() {
       <span style={{ fontSize: 16 }}>&#9993;</span>
       <div style={{ flex: 1 }}>
         <strong>Email not verified.</strong> Please check your inbox for a verification link.
-        {sent
-          ? <span style={{ color: '#10b981', fontWeight: 600, marginLeft: 8 }}>Verification email sent!</span>
+        {sent && !error
+          ? <span style={{ color: '#10b981', fontWeight: 600, marginLeft: 8 }}>Verification email sent! Check your inbox.</span>
           : (
             <button
               onClick={handleResend}
@@ -74,7 +74,7 @@ function EmailVerificationBanner() {
               }}
             >{sending ? 'Sending...' : 'Resend verification email'}</button>
           )}
-        {error && <span style={{ color: '#ef4444', marginLeft: 8 }}>{error}</span>}
+        {error && <span style={{ color: '#ef4444', marginLeft: 8 }}>Failed: {error}</span>}
       </div>
     </div>
   );
