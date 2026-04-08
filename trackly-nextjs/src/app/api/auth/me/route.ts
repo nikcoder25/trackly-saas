@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await pool.query(
-      'SELECT id, email, username, name, plan, role, api_keys, settings, created_at, google_id, avatar_url FROM users WHERE id = $1',
+      'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE id = $1',
       [authUser.id]
     );
     const user = result.rows[0];
