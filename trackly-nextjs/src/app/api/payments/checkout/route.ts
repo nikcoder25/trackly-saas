@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     }
 
     const data = await resp.json();
+    console.log('[Checkout] DodoPayments response:', JSON.stringify(data));
     return Response.json({ url: data.payment_link || data.url, checkoutId: data.id });
   } catch (e) {
     console.error('[Checkout]', (e as Error).message);
