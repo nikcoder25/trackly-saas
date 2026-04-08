@@ -21,6 +21,9 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
+  // Anti-spam: honeypot + timing
+  const [honeypot, setHoneypot] = useState('');
+  const [formLoadedAt] = useState(() => Date.now());
   const { register, loginWithGoogle } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
@@ -131,7 +134,10 @@ export default function SignupPage() {
     setError('');
     setLoading(true);
 
-    const result = await register(email, password, name || undefined);
+    const result = await register(email, password, name || undefined, {
+      website: honeypot, // honeypot — should be empty
+      _formLoadedAt: formLoadedAt, // timing check
+    });
     if (result.error) {
       setError(result.error);
       setLoading(false);
@@ -155,6 +161,12 @@ export default function SignupPage() {
       )}
 
       <form onSubmit={handleSubmit}>
+        {/* Honeypot — invisible to real users, bots auto-fill it */}
+        <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input id="website" name="website" type="text" value={honeypot} onChange={e => setHoneypot(e.target.value)} tabIndex={-1} autoComplete="off" />
+        </div>
+
         <label htmlFor="name" className="flbl">{t.auth.name}</label>
         <input
           id="name"

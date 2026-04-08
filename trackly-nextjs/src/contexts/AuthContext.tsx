@@ -25,7 +25,7 @@ interface AuthContextType {
   loading: boolean;
   authError: string | null;
   login: (email: string, password: string, totpCode?: string) => Promise<{ requires2FA?: boolean; error?: string }>;
-  register: (email: string, password: string, name?: string) => Promise<{ error?: string }>;
+  register: (email: string, password: string, name?: string, spamFields?: Record<string, unknown>) => Promise<{ error?: string }>;
   loginWithGoogle: (accessToken: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -90,9 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, name?: string) => {
+  const register = async (email: string, password: string, name?: string, spamFields?: Record<string, unknown>) => {
     try {
-      const data = await api('POST', '/api/auth/register', { email, password, name });
+      const data = await api('POST', '/api/auth/register', { email, password, name, ...spamFields });
       setUser(data.user);
       return {};
     } catch (e) {

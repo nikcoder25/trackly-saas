@@ -17,6 +17,61 @@ const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = requi
 const { RATE_LIMITS, AUTH, API_ENDPOINTS } = require('../config/constants');
 const crypto = require('crypto');
 
+// ─── Registration rate limiter — 5 signups per 15 min per IP ───
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many signup attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
+// ─── Spam detection helpers ────────────────────────────────────
+
+// Detect gibberish names (random consonant clusters, no vowel patterns)
+function isGibberishName(name) {
+  if (!name || name.length < 2) return false;
+  const cleaned = name.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (cleaned.length < 4) return false;
+  // Check consonant-to-vowel ratio — real names have ~40% vowels
+  const vowels = (cleaned.match(/[aeiou]/g) || []).length;
+  const ratio = vowels / cleaned.length;
+  if (ratio < 0.15) return true; // almost no vowels = gibberish
+  // Check for 5+ consecutive consonants (very rare in real names)
+  if (/[^aeiou]{5,}/i.test(cleaned)) return true;
+  // Check for random uppercase mixing like "kgkDoFZfzSID"
+  const original = name.replace(/[^a-zA-Z]/g, '');
+  if (original.length > 6) {
+    const caseChanges = original.split('').filter((c, i) => i > 0 && ((c === c.toUpperCase() && c !== c.toLowerCase()) !== (original[i-1] === original[i-1].toUpperCase() && original[i-1] !== original[i-1].toLowerCase()))).length;
+    if (caseChanges / original.length > 0.4) return true; // too many case switches
+  }
+  return false;
+}
+
+// Common disposable/temporary email domains
+const DISPOSABLE_DOMAINS = new Set([
+  'tempmail.com', 'throwaway.email', 'guerrillamail.com', 'mailinator.com',
+  'trashmail.com', 'yopmail.com', 'sharklasers.com', 'guerrillamailblock.com',
+  'grr.la', 'dispostable.com', 'mailnesia.com', 'maildrop.cc', 'discard.email',
+  'temp-mail.org', 'fakeinbox.com', 'tempail.com', 'mohmal.com', 'burpcollaborator.net',
+]);
+
+function isDisposableEmail(email) {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return false;
+  return DISPOSABLE_DOMAINS.has(domain);
+}
+
+// Detect dot-tricked Gmail addresses (f.r.a.n.c.o@gmail.com)
+function isDotTrickedGmail(email) {
+  const [local, domain] = email.toLowerCase().split('@');
+  if (!domain || !domain.endsWith('gmail.com')) return false;
+  // Count dots in local part — legitimate users rarely have 3+ dots
+  const dotCount = (local.match(/\./g) || []).length;
+  return dotCount >= 3;
+}
+
 // ─── Auto-generate username from name or email ─────────────────
 // Creates a clean, unique username like "john.doe" or "john.doe42"
 async function generateUsername(nameOrEmail) {
@@ -126,12 +181,33 @@ const twoFASetupLimiter = rateLimit({
   validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const { email, password, name, username } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Invalid input' });
   if (email.length > 254) return res.status(400).json({ error: 'Email too long' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+
+  // ── Anti-spam checks ──────────────────────────────────────
+  // Honeypot: if the hidden "website" field is filled, it's a bot
+  if (req.body.website) return res.status(400).json({ error: 'Registration failed' });
+
+  // Timing: if _formLoadedAt is present and form was submitted in under 2 seconds, likely a bot
+  if (req.body._formLoadedAt) {
+    const elapsed = Date.now() - Number(req.body._formLoadedAt);
+    if (elapsed < 2000) return res.status(400).json({ error: 'Registration failed' });
+  }
+
+  // Block disposable email providers
+  if (isDisposableEmail(email)) return res.status(400).json({ error: 'Please use a permanent email address' });
+
+  // Block heavily dot-tricked Gmail (f.r.a.n.c.o@gmail.com)
+  if (isDotTrickedGmail(email)) return res.status(400).json({ error: 'Please use a valid email address' });
+
+  // Flag gibberish names — don't hard-block but delay response (tarpit)
+  if (name && isGibberishName(name)) {
+    await new Promise(r => setTimeout(r, 3000)); // slow down bots
+  }
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (password.length > 128) return res.status(400).json({ error: 'Password too long' });
   if (name && (typeof name !== 'string' || name.length > 100)) return res.status(400).json({ error: 'Name must be 100 characters or less' });
