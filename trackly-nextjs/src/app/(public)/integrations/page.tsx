@@ -47,7 +47,7 @@ export default function IntegrationsPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Integrations', url: '/integrations' }]} />
       <SeoHero
-        title={<>Integrated with <span className="text-[#FF6154]">5 AI Platforms</span></>}
+        title={<>Integrated with <span className="text-[var(--brand)]">5 AI Platforms</span></>}
         subtitle="Livesov connects directly to the APIs of all major AI platforms to track your brand visibility in real-time."
       />
 

@@ -153,7 +153,7 @@ export default function GeoAuditPage() {
         style={{ paddingTop: 80, paddingBottom: 48, textAlign: 'center' }}
       >
         <h1 style={{ fontSize: 44, fontWeight: 800, lineHeight: 1.2, marginBottom: 16 }}>
-          How AI-Ready Is <span style={{ color: '#FF6154' }}>Your Content</span>?
+          How AI-Ready Is <span style={{ color: 'var(--brand)' }}>Your Content</span>?
         </h1>
         <p
           style={{
@@ -219,7 +219,7 @@ export default function GeoAuditPage() {
                 padding: '14px 24px',
                 borderRadius: 10,
                 border: 'none',
-                background: loading ? '#ccc' : '#FF6154',
+                background: loading ? '#ccc' : 'var(--brand)',
                 color: '#fff',
                 fontSize: 16,
                 fontWeight: 700,
@@ -243,7 +243,7 @@ export default function GeoAuditPage() {
                   style={{
                     width: `${progress}%`,
                     height: '100%',
-                    background: 'linear-gradient(90deg, #FF6154, #ff8a82)',
+                    background: 'linear-gradient(90deg, var(--brand), #ff8a82)',
                     borderRadius: 3,
                     transition: 'width 0.3s ease',
                   }}
@@ -397,7 +397,7 @@ export default function GeoAuditPage() {
                   display: 'inline-block',
                   padding: '14px 32px',
                   borderRadius: 10,
-                  background: '#FF6154',
+                  background: 'var(--brand)',
                   color: '#fff',
                   fontSize: 15,
                   fontWeight: 700,

@@ -96,6 +96,21 @@ export default function PromptDetailsPage() {
     return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
+  function exportCSV() {
+    if (queryResults.length === 0) return;
+    const headers = ['Date', 'Platform', 'Model', 'Query', 'Mentioned', 'Sentiment', 'Position'];
+    const rows = queryResults.map(r => [
+      r.date || '', r.platform, r.model || '', r.query,
+      r.mentioned ? 'Yes' : 'No', r.sentiment || '', String(r.listPosition || r.position || ''),
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `prompt-details-${selectedQuery.slice(0, 30)}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
 
   return (
@@ -108,7 +123,7 @@ export default function PromptDetailsPage() {
         </div>
         <div className="pd-header-actions">
           <button className="pbtn pd-btn-outline" onClick={() => window.location.reload()}>↻ Refresh</button>
-          <button className="pbtn pd-btn-primary">↓ Export CSV</button>
+          <button className="pbtn pd-btn-primary" onClick={exportCSV}>↓ Export CSV</button>
         </div>
       </div>
 

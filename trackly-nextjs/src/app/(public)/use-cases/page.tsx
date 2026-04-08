@@ -26,7 +26,7 @@ export default function UseCasesPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Use Cases', url: '/use-cases' }]} />
       <SeoHero
-        title={<>Who Uses <span className="text-[#FF6154]">Livesov</span>?</>}
+        title={<>Who Uses <span className="text-[var(--brand)]">Livesov</span>?</>}
         subtitle="From startups to enterprises, brands across industries use Livesov to track and optimize their AI visibility."
       />
       <SeoContent>

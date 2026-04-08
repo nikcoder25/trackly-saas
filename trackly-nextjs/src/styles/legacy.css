@@ -12,6 +12,7 @@
   --card-shadow-lg:0 4px 16px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
 
   /* Colors */
+  --brand:#FF6154;           /* Coral — brand highlight / CTA */
   --primary:#6366f1;        /* Indigo — matches landing page */
   --primary-hover:#4f46e5;
   --primary-light:rgba(99,102,241,.08);

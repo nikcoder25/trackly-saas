@@ -290,7 +290,7 @@ export default function ProofPage() {
 
                 return (
                   <div key={q} className="ep-qcard">
-                    <div className={`ep-qcard-head ${isOpen ? '' : 'collapsed'}`} onClick={() => toggleQuery(q)} style={{ cursor: 'pointer' }}>
+                    <button type="button" className={`ep-qcard-head ${isOpen ? '' : 'collapsed'}`} onClick={() => toggleQuery(q)} style={{ cursor: 'pointer', width: '100%', background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit', display: 'flex', alignItems: 'center' }} aria-expanded={isOpen} aria-label={`Toggle details for query: ${q}`}>
                       <div className="ep-qcard-idx">{gi + 1}</div>
                       <div className="ep-qcard-mid">
                         <div className="ep-qcard-title">{q}</div>
@@ -304,7 +304,7 @@ export default function ProofPage() {
                       </div>
                       <div className="ep-qcard-stat" style={{ color: qF > 0 ? 'var(--text)' : 'var(--muted)' }}>{qF}/{qT}</div>
                       <div className="ep-qcard-chevron">{isOpen ? '▲' : '▼'}</div>
-                    </div>
+                    </button>
                     {isOpen && (
                       <div className="ep-qcard-body">
                         {res.map((r, ri) => <ProofRow key={ri} r={r} highlightBrand={highlightBrand} />)}

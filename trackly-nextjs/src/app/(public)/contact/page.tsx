@@ -35,17 +35,17 @@ export default function ContactPage() {
           <div>
             <h3 className="font-bold text-gray-900 mb-1">General Support</h3>
             <p className="text-gray-500 text-sm">For questions about your account, billing, or features.</p>
-            <p className="text-[#FF6154] font-medium mt-1">support@livesov.com</p>
+            <p className="text-[var(--brand)] font-medium mt-1">support@livesov.com</p>
           </div>
           <div>
             <h3 className="font-bold text-gray-900 mb-1">Enterprise Sales</h3>
             <p className="text-gray-500 text-sm">For custom plans, volume pricing, and enterprise features.</p>
-            <p className="text-[#FF6154] font-medium mt-1">sales@livesov.com</p>
+            <p className="text-[var(--brand)] font-medium mt-1">sales@livesov.com</p>
           </div>
           <div>
             <h3 className="font-bold text-gray-900 mb-1">Partnerships</h3>
             <p className="text-gray-500 text-sm">For integration partnerships and reseller opportunities.</p>
-            <p className="text-[#FF6154] font-medium mt-1">partners@livesov.com</p>
+            <p className="text-[var(--brand)] font-medium mt-1">partners@livesov.com</p>
           </div>
         </div>
       </div>

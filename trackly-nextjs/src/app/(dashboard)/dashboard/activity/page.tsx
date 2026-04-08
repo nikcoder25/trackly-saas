@@ -114,7 +114,7 @@ export default function ActivityPage() {
                   <th className="th">Model</th>
                   <th className="th">Query</th>
                   <th className="th">Status</th>
-                  <th className="th">Time</th>
+                  <th className="th">Duration</th>
                   <th className="th">Cost</th>
                 </tr>
               </thead>
