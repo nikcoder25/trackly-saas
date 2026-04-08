@@ -133,7 +133,9 @@ export default function AccountPage() {
     const target = targetPlan.toLowerCase();
 
     if (target === 'enterprise') {
-      window.open('mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry', '_blank');
+      const a = document.createElement('a');
+      a.href = 'mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry';
+      a.click();
       return;
     }
 
