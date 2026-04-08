@@ -133,7 +133,7 @@ export default function AccountPage() {
     const target = targetPlan.toLowerCase();
 
     if (target === 'enterprise') {
-      window.location.href = 'mailto:support@trackly.so?subject=Enterprise%20Plan%20Inquiry';
+      window.open('mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry', '_blank');
       return;
     }
 
