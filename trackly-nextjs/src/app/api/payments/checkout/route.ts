@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
     const data = await resp.json();
     console.log('[Checkout] DodoPayments response:', JSON.stringify(data));
-    return Response.json({ url: data.payment_link || data.url, checkoutId: data.id });
+    return Response.json({ url: data.checkout_url, checkoutId: data.session_id });
   } catch (e) {
     console.error('[Checkout]', (e as Error).message);
     return Response.json({ error: 'Payment processing failed' }, { status: 500 });
