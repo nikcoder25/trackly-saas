@@ -28,7 +28,7 @@ function OnboardingRedirect() {
 }
 
 function EmailVerificationBanner() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
@@ -57,6 +57,13 @@ function EmailVerificationBanner() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send');
+
+      // Backend says already verified — refresh user state to hide the banner
+      if (data.message === 'Email already verified') {
+        await refreshUser();
+        return;
+      }
+
       setSent(true);
     } catch (e) {
       setError((e as Error).message);

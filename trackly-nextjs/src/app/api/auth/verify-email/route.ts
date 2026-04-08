@@ -13,10 +13,13 @@ export async function GET(request: NextRequest) {
   if (!token) return Response.json({ error: 'Verification token required' }, { status: 400 });
 
   try {
-    const result = await pool.query('SELECT id, email FROM users WHERE verify_token = $1', [token]);
+    const result = await pool.query(
+      'SELECT id, email FROM users WHERE verify_token = $1 AND (verify_token_expires IS NULL OR verify_token_expires > NOW())',
+      [token]
+    );
     if (!result.rows.length) return Response.json({ error: 'Invalid or expired verification token' }, { status: 400 });
 
-    await pool.query('UPDATE users SET email_verified = TRUE, verify_token = NULL WHERE id = $1', [result.rows[0].id]);
+    await pool.query('UPDATE users SET email_verified = TRUE, verify_token = NULL, verify_token_expires = NULL WHERE id = $1', [result.rows[0].id]);
     auditLog(result.rows[0].id, 'email_verified', 'user', result.rows[0].id, {}, ip);
 
     // Redirect to login with success message
