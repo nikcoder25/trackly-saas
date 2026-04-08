@@ -4,7 +4,7 @@ import fr from './fr';
 import type { Translations } from './en';
 
 export type { Translations };
-export type Locale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'ko' | 'zh' | 'hi';
+export type Locale = 'en' | 'es' | 'fr';
 
 const locales: Record<string, Translations> = { en, es, fr };
 

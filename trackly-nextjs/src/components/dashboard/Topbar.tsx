@@ -35,7 +35,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     fetch('/api/notifications', { credentials: 'include' })
       .then(r => r.ok ? r.json() : { notifications: [] })
       .then(d => setNotifications(d.notifications || []))
-      .catch(err => console.error('[Topbar] Failed to fetch notifications:', err));
+      .catch(() => {});
   }, []);
 
 
