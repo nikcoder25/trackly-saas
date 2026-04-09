@@ -390,7 +390,7 @@ export default function LivesovHomePage() {
     return () => document.removeEventListener('click', handleClick);
   }, [menuOpen]);
 
-  // Scroll fade-in animation
+  // Scroll fade-in animation with 2s fallback
   useEffect(() => {
     const els = document.querySelectorAll('.tl-animate');
     if (!els.length) return;
@@ -399,7 +399,10 @@ export default function LivesovHomePage() {
       { threshold: 0.15 }
     );
     els.forEach(el => observer.observe(el));
-    return () => observer.disconnect();
+    const fallback = setTimeout(() => {
+      els.forEach(el => el.classList.add('tl-animate--visible'));
+    }, 2000);
+    return () => { observer.disconnect(); clearTimeout(fallback); };
   }, []);
 
   return (
@@ -424,7 +427,7 @@ export default function LivesovHomePage() {
             <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
             <Link href="/geo-audit">GEO Audit</Link>
             <Link href="/blog">Blog</Link>
-            <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
+            <Link href="/contact">Contact</Link>
           </div>
 
           <div className="tl-nav-actions">
@@ -442,7 +445,7 @@ export default function LivesovHomePage() {
           <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
           <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
           <Link href="/blog" onClick={closeMenu}>Blog</Link>
-          <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.faq}</a>
+          <Link href="/contact" onClick={closeMenu}>Contact</Link>
           <div className="tl-mobile-menu-actions">
             <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>{t.nav.login}</Link>
             <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>{t.nav.getStarted}</Link>
@@ -619,12 +622,19 @@ export default function LivesovHomePage() {
                 </div>
                 <p className="tl-price-sub">{plan.sub}</p>
                 <ul className="tl-price-features">
-                  {plan.features.map(f => (
-                    <li key={f}>
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      {f}
-                    </li>
-                  ))}
+                  {plan.features.map(f => {
+                    const isNegative = f.toLowerCase().startsWith('no ');
+                    return (
+                      <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
+                        {isNegative ? (
+                          <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        )}
+                        {f}
+                      </li>
+                    );
+                  })}
                 </ul>
                 {plan.name === 'Enterprise' ? (
                   <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
@@ -757,6 +767,7 @@ export default function LivesovHomePage() {
               <Link href="/about">{t.footer.links.about}</Link>
               <Link href="/contact">{t.footer.links.contact}</Link>
               <Link href="/changelog">{t.footer.links.changelog}</Link>
+              <Link href="/partners">Partners</Link>
             </div>
             <div className="tl-footer-col">
               <h4>AI Platforms</h4>

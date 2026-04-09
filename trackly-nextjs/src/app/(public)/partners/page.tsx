@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { DollarSign, BarChart3, HeadphonesIcon } from 'lucide-react';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
@@ -22,21 +23,24 @@ export const metadata: Metadata = {
   },
 };
 
+const benefitIcons = {
+  'Recurring Revenue': DollarSign,
+  'White-Label Reports': BarChart3,
+  'Priority Support': HeadphonesIcon,
+};
+
 const benefits = [
   {
     title: 'Recurring Revenue',
     description: 'Earn 20% recurring commission for the lifetime of every client you refer. Average partner earns $500-2,000/month.',
-    icon: '💰',
   },
   {
     title: 'White-Label Reports',
     description: 'Generate branded AI visibility reports for your clients. Your logo, your brand, your insights.',
-    icon: '📊',
   },
   {
     title: 'Priority Support',
     description: 'Dedicated partner manager, priority onboarding for your clients, and early access to new features.',
-    icon: '🚀',
   },
 ];
 
@@ -86,6 +90,7 @@ export default function PartnersPage() {
       <SeoHero
         title={<>Grow Your Agency with <span className="text-[var(--brand)]">AI Visibility Tracking</span></>}
         subtitle="Partner with Livesov to offer AI brand monitoring to your clients. Earn 20% recurring commission on every referral."
+        hideCta
       />
 
       {/* Override hero CTA */}
@@ -107,7 +112,7 @@ export default function PartnersPage() {
               className="rounded-xl p-8 text-center"
               style={{ background: 'var(--bg-section, #f5f3f0)', border: '1px solid var(--card-border, #e8e5e1)' }}
             >
-              <div className="text-4xl mb-4"><span role="img" aria-label={b.title}>{b.icon}</span></div>
+              <div className="text-4xl mb-4">{(() => { const Icon = benefitIcons[b.title as keyof typeof benefitIcons]; return Icon ? <Icon className="w-10 h-10 text-[var(--brand)] mx-auto" /> : null; })()}</div>
               <h3 className="text-xl font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>{b.title}</h3>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{b.description}</p>
             </div>

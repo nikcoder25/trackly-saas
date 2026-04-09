@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Headphones, Building2, Handshake } from 'lucide-react';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import ContactForm from '@/components/ContactForm';
 
@@ -29,10 +30,12 @@ export default function ContactPage() {
       <SeoHero
         title="Get in Touch"
         subtitle="We'd love to hear from you. Reach out for support, enterprise plans, partnerships, or just to say hello."
+        ctaText="Send us a message"
+        ctaHref="#contact-form"
       />
 
       {/* Contact Form */}
-      <div className="max-w-2xl mx-auto px-6 mt-6 pb-6">
+      <div id="contact-form" className="max-w-2xl mx-auto px-6 mt-6 pb-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Send Us a Message</h2>
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 shadow-sm">
           <ContactForm />
@@ -50,19 +53,22 @@ export default function ContactPage() {
         <p className="text-gray-500 text-sm text-center mb-10">Prefer email? Contact the right team directly.</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
+            <Headphones className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
             <h3 className="font-bold text-gray-900 mb-2">General Support</h3>
             <p className="text-gray-500 text-sm mb-3">For questions about your account, billing, or features.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
+            <a href="mailto:support@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">support@livesov.com</a>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
+            <Building2 className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
             <h3 className="font-bold text-gray-900 mb-2">Enterprise Sales</h3>
             <p className="text-gray-500 text-sm mb-3">For custom plans, volume pricing, and enterprise features.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
+            <a href="mailto:sales@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">sales@livesov.com</a>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
+            <Handshake className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
             <h3 className="font-bold text-gray-900 mb-2">Partnerships</h3>
             <p className="text-gray-500 text-sm mb-3">For integration partnerships and reseller opportunities.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
+            <a href="mailto:partners@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">partners@livesov.com</a>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import SeoLayout, { SeoContent } from '@/components/seo/SeoLayout';
+import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Terms of Service — Livesov',
@@ -24,8 +24,9 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <SeoLayout>
-      <div className="max-w-3xl mx-auto px-6 pt-16 pb-4">
-        <h1 className="text-3xl font-extrabold text-gray-900">Terms of Service</h1>
+      <Breadcrumbs items={[{ name: 'Terms of Service', url: '/terms' }]} />
+      <SeoHero title="Terms of Service" subtitle="Rules and conditions for using the Livesov platform." hideCta />
+      <div className="max-w-3xl mx-auto px-6 pb-4">
         <p className="text-sm text-gray-400 mt-2">Last updated: March 2026</p>
       </div>
       <SeoContent>

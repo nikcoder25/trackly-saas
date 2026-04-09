@@ -10,13 +10,11 @@ interface SeoLayoutProps {
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
-  { href: '/pricing', label: 'Pricing' },
   { href: '/how-it-works', label: 'How it Works' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/geo-audit', label: 'GEO Audit' },
-  { href: '/use-cases', label: 'Use Cases' },
-  { href: '/integrations', label: 'Integrations' },
   { href: '/blog', label: 'Blog' },
-  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
 ];
 
 export default function SeoLayout({ children }: SeoLayoutProps) {
@@ -76,7 +74,6 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/#features">Features</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/how-it-works">How it Works</Link>
-            <Link href="/use-cases">Use Cases</Link>
             <Link href="/integrations">Integrations</Link>
           </div>
           <div className="land-footer-col">
@@ -119,14 +116,16 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
   );
 }
 
-export function SeoHero({ title, subtitle }: { title: React.ReactNode; subtitle: string }) {
+export function SeoHero({ title, subtitle, ctaText, ctaHref, hideCta }: { title: React.ReactNode; subtitle: string; ctaText?: string; ctaHref?: string; hideCta?: boolean }) {
   return (
     <section className="land-hero" style={{ paddingTop: 60, paddingBottom: 48 }}>
       <h1>{title}</h1>
       <p>{subtitle}</p>
-      <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 16 }}>
-        Start Tracking
-      </Link>
+      {!hideCta && (
+        <Link href={ctaHref || '/signup'} className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 16 }}>
+          {ctaText || 'Start Tracking'}
+        </Link>
+      )}
     </section>
   );
 }

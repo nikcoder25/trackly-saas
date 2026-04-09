@@ -243,7 +243,7 @@ export default function GeoAuditPage() {
                   style={{
                     width: `${progress}%`,
                     height: '100%',
-                    background: 'linear-gradient(90deg, var(--brand), #ff8a82)',
+                    background: 'linear-gradient(90deg, var(--brand), #818cf8)',
                     borderRadius: 3,
                     transition: 'width 0.3s ease',
                   }}
@@ -371,11 +371,11 @@ export default function GeoAuditPage() {
             >
               <div
                 style={{
-                  background: '#FFF7F6',
+                  background: '#f5f3ff',
                   borderRadius: 10,
                   padding: 20,
                   marginBottom: 24,
-                  border: '1px solid #FFE4E1',
+                  border: '1px solid #e0e7ff',
                 }}
               >
                 <p
