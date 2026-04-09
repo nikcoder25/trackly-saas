@@ -13,7 +13,7 @@ interface EmailResult {
   reason?: string;
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<EmailResult> {
+async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<EmailResult> {
   if (!EMAIL_API_KEY) {
     // Don't log full HTML (may contain tokens) — just log recipient and subject
     console.log(`[Email] DEV MODE — Would send to ${to}: ${subject} (HTML body omitted for security)`);
@@ -30,8 +30,13 @@ async function sendEmail(to: string, subject: string, html: string): Promise<Ema
       headers['Authorization'] = `Bearer ${EMAIL_API_KEY}`;
     }
 
+    const resendPayload: Record<string, unknown> = { from: EMAIL_FROM, to: [to], subject, html };
+    if (replyTo && isResend) {
+      resendPayload.reply_to = replyTo;
+    }
+
     const body = isResend
-      ? JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html })
+      ? JSON.stringify(resendPayload)
       : JSON.stringify({
           personalizations: [{ to: [{ email: to }] }],
           from: { email: EMAIL_FROM.match(/<(.+)>/)?.[1] || EMAIL_FROM },
@@ -78,4 +83,53 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
     </div>
   `;
   return sendEmail(email, 'Reset your password - Livesov', html);
+}
+
+export async function sendContactFormEmail({
+  name,
+  email,
+  subject,
+  inquiryType,
+  message,
+}: {
+  name: string;
+  email: string;
+  subject: string;
+  inquiryType: string;
+  message: string;
+}): Promise<EmailResult> {
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+      <h2 style="color:#4f46e5;margin-bottom:16px;">New Contact Form Submission</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:140px;">Name</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${name}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Email</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;"><a href="mailto:${email}" style="color:#4f46e5;">${email}</a></td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Inquiry Type</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${inquiryType}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Subject</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${subject}</td>
+        </tr>
+      </table>
+      <div style="margin-top:16px;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+        <p style="font-weight:600;color:#374151;margin:0 0 8px 0;">Message</p>
+        <p style="color:#111827;margin:0;white-space:pre-wrap;">${message}</p>
+      </div>
+      <p style="color:#999;font-size:12px;margin-top:16px;">This message was sent via the Livesov contact form. Reply directly to respond to the customer.</p>
+    </div>
+  `;
+  return sendEmail(
+    'hello@livesov.com',
+    `[Contact Form] ${subject} - ${inquiryType}`,
+    html,
+    email
+  );
 }
