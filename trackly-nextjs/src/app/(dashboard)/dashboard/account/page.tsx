@@ -132,13 +132,6 @@ export default function AccountPage() {
   async function switchPlan(targetPlan: string) {
     const target = targetPlan.toLowerCase();
 
-    if (target === 'enterprise') {
-      const a = document.createElement('a');
-      a.href = 'mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry';
-      a.click();
-      return;
-    }
-
     if (target === 'free') {
       await cancelSubscription();
       return;
@@ -357,9 +350,11 @@ export default function AccountPage() {
               <ul>{p.features.map(f => <li key={f}>{f}</li>)}</ul>
               {plan === p.name.toLowerCase() ? (
                 <button className="land-btn land-btn-primary" style={{ width: '100%', opacity: 0.7, cursor: 'default' }}>CURRENT PLAN</button>
+              ) : p.name.toLowerCase() === 'enterprise' ? (
+                <a href="mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry" className="land-btn land-btn-primary" style={{ width: '100%', display: 'block', textAlign: 'center', textDecoration: 'none' }}>CONTACT US</a>
               ) : (
                 <button className="land-btn land-btn-primary" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
-                  {p.name.toLowerCase() === 'enterprise' ? 'CONTACT US' : (PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `DOWNGRADE TO ${p.name.toUpperCase()}` : `UPGRADE TO ${p.name.toUpperCase()}`}
+                  {(PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `DOWNGRADE TO ${p.name.toUpperCase()}` : `UPGRADE TO ${p.name.toUpperCase()}`}
                 </button>
               )}
             </div>
