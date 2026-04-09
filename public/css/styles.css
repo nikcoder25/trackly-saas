@@ -688,10 +688,11 @@ body:has(#app[style*="display:grid"]){
 /* ── BILLING PLAN CARDS ───────────────────── */
 .billing-cards-header{margin-bottom:16px;}
 .billing-pricing-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:14px;
 }
-@media(max-width:1100px){.billing-pricing-grid{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:600px){.billing-pricing-grid{grid-template-columns:1fr;}}
+@media(max-width:1200px){.billing-pricing-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:800px){.billing-pricing-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:500px){.billing-pricing-grid{grid-template-columns:1fr;}}
 
 .billing-price-card{
   background:var(--bg2);
@@ -767,6 +768,13 @@ body:has(#app[style*="display:grid"]){
 .billing-card-btn-current:hover{
   opacity:.6;transform:none;
 }
+.billing-card-btn-free{
+  background:transparent;
+  color:var(--muted);
+  border-color:var(--border);
+  cursor:default;opacity:.5;
+}
+.billing-card-btn-free:hover{opacity:.5;transform:none;}
 
 /* ── PLAN COMPARISON TABLE ────────────────── */
 .cmp-table-wrap{
@@ -844,9 +852,25 @@ body:has(#app[style*="display:grid"]){
 }
 .cmp-dash{color:var(--muted);font-size:16px;opacity:.4;}
 
+/* Price row */
+.cmp-row-price{background:var(--bg3);}
+.cmp-row-price .cmp-feature-cell{font-weight:700;}
+.cmp-cell-price{}
+.cmp-price-val{font-size:16px;font-weight:800;color:var(--text);}
+
 /* Last row no border */
 .cmp-table tbody tr:last-child .cmp-feature-cell,
 .cmp-table tbody tr:last-child .cmp-cell{border-bottom:none;}
+
+/* Sticky feature column on horizontal scroll */
+.cmp-feature-head,
+.cmp-feature-cell{
+  position:sticky;left:0;z-index:2;
+  background:var(--bg2);
+}
+.cmp-row-stripe .cmp-feature-cell{background:var(--bg3);}
+.cmp-row-price .cmp-feature-cell{background:var(--bg3);}
+.cmp-table thead .cmp-feature-head{background:var(--bg3);z-index:3;}
 
 /* Responsive */
 @media(max-width:700px){

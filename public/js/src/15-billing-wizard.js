@@ -55,8 +55,10 @@ async function renderBilling() {
 
     // Plan pricing cards
     const cardsEl = el('billing-plan-cards');
+    const tiers = ['free','starter','pro','agency','enterprise'];
     const planPricing = [
-      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'SOV tracking & export'] },
+      { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> prompts/month', '1 brand', '2 AI platforms', 'Basic SOV tracking'] },
+      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'Sentiment analysis'] },
       { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
       { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>1,000</strong> prompts/month', '20 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
       { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>10,000</strong> prompts/month', '100 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
@@ -69,9 +71,10 @@ async function renderBilling() {
       <div class="billing-pricing-grid">
         ${planPricing.map(p => {
           const isCurrent = p.id === plan;
-          const isDowngrade = ['free','starter','pro','agency','enterprise'].indexOf(p.id) < ['free','starter','pro','agency','enterprise'].indexOf(plan);
+          const isDowngrade = tiers.indexOf(p.id) < tiers.indexOf(plan);
+          const isFree = p.id === 'free';
           return `<div class="billing-price-card${p.featured ? ' billing-card-featured' : ''}${isCurrent ? ' billing-card-current' : ''}" style="--card-accent:${p.color};">
-            ${p.featured ? '<div class="billing-card-badge">MOST POPULAR</div>' : ''}
+            ${p.featured && !isCurrent ? '<div class="billing-card-badge">MOST POPULAR</div>' : ''}
             ${isCurrent ? '<div class="billing-card-badge billing-card-badge-current">CURRENT PLAN</div>' : ''}
             <div class="billing-card-name">${p.name}</div>
             <div class="billing-card-price">${p.price}<span>${p.period}</span></div>
@@ -79,8 +82,8 @@ async function renderBilling() {
             <ul class="billing-card-features">
               ${p.features.map(f => '<li>' + f + '</li>').join('')}
             </ul>
-            <button class="billing-card-btn${isCurrent ? ' billing-card-btn-current' : ''}" onclick="${isCurrent ? '' : "doUpgrade('" + p.id + "')"}" ${isCurrent ? 'disabled' : ''}>
-              ${isCurrent ? 'Current Plan' : isDowngrade ? 'Downgrade' : 'Buy ' + p.name}
+            <button class="billing-card-btn${isCurrent ? ' billing-card-btn-current' : isFree ? ' billing-card-btn-free' : ''}" onclick="${isCurrent || isFree ? '' : "doUpgrade('" + p.id + "')"}" ${isCurrent || isFree ? 'disabled' : ''}>
+              ${isCurrent ? 'Current Plan' : isFree ? 'Free Tier' : isDowngrade ? 'Downgrade' : 'Buy ' + p.name}
             </button>
           </div>`;
         }).join('')}
@@ -95,10 +98,16 @@ async function renderBilling() {
       starter: { label: 'Starter', price: '$9', color: '#f59e0b' },
       pro: { label: 'Pro', price: '$29', color: '#4f46e5' },
       agency: { label: 'Agency', price: '$89', color: '#7c3aed' },
-      enterprise: { label: 'Enterprise', price: '$499', color: '#9b72ff' }
+      enterprise: { label: 'Enterprise', price: '$499', color: '#9b72ff' },
+      owner: { label: 'Owner', price: '—', color: '#059669' }
     };
-    const boolCell = (val, p) => `<td class="cmp-cell${p === plan ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
-    const numCell = (val, p) => `<td class="cmp-cell${p === plan ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
+    const isActive = (p) => p === plan;
+    const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
+    const numCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
+    const priceCell = (p) => {
+      const m = planMeta[p] || {};
+      return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '—'}</span></td>`;
+    };
     const features = [
       { label: 'Monthly Prompts', icon: '&#9889;', key: 'prompts', type: 'num' },
       { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'num' },
@@ -117,16 +126,20 @@ async function renderBilling() {
               <th class="cmp-feature-head">Features</th>
               ${displayPlans.map(p => {
                 const m = planMeta[p] || { label: p, price: '', color: '#888' };
-                return `<th class="cmp-plan-head${p === plan ? ' cmp-plan-head-active' : ''}">
+                return `<th class="cmp-plan-head${isActive(p) ? ' cmp-plan-head-active' : ''}">
                   <div class="cmp-plan-name" style="color:${m.color};">${m.label}</div>
                   <div class="cmp-plan-price">${m.price}<span>/mo</span></div>
-                  ${p === plan ? '<div class="cmp-current-badge">Your Plan</div>' : ''}
+                  ${isActive(p) ? '<div class="cmp-current-badge">Your Plan</div>' : ''}
                 </th>`;
               }).join('')}
             </tr>
           </thead>
           <tbody>
-            ${features.map((f, i) => `<tr class="cmp-row${i % 2 === 0 ? ' cmp-row-stripe' : ''}">
+            <tr class="cmp-row cmp-row-price">
+              <td class="cmp-feature-cell"><span class="cmp-feature-icon">&#128176;</span>Price / month</td>
+              ${displayPlans.map(p => priceCell(p)).join('')}
+            </tr>
+            ${features.map((f, i) => `<tr class="cmp-row${i % 2 === 1 ? ' cmp-row-stripe' : ''}">
               <td class="cmp-feature-cell"><span class="cmp-feature-icon">${f.icon}</span>${f.label}</td>
               ${displayPlans.map(p => f.type === 'bool' ? boolCell(allPlans[p][f.key], p) : numCell(allPlans[p][f.key], p)).join('')}
             </tr>`).join('')}
