@@ -596,7 +596,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
       // Run tasks with bounded concurrency. Each worker processes and streams
       // results immediately as they arrive (real-time SSE to the frontend).
-      const CONCURRENCY = Math.max(activePlatforms.length, 8);
+      const CONCURRENCY = Math.min(activePlatforms.length, 8);
       const platMentionCount = {};
       let nextIdx = 0;
 
@@ -1625,7 +1625,7 @@ async function runBrandQueries(brand) {
   }
 
   // Bounded concurrency worker pool — skip batch-handled tasks
-  const CRON_CONCURRENCY = Math.max(activePlatforms.length, 8);
+  const CRON_CONCURRENCY = Math.min(activePlatforms.length, 8);
   let cronNextIdx = 0;
   const cronResults = new Array(tasks.length);
 
