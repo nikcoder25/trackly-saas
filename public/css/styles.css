@@ -684,6 +684,90 @@ body:has(#app[style*="display:grid"]){
 .billing-meter-value{font-size:22px;font-weight:800;margin-bottom:10px;}
 .billing-meter-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
 .billing-meter-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+
+/* ── BILLING PLAN CARDS ───────────────────── */
+.billing-cards-header{margin-bottom:16px;}
+.billing-pricing-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+}
+@media(max-width:1100px){.billing-pricing-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.billing-pricing-grid{grid-template-columns:1fr;}}
+
+.billing-price-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:28px 22px;
+  display:flex;flex-direction:column;
+  position:relative;
+  transition:all .2s ease;
+  box-shadow:var(--app-shadow);
+}
+.billing-price-card:hover{
+  transform:translateY(-3px);
+  box-shadow:0 8px 24px rgba(0,0,0,.08);
+}
+.billing-card-featured{
+  border-color:var(--card-accent,var(--primary));
+  box-shadow:0 0 0 1px var(--card-accent,var(--primary)),0 8px 24px rgba(0,0,0,.06);
+}
+.billing-card-current{
+  border-color:var(--card-accent,var(--primary));
+  background:linear-gradient(180deg,rgba(99,102,241,.03) 0%,var(--bg2) 100%);
+}
+.billing-card-badge{
+  position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+  font-size:10px;font-weight:700;letter-spacing:.5px;
+  background:var(--card-accent,var(--primary));color:#fff;
+  padding:3px 14px;border-radius:100px;white-space:nowrap;
+}
+.billing-card-badge-current{
+  background:var(--card-accent,#059669);
+}
+.billing-card-name{
+  font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--card-accent,var(--text));margin-bottom:4px;
+}
+.billing-card-price{
+  font-size:36px;font-weight:800;color:var(--text);margin:8px 0 4px;
+}
+.billing-card-price span{
+  font-size:15px;font-weight:400;color:var(--muted);
+}
+.billing-card-tagline{
+  font-size:13px;color:var(--muted);margin-bottom:18px;
+}
+.billing-card-features{
+  list-style:none;margin:0 0 20px;padding:0;flex:1;
+}
+.billing-card-features li{
+  font-size:13px;padding:7px 0;color:var(--text);
+  border-bottom:1px solid var(--bg3);
+}
+.billing-card-features li::before{
+  content:'✓ ';color:var(--card-accent,var(--green,#10b981));font-weight:700;
+}
+.billing-card-btn{
+  width:100%;padding:11px 20px;
+  font-size:13px;font-weight:700;
+  border:2px solid var(--card-accent,var(--primary));
+  background:var(--card-accent,var(--primary));
+  color:#fff;border-radius:8px;cursor:pointer;
+  transition:all .15s ease;text-transform:uppercase;letter-spacing:.5px;
+}
+.billing-card-btn:hover{
+  opacity:.9;transform:translateY(-1px);
+}
+.billing-card-btn-current{
+  background:transparent;
+  color:var(--card-accent,var(--muted));
+  border-color:var(--border);
+  cursor:default;opacity:.6;
+}
+.billing-card-btn-current:hover{
+  opacity:.6;transform:none;
+}
+
 .logout-btn{
   font-family:var(--mono);font-size:10px;
   color:var(--muted);background:none;border:none;cursor:pointer;

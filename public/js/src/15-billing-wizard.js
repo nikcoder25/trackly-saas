@@ -53,6 +53,39 @@ async function renderBilling() {
       warningsEl.innerHTML = '';
     }
 
+    // Plan pricing cards
+    const cardsEl = el('billing-plan-cards');
+    const planPricing = [
+      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'SOV tracking & export'] },
+      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
+      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>1,000</strong> prompts/month', '20 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>10,000</strong> prompts/month', '100 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+    ];
+    cardsEl.innerHTML = `
+      <div class="billing-cards-header">
+        <div class="card-title">Choose Your Plan</div>
+        <div style="font-size:13px;color:var(--muted);">Select a plan that fits your needs</div>
+      </div>
+      <div class="billing-pricing-grid">
+        ${planPricing.map(p => {
+          const isCurrent = p.id === plan;
+          const isDowngrade = ['free','starter','pro','agency','enterprise'].indexOf(p.id) < ['free','starter','pro','agency','enterprise'].indexOf(plan);
+          return `<div class="billing-price-card${p.featured ? ' billing-card-featured' : ''}${isCurrent ? ' billing-card-current' : ''}" style="--card-accent:${p.color};">
+            ${p.featured ? '<div class="billing-card-badge">MOST POPULAR</div>' : ''}
+            ${isCurrent ? '<div class="billing-card-badge billing-card-badge-current">CURRENT PLAN</div>' : ''}
+            <div class="billing-card-name">${p.name}</div>
+            <div class="billing-card-price">${p.price}<span>${p.period}</span></div>
+            <div class="billing-card-tagline">${p.tagline}</div>
+            <ul class="billing-card-features">
+              ${p.features.map(f => '<li>' + f + '</li>').join('')}
+            </ul>
+            <button class="billing-card-btn${isCurrent ? ' billing-card-btn-current' : ''}" onclick="${isCurrent ? '' : "doUpgrade('" + p.id + "')"}" ${isCurrent ? 'disabled' : ''}>
+              ${isCurrent ? 'Current Plan' : isDowngrade ? 'Downgrade' : 'Buy ' + p.name}
+            </button>
+          </div>`;
+        }).join('')}
+      </div>`;
+
     // Plan comparison
     const plansEl = el('billing-plans');
     const allPlans = data.allPlans || {};
