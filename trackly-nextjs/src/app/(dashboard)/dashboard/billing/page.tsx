@@ -70,10 +70,10 @@ export default function BillingPage() {
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', opacity: 0.8, marginBottom: 4 }}>Current Plan</div>
         <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 4 }}>{currentPlan.toUpperCase()}</div>
         <div style={{ fontSize: 13, opacity: 0.7 }}>Member since {billing?.memberSince ? new Date(billing.memberSince).toLocaleDateString('en-GB') : '—'}</div>
-        <button onClick={() => { const el = document.getElementById('plan-comparison'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
-          style={{ marginTop: 16, padding: '10px 24px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+        <Link href="/dashboard/account"
+          style={{ marginTop: 16, padding: '10px 24px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', fontSize: 13, fontWeight: 700, cursor: 'pointer', textDecoration: 'none', display: 'inline-block' }}>
           Upgrade Plan
-        </button>
+        </Link>
       </div>
 
       {/* Usage Meters — 4 cards with colored top border */}

@@ -626,9 +626,15 @@ export default function LivesovHomePage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                  {plan.cta}
-                </Link>
+                {plan.name === 'Enterprise' ? (
+                  <a href="mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                    {plan.cta}
+                  </Link>
+                )}
               </div>
             ))}
           </div>
