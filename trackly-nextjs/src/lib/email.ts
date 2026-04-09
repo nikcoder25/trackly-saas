@@ -151,7 +151,7 @@ async function sendContactFormViaZoho(
   html: string,
   replyTo: string
 ): Promise<EmailResult> {
-  const host = process.env.ZOHO_SMTP_HOST || 'smtp.zoho.in';
+  const host = process.env.ZOHO_SMTP_HOST || 'smtppro.zoho.in';
   const port = parseInt(process.env.ZOHO_SMTP_PORT || '465', 10);
   const user = process.env.ZOHO_SMTP_USER || 'hello@livesov.com';
   const pass = process.env.ZOHO_SMTP_PASSWORD!;
