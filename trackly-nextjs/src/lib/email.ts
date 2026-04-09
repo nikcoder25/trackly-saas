@@ -63,7 +63,7 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<EmailResult> {
-  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${token}`;
+  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
       <h2 style="color:#4f46e5;">Verify your email</h2>
@@ -76,7 +76,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
 }
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<EmailResult> {
-  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+  const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
       <h2 style="color:#4f46e5;">Reset your password</h2>

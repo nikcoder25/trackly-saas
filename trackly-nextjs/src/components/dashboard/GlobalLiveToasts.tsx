@@ -22,9 +22,10 @@ export default function GlobalLiveToasts() {
     const newToasts = newResults.map(r => ({ ...r, id: ++toastIdRef.current }));
     setToasts(prev => [...prev, ...newToasts].slice(-6));
     const ids = newToasts.map(t => t.id);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts(prev => prev.filter(t => !ids.includes(t.id)));
     }, 3500);
+    return () => clearTimeout(timer);
   }, [live.results.length]);
 
   // Reset counter when run finishes

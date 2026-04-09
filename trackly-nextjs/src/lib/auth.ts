@@ -4,17 +4,15 @@
 import jwt from 'jsonwebtoken';
 import { AUTH } from './constants';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (process.env.NODE_ENV === 'production' && (!JWT_SECRET || JWT_SECRET.length < 32)) {
-  throw new Error('[Auth] JWT_SECRET must be at least 32 characters in production');
-}
-
 function getSecret(): string {
-  if (!JWT_SECRET) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
     throw new Error('JWT_SECRET environment variable is required');
   }
-  return JWT_SECRET;
+  if (process.env.NODE_ENV === 'production' && secret.length < 32) {
+    throw new Error('[Auth] JWT_SECRET must be at least 32 characters in production');
+  }
+  return secret;
 }
 
 export interface JWTPayload {

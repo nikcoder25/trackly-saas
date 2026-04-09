@@ -7,15 +7,19 @@ export default function CookieConsent() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem('cookie-consent');
-    if (!consent) {
-      const t = setTimeout(() => setShow(true), 1000);
-      return () => clearTimeout(t);
+    try {
+      const consent = localStorage.getItem('cookie-consent');
+      if (!consent) {
+        const t = setTimeout(() => setShow(true), 1000);
+        return () => clearTimeout(t);
+      }
+    } catch {
+      // localStorage unavailable (private browsing, etc.)
     }
   }, []);
 
   const handleChoice = (choice: 'accepted' | 'declined') => {
-    localStorage.setItem('cookie-consent', choice);
+    try { localStorage.setItem('cookie-consent', choice); } catch { /* noop */ }
     setShow(false);
   };
 
@@ -97,7 +101,7 @@ export function CookiePreferencesButton() {
   const [hasConsent, setHasConsent] = useState(false);
 
   useEffect(() => {
-    setHasConsent(!!localStorage.getItem('cookie-consent'));
+    try { setHasConsent(!!localStorage.getItem('cookie-consent')); } catch { /* noop */ }
   }, []);
 
   if (!hasConsent) return null;
@@ -105,7 +109,7 @@ export function CookiePreferencesButton() {
   return (
     <button
       onClick={() => {
-        localStorage.removeItem('cookie-consent');
+        try { localStorage.removeItem('cookie-consent'); } catch { /* noop */ }
         window.location.reload();
       }}
       style={{

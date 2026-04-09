@@ -2,12 +2,14 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
-async function requireAdmin(request: Request) {
+async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
   const authResult = await requireVerifiedAuth(request, pool);
-  if (authResult instanceof Response) return null;
+  if (authResult instanceof Response) return authResult;
   const user = authResult;
   const result = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);
-  if (result.rows[0]?.role !== 'admin') return null;
+  if (result.rows[0]?.role !== 'admin') {
+    return Response.json({ error: 'Not found' }, { status: 404 });
+  }
   return user;
 }
 
@@ -16,8 +18,9 @@ export async function GET(request: Request) {
   const rl = await rateLimit('admin:' + ip, 15 * 60 * 1000, 30);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const admin = await requireAdmin(request);
-  if (!admin) return Response.json({ error: 'Not found' }, { status: 404 });
+  const adminResult = await requireAdmin(request);
+  if (adminResult instanceof Response) return adminResult;
+  const admin = adminResult;
 
   const url = new URL(request.url);
   const rawLimit = parseInt(url.searchParams.get('limit') || '100', 10);

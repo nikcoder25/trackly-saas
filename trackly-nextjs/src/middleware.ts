@@ -52,6 +52,28 @@ function checkRateLimit(ip: string, isAuth: boolean): { allowed: boolean; retryA
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 
+async function verifyTokenSignature(token: string): Promise<Record<string, unknown> | null> {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
+    const signature = Uint8Array.from(atob(parts[2].replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const data = encoder.encode(`${parts[0]}.${parts[1]}`);
+    const valid = await crypto.subtle.verify('HMAC', key, signature, data);
+    if (!valid) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 function isTokenExpired(token: string): boolean {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -61,17 +83,9 @@ function isTokenExpired(token: string): boolean {
   }
 }
 
-function getTokenPayload(token: string): { role?: string; plan?: string } | null {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
-}
-
 // ── Middleware ────────────────────────────────────────────────────────────────
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // API rate limiting
@@ -96,13 +110,13 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('livesov_token')?.value;
   const hasValidToken = token && !isTokenExpired(token);
 
-  // Admin backend: requires valid token + admin role encoded in JWT
+  // Admin backend: requires valid token + verified JWT signature with admin role
   if (pathname.startsWith('/admin-backend')) {
     if (!hasValidToken) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    const payload = getTokenPayload(token);
-    if (payload?.role !== 'admin' && payload?.plan !== 'owner') {
+    const payload = await verifyTokenSignature(token);
+    if (!payload || (payload.role !== 'admin' && payload.plan !== 'owner')) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     return NextResponse.next();
