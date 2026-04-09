@@ -98,7 +98,7 @@ export default function ContactForm() {
     }`;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {success && (
         <div className="bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 text-sm">
           Thank you! We&apos;ll get back to you within 24 hours.
@@ -112,7 +112,7 @@ export default function ContactForm() {
 
       {/* Name */}
       <div>
-        <label htmlFor="contact-name" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="contact-name" className="block text-sm font-medium text-gray-700 mb-1.5">
           Full Name
         </label>
         <input
@@ -128,7 +128,7 @@ export default function ContactForm() {
 
       {/* Email */}
       <div>
-        <label htmlFor="contact-email" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="contact-email" className="block text-sm font-medium text-gray-700 mb-1.5">
           Email Address
         </label>
         <input
@@ -144,7 +144,7 @@ export default function ContactForm() {
 
       {/* Subject */}
       <div>
-        <label htmlFor="contact-subject" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="contact-subject" className="block text-sm font-medium text-gray-700 mb-1.5">
           Subject
         </label>
         <input
@@ -160,7 +160,7 @@ export default function ContactForm() {
 
       {/* Inquiry Type */}
       <div>
-        <label htmlFor="contact-inquiry" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="contact-inquiry" className="block text-sm font-medium text-gray-700 mb-1.5">
           Inquiry Type
         </label>
         <select
@@ -179,7 +179,7 @@ export default function ContactForm() {
 
       {/* Message */}
       <div>
-        <label htmlFor="contact-message" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="contact-message" className="block text-sm font-medium text-gray-700 mb-1.5">
           Message
         </label>
         <textarea

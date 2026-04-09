@@ -32,31 +32,37 @@ export default function ContactPage() {
       />
 
       {/* Contact Form */}
-      <div className="max-w-xl mx-auto px-6 pb-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Send Us a Message</h2>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-8">
+      <div className="max-w-2xl mx-auto px-6 mt-12 pb-16">
+        <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Send Us a Message</h2>
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 shadow-sm">
           <ContactForm />
         </div>
       </div>
 
+      {/* Divider */}
+      <div className="max-w-2xl mx-auto px-6">
+        <div className="border-t border-gray-200" />
+      </div>
+
       {/* Contact Info Cards */}
-      <div className="max-w-xl mx-auto px-6 pb-16 pt-2">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Or Reach Out Directly</h2>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 space-y-6">
-          <div>
-            <h3 className="font-bold text-gray-900 mb-1">General Support</h3>
-            <p className="text-gray-500 text-sm">For questions about your account, billing, or features.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">hello@livesov.com</a>
+      <div className="max-w-4xl mx-auto px-6 mt-16 pb-20">
+        <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Or Reach Out Directly</h2>
+        <p className="text-gray-500 text-sm text-center mb-10">Prefer email? Contact the right team directly.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-gray-900 mb-2">General Support</h3>
+            <p className="text-gray-500 text-sm mb-3">For questions about your account, billing, or features.</p>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
           </div>
-          <div>
-            <h3 className="font-bold text-gray-900 mb-1">Enterprise Sales</h3>
-            <p className="text-gray-500 text-sm">For custom plans, volume pricing, and enterprise features.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">hello@livesov.com</a>
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-gray-900 mb-2">Enterprise Sales</h3>
+            <p className="text-gray-500 text-sm mb-3">For custom plans, volume pricing, and enterprise features.</p>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
           </div>
-          <div>
-            <h3 className="font-bold text-gray-900 mb-1">Partnerships</h3>
-            <p className="text-gray-500 text-sm">For integration partnerships and reseller opportunities.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">hello@livesov.com</a>
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
+            <h3 className="font-bold text-gray-900 mb-2">Partnerships</h3>
+            <p className="text-gray-500 text-sm mb-3">For integration partnerships and reseller opportunities.</p>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
           </div>
         </div>
       </div>
