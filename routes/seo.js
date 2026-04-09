@@ -608,32 +608,169 @@ router.get('/contact', (req, res) => {
     canonical: '/contact',
     jsonLd: { "@context": "https://schema.org", "@type": "ContactPage", "name": "Contact Livesov", "description": "Get in touch with the Livesov team.", "url": "https://livesov.com/contact", "mainEntity": { "@type": "Organization", "name": "Livesov", "email": "hello@livesov.com", "url": "https://livesov.com" } },
     content: `
-<h2>Email Us</h2>
-<div class="highlight">
-<p><strong>General inquiries:</strong> <a href="mailto:hello@livesov.com">hello@livesov.com</a></p>
-<p><strong>Support:</strong> <a href="mailto:support@livesov.com">support@livesov.com</a></p>
-<p><strong>Enterprise & partnerships:</strong> <a href="mailto:enterprise@livesov.com">enterprise@livesov.com</a></p>
-<p>We typically respond within 24 hours on business days.</p>
+<style>
+.ct-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin:0 -20px;}
+@media(max-width:768px){.ct-grid{grid-template-columns:1fr;gap:28px;}}
+.ct-form-wrap{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:36px;box-shadow:0 4px 24px rgba(0,0,0,.04);}
+.ct-form-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.ct-form-sub{font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.5;}
+.ct-field{margin-bottom:20px;}
+.ct-label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:.2px;}
+.ct-input,.ct-select,.ct-textarea{
+  display:block;width:100%;padding:12px 16px;font-family:var(--font);font-size:14px;
+  color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);
+  transition:border-color .2s,box-shadow .2s;outline:none;
+}
+.ct-input:focus,.ct-select:focus,.ct-textarea:focus{
+  border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,97,84,.1);
+}
+.ct-input::placeholder,.ct-textarea::placeholder{color:#b0b0b0;}
+.ct-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8.5L1 3.5h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;cursor:pointer;}
+.ct-select option{padding:8px;}
+.ct-textarea{min-height:130px;resize:vertical;line-height:1.6;}
+.ct-btn{
+  display:block;width:100%;padding:14px 24px;font-family:var(--font);font-size:15px;font-weight:700;
+  border:none;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;
+  border-radius:var(--radius-sm);cursor:pointer;transition:all .2s;
+  box-shadow:0 2px 8px rgba(255,97,84,.25);letter-spacing:.3px;
+}
+.ct-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,97,84,.3);}
+.ct-btn:active{transform:translateY(0);}
+.ct-info{display:flex;flex-direction:column;gap:20px;}
+.ct-card{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+  padding:28px;transition:all .2s;box-shadow:0 2px 12px rgba(0,0,0,.03);
+  position:relative;overflow:hidden;
+}
+.ct-card::before{
+  content:'';position:absolute;top:0;left:0;width:4px;height:100%;
+  background:linear-gradient(180deg,var(--primary),var(--accent));border-radius:4px 0 0 4px;
+}
+.ct-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.06);}
+.ct-card-icon{
+  width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;margin-bottom:14px;background:linear-gradient(135deg,rgba(255,97,84,.08),rgba(99,102,241,.08));
+}
+.ct-card-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.ct-card-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.ct-card-email{
+  display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;
+  color:var(--primary);text-decoration:none;transition:color .15s;
+}
+.ct-card-email:hover{color:var(--accent);text-decoration:none;}
+.ct-social{
+  display:flex;gap:12px;margin-top:8px;
+}
+.ct-social a{
+  display:flex;align-items:center;gap:8px;padding:10px 18px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:13px;font-weight:600;color:var(--text);text-decoration:none;transition:all .2s;
+}
+.ct-social a:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-1px);text-decoration:none;}
+.ct-response{
+  display:flex;align-items:center;gap:10px;padding:14px 18px;
+  background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(16,185,129,.02));
+  border:1px solid rgba(16,185,129,.15);border-radius:var(--radius-sm);
+  font-size:13px;color:var(--muted);margin-top:4px;
+}
+.ct-response-dot{width:8px;height:8px;background:var(--success);border-radius:50%;flex-shrink:0;animation:ct-pulse 2s infinite;}
+@keyframes ct-pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+</style>
+
+<div class="ct-grid">
+  <div class="ct-form-wrap">
+    <div class="ct-form-title">Send Us a Message</div>
+    <div class="ct-form-sub">Fill in the form and we'll get back to you as soon as possible.</div>
+    <form id="ct-form" onsubmit="return handleContactSubmit(event)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="ct-field">
+          <label class="ct-label" for="ct-name">Full Name</label>
+          <input class="ct-input" id="ct-name" type="text" placeholder="John Doe" required>
+        </div>
+        <div class="ct-field">
+          <label class="ct-label" for="ct-email">Email Address</label>
+          <input class="ct-input" id="ct-email" type="email" placeholder="john@example.com" required>
+        </div>
+      </div>
+      <div class="ct-field">
+        <label class="ct-label" for="ct-subject">Subject</label>
+        <input class="ct-input" id="ct-subject" type="text" placeholder="How can we help?" required>
+      </div>
+      <div class="ct-field">
+        <label class="ct-label" for="ct-type">Inquiry Type</label>
+        <select class="ct-select" id="ct-type" required>
+          <option value="" disabled selected>Select an inquiry type</option>
+          <option value="general">General Question</option>
+          <option value="support">Technical Support</option>
+          <option value="billing">Billing & Account</option>
+          <option value="enterprise">Enterprise Plans</option>
+          <option value="partnership">Partnership Inquiry</option>
+          <option value="demo">Request a Demo</option>
+          <option value="feedback">Feedback & Suggestions</option>
+        </select>
+      </div>
+      <div class="ct-field">
+        <label class="ct-label" for="ct-message">Message</label>
+        <textarea class="ct-textarea" id="ct-message" placeholder="Tell us more about your inquiry (at least 20 characters)..." minlength="20" required></textarea>
+      </div>
+      <button type="submit" class="ct-btn">Send Message</button>
+    </form>
+  </div>
+
+  <div class="ct-info">
+    <div class="ct-card">
+      <div class="ct-card-icon">&#9993;</div>
+      <div class="ct-card-title">General Support</div>
+      <div class="ct-card-desc">For questions about your account, billing, features, or getting started with Livesov.</div>
+      <a class="ct-card-email" href="mailto:hello@livesov.com">hello@livesov.com &#8594;</a>
+    </div>
+    <div class="ct-card">
+      <div class="ct-card-icon">&#127970;</div>
+      <div class="ct-card-title">Enterprise Sales</div>
+      <div class="ct-card-desc">For custom plans, volume pricing, API access, and dedicated enterprise features.</div>
+      <a class="ct-card-email" href="mailto:enterprise@livesov.com">enterprise@livesov.com &#8594;</a>
+    </div>
+    <div class="ct-card">
+      <div class="ct-card-icon">&#129309;</div>
+      <div class="ct-card-title">Partnerships</div>
+      <div class="ct-card-desc">For integration partnerships, reseller opportunities, and co-marketing initiatives.</div>
+      <a class="ct-card-email" href="mailto:hello@livesov.com">hello@livesov.com &#8594;</a>
+    </div>
+
+    <div class="ct-response">
+      <span class="ct-response-dot"></span>
+      We typically respond within 24 hours on business days
+    </div>
+
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Follow Us</div>
+      <div class="ct-social">
+        <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer">&#120143; &nbsp;X (Twitter)</a>
+        <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer">in &nbsp;LinkedIn</a>
+      </div>
+    </div>
+  </div>
 </div>
 
-<h2>Follow Us</h2>
-<ul>
-<li><a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer">X (Twitter)</a> — Product updates and AI visibility tips</li>
-<li><a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer">LinkedIn</a> — Company news and industry insights</li>
-</ul>
-
-<h2>Common Questions</h2>
-<h3>I need help with my account</h3>
-<p>Email <a href="mailto:support@livesov.com">support@livesov.com</a> with your account email and we'll help you out.</p>
-
-<h3>I want a demo</h3>
-<p>Sign up for free at <a href="/signup">livesov.com/signup</a> — no credit card required. You can start tracking immediately and explore all features.</p>
-
-<h3>I'm interested in enterprise plans</h3>
-<p>Email <a href="mailto:enterprise@livesov.com">enterprise@livesov.com</a> with your requirements. We offer custom keyword limits, API access, white-label reporting, and dedicated support.</p>
-
-<h3>I'm a journalist or blogger</h3>
-<p>We'd love to chat. Email <a href="mailto:hello@livesov.com">hello@livesov.com</a> and we'll get back to you promptly.</p>
+<script>
+function handleContactSubmit(e) {
+  e.preventDefault();
+  var name = document.getElementById('ct-name').value.trim();
+  var email = document.getElementById('ct-email').value.trim();
+  var subject = document.getElementById('ct-subject').value.trim();
+  var type = document.getElementById('ct-type').value;
+  var message = document.getElementById('ct-message').value.trim();
+  if (message.length < 20) { alert('Please write at least 20 characters in your message.'); return false; }
+  var body = 'Name: ' + name + '\\nEmail: ' + email + '\\nInquiry Type: ' + type + '\\n\\n' + message;
+  var mailto = 'mailto:hello@livesov.com?subject=' + encodeURIComponent('[' + type + '] ' + subject) + '&body=' + encodeURIComponent(body);
+  window.location.href = mailto;
+  var btn = document.querySelector('.ct-btn');
+  btn.textContent = 'Opening email client...';
+  btn.style.opacity = '0.7';
+  setTimeout(function(){ btn.textContent = 'Send Message'; btn.style.opacity = '1'; }, 3000);
+  return false;
+}
+</script>
 `
   }));
 });
