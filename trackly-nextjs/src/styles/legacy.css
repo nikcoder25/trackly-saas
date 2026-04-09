@@ -668,6 +668,12 @@ body:has(#app[style*="display:grid"]){
 .plan-limit-bar{height:4px;background:var(--bg3);border-radius:2px;margin-top:4px;overflow:hidden;}
 .plan-limit-fill{height:100%;border-radius:2px;transition:width .3s;}
 
+/* ── BILLING TOP GRID ─────────────────── */
+.billing-top-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:16px;
+}
+@media(max-width:768px){.billing-top-grid{grid-template-columns:1fr;}}
+
 /* ── BILLING METERS GRID ───────────────── */
 .billing-meters-grid{
   display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;
