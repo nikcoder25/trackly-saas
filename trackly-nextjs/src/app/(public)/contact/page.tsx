@@ -32,7 +32,7 @@ export default function ContactPage() {
       />
 
       {/* Contact Form */}
-      <div className="max-w-xl mx-auto px-6 pb-12">
+      <div className="max-w-xl mx-auto px-6 pb-16">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Send Us a Message</h2>
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-8">
           <ContactForm />
@@ -40,8 +40,8 @@ export default function ContactPage() {
       </div>
 
       {/* Contact Info Cards */}
-      <div className="max-w-xl mx-auto px-6 pb-16">
-        <h2 className="sr-only">Contact Options</h2>
+      <div className="max-w-xl mx-auto px-6 pb-16 pt-2">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">Or Reach Out Directly</h2>
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 space-y-6">
           <div>
             <h3 className="font-bold text-gray-900 mb-1">General Support</h3>
