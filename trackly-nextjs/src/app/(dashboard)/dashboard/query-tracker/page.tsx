@@ -22,27 +22,27 @@ export default function QueryTrackerPage() {
 
   useEffect(() => {
     if (!brand) return;
+    let cancelled = false;
+
     // Try API first, fall back to computing from brand data
     fetch(`/api/brands/${brand.id}/keyword-tracker?period=${period}`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => {
-        if (d.keywords && d.keywords.length > 0) {
+        if (!cancelled && d.keywords && d.keywords.length > 0) {
           setKeywords(d.keywords);
-        } else {
+        } else if (!cancelled) {
           computeFromBrand();
         }
       })
-      .catch(() => computeFromBrand());
+      .catch(() => { if (!cancelled) computeFromBrand(); });
 
     function computeFromBrand() {
-      // Fetch full brand data to get queries and runs
       fetch(`/api/brands/${brand!.id}`, { credentials: 'include' })
         .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
         .then(d => {
-          const fullBrand = d.brand || brand;
-          computeFromRuns(fullBrand);
+          if (!cancelled) computeFromRuns(d.brand || brand);
         })
-        .catch(() => computeFromRuns(brand!));
+        .catch(() => { if (!cancelled) computeFromRuns(brand!); });
     }
 
     function computeFromRuns(b: Brand) {
@@ -50,7 +50,6 @@ export default function QueryTrackerPage() {
       const brandQueries = b.queries || [];
       const map: Record<string, { keyword: string; totalRuns: number; mentionCount: number; platforms: Set<string>; posSum: number; posCount: number; lastDate: string; history: number[] }> = {};
 
-      // Build stats from runs that have allResults (latest run after payload trimming)
       runs.forEach(run => {
         const results = run.allResults || [];
         const queryMap: Record<string, { mentioned: number; total: number }> = {};
@@ -72,7 +71,7 @@ export default function QueryTrackerPage() {
         });
       });
 
-      // Ensure all brand queries appear even if no allResults data (stripped older runs)
+      // Ensure all brand queries appear even if no allResults data
       for (const q of brandQueries) {
         if (!map[q]) {
           map[q] = { keyword: q, totalRuns: 0, mentionCount: 0, platforms: new Set(), posSum: 0, posCount: 0, lastDate: runs.length ? (runs[runs.length - 1].date || '') : '', history: [] };
@@ -93,7 +92,9 @@ export default function QueryTrackerPage() {
       }));
       setKeywords(computed);
     }
-  }, [brand, period]);
+
+    return () => { cancelled = true; };
+  }, [brand?.id, period]);
 
   const filtered = useMemo(() => {
     let rows = [...keywords];
@@ -132,9 +133,9 @@ export default function QueryTrackerPage() {
   }
 
   function formatDate(d: string) {
-    if (!d) return '-';
+    if (!d) return '—';
     const dt = new Date(d);
-    if (isNaN(dt.getTime())) return '-';
+    if (isNaN(dt.getTime())) return '—';
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
@@ -193,9 +194,9 @@ export default function QueryTrackerPage() {
       {keywords.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <div style={{ fontSize: 36, marginBottom: 12, opacity: .3 }}>◇</div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>No Keyword Data Yet</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>No Query Data Yet</div>
           <div style={{ color: 'var(--muted)', fontSize: 12, maxWidth: 340, margin: '0 auto' }}>
-            Run queries from Brand Setup to start tracking keyword visibility over time.
+            Run queries from Brand Setup to start tracking keyword visibility over time. Data will appear here after your first completed run.
           </div>
         </div>
       ) : (
@@ -220,11 +221,12 @@ export default function QueryTrackerPage() {
           ) : (
             <div>
               {filtered.map((kw, idx) => {
-                const rateColor = kw.mentionRate >= 40 ? 'var(--green)' : kw.mentionRate > 0 ? 'var(--amber)' : 'var(--muted)';
-                const changeStr = kw.change != null ? (kw.change > 0 ? '+' + kw.change : String(kw.change)) : '-';
+                const hasData = kw.totalRuns > 0;
+                const rateColor = !hasData ? 'var(--muted)' : kw.mentionRate >= 40 ? 'var(--green)' : kw.mentionRate > 0 ? 'var(--amber)' : 'var(--muted)';
+                const changeStr = kw.change != null ? (kw.change > 0 ? '+' + kw.change : String(kw.change)) : '—';
                 const changeColor = kw.change != null && kw.change > 0 ? 'var(--green)' : kw.change != null && kw.change < 0 ? 'var(--red)' : 'var(--muted)';
                 const changeArrow = kw.change != null && kw.change > 0 ? '▲ ' : kw.change != null && kw.change < 0 ? '▼ ' : '';
-                const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '-';
+                const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '—';
                 const isExpanded = expanded === idx;
 
                 return (

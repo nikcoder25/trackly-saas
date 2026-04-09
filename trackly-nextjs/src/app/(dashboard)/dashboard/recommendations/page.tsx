@@ -23,6 +23,9 @@ export default function RecommendationsPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('');
 
+  const [autoGenTriggered, setAutoGenTriggered] = useState(false);
+  const [recsLoaded, setRecsLoaded] = useState(false);
+
   const loadRecs = async () => {
     if (!selectedBrand) return;
     try {
@@ -30,35 +33,37 @@ export default function RecommendationsPage() {
       if (filterStatus) url += `status=${filterStatus}&`;
       if (filterSeverity) url += `severity=${filterSeverity}&`;
       const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load');
       const data = await res.json();
       setAllRecs(data.recommendations || []);
-    } catch { setAllRecs([]); }
+      setRecsLoaded(true);
+    } catch { setAllRecs([]); setRecsLoaded(true); }
   };
 
-  useEffect(() => { loadRecs(); }, [selectedBrand, filterStatus, filterSeverity]);
-
-  // Auto-generate recommendations on page load if data exists but recommendations are empty
-  const [autoGenTriggered, setAutoGenTriggered] = useState(false);
-  useEffect(() => {
-    if (!selectedBrand || loading || generating || autoGenTriggered) return;
-    if (allRecs.length === 0 && brands.length > 0) {
-      setAutoGenTriggered(true);
-      generate();
-    }
-  }, [selectedBrand, loading, allRecs.length, brands.length]);
+  useEffect(() => { loadRecs(); }, [selectedBrand?.id, filterStatus, filterSeverity]);
 
   const generate = async () => {
     if (!selectedBrand || generating) return;
     setGenerating(true);
     try {
-      await fetch(`/api/brands/${selectedBrand.id}/recommendations`, {
+      const res = await fetch(`/api/brands/${selectedBrand.id}/recommendations`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate' }),
       });
+      if (!res.ok) throw new Error('Generation failed');
       await loadRecs();
-    } catch {} finally { setGenerating(false); }
+    } catch { /* loadRecs will show current state */ } finally { setGenerating(false); }
   };
+
+  // Auto-generate recommendations on page load if data exists but recommendations are empty
+  useEffect(() => {
+    if (!selectedBrand || loading || generating || autoGenTriggered || !recsLoaded) return;
+    if (allRecs.length === 0 && brands.length > 0) {
+      setAutoGenTriggered(true);
+      generate();
+    }
+  }, [selectedBrand?.id, loading, allRecs.length, brands.length, recsLoaded]);
 
   const updateStatus = async (id: string, status: string) => {
     if (!selectedBrand) return;

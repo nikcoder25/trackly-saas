@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     const emailResult = await sendVerificationEmail(email, verifyToken);
     if (!emailResult.sent) {
-      console.error('[Resend Verification] Email failed:', emailResult.reason, { userId: user.id, email });
+      console.error('[Resend Verification] Email failed:', emailResult.reason);
       return Response.json({ error: 'Failed to send verification email. Please try again later.' }, { status: 500 });
     }
 

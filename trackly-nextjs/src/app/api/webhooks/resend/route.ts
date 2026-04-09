@@ -55,27 +55,21 @@ export async function POST(request: Request) {
   }
 
   const { type, data } = payload;
-  const to = data.to?.join(', ') || 'unknown';
 
   switch (type) {
-    case 'email.delivered':
-      console.log(`[Resend Webhook] Delivered to=${to} subject="${data.subject}" email_id=${data.email_id}`);
-      break;
-
     case 'email.bounced':
-      console.error(`[Resend Webhook] BOUNCED to=${to} subject="${data.subject}" email_id=${data.email_id} bounce=${JSON.stringify(data.bounce)}`);
+      console.error(`[Resend Webhook] BOUNCED email_id=${data.email_id}`);
       break;
 
     case 'email.complained':
-      console.error(`[Resend Webhook] COMPLAINED to=${to} subject="${data.subject}" email_id=${data.email_id}`);
+      console.error(`[Resend Webhook] COMPLAINED email_id=${data.email_id}`);
       break;
 
     case 'email.delivery_delayed':
-      console.warn(`[Resend Webhook] DELAYED to=${to} subject="${data.subject}" email_id=${data.email_id}`);
+      console.warn(`[Resend Webhook] DELAYED email_id=${data.email_id}`);
       break;
 
     default:
-      console.log(`[Resend Webhook] ${type} to=${to} email_id=${data.email_id}`);
       break;
   }
 

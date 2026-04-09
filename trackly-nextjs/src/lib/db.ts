@@ -71,9 +71,8 @@ export async function auditLog(
     );
     return true;
   } catch (e) {
-    console.error('[AuditLog] FAILED to write audit log:', {
+    console.error('[AuditLog] Failed to write audit log:', {
       action,
-      userId,
       error: (e as Error).message,
     });
     return false;

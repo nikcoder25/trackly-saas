@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       totalPlatforms: 5,
     });
   } catch (error) {
-    console.error('Free check error:', error);
+    console.error('[FreeCheck]', (error as Error).message);
     return Response.json(
       { error: 'Something went wrong. Please try again later.' },
       { status: 500 }

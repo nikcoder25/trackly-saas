@@ -15,19 +15,16 @@ export async function POST(request: Request) {
     // Webhook signature verification
     const webhookSecret = process.env.DODO_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.error('[Webhook] DODO_WEBHOOK_SECRET is not set');
       return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
     const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
     if (!signature) {
-      console.error('[Webhook] Missing signature header');
       return Response.json({ error: 'Missing signature' }, { status: 401 });
     }
     const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
     const sigBuffer = Buffer.from(signature, 'hex');
     const expectedBuffer = Buffer.from(expected, 'hex');
     if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-      console.error('[Webhook] Invalid signature');
       return Response.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
@@ -41,7 +38,6 @@ export async function POST(request: Request) {
     const eventType = body.type || body.event_type || '';
 
     // Idempotency: atomically mark as processed to prevent race conditions
-    // INSERT ... ON CONFLICT DO NOTHING returns 0 rows if already exists
     const inserted = await pool.query(
       'INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING RETURNING event_id',
       [eventId, eventType]
@@ -50,26 +46,24 @@ export async function POST(request: Request) {
       return Response.json({ received: true, duplicate: true });
     }
 
-    // Handle payment events
-    if (eventType === 'payment.succeeded' || eventType === 'subscription.active') {
-      const metadata = body.metadata || body.data?.metadata || {};
-      const userId = metadata.userId;
+    // Extract userId from metadata
+    const metadata = body.metadata || body.data?.metadata || {};
+    const userId = metadata.userId;
 
+    // Handle plan upgrade events
+    if (eventType === 'payment.succeeded' || eventType === 'subscription.active' || eventType === 'subscription.renewed') {
       if (!userId || typeof userId !== 'string') {
-        console.error('[Webhook] Missing or invalid userId in metadata');
         return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
       }
-      // Verify user actually exists
       const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
       if (!userCheck.rows.length) {
-        console.error('[Webhook] userId not found:', userId);
         return Response.json({ error: 'User not found' }, { status: 400 });
       }
 
       const productId = body.product_id || body.data?.product_id;
       const plan = productId ? PLAN_MAP[productId] : null;
 
-      if (userId && plan) {
+      if (plan) {
         // Verify the userId from metadata matches the payment customer for extra security
         const customerId = body.customer_id || body.data?.customer_id;
         if (customerId) {
@@ -78,7 +72,6 @@ export async function POST(request: Request) {
             [userId, customerId]
           );
           if (!customerCheck.rows.length) {
-            console.error('[Webhook] userId/customerId mismatch:', { userId, customerId });
             return Response.json({ error: 'User/customer mismatch' }, { status: 400 });
           }
         }
@@ -91,34 +84,36 @@ export async function POST(request: Request) {
             [JSON.stringify({ subscription_id: subscriptionId, subscription_status: 'active' }), userId]
           );
         }
-        console.log(`[Webhook] Upgraded user to ${plan}`);
         auditLog('system', 'webhook_plan_change', 'user', userId, { plan, eventId, eventType }, 'webhook');
       }
     }
 
-    if (eventType === 'subscription.cancelled' || eventType === 'subscription.expired') {
-      const metadata = body.metadata || body.data?.metadata || {};
-      const userId = metadata.userId;
-
+    // Handle downgrade events
+    if (eventType === 'subscription.cancelled' || eventType === 'subscription.expired' || eventType === 'refund.succeeded') {
       if (!userId || typeof userId !== 'string') {
-        console.error('[Webhook] Missing or invalid userId in metadata');
         return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
       }
-      // Verify user actually exists
       const userCheck2 = await pool.query('SELECT id FROM users WHERE id = $1', [userId]);
       if (!userCheck2.rows.length) {
-        console.error('[Webhook] userId not found:', userId);
         return Response.json({ error: 'User not found' }, { status: 400 });
       }
 
-      if (userId) {
-        await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
+      await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
+      await pool.query(
+        `UPDATE users SET settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
+        [userId]
+      );
+      auditLog('system', 'webhook_plan_change', 'user', userId, { plan: 'free', eventId, eventType }, 'webhook');
+    }
+
+    // Handle subscription on hold
+    if (eventType === 'subscription.on_hold') {
+      if (userId && typeof userId === 'string') {
         await pool.query(
-          `UPDATE users SET settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
+          `UPDATE users SET settings = settings || '{"subscription_status":"on_hold"}'::jsonb WHERE id = $1`,
           [userId]
         );
-        console.log('[Webhook] Downgraded user to free');
-        auditLog('system', 'webhook_plan_change', 'user', userId, { plan: 'free', eventId, eventType }, 'webhook');
+        auditLog('system', 'webhook_plan_change', 'user', userId, { status: 'on_hold', eventId, eventType }, 'webhook');
       }
     }
 

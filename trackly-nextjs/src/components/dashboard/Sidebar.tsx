@@ -58,10 +58,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
     <>
       {/* Mobile overlay */}
       {open && (
-        <div className="mobile-overlay" style={{ display: 'block', position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 998 }} onClick={onClose} />
+        <div className="mobile-overlay" role="presentation" style={{ display: 'block', position: 'fixed', inset: 0, background: 'rgba(0,0,0,.3)', zIndex: 998 }} onClick={onClose} />
       )}
 
-      <aside className={`sidebar ${open ? 'mobile-open' : ''}`} style={{
+      <aside className={`sidebar ${open ? 'mobile-open' : ''}`} role="navigation" aria-label="Main navigation" style={{
         display: 'flex', flexDirection: 'column',
       }}>
         {/* Run Queries Button */}
@@ -69,6 +69,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <button
             className={`run-btn${live.running ? ' running' : ''}`}
             id="sidebar-run-btn"
+            aria-label={live.running ? 'Running queries' : 'Run queries'}
             style={{
               margin: 0,
               opacity: isDisabled ? 0.5 : 1,
@@ -133,7 +134,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <p style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{user?.plan || 'free'} plan</p>
             </div>
           </div>
-          <button onClick={logout} className="logout-btn">Sign out</button>
+          <button onClick={logout} className="logout-btn" aria-label="Sign out">Sign out</button>
         </div>
       </aside>
 
