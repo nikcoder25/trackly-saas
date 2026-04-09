@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, FormEvent } from 'react';
 
 const INQUIRY_TYPES = [
   'General Support',
@@ -18,7 +18,20 @@ interface FormErrors {
   subject?: string;
   inquiryType?: string;
   message?: string;
+  turnstile?: string;
 }
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export default function ContactForm() {
   const [name, setName] = useState('');
@@ -30,6 +43,60 @@ export default function ContactForm() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [serverError, setServerError] = useState('');
+
+  // Turnstile state
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  const renderTurnstile = useCallback(() => {
+    if (!TURNSTILE_SITE_KEY || !turnstileRef.current || !window.turnstile) return;
+    // Avoid double-rendering
+    if (widgetIdRef.current !== null) return;
+
+    widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token: string) => {
+        setTurnstileToken(token);
+        setErrors((p) => ({ ...p, turnstile: undefined }));
+      },
+      'expired-callback': () => setTurnstileToken(''),
+      'error-callback': () => setTurnstileToken(''),
+      theme: 'light',
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+
+    // If the Turnstile API is already loaded, render immediately
+    if (window.turnstile) {
+      renderTurnstile();
+      return;
+    }
+
+    // Load the Turnstile script
+    const existing = document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]');
+    if (!existing) {
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.onload = () => renderTurnstile();
+      document.head.appendChild(script);
+    } else {
+      // Script tag exists but may still be loading
+      existing.addEventListener('load', () => renderTurnstile());
+      // In case it already loaded
+      if (window.turnstile) renderTurnstile();
+    }
+
+    return () => {
+      if (widgetIdRef.current !== null && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, [renderTurnstile]);
 
   function validate(): FormErrors {
     const errs: FormErrors = {};
@@ -45,6 +112,9 @@ export default function ContactForm() {
       errs.message = 'Message is required.';
     } else if (message.trim().length < 20) {
       errs.message = 'Message must be at least 20 characters.';
+    }
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      errs.turnstile = 'Please complete the security challenge.';
     }
     return errs;
   }
@@ -69,11 +139,19 @@ export default function ContactForm() {
           subject: subject.trim(),
           inquiryType,
           message: message.trim(),
+          turnstileToken: turnstileToken || undefined,
+          // Honeypot field — real users never see or fill this
+          website: (document.getElementById('contact-website') as HTMLInputElement)?.value || '',
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setServerError(data.error || 'Something went wrong. Please try again.');
+        // Reset Turnstile on failure so user can retry
+        if (widgetIdRef.current !== null && window.turnstile) {
+          window.turnstile.reset(widgetIdRef.current);
+          setTurnstileToken('');
+        }
         return;
       }
       setSuccess(true);
@@ -83,6 +161,11 @@ export default function ContactForm() {
       setInquiryType('');
       setMessage('');
       setErrors({});
+      setTurnstileToken('');
+      // Reset Turnstile widget for next submission
+      if (widgetIdRef.current !== null && window.turnstile) {
+        window.turnstile.reset(widgetIdRef.current);
+      }
     } catch {
       setServerError('Network error. Please check your connection and try again.');
     } finally {
@@ -109,6 +192,18 @@ export default function ContactForm() {
           {serverError}
         </div>
       )}
+
+      {/* Honeypot field — hidden from real users, bots will fill it */}
+      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+        <label htmlFor="contact-website">Website</label>
+        <input
+          id="contact-website"
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
 
       {/* Name */}
       <div>
@@ -192,6 +287,14 @@ export default function ContactForm() {
         />
         {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
       </div>
+
+      {/* Cloudflare Turnstile widget */}
+      {TURNSTILE_SITE_KEY && (
+        <div>
+          <div ref={turnstileRef} />
+          {errors.turnstile && <p className="text-red-500 text-xs mt-1">{errors.turnstile}</p>}
+        </div>
+      )}
 
       {/* Submit */}
       <button
