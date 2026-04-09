@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
+import ContactForm from '@/components/ContactForm';
 
 export const metadata: Metadata = {
   title: 'Contact Us — Livesov',
@@ -29,6 +30,16 @@ export default function ContactPage() {
         title="Get in Touch"
         subtitle="We'd love to hear from you. Reach out for support, enterprise plans, partnerships, or just to say hello."
       />
+
+      {/* Contact Form */}
+      <div className="max-w-xl mx-auto px-6 pb-12">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Send Us a Message</h2>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-8">
+          <ContactForm />
+        </div>
+      </div>
+
+      {/* Contact Info Cards */}
       <div className="max-w-xl mx-auto px-6 pb-16">
         <h2 className="sr-only">Contact Options</h2>
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 space-y-6">
