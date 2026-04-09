@@ -20,6 +20,7 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const { login, loginWithGoogle } = useAuth();
@@ -134,6 +135,7 @@ function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (honeypot) return;
     setError('');
     setLoading(true);
 
@@ -175,6 +177,10 @@ function LoginForm() {
       )}
 
       <form onSubmit={handleSubmit}>
+        <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+          <label htmlFor="login-website">Website</label>
+          <input id="login-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+        </div>
         {!needs2FA ? (
           <>
             <label htmlFor="email" className="flbl">{t.auth.emailOrUsername}</label>

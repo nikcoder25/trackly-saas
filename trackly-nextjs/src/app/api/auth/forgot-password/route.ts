@@ -10,10 +10,14 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimit('forgot_password:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { email } = await request.json();
-  if (!email) return Response.json({ error: 'Email is required' }, { status: 400 });
+  const body = await request.json();
+  const { email, website } = body;
 
   const successMsg = 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.';
+
+  // Honeypot: silently reject if filled
+  if (website) return Response.json({ message: successMsg });
+  if (!email) return Response.json({ error: 'Email is required' }, { status: 400 });
 
   try {
     // Add consistent delay to prevent timing-based account enumeration

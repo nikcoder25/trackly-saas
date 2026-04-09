@@ -23,7 +23,11 @@ export async function POST(request: NextRequest) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const { email } = await request.json();
+    const body = await request.json();
+    const { email, website } = body;
+
+    // Honeypot: silently reject if filled
+    if (website) return Response.json({ success: true });
 
     if (!email || typeof email !== 'string') {
       return Response.json({ error: 'Email is required' }, { status: 400 });

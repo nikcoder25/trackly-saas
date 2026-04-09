@@ -97,6 +97,7 @@ function CategoryCard({ category }: { category: CategoryResult }) {
 
 export default function GeoAuditPage() {
   const [url, setUrl] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<AuditResult | null>(null);
@@ -104,6 +105,7 @@ export default function GeoAuditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (honeypot) return;
     setError('');
     setResult(null);
     setLoading(true);
@@ -124,7 +126,7 @@ export default function GeoAuditPage() {
       const res = await fetch('/api/geo-audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), website: honeypot }),
       });
       const data = await res.json();
 
@@ -179,6 +181,10 @@ export default function GeoAuditPage() {
           }}
         >
           <form onSubmit={handleSubmit}>
+            <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+              <label htmlFor="audit-website">Website</label>
+              <input id="audit-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+            </div>
             <div style={{ marginBottom: 20 }}>
               <label
                 htmlFor="auditUrl"

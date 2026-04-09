@@ -13,10 +13,12 @@ function ResetPasswordForm() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [honeypot, setHoneypot] = useState('');
   const { t } = useLanguage();
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (honeypot) { setMessage('If an account exists with that email, a reset link has been sent.'); return; }
     setError('');
     setMessage('');
     setLoading(true);
@@ -24,7 +26,7 @@ function ResetPasswordForm() {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, website: honeypot }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -37,6 +39,7 @@ function ResetPasswordForm() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (honeypot) return;
     setError('');
     setMessage('');
     setLoading(true);
@@ -75,6 +78,10 @@ function ResetPasswordForm() {
 
       {token ? (
         <form onSubmit={handleReset}>
+          <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+            <label htmlFor="reset-website">Website</label>
+            <input id="reset-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+          </div>
           <label htmlFor="newPassword" className="flbl">{t.auth.newPassword}</label>
           <input
             id="newPassword"
@@ -93,6 +100,10 @@ function ResetPasswordForm() {
         </form>
       ) : (
         <form onSubmit={handleForgot}>
+          <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+            <label htmlFor="forgot-website">Website</label>
+            <input id="forgot-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+          </div>
           <label htmlFor="email" className="flbl">{t.auth.email}</label>
           <input
             id="email"

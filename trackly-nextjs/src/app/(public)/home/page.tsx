@@ -218,11 +218,13 @@ function TestimonialCarousel() {
 /* ─── Email capture component ─── */
 function EmailCapture() {
   const [email, setEmail] = useState('');
+  const [honeypot, setHoneypot] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (honeypot) { setStatus('success'); return; }
     if (!email || !email.includes('@')) { setStatus('error'); setErrorMsg('Please enter a valid email address.'); return; }
 
     setStatus('loading');
@@ -230,7 +232,7 @@ function EmailCapture() {
       const res = await fetch('/api/newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, website: honeypot }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -248,6 +250,10 @@ function EmailCapture() {
 
   return (
     <form className="tl-email-form" onSubmit={handleSubmit}>
+      <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+        <label htmlFor="newsletter-website">Website</label>
+        <input id="newsletter-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+      </div>
       {status === 'success' ? (
         <div className="tl-email-success">
           <span>✓</span> Thanks! You&apos;re on the list.

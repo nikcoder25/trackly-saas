@@ -233,31 +233,17 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // ─── HEALTH CHECK (before auth — accessible to monitoring tools) ──
 app.get('/api/health', async (req, res) => {
-  const checks = { db: false, payments: false };
   let status = 'ok';
+  let code = 200;
 
-  // Database connectivity
   try {
     await pool.query('SELECT 1');
-    checks.db = true;
   } catch(e) {
     status = 'degraded';
+    code = 503;
   }
 
-  // DodoPayments configuration
-  const dodoKey = process.env.DODO_PAYMENTS_API_KEY;
-  const dodoWebhook = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
-  const dodoProducts = [
-    process.env.DODO_STARTER_PRODUCT_ID,
-    process.env.DODO_PRO_PRODUCT_ID,
-    process.env.DODO_AGENCY_PRODUCT_ID,
-    process.env.DODO_ENTERPRISE_PRODUCT_ID
-  ];
-  checks.payments = !!(dodoKey && dodoWebhook && dodoProducts.every(Boolean));
-  if (!checks.payments) status = status === 'ok' ? 'degraded' : status;
-
-  const code = checks.db ? 200 : 503;
-  res.status(code).json({ status, time: new Date().toISOString(), checks });
+  res.status(code).json({ status, timestamp: new Date().toISOString() });
 });
 
 // ─── CONFIG ENDPOINT (public — serves non-secret configuration) ──

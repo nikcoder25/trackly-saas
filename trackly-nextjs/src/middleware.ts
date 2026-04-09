@@ -3,6 +3,55 @@ import type { NextRequest } from 'next/server';
 
 const authPaths = ['/login', '/signup', '/reset-password'];
 
+// ── In-memory rate limiting ──────────────────────────────────────────────────
+
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+const WINDOW_MS = 60 * 1000; // 1 minute
+const GENERAL_LIMIT = 100;   // 100 req/min for general API routes
+const AUTH_LIMIT = 10;        // 10 req/min for auth routes
+
+// Cleanup expired entries every 5 minutes
+let lastCleanup = Date.now();
+
+function cleanupExpired() {
+  const now = Date.now();
+  if (now - lastCleanup < 5 * 60 * 1000) return;
+  lastCleanup = now;
+  for (const [key, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(key);
+  }
+}
+
+function checkRateLimit(ip: string, isAuth: boolean): { allowed: boolean; retryAfter: number } {
+  cleanupExpired();
+
+  const limit = isAuth ? AUTH_LIMIT : GENERAL_LIMIT;
+  const key = `${isAuth ? 'auth' : 'api'}:${ip}`;
+  const now = Date.now();
+
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    return { allowed: true, retryAfter: 0 };
+  }
+
+  entry.count++;
+  if (entry.count > limit) {
+    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+
+  return { allowed: true, retryAfter: 0 };
+}
+
+// ── Auth helpers ─────────────────────────────────────────────────────────────
+
 function isTokenExpired(token: string): boolean {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -20,8 +69,30 @@ function getTokenPayload(token: string): { role?: string; plan?: string } | null
   }
 }
 
+// ── Middleware ────────────────────────────────────────────────────────────────
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // API rate limiting
+  if (pathname.startsWith('/api/')) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'unknown';
+    const isAuth = pathname.startsWith('/api/auth/');
+    const { allowed, retryAfter } = checkRateLimit(ip, isAuth);
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.', retryAfter },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(retryAfter) },
+        }
+      );
+    }
+
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get('livesov_token')?.value;
   const hasValidToken = token && !isTokenExpired(token);
 
@@ -53,5 +124,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin-backend/:path*', '/dashboard/:path*', '/onboarding', '/login', '/signup', '/reset-password'],
+  matcher: ['/api/:path*', '/admin-backend/:path*', '/dashboard/:path*', '/onboarding', '/login', '/signup', '/reset-password'],
 };

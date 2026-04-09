@@ -388,7 +388,10 @@ export async function POST(req: NextRequest) {
 
     // Parse and validate input
     const body = await req.json();
-    const { url } = body;
+    const { url, website } = body;
+
+    // Honeypot: silently reject if filled
+    if (website) return Response.json({ url: '', overallScore: 0, categories: [], recommendations: [], meta: { title: '', wordCount: 0, fetchTimeMs: 0 } });
 
     if (!url || typeof url !== 'string' || !url.trim()) {
       return Response.json({ error: 'URL is required.' }, { status: 400 });
