@@ -610,7 +610,7 @@ export default function LivesovHomePage() {
           </div>
 
           <div className="tl-pricing-grid">
-            {pricingPlans.map(plan => (
+            {pricingPlans.filter(plan => plan.name !== 'Enterprise').map(plan => (
               <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
                 {plan.featured && <div className="tl-price-badge">Most Popular</div>}
                 <h3>{plan.name}</h3>
@@ -626,15 +626,9 @@ export default function LivesovHomePage() {
                     </li>
                   ))}
                 </ul>
-                {plan.name === 'Enterprise' ? (
-                  <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                    {plan.cta}
-                  </a>
-                ) : (
-                  <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                    {plan.cta}
-                  </Link>
-                )}
+                <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                  {plan.cta}
+                </Link>
               </div>
             ))}
           </div>
