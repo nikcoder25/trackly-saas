@@ -627,7 +627,7 @@ export default function LivesovHomePage() {
                   ))}
                 </ul>
                 {plan.name === 'Enterprise' ? (
-                  <a href="mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                  <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
                     {plan.cta}
                   </a>
                 ) : (

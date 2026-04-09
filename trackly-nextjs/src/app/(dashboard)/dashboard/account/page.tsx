@@ -351,7 +351,7 @@ export default function AccountPage() {
               {plan === p.name.toLowerCase() ? (
                 <button className="land-btn land-btn-primary" style={{ width: '100%', opacity: 0.7, cursor: 'default' }}>CURRENT PLAN</button>
               ) : p.name.toLowerCase() === 'enterprise' ? (
-                <a href="mailto:hello@livesov.com?subject=Enterprise%20Plan%20Inquiry" className="land-btn land-btn-primary" style={{ width: '100%', display: 'block', textAlign: 'center', textDecoration: 'none' }}>CONTACT US</a>
+                <a href="/contact" className="land-btn land-btn-primary" style={{ width: '100%', display: 'block', textAlign: 'center', textDecoration: 'none' }}>CONTACT US</a>
               ) : (
                 <button className="land-btn land-btn-primary" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
                   {(PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `DOWNGRADE TO ${p.name.toUpperCase()}` : `UPGRADE TO ${p.name.toUpperCase()}`}
