@@ -96,9 +96,30 @@ function _flushNotifQueue() {
   // Single DOM write: append all at once
   cont.appendChild(frag);
 
-  // Cap visible notifications — remove oldest in one pass
-  while (cont.children.length > _NOTIF_MAX) {
-    cont.removeChild(cont.children[0]);
+  // Cap visible notifications — remove oldest in one pass (skip close-all btn)
+  const notifs = cont.querySelectorAll('.live-notif');
+  if (notifs.length > _NOTIF_MAX) {
+    for (let i = 0; i < notifs.length - _NOTIF_MAX; i++) notifs[i].remove();
+  }
+
+  // Show "Close All" button when more than 1 notification visible
+  _updateCloseAllBtn(cont);
+}
+
+function _updateCloseAllBtn(cont) {
+  const notifs = cont.querySelectorAll('.live-notif');
+  let btn = cont.querySelector('.live-notif-close-all');
+  if (notifs.length > 1) {
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.className = 'live-notif-close-all';
+      btn.textContent = 'Close All';
+      btn.setAttribute('aria-label', 'Close all notifications');
+      btn.onclick = () => clearLiveNotifs();
+      cont.appendChild(btn);
+    }
+  } else if (btn) {
+    btn.remove();
   }
 }
 

@@ -44,6 +44,24 @@ export default function GlobalLiveToasts() {
         display: 'flex', flexDirection: 'column-reverse', gap: 8,
         maxHeight: '50vh', pointerEvents: 'none',
       }}>
+        {toasts.length > 1 && (
+          <button
+            onClick={() => setToasts([])}
+            aria-label="Close all notifications"
+            style={{
+              pointerEvents: 'auto', alignSelf: 'flex-end',
+              padding: '4px 10px', fontSize: 10, fontWeight: 700,
+              fontFamily: 'var(--mono)', color: 'var(--muted)',
+              background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-xs)', cursor: 'pointer',
+              transition: 'all .2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--text)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+          >
+            Close All
+          </button>
+        )}
         {toasts.map(t => (
           <div key={t.id} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
