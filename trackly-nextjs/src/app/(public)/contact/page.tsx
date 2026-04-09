@@ -35,17 +35,17 @@ export default function ContactPage() {
           <div>
             <h3 className="font-bold text-gray-900 mb-1">General Support</h3>
             <p className="text-gray-500 text-sm">For questions about your account, billing, or features.</p>
-            <a href="mailto:support@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">support@livesov.com</a>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">hello@livesov.com</a>
           </div>
           <div>
             <h3 className="font-bold text-gray-900 mb-1">Enterprise Sales</h3>
             <p className="text-gray-500 text-sm">For custom plans, volume pricing, and enterprise features.</p>
-            <a href="mailto:sales@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">sales@livesov.com</a>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">hello@livesov.com</a>
           </div>
           <div>
             <h3 className="font-bold text-gray-900 mb-1">Partnerships</h3>
             <p className="text-gray-500 text-sm">For integration partnerships and reseller opportunities.</p>
-            <a href="mailto:partners@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">partners@livesov.com</a>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium mt-1 hover:underline">hello@livesov.com</a>
           </div>
         </div>
       </div>
