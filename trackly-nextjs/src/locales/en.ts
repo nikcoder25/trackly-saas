@@ -179,7 +179,7 @@ const en = {
 
   // Footer
   footer: {
-    desc: 'Track your brand\'s visibility across AI platforms. Know when ChatGPT, Perplexity, Claude, and others mention you.',
+    desc: 'AI Visibility Tracker \u2014 Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
     product: 'Product',
     resources: 'Resources',
     legal: 'Legal',

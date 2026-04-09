@@ -147,7 +147,7 @@ const fr: Translations = {
     note: "Plans à partir de 9$/mois. Configuration en moins de 2 minutes.",
   },
   footer: {
-    desc: "Suivez la visibilité de votre marque sur les plateformes IA. Sachez quand ChatGPT, Perplexity, Claude vous mentionnent.",
+    desc: "AI Visibility Tracker \u2014 Suivez comment les plateformes IA mentionnent votre marque sur ChatGPT, Perplexity, Claude, Gemini et Grok.",
     product: 'Produit',
     resources: 'Ressources',
     legal: 'Légal',

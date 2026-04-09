@@ -70,6 +70,21 @@ export const PRICING_PLANS: PricingPlan[] = [
   { name: 'Enterprise', price: 'Custom', annualPrice: 'Custom', sub: 'For large organizations', cta: 'Contact Us', features: ['Everything in Agency, plus:', '100 brands', '10,000 prompts/month', '6-hour schedule', 'Competitor tracking (100)', 'API access', 'Dedicated support', '5,000 GEO audits/month', 'Custom integrations'] },
 ];
 
+/* ── Shared comparison table data (homepage + pricing page) ── */
+export const PRICING_COMPARISON = {
+  headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush'],
+  rows: [
+    ['AI Brand Tracking', '\u2713 (5 platforms)', '\u2717', '\u2717'],
+    ['Starting Price', '$0/mo', '$99/mo', '$129/mo'],
+    ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
+    ['Share of Voice', '\u2713 Automatic', 'Limited', 'Limited'],
+    ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
+    ['Competitor Tracking', '\u2713 Up to 10+', '\u2717', '\u2717'],
+    ['AI Response Monitoring', '\u2713 Daily', '\u2717', '\u2717'],
+    ['GEO URL Audits', '\u2713 (up to 500/mo)', '\u2717', '\u2717'],
+  ],
+};
+
 export const PLATFORM_COLORS: Record<string, string> = {
   ChatGPT: '#19c37d',
   Perplexity: '#20b8cd',
