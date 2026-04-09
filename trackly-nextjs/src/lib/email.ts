@@ -1,7 +1,10 @@
 /**
  * Email service - sends verification and password reset emails
  * Supports Resend (default) and SendGrid
+ * Contact form emails use Zoho Mail SMTP (via nodemailer) when configured
  */
+
+import nodemailer from 'nodemailer';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
@@ -126,10 +129,53 @@ export async function sendContactFormEmail({
       <p style="color:#999;font-size:12px;margin-top:16px;">This message was sent via the Livesov contact form. Reply directly to respond to the customer.</p>
     </div>
   `;
+  const zohoPassword = process.env.ZOHO_SMTP_PASSWORD;
+  if (zohoPassword) {
+    return sendContactFormViaZoho(
+      `[Contact Form] ${subject} - ${inquiryType}`,
+      html,
+      email
+    );
+  }
+
   return sendEmail(
     'hello@livesov.com',
     `[Contact Form] ${subject} - ${inquiryType}`,
     html,
     email
   );
+}
+
+async function sendContactFormViaZoho(
+  subject: string,
+  html: string,
+  replyTo: string
+): Promise<EmailResult> {
+  const host = process.env.ZOHO_SMTP_HOST || 'smtp.zoho.in';
+  const port = parseInt(process.env.ZOHO_SMTP_PORT || '465', 10);
+  const user = process.env.ZOHO_SMTP_USER || 'hello@livesov.com';
+  const pass = process.env.ZOHO_SMTP_PASSWORD!;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+
+    await transporter.sendMail({
+      from: `Livesov <${user}>`,
+      to: 'hello@livesov.com',
+      replyTo,
+      subject,
+      html,
+    });
+
+    return { sent: true };
+  } catch (e) {
+    const reason = (e as Error).message;
+    console.error(`[Email] Zoho SMTP error subject="${subject}" error=${reason}`);
+    return { sent: false, reason };
+  }
 }
