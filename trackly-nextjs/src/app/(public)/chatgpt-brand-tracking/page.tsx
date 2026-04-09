@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
   description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
-  keywords: 'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions',
   alternates: { canonical: '/chatgpt-brand-tracking' },
   openGraph: {
     title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',

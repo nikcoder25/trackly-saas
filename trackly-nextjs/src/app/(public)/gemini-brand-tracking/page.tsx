@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',
   description: 'Track how Google Gemini mentions your brand. Monitor visibility in Google\'s AI responses across Gemini models.',
-  keywords: 'gemini brand tracking, google ai monitoring, gemini visibility, google ai brand mentions',
   alternates: { canonical: '/gemini-brand-tracking' },
   openGraph: {
     title: 'Gemini Brand Tracking — Monitor Google AI Mentions | Livesov',

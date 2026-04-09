@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
   description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
-  keywords: 'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai',
   alternates: { canonical: '/vs/ahrefs' },
   openGraph: {
     title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',

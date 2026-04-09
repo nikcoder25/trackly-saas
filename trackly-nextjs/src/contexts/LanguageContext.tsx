@@ -24,6 +24,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (saved && SUPPORTED_LOCALES.some(l => l.code === saved)) {
       setLocaleState(saved);
       setT(getTranslations(saved));
+      document.documentElement.lang = saved;
     }
 
     const handleStorage = (e: StorageEvent) => {

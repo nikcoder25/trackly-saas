@@ -4,20 +4,6 @@ export const metadata: Metadata = {
   title: 'Livesov — AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini & Grok',
   description:
     'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini & Grok. Free plan available.',
-  keywords: [
-    'AI visibility tracking',
-    'AI brand monitoring',
-    'ChatGPT brand tracking',
-    'Perplexity tracking',
-    'Claude tracking',
-    'Gemini tracking',
-    'Grok tracking',
-    'AI share of voice',
-    'GEO optimization',
-    'generative engine optimization',
-    'AI SEO',
-    'brand monitoring AI',
-  ],
   openGraph: {
     title: 'Livesov — Is Your Brand Visible in AI Answers?',
     description:
@@ -43,25 +29,11 @@ export const metadata: Metadata = {
   },
 };
 
-/* JSON-LD structured data for rich search results */
+/* JSON-LD: SoftwareApplication + FAQPage for the home page only.
+   Organization + WebSite schemas live in the root layout to avoid duplication. */
 const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
-    {
-      '@type': 'Organization',
-      name: 'Livesov',
-      url: 'https://livesov.com',
-      description: 'AI Visibility Tracker — Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
-      contactPoint: {
-        '@type': 'ContactPoint',
-        email: 'hello@livesov.com',
-        contactType: 'customer support',
-      },
-      sameAs: [
-        'https://x.com/livesov',
-        'https://linkedin.com/company/livesov',
-      ],
-    },
     {
       '@type': 'SoftwareApplication',
       name: 'Livesov',

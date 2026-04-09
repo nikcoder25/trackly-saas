@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Generative Engine Optimization (GEO) Guide | Livesov',
   description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity & Grok.',
-  keywords: 'generative engine optimization, geo seo, ai search optimization, llm optimization, ai visibility optimization',
   alternates: { canonical: '/geo-optimization' },
   openGraph: {
     title: 'Generative Engine Optimization (GEO) Guide | Livesov',

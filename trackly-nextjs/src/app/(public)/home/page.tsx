@@ -8,6 +8,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { PRICING_PLANS } from '@/lib/constants';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 
+/* ─── Sanitize HTML: only allow <mark> tags for demo highlights ─── */
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&lt;mark&gt;/g, '<mark>')
+    .replace(/&lt;\/mark&gt;/g, '</mark>');
+}
+
 /* ─── Smooth scroll helper ─── */
 function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>, closeMenu?: () => void) {
   const href = e.currentTarget.getAttribute('href');
@@ -168,7 +178,7 @@ function DemoSection() {
                     {d.found ? '✓ Mentioned' : '✗ Not Found'}
                   </span>
                 </div>
-                <div className="tl-demo-card-text" dangerouslySetInnerHTML={{ __html: d.text }} />
+                <div className="tl-demo-card-text" dangerouslySetInnerHTML={{ __html: sanitizeHtml(d.text) }} />
               </div>
             ))}
           </div>
@@ -197,13 +207,32 @@ function TestimonialCarousel() {
     return () => clearInterval(timer);
   }, [paused]);
 
+  const goTo = (i: number) => setActive(i);
+  const goPrev = () => setActive((active - 1 + testimonials.length) % testimonials.length);
+  const goNext = () => setActive((active + 1) % testimonials.length);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') { goPrev(); setPaused(true); }
+    else if (e.key === 'ArrowRight') { goNext(); setPaused(true); }
+  };
+
   return (
-    <div className="tl-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="tl-carousel-track" style={{ transform: `translateX(-${active * 100}%)` }}>
-        {testimonials.map(t => (
-          <div key={t.name} className="tl-carousel-slide">
+    <div
+      className="tl-carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Customer testimonials"
+      onKeyDown={handleKeyDown}
+    >
+      <div className="tl-carousel-track" aria-live={paused ? 'polite' : 'off'} style={{ transform: `translateX(-${active * 100}%)` }}>
+        {testimonials.map((t, i) => (
+          <div key={t.name} className="tl-carousel-slide" role="group" aria-roledescription="slide" aria-label={`Testimonial ${i + 1} of ${testimonials.length}`} aria-hidden={active !== i}>
             <div className="tl-carousel-quote">
-              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                 <path d="M6 18C6 14.5 8 12 12 10L13 12C10 13.5 9.5 15.5 9.5 16.5H13V22H6V18ZM18 18C18 14.5 20 12 24 10L25 12C22 13.5 21.5 15.5 21.5 16.5H25V22H18V18Z" fill="currentColor" opacity="0.15"/>
               </svg>
               <p>&ldquo;{t.text}&rdquo;</p>
@@ -218,11 +247,16 @@ function TestimonialCarousel() {
           </div>
         ))}
       </div>
-      <div className="tl-carousel-dots">
-        {testimonials.map((_, i) => (
-          <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
-            onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`} />
-        ))}
+      <div className="tl-carousel-controls">
+        <button className="tl-carousel-pause" onClick={() => setPaused(!paused)} aria-label={paused ? 'Play carousel' : 'Pause carousel'}>
+          {paused ? '\u25B6' : '\u275A\u275A'}
+        </button>
+        <div className="tl-carousel-dots">
+          {testimonials.map((_, i) => (
+            <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
+              onClick={() => goTo(i)} aria-label={`Go to testimonial ${i + 1}`} aria-current={active === i ? 'true' : undefined} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -408,14 +442,14 @@ export default function LivesovHomePage() {
   return (
     <div className="trackly-landing">
 
-      {/* ═══════ NAVIGATION ═══════ */}
+      {/* ═══════ NAVIGATION ═══════ (outside <main> as nav is a landmark) */}
       <nav className={`tl-nav ${scrolled ? 'tl-nav--scrolled' : ''}`}>
         <div className="tl-nav-inner">
           <Link href="/" className="tl-logo">
             Live<span>sov</span>
           </Link>
 
-          <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation menu" aria-expanded={menuOpen} aria-controls="mobile-menu">
             <span className={menuOpen ? 'open' : ''} />
             <span className={menuOpen ? 'open' : ''} />
             <span className={menuOpen ? 'open' : ''} />
@@ -439,7 +473,7 @@ export default function LivesovHomePage() {
 
       {/* Mobile menu overlay */}
       {menuOpen && (
-        <div className="tl-mobile-menu">
+        <div className="tl-mobile-menu" id="mobile-menu" role="navigation" aria-label="Mobile navigation">
           <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
           <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
           <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
@@ -453,6 +487,7 @@ export default function LivesovHomePage() {
         </div>
       )}
 
+      <main id="main-content">
       {/* ═══════ HERO ═══════ */}
       <section className="tl-hero">
         <div className="tl-hero-grid-bg" />
@@ -702,16 +737,22 @@ export default function LivesovHomePage() {
             <h2>Frequently Asked Questions</h2>
           </div>
 
-          <div className="tl-faq-list">
+          <div className="tl-faq-list" role="list">
             {faqs.map((f, i) => (
-              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`}>
-                <button className="tl-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`} role="listitem">
+                <button
+                  className="tl-faq-q"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-answer-${i}`}
+                  id={`faq-question-${i}`}
+                >
                   <span>{f.q}</span>
-                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-                <div className="tl-faq-a">
+                <div className="tl-faq-a" id={`faq-answer-${i}`} role="region" aria-labelledby={`faq-question-${i}`}>
                   <p>{f.a}</p>
                 </div>
               </div>
@@ -744,6 +785,8 @@ export default function LivesovHomePage() {
           <span className="tl-cta-note">{t.cta.note}</span>
         </div>
       </section>
+
+      </main>
 
       {/* ═══════ FOOTER ═══════ */}
       <footer className="tl-footer">

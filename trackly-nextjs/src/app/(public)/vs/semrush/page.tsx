@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
   description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
-  keywords: 'livesov vs semrush, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison',
   alternates: { canonical: '/vs/semrush' },
   openGraph: {
     title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',

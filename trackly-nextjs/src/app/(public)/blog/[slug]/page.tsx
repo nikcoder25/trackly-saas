@@ -16,7 +16,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${post.title} | Livesov Blog`,
     description: post.description,
-    keywords: [post.tag, 'AI visibility', 'brand tracking', 'GEO', 'AI SEO', 'Livesov'],
     openGraph: {
       title: post.title,
       description: post.description,

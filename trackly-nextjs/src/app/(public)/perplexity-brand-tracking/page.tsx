@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
   description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
-  keywords: 'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity brand mentions',
   alternates: { canonical: '/perplexity-brand-tracking' },
   openGraph: {
     title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',

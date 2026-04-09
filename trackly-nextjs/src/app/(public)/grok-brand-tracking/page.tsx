@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Grok Brand Tracking — Monitor xAI Mentions | Livesov',
   description: 'Track how xAI\'s Grok mentions your brand. Monitor visibility in Grok responses on X (Twitter) and optimize your AI presence.',
-  keywords: 'grok brand tracking, xai monitoring, grok visibility, x ai brand mentions, twitter ai',
   alternates: { canonical: '/grok-brand-tracking' },
   openGraph: {
     title: 'Grok Brand Tracking — Monitor xAI Mentions | Livesov',

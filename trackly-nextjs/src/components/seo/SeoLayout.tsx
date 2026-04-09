@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 interface SeoLayoutProps {
   children: React.ReactNode;
@@ -23,7 +24,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
   return (
     <div id="landing-page">
       {/* Nav — uses legacy .land-nav classes */}
-      <nav className="land-nav">
+      <nav className="land-nav" aria-label="Main navigation">
         <Link href="/" className="land-nav-logo" style={{ textDecoration: 'none' }}>
           Live<span>sov</span>
         </Link>
@@ -34,23 +35,25 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle navigation menu"
           aria-expanded={menuOpen}
+          aria-controls="seo-nav-links"
         >
           <span /><span /><span />
         </button>
 
-        <div className={`land-nav-links${menuOpen ? ' open' : ''}`}>
+        <div id="seo-nav-links" className={`land-nav-links${menuOpen ? ' open' : ''}`}>
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>
           ))}
         </div>
         <div className="land-nav-right">
+          <LanguageSwitcher />
           <Link href="/login" className="land-btn land-btn-ghost">Login</Link>
           <Link href="/signup" className="land-btn land-btn-primary">Get Started</Link>
         </div>
       </nav>
 
       {/* Content */}
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
 
       {/* CTA */}
       <section className="land-cta-section">

@@ -21,8 +21,8 @@
   --tl-bg-surface: #ffffff;
   --tl-border: #e2e8f0;
   --tl-border-light: #f1f5f9;
-  --tl-success: #10b981;
-  --tl-danger: #ef4444;
+  --tl-success: #059669;
+  --tl-danger: #dc2626;
   --tl-radius: 12px;
   --tl-radius-sm: 8px;
   --tl-radius-lg: 16px;
@@ -31,8 +31,8 @@
   --tl-shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
   --tl-shadow-lg: 0 10px 25px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
   --tl-shadow-xl: 0 20px 50px -12px rgba(0,0,0,0.15);
-  --tl-font: 'Inter', system-ui, -apple-system, sans-serif;
-  --tl-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --tl-font: var(--font);
+  --tl-mono: var(--mono);
   --tl-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -586,7 +586,7 @@
 }
 
 .tl-showcase-delta-up {
-  color: #10b981;
+  color: #059669;
   font-weight: 700;
 }
 
@@ -662,13 +662,13 @@
 
 .tl-showcase-badge--found {
   background: rgba(16,185,129,0.1);
-  color: #10b981;
+  color: #059669;
   border: 1px solid rgba(16,185,129,0.2);
 }
 
 .tl-showcase-badge--missed {
   background: rgba(239,68,68,0.08);
-  color: #ef4444;
+  color: #dc2626;
   border: 1px solid rgba(239,68,68,0.15);
 }
 
@@ -1517,7 +1517,7 @@
 }
 
 .tl-testimonial-stars {
-  color: #f59e0b;
+  color: #b45309;
   font-size: 16px;
   margin-bottom: 16px;
   letter-spacing: 2px;
@@ -2136,7 +2136,7 @@
 }
 
 .tl-checker-plat-result--found { color: #10b981; }
-.tl-checker-plat-result--missed { color: #ef4444; }
+.tl-checker-plat-result--missed { color: #dc2626; }
 
 .tl-checker-plat-spinner {
   width: 16px;
@@ -2249,11 +2249,39 @@
   justify-content: center;
 }
 
+.tl-carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.tl-carousel-pause {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--tl-border);
+  background: var(--tl-bg-surface);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--tl-text-2);
+  transition: all var(--tl-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tl-carousel-pause:hover {
+  background: var(--tl-primary-light);
+  border-color: var(--tl-primary);
+  color: var(--tl-primary);
+}
+
 .tl-carousel-dots {
   display: flex;
   justify-content: center;
   gap: 10px;
-  margin-top: 28px;
 }
 
 .tl-carousel-dot {

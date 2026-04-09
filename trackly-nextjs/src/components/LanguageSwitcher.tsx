@@ -18,15 +18,22 @@ export default function LanguageSwitcher({ variant = 'light' }: { variant?: 'lig
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') setOpen(false);
+  };
+
   const current = SUPPORTED_LOCALES.find(l => l.code === locale) || SUPPORTED_LOCALES[0];
   const textColor = variant === 'dark' ? '#fff' : 'var(--text-secondary)';
   const bgColor = variant === 'dark' ? 'rgba(255,255,255,.1)' : 'var(--bg-section)';
   const dropBg = variant === 'dark' ? '#1a1a2e' : '#fff';
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }} onKeyDown={handleKeyDown}>
       <button
         onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Language: ${current.label}. Change language`}
         style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '6px 12px', fontSize: 12, fontWeight: 600,
@@ -35,19 +42,27 @@ export default function LanguageSwitcher({ variant = 'light' }: { variant?: 'lig
           cursor: 'pointer', fontFamily: 'var(--font)',
         }}
       >
-        {current.flag} <span style={{ fontSize: 10 }}>▾</span>
+        {current.flag} <span style={{ fontSize: 10 }} aria-hidden="true">&#x25BE;</span>
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute', top: '100%', right: 0, marginTop: 4,
-          background: dropBg, border: '1px solid var(--border, #e2e5ea)',
-          borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.1)',
-          zIndex: 100, minWidth: 120, overflow: 'hidden',
-        }}>
+        <div
+          role="listbox"
+          aria-label="Select language"
+          aria-activedescendant={`lang-option-${locale}`}
+          style={{
+            position: 'absolute', top: '100%', right: 0, marginTop: 4,
+            background: dropBg, border: '1px solid var(--border, #e2e5ea)',
+            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.1)',
+            zIndex: 100, minWidth: 120, overflow: 'hidden',
+          }}
+        >
           {SUPPORTED_LOCALES.map(l => (
             <button
               key={l.code}
+              id={`lang-option-${l.code}`}
+              role="option"
+              aria-selected={locale === l.code}
               onClick={() => { setLocale(l.code as Locale); setOpen(false); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',

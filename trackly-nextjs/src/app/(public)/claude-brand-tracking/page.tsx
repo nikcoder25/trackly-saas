@@ -4,7 +4,6 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 export const metadata: Metadata = {
   title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
   description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
-  keywords: 'claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions',
   alternates: { canonical: '/claude-brand-tracking' },
   openGraph: {
     title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',

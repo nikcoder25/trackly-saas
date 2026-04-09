@@ -10,6 +10,40 @@
   }
 }
 
+/* ── next/font integration ── */
+:root {
+  --font: var(--font-inter, 'Inter'), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-inter, 'Inter'), system-ui, -apple-system, sans-serif;
+  --mono: var(--font-mono, 'JetBrains Mono'), 'SF Mono', 'Fira Code', monospace;
+}
+
+/* ── Skip-to-content link (accessibility) ── */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 9999;
+  padding: 12px 24px;
+  background: var(--primary, #6366f1);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+}
+.skip-to-content:focus {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
 /* Global focus styles for keyboard accessibility */
 .main button:focus-visible,
 .main a:focus-visible,
