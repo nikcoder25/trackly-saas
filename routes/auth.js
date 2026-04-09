@@ -8,7 +8,7 @@ const router  = express.Router();
 
 const rateLimit = require('express-rate-limit');
 
-const { pool, auditLog } = require('../config/db');
+const { pool, safeConnect, auditLog } = require('../config/db');
 const { auth, JWT_SECRET } = require('../middleware/auth');
 const { uid, safeUser } = require('../lib/helpers');
 const { getPlanLimits } = require('../lib/plans');
@@ -300,7 +300,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
       // Consume backup code atomically — use a transaction to prevent race condition
       // where two simultaneous logins both use the same backup code
       if (backupIndex !== -1) {
-        const client = await pool.connect();
+        const client = await safeConnect();
         try {
           await client.query('BEGIN');
           const freshUser = await client.query('SELECT settings FROM users WHERE id = $1 FOR UPDATE', [user.id]);

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
-import { pool } from '@/lib/db';
+import { safeConnect } from '@/lib/db';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     // Atomic token rotation: SELECT FOR UPDATE prevents race conditions
     // where two concurrent refresh requests could both succeed with the same old token
-    const client = await pool.connect();
+    const client = await safeConnect();
     let result;
     try {
       await client.query('BEGIN');
@@ -23,7 +23,6 @@ export async function POST(request: NextRequest) {
       );
       if (!lockResult.rows.length) {
         await client.query('ROLLBACK');
-        client.release();
         return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
       }
       const newRefreshToken_inner = crypto.randomBytes(40).toString('hex');
