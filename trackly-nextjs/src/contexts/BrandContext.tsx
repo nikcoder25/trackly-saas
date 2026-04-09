@@ -77,7 +77,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         return b.length ? b[0] : null;
       });
     } catch (e) {
-      console.error('[BrandProvider]', e);
+      console.error('[BrandProvider]', (e as Error).message);
     }
     setLoading(false);
   }, []);

@@ -1,5 +1,5 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { requireVerifiedAuth } from '@/lib/auth';
 
 const PRODUCT_IDS: Record<string, string | undefined> = {
   starter: process.env.DODO_STARTER_PRODUCT_ID,
@@ -8,9 +8,14 @@ const PRODUCT_IDS: Record<string, string | undefined> = {
   enterprise: process.env.DODO_ENTERPRISE_PRODUCT_ID,
 };
 
+const PLAN_TIER: Record<string, number> = {
+  free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4, owner: 5,
+};
+
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+  const authResult = await requireVerifiedAuth(request, pool);
+  if (authResult instanceof Response) return authResult;
+  const user = authResult;
 
   const { plan: rawPlan } = await request.json();
   const plan = typeof rawPlan === 'string' ? rawPlan.toLowerCase() : '';
@@ -20,9 +25,16 @@ export async function POST(request: Request) {
   if (!apiKey) return Response.json({ error: 'Payment system not configured' }, { status: 503 });
 
   try {
-    const userResult = await pool.query('SELECT email, name FROM users WHERE id = $1', [user.id]);
+    const userResult = await pool.query('SELECT email, name, plan FROM users WHERE id = $1', [user.id]);
     const u = userResult.rows[0];
     if (!u) return Response.json({ error: 'User not found' }, { status: 404 });
+
+    // Prevent downgrade attempts via checkout
+    const currentTier = PLAN_TIER[u.plan] || 0;
+    const targetTier = PLAN_TIER[plan] || 0;
+    if (targetTier <= currentTier && u.plan !== 'free') {
+      return Response.json({ error: 'Cannot downgrade via checkout. Use the cancel option to downgrade.' }, { status: 400 });
+    }
 
     const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
     const baseUrl = env === 'live_mode' ? 'https://live.dodopayments.com' : 'https://test.dodopayments.com';
@@ -37,13 +49,13 @@ export async function POST(request: Request) {
           { product_id: PRODUCT_IDS[plan], quantity: 1 },
         ],
         customer: { email: u.email, name: u.name || u.email },
-        metadata: { userId: user.id },
+        metadata: { userId: user.id, plan },
         return_url: returnUrl,
       }),
     });
 
     if (!resp.ok) {
-      const text = await resp.text();
+      const text = await resp.text().catch(() => '');
       console.error('[Checkout] DodoPayments error:', resp.status, text);
       return Response.json({ error: 'Failed to create checkout. Please try again.' }, { status: 500 });
     }

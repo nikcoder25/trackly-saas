@@ -486,7 +486,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('GEO audit error:', error);
+    console.error('[GeoAudit]', (error as Error).message);
     return Response.json(
       { error: 'Something went wrong. Please try again later.' },
       { status: 500 }
