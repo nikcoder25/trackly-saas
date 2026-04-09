@@ -89,30 +89,50 @@ async function renderBilling() {
     // Plan comparison
     const plansEl = el('billing-plans');
     const allPlans = data.allPlans || {};
-    const planKeys = Object.keys(allPlans);
-    const colStyle = (p) => p === plan
-      ? 'text-align:center;padding:10px 8px;background:var(--primary-light);font-weight:700;color:var(--primary);'
-      : 'text-align:center;padding:10px 8px;';
-    const headStyle = (p) => p === plan
-      ? 'text-align:center;padding:12px 8px;background:var(--primary-light);color:var(--primary);font-weight:800;font-size:13px;'
-      : 'text-align:center;padding:12px 8px;font-size:13px;';
-    const boolCell = (val, p) => `<td style="${colStyle(p)}">${val ? '<span style="color:var(--green);font-size:15px;font-weight:700;">&#10003;</span>' : '<span style="color:var(--muted);">—</span>'}</td>`;
-    const numCell = (val, p) => `<td style="${colStyle(p)}">${val >= 9999 ? '∞' : val}</td>`;
-    plansEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:12px;">
-      <thead><tr style="border-bottom:2px solid var(--border);">
-        <th style="text-align:left;padding:12px 8px;font-size:13px;">Feature</th>
-        ${planKeys.map(p => `<th style="${headStyle(p)}">${p.toUpperCase()}${p === plan ? ' ★' : ''}</th>`).join('')}
-      </tr></thead>
-      <tbody>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Total Prompts</td>${planKeys.map(p => numCell(allPlans[p].prompts, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Brands</td>${planKeys.map(p => numCell(allPlans[p].brands, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Competitors</td>${planKeys.map(p => numCell(allPlans[p].competitors, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Platforms</td>${planKeys.map(p => numCell(allPlans[p].platforms, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Sentiment</td>${planKeys.map(p => boolCell(allPlans[p].sentiment, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">API Access</td>${planKeys.map(p => boolCell(allPlans[p].apiAccess, p)).join('')}</tr>
-        <tr><td style="padding:10px 8px;">Priority Support</td>${planKeys.map(p => boolCell(allPlans[p].prioritySupport, p)).join('')}</tr>
-      </tbody>
-    </table>`;
+    const displayPlans = ['free', 'starter', 'pro', 'agency', 'enterprise'].filter(k => allPlans[k]);
+    const planMeta = {
+      free: { label: 'Free', price: '$0', color: '#6b7280' },
+      starter: { label: 'Starter', price: '$9', color: '#f59e0b' },
+      pro: { label: 'Pro', price: '$29', color: '#4f46e5' },
+      agency: { label: 'Agency', price: '$89', color: '#7c3aed' },
+      enterprise: { label: 'Enterprise', price: '$499', color: '#9b72ff' }
+    };
+    const boolCell = (val, p) => `<td class="cmp-cell${p === plan ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
+    const numCell = (val, p) => `<td class="cmp-cell${p === plan ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
+    const features = [
+      { label: 'Monthly Prompts', icon: '&#9889;', key: 'prompts', type: 'num' },
+      { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'num' },
+      { label: 'Competitors', icon: '&#9878;', key: 'competitors', type: 'num' },
+      { label: 'Platforms', icon: '&#9881;', key: 'platforms', type: 'num' },
+      { label: 'Sentiment Analysis', icon: '&#9829;', key: 'sentiment', type: 'bool' },
+      { label: 'Scheduled Runs', icon: '&#8635;', key: 'scheduledRuns', type: 'bool' },
+      { label: 'API Access', icon: '&#10100;', key: 'apiAccess', type: 'bool' },
+      { label: 'Priority Support', icon: '&#9993;', key: 'prioritySupport', type: 'bool' }
+    ];
+    plansEl.innerHTML = `
+      <div class="cmp-table-wrap">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th class="cmp-feature-head">Features</th>
+              ${displayPlans.map(p => {
+                const m = planMeta[p] || { label: p, price: '', color: '#888' };
+                return `<th class="cmp-plan-head${p === plan ? ' cmp-plan-head-active' : ''}">
+                  <div class="cmp-plan-name" style="color:${m.color};">${m.label}</div>
+                  <div class="cmp-plan-price">${m.price}<span>/mo</span></div>
+                  ${p === plan ? '<div class="cmp-current-badge">Your Plan</div>' : ''}
+                </th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${features.map((f, i) => `<tr class="cmp-row${i % 2 === 0 ? ' cmp-row-stripe' : ''}">
+              <td class="cmp-feature-cell"><span class="cmp-feature-icon">${f.icon}</span>${f.label}</td>
+              ${displayPlans.map(p => f.type === 'bool' ? boolCell(allPlans[p][f.key], p) : numCell(allPlans[p][f.key], p)).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
   } catch(e) { toast('Failed to load billing', 'err'); }
 }
 
