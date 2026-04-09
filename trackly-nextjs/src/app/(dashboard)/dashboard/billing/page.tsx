@@ -300,11 +300,11 @@ export default function BillingPage() {
       <div className="card" style={{ marginTop: 16 }} id="plan-comparison">
         <div className="card-title">Plan Comparison</div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'center', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '18%' }} />
               {visiblePlans.map(p => (
-                <col key={p} style={{ width: `${80 / visiblePlans.length}%` }} />
+                <col key={p} style={{ width: `${82 / visiblePlans.length}%` }} />
               ))}
             </colgroup>
             <thead>
@@ -312,7 +312,7 @@ export default function BillingPage() {
                 <th style={{ textAlign: 'left', padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>Feature</th>
                 {visiblePlans.map(p => (
                   <th key={p} style={{
-                    padding: '12px 8px', fontWeight: 700,
+                    padding: '12px 14px', fontWeight: 700, textAlign: 'center',
                     textTransform: 'uppercase', fontSize: 11, letterSpacing: .5,
                     color: p === currentPlan ? 'var(--primary)' : 'var(--muted)',
                     background: p === currentPlan ? 'rgba(99,102,241,.04)' : 'transparent',
@@ -342,7 +342,7 @@ export default function BillingPage() {
                     const isCurrent = p === currentPlan;
                     return (
                       <td key={p} style={{
-                        padding: '11px 8px',
+                        padding: '11px 14px', textAlign: 'center',
                         color: isCheck ? 'var(--green)' : isDash ? 'var(--muted)' : isCurrent ? 'var(--primary)' : 'var(--text)',
                         fontWeight: isCurrent ? 700 : isCheck ? 600 : 400,
                         fontFamily: !isCheck && !isDash ? 'var(--mono)' : 'var(--font)',
