@@ -51,7 +51,7 @@ export default function PricingPage() {
           )}
         </div>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {monthlyPlans.map((plan) => {
             const isCustom = plan.price === 'Custom';
             const displayPrice = isCustom ? 'Custom' : annual ? plan.annualPrice : plan.price;
@@ -77,12 +77,19 @@ export default function PricingPage() {
                 {isCustom && <p className="text-xs mb-4 text-indigo-500 font-medium">tailored to your needs</p>}
                 {!isCustom && (!annual || plan.price === '$0') && <div className="mb-6" />}
                 <ul className="space-y-2.5 mb-6">
-                  {plan.features.map((f) => (
-                    <li key={f} className={`text-sm flex items-start gap-2 ${plan.highlighted ? 'text-white/90' : 'text-gray-500'}`}>
-                      <span className={`mt-0.5 ${plan.highlighted ? 'text-white' : 'text-green-500'}`}>&#10003;</span>
-                      {f}
-                    </li>
-                  ))}
+                  {plan.features.map((f) => {
+                    const isNegative = f.toLowerCase().startsWith('no ');
+                    return (
+                      <li key={f} className={`text-sm flex items-start gap-2 ${plan.highlighted ? 'text-white/90' : isNegative ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {isNegative ? (
+                          <span className="mt-0.5 text-gray-300">&mdash;</span>
+                        ) : (
+                          <span className={`mt-0.5 ${plan.highlighted ? 'text-white' : 'text-green-500'}`}>&#10003;</span>
+                        )}
+                        {f}
+                      </li>
+                    );
+                  })}
                 </ul>
                 {isEnterprise ? (
                   <a href="/contact" className="block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition bg-indigo-600 text-white hover:bg-indigo-700">
