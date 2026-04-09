@@ -275,42 +275,6 @@ export default function BlogPage() {
         )}
       </section>
 
-      {/* ═══ Bottom CTA ═══ */}
-      <section style={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%)',
-        padding: '72px 24px', textAlign: 'center', position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          width: 500, height: 500, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99,102,241,.2) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{
-            fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 800, color: '#f1f5f9',
-            letterSpacing: '-1px', marginBottom: 14,
-          }}>
-            Ready to track your AI visibility?
-          </h2>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,.55)', maxWidth: 460, margin: '0 auto 28px', lineHeight: 1.6 }}>
-            Monitor your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok — automatically.
-          </p>
-          <Link
-            href="/signup"
-            style={{
-              display: 'inline-block', padding: '14px 36px', borderRadius: 100,
-              background: '#6366f1', color: '#fff', fontSize: 15, fontWeight: 700,
-              textDecoration: 'none', transition: 'all .2s ease',
-              boxShadow: '0 4px 14px rgba(99,102,241,.3)',
-            }}
-          >
-            Start Tracking Free &rarr;
-          </Link>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,.35)', marginTop: 16 }}>No credit card required</p>
-        </div>
-      </section>
-
       {/* Hover styles */}
       <style>{`
         .blog-featured-card:hover {

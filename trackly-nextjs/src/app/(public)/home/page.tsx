@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { PRICING_PLANS } from '@/lib/constants';
+import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 
 /* ─── Smooth scroll helper ─── */
@@ -56,20 +56,7 @@ const steps = [
 ];
 
 const pricingPlans = PRICING_PLANS;
-
-const pricingComparison = {
-  headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush', 'Manual Search'],
-  rows: [
-    ['AI platform tracking', '✓ 5 platforms', '✗', '✗', '~ 1 at a time'],
-    ['Share of Voice (AI)', '✓ Automatic', '✗', '✗', '✗'],
-    ['Sentiment analysis', '✓ Built-in', '✗', '✗', '✗'],
-    ['Competitor tracking', '✓ Up to 10+', '✗', '✗', '~ Manual'],
-    ['Proof & evidence export', '✓ CSV + API', '✗', '✗', '~ Screenshots'],
-    ['AI response monitoring', '✓ Daily', '✗', '✗', '~ Occasional'],
-    ['GEO URL Audits', '✓ Up to 500/mo', '✗', '✗', '✗'],
-    ['Price', 'From $0/mo', '$99/mo', '$129/mo', 'Free (your time)'],
-  ],
-};
+const pricingComparison = PRICING_COMPARISON;
 
 const faqs = [
   { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
@@ -302,6 +289,7 @@ export default function LivesovHomePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [annual, setAnnual] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleClientIdRef = useRef<string | null>(null);
@@ -407,6 +395,7 @@ export default function LivesovHomePage() {
 
   return (
     <div className="trackly-landing">
+      <a href="#main-content" className="skip-to-content">Skip to content</a>
 
       {/* ═══════ NAVIGATION ═══════ */}
       <nav className={`tl-nav ${scrolled ? 'tl-nav--scrolled' : ''}`}>
@@ -415,16 +404,16 @@ export default function LivesovHomePage() {
             Live<span>sov</span>
           </Link>
 
-          <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation menu" aria-expanded={menuOpen} aria-controls="tl-nav-links">
             <span className={menuOpen ? 'open' : ''} />
             <span className={menuOpen ? 'open' : ''} />
             <span className={menuOpen ? 'open' : ''} />
           </button>
 
-          <div className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
-            <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
-            <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
-            <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+          <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
+            <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
+            <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
+            <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
             <Link href="/geo-audit">GEO Audit</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/contact">Contact</Link>
@@ -440,9 +429,9 @@ export default function LivesovHomePage() {
       {/* Mobile menu overlay */}
       {menuOpen && (
         <div className="tl-mobile-menu">
-          <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
-          <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
-          <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+          <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
+          <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
+          <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
           <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
           <Link href="/blog" onClick={closeMenu}>Blog</Link>
           <Link href="/contact" onClick={closeMenu}>Contact</Link>
@@ -453,6 +442,7 @@ export default function LivesovHomePage() {
         </div>
       )}
 
+      <main id="main-content">
       {/* ═══════ HERO ═══════ */}
       <section className="tl-hero">
         <div className="tl-hero-grid-bg" />
@@ -478,30 +468,6 @@ export default function LivesovHomePage() {
               {t.hero.ctaDemo}
             </a>
           </div>
-
-          {/* Google Sign-In quick start */}
-          {!user && googleReady && (
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={googleLoading}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 10,
-                padding: '10px 24px', marginTop: 16,
-                background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255,255,255,0.15)', borderRadius: 100,
-                color: '#fff', fontSize: 14, fontWeight: 600, fontFamily: 'var(--font)',
-                cursor: googleLoading ? 'not-allowed' : 'pointer',
-                opacity: googleLoading ? 0.6 : 1,
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.14)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
-            >
-              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-              {googleLoading ? 'Connecting...' : 'Continue with Google'}
-            </button>
-          )}
 
           <p className="tl-hero-note">No credit card required &middot; Free plan available &middot; Set up in 2 minutes</p>
         </div>
@@ -586,8 +552,8 @@ export default function LivesovHomePage() {
             </div>
             <div className="tl-why-card">
               <div className="tl-why-stat">0%</div>
-              <h3>SEO coverage in AI</h3>
-              <p>Ranking #1 on Google doesn't mean AI will recommend you. Different signals matter.</p>
+              <h3>Traditional SEO covers 0% of AI platforms</h3>
+              <p>Ranking #1 on Google doesn&apos;t mean AI will recommend you. Different signals matter.</p>
             </div>
             <div className="tl-why-card">
               <div className="tl-why-stat">GEO</div>
@@ -612,41 +578,77 @@ export default function LivesovHomePage() {
             <p>Plans from $9/mo. Scale as you grow. Best value in AI visibility tracking.</p>
           </div>
 
+          {/* Monthly / Annual toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 40 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: !annual ? 'var(--tl-text, #fff)' : 'var(--tl-text-muted, #9ca3af)' }}>Monthly</span>
+            <button
+              onClick={() => setAnnual(!annual)}
+              style={{
+                position: 'relative', display: 'inline-flex', height: 28, width: 48,
+                alignItems: 'center', borderRadius: 100, border: 'none', cursor: 'pointer',
+                background: annual ? 'var(--brand, #6366f1)' : 'rgba(255,255,255,0.2)',
+                transition: 'background 0.2s',
+              }}
+              aria-label="Toggle annual pricing"
+            >
+              <span style={{
+                display: 'inline-block', height: 20, width: 20, borderRadius: '50%',
+                background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+                transition: 'transform 0.2s',
+                transform: annual ? 'translateX(24px)' : 'translateX(4px)',
+              }} />
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 600, color: annual ? 'var(--tl-text, #fff)' : 'var(--tl-text-muted, #9ca3af)' }}>Annual</span>
+            {annual && (
+              <span style={{ marginLeft: 4, display: 'inline-flex', alignItems: 'center', borderRadius: 100, background: 'rgba(16,185,129,.15)', padding: '4px 10px', fontSize: 12, fontWeight: 700, color: '#10b981' }}>Save 20%</span>
+            )}
+          </div>
+
           <div className="tl-pricing-grid">
-            {pricingPlans.map(plan => (
-              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
-                {plan.featured && <div className="tl-price-badge">Most Popular</div>}
-                <h3>{plan.name}</h3>
-                <div className="tl-price-amount">
-                  {plan.price}<span>/mo</span>
+            {pricingPlans.map(plan => {
+              const isCustom = plan.price === 'Custom';
+              const displayPrice = isCustom ? 'Custom' : annual ? plan.annualPrice : plan.price;
+              return (
+                <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
+                  {plan.featured && <div className="tl-price-badge">Most Popular</div>}
+                  <h3>{plan.name}</h3>
+                  <div className="tl-price-amount">
+                    {!isCustom && annual && plan.price !== '$0' && plan.price !== plan.annualPrice && (
+                      <span style={{ fontSize: '0.5em', textDecoration: 'line-through', opacity: 0.5, marginRight: 6 }}>{plan.price}</span>
+                    )}
+                    {displayPrice}{!isCustom && <span>/mo</span>}
+                  </div>
+                  {!isCustom && annual && plan.price !== '$0' && (
+                    <p style={{ fontSize: 12, opacity: 0.6, marginTop: -4, marginBottom: 8 }}>billed annually</p>
+                  )}
+                  <p className="tl-price-sub">{plan.sub}</p>
+                  <ul className="tl-price-features">
+                    {plan.features.map(f => {
+                      const isNegative = f.toLowerCase().startsWith('no ');
+                      return (
+                        <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
+                          {isNegative ? (
+                            <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          )}
+                          {f}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {plan.name === 'Enterprise' ? (
+                    <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                      {plan.cta}
+                    </a>
+                  ) : (
+                    <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                      {plan.cta}
+                    </Link>
+                  )}
                 </div>
-                <p className="tl-price-sub">{plan.sub}</p>
-                <ul className="tl-price-features">
-                  {plan.features.map(f => {
-                    const isNegative = f.toLowerCase().startsWith('no ');
-                    return (
-                      <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
-                        {isNegative ? (
-                          <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
-                        ) : (
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        )}
-                        {f}
-                      </li>
-                    );
-                  })}
-                </ul>
-                {plan.name === 'Enterprise' ? (
-                  <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                    {plan.cta}
-                  </a>
-                ) : (
-                  <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                    {plan.cta}
-                  </Link>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Comparison Table */}
@@ -654,7 +656,8 @@ export default function LivesovHomePage() {
             <h3 className="tl-comparison-title">How Livesov compares</h3>
             <p className="tl-comparison-sub">Purpose-built for AI visibility. Not a bolt-on feature.</p>
             <div className="tl-comparison-wrap">
-              <table className="tl-comparison-table">
+              <table className="tl-comparison-table" aria-label="Livesov vs Ahrefs vs Semrush feature comparison">
+                <caption className="sr-only">Feature comparison between Livesov, Ahrefs, and Semrush</caption>
                 <thead>
                   <tr>
                     {pricingComparison.headers.map((h, i) => (
@@ -666,7 +669,7 @@ export default function LivesovHomePage() {
                   {pricingComparison.rows.map((row, ri) => (
                     <tr key={ri}>
                       {row.map((cell, ci) => (
-                        <td key={ci} className={`${ci === 1 ? 'tl-comparison-highlight' : ''} ${cell.includes('✓') ? 'tl-cell-yes' : cell.includes('✗') ? 'tl-cell-no' : ''}`}>
+                        <td key={ci} className={`${ci === 1 ? 'tl-comparison-highlight' : ''} ${cell.includes('\u2713') ? 'tl-cell-yes' : cell.includes('\u2717') ? 'tl-cell-no' : ''}`}>
                           {cell}
                         </td>
                       ))}
@@ -744,6 +747,7 @@ export default function LivesovHomePage() {
           <span className="tl-cta-note">{t.cta.note}</span>
         </div>
       </section>
+      </main>
 
       {/* ═══════ FOOTER ═══════ */}
       <footer className="tl-footer">
@@ -768,6 +772,8 @@ export default function LivesovHomePage() {
               <Link href="/contact">{t.footer.links.contact}</Link>
               <Link href="/changelog">{t.footer.links.changelog}</Link>
               <Link href="/partners">Partners</Link>
+              <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
+              <Link href="/vs/semrush">Livesov vs Semrush</Link>
             </div>
             <div className="tl-footer-col">
               <h4>AI Platforms</h4>
@@ -782,8 +788,6 @@ export default function LivesovHomePage() {
               <Link href="/privacy">{t.footer.links.privacy}</Link>
               <Link href="/terms">{t.footer.links.terms}</Link>
               <Link href="/cookies">{t.footer.links.cookies}</Link>
-              <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
-              <Link href="/vs/semrush">Livesov vs Semrush</Link>
             </div>
           </div>
           <div className="tl-footer-bottom">

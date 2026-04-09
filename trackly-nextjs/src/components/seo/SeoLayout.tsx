@@ -22,6 +22,8 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
 
   return (
     <div id="landing-page">
+      <a href="#main-content" className="skip-to-content">Skip to content</a>
+
       {/* Nav — uses legacy .land-nav classes */}
       <nav className="land-nav">
         <Link href="/" className="land-nav-logo" style={{ textDecoration: 'none' }}>
@@ -34,11 +36,12 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle navigation menu"
           aria-expanded={menuOpen}
+          aria-controls="land-nav-links"
         >
           <span /><span /><span />
         </button>
 
-        <div className={`land-nav-links${menuOpen ? ' open' : ''}`}>
+        <div id="land-nav-links" className={`land-nav-links${menuOpen ? ' open' : ''}`}>
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>
           ))}
@@ -50,7 +53,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
       </nav>
 
       {/* Content */}
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
 
       {/* CTA */}
       <section className="land-cta-section">
@@ -67,26 +70,28 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <div className="land-footer-grid">
           <div className="land-footer-brand">
             <div className="land-footer-logo">Live<span>sov</span></div>
-            <div className="land-footer-desc">AI Visibility Tracker — Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.</div>
+            <div className="land-footer-desc">AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</div>
           </div>
           <div className="land-footer-col">
-            <div className="land-footer-col-title">Product</div>
+            <h4>Product</h4>
             <Link href="/#features">Features</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/how-it-works">How it Works</Link>
             <Link href="/integrations">Integrations</Link>
           </div>
           <div className="land-footer-col">
-            <div className="land-footer-col-title">Resources</div>
+            <h4>Resources</h4>
             <Link href="/blog">Blog</Link>
             <Link href="/geo-optimization">GEO Guide</Link>
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/changelog">Changelog</Link>
             <Link href="/partners">Partners</Link>
+            <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
+            <Link href="/vs/semrush">Livesov vs Semrush</Link>
           </div>
           <div className="land-footer-col">
-            <div className="land-footer-col-title">AI Platforms</div>
+            <h4>AI Platforms</h4>
             <Link href="/chatgpt-brand-tracking">ChatGPT Tracking</Link>
             <Link href="/perplexity-brand-tracking">Perplexity Tracking</Link>
             <Link href="/claude-brand-tracking">Claude Tracking</Link>
@@ -94,12 +99,10 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/grok-brand-tracking">Grok Tracking</Link>
           </div>
           <div className="land-footer-col">
-            <div className="land-footer-col-title">Legal</div>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/cookies">Cookies</Link>
-            <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
-            <Link href="/vs/semrush">Livesov vs Semrush</Link>
+            <h4>Legal</h4>
+            <Link href="/privacy">Privacy Policy</Link>
+            <Link href="/terms">Terms of Service</Link>
+            <Link href="/cookies">Cookie Policy</Link>
           </div>
         </div>
         <div className="land-footer-bottom">

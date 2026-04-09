@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
-import { PRICING_PLANS } from '@/lib/constants';
+import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
 
 const monthlyPlans = PRICING_PLANS.map(p => ({
   ...p,
@@ -12,17 +12,7 @@ const monthlyPlans = PRICING_PLANS.map(p => ({
   href: '/signup',
 }));
 
-const comparisonData = {
-  headers: ['Feature', 'Livesov', 'Ahrefs', 'Semrush'],
-  rows: [
-    ['AI Brand Tracking', '\u2713 (5 platforms)', '\u2717', '\u2717'],
-    ['Starting Price', '$0/mo', '$99/mo', '$129/mo'],
-    ['AI Response Proof', '\u2713', '\u2717', '\u2717'],
-    ['Share of Voice', '\u2713', 'Limited', 'Limited'],
-    ['Sentiment Analysis', '\u2713', '\u2717', '\u2717'],
-    ['GEO URL Audits', '\u2713 (up to 500/mo)', '\u2717', '\u2717'],
-  ],
-};
+const comparisonData = PRICING_COMPARISON;
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
@@ -111,7 +101,8 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-extrabold text-center mb-8">How Livesov compares</h2>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full text-sm border-collapse" aria-label="Livesov vs Ahrefs vs Semrush feature comparison">
+              <caption className="sr-only">Feature comparison between Livesov, Ahrefs, and Semrush</caption>
               <thead>
                 <tr>
                   {comparisonData.headers.map((h, i) => (

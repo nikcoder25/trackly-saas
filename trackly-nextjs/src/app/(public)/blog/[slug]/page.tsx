@@ -216,12 +216,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           {renderContent(post.content)}
         </div>
 
-        {/* Bottom CTA */}
-        <div className="blog-post-cta">
-          <h3>Ready to track your AI visibility?</h3>
-          <p>Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.</p>
-          <Link href="/signup" className="blog-cta-btn">Start Tracking &rarr;</Link>
-        </div>
       </article>
     </SeoLayout>
   );
