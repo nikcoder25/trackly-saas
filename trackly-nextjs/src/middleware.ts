@@ -76,7 +76,7 @@ export function middleware(request: NextRequest) {
 
   // API rate limiting
   if (pathname.startsWith('/api/')) {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'unknown';
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const isAuth = pathname.startsWith('/api/auth/');
     const { allowed, retryAfter } = checkRateLimit(ip, isAuth);
 
