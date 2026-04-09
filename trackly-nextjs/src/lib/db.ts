@@ -31,6 +31,27 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 /**
+ * Safe pool client wrapper — prevents double-release.
+ * Returns a client whose .release() is a no-op after the first call.
+ * Use this instead of pool.connect() to eliminate the
+ * "Release called on client which has already been released" warning.
+ */
+export async function safeConnect() {
+  const client = await pool.connect();
+  let released = false;
+  const originalRelease = client.release.bind(client);
+  client.release = ((err?: Error | boolean) => {
+    if (released) {
+      console.warn('[DB] safeConnect: suppressed double-release');
+      return;
+    }
+    released = true;
+    return originalRelease(err);
+  }) as typeof client.release;
+  return client;
+}
+
+/**
  * Audit log helper - logs security-relevant events.
  * Returns true if logged successfully, false if logging failed.
  * Never throws - callers should not fail due to audit log issues.

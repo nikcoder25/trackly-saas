@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { pool, safeConnect } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
@@ -176,14 +176,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const { id } = await params;
   try {
     // Cascading delete in a transaction to clean up all related data
-    const client = await pool.connect();
+    const client = await safeConnect();
     try {
       await client.query('BEGIN');
       // Verify ownership first
       const check = await client.query('SELECT id FROM brands WHERE id = $1 AND user_id = $2', [id, user.id]);
       if (!check.rows.length) {
         await client.query('ROLLBACK');
-        client.release();
         return Response.json({ error: 'Brand not found' }, { status: 404 });
       }
       await client.query('DELETE FROM accuracy_issues WHERE brand_id = $1', [id]);

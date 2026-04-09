@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { pool, auditLog } from '@/lib/db';
+import { pool, safeConnect, auditLog } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
       // Consume backup code atomically
       if (backupIndex !== -1) {
-        const client = await pool.connect();
+        const client = await safeConnect();
         try {
           await client.query('BEGIN');
           const freshUser = await client.query('SELECT settings FROM users WHERE id = $1 FOR UPDATE', [user.id]);

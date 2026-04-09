@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { pool, auditLog } from '@/lib/db';
+import { pool, safeConnect, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 
 export async function DELETE(request: Request) {
@@ -19,7 +19,7 @@ export async function DELETE(request: Request) {
     auditLog(user.id, 'delete_account', 'user', user.id, { email: user.email }, ip);
 
     // Cascading delete in a transaction to clean up all related data
-    const client = await pool.connect();
+    const client = await safeConnect();
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM accuracy_issues WHERE brand_id IN (SELECT id FROM brands WHERE user_id = $1)', [user.id]);

@@ -31,7 +31,7 @@ const pool = new Pool({
 });
 
 async function initDB() {
-  const client = await pool.connect();
+  const client = await safeConnect();
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -626,4 +626,23 @@ async function cleanupUnverifiedAccounts() {
   }
 }
 
-module.exports = { pool, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, refreshPromptRunStats, getDbCachedResponse, setDbCachedResponse, cleanupResponseCache, getDailyCost, incrementDailyCost, cleanupDailyCosts, cleanupUnverifiedAccounts };
+// ── Safe pool client wrapper (prevents double-release) ─────────
+// Returns a proxied client whose .release() is a no-op after the first call.
+// Use this instead of pool.connect() everywhere to eliminate the
+// "Release called on client which has already been released" warning.
+async function safeConnect() {
+  const client = await pool.connect();
+  let released = false;
+  const originalRelease = client.release.bind(client);
+  client.release = (err) => {
+    if (released) {
+      log.warn('safeConnect: suppressed double-release');
+      return;
+    }
+    released = true;
+    return originalRelease(err);
+  };
+  return client;
+}
+
+module.exports = { pool, safeConnect, initDB, auditLog, notify, logApiCall, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, refreshPromptRunStats, getDbCachedResponse, setDbCachedResponse, cleanupResponseCache, getDailyCost, incrementDailyCost, cleanupDailyCosts, cleanupUnverifiedAccounts };

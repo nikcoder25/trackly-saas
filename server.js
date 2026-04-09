@@ -36,7 +36,7 @@ const rateLimit    = require('express-rate-limit');
 const cron         = require('node-cron');
 const path         = require('path');
 
-const { pool, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, cleanupResponseCache, cleanupDailyCosts, cleanupUnverifiedAccounts } = require('./config/db');
+const { pool, safeConnect, initDB, notify, auditLog, cleanupApiLogs, cleanupNotifications, cleanupResetTokens, cleanupWebhookEvents, cleanupPromptRuns, cleanupResponseCache, cleanupDailyCosts, cleanupUnverifiedAccounts } = require('./config/db');
 const { auth }         = require('./middleware/auth');
 const { getServerKeys } = require('./lib/helpers');
 const { createLogger }  = require('./lib/logger');
@@ -336,7 +336,7 @@ const CRON_BATCH_SIZE = parseInt(process.env.CRON_BATCH_SIZE, 10) || 5;
 async function withCronLock(lockId, fn) {
   let client;
   try {
-    client = await pool.connect();
+    client = await safeConnect();
   } catch(e) {
     // Cannot get DB connection — skip this cron cycle rather than running unprotected
     log.warn('Cron lock: failed to get DB connection, skipping cycle', { error: e.message });

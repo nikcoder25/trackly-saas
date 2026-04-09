@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { pool, safeConnect } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, decryptApiKeys } from '@/lib/helpers';
 import { runFactCheck, autoDiscoverFacts } from '@/lib/fact-checker';
@@ -146,7 +146,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { facts } = await request.json();
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
-  const client = await pool.connect();
+  const client = await safeConnect();
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM brand_facts WHERE brand_id = $1', [id]);
@@ -305,7 +305,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Persist issues to DB: remove old unfixed issues, keep fixed ones, insert new
     try {
-      const client = await pool.connect();
+      const client = await safeConnect();
       try {
         await client.query('BEGIN');
         await client.query('DELETE FROM accuracy_issues WHERE brand_id = $1 AND fixed = FALSE', [id]);
