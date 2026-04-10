@@ -204,11 +204,12 @@ async function executeRunBackground(
     platFailCount[plat] = 0;
   }
 
-  // Build interleaved task list
+  // Build round-robin task list — cycle through platforms so concurrent
+  // workers hit different platforms rather than hammering the same one
   const tasks: Array<{ plat: string; q: string }> = [];
-  for (const q of queries) {
-    for (const plat of activePlatforms) {
-      tasks.push({ plat, q });
+  for (let qi = 0; qi < queries.length; qi++) {
+    for (let pi = 0; pi < activePlatforms.length; pi++) {
+      tasks.push({ plat: activePlatforms[pi], q: queries[qi] });
     }
   }
 
@@ -272,6 +273,10 @@ async function executeRunBackground(
     });
   }
 
+  // Track last request time per platform to stagger calls and avoid rate limits
+  const platLastCall: Record<string, number> = {};
+  const PLATFORM_STAGGER_MS = 500; // minimum ms between calls to the same platform
+
   async function runWorker() {
     while (nextIdx < tasks.length) {
       const idx = nextIdx++;
@@ -281,10 +286,17 @@ async function executeRunBackground(
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
           throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
         }
+        // Stagger requests to the same platform to avoid 429s
+        const lastCall = platLastCall[plat] || 0;
+        const elapsed = Date.now() - lastCall;
+        if (elapsed < PLATFORM_STAGGER_MS) {
+          await new Promise(r => setTimeout(r, PLATFORM_STAGGER_MS - elapsed));
+        }
         const keyName = PLATFORM_KEY_MAP[plat];
         const serverKeyList = serverKeys[keyName] || [];
         const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
         if (!rawKey) throw new Error('No API key available for ' + plat);
+        platLastCall[plat] = Date.now();
         const result = await queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand);
         platFailCount[plat] = 0;
         processResult(plat, q, result);
@@ -297,8 +309,9 @@ async function executeRunBackground(
   }
 
   try {
-    const CONCURRENCY = Math.max(activePlatforms.length, 8);
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => runWorker()));
+    // Cap concurrency to number of platforms (1 worker per platform avoids hammering)
+    const CONCURRENCY = Math.min(activePlatforms.length, tasks.length);
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => runWorker()));
 
     // Final flush
     await flushProgress(true);
