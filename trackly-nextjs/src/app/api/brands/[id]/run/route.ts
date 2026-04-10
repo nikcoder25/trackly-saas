@@ -127,22 +127,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 
-  // --- Check per-period prompt usage (based on brand owner's plan & usage) ---
+  // --- Check monthly run limit (based on brand owner's plan) ---
   try {
-    const usageResult = await pool.query(
-      `SELECT COUNT(*) as used FROM prompt_runs pr JOIN brands b ON pr.brand_id = b.id WHERE b.user_id = $1 AND pr.created_at >= NOW() - INTERVAL '30 days'`,
+    const runsResult = await pool.query(
+      `SELECT COUNT(*) as used FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
+       WHERE b.user_id = $1 AND ar.started_at >= NOW() - INTERVAL '30 days'
+       AND ar.status IN ('done', 'running')`,
       [ownerId]
     );
-    const used = parseInt(usageResult.rows[0]?.used, 10) || 0;
-    const requested = queries.length * activePlatforms.length;
-    if (used + requested > limits.prompts) {
+    const runsUsed = parseInt(runsResult.rows[0]?.used, 10) || 0;
+    if (runsUsed >= limits.runsPerMonth) {
       return Response.json({
-        error: `Monthly prompt limit reached (${used}/${limits.prompts} used). This run needs ${requested} prompts. Upgrade your plan or wait for the monthly reset.`,
+        error: `Monthly run limit reached (${runsUsed}/${limits.runsPerMonth} runs used). Upgrade your plan or wait for the monthly reset.`,
         planLimit: true,
+        runsUsed,
+        runsLimit: limits.runsPerMonth,
       }, { status: 429 });
     }
   } catch {
-    // If prompt_runs table doesn't exist yet, skip the check
+    // If active_runs table doesn't exist yet, skip the check
+  }
+
+  // --- Check per-brand query limit ---
+  if (queries.length > limits.queries) {
+    return Response.json({
+      error: `Your ${ownerPlan} plan allows up to ${limits.queries} queries per brand. You have ${queries.length}. Remove some queries or upgrade.`,
+      planLimit: true,
+    }, { status: 403 });
   }
 
   // --- Check for existing active run (DB-based locking) ---

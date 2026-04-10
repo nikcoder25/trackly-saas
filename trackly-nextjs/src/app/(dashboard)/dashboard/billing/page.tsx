@@ -21,9 +21,10 @@ const PLAN_PRICES: Record<string, string> = {
 
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'Price / month',  free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
-  { feature: 'Total Prompts',  free: '5',   starter: '30',  pro: '250',  agency: '1,000', owner: '∞' },
-  { feature: 'Brands',         free: '1',   starter: '1',   pro: '5',    agency: '20',   owner: '∞' },
-  { feature: 'Competitors',    free: '0',   starter: '2',   pro: '5',    agency: '20',   owner: '∞' },
+  { feature: 'Brands',         free: '1',   starter: '2',   pro: '5',    agency: '20',   owner: '∞' },
+  { feature: 'Queries / brand', free: '5',  starter: '25',  pro: '50',   agency: '100',  owner: '∞' },
+  { feature: 'Runs / month',   free: '5',   starter: '30',  pro: '90',   agency: '240',  owner: '∞' },
+  { feature: 'Competitors',    free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
   { feature: 'Platforms',      free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
   { feature: 'GEO Audits',     free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
   { feature: 'Sentiment',      free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
@@ -70,7 +71,7 @@ export default function BillingPage() {
 
   const [brandCount, setBrandCount] = useState(0);
   const [queryCount, setQueryCount] = useState(0);
-  const [platformCount, setPlatformCount] = useState(0);
+  const [runsUsed, setRunsUsed] = useState(0);
   const [geoAuditCount, setGeoAuditCount] = useState(0);
 
   useEffect(() => {
@@ -78,8 +79,23 @@ export default function BillingPage() {
     const b = selectedBrand as Record<string, unknown>;
     setBrandCount(brands.length);
     setQueryCount(b?.queries ? (b.queries as string[]).length : 0);
-    setPlatformCount((b?.selected_platforms as string[] || []).length || 5);
     setGeoAuditCount(0);
+    // Fetch actual monthly run count
+    fetch('/api/brands', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        // Count runs from all brands' runs arrays in last 30 days
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        let count = 0;
+        for (const brand of (d.brands || [])) {
+          for (const run of (brand.runs || [])) {
+            const runTime = new Date(run.time || run.date || 0).getTime();
+            if (runTime >= thirtyDaysAgo) count++;
+          }
+        }
+        setRunsUsed(count);
+      })
+      .catch(() => {});
     setLoading(false);
   }, [brandsLoading, brands, selectedBrand, currentPlan, user]);
 
@@ -98,10 +114,10 @@ export default function BillingPage() {
   }, []);
 
   const meters = [
-    { label: 'Brands',     used: brandCount,    max: limits.brands    || 1, icon: '◆', color: 'var(--blue)' },
-    { label: 'Prompts',    used: queryCount,     max: limits.prompts   || 5, icon: '⚡', color: 'var(--amber)' },
-    { label: 'Platforms',  used: platformCount,  max: limits.platforms || 2, icon: '◎', color: 'var(--purple)' },
-    { label: 'GEO Audits', used: geoAuditCount, max: limits.geoAudits || 3, icon: '◉', color: 'var(--green)' },
+    { label: 'Brands',       used: brandCount,    max: limits.brands       || 1, icon: '◆', color: 'var(--blue)' },
+    { label: 'Queries',      used: queryCount,     max: limits.queries      || 5, icon: '⚡', color: 'var(--amber)' },
+    { label: 'Runs / Month', used: runsUsed,       max: limits.runsPerMonth || 5, icon: '▶', color: 'var(--purple)' },
+    { label: 'GEO Audits',   used: geoAuditCount, max: limits.geoAudits    || 3, icon: '◉', color: 'var(--green)' },
   ];
 
   const hasOverage = meters.some(m => m.used > m.max && m.max < 9999);
