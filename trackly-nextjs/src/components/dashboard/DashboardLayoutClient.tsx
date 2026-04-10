@@ -1,30 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
-import { RunProvider } from '@/contexts/RunContext';
+import { RunProvider, useRun } from '@/contexts/RunContext';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
 import GlobalLiveToasts from '@/components/dashboard/GlobalLiveToasts';
 import { ToastProvider } from '@/components/dashboard/Toast';
 import { SkeletonStyles } from '@/components/dashboard/Skeleton';
+import AddBrandModal from '@/components/dashboard/AddBrandModal';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
 
-function OnboardingRedirect() {
-  const { brands, loading } = useBrands();
-  const router = useRouter();
-  const pathname = usePathname();
+function OnboardingModal() {
+  const { brands, loading, setSelectedBrand, refreshBrands } = useBrands();
+  const { startRun } = useRun();
+  const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    if (!loading && brands.length === 0 && pathname !== '/onboarding') {
-      router.replace('/onboarding');
-    }
-  }, [loading, brands.length, pathname, router]);
+  // Show the AddBrandModal when user has zero brands (first-time onboarding)
+  if (loading || brands.length > 0 || dismissed) return null;
 
-  return null;
+  return (
+    <AddBrandModal
+      onClose={() => setDismissed(true)}
+      onCreated={(brand) => {
+        setSelectedBrand(brand);
+        refreshBrands().then(() => {
+          setTimeout(() => startRun(false), 500);
+        });
+      }}
+    />
+  );
 }
 
 function EmailVerificationBanner() {
@@ -137,9 +144,9 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
 
   return (
     <BrandProvider>
-    <OnboardingRedirect />
     <RunProvider>
     <ToastProvider>
+    <OnboardingModal />
     <SkeletonStyles />
     <div id="app" style={{ display: 'grid', height: '100vh', overflow: 'hidden', gridTemplateColumns: '220px 1fr', gridTemplateRows: '52px 1fr', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
       <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
