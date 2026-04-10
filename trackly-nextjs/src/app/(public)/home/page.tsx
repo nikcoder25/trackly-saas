@@ -26,6 +26,7 @@ const platforms = [
   { name: 'Claude', color: '#d97706', icon: '◈', href: '/claude-brand-tracking' },
   { name: 'Gemini', color: '#4285f4', icon: '✦', href: '/gemini-brand-tracking' },
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', href: '/grok-brand-tracking' },
+  { name: 'Google AI Overviews', color: '#4285f4', icon: '🔍', href: '/google-ai-overviews-tracking' },
 ];
 
 /* ─── SVG Icon components ─── */
@@ -79,6 +80,7 @@ const demoResults = [
   { name: 'Claude', color: '#d97706', icon: '◈', found: true, text: 'I can share that <mark>CoolAir Pro</mark> has developed a solid reputation in the Austin TX HVAC market for professional service...' },
   { name: 'Gemini', color: '#4285f4', icon: '✦', found: true, text: '<mark>CoolAir Pro</mark> is an HVAC provider in Austin TX with consistent 4+ star ratings. Professional, licensed, transparent...' },
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, text: 'For HVAC in Austin TX, I\'d recommend AC Express, Stan\'s Heating, and Green Leaf Air. Solid reviews and competitive pricing...' },
+  { name: 'Google AI Overviews', color: '#4285f4', icon: '🔍', found: true, text: 'According to reviews, <mark>CoolAir Pro</mark> is a top-rated HVAC company in Austin TX known for fast response times, licensed technicians, and upfront pricing...' },
 ];
 
 /* ─── Typing animation hook ─── */
@@ -788,6 +790,7 @@ export default function LivesovHomePage() {
               <Link href="/claude-brand-tracking">Claude Tracking</Link>
               <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
               <Link href="/grok-brand-tracking">Grok Tracking</Link>
+              <Link href="/google-ai-overviews-tracking">AI Overviews Tracking</Link>
             </div>
             <div className="tl-footer-col">
               <h4>{t.footer.legal}</h4>
