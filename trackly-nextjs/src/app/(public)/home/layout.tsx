@@ -104,7 +104,7 @@ const jsonLd = {
         {
           '@type': 'Question',
           name: 'How much does Livesov cost?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan to get started. Paid plans start at $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo.' },
+          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan to get started. Paid plans start at $19/mo (Starter), with Pro at $49/mo and Agency at $149/mo.' },
         },
       ],
     },

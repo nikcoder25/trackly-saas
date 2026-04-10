@@ -518,7 +518,7 @@ Use Livesov's evidence export to show:
 
 ## Getting Started
 
-1. [Sign up for Livesov Agency plan](https://livesov.com/signup) ($89/mo for 10 brands)
+1. [Sign up for Livesov Agency plan](https://livesov.com/signup) ($149/mo for 20 brands)
 2. Add your first client's brand
 3. Run an initial audit
 4. Package the results into a proposal

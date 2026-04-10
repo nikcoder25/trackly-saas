@@ -46,6 +46,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       competitorCounts[comp] = 0;
     }
 
+    // Build case-insensitive lookup: lowercase name -> original name
+    const compLookup = new Map<string, string>();
+    for (const comp of competitors) {
+      compLookup.set(comp.toLowerCase(), comp);
+    }
+
     for (const row of rows) {
       const plat = row.platform;
       platformTotals[plat] = (platformTotals[plat] || 0) + 1;
@@ -66,12 +72,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         mentions = [];
       }
 
-      for (const comp of mentions) {
-        if (competitorCounts[comp] !== undefined) {
-          competitorCounts[comp]++;
-        }
-        if (platformCompCounts[plat] && platformCompCounts[plat][comp] !== undefined) {
-          platformCompCounts[plat][comp]++;
+      for (const rawComp of mentions) {
+        // Case-insensitive match: resolve stored name -> canonical competitor name
+        const canonical = compLookup.get(rawComp.toLowerCase()) ?? (competitorCounts[rawComp] !== undefined ? rawComp : null);
+        if (canonical) {
+          competitorCounts[canonical]++;
+          if (platformCompCounts[plat]?.[canonical] !== undefined) {
+            platformCompCounts[plat][canonical]++;
+          }
         }
       }
     }
