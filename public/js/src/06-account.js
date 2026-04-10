@@ -520,15 +520,17 @@ async function setup2FA() {
   try {
     const data = await api('POST', '/api/auth/2fa/setup');
     const qrArea = el('twofa-qr-area');
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data.otpauthUrl);
     qrArea.innerHTML = `
-      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">
-        Scan this URL in your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code below to verify.
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;">
+        Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):
       </div>
-      <div style="background:var(--bg2);border:1px solid var(--border);padding:10px;border-radius:var(--radius-xs);margin-bottom:8px;word-break:break-all;font-family:var(--mono);font-size:10px;color:var(--text);">
-        ${esc(data.otpauthUrl)}
+      <div style="background:#fff;padding:16px;border-radius:var(--radius-xs);border:1px solid var(--border);display:inline-block;margin-bottom:10px;">
+        <img src="${esc(qrUrl)}" alt="2FA QR Code" width="200" height="200" style="display:block;" />
       </div>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
-        Manual entry key: <strong style="color:var(--primary);letter-spacing:2px;">${esc(data.secret)}</strong>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;">
+        Can't scan? Enter this key manually:
+        <strong style="color:var(--primary);letter-spacing:2px;display:block;margin-top:4px;font-size:12px;">${esc(data.secret)}</strong>
       </div>`;
     el('twofa-setup-form').style.display = 'block';
     el('twofa-verify-code').value = '';

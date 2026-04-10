@@ -244,11 +244,24 @@ export default function AccountPage() {
         {/* QR Code + Verify Step */}
         {twoFASetup && (
           <div style={{ marginTop: 12 }}>
-            {/* Manual TOTP setup key (no external QR service) */}
+            {/* Step 1: QR Code for authenticator app */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Add this key to your authenticator app</div>
-              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>
-                Open your authenticator app (Google Authenticator, Authy, etc.) and add a new account manually using the setup key below:
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Scan this QR code with your authenticator app</div>
+              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)', marginBottom: 12 }}>
+                Open Google Authenticator, Authy, or any TOTP app and scan the QR code below:
+              </div>
+              <div style={{ background: '#fff', padding: 16, borderRadius: 'var(--radius-xs)', border: '1px solid var(--border)', display: 'inline-block' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(twoFASetup.otpauthUrl)}`}
+                  alt="Scan this QR code with your authenticator app"
+                  width={200}
+                  height={200}
+                  style={{ display: 'block' }}
+                />
+              </div>
+              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted)' }}>
+                Can&apos;t scan? Enter this key manually:
               </div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'inline-block', letterSpacing: 2, userSelect: 'all' as const }}>
                 {twoFASetup.secret}
