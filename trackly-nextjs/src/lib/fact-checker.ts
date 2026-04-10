@@ -146,72 +146,121 @@ async function callChecker(
   checker: { type: 'gemini' | 'openai' | 'claude'; key: string; model: string },
   prompt: string
 ): Promise<string> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
+  const MAX_RETRIES = 2;
 
-  try {
-    if (checker.type === 'openai') {
-      const resp = await fetch(API_ENDPOINTS.openai, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${checker.key}` },
-        body: JSON.stringify({
-          model: checker.model,
-          max_tokens: 4096,
-          temperature: 0,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-        signal: controller.signal,
-      });
-      const d = await resp.json();
-      if (!resp.ok) throw new Error(d.error?.message || `OpenAI API error ${resp.status}`);
-      return d.choices?.[0]?.message?.content || '';
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      if (checker.type === 'openai') {
+        const resp = await fetch(API_ENDPOINTS.openai, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${checker.key}` },
+          body: JSON.stringify({
+            model: checker.model,
+            max_tokens: 4096,
+            temperature: 0,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal: controller.signal,
+        });
+        const d = await resp.json();
+        if (!resp.ok) {
+          const msg = d.error?.message || `OpenAI API error ${resp.status}`;
+          if ((resp.status === 429 || resp.status >= 500) && attempt < MAX_RETRIES) {
+            console.warn(`[FactChecker] OpenAI transient error (attempt ${attempt + 1}): ${msg}`);
+            await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
+            continue;
+          }
+          throw new Error(msg);
+        }
+        return d.choices?.[0]?.message?.content || '';
+      }
+
+      if (checker.type === 'claude') {
+        const resp = await fetch(API_ENDPOINTS.claude, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': checker.key,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: checker.model,
+            max_tokens: 4096,
+            temperature: 0,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal: controller.signal,
+        });
+        const d = await resp.json();
+        if (!resp.ok) {
+          const msg = d.error?.message || `Claude API error ${resp.status}`;
+          if ((resp.status === 429 || resp.status >= 500) && attempt < MAX_RETRIES) {
+            console.warn(`[FactChecker] Claude transient error (attempt ${attempt + 1}): ${msg}`);
+            await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
+            continue;
+          }
+          throw new Error(msg);
+        }
+        return d.content?.[0]?.text || '';
+      }
+
+      if (checker.type === 'gemini') {
+        const url = `${API_ENDPOINTS.gemini}${checker.model}:generateContent`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 4096, temperature: 0 },
+          }),
+          signal: controller.signal,
+        });
+        const d = await resp.json();
+        if (!resp.ok) {
+          const msg = d.error?.message || `Gemini API error ${resp.status}`;
+          const isTransient = resp.status === 429 || resp.status >= 500 || (msg && (msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded')));
+          if (isTransient && attempt < MAX_RETRIES) {
+            console.warn(`[FactChecker] Gemini transient error (attempt ${attempt + 1}): ${msg}`);
+            await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
+            continue;
+          }
+          throw new Error(msg);
+        }
+        // Handle 200 response with error in body (Gemini-specific)
+        if (d.error) {
+          const msg = d.error.message || JSON.stringify(d.error);
+          const isTransient = msg.toLowerCase().includes('high demand') || msg.toLowerCase().includes('overloaded') || msg.toLowerCase().includes('resource exhausted');
+          if (isTransient && attempt < MAX_RETRIES) {
+            console.warn(`[FactChecker] Gemini transient body error (attempt ${attempt + 1}): ${msg}`);
+            await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
+            continue;
+          }
+          throw new Error(msg);
+        }
+        // Handle safety-blocked or empty responses
+        if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked the request: ${d.promptFeedback.blockReason}`);
+        const candidate = d.candidates?.[0];
+        if (candidate && candidate.finishReason === 'SAFETY') throw new Error('Gemini blocked the response due to safety filters');
+        return candidate?.content?.parts?.[0]?.text || '';
+      }
+
+      return '';
+    } catch (e) {
+      clearTimeout(timer);
+      if (attempt < MAX_RETRIES && (e as Error).name === 'AbortError') {
+        console.warn(`[FactChecker] Request timed out (attempt ${attempt + 1}), retrying...`);
+        await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
     }
-
-    if (checker.type === 'claude') {
-      const resp = await fetch(API_ENDPOINTS.claude, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': checker.key,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: checker.model,
-          max_tokens: 4096,
-          temperature: 0,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-        signal: controller.signal,
-      });
-      const d = await resp.json();
-      if (!resp.ok) throw new Error(d.error?.message || `Claude API error ${resp.status}`);
-      return d.content?.[0]?.text || '';
-    }
-
-    if (checker.type === 'gemini') {
-      const url = `${API_ENDPOINTS.gemini}${checker.model}:generateContent`;
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 4096, temperature: 0 },
-        }),
-        signal: controller.signal,
-      });
-      const d = await resp.json();
-      if (!resp.ok) throw new Error(d.error?.message || `Gemini API error ${resp.status}`);
-      // Handle safety-blocked or empty responses
-      if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked the request: ${d.promptFeedback.blockReason}`);
-      const candidate = d.candidates?.[0];
-      if (candidate && candidate.finishReason === 'SAFETY') throw new Error('Gemini blocked the response due to safety filters');
-      return candidate?.content?.parts?.[0]?.text || '';
-    }
-
-    return '';
-  } finally {
-    clearTimeout(timer);
   }
+  throw new Error('Max retries exhausted for fact checker');
 }
 
 function parseCheckerResponse(raw: string): Array<{
@@ -590,7 +639,21 @@ export async function autoDiscoverFacts(
 
     return { facts: validFacts };
   } catch (e) {
-    console.error('[AutoDiscover]', (e as Error).message);
-    return { facts: [], error: 'Failed to auto-discover facts. Please try again.' };
+    const msg = (e as Error).message || '';
+    console.error('[AutoDiscover]', msg);
+    // Return specific error messages so users know what went wrong
+    if (msg.includes('AbortError') || msg.includes('timed out') || msg.includes('timeout')) {
+      return { facts: [], error: 'AI request timed out. Please try again — this is usually temporary.' };
+    }
+    if (msg.includes('high demand') || msg.includes('overloaded') || msg.includes('resource exhausted')) {
+      return { facts: [], error: 'AI service is experiencing high demand. Please try again in a few moments.' };
+    }
+    if (msg.includes('API error 401') || msg.includes('invalid') || msg.includes('Unauthorized')) {
+      return { facts: [], error: 'API key is invalid or expired. Check your API keys in Settings.' };
+    }
+    if (msg.includes('API error 429') || msg.includes('rate limit')) {
+      return { facts: [], error: 'Rate limit reached. Please wait a moment and try again.' };
+    }
+    return { facts: [], error: `Failed to auto-discover facts: ${msg.slice(0, 120)}. Please try again.` };
   }
 }

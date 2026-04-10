@@ -202,7 +202,7 @@ export default function PlatformsPage() {
 
       {/* ── Platform cards ── */}
       <div style={{ ...s.label, marginBottom: 10, fontSize: 12 }}>Platform Breakdown</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+      <div className="platform-breakdown-grid">
         {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
           const raw = platformData[name];
           const n = normPlatform(raw);
@@ -300,6 +300,19 @@ export default function PlatformsPage() {
           );
         })}
       </div>
+      <style>{`
+        .platform-breakdown-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+        }
+        @media (max-width: 1100px) {
+          .platform-breakdown-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+          .platform-breakdown-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </div>
   );
 }

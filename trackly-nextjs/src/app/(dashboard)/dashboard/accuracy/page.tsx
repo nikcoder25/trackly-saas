@@ -345,8 +345,16 @@ export default function AccuracyPage() {
       } else {
         toast('No facts could be discovered. Try adding a website URL to your brand or running more queries first.', 'error');
       }
-    }).catch(() => {
-      toast('Failed to auto-discover facts. Please try again.', 'error');
+    }).catch(async (err) => {
+      // Try to extract the specific error message from the response
+      let errorMsg = 'Failed to auto-discover facts. Please try again.';
+      if (err instanceof Response || err?.json) {
+        try { const d = await err.json(); if (d.error) errorMsg = d.error; } catch { /* use default */ }
+      } else if (err?.message && err.message !== `HTTP ${err?.status}`) {
+        errorMsg = err.message;
+      }
+      toast(errorMsg, 'error');
+      setCheckMessage({ text: errorMsg, isError: true });
     }).finally(() => setDiscovering(false));
   }
 

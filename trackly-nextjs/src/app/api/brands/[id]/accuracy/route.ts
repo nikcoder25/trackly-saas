@@ -225,8 +225,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         ...(result.error ? { error: result.error } : {}),
       });
     } catch (e) {
-      console.error('[AutoDiscover]', (e as Error).message);
-      return Response.json({ error: 'Failed to auto-discover facts' }, { status: 500 });
+      const msg = (e as Error).message || 'Unknown error';
+      console.error('[AutoDiscover]', msg);
+      return Response.json({ error: `Failed to auto-discover facts: ${msg.slice(0, 150)}` }, { status: 500 });
     }
   }
 
