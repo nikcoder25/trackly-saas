@@ -347,15 +347,10 @@ async function executeRunBackground(
       errorCount: totalErrors,
     };
 
-    // Mark run as done in DB
-    await pool.query(
-      `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
-       found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
-       WHERE id = $5`,
-      [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
-    );
-
-    // Save to brand data (same as before)
+    // Save to brand data FIRST — must complete before marking active_runs as
+    // done, because the client polls active_runs status and immediately calls
+    // refreshBrands() when it sees "done". If brand data isn't saved yet, the
+    // dashboard shows stale "Last Run" data.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const brandData = { ...brand } as any;
     delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
@@ -403,6 +398,15 @@ async function executeRunBackground(
     brandData.updatedAt = new Date().toISOString();
 
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
+
+    // NOW mark run as done — client will see this and call refreshBrands(),
+    // which will find the already-updated brand data above
+    await pool.query(
+      `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
+       found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
+       WHERE id = $5`,
+      [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
+    );
 
     // Persist prompt_runs in batches
     for (let i = 0; i < allResults.length; i += 100) {
