@@ -8,21 +8,21 @@ import { useBrands } from '@/contexts/BrandContext';
 
 const PLAN_INFO: Record<string, { price: string; period: string; gradient: string }> = {
   free:       { price: '$0',     period: '',    gradient: 'linear-gradient(135deg, #64748b 0%, #94a3b8 100%)' },
-  starter:    { price: '$19',    period: '/mo', gradient: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)' },
-  pro:        { price: '$49',    period: '/mo', gradient: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)' },
-  agency:     { price: '$149',   period: '/mo', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)' },
+  starter:    { price: '$9',     period: '/mo', gradient: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)' },
+  pro:        { price: '$29',    period: '/mo', gradient: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)' },
+  agency:     { price: '$89',    period: '/mo', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)' },
   enterprise: { price: 'Custom', period: '',    gradient: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' },
   owner:      { price: '—',      period: '',    gradient: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' },
 };
 
 const PLAN_PRICES: Record<string, string> = {
-  free: '$0', starter: '$19', pro: '$49', agency: '$149', owner: '—',
+  free: '$0', starter: '$9', pro: '$29', agency: '$89', owner: '—',
 };
 
 const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
-  { feature: 'Price / month',    free: '$0',  starter: '$19',  pro: '$49',  agency: '$149',  owner: '—' },
+  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
   { feature: 'Brands',           free: '1',   starter: '2',   pro: '5',    agency: '20',   owner: '∞' },
   { feature: 'Queries / brand',  free: '5',   starter: '25',  pro: '50',   agency: '100',  owner: '∞' },
   { feature: 'Runs / month',     free: '5',   starter: '30',  pro: '90',   agency: '240',  owner: '∞' },
