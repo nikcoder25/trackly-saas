@@ -131,7 +131,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const usageResult = await pool.query(
       `SELECT COUNT(*) as used FROM prompt_runs pr JOIN brands b ON pr.brand_id = b.id WHERE b.user_id = $1 AND pr.created_at >= NOW() - INTERVAL '30 days'`,
-      [user.id]
+      [ownerId]
     );
     const used = parseInt(usageResult.rows[0]?.used, 10) || 0;
     const requested = queries.length * activePlatforms.length;
