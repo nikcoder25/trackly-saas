@@ -1,11 +1,22 @@
 /**
  * Admin monitoring endpoint — returns system health metrics.
  * GET /api/admin/monitoring
+ * Requires admin role.
  */
 import { pool } from '@/lib/db';
+import { verifyRequestAuth } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Require authenticated admin user
+  const user = verifyRequestAuth(request);
+  if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 });
+
   try {
+    const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);
+    if (!userResult.rows.length || userResult.rows[0].role !== 'admin') {
+      return Response.json({ error: 'Not found' }, { status: 404 });
+    }
+
     // Active runs count
     const activeRunsResult = await pool.query(
       `SELECT COUNT(*) as count FROM active_runs WHERE status = 'running' AND started_at > NOW() - INTERVAL '30 minutes'`

@@ -6,6 +6,11 @@
 
 import nodemailer from 'nodemailer';
 
+/** Escape HTML entities to prevent injection in email templates */
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
 const EMAIL_API_URL = process.env.EMAIL_API_URL || 'https://api.resend.com/emails';
@@ -107,24 +112,24 @@ export async function sendContactFormEmail({
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:140px;">Name</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${name}</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${escHtml(name)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Email</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;"><a href="mailto:${email}" style="color:#4f46e5;">${email}</a></td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;"><a href="mailto:${escHtml(email)}" style="color:#4f46e5;">${escHtml(email)}</a></td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Inquiry Type</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${inquiryType}</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${escHtml(inquiryType)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Subject</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${subject}</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${escHtml(subject)}</td>
         </tr>
       </table>
       <div style="margin-top:16px;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
         <p style="font-weight:600;color:#374151;margin:0 0 8px 0;">Message</p>
-        <p style="color:#111827;margin:0;white-space:pre-wrap;">${message}</p>
+        <p style="color:#111827;margin:0;white-space:pre-wrap;">${escHtml(message)}</p>
       </div>
       <p style="color:#999;font-size:12px;margin-top:16px;">This message was sent via the Livesov contact form. Reply directly to respond to the customer.</p>
     </div>

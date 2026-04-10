@@ -37,6 +37,16 @@ export function resetApiKeyFailures(apiKey: string): void {
   apiKeyFailures.delete(apiKey);
 }
 
+// Periodic cleanup of expired circuit breaker entries to prevent memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of apiKeyFailures) {
+    if (now - entry.lastFailure > CIRCUIT_BREAKER_WINDOW_MS) {
+      apiKeyFailures.delete(key);
+    }
+  }
+}, 60 * 1000); // check every minute
+
 const API_ENDPOINTS = {
   openai: { chat: 'https://api.openai.com/v1/chat/completions' },
   perplexity: { chat: 'https://api.perplexity.ai/chat/completions' },

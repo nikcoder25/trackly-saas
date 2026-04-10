@@ -376,6 +376,8 @@ async function initDB() {
     await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;`);
     // Add index for api_logs.run_id lookups (cost tracking queries)
     await client.query(`CREATE INDEX IF NOT EXISTS idx_api_logs_run_id ON api_logs(run_id) WHERE run_id IS NOT NULL;`);
+    // Index for monitoring endpoint: per-platform response time aggregations
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_api_logs_monitoring ON api_logs(created_at DESC, platform) WHERE response_ms IS NOT NULL AND status = 'ok';`);
     // Site-wide configuration (admin model selections, feature flags, etc.)
     await client.query(`
       CREATE TABLE IF NOT EXISTS site_config (

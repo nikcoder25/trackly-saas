@@ -286,10 +286,12 @@ async function runQueries(){
     if (activeRunId) {
       console.log('[Run] SSE connection lost, switching to polling for runId:', activeRunId);
       statusTxt.textContent = 'Reconnecting — queries still running on server...';
+      const fallbackTimer = setInterval(() => { if (timerEl) timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000);
       try {
-        await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, lastResultCount: received, timerInt: setInterval(() => { timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000) });
+        await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, lastResultCount: received, timerInt: fallbackTimer });
         return; // pollRunStatus handles cleanup
       } catch(pollErr) {
+        clearInterval(fallbackTimer);
         console.error('[Run] Polling also failed:', pollErr.message);
         // Fall through to error handling below
       }

@@ -108,7 +108,8 @@ export async function POST(request: Request) {
   const { allowed, retryAfter } = await rateLimit(`brand_create:${user.id}`, 60 * 60 * 1000, 20);
   if (!allowed) return rateLimitResponse(retryAfter);
 
-  const body = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
   const { name, industry, website, city, goal, competitors, queries, nearbyAreas } = body;
 
   if (!name) return Response.json({ error: 'Brand name required' }, { status: 400 });

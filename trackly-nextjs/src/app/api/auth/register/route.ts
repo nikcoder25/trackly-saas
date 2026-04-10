@@ -67,7 +67,8 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimit('auth:' + ip, 15 * 60 * 1000, 20);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const body = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
   const { email, password, name, username } = body;
 
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });

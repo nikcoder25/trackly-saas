@@ -304,6 +304,33 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ─── STUB ENDPOINTS (used by legacy frontend, return empty data) ──
+app.get('/api/query-suggestions', auth, (req, res) => {
+  const { industry, city } = req.query;
+  const suggestions = [];
+  if (industry) {
+    const ind = String(industry);
+    const c = city ? ` in ${city}` : '';
+    suggestions.push(
+      `What is the best ${ind} company${c}?`,
+      `Who are the top ${ind} providers${c}?`,
+      `Best ${ind} recommendations${c}`,
+      `Most recommended ${ind} brands${c}`,
+      `Top rated ${ind} companies${c}`
+    );
+  }
+  res.json({ suggestions });
+});
+
+app.get('/api/meta/platforms', (req, res) => {
+  const { PLATFORM_MODELS } = require('./lib/ai-platforms');
+  const platforms = {};
+  for (const [name, models] of Object.entries(PLATFORM_MODELS)) {
+    platforms[name] = { status: 'operational', models: models.length };
+  }
+  res.json({ platforms });
+});
+
 // ─── API ROUTES ──────────────────────────────────────────────────
 app.use('/api/auth',     authRoutes);
 app.use('/api/brands',   brandRoutes);

@@ -212,6 +212,7 @@ const BRANDING = {
 
 // ─── DAILY COST BUDGETS (per plan, USD) ────────────────────────
 const DAILY_COST_BUDGETS = {
+  free: 0.10,
   starter: 0.50,
   pro: 2.00,
   agency: 8.00,

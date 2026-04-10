@@ -50,7 +50,8 @@ async function acquireDbBrandLock(brandId) {
 async function releaseDbBrandLock(brandId) {
   try {
     const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
-    const lockKey = hash.readInt32BE(0);
+    // Must match acquireDbBrandLock key derivation (readBigInt64BE + mod)
+    const lockKey = Number(hash.readBigInt64BE(0) % BigInt(2147483647));
     await pool.query('SELECT pg_advisory_unlock($1)', [lockKey]);
   } catch(e) { /* best-effort */ }
 }
