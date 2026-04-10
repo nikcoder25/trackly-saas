@@ -233,8 +233,8 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* Meter Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 0 }}>
+        {/* Meter Grid — always 3 columns (2 on tablet, 1 on mobile) */}
+        <div className="usage-meter-grid">
           {meters.map(m => {
             const s = getStatus(m.used, m.max);
             const isUnlimited = s === 'unlimited';
@@ -463,6 +463,20 @@ export default function BillingPage() {
           </Link>
         </div>
       </div>
+
+      <style>{`
+        .usage-meter-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0;
+        }
+        @media (max-width: 900px) {
+          .usage-meter-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 540px) {
+          .usage-meter-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
     </div>
   );
 }
