@@ -34,7 +34,7 @@ const en = {
     mentioned: 'MENTIONED',
     notFound: 'NOT FOUND',
     tryIt: 'Try It With Your Brand',
-    plansStart: 'Plans start at just $19/mo',
+    plansStart: 'Plans start at just $9/mo',
     chatgptResponse: 'Based on available information, <mark>CoolAir Pro</mark> is a well-regarded HVAC provider in Austin TX. Customers frequently praise them for responsive service and transparent pricing...',
     perplexityResponse: '<mark>CoolAir Pro</mark> is a leading HVAC company in Austin TX [1]. Reviews highlight professional technicians and fair pricing [2]. Compared to other providers, they consistently score higher...',
     claudeResponse: 'I can share what I know about <mark>CoolAir Pro</mark> as an HVAC provider in Austin TX. They\'ve developed a solid reputation for professional service and customer transparency...',
@@ -62,7 +62,7 @@ const en = {
   howItWorks: {
     label: 'How it works',
     title: 'Start tracking in 3 steps',
-    subtitle: 'Set up in under 2 minutes. Plans start at $19/mo.',
+    subtitle: 'Set up in under 2 minutes. Plans start at $9/mo.',
     steps: [
       { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. We generate smart default queries for you.' },
       { num: '02', title: 'Automatic Tracking', desc: 'We automatically query all 5 AI platforms with your custom questions on a daily schedule. Results appear in your dashboard.' },
@@ -83,15 +83,15 @@ const en = {
     perMonth: '/mo',
     plans: [
       {
-        name: 'Starter', price: '$19', sub: 'Perfect for getting started',
+        name: 'Starter', price: '$9', sub: 'Perfect for getting started',
         features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking & export'],
       },
       {
-        name: 'Pro', price: '$49', sub: 'For growing businesses', featured: true,
+        name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true,
         features: ['250 prompts/month', '5 brands', 'All 5 AI platforms', 'Daily schedule', 'Competitor tracking (5)', 'Sentiment analysis', 'Email alerts'],
       },
       {
-        name: 'Agency', price: '$149', sub: 'For agencies & teams',
+        name: 'Agency', price: '$89', sub: 'For agencies & teams',
         features: ['1,000 prompts/month', '20 brands', 'All 5 AI platforms', '6-hour schedule', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'],
       },
     ],
@@ -100,13 +100,13 @@ const en = {
       subtitle: 'More platforms, better pricing, lowest starting price.',
       headers: ['Feature', 'Livesov', 'Otterly.ai', 'Peec AI', 'Knowatoa'],
       rows: [
-        ['Lowest Plan', '\u2713 $19/mo', '\u2717 Trial only', '\u2717 No', 'Audit only'],
+        ['Lowest Plan', '\u2713 $9/mo', '\u2717 Trial only', '\u2717 No', 'Audit only'],
         ['AI Platforms', '5 platforms', '4 (+add-ons)', '3', '5'],
-        ['Starting Price', '$19/mo', '$29/mo', '$89/mo', '$59/mo'],
-        ['Sentiment Analysis', '\u2713 From $49', '\u2717 No', '$199+/mo', '\u2713 Yes'],
-        ['Competitor Tracking', '\u2713 From $49', '\u2713 Yes', '\u2713 Yes', '\u2713 Yes'],
-        ['30-prompt plan', '$19/mo', '$189/mo', '$199/mo', 'Custom'],
-        ['250-prompt plan', '$49/mo', '$189/mo', '$399/mo', 'Custom'],
+        ['Starting Price', '$9/mo', '$29/mo', '$89/mo', '$59/mo'],
+        ['Sentiment Analysis', '\u2713 From $29', '\u2717 No', '$199+/mo', '\u2713 Yes'],
+        ['Competitor Tracking', '\u2713 From $29', '\u2713 Yes', '\u2713 Yes', '\u2713 Yes'],
+        ['30-prompt plan', '$9/mo', '$189/mo', '$199/mo', 'Custom'],
+        ['150-prompt plan', '$29/mo', '$189/mo', '$399/mo', 'Custom'],
       ],
       disclaimer: 'Competitor pricing sourced from public websites as of March 2026. Prices may have changed.',
     },
@@ -152,7 +152,7 @@ const en = {
       { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users.' },
       { q: 'What is Generative Engine Optimization (GEO)?', a: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers. Unlike traditional SEO, GEO focuses on being mentioned and recommended by AI chatbots.' },
       { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, which you can export as CSV reports. The Evidence & Proof section shows full AI responses with brand name highlighted, model used, and timestamp.' },
-      { q: 'How much does Livesov cost?', a: 'Livesov starts at $19/mo with the Starter plan \u2014 2 brands, 2 AI platforms, and 30 prompts/month. Pro ($49/mo) and Agency ($149/mo) plans unlock more brands, platforms, and features.' },
+      { q: 'How much does Livesov cost?', a: 'Livesov starts at $9/mo with the Starter plan \u2014 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' },
       { q: 'How often does Livesov run queries?', a: 'Livesov supports daily automated tracking on all paid plans. You can also run queries manually at any time. Pro and Agency plans include scheduled runs with webhook notifications so you\'re alerted when your AI visibility changes.' },
       { q: 'How is Livesov different from traditional SEO tools?', a: 'Traditional SEO tools track your rankings on Google Search. Livesov tracks your visibility in AI-generated answers \u2014 a completely different channel. As more users shift to AI, tracking AI visibility becomes essential.' },
     ],
@@ -174,7 +174,7 @@ const en = {
     title: 'Ready to track your AI visibility?',
     subtitle: 'Start monitoring your presence across AI platforms today.',
     button: 'Start Tracking',
-    note: 'Plans start at just $19/mo. Set up in under 2 minutes.',
+    note: 'Plans start at just $9/mo. Set up in under 2 minutes.',
   },
 
   // Footer
