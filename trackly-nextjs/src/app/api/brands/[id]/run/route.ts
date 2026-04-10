@@ -127,16 +127,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 
-  // --- Check per-period prompt usage ---
+  // --- Check per-period prompt usage (based on brand owner's plan & usage) ---
   try {
     const usageResult = await pool.query(
       `SELECT COUNT(*) as used FROM prompt_runs pr JOIN brands b ON pr.brand_id = b.id WHERE b.user_id = $1 AND pr.created_at >= NOW() - INTERVAL '30 days'`,
-      [user.id]
+      [ownerId]
     );
     const used = parseInt(usageResult.rows[0]?.used, 10) || 0;
     const requested = queries.length * activePlatforms.length;
     if (used + requested > limits.prompts) {
-      return Response.json({ error: 'Monthly prompt limit reached. Please upgrade your plan.' }, { status: 429 });
+      return Response.json({
+        error: `Monthly prompt limit reached (${used}/${limits.prompts} used). This run needs ${requested} prompts. Upgrade your plan or wait for the monthly reset.`,
+        planLimit: true,
+      }, { status: 429 });
     }
   } catch {
     // If prompt_runs table doesn't exist yet, skip the check
