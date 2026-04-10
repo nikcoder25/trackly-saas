@@ -1,0 +1,326 @@
+/**
+ * BullMQ worker that processes 'brand-runs' jobs.
+ * Moves the actual run execution logic out of the Next.js after() callback
+ * so results are not held in the server's memory.
+ *
+ * Start this as a separate process: npx tsx src/lib/run-worker.ts
+ */
+import { Worker, Job } from 'bullmq';
+import IORedis from 'ioredis';
+import { pool } from './db';
+import { queryAI, getDefaultModel, estimateCost } from './ai-platforms';
+import { getAdminModel } from './site-config';
+import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
+import { uid } from './helpers';
+import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures } from './ai-platforms';
+import type { BrandRunJobData } from './job-queue';
+
+const PLATFORM_KEY_MAP: Record<string, string> = {
+  ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
+  Gemini: 'gemini', Grok: 'grok',
+};
+const FAIL_THRESHOLD = 5;
+const WORKER_TIMEOUT_MS = 300000; // 5 minutes
+
+async function processRun(job: Job<BrandRunJobData>) {
+  const { brand, brandId, userId, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys } = job.data;
+  const startTime = Date.now();
+  const matcher = buildBrandMatcher(brand);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allResults: any[] = [];
+  const platFailCount: Record<string, number> = {};
+  const platMentionCount: Record<string, number> = {};
+  let totalQ = 0, totalM = 0, nextIdx = 0;
+  let received = 0, foundCount = 0, errorCount = 0;
+
+  const adminModels: Record<string, string> = {};
+  for (const plat of activePlatforms) {
+    adminModels[plat] = await getAdminModel(plat);
+    platFailCount[plat] = 0;
+  }
+
+  const tasks: Array<{ plat: string; q: string }> = [];
+  for (let qi = 0; qi < queries.length; qi++) {
+    for (let pi = 0; pi < activePlatforms.length; pi++) {
+      tasks.push({ plat: activePlatforms[pi], q: queries[qi] });
+    }
+  }
+
+  let pendingResults: unknown[] = [];
+  async function flushProgress(force = false) {
+    if (pendingResults.length === 0 && !force) return;
+    try {
+      await pool.query(
+        `UPDATE active_runs SET received = $1, found_count = $2, error_count = $3,
+         results = (SELECT COALESCE(results, '[]'::jsonb) FROM active_runs WHERE id = $4) || $5::jsonb,
+         updated_at = NOW() WHERE id = $4`,
+        [received, foundCount, errorCount, runId, JSON.stringify(pendingResults)]
+      );
+      pendingResults = [];
+    } catch (e) { console.error('[Worker] DB progress update failed:', (e as Error).message); }
+  }
+
+  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }) {
+    const parsed = parseResponse(result.text, brand, q, matcher);
+    const competitors = detectCompetitors(result.text, matcher);
+    const cost = estimateCost(result.model, result.tokensIn, result.tokensOut);
+    const ctxLen = parsed.mentioned ? 300 : 150;
+    const entry = {
+      platform: plat, query: q, model: result.model,
+      mentioned: parsed.mentioned, recommended: parsed.recommended,
+      sentiment: parsed.sentiment, listPosition: parsed.listPosition,
+      citations: parsed.cites, competitorMentions: competitors,
+      context: result.text.substring(0, ctxLen),
+      snippet: result.text.substring(0, 200),
+      raw: result.text,
+      tokensIn: result.tokensIn, tokensOut: result.tokensOut, cost,
+    };
+    allResults.push(entry);
+    totalQ++;
+    if (parsed.mentioned) { totalM++; platMentionCount[plat] = (platMentionCount[plat] || 0) + 1; }
+    received++;
+    if (parsed.mentioned) foundCount++;
+    pendingResults.push({
+      platform: plat, query: q, model: result.model,
+      mentioned: parsed.mentioned, recommended: parsed.recommended,
+      sentiment: parsed.sentiment, error: false,
+      context: result.text.substring(0, 150),
+    });
+  }
+
+  function processError(plat: string, q: string, err: Error) {
+    platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+    allResults.push({
+      platform: plat, query: q, model: getDefaultModel(plat),
+      mentioned: false, sentiment: 'neutral', recommended: false,
+      citations: [], error: true, errorMessage: err.message,
+    });
+    totalQ++;
+    received++;
+    errorCount++;
+    pendingResults.push({
+      platform: plat, query: q, model: getDefaultModel(plat),
+      mentioned: false, error: true, errorMessage: err.message,
+    });
+  }
+
+  const platLastCall: Record<string, number> = {};
+  const PLATFORM_STAGGER_MS = 500;
+
+  async function runWorker() {
+    while (nextIdx < tasks.length) {
+      const idx = nextIdx++;
+      if (idx >= tasks.length) return;
+      const { plat, q } = tasks[idx];
+      try {
+        if (platFailCount[plat] >= FAIL_THRESHOLD) {
+          throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+        }
+        const lastCall = platLastCall[plat] || 0;
+        const elapsed = Date.now() - lastCall;
+        if (elapsed < PLATFORM_STAGGER_MS) {
+          await new Promise(r => setTimeout(r, PLATFORM_STAGGER_MS - elapsed));
+        }
+        const keyName = PLATFORM_KEY_MAP[plat];
+        const serverKeyList = serverKeys[keyName] || [];
+        const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
+        if (!rawKey) throw new Error('No API key available for ' + plat);
+
+        // Circuit breaker check
+        if (circuitBreakerCheck(rawKey)) {
+          throw new Error(`Circuit breaker open for API key — too many auth failures`);
+        }
+
+        platLastCall[plat] = Date.now();
+
+        // Worker-level timeout: 5 minutes per individual AI call
+        const result = await Promise.race([
+          queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
+        ]);
+
+        platFailCount[plat] = 0;
+        resetApiKeyFailures(rawKey);
+        processResult(plat, q, result);
+      } catch (err) {
+        processError(plat, q, err as Error);
+      }
+      if (pendingResults.length >= 3) await flushProgress();
+    }
+  }
+
+  try {
+    const CONCURRENCY = Math.min(activePlatforms.length, tasks.length);
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => runWorker()));
+    await flushProgress(true);
+
+    // Verify this run is still active before saving
+    const activeCheck = await pool.query(
+      'SELECT id FROM active_runs WHERE brand_id = $1 AND status = $2 ORDER BY started_at DESC LIMIT 1',
+      [brandId, 'running']
+    );
+    if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
+      console.warn(`[Worker] Run ${runId} superseded by ${activeCheck.rows[0].id} — skipping final save`);
+      await pool.query(
+        `UPDATE active_runs SET status = 'error', error = 'Superseded by newer run', completed_at = NOW() WHERE id = $1`,
+        [runId]
+      );
+      return;
+    }
+
+    // Calculate SOV and save
+    const platformStats: Record<string, { queries: number; mentions: number; sov: number; errors: number }> = {};
+    for (const plat of activePlatforms) {
+      const platTotal = queries.length;
+      const platMentions = platMentionCount[plat] || 0;
+      const platErrors = allResults.filter((r: { platform: string; error?: boolean }) => r.platform === plat && r.error).length;
+      platformStats[plat] = {
+        queries: platTotal, mentions: platMentions,
+        sov: platTotal > 0 ? Math.round((platMentions / platTotal) * 100) : 0,
+        errors: platErrors,
+      };
+    }
+    const overallSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+    const totalErrors = allResults.filter((r: { error?: boolean }) => r.error).length;
+    const durationMs = Date.now() - startTime;
+    const newMentions = allResults
+      .filter((r: { mentioned?: boolean; error?: boolean }) => r.mentioned && !r.error)
+      .map((r: { platform: string; query: string; context?: string; sentiment?: string; recommended?: boolean; citations?: string[]; model?: string }) => ({
+        id: uid(), platform: r.platform, query: r.query,
+        context: r.context || '', sentiment: r.sentiment,
+        recommended: r.recommended, citations: r.citations,
+        model: r.model, time: new Date().toISOString(),
+      }));
+
+    const finalResult = {
+      totalQ, totalM, sov: overallSov,
+      newMentions: newMentions.length,
+      activePlatforms: activePlatforms.length,
+      errorCount: totalErrors,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const brandData = { ...brand } as any;
+    delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
+    if (!brandData.runs) brandData.runs = [];
+    const lightResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
+
+    const citationCounts: Record<string, number> = {};
+    for (const r of allResults) {
+      const cites = (r as { citations?: string[] }).citations || [];
+      for (const url of cites) {
+        try {
+          const domain = new URL(url).hostname.replace(/^www\./, '');
+          citationCounts[domain] = (citationCounts[domain] || 0) + 1;
+        } catch { /* skip invalid URLs */ }
+      }
+    }
+
+    const competitorCounts = aggregateCompetitorCounts(allResults);
+
+    brandData.runs.push({
+      id: runId, date: new Date().toISOString().split('T')[0],
+      time: new Date().toISOString(), durationMs,
+      sov: overallSov, totalQ, totalM,
+      platforms: platformStats, allResults: lightResults,
+      queries: [...queries], activePlatforms: [...activePlatforms],
+      citations: citationCounts, competitors: competitorCounts,
+    });
+    if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
+
+    if (!brandData.sovHistory) brandData.sovHistory = [];
+    const today = new Date().toISOString().split('T')[0];
+    brandData.sovHistory = brandData.sovHistory.filter((h: { date: string }) => h.date !== today);
+    brandData.sovHistory.push({
+      date: today, overall: overallSov,
+      platforms: Object.fromEntries(Object.entries(platformStats).map(([k, v]) => [k, v.sov])),
+    });
+    if (brandData.sovHistory.length > 90) brandData.sovHistory = brandData.sovHistory.slice(-90);
+
+    if (!brandData.mentions) brandData.mentions = [];
+    const existingKeys = new Set(brandData.mentions.map((m: { platform: string; query: string; time: string }) =>
+      m.platform + '|' + m.query + '|' + m.time.split('T')[0]));
+    const deduped = newMentions.filter(m => !existingKeys.has(m.platform + '|' + m.query + '|' + m.time.split('T')[0]));
+    brandData.mentions = [...deduped, ...brandData.mentions].slice(0, 500);
+    brandData.updatedAt = new Date().toISOString();
+
+    await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
+
+    await pool.query(
+      `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
+       found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
+       WHERE id = $5`,
+      [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
+    );
+
+    // Persist prompt_runs in batches
+    for (let i = 0; i < allResults.length; i += 100) {
+      const batch = allResults.slice(i, i + 100);
+      const values: string[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p: any[] = [];
+      let pi = 1;
+      for (const r of batch) {
+        const prId = uid();
+        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13})`);
+        p.push(prId, brandId, r.query, r.platform, r.model || null,
+          r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
+          r.listPosition || null, JSON.stringify(r.citations || []),
+          JSON.stringify(r.competitorMentions || []), !r.error, runId,
+          r.raw || null);
+        pi += 14;
+      }
+      try {
+        await pool.query(
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
+        );
+      } catch (e) { console.error('[Worker] Failed to persist prompt_runs batch:', (e as Error).message); }
+    }
+
+    console.log(`[Worker] Run ${runId} complete: ${totalQ} queries, ${totalM} mentions, ${totalErrors} errors, ${Math.round(durationMs/1000)}s`);
+
+  } catch (err) {
+    try {
+      await pool.query(
+        `UPDATE active_runs SET status = 'error', error = $1, received = $2,
+         found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
+         WHERE id = $5`,
+        [(err as Error).message, received, foundCount, errorCount, runId]
+      );
+    } catch (e) { console.error('[Worker] Failed to mark run as error:', (e as Error).message); }
+    console.error('[Worker] Run failed:', (err as Error).message);
+  }
+}
+
+// --- Worker startup ---
+const redisUrl = process.env.REDIS_URL;
+if (redisUrl) {
+  const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+  const worker = new Worker('brand-runs', processRun, {
+    connection,
+    concurrency: 5,
+  });
+
+  worker.on('completed', (job) => {
+    console.log(`[Worker] Job ${job.id} completed`);
+  });
+
+  worker.on('failed', (job, err) => {
+    console.error(`[Worker] Job ${job?.id} failed:`, err.message);
+  });
+
+  // Graceful shutdown
+  async function shutdown() {
+    console.log('[Worker] Shutting down gracefully...');
+    await worker.close();
+    await connection.quit();
+    process.exit(0);
+  }
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
+  console.log('[Worker] BullMQ worker started, listening for brand-runs jobs');
+} else {
+  console.warn('[Worker] REDIS_URL not set — worker not started');
+}

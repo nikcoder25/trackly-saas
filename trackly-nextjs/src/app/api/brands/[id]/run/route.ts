@@ -3,10 +3,11 @@ import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
-import { queryAI, getDefaultModel, estimateCost } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
+import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -205,10 +206,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
   }
 
-  // --- Return immediately, execute in background via after() ---
-  after(async () => {
-    await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
-  });
+  // --- Return immediately, execute in background ---
+  if (isQueueAvailable()) {
+    // Production: enqueue to BullMQ job queue (Redis-backed, avoids OOM)
+    try {
+      await enqueueBrandRun({
+        brand, brandId: id, userId: user.id, runId, totalExpected,
+        activePlatforms, queries, serverKeys, userKeys,
+      });
+    } catch (e) {
+      console.warn('[Run] BullMQ enqueue failed, falling back to after():', (e as Error).message);
+      after(async () => {
+        await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
+      });
+    }
+  } else {
+    // Development fallback: use Next.js after() when Redis is not available
+    after(async () => {
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
+    });
+  }
 
   return Response.json({ runId, totalExpected, platforms: activePlatforms, queries });
 }
@@ -308,6 +325,7 @@ async function executeRunBackground(
   // Track last request time per platform to stagger calls and avoid rate limits
   const platLastCall: Record<string, number> = {};
   const PLATFORM_STAGGER_MS = 500; // minimum ms between calls to the same platform
+  const WORKER_TIMEOUT_MS = 300000; // 5 minutes per individual AI call
 
   async function runWorker() {
     while (nextIdx < tasks.length) {
@@ -328,9 +346,20 @@ async function executeRunBackground(
         const serverKeyList = serverKeys[keyName] || [];
         const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
         if (!rawKey) throw new Error('No API key available for ' + plat);
+
+        // Circuit breaker: skip keys with too many auth failures
+        if (circuitBreakerCheck(rawKey)) {
+          throw new Error('Circuit breaker open for API key — too many auth failures');
+        }
+
         platLastCall[plat] = Date.now();
-        const result = await queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand);
+        // Worker-level timeout: 5 minutes per individual AI call
+        const result = await Promise.race([
+          queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
+        ]);
         platFailCount[plat] = 0;
+        resetApiKeyFailures(rawKey);
         processResult(plat, q, result);
       } catch (err) {
         processError(plat, q, err as Error);
@@ -378,6 +407,21 @@ async function executeRunBackground(
       activePlatforms: activePlatforms.length,
       errorCount: totalErrors,
     };
+
+    // Verify this run is still the active one before saving — prevents data
+    // corruption if a newer run took over while this one was executing
+    const activeCheck = await pool.query(
+      'SELECT id FROM active_runs WHERE brand_id = $1 AND status = $2 ORDER BY started_at DESC LIMIT 1',
+      [brandId, 'running']
+    );
+    if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
+      console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} — skipping final save`);
+      await pool.query(
+        `UPDATE active_runs SET status = 'error', error = 'Superseded by newer run', completed_at = NOW() WHERE id = $1`,
+        [runId]
+      );
+      return;
+    }
 
     // Save to brand data FIRST — must complete before marking active_runs as
     // done, because the client polls active_runs status and immediately calls
