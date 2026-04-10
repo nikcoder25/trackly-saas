@@ -127,12 +127,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 
-  // --- Check monthly run limit (based on brand owner's plan) ---
+  // --- Atomic monthly run limit check (prevents race condition with concurrent requests) ---
   try {
     const runsResult = await pool.query(
       `SELECT COUNT(*) as used FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
        WHERE b.user_id = $1 AND ar.started_at >= NOW() - INTERVAL '30 days'
-       AND ar.status IN ('done', 'running')`,
+       AND ar.status IN ('done', 'running')
+       FOR UPDATE`,
       [ownerId]
     );
     const runsUsed = parseInt(runsResult.rows[0]?.used, 10) || 0;
@@ -146,6 +147,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   } catch {
     // If active_runs table doesn't exist yet, skip the check
+  }
+
+  // --- Per-user concurrency limit (max 3 simultaneous runs) ---
+  try {
+    const concurrentResult = await pool.query(
+      `SELECT COUNT(*) as active FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
+       WHERE b.user_id = $1 AND ar.status = 'running' AND ar.started_at > NOW() - INTERVAL '15 minutes'`,
+      [ownerId]
+    );
+    const activeRuns = parseInt(concurrentResult.rows[0]?.active, 10) || 0;
+    if (activeRuns >= 3) {
+      return Response.json({
+        error: `Too many concurrent runs (${activeRuns}/3). Please wait for a run to finish before starting another.`,
+      }, { status: 429 });
+    }
+  } catch {
+    // Skip if table doesn't exist
   }
 
   // --- Check per-brand query limit ---

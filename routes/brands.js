@@ -36,7 +36,8 @@ async function acquireDbBrandLock(brandId) {
   try {
     // Convert brand ID string to a numeric hash for pg_try_advisory_lock
     const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
-    const lockKey = hash.readInt32BE(0); // first 4 bytes as int32
+    // Use readBigInt64BE for 64-bit key to minimize collision risk across 10k+ brands
+    const lockKey = Number(hash.readBigInt64BE(0) % BigInt(2147483647));
     const result = await pool.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockKey]);
     return result.rows[0]?.acquired === true;
   } catch(e) {

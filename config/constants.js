@@ -122,7 +122,7 @@ const AI = {
 
 // ─── BATCH PROCESSING ───────────────────────────────────────────
 const BATCH = {
-  promptRunInsert: 20,   // PR_BATCH — prompt runs per INSERT batch
+  promptRunInsert: 10,   // PR_BATCH — prompt runs per INSERT batch (keep under PG 1000 param limit: 10 × 19 = 190)
   citationInsert: 30,    // CIT_BATCH — citations per INSERT batch
   cronBatchSize: 5,      // brands processed in parallel during cron
   costMultiplier: 0.5,   // batch API discount (50% of standard cost)

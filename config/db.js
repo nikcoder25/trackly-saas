@@ -23,7 +23,7 @@ const pool = new Pool({
   ssl: sslConfig,
   // Scale pool for concurrent users — default pg Pool is 10 which can bottleneck
   // at 100+ concurrent requests (runs, rechecks, cron jobs all need connections).
-  max: parseInt(process.env.PG_POOL_MAX, 10) || 25,
+  max: parseInt(process.env.PG_POOL_MAX, 10) || 50,
   // Return idle connections after 30s (default 10s) to reduce churn
   idleTimeoutMillis: 30000,
   // Don't wait more than 10s for a connection from the pool
@@ -138,6 +138,8 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at);
       CREATE INDEX IF NOT EXISTS idx_webhook_events_processed ON webhook_events(processed_at);
       CREATE INDEX IF NOT EXISTS idx_users_plan ON users(plan);
+      CREATE INDEX IF NOT EXISTS idx_users_refresh_token ON users(refresh_token) WHERE refresh_token IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_brands_user_created ON brands(user_id, created_at);
       CREATE INDEX IF NOT EXISTS idx_brands_data_schedule ON brands((data->>'schedule')) WHERE data->>'schedule' IS NOT NULL;
 
       -- Epic 1.1: Individual prompt run tracking for sampling & methodology

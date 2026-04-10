@@ -62,7 +62,7 @@ export async function rateLimit(key: string, windowMs: number, max: number): Pro
 
   try {
     await ensureTable();
-    cleanupIfNeeded(); // fire-and-forget
+    cleanupIfNeeded().catch(() => {}); // fire-and-forget with error suppression
 
     // Atomic upsert: increment count if window is still active, reset if expired
     const result = await pool.query(

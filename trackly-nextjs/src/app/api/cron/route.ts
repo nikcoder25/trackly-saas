@@ -26,6 +26,13 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Acquire advisory lock to prevent concurrent cron executions
+    const lockResult = await pool.query('SELECT pg_try_advisory_lock(789012345) AS acquired');
+    if (!lockResult.rows[0]?.acquired) {
+      return Response.json({ skipped: true, reason: 'Another cron job is already running' });
+    }
+
+    try {
     // Find brands with active schedules that are due
     const result = await pool.query(`
       SELECT b.id, b.user_id, b.data, u.plan
@@ -63,11 +70,18 @@ export async function GET(request: Request) {
       const batch = eligible.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (row) => {
-          const runUrl = new URL(`/api/brands/${row.id}/run`, request.url);
-          await fetch(runUrl.toString(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-cron-secret': cronSecret },
-          });
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout per run trigger
+          try {
+            const runUrl = new URL(`/api/brands/${row.id}/run`, request.url);
+            await fetch(runUrl.toString(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-cron-secret': cronSecret },
+              signal: controller.signal,
+            });
+          } finally {
+            clearTimeout(timeout);
+          }
         })
       );
       processed += results.filter(r => r.status === 'fulfilled').length;
@@ -77,8 +91,13 @@ export async function GET(request: Request) {
     }
 
     return Response.json({ processed, skipped, total: result.rows.length, timestamp: new Date().toISOString() });
+    } finally {
+      // Release advisory lock
+      await pool.query('SELECT pg_advisory_unlock(789012345)').catch(() => {});
+    }
   } catch (e) {
     console.error('[Cron]', (e as Error).message);
+    await pool.query('SELECT pg_advisory_unlock(789012345)').catch(() => {});
     return Response.json({ error: 'Cron job failed' }, { status: 500 });
   }
 }

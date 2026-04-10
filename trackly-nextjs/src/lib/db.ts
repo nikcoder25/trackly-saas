@@ -22,8 +22,11 @@ export const pool =
     connectionString: process.env.DATABASE_URL,
     ssl: sslConfig,
     max: parseInt(process.env.PG_POOL_MAX || '50', 10),
+    min: parseInt(process.env.PG_POOL_MIN || '5', 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    statement_timeout: 30000, // Kill queries that run longer than 30s
+    application_name: 'trackly-nextjs',
   });
 
 if (process.env.NODE_ENV !== 'production') {

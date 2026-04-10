@@ -8,6 +8,10 @@ if (!process.env.JWT_SECRET) {
   console.error('  Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
   process.exit(1);
 }
+if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET.length < 32) {
+  console.error('[FATAL] JWT_SECRET must be at least 32 characters in production.');
+  process.exit(1);
+}
 const JWT_SECRET = process.env.JWT_SECRET;
 
 function auth(req, res, next) {

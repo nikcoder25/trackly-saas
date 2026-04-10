@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { safeConnect } from '@/lib/db';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   const cookieHeader = request.headers.get('cookie') || '';
@@ -9,6 +10,11 @@ export async function POST(request: NextRequest) {
   const refreshToken = refreshMatch?.[1];
 
   if (!refreshToken) return Response.json({ error: 'Refresh token required' }, { status: 400 });
+
+  // Rate limit token refresh to prevent storms (5 per minute per token fingerprint)
+  const tokenHint = refreshToken.slice(-12);
+  const { allowed, retryAfter } = await rateLimit(`refresh:${tokenHint}`, 60 * 1000, 5);
+  if (!allowed) return rateLimitResponse(retryAfter);
 
   try {
     // Atomic token rotation: SELECT FOR UPDATE prevents race conditions
