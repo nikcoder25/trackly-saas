@@ -1,0 +1,30 @@
+name: Weekly Digest Cron
+
+on:
+  schedule:
+    # Every Monday at 8:00 AM UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  trigger-weekly-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Weekly Digest API
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 300 \
+            https://livesov.com/api/cron/weekly-digest)
+
+          echo "Response status: $response"
+
+          if [ "$response" -eq 200 ]; then
+            echo "Weekly digest triggered successfully"
+          else
+            echo "Failed to trigger weekly digest. Status: $response"
+            exit 1
+          fi
