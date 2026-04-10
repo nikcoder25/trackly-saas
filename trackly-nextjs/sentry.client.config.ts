@@ -22,4 +22,14 @@ Sentry.init({
 
   // Environment
   environment: process.env.NODE_ENV || "development",
+
+  // Filter out known Next.js RSC bug (InvariantError on /_not-found/page)
+  // See: https://github.com/vercel/next.js/issues/65418
+  beforeSend(event) {
+    const message = event.exception?.values?.[0]?.value ?? "";
+    if (message.includes("Expected RSC response, got text/plain")) {
+      return null;
+    }
+    return event;
+  },
 });
