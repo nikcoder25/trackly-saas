@@ -688,6 +688,8 @@ router.post('/:id/run', auth, async (req, res) => {
         sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
       }
 
+      const WORKER_TIMEOUT_MS = 300000; // 5 minutes per individual AI call
+
       async function runWorker() {
         while (nextIdx < tasks.length) {
           const idx = nextIdx++;
@@ -706,7 +708,11 @@ router.post('/:id/run', auth, async (req, res) => {
             if (platFailCount[plat] >= FAIL_THRESHOLD) {
               throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
             }
-            const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
+            // Worker-level timeout: 5 minutes per individual AI call
+            const result = await Promise.race([
+              queryAI(q, plat, brand, keys, modelPrefs, logCtx),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
+            ]);
             platFailCount[plat] = 0;
             // Process and stream result immediately
             processResult(plat, q, result);
@@ -803,6 +809,22 @@ router.post('/:id/run', auth, async (req, res) => {
         console.warn(`[Run] Brand ${brand.id} run aborted (lock expired) — skipping save to prevent corruption`);
         return;
       }
+
+      // Verify this run is still the active one in DB before saving — prevents
+      // data corruption if a newer run took over (e.g. after lock force-release)
+      try {
+        const activeCheck = await pool.query(
+          'SELECT id FROM active_runs WHERE brand_id = $1 AND status = $2 ORDER BY started_at DESC LIMIT 1',
+          [brand.id, 'running']
+        );
+        if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
+          console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} — skipping save to prevent corruption`);
+          runState.status = 'error';
+          runState.error = 'Superseded by newer run';
+          runState.completedAt = Date.now();
+          return;
+        }
+      } catch (e) { /* active_runs table may not exist in Express backend — skip check */ }
 
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);

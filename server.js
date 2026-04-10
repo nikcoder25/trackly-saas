@@ -246,6 +246,57 @@ app.get('/api/health', async (req, res) => {
   res.status(code).json({ status, timestamp: new Date().toISOString() });
 });
 
+// ─── MONITORING ENDPOINT (returns pool stats and active run counts) ──
+app.get('/api/monitoring/health', async (req, res) => {
+  try {
+    // Active runs count
+    let activeRuns = 0;
+    try {
+      const result = await pool.query(
+        `SELECT COUNT(*) as count FROM active_runs WHERE status = 'running' AND started_at > NOW() - INTERVAL '30 minutes'`
+      );
+      activeRuns = parseInt(result.rows[0]?.count, 10) || 0;
+    } catch { /* active_runs table may not exist */ }
+
+    // Per-platform average response times (last 1 hour)
+    let platformResponseTimes = {};
+    try {
+      const rtResult = await pool.query(
+        `SELECT platform,
+                ROUND(AVG(response_ms)) as avg_response_ms,
+                COUNT(*) as call_count
+         FROM api_logs
+         WHERE created_at > NOW() - INTERVAL '1 hour'
+           AND response_ms IS NOT NULL AND status = 'ok'
+         GROUP BY platform ORDER BY platform`
+      );
+      for (const row of rtResult.rows) {
+        platformResponseTimes[row.platform] = {
+          avg_ms: parseInt(row.avg_response_ms, 10) || 0,
+          count: parseInt(row.call_count, 10) || 0,
+        };
+      }
+    } catch { /* api_logs may not have response_ms column */ }
+
+    // DB pool stats
+    const poolStats = {
+      totalCount: pool.totalCount,
+      idleCount: pool.idleCount,
+      waitingCount: pool.waitingCount,
+    };
+
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      activeRuns,
+      platformResponseTimes,
+      dbPool: poolStats,
+    });
+  } catch (e) {
+    res.status(500).json({ status: 'error', error: e.message });
+  }
+});
+
 // ─── CONFIG ENDPOINT (public — serves non-secret configuration) ──
 app.get('/api/config', (req, res) => {
   res.json({

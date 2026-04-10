@@ -1,9 +1,41 @@
 /**
  * AI platform API integrations - ported from Express app
  */
+import { pool } from './db';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
+
+// ── Circuit breaker for bad API keys ────────────────────────────
+// Tracks per-key consecutive failures. If a key has 5+ failures within
+// 5 minutes, it is temporarily skipped to avoid wasting rate limit quota.
+const apiKeyFailures = new Map<string, { count: number; lastFailure: number }>();
+const CIRCUIT_BREAKER_THRESHOLD = 5;
+const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+export function circuitBreakerCheck(apiKey: string): boolean {
+  const entry = apiKeyFailures.get(apiKey);
+  if (!entry) return false;
+  if (Date.now() - entry.lastFailure > CIRCUIT_BREAKER_WINDOW_MS) {
+    apiKeyFailures.delete(apiKey);
+    return false;
+  }
+  return entry.count >= CIRCUIT_BREAKER_THRESHOLD;
+}
+
+export function recordApiKeyFailure(apiKey: string): void {
+  const entry = apiKeyFailures.get(apiKey);
+  if (entry && Date.now() - entry.lastFailure <= CIRCUIT_BREAKER_WINDOW_MS) {
+    entry.count++;
+    entry.lastFailure = Date.now();
+  } else {
+    apiKeyFailures.set(apiKey, { count: 1, lastFailure: Date.now() });
+  }
+}
+
+export function resetApiKeyFailures(apiKey: string): void {
+  apiKeyFailures.delete(apiKey);
+}
 
 const API_ENDPOINTS = {
   openai: { chat: 'https://api.openai.com/v1/chat/completions' },
@@ -73,13 +105,19 @@ interface QueryResult {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000): Promise<any> {
+async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000, apiKey?: string): Promise<any> {
   const MAX_RETRIES = 3;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const resp = await fetch(url, { ...options, signal: controller.signal });
+      if (resp.status === 401 || resp.status === 403) {
+        clearTimeout(timer);
+        if (apiKey) recordApiKeyFailure(apiKey);
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error?.message || `Auth error ${resp.status}`);
+      }
       if (resp.status === 429) {
         clearTimeout(timer);
         if (attempt < MAX_RETRIES) {
@@ -112,6 +150,8 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
   const useModel = model || getDefaultModel(platform);
   const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
   const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
+  const startMs = Date.now();
+  let result: QueryResult;
 
   if (platform === 'ChatGPT') {
     const isSearch = useModel.includes('search');
@@ -127,20 +167,16 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
     const d = await fetchAI(API_ENDPOINTS.openai.chat, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(payload),
-    });
+    }, 60000, apiKey);
     const citations = (d.choices?.[0]?.message?.annotations || []).filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url).map((a: { url: string }) => a.url);
-    return { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [...new Set(citations)].slice(0, 10) as string[] };
-  }
-
-  if (platform === 'Claude') {
+    result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [...new Set(citations)].slice(0, 10) as string[] };
+  } else if (platform === 'Claude') {
     const d = await fetchAI(API_ENDPOINTS.claude.messages, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
-    });
-    return { text: d.content?.[0]?.text || '', model: d.model || useModel, tokensIn: d.usage?.input_tokens || 0, tokensOut: d.usage?.output_tokens || 0, citations: [] };
-  }
-
-  if (platform === 'Gemini') {
+    }, 60000, apiKey);
+    result = { text: d.content?.[0]?.text || '', model: d.model || useModel, tokensIn: d.usage?.input_tokens || 0, tokensOut: d.usage?.output_tokens || 0, citations: [] };
+  } else if (platform === 'Gemini') {
     const url = `${API_ENDPOINTS.gemini.base}${useModel}:generateContent`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const geminiPayload: any = {
@@ -154,27 +190,37 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
     const d = await fetchAI(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(geminiPayload),
-    });
+    }, 60000, apiKey);
     const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return { text, model: useModel, tokensIn: d.usageMetadata?.promptTokenCount || 0, tokensOut: d.usageMetadata?.candidatesTokenCount || 0, citations: [] };
-  }
-
-  if (platform === 'Perplexity') {
+    result = { text, model: useModel, tokensIn: d.usageMetadata?.promptTokenCount || 0, tokensOut: d.usageMetadata?.candidatesTokenCount || 0, citations: [] };
+  } else if (platform === 'Perplexity') {
     const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
-    });
+    }, 60000, apiKey);
     const citations = d.citations || [];
-    return { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations };
-  }
-
-  if (platform === 'Grok') {
+    result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations };
+  } else if (platform === 'Grok') {
     const d = await fetchAI(API_ENDPOINTS.grok.chat, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
-    });
-    return { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [] };
+    }, 60000, apiKey);
+    result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [] };
+  } else {
+    throw new Error(`Unknown platform: ${platform}`);
   }
 
-  throw new Error(`Unknown platform: ${platform}`);
+  // Reset circuit breaker on success
+  resetApiKeyFailures(apiKey);
+
+  // Log response time to api_logs
+  const responseTimeMs = Date.now() - startMs;
+  try {
+    await pool.query(
+      `INSERT INTO api_logs (platform, query, status, model, response_ms) VALUES ($1, $2, $3, $4, $5)`,
+      [platform, query.substring(0, 500), 'ok', result.model, responseTimeMs]
+    );
+  } catch { /* best-effort logging */ }
+
+  return result;
 }

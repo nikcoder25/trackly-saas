@@ -130,7 +130,7 @@ const BATCH = {
 
 // ─── BRAND RUN SETTINGS ─────────────────────────────────────────
 const RUN = {
-  maxLockAgeMs: 10 * 60 * 1000,  // 10 min — auto-release stuck locks
+  maxLockAgeMs: 20 * 60 * 1000,  // 20 min — auto-release stuck locks (increased from 10 to prevent overwriting long-running runs)
   failThreshold: 5,               // skip platform after N consecutive failures
   stableRunThreshold: 3,          // reuse results after N identical runs
   webhookMaxRetries: 3,
