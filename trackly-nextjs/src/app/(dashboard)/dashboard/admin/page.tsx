@@ -23,7 +23,7 @@ const PLAN_COLORS: Record<string, string> = {
 };
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,14 @@ export default function AdminPage() {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  // Check admin access
+  // Check admin access — wait for auth to load before showing access denied
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+        <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
   if (user?.role !== 'admin') {
     return (
       <div className="flex items-center justify-center py-20">

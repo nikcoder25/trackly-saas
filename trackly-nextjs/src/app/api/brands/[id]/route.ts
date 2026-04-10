@@ -139,18 +139,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       });
     }
 
-    // Total prompts check across all brands
-    if (safeBody.queries) {
-      const allBrandsResult = await pool.query(
-        `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
-         FROM brands WHERE user_id = $1 AND id != $2`,
-        [ownerId, id]
-      );
-      const otherBrandPrompts = parseInt(allBrandsResult.rows[0].total) || 0;
-      const newTotal = otherBrandPrompts + (safeBody.queries as string[]).length;
-      if (newTotal > limits.prompts) {
-        return Response.json({ error: `Your ${plan} plan allows ${limits.prompts} total prompts. Upgrade for more.`, planLimit: true }, { status: 403 });
-      }
+    // Per-brand query limit check
+    if (safeBody.queries && (safeBody.queries as string[]).length > limits.queries) {
+      return Response.json({ error: `Your ${plan} plan allows up to ${limits.queries} queries per brand. Upgrade for more.`, planLimit: true }, { status: 403 });
     }
 
     if (safeBody.competitors && (safeBody.competitors as string[]).length > limits.competitors) {
@@ -199,7 +190,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       client.release();
     }
     return Response.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error('[Brand DELETE]', (e as Error).message);
     return Response.json({ error: 'Failed to delete brand' }, { status: 500 });
   }
 }

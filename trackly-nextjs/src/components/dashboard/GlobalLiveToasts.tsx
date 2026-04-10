@@ -37,6 +37,9 @@ export default function GlobalLiveToasts() {
 
   if (toasts.length === 0) return null;
 
+  const dismissOne = (id: number) => setToasts(prev => prev.filter(t => t.id !== id));
+  const dismissAll = () => setToasts([]);
+
   return (
     <>
       <div role="log" aria-live="polite" aria-label="Live query results" style={{
@@ -44,6 +47,19 @@ export default function GlobalLiveToasts() {
         display: 'flex', flexDirection: 'column-reverse', gap: 8,
         maxHeight: '50vh', pointerEvents: 'none',
       }}>
+        {/* Clear All button */}
+        {toasts.length > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
+            <button onClick={dismissAll} aria-label="Dismiss all notifications" style={{
+              padding: '5px 12px', fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
+              background: 'var(--bg2)', color: 'var(--muted)', border: '1px solid var(--border)',
+              borderRadius: 100, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,.1)',
+              letterSpacing: '.3px',
+            }}>
+              CLEAR ALL
+            </button>
+          </div>
+        )}
         {toasts.map(t => (
           <div key={t.id} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
@@ -73,10 +89,14 @@ export default function GlobalLiveToasts() {
               fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100,
               background: t.error ? 'rgba(245,158,11,.1)' : t.mentioned ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.08)',
               color: t.error ? 'var(--amber)' : t.mentioned ? 'var(--green)' : 'var(--red)',
-              whiteSpace: 'nowrap',
+              whiteSpace: 'nowrap', flexShrink: 0,
             }}>
               {t.error ? 'ERROR' : t.mentioned ? 'FOUND' : 'NOT FOUND'}
             </span>
+            <button onClick={() => dismissOne(t.id)} aria-label="Dismiss" style={{
+              background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer',
+              fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0, opacity: 0.5,
+            }}>&times;</button>
           </div>
         ))}
       </div>

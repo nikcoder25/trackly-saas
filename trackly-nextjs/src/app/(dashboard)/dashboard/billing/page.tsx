@@ -20,38 +20,43 @@ const PLAN_PRICES: Record<string, string> = {
 };
 
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
-  { feature: 'Price / month',  free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
-  { feature: 'Total Prompts',  free: '5',   starter: '30',  pro: '250',  agency: '1,000', owner: '∞' },
-  { feature: 'Brands',         free: '1',   starter: '1',   pro: '5',    agency: '20',   owner: '∞' },
-  { feature: 'Competitors',    free: '0',   starter: '2',   pro: '5',    agency: '20',   owner: '∞' },
-  { feature: 'Platforms',      free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
-  { feature: 'GEO Audits',     free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
-  { feature: 'Sentiment',      free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
-  { feature: 'Scheduled Runs', free: '—',   starter: '72h', pro: '24h',  agency: '12h',  owner: '1h' },
-  { feature: 'API Access',     free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
-  { feature: 'Priority Support', free: '—', starter: '—',   pro: '—',    agency: '✓',    owner: '✓' },
+  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
+  { feature: 'Brands',           free: '1',   starter: '2',   pro: '5',    agency: '20',   owner: '∞' },
+  { feature: 'Queries / brand',  free: '5',   starter: '25',  pro: '50',   agency: '100',  owner: '∞' },
+  { feature: 'Runs / month',     free: '5',   starter: '30',  pro: '90',   agency: '240',  owner: '∞' },
+  { feature: 'Competitors',      free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
+  { feature: 'Platforms',        free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
+  { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
+  { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
+  { feature: 'Scheduled Runs',   free: '—',   starter: '72h', pro: '24h',  agency: '12h',  owner: '1h' },
+  { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
+  { feature: 'Priority Support', free: '—',   starter: '—',   pro: '—',    agency: '✓',    owner: '✓' },
 ];
 
 interface BillingEntry { date: string; plan: string; amount: string; status: string; }
 
-function getUsageStatus(used: number, max: number): 'good' | 'warning' | 'danger' {
-  if (max >= 9999) return 'good';
+interface UsageMeter {
+  label: string;
+  sublabel?: string;
+  used: number;
+  max: number;
+  icon: string;
+  color: string;
+  gradient: string;
+}
+
+function getStatus(used: number, max: number): 'good' | 'warning' | 'danger' | 'unlimited' {
+  if (max >= 9999) return 'unlimited';
   const pct = (used / max) * 100;
-  if (pct > 100) return 'danger';
+  if (pct >= 100) return 'danger';
   if (pct >= 80) return 'warning';
   return 'good';
 }
 
-function getStatusColor(status: 'good' | 'warning' | 'danger'): string {
-  if (status === 'danger') return 'var(--red)';
-  if (status === 'warning') return 'var(--amber)';
-  return 'var(--green)';
-}
-
-function getStatusBg(status: 'good' | 'warning' | 'danger'): string {
-  if (status === 'danger') return 'rgba(239,68,68,.08)';
-  if (status === 'warning') return 'rgba(245,158,11,.08)';
-  return 'rgba(16,185,129,.08)';
+function statusColor(s: 'good' | 'warning' | 'danger' | 'unlimited'): string {
+  if (s === 'danger') return '#ef4444';
+  if (s === 'warning') return '#f59e0b';
+  return '#10b981';
 }
 
 export default function BillingPage() {
@@ -68,18 +73,48 @@ export default function BillingPage() {
     ? ['free', 'starter', 'pro', 'agency', 'owner'] as const
     : ['free', 'starter', 'pro', 'agency'] as const;
 
+  // Usage state
   const [brandCount, setBrandCount] = useState(0);
   const [queryCount, setQueryCount] = useState(0);
+  const [competitorCount, setCompetitorCount] = useState(0);
   const [platformCount, setPlatformCount] = useState(0);
+  const [runsUsed, setRunsUsed] = useState(0);
   const [geoAuditCount, setGeoAuditCount] = useState(0);
+  const [resetDate, setResetDate] = useState('');
 
   useEffect(() => {
     if (brandsLoading) return;
     const b = selectedBrand as Record<string, unknown>;
     setBrandCount(brands.length);
     setQueryCount(b?.queries ? (b.queries as string[]).length : 0);
-    setPlatformCount((b?.selected_platforms as string[] || []).length || 5);
+    setCompetitorCount(b?.competitors ? (b.competitors as string[]).length : 0);
+    setPlatformCount((b?.selected_platforms as string[] || []).length || (Object.keys((b?.runs as Record<string, unknown>[] || []).slice(-1)[0]?.platforms as Record<string, unknown> || {}).length) || 0);
     setGeoAuditCount(0);
+
+    // Fetch actual monthly run count from brand data
+    fetch('/api/brands', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        let count = 0;
+        let oldestRunInWindow = Date.now();
+        for (const brand of (d.brands || [])) {
+          for (const run of (brand.runs || [])) {
+            const runTime = new Date(run.time || run.date || 0).getTime();
+            if (runTime >= thirtyDaysAgo) {
+              count++;
+              if (runTime < oldestRunInWindow) oldestRunInWindow = runTime;
+            }
+          }
+        }
+        setRunsUsed(count);
+        // Reset date = when the oldest run in the 30-day window will "expire"
+        if (count > 0) {
+          const resetMs = oldestRunInWindow + 30 * 24 * 60 * 60 * 1000;
+          setResetDate(new Date(resetMs).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        }
+      })
+      .catch(() => {});
     setLoading(false);
   }, [brandsLoading, brands, selectedBrand, currentPlan, user]);
 
@@ -97,14 +132,20 @@ export default function BillingPage() {
       .catch(() => {});
   }, []);
 
-  const meters = [
-    { label: 'Brands',     used: brandCount,    max: limits.brands    || 1, icon: '◆', color: 'var(--blue)' },
-    { label: 'Prompts',    used: queryCount,     max: limits.prompts   || 5, icon: '⚡', color: 'var(--amber)' },
-    { label: 'Platforms',  used: platformCount,  max: limits.platforms || 2, icon: '◎', color: 'var(--purple)' },
-    { label: 'GEO Audits', used: geoAuditCount, max: limits.geoAudits || 3, icon: '◉', color: 'var(--green)' },
+  const meters: UsageMeter[] = [
+    { label: 'Brands',            sublabel: 'Active brands',                 used: brandCount,      max: limits.brands,       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
+    { label: 'Queries',           sublabel: 'Per brand (current)',           used: queryCount,       max: limits.queries,      icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
+    { label: 'Runs This Month',   sublabel: resetDate ? `Resets ${resetDate}` : 'Rolling 30 days', used: runsUsed,           max: limits.runsPerMonth, icon: '▶', color: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1, #818cf8)' },
+    { label: 'Competitors',       sublabel: 'Per brand (current)',           used: competitorCount,  max: limits.competitors,  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
+    { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount || 5, max: limits.platforms,    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
+    { label: 'GEO Audits',        sublabel: 'This month',                   used: geoAuditCount,    max: limits.geoAudits,    icon: '◉', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
   ];
 
-  const hasOverage = meters.some(m => m.used > m.max && m.max < 9999);
+  const anyNearLimit = meters.some(m => {
+    const s = getStatus(m.used, m.max);
+    return s === 'warning' || s === 'danger';
+  });
+  const anyOverLimit = meters.some(m => getStatus(m.used, m.max) === 'danger');
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
@@ -168,88 +209,143 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* ── Usage Meters ── */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>Usage This Period</div>
-          {hasOverage && (
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'rgba(239,68,68,.08)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)' }}>
-              OVER LIMIT
-            </span>
-          )}
+      {/* ── Usage This Period ── */}
+      <div className="card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px 0' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Usage This Period</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+              Rolling 30-day window{resetDate ? ` · Next reset: ${resetDate}` : ''}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {anyOverLimit && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)' }}>
+                OVER LIMIT
+              </span>
+            )}
+            {anyNearLimit && !anyOverLimit && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(245,158,11,.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,.2)' }}>
+                APPROACHING LIMIT
+              </span>
+            )}
+          </div>
         </div>
-        <div className="billing-meters-grid" style={{ marginBottom: 0 }}>
+
+        {/* Meter Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 0 }}>
           {meters.map(m => {
-            const pct = m.max > 0 ? Math.min((m.used / m.max) * 100, 100) : 0;
-            const status = getUsageStatus(m.used, m.max);
-            const statusColor = getStatusColor(status);
-            const isUnlimited = m.max >= 9999;
+            const s = getStatus(m.used, m.max);
+            const isUnlimited = s === 'unlimited';
+            const pct = isUnlimited ? 0 : m.max > 0 ? Math.min((m.used / m.max) * 100, 100) : 0;
+            const sc = statusColor(s);
+            const isOver = s === 'danger';
+            const isWarn = s === 'warning';
+
             return (
-              <div key={m.label} className="billing-meter-card" style={{ borderTopColor: m.color }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div className="billing-meter-label" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ opacity: 0.5 }}>{m.icon}</span> {m.label}
+              <div key={m.label} style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid var(--border)',
+                borderRight: '1px solid var(--border)',
+                position: 'relative',
+                background: isOver ? 'rgba(239,68,68,.02)' : isWarn ? 'rgba(245,158,11,.02)' : 'transparent',
+              }}>
+                {/* Top: icon + label + badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: `${m.color}12`, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 14, color: m.color, flexShrink: 0,
+                    }}>{m.icon}</div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{m.label}</div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.4 }}>{m.sublabel}</div>
+                    </div>
                   </div>
                   {!isUnlimited && (
                     <span style={{
-                      fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
-                      padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                      background: getStatusBg(status), color: statusColor,
+                      fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
+                      padding: '2px 8px', borderRadius: 100,
+                      background: isOver ? 'rgba(239,68,68,.1)' : isWarn ? 'rgba(245,158,11,.1)' : 'rgba(16,185,129,.1)',
+                      color: sc,
                     }}>
-                      {Math.round(pct)}%
+                      {isOver ? 'OVER' : `${Math.round(pct)}%`}
                     </span>
                   )}
                 </div>
-                <div className="billing-meter-value">
-                  <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)' }}>{m.used}</span>
-                  <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}> / {isUnlimited ? '∞' : m.max}</span>
+
+                {/* Value */}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 10 }}>
+                  <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: isOver ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
+                    {m.used}
+                  </span>
+                  <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>
+                    / {isUnlimited ? '∞' : m.max.toLocaleString()}
+                  </span>
                 </div>
-                <div className="billing-meter-bar">
-                  <div className="billing-meter-fill" style={{
-                    width: isUnlimited ? '0%' : `${pct}%`,
-                    background: statusColor,
+
+                {/* Progress bar */}
+                <div style={{
+                  height: 6, borderRadius: 3, background: 'var(--bg3)', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%', borderRadius: 3,
+                    width: isUnlimited ? '0%' : `${Math.min(pct, 100)}%`,
+                    background: isOver ? '#ef4444' : isWarn ? '#f59e0b' : m.gradient,
+                    transition: 'width 0.5s ease',
                   }} />
                 </div>
+
+                {/* Remaining text */}
+                {!isUnlimited && (
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, fontFamily: 'var(--mono)' }}>
+                    {m.used >= m.max
+                      ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached</span>
+                      : `${m.max - m.used} remaining`}
+                  </div>
+                )}
+                {isUnlimited && (
+                  <div style={{ fontSize: 10, color: '#10b981', marginTop: 6, fontFamily: 'var(--mono)', fontWeight: 600 }}>
+                    Unlimited
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
-      </div>
 
-      {/* ── Over-limit Warning ── */}
-      {hasOverage && (
-        <div style={{
-          padding: '16px 20px', marginTop: 16, background: 'rgba(239,68,68,.04)',
-          border: '1px solid rgba(239,68,68,.15)', borderRadius: 'var(--radius)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 'var(--radius-xs)',
-              background: 'rgba(239,68,68,.08)', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', flexShrink: 0, fontSize: 16, color: 'var(--red)', fontWeight: 700,
-            }}>!</div>
+        {/* Upgrade Banner — shows when any meter is at 80%+ */}
+        {anyNearLimit && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+            padding: '14px 24px',
+            background: anyOverLimit ? 'rgba(239,68,68,.04)' : 'rgba(99,102,241,.04)',
+            borderTop: `1px solid ${anyOverLimit ? 'rgba(239,68,68,.15)' : 'rgba(99,102,241,.15)'}`,
+          }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--red)', marginBottom: 4 }}>Usage Exceeds Plan Limits</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>
-                {meters.filter(m => m.used > m.max && m.max < 9999).map(m => (
-                  <div key={m.label}>&bull; <strong>{m.label}:</strong> Using {m.used} of {m.max} allowed on your {currentPlan} plan</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: anyOverLimit ? '#ef4444' : 'var(--text)', marginBottom: 2 }}>
+                {anyOverLimit ? 'You\'ve exceeded your plan limits' : 'You\'re approaching your plan limits'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+                {meters.filter(m => { const s = getStatus(m.used, m.max); return s === 'warning' || s === 'danger'; }).map(m => (
+                  <span key={m.label} style={{ marginRight: 12 }}>
+                    <strong>{m.label}:</strong> {m.used}/{m.max >= 9999 ? '∞' : m.max}
+                  </span>
                 ))}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6, marginBottom: 12 }}>
-                Excess brands are <strong>locked</strong> (read-only). Upgrade your plan or remove unused brands to restore full access.
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Link href="/dashboard/account" style={{ padding: '8px 16px', background: 'var(--primary)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', textDecoration: 'none', display: 'inline-block' }}>
-                  Upgrade Plan
-                </Link>
-                <Link href="/dashboard/setup" style={{ padding: '8px 16px', background: 'var(--bg3)', color: 'var(--text)', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', textDecoration: 'none', display: 'inline-block' }}>
-                  Manage Brands
-                </Link>
-              </div>
             </div>
+            <Link href="/dashboard/account" style={{
+              padding: '9px 20px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: anyOverLimit ? '#ef4444' : 'var(--primary)', color: '#fff',
+              textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+            }}>
+              Upgrade Plan
+            </Link>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Billing History ── */}
       {billingHistory.length > 0 && (
@@ -283,7 +379,7 @@ export default function BillingPage() {
                     <td className="td">
                       <span style={{
                         fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
-                        padding: '3px 8px', borderRadius: 'var(--radius-full)', textTransform: 'uppercase',
+                        padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase',
                         background: b.status === 'succeeded' ? 'rgba(16,185,129,.08)' : 'var(--bg3)',
                         color: b.status === 'succeeded' ? 'var(--green)' : 'var(--muted)',
                       }}>{b.status}</span>
@@ -323,7 +419,7 @@ export default function BillingPage() {
                       {PLAN_PRICES[p]}<span style={{ fontSize: 9, fontWeight: 400, color: 'var(--muted)' }}>{p !== 'free' && p !== 'owner' ? '/mo' : ''}</span>
                     </div>
                     {p === currentPlan && (
-                      <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: '#fff', display: 'inline-block', marginTop: 4 }}>
+                      <span style={{ fontSize: 8, fontWeight: 700, padding: '2px 6px', borderRadius: 100, background: 'var(--primary)', color: '#fff', display: 'inline-block', marginTop: 4 }}>
                         CURRENT
                       </span>
                     )}

@@ -45,6 +45,13 @@ export async function PUT(request: Request) {
     if (body[key] === undefined) continue;
     const val = key === 'webhookUrl' ? String(body[key]).slice(0, 500) : String(body[key]).slice(0, 100);
     if (validValues.length > 0 && !validValues.includes(val)) continue; // reject invalid enum
+    // Validate webhookUrl format
+    if (key === 'webhookUrl' && val) {
+      try {
+        const parsed = new URL(val);
+        if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+      } catch { continue; }
+    }
     updates[key] = booleanKeys.includes(key) ? val === 'true' : val;
   }
   // Strip any blocked keys that may have bypassed the allowlist

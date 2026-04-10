@@ -74,16 +74,36 @@ interface QueryResult {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000): Promise<any> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const resp = await fetch(url, { ...options, signal: controller.signal });
-    const data = await resp.json();
-    if (!resp.ok && resp.status === 429) throw new Error(`Rate limited (429)`);
-    if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
-    return data;
-  } finally {
-    clearTimeout(timer);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, { ...options, signal: controller.signal });
+      if (resp.status === 429) {
+        clearTimeout(timer);
+        if (attempt < MAX_RETRIES) {
+          // Exponential backoff: 2s, 4s, 8s + jitter
+          const delay = Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000;
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+        throw new Error('Rate limited (429) — retries exhausted');
+      }
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
+      return data;
+    } catch (e) {
+      clearTimeout(timer);
+      if ((e as Error).message?.includes('Rate limited') && attempt < MAX_RETRIES) {
+        const delay = Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000;
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 

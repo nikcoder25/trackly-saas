@@ -90,16 +90,20 @@ export default function AccountPage() {
 
   async function exportAll() {
     try {
-      const results = await Promise.all(
+      const results = await Promise.allSettled(
         brands.map(b => fetch(`/api/export/brand/${b.id}`, { credentials: 'include' }).then(r => r.json()))
       );
-      const allBrands = results.map(r => r.brand);
+      const allBrands = results
+        .filter((r): r is PromiseFulfilledResult<{ brand: unknown }> => r.status === 'fulfilled' && r.value?.brand)
+        .map(r => r.value.brand);
+      if (allBrands.length === 0) { toast('No brands could be exported', 'error'); return; }
       const blob = new Blob([JSON.stringify(allBrands, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = 'all-brands.json'; a.click();
       URL.revokeObjectURL(url);
-      toast('All brands exported');
+      const failed = results.filter(r => r.status === 'rejected').length;
+      toast(failed > 0 ? `Exported ${allBrands.length} brands (${failed} failed)` : 'All brands exported');
     } catch { toast('Export failed', 'error'); }
   }
 

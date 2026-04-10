@@ -103,7 +103,7 @@ export default function DashboardPage() {
   const totalQ = lastRun?.totalQ || 0;
   const platforms = lastRun?.platforms || {};
   const queries = brand?.queries || [];
-  const planLimit = (user?.limits as Record<string, number>)?.prompts || 5;
+  const planLimit = (user?.limits as Record<string, number>)?.queries || 5;
 
   // Normalize platform data — handles both number format (SOV%) and object format
   function normPlatform(pd: unknown): { sov: number; total: number; mentions: number; errors: number } {

@@ -29,97 +29,123 @@ function parseKeys(envVar: string): string[] {
   return [...new Set(keys)];
 }
 
-export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
-
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = await rateLimit('nearby:' + user.id, 15 * 60 * 1000, 10);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
-
-  const { city } = await request.json();
-  if (!city || typeof city !== 'string' || !city.trim()) {
-    return Response.json({ error: 'City is required' }, { status: 400 });
-  }
-
-  // Sanitize city input - allow only safe characters
-  const sanitizedCity = city.trim().replace(/[^\w\s,.\-']/g, '').substring(0, 100);
-  if (!sanitizedCity) return Response.json({ error: 'Invalid city name' }, { status: 400 });
-
-  // Find an available AI platform (prefer cheaper ones)
-  const platformOrder = ['gemini', 'claude', 'openai', 'grok', 'perplexity'];
-  let platform: string | null = null;
-  let apiKey: string | null = null;
-
+function findAvailablePlatform(): { platform: string; apiKey: string } | null {
+  const platformOrder = ['gemini', 'grok', 'claude', 'openai', 'perplexity'];
   for (const p of platformOrder) {
     const envVar = PLATFORM_KEY_MAP[p];
     const keys = parseKeys(envVar);
     if (keys.length > 0) {
-      platform = PLATFORM_DISPLAY[p];
-      apiKey = keys[0];
-      break;
+      return { platform: PLATFORM_DISPLAY[p], apiKey: keys[Math.floor(Math.random() * keys.length)] };
     }
   }
+  return null;
+}
 
-  if (!platform || !apiKey) {
-    return Response.json({ error: 'No AI platform API keys configured. Contact admin.' }, { status: 400 });
+export async function POST(request: Request) {
+  const user = verifyRequestAuth(request);
+  if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  const rl = await rateLimit('nearby:' + user.id, 15 * 60 * 1000, 10);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
+  const body = await request.json().catch(() => ({}));
+  const { city } = body;
+  if (!city || typeof city !== 'string' || !city.trim()) {
+    return Response.json({ error: 'City is required' }, { status: 400 });
   }
 
+  // Sanitize city input
+  const sanitizedCity = city.trim().replace(/[^\w\s,.\-']/g, '').substring(0, 100);
+  if (!sanitizedCity) return Response.json({ error: 'Invalid city name' }, { status: 400 });
+
+  // Find an available AI platform
+  const found = findAvailablePlatform();
+  if (!found) {
+    return Response.json({
+      error: 'AI nearby area detection is not available right now. You can add nearby areas manually.',
+    }, { status: 503 });
+  }
+
+  const { platform, apiKey } = found;
   const prompt = `List exactly 10-15 nearby cities, towns, suburbs, and service areas within a 30-mile radius of "${sanitizedCity}". Return ONLY a JSON array of strings, nothing else. Example format: ["City 1", "City 2", "City 3"]. Include the county/region name and state abbreviation. Do not include the original city itself.`;
 
-  try {
-    const model = getDefaultModel(platform);
-    const result = await queryAI(platform, prompt, apiKey, model, undefined, {
-      systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
-      maxTokens: 800,
-      jsonMode: true,
-    });
+  // Try up to 2 platforms if the first one fails
+  const platformsToTry = [{ platform, apiKey }];
+  const fallbackPlatform = findFallbackPlatform(platform);
+  if (fallbackPlatform) platformsToTry.push(fallbackPlatform);
 
-    if (!result?.text) {
-      return Response.json({ error: 'AI returned empty response. Please try again.' }, { status: 500 });
-    }
-
-    // Try multiple parsing strategies
-    let areas: string[] = [];
-    const rawText = result.text.trim();
-
-    // Strategy 1: Direct JSON parse
+  for (const { platform: plat, apiKey: key } of platformsToTry) {
     try {
-      const parsed = JSON.parse(rawText);
-      if (Array.isArray(parsed)) {
-        areas = parsed.filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0).map((a: string) => a.trim());
+      const model = getDefaultModel(plat);
+      const result = await queryAI(plat, prompt, key, model, undefined, {
+        systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
+        maxTokens: 800,
+        jsonMode: true,
+      });
+
+      if (!result?.text) continue;
+
+      const areas = parseAreas(result.text);
+      if (areas.length > 0) {
+        return Response.json({ areas, city: sanitizedCity, platform: plat });
       }
     } catch {
-      // Strategy 2: Strip markdown fences and extract JSON array
-      const cleaned = rawText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        try {
-          areas = JSON.parse(jsonMatch[0])
-            .filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0)
-            .map((a: string) => a.trim());
-        } catch { /* fall through */ }
-      }
-
-      // Strategy 3: Extract quoted strings as fallback
-      if (!areas.length) {
-        const quoted = rawText.match(/"([^"]{2,80})"/g);
-        if (quoted && quoted.length >= 3) {
-          areas = quoted.map(q => q.replace(/^"|"$/g, '').trim()).filter(a => a.length > 0);
-        }
-      }
+      // Try next platform
+      continue;
     }
-
-    areas = areas.slice(0, 15);
-
-    if (!areas.length) {
-      console.error('[NearbyAreas] Could not parse areas from AI response:', rawText.substring(0, 500));
-      return Response.json({ error: 'Could not parse nearby areas from AI response. Please try again.' }, { status: 500 });
-    }
-
-    return Response.json({ areas, city: sanitizedCity, platform });
-  } catch (e) {
-    console.error('[NearbyAreas]', (e as Error).message);
-    return Response.json({ error: 'Failed to fetch nearby areas. Please try again.' }, { status: 500 });
   }
+
+  return Response.json({
+    error: 'Could not fetch nearby areas. Please try again or add areas manually.',
+  }, { status: 500 });
+}
+
+function findFallbackPlatform(exclude: string): { platform: string; apiKey: string } | null {
+  const platformOrder = ['gemini', 'grok', 'claude', 'openai', 'perplexity'];
+  for (const p of platformOrder) {
+    const displayName = PLATFORM_DISPLAY[p];
+    if (displayName === exclude) continue;
+    const keys = parseKeys(PLATFORM_KEY_MAP[p]);
+    if (keys.length > 0) {
+      return { platform: displayName, apiKey: keys[Math.floor(Math.random() * keys.length)] };
+    }
+  }
+  return null;
+}
+
+function parseAreas(rawText: string): string[] {
+  const text = rawText.trim();
+
+  // Strategy 1: Direct JSON parse
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      const areas = parsed.filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0).map((a: string) => a.trim());
+      if (areas.length > 0) return areas.slice(0, 15);
+    }
+  } catch { /* fall through */ }
+
+  // Strategy 2: Strip markdown fences and extract JSON array
+  const cleaned = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+  const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+  if (jsonMatch) {
+    try {
+      const areas = JSON.parse(jsonMatch[0])
+        .filter((a: unknown) => typeof a === 'string' && (a as string).trim().length > 0)
+        .map((a: string) => a.trim());
+      if (areas.length > 0) return areas.slice(0, 15);
+    } catch { /* fall through */ }
+  }
+
+  // Strategy 3: Extract quoted strings as fallback
+  const quoted = text.match(/"([^"]{2,80})"/g);
+  if (quoted && quoted.length >= 3) {
+    return quoted.map(q => q.replace(/^"|"$/g, '').trim()).filter(a => a.length > 0).slice(0, 15);
+  }
+
+  // Strategy 4: Look for numbered or comma-separated lists
+  const lines = text.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 2 && l.length < 80);
+  if (lines.length >= 3) return lines.slice(0, 15);
+
+  return [];
 }

@@ -32,11 +32,13 @@ export default function AlertsPage() {
   }, [brand]);
 
   function saveAlert() {
-    if (!brand || !alertName.trim()) return;
+    if (!brand || !alertName.trim()) { toast('Alert name is required', 'error'); return; }
+    const threshold = Math.max(1, Math.min(100, alertThreshold));
+    const cooldown = Math.max(1, Math.min(168, alertCooldown));
     fetch(`/api/brands/${brand.id}/alerts`, {
       method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: alertName, condition: alertCondition, threshold: alertThreshold, action: alertAction, cooldown: alertCooldown }),
-    }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); toast('Alert saved successfully'); }).catch(() => { toast('Failed to save alert', 'error'); });
+      body: JSON.stringify({ name: alertName.trim(), condition: alertCondition, threshold, action: alertAction, cooldown }),
+    }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).then(d => { if (d.rules) setRules(d.rules); setShowAddForm(false); setAlertName(''); setAlertThreshold(10); setAlertCooldown(24); toast('Alert saved successfully'); }).catch(() => { toast('Failed to save alert', 'error'); });
   }
 
   function saveWebhook() {

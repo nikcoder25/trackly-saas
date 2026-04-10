@@ -127,19 +127,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 
-  // --- Check per-period prompt usage ---
+  // --- Check monthly run limit (based on brand owner's plan) ---
   try {
-    const usageResult = await pool.query(
-      `SELECT COUNT(*) as used FROM prompt_runs pr JOIN brands b ON pr.brand_id = b.id WHERE b.user_id = $1 AND pr.created_at >= NOW() - INTERVAL '30 days'`,
-      [user.id]
+    const runsResult = await pool.query(
+      `SELECT COUNT(*) as used FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
+       WHERE b.user_id = $1 AND ar.started_at >= NOW() - INTERVAL '30 days'
+       AND ar.status IN ('done', 'running')`,
+      [ownerId]
     );
-    const used = parseInt(usageResult.rows[0]?.used, 10) || 0;
-    const requested = queries.length * activePlatforms.length;
-    if (used + requested > limits.prompts) {
-      return Response.json({ error: 'Monthly prompt limit reached. Please upgrade your plan.' }, { status: 429 });
+    const runsUsed = parseInt(runsResult.rows[0]?.used, 10) || 0;
+    if (runsUsed >= limits.runsPerMonth) {
+      return Response.json({
+        error: `Monthly run limit reached (${runsUsed}/${limits.runsPerMonth} runs used). Upgrade your plan or wait for the monthly reset.`,
+        planLimit: true,
+        runsUsed,
+        runsLimit: limits.runsPerMonth,
+      }, { status: 429 });
     }
   } catch {
-    // If prompt_runs table doesn't exist yet, skip the check
+    // If active_runs table doesn't exist yet, skip the check
+  }
+
+  // --- Check per-brand query limit ---
+  if (queries.length > limits.queries) {
+    return Response.json({
+      error: `Your ${ownerPlan} plan allows up to ${limits.queries} queries per brand. You have ${queries.length}. Remove some queries or upgrade.`,
+      planLimit: true,
+    }, { status: 403 });
   }
 
   // --- Check for existing active run (DB-based locking) ---
@@ -204,11 +218,12 @@ async function executeRunBackground(
     platFailCount[plat] = 0;
   }
 
-  // Build interleaved task list
+  // Build round-robin task list — cycle through platforms so concurrent
+  // workers hit different platforms rather than hammering the same one
   const tasks: Array<{ plat: string; q: string }> = [];
-  for (const q of queries) {
-    for (const plat of activePlatforms) {
-      tasks.push({ plat, q });
+  for (let qi = 0; qi < queries.length; qi++) {
+    for (let pi = 0; pi < activePlatforms.length; pi++) {
+      tasks.push({ plat: activePlatforms[pi], q: queries[qi] });
     }
   }
 
@@ -272,6 +287,10 @@ async function executeRunBackground(
     });
   }
 
+  // Track last request time per platform to stagger calls and avoid rate limits
+  const platLastCall: Record<string, number> = {};
+  const PLATFORM_STAGGER_MS = 500; // minimum ms between calls to the same platform
+
   async function runWorker() {
     while (nextIdx < tasks.length) {
       const idx = nextIdx++;
@@ -281,10 +300,17 @@ async function executeRunBackground(
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
           throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
         }
+        // Stagger requests to the same platform to avoid 429s
+        const lastCall = platLastCall[plat] || 0;
+        const elapsed = Date.now() - lastCall;
+        if (elapsed < PLATFORM_STAGGER_MS) {
+          await new Promise(r => setTimeout(r, PLATFORM_STAGGER_MS - elapsed));
+        }
         const keyName = PLATFORM_KEY_MAP[plat];
         const serverKeyList = serverKeys[keyName] || [];
         const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
         if (!rawKey) throw new Error('No API key available for ' + plat);
+        platLastCall[plat] = Date.now();
         const result = await queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand);
         platFailCount[plat] = 0;
         processResult(plat, q, result);
@@ -297,8 +323,9 @@ async function executeRunBackground(
   }
 
   try {
-    const CONCURRENCY = Math.max(activePlatforms.length, 8);
-    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => runWorker()));
+    // Cap concurrency to number of platforms (1 worker per platform avoids hammering)
+    const CONCURRENCY = Math.min(activePlatforms.length, tasks.length);
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => runWorker()));
 
     // Final flush
     await flushProgress(true);
@@ -334,15 +361,10 @@ async function executeRunBackground(
       errorCount: totalErrors,
     };
 
-    // Mark run as done in DB
-    await pool.query(
-      `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
-       found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
-       WHERE id = $5`,
-      [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
-    );
-
-    // Save to brand data (same as before)
+    // Save to brand data FIRST — must complete before marking active_runs as
+    // done, because the client polls active_runs status and immediately calls
+    // refreshBrands() when it sees "done". If brand data isn't saved yet, the
+    // dashboard shows stale "Last Run" data.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const brandData = { ...brand } as any;
     delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
@@ -390,6 +412,15 @@ async function executeRunBackground(
     brandData.updatedAt = new Date().toISOString();
 
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
+
+    // NOW mark run as done — client will see this and call refreshBrands(),
+    // which will find the already-updated brand data above
+    await pool.query(
+      `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,
+       found_count = $3, error_count = $4, completed_at = NOW(), updated_at = NOW()
+       WHERE id = $5`,
+      [JSON.stringify(finalResult), received, foundCount, errorCount, runId]
+    );
 
     // Persist prompt_runs in batches
     for (let i = 0; i < allResults.length; i += 100) {

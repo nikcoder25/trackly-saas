@@ -39,7 +39,7 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 
 export default function SetupPage() {
   const { user } = useAuth();
-  const planLimit = (user?.limits as Record<string, number>)?.prompts || 250;
+  const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
   const [brands, setBrands] = useState<Brand[]>([]);
