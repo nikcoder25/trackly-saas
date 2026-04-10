@@ -81,7 +81,7 @@ export async function GET(request: Request) {
 
     // Add plan limit info so the client can show over-limit warnings
     // Use plan from JWT auth context instead of redundant DB query
-    const plan = (user as Record<string, unknown>).plan as string || 'free';
+    const plan = (user as unknown as Record<string, unknown>).plan as string || 'free';
     const limits = getPlanLimits(plan);
     const brandLimit = limits.brands;
     const overLimit = brands.length > brandLimit;
