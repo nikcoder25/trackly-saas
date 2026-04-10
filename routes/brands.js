@@ -11,7 +11,8 @@ const { getPlanLimits, getUserPlan } = require('../lib/plans');
 const { queryAI, fetchJSON, resetBatchCount, runClaudeBatch, runOpenAIBatch, estimateCost } = require('../lib/ai-platforms');
 const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/parser');
 const { evaluateAlerts } = require('../lib/alerts');
-const { BATCH, RUN, DAILY_COST_BUDGETS } = require('../config/constants');
+const { checkAiOverview, checkAiOverviewsBatch, isConfigured: isDataForSEOConfigured } = require('../lib/dataforseo');
+const { BATCH, RUN, DAILY_COST_BUDGETS, DATAFORSEO } = require('../config/constants');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -902,6 +903,11 @@ router.post('/:id/run', auth, async (req, res) => {
       // Refresh prompt_run_stats materialized data (Epic 1.1)
       refreshPromptRunStats(brand.id).catch(e => console.error(`[Run] refreshPromptRunStats failed for ${brand.id}:`, e.message));
 
+      // Fire-and-forget: check Google AI Overviews via DataForSEO (non-blocking)
+      if (isDataForSEOConfigured()) {
+        runAiOverviewCheck(brand).catch(e => console.error(`[Run] AI Overview check failed for ${brand.id}:`, e.message));
+      }
+
       // Evaluate alert rules (Epic 6.2)
       const previousSOVForAlerts = saveBrandObj.sovHistory.length > 1 ? saveBrandObj.sovHistory[saveBrandObj.sovHistory.length - 2].overall : 0;
       evaluateAlerts(brand.id, {
@@ -1468,6 +1474,50 @@ async function sendWebhookAlert(brand, run, previousSOV) {
 // Saves ~30-60% of scheduled run costs for brands with many stable queries.
 const STABLE_RUN_THRESHOLD = RUN.stableRunThreshold;
 
+// ── AI Overview check helper (used by both manual runs and cron) ──
+async function runAiOverviewCheck(brand) {
+  const queries = brand.queries || [];
+  if (!queries.length) return;
+
+  // Skip queries checked within the cache TTL
+  const cachedRows = await pool.query(
+    'SELECT query FROM ai_overview_results WHERE brand_id = $1 AND checked_at > NOW() - INTERVAL \'1 millisecond\' * $2',
+    [brand.id, DATAFORSEO.cacheTtlMs]
+  );
+  const recentlyChecked = new Set(cachedRows.rows.map(r => r.query));
+  const toCheck = queries.filter(q => !recentlyChecked.has(q));
+  if (!toCheck.length) return;
+
+  console.log(`[AI Overview] Checking ${toCheck.length}/${queries.length} queries for brand "${brand.name}"`);
+
+  const resultsMap = await checkAiOverviewsBatch(toCheck, brand.name, brand.competitors || []);
+
+  for (const [query, result] of resultsMap) {
+    await pool.query(
+      `INSERT INTO ai_overview_results (brand_id, query, has_ai_overview, brand_mentioned, content, citations, competitor_mentions, serp_features, position, location_code, language_code, error, checked_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+       ON CONFLICT (brand_id, query) DO UPDATE SET
+         has_ai_overview = $3, brand_mentioned = $4, content = $5, citations = $6,
+         competitor_mentions = $7, serp_features = $8, position = $9,
+         location_code = $10, language_code = $11, error = $12, checked_at = NOW()`,
+      [
+        brand.id, query, result.hasAiOverview, result.brandMentioned,
+        result.content, JSON.stringify(result.citations || []),
+        JSON.stringify(result.competitorMentions || []),
+        JSON.stringify(result.serpFeatures || []),
+        result.position,
+        DATAFORSEO.defaultLocationCode,
+        DATAFORSEO.defaultLanguageCode,
+        result.error || null,
+      ]
+    );
+  }
+
+  const withAIO = [...resultsMap.values()].filter(r => r.hasAiOverview).length;
+  const brandMentioned = [...resultsMap.values()].filter(r => r.brandMentioned).length;
+  console.log(`[AI Overview] Done: ${withAIO}/${toCheck.length} queries have AI Overviews, brand mentioned in ${brandMentioned}`);
+}
+
 function getStableQueries(brand) {
   const stable = new Map(); // key: "query::platform" → lastResult
   const runs = brand.runs || [];
@@ -1877,6 +1927,11 @@ async function runBrandQueries(brand) {
   refreshPromptRunStats(brand.id).catch(e => console.error(`[Cron] refreshPromptRunStats failed for ${brand.id}:`, e.message));
   evaluateAlerts(brand.id, { sov, previousSov: brand.sovHistory?.length > 1 ? brand.sovHistory[brand.sovHistory.length - 2]?.overall : 0, allResults, platforms: platSOV, newCompetitors }).catch(e => console.error(`[Cron] evaluateAlerts failed for ${brand.id}:`, e.message));
 
+  // Fire-and-forget: check Google AI Overviews via DataForSEO (non-blocking)
+  if (isDataForSEOConfigured()) {
+    runAiOverviewCheck(brand).catch(e => console.error(`[Cron] AI Overview check failed for ${brand.id}:`, e.message));
+  }
+
   brand.updatedAt = new Date().toISOString();
   await saveBrand(brand);
 }
@@ -1907,6 +1962,143 @@ function classifyDomain(domain) {
   if (domain.endsWith('.edu')) return 'academic';
   return 'other';
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// AI OVERVIEWS — DataForSEO Google SERP integration
+// ═══════════════════════════════════════════════════════════════════
+
+// Check AI Overviews for a brand's queries
+router.post('/:id/ai-overviews/check', auth, async (req, res) => {
+  try {
+    if (!isDataForSEOConfigured()) {
+      return res.status(503).json({ error: 'Google AI Overview checking is not available — DataForSEO not configured.' });
+    }
+
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+    if (access.role === 'viewer') return res.status(403).json({ error: 'Viewers cannot trigger AI Overview checks.' });
+    const brand = access.brand;
+
+    const queries = brand.queries || [];
+    if (!queries.length) return res.status(400).json({ error: 'No queries configured for this brand.' });
+
+    // Check cache — skip queries checked within the TTL window
+    const cachedRows = await pool.query(
+      'SELECT query, checked_at FROM ai_overview_results WHERE brand_id = $1 AND checked_at > NOW() - INTERVAL \'1 millisecond\' * $2',
+      [brand.id, DATAFORSEO.cacheTtlMs]
+    );
+    const recentlyChecked = new Set(cachedRows.rows.map(r => r.query));
+    const queriesToCheck = queries.filter(q => !recentlyChecked.has(q));
+
+    if (!queriesToCheck.length) {
+      // All queries are cached — return existing results
+      const existing = await pool.query(
+        'SELECT * FROM ai_overview_results WHERE brand_id = $1 ORDER BY checked_at DESC',
+        [brand.id]
+      );
+      return res.json({ results: existing.rows, cached: true, message: 'All queries were recently checked.' });
+    }
+
+    // Run AI Overview checks
+    const resultsMap = await checkAiOverviewsBatch(
+      queriesToCheck,
+      brand.name,
+      brand.competitors || [],
+      { locationCode: req.body.locationCode, languageCode: req.body.languageCode }
+    );
+
+    // Persist results
+    for (const [query, result] of resultsMap) {
+      await pool.query(
+        `INSERT INTO ai_overview_results (brand_id, query, has_ai_overview, brand_mentioned, content, citations, competitor_mentions, serp_features, position, location_code, language_code, error, checked_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+         ON CONFLICT (brand_id, query) DO UPDATE SET
+           has_ai_overview = $3, brand_mentioned = $4, content = $5, citations = $6,
+           competitor_mentions = $7, serp_features = $8, position = $9,
+           location_code = $10, language_code = $11, error = $12, checked_at = NOW()`,
+        [
+          brand.id, query, result.hasAiOverview, result.brandMentioned,
+          result.content, JSON.stringify(result.citations || []),
+          JSON.stringify(result.competitorMentions || []),
+          JSON.stringify(result.serpFeatures || []),
+          result.position,
+          req.body.locationCode || DATAFORSEO.defaultLocationCode,
+          req.body.languageCode || DATAFORSEO.defaultLanguageCode,
+          result.error || null,
+        ]
+      );
+    }
+
+    // Log the API usage
+    logApiCall({
+      userId: req.user.id,
+      brandId: brand.id,
+      platform: 'DataForSEO',
+      query: `AI Overview check: ${queriesToCheck.length} queries`,
+      status: 'ok',
+      model: 'serp/google/organic',
+    });
+
+    // Return all results (fresh + cached)
+    const allResults = await pool.query(
+      'SELECT * FROM ai_overview_results WHERE brand_id = $1 ORDER BY checked_at DESC',
+      [brand.id]
+    );
+
+    res.json({
+      results: allResults.rows,
+      checked: queriesToCheck.length,
+      cached: recentlyChecked.size,
+      total: queries.length,
+    });
+  } catch (e) {
+    console.error('[AI Overviews] Check failed:', e.message);
+    res.status(500).json({ error: 'Failed to check AI Overviews: ' + e.message });
+  }
+});
+
+// Get cached AI Overview results for a brand
+router.get('/:id/ai-overviews', auth, async (req, res) => {
+  try {
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+
+    const results = await pool.query(
+      'SELECT * FROM ai_overview_results WHERE brand_id = $1 ORDER BY checked_at DESC',
+      [access.brand.id]
+    );
+
+    // Compute summary stats
+    const rows = results.rows;
+    const total = rows.length;
+    const withAiOverview = rows.filter(r => r.has_ai_overview).length;
+    const brandMentioned = rows.filter(r => r.has_ai_overview && r.brand_mentioned).length;
+    const lastChecked = rows.length > 0 ? rows[0].checked_at : null;
+
+    res.json({
+      results: rows,
+      summary: {
+        total,
+        withAiOverview,
+        withoutAiOverview: total - withAiOverview,
+        brandMentioned,
+        brandNotMentioned: withAiOverview - brandMentioned,
+        aiOverviewRate: total > 0 ? Math.round((withAiOverview / total) * 100) : 0,
+        brandMentionRate: withAiOverview > 0 ? Math.round((brandMentioned / withAiOverview) * 100) : 0,
+        lastChecked,
+      },
+      configured: isDataForSEOConfigured(),
+    });
+  } catch (e) {
+    console.error('[AI Overviews] Get failed:', e.message);
+    res.status(500).json({ error: 'Failed to load AI Overview results' });
+  }
+});
+
+// Get AI Overview status (whether DataForSEO is configured)
+router.get('/:id/ai-overviews/status', auth, async (req, res) => {
+  res.json({ configured: isDataForSEOConfigured() });
+});
 
 module.exports = router;
 module.exports.runBrandQueries = runBrandQueries;

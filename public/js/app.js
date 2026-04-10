@@ -3196,6 +3196,9 @@ function renderOverview(){
   } else {
     miniTrend.style.display = 'none';
   }
+
+  // Load Google AI Overviews data (non-blocking)
+  loadAiOverviews();
 }
 
 async function ovAddQuery(){
@@ -3413,6 +3416,145 @@ async function aiGenerateQueries(){
     toast(newQs.length + ' AI-generated queries added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
   finally { btn.textContent = origText; btn.disabled = false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GOOGLE AI OVERVIEWS (DataForSEO integration)
+// ═══════════════════════════════════════════════════════════════════
+
+let _aioData = null;
+let _aioLoading = false;
+
+async function loadAiOverviews() {
+  const b = brand();
+  if (!b) return;
+  const container = el('ov-ai-overviews');
+  if (!container) return;
+
+  try {
+    const data = await api('GET', '/api/brands/' + b.id + '/ai-overviews');
+    _aioData = data;
+
+    if (!data.configured) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    renderAiOverviews(data);
+  } catch (e) {
+    container.style.display = 'none';
+  }
+}
+
+async function checkAiOverviews() {
+  const b = brand();
+  if (!b) return;
+  if (_aioLoading) return;
+
+  const btn = el('ov-aio-check-btn');
+  const loadingEl = el('ov-aio-loading');
+  const resultsEl = el('ov-aio-results');
+
+  _aioLoading = true;
+  if (btn) { btn.textContent = 'CHECKING...'; btn.disabled = true; }
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (resultsEl) resultsEl.style.display = 'none';
+
+  try {
+    const data = await api('POST', '/api/brands/' + b.id + '/ai-overviews/check');
+    _aioData = { results: data.results, summary: null, configured: true };
+    // Recompute summary
+    const rows = data.results || [];
+    const total = rows.length;
+    const withAio = rows.filter(r => r.has_ai_overview).length;
+    const mentioned = rows.filter(r => r.has_ai_overview && r.brand_mentioned).length;
+    _aioData.summary = {
+      total, withAiOverview: withAio, withoutAiOverview: total - withAio,
+      brandMentioned: mentioned, brandNotMentioned: withAio - mentioned,
+      aiOverviewRate: total > 0 ? Math.round((withAio / total) * 100) : 0,
+      brandMentionRate: withAio > 0 ? Math.round((mentioned / withAio) * 100) : 0,
+    };
+    renderAiOverviews(_aioData);
+    toast('AI Overview check complete: ' + data.checked + ' queries checked', 'ok');
+  } catch (e) {
+    toast('AI Overview check failed: ' + e.message, 'err');
+  } finally {
+    _aioLoading = false;
+    if (btn) { btn.textContent = 'CHECK NOW'; btn.disabled = false; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultsEl) resultsEl.style.display = '';
+  }
+}
+
+function renderAiOverviews(data) {
+  const summaryEl = el('ov-aio-summary');
+  const resultsEl = el('ov-aio-results');
+  if (!summaryEl || !resultsEl) return;
+
+  const s = data.summary;
+  const rows = data.results || [];
+
+  if (!rows.length) {
+    summaryEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-family:var(--mono);">No AI Overview data yet. Click CHECK NOW to scan your queries.</div>';
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  // Summary bar
+  const aioRate = s ? s.aiOverviewRate : 0;
+  const mentionRate = s ? s.brandMentionRate : 0;
+  const aioColor = aioRate >= 50 ? 'var(--amber)' : aioRate > 0 ? 'var(--blue)' : 'var(--muted)';
+  const mentionColor = mentionRate >= 50 ? 'var(--green)' : mentionRate > 0 ? 'var(--amber)' : 'var(--red)';
+  const lastChecked = rows[0]?.checked_at ? new Date(rows[0].checked_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+  summaryEl.innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:${aioColor};font-family:var(--mono);">${aioRate}%</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-top:2px;">AI OVERVIEW RATE</div>
+        <div style="font-size:10px;color:var(--muted);">${s ? s.withAiOverview : 0} / ${s ? s.total : 0} queries</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:${mentionColor};font-family:var(--mono);">${mentionRate}%</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-top:2px;">BRAND IN AI OVERVIEW</div>
+        <div style="font-size:10px;color:var(--muted);">${s ? s.brandMentioned : 0} / ${s ? s.withAiOverview : 0} overviews</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-size:14px;font-weight:700;color:var(--text);font-family:var(--mono);">${lastChecked}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-top:2px;">LAST CHECKED</div>
+      </div>
+    </div>`;
+
+  // Results table
+  let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);">';
+  html += '<thead><tr style="border-bottom:1px solid var(--border);text-align:left;">';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;">QUERY</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;text-align:center;">AI OVERVIEW</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;text-align:center;">BRAND FOUND</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;">COMPETITORS</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;text-align:center;">CITATIONS</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const row of rows) {
+    const aioIcon = row.has_ai_overview ? '<span style="color:var(--green);">&#10003;</span>' : '<span style="color:var(--muted);">&#10005;</span>';
+    const brandIcon = row.has_ai_overview ? (row.brand_mentioned ? '<span style="color:var(--green);font-weight:700;">&#10003; Yes</span>' : '<span style="color:var(--red);">&#10005; No</span>') : '<span style="color:var(--muted);">—</span>';
+    const competitors = row.competitor_mentions || [];
+    const compText = competitors.length > 0 ? competitors.map(c => '<span style="background:rgba(239,68,68,.08);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--red);">' + esc(typeof c === 'string' ? c : c.toString()) + '</span>').join(' ') : '<span style="color:var(--muted);">—</span>';
+    const citations = row.citations || [];
+    const citeCount = citations.length;
+
+    html += '<tr style="border-bottom:1px solid var(--border);">';
+    html += '<td style="padding:8px 10px;color:var(--text);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(row.query) + '">' + esc(row.query) + '</td>';
+    html += '<td style="padding:8px 10px;text-align:center;">' + aioIcon + '</td>';
+    html += '<td style="padding:8px 10px;text-align:center;">' + brandIcon + '</td>';
+    html += '<td style="padding:8px 10px;">' + compText + '</td>';
+    html += '<td style="padding:8px 10px;text-align:center;">' + citeCount + '</td>';
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  resultsEl.innerHTML = html;
 }
 
 // ─── MENTIONS / ALL RESULTS ───────────────────────────────────────
@@ -7414,33 +7556,99 @@ async function renderBilling() {
       warningsEl.innerHTML = '';
     }
 
+    // Plan pricing cards
+    const cardsEl = el('billing-plan-cards');
+    const tiers = ['free','starter','pro','agency','enterprise'];
+    const planPricing = [
+      { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> prompts/month', '1 brand', '2 AI platforms', 'Basic SOV tracking'] },
+      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'Sentiment analysis'] },
+      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
+      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>1,000</strong> prompts/month', '20 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>10,000</strong> prompts/month', '100 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+    ];
+    cardsEl.innerHTML = `
+      <div class="billing-cards-header">
+        <div class="card-title">Choose Your Plan</div>
+        <div style="font-size:13px;color:var(--muted);">Select a plan that fits your needs</div>
+      </div>
+      <div class="billing-pricing-grid">
+        ${planPricing.map(p => {
+          const isCurrent = p.id === plan;
+          const isDowngrade = tiers.indexOf(p.id) < tiers.indexOf(plan);
+          const isFree = p.id === 'free';
+          return `<div class="billing-price-card${p.featured ? ' billing-card-featured' : ''}${isCurrent ? ' billing-card-current' : ''}" style="--card-accent:${p.color};">
+            ${p.featured && !isCurrent ? '<div class="billing-card-badge">MOST POPULAR</div>' : ''}
+            ${isCurrent ? '<div class="billing-card-badge billing-card-badge-current">CURRENT PLAN</div>' : ''}
+            <div class="billing-card-name">${p.name}</div>
+            <div class="billing-card-price">${p.price}<span>${p.period}</span></div>
+            <div class="billing-card-tagline">${p.tagline}</div>
+            <ul class="billing-card-features">
+              ${p.features.map(f => '<li>' + f + '</li>').join('')}
+            </ul>
+            <button class="billing-card-btn${isCurrent ? ' billing-card-btn-current' : isFree ? ' billing-card-btn-free' : ''}" onclick="${isCurrent || isFree ? '' : "doUpgrade('" + p.id + "')"}" ${isCurrent || isFree ? 'disabled' : ''}>
+              ${isCurrent ? 'Current Plan' : isFree ? 'Free Tier' : isDowngrade ? 'Downgrade' : 'Buy ' + p.name}
+            </button>
+          </div>`;
+        }).join('')}
+      </div>`;
+
     // Plan comparison
     const plansEl = el('billing-plans');
     const allPlans = data.allPlans || {};
-    const planKeys = Object.keys(allPlans);
-    const colStyle = (p) => p === plan
-      ? 'text-align:center;padding:10px 8px;background:var(--primary-light);font-weight:700;color:var(--primary);'
-      : 'text-align:center;padding:10px 8px;';
-    const headStyle = (p) => p === plan
-      ? 'text-align:center;padding:12px 8px;background:var(--primary-light);color:var(--primary);font-weight:800;font-size:13px;'
-      : 'text-align:center;padding:12px 8px;font-size:13px;';
-    const boolCell = (val, p) => `<td style="${colStyle(p)}">${val ? '<span style="color:var(--green);font-size:15px;font-weight:700;">&#10003;</span>' : '<span style="color:var(--muted);">—</span>'}</td>`;
-    const numCell = (val, p) => `<td style="${colStyle(p)}">${val >= 9999 ? '∞' : val}</td>`;
-    plansEl.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:12px;">
-      <thead><tr style="border-bottom:2px solid var(--border);">
-        <th style="text-align:left;padding:12px 8px;font-size:13px;">Feature</th>
-        ${planKeys.map(p => `<th style="${headStyle(p)}">${p.toUpperCase()}${p === plan ? ' ★' : ''}</th>`).join('')}
-      </tr></thead>
-      <tbody>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Total Prompts</td>${planKeys.map(p => numCell(allPlans[p].prompts, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Brands</td>${planKeys.map(p => numCell(allPlans[p].brands, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Competitors</td>${planKeys.map(p => numCell(allPlans[p].competitors, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Platforms</td>${planKeys.map(p => numCell(allPlans[p].platforms, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">Sentiment</td>${planKeys.map(p => boolCell(allPlans[p].sentiment, p)).join('')}</tr>
-        <tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 8px;">API Access</td>${planKeys.map(p => boolCell(allPlans[p].apiAccess, p)).join('')}</tr>
-        <tr><td style="padding:10px 8px;">Priority Support</td>${planKeys.map(p => boolCell(allPlans[p].prioritySupport, p)).join('')}</tr>
-      </tbody>
-    </table>`;
+    const displayPlans = ['free', 'starter', 'pro', 'agency', 'enterprise'].filter(k => allPlans[k]);
+    const planMeta = {
+      free: { label: 'Free', price: '$0', color: '#6b7280' },
+      starter: { label: 'Starter', price: '$9', color: '#f59e0b' },
+      pro: { label: 'Pro', price: '$29', color: '#4f46e5' },
+      agency: { label: 'Agency', price: '$89', color: '#7c3aed' },
+      enterprise: { label: 'Enterprise', price: '$499', color: '#9b72ff' },
+      owner: { label: 'Owner', price: '—', color: '#059669' }
+    };
+    const isActive = (p) => p === plan;
+    const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
+    const numCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
+    const priceCell = (p) => {
+      const m = planMeta[p] || {};
+      return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '—'}</span></td>`;
+    };
+    const features = [
+      { label: 'Monthly Prompts', icon: '&#9889;', key: 'prompts', type: 'num' },
+      { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'num' },
+      { label: 'Competitors', icon: '&#9878;', key: 'competitors', type: 'num' },
+      { label: 'Platforms', icon: '&#9881;', key: 'platforms', type: 'num' },
+      { label: 'Sentiment Analysis', icon: '&#9829;', key: 'sentiment', type: 'bool' },
+      { label: 'Scheduled Runs', icon: '&#8635;', key: 'scheduledRuns', type: 'bool' },
+      { label: 'API Access', icon: '&#10100;', key: 'apiAccess', type: 'bool' },
+      { label: 'Priority Support', icon: '&#9993;', key: 'prioritySupport', type: 'bool' }
+    ];
+    plansEl.innerHTML = `
+      <div class="cmp-table-wrap">
+        <table class="cmp-table">
+          <thead>
+            <tr>
+              <th class="cmp-feature-head">Features</th>
+              ${displayPlans.map(p => {
+                const m = planMeta[p] || { label: p, price: '', color: '#888' };
+                return `<th class="cmp-plan-head${isActive(p) ? ' cmp-plan-head-active' : ''}">
+                  <div class="cmp-plan-name" style="color:${m.color};">${m.label}</div>
+                  <div class="cmp-plan-price">${m.price}<span>/mo</span></div>
+                  ${isActive(p) ? '<div class="cmp-current-badge">Your Plan</div>' : ''}
+                </th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="cmp-row cmp-row-price">
+              <td class="cmp-feature-cell"><span class="cmp-feature-icon">&#128176;</span>Price / month</td>
+              ${displayPlans.map(p => priceCell(p)).join('')}
+            </tr>
+            ${features.map((f, i) => `<tr class="cmp-row${i % 2 === 1 ? ' cmp-row-stripe' : ''}">
+              <td class="cmp-feature-cell"><span class="cmp-feature-icon">${f.icon}</span>${f.label}</td>
+              ${displayPlans.map(p => f.type === 'bool' ? boolCell(allPlans[p][f.key], p) : numCell(allPlans[p][f.key], p)).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
   } catch(e) { toast('Failed to load billing', 'err'); }
 }
 

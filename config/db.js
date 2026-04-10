@@ -343,6 +343,27 @@ async function initDB() {
       -- Index for cross-brand cache lookups (same query, no brand_id filter)
       CREATE INDEX IF NOT EXISTS idx_response_cache_global ON response_cache(platform, model, query) WHERE brand_id IS NULL;
 
+      -- AI Overview tracking (DataForSEO SERP data)
+      CREATE TABLE IF NOT EXISTS ai_overview_results (
+        id SERIAL PRIMARY KEY,
+        brand_id TEXT NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
+        query TEXT NOT NULL,
+        has_ai_overview BOOLEAN DEFAULT FALSE,
+        brand_mentioned BOOLEAN DEFAULT FALSE,
+        content TEXT,
+        citations JSONB DEFAULT '[]',
+        competitor_mentions JSONB DEFAULT '[]',
+        serp_features JSONB DEFAULT '[]',
+        position INTEGER,
+        location_code INTEGER,
+        language_code TEXT DEFAULT 'en',
+        error TEXT,
+        checked_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(brand_id, query)
+      );
+      CREATE INDEX IF NOT EXISTS idx_ai_overview_brand ON ai_overview_results(brand_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_overview_checked ON ai_overview_results(checked_at);
+
       -- Daily cost budget tracking per user
       CREATE TABLE IF NOT EXISTS daily_cost_tracker (
         id SERIAL PRIMARY KEY,

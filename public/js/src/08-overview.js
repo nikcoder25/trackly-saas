@@ -854,6 +854,9 @@ function renderOverview(){
   } else {
     miniTrend.style.display = 'none';
   }
+
+  // Load Google AI Overviews data (non-blocking)
+  loadAiOverviews();
 }
 
 async function ovAddQuery(){
@@ -1071,5 +1074,144 @@ async function aiGenerateQueries(){
     toast(newQs.length + ' AI-generated queries added', 'ok');
   } catch(e) { toast(e.message, 'err'); }
   finally { btn.textContent = origText; btn.disabled = false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GOOGLE AI OVERVIEWS (DataForSEO integration)
+// ═══════════════════════════════════════════════════════════════════
+
+let _aioData = null;
+let _aioLoading = false;
+
+async function loadAiOverviews() {
+  const b = brand();
+  if (!b) return;
+  const container = el('ov-ai-overviews');
+  if (!container) return;
+
+  try {
+    const data = await api('GET', '/api/brands/' + b.id + '/ai-overviews');
+    _aioData = data;
+
+    if (!data.configured) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+    renderAiOverviews(data);
+  } catch (e) {
+    container.style.display = 'none';
+  }
+}
+
+async function checkAiOverviews() {
+  const b = brand();
+  if (!b) return;
+  if (_aioLoading) return;
+
+  const btn = el('ov-aio-check-btn');
+  const loadingEl = el('ov-aio-loading');
+  const resultsEl = el('ov-aio-results');
+
+  _aioLoading = true;
+  if (btn) { btn.textContent = 'CHECKING...'; btn.disabled = true; }
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (resultsEl) resultsEl.style.display = 'none';
+
+  try {
+    const data = await api('POST', '/api/brands/' + b.id + '/ai-overviews/check');
+    _aioData = { results: data.results, summary: null, configured: true };
+    // Recompute summary
+    const rows = data.results || [];
+    const total = rows.length;
+    const withAio = rows.filter(r => r.has_ai_overview).length;
+    const mentioned = rows.filter(r => r.has_ai_overview && r.brand_mentioned).length;
+    _aioData.summary = {
+      total, withAiOverview: withAio, withoutAiOverview: total - withAio,
+      brandMentioned: mentioned, brandNotMentioned: withAio - mentioned,
+      aiOverviewRate: total > 0 ? Math.round((withAio / total) * 100) : 0,
+      brandMentionRate: withAio > 0 ? Math.round((mentioned / withAio) * 100) : 0,
+    };
+    renderAiOverviews(_aioData);
+    toast('AI Overview check complete: ' + data.checked + ' queries checked', 'ok');
+  } catch (e) {
+    toast('AI Overview check failed: ' + e.message, 'err');
+  } finally {
+    _aioLoading = false;
+    if (btn) { btn.textContent = 'CHECK NOW'; btn.disabled = false; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultsEl) resultsEl.style.display = '';
+  }
+}
+
+function renderAiOverviews(data) {
+  const summaryEl = el('ov-aio-summary');
+  const resultsEl = el('ov-aio-results');
+  if (!summaryEl || !resultsEl) return;
+
+  const s = data.summary;
+  const rows = data.results || [];
+
+  if (!rows.length) {
+    summaryEl.innerHTML = '<div style="color:var(--muted);font-size:12px;font-family:var(--mono);">No AI Overview data yet. Click CHECK NOW to scan your queries.</div>';
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  // Summary bar
+  const aioRate = s ? s.aiOverviewRate : 0;
+  const mentionRate = s ? s.brandMentionRate : 0;
+  const aioColor = aioRate >= 50 ? 'var(--amber)' : aioRate > 0 ? 'var(--blue)' : 'var(--muted)';
+  const mentionColor = mentionRate >= 50 ? 'var(--green)' : mentionRate > 0 ? 'var(--amber)' : 'var(--red)';
+  const lastChecked = rows[0]?.checked_at ? new Date(rows[0].checked_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+  summaryEl.innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:${aioColor};font-family:var(--mono);">${aioRate}%</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-top:2px;">AI OVERVIEW RATE</div>
+        <div style="font-size:10px;color:var(--muted);">${s ? s.withAiOverview : 0} / ${s ? s.total : 0} queries</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:${mentionColor};font-family:var(--mono);">${mentionRate}%</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-top:2px;">BRAND IN AI OVERVIEW</div>
+        <div style="font-size:10px;color:var(--muted);">${s ? s.brandMentioned : 0} / ${s ? s.withAiOverview : 0} overviews</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--bg2);border:1px solid var(--border);padding:12px;border-radius:var(--radius-xs);text-align:center;">
+        <div style="font-size:14px;font-weight:700;color:var(--text);font-family:var(--mono);">${lastChecked}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-top:2px;">LAST CHECKED</div>
+      </div>
+    </div>`;
+
+  // Results table
+  let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono);">';
+  html += '<thead><tr style="border-bottom:1px solid var(--border);text-align:left;">';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;">QUERY</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;text-align:center;">AI OVERVIEW</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;text-align:center;">BRAND FOUND</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;">COMPETITORS</th>';
+  html += '<th style="padding:8px 10px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.5px;text-align:center;">CITATIONS</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const row of rows) {
+    const aioIcon = row.has_ai_overview ? '<span style="color:var(--green);">&#10003;</span>' : '<span style="color:var(--muted);">&#10005;</span>';
+    const brandIcon = row.has_ai_overview ? (row.brand_mentioned ? '<span style="color:var(--green);font-weight:700;">&#10003; Yes</span>' : '<span style="color:var(--red);">&#10005; No</span>') : '<span style="color:var(--muted);">—</span>';
+    const competitors = row.competitor_mentions || [];
+    const compText = competitors.length > 0 ? competitors.map(c => '<span style="background:rgba(239,68,68,.08);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--red);">' + esc(typeof c === 'string' ? c : c.toString()) + '</span>').join(' ') : '<span style="color:var(--muted);">—</span>';
+    const citations = row.citations || [];
+    const citeCount = citations.length;
+
+    html += '<tr style="border-bottom:1px solid var(--border);">';
+    html += '<td style="padding:8px 10px;color:var(--text);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(row.query) + '">' + esc(row.query) + '</td>';
+    html += '<td style="padding:8px 10px;text-align:center;">' + aioIcon + '</td>';
+    html += '<td style="padding:8px 10px;text-align:center;">' + brandIcon + '</td>';
+    html += '<td style="padding:8px 10px;">' + compText + '</td>';
+    html += '<td style="padding:8px 10px;text-align:center;">' + citeCount + '</td>';
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  resultsEl.innerHTML = html;
 }
 

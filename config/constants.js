@@ -219,6 +219,16 @@ const DAILY_COST_BUDGETS = {
   owner: 9999,
 };
 
+// ─── DATAFORSEO ────────────────────────────────────────────────
+const DATAFORSEO = {
+  requestTimeoutMs: 30000,       // 30s per API request
+  batchConcurrency: 3,           // max concurrent requests to DataForSEO
+  batchDelayMs: 1000,            // 1s pause between batches
+  defaultLocationCode: 2840,     // United States
+  defaultLanguageCode: 'en',
+  cacheTtlMs: 6 * 60 * 60 * 1000, // 6h cache for AI Overview results
+};
+
 // ─── TOTP / 2FA ────────────────────────────────────────────────
 const TOTP = {
   period: 30,   // seconds
@@ -242,5 +252,6 @@ module.exports = {
   EMAIL_COLORS,
   BRANDING,
   DAILY_COST_BUDGETS,
+  DATAFORSEO,
   TOTP,
 };
