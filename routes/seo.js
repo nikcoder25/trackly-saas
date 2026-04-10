@@ -141,6 +141,7 @@ ${content}
     <a href="/gemini-brand-tracking">Gemini Tracking</a>
     <a href="/claude-brand-tracking">Claude Tracking</a>
     <a href="/grok-brand-tracking">Grok Tracking</a>
+    <a href="/google-ai-overviews-tracking">Google AI Overviews Tracking</a>
     <a href="/geo-optimization">GEO Guide</a>
     <a href="/vs/semrush">vs Semrush</a>
     <a href="/vs/ahrefs">vs Ahrefs</a>
@@ -197,7 +198,7 @@ router.get('/chatgpt-brand-tracking', (req, res) => {
 <p><strong>SaaS companies</strong> — Monitor if ChatGPT recommends your product when users ask for solutions in your category.</p>
 
 <h2>Track More AI Platforms</h2>
-<p>ChatGPT is just one platform. Livesov also tracks your brand across <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, <a href="/grok-brand-tracking">Grok (xAI)</a>, and Google AI Overviews. Learn more about optimizing for all AI platforms in our <a href="/geo-optimization">GEO Optimization Guide</a>.</p>
+<p>ChatGPT is just one platform. Livesov also tracks your brand across <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, <a href="/grok-brand-tracking">Grok (xAI)</a>, and <a href="/google-ai-overviews-tracking">Google AI Overviews</a>. Learn more about optimizing for all AI platforms in our <a href="/geo-optimization">GEO Optimization Guide</a>.</p>
 `
   }));
 });
@@ -241,7 +242,7 @@ router.get('/perplexity-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Don't stop at Perplexity. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, <a href="/grok-brand-tracking">Grok</a>, and Google AI Overviews. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+<p>Don't stop at Perplexity. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, <a href="/grok-brand-tracking">Grok</a>, and <a href="/google-ai-overviews-tracking">Google AI Overviews</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
 `
   }));
 });
@@ -286,7 +287,7 @@ router.get('/gemini-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Go beyond Google. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/claude-brand-tracking">Claude</a>, <a href="/grok-brand-tracking">Grok</a>, and Google AI Overviews. Learn more in our <a href="/geo-optimization">GEO Guide</a>.</p>
+<p>Go beyond Google. Track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/claude-brand-tracking">Claude</a>, <a href="/grok-brand-tracking">Grok</a>, and <a href="/google-ai-overviews-tracking">Google AI Overviews</a>. Learn more in our <a href="/geo-optimization">GEO Guide</a>.</p>
 `
   }));
 });
@@ -315,7 +316,7 @@ router.get('/claude-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/grok-brand-tracking">Grok</a>, and Google AI Overviews. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/grok-brand-tracking">Grok</a>, and <a href="/google-ai-overviews-tracking">Google AI Overviews</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
 `
   }));
 });
@@ -343,7 +344,61 @@ router.get('/grok-brand-tracking', (req, res) => {
 </ul>
 
 <h2>Track More AI Platforms</h2>
-<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude</a>, and Google AI Overviews. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+<p>Also track your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude</a>, and <a href="/google-ai-overviews-tracking">Google AI Overviews</a>. See our <a href="/geo-optimization">GEO Guide</a> for optimization strategies.</p>
+`
+  }));
+});
+
+// Google AI Overviews landing page
+router.get('/google-ai-overviews-tracking', (req, res) => {
+  res.send(seoPage({
+    title: 'Google AI Overviews Tracking — Monitor Your Brand in AI-Generated Search Results | Livesov',
+    description: 'Track how Google AI Overviews mentions your brand. See when your business appears in AI-generated search summaries above organic results.',
+    keywords: 'Google AI Overviews tracking, Google AI Overviews brand monitoring, AI Overviews visibility, Google SGE tracking, AI search results tracking, Google AI brand mentions',
+    h1: 'Track Your Brand in <span>Google AI Overviews</span>',
+    subtitle: 'Google AI Overviews appear above organic search results for millions of queries. Monitor whether your brand is featured in these AI-generated summaries.',
+    canonical: '/google-ai-overviews-tracking',
+    jsonLd: { "@context": "https://schema.org", "@type": "WebPage", "name": "Google AI Overviews Brand Tracking", "description": "Track how Google AI Overviews mentions your brand in AI-generated search summaries.", "url": "https://livesov.com/google-ai-overviews-tracking", "isPartOf": { "@type": "WebSite", "name": "Livesov", "url": "https://livesov.com" } },
+    content: `
+<h2>Why Track Google AI Overviews?</h2>
+<p>Google AI Overviews (formerly Search Generative Experience / SGE) displays AI-generated summaries at the top of search results. These overviews appear for a growing percentage of queries and are seen before any organic result. If your brand isn't appearing in AI Overviews, you're losing visibility to competitors who are.</p>
+<p>Livesov monitors your brand's presence in Google AI Overviews using the DataForSEO API, capturing the full AI-generated summary so you can see exactly how Google presents your brand.</p>
+
+<h2>How Google AI Overviews Tracking Works</h2>
+<div class="highlight">
+<h3>1. Add Your Keywords</h3>
+<p>Enter the search queries your customers use — e.g., "Best HVAC company in Austin TX", "Top rated plumber near me", "Which CRM is best for small business?"</p>
+<h3>2. Run Tracking</h3>
+<p>Livesov queries Google via the DataForSEO API and captures the AI Overview summary that appears above organic results.</p>
+<h3>3. See Your Results</h3>
+<p>View the full AI Overview text, check if your brand is mentioned, track your visibility over time, and compare against competitors.</p>
+</div>
+
+<h2>What Makes AI Overviews Different</h2>
+<ul>
+<li><strong>Prime placement</strong> — AI Overviews appear above all organic results, getting the first view from searchers</li>
+<li><strong>AI-curated content</strong> — Google's AI selects and summarizes information from across the web</li>
+<li><strong>Direct links</strong> — AI Overviews include cited sources, driving traffic to featured brands</li>
+<li><strong>Growing coverage</strong> — Google is expanding AI Overviews to more query types and regions</li>
+</ul>
+
+<h2>What You Get</h2>
+<ul>
+<li>Full AI Overview text captured via DataForSEO API</li>
+<li>Brand mention and citation detection</li>
+<li>Historical tracking of your AI Overview visibility</li>
+<li>Competitor comparison — see who Google features instead of you</li>
+<li>Evidence export for client reporting and SEO audits</li>
+</ul>
+
+<h2>Who Should Track AI Overviews?</h2>
+<p><strong>Local businesses</strong> — When someone searches for services in your area, does Google's AI Overview mention your business?</p>
+<p><strong>SEO agencies</strong> — Demonstrate to clients whether their brand appears in AI-generated search summaries alongside traditional rankings.</p>
+<p><strong>E-commerce brands</strong> — Monitor if Google's AI recommends your products when users search for product categories.</p>
+<p><strong>SaaS companies</strong> — Track whether AI Overviews feature your product when users search for solutions in your category.</p>
+
+<h2>Track More AI Platforms</h2>
+<p>Google AI Overviews is just one platform. Livesov also tracks your brand across <a href="/chatgpt-brand-tracking">ChatGPT</a>, <a href="/perplexity-brand-tracking">Perplexity AI</a>, <a href="/gemini-brand-tracking">Google Gemini</a>, <a href="/claude-brand-tracking">Claude AI</a>, and <a href="/grok-brand-tracking">Grok (xAI)</a>. Learn more about optimizing for all AI platforms in our <a href="/geo-optimization">GEO Optimization Guide</a>.</p>
 `
   }));
 });
@@ -805,6 +860,7 @@ router.get('/blog', (req, res) => {
 <li><a href="/gemini-brand-tracking">How to Track Your Brand in Google Gemini & AI Overviews</a> — Monitor Google's AI-powered search</li>
 <li><a href="/claude-brand-tracking">How to Track Your Brand in Claude AI</a> — See what Anthropic's Claude says about you</li>
 <li><a href="/grok-brand-tracking">How to Track Your Brand in Grok (xAI)</a> — Monitor your visibility on X's AI assistant</li>
+<li><a href="/google-ai-overviews-tracking">How to Track Your Brand in Google AI Overviews</a> — Track your presence in AI-generated search summaries</li>
 </ul>
 
 <h2>Comparisons</h2>
@@ -853,7 +909,7 @@ router.get('/how-it-works', (req, res) => {
 <li><a href="/gemini-brand-tracking">Google Gemini</a> (Gemini API)</li>
 <li><a href="/claude-brand-tracking">Claude AI</a> (Anthropic API)</li>
 <li><a href="/grok-brand-tracking">Grok</a> (xAI API)</li>
-<li>Google AI Overviews</li>
+<li><a href="/google-ai-overviews-tracking">Google AI Overviews</a> (DataForSEO API)</li>
 </ul>
 <p>Each query takes 10-30 seconds. Responses are captured in full — nothing is truncated or modified.</p>
 </div>
@@ -993,6 +1049,11 @@ router.get('/integrations', (req, res) => {
 <div class="highlight">
 <h3><a href="/grok-brand-tracking">Grok (xAI)</a></h3>
 <p>Integrated into X (Twitter) with access to real-time social data. Livesov uses the official xAI API (Grok-3-mini) to track your brand's visibility on X's AI assistant.</p>
+</div>
+
+<div class="highlight">
+<h3><a href="/google-ai-overviews-tracking">Google AI Overviews</a></h3>
+<p>AI-generated summaries that appear above organic Google search results. Livesov uses the DataForSEO API to capture AI Overview content and detect whether your brand is featured in these high-visibility search summaries.</p>
 </div>
 
 <h2>Why Official APIs Matter</h2>
