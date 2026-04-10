@@ -13,6 +13,7 @@ const { parseResponse, detectCompetitors, buildBrandMatcher } = require('../lib/
 const { evaluateAlerts } = require('../lib/alerts');
 const { checkAiOverview, checkAiOverviewsBatch, isConfigured: isDataForSEOConfigured } = require('../lib/dataforseo');
 const { BATCH, RUN, DAILY_COST_BUDGETS, DATAFORSEO } = require('../config/constants');
+const { generateReport } = require('../lib/pdf-report');
 
 const PLATFORM_KEY_MAP = {
   'ChatGPT': 'openai', 'Perplexity': 'perplexity', 'Claude': 'claude',
@@ -2098,6 +2099,60 @@ router.get('/:id/ai-overviews', auth, async (req, res) => {
 // Get AI Overview status (whether DataForSEO is configured)
 router.get('/:id/ai-overviews/status', auth, async (req, res) => {
   res.json({ configured: isDataForSEOConfigured() });
+});
+
+// ─── PDF REPORT GENERATION ─────────────────────────────────────
+// GET /api/brands/:id/report/pdf — Generate and download a PDF visibility report
+// Requires Pro plan or above (not Free/Starter)
+router.get('/:id/report/pdf', auth, async (req, res) => {
+  try {
+    // Plan check: Pro and above only
+    const plan = await getUserPlan(req.user.id);
+    const allowedPlans = ['pro', 'agency', 'enterprise', 'owner'];
+    if (!allowedPlans.includes(plan)) {
+      return res.status(403).json({
+        error: 'PDF reports are available on Pro plan and above. Upgrade to access this feature.',
+        planLimit: true
+      });
+    }
+
+    const access = await getBrandWithAccess(req.params.id, req.user.id);
+    if (!access) return res.status(404).json({ error: 'Brand not found' });
+
+    const brand = access.brand;
+
+    // Fetch AI Overview data if available
+    if (isDataForSEOConfigured()) {
+      try {
+        const overviewResult = await pool.query(
+          'SELECT * FROM ai_overview_results WHERE brand_id = $1 ORDER BY checked_at DESC',
+          [brand.id]
+        );
+        brand.aiOverviews = overviewResult.rows.map(r => ({
+          query: r.query,
+          hasOverview: r.has_ai_overview,
+          brandMentioned: r.brand_mentioned,
+        }));
+      } catch (e) {
+        // Non-fatal — continue without AI Overview data
+      }
+    }
+
+    const doc = generateReport(brand);
+
+    // Set response headers for PDF download
+    const safeName = (brand.name || 'report').replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `${safeName}_AI_Visibility_Report_${dateStr}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    doc.pipe(res);
+  } catch (e) {
+    console.error('[PDF Report]', e.message);
+    res.status(500).json({ error: 'Failed to generate PDF report' });
+  }
 });
 
 module.exports = router;

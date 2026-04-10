@@ -2065,6 +2065,17 @@ input.brand-select{padding:7px 10px;}
   transition:all .2s;box-shadow:0 2px 8px rgba(255,97,84,.25);
 }
 .ov-run-btn:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(255,97,84,.35);}
+.ov-pdf-btn{
+  background:var(--bg3);border:1px solid var(--border);color:var(--text);
+  font-family:var(--font);font-size:12px;font-weight:600;
+  padding:8px 18px;cursor:pointer;margin-left:8px;
+  letter-spacing:.3px;border-radius:var(--radius-xs);
+  transition:all .2s;
+}
+.ov-pdf-btn:hover{background:var(--bg2);border-color:var(--primary);color:var(--primary);transform:translateY(-1px);}
+.ov-pdf-btn:disabled{opacity:.6;cursor:wait;transform:none;}
+.ov-pdf-btn-locked{opacity:.5;cursor:pointer;}
+.ov-pdf-btn-locked:hover{border-color:var(--amber);color:var(--amber);}
 .ov-run-age{font-family:var(--font);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;}
 .ov-run-age .dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
 .ov-run-age .dot.ok{background:var(--success);}

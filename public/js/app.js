@@ -2439,8 +2439,16 @@ function renderOverview(){
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
-    actionsEl.innerHTML = (queries > 0 && currentUser && currentUser.role === 'admin') ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
-      // `<div class="ov-run-age"><span class="dot ${ageDotClass}"></span>${runAgeText}</div>`;
+    let actionsHtml = (queries > 0 && currentUser && currentUser.role === 'admin') ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
+    // PDF Report button — Pro plan and above only
+    const pdfPlans = ['pro', 'agency', 'enterprise', 'owner'];
+    const userPlan = (currentUser && currentUser.plan) || 'free';
+    if (pdfPlans.includes(userPlan) && lastRun) {
+      actionsHtml += `<button onclick="downloadPdfReport()" class="ov-pdf-btn" title="Download PDF Report">&#128196; PDF Report</button>`;
+    } else if (!pdfPlans.includes(userPlan) && lastRun) {
+      actionsHtml += `<button onclick="showUpgradeModal('PDF reports are available on Pro plan and above.')" class="ov-pdf-btn ov-pdf-btn-locked" title="Upgrade to Pro for PDF reports">&#128274; PDF Report</button>`;
+    }
+    actionsEl.innerHTML = actionsHtml;
   }
   // Start live countdown ticker for the age displays
   _startRunAgeCountdown(lastRun);
@@ -3199,6 +3207,43 @@ function renderOverview(){
 
   // Load Google AI Overviews data (non-blocking)
   loadAiOverviews();
+}
+
+async function downloadPdfReport() {
+  const b = brand();
+  if (!b) { toast('No brand selected', 'err'); return; }
+  const btn = document.querySelector('.ov-pdf-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+  try {
+    const res = await fetch(API + '/api/brands/' + b.id + '/report/pdf', {
+      headers: { 'Authorization': 'Bearer ' + token },
+      credentials: 'include'
+    });
+    if (!res.ok) {
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const json = await res.json();
+        if (json.planLimit) showUpgradeModal(json.error);
+        else toast(json.error || 'Failed to generate report', 'err');
+      } else {
+        toast('Failed to generate report', 'err');
+      }
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = res.headers.get('content-disposition')?.match(/filename="?([^"]+)"?/)?.[1] || 'report.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('PDF report downloaded', 'ok');
+  } catch (e) { toast('Failed to download report: ' + e.message, 'err'); }
+  finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#128196; PDF Report'; }
+  }
 }
 
 async function ovAddQuery(){
