@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimit('reset_password:' + ip, 60 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { token, newPassword } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { token, newPassword } = body;
   if (!token || !newPassword) return Response.json({ error: 'Invalid request' }, { status: 400 });
   if (typeof token !== 'string' || typeof newPassword !== 'string') return Response.json({ error: 'Invalid request' }, { status: 400 });
   // Validate token format (64-char hex string from crypto.randomBytes(32))

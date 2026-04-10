@@ -5,7 +5,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ memb
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
   const { memberId } = await params;
-  const { role } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { role } = body;
   const validRoles = ['viewer', 'editor'];
   if (!validRoles.includes(role)) return Response.json({ error: 'Invalid role' }, { status: 400 });
 

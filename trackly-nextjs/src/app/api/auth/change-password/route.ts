@@ -7,7 +7,9 @@ export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
-  const { currentPassword, newPassword } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { currentPassword, newPassword } = body;
   if (!currentPassword || !newPassword) return Response.json({ error: 'Current and new password required' }, { status: 400 });
   if (typeof newPassword !== 'string') return Response.json({ error: 'Invalid input' }, { status: 400 });
   const pwError = validatePasswordComplexity(newPassword);

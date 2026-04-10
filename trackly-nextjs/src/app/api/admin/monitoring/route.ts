@@ -64,6 +64,7 @@ export async function GET(request: Request) {
       dbPool: dbPoolStats,
     });
   } catch (e) {
-    return Response.json({ error: 'Monitoring query failed: ' + (e as Error).message }, { status: 500 });
+    console.error('[Monitoring] Query failed:', (e as Error).message);
+    return Response.json({ error: 'Monitoring query failed' }, { status: 500 });
   }
 }

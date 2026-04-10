@@ -24,7 +24,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot create alerts' }, { status: 403 });
 
-  const { name, condition_type, condition_params, action_type, action_params, cooldown_hours } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { name, condition_type, condition_params, action_type, action_params, cooldown_hours } = body;
   if (!name || !condition_type) return Response.json({ error: 'Name and condition type required' }, { status: 400 });
 
   try {

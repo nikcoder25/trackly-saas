@@ -10,7 +10,9 @@ export async function PUT(request: Request) {
   const rl = await rateLimit('username_change:' + user.id, 24 * 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { username } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { username } = body;
   const trimmed = username ? username.trim().toLowerCase() : null;
 
   if (trimmed) {

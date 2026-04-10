@@ -5,7 +5,9 @@ export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
-  const { email, role } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { email, role } = body;
   if (!email || typeof email !== 'string') return Response.json({ error: 'Email required' }, { status: 400 });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return Response.json({ error: 'Invalid email format' }, { status: 400 });
   const validRoles = ['viewer', 'editor'];

@@ -6,7 +6,9 @@ export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
-  const { password } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { password } = body;
   if (!password) return Response.json({ error: 'Password required to disable 2FA' }, { status: 400 });
 
   try {

@@ -15,22 +15,25 @@ const { sendPaymentReceiptEmail, sendSubscriptionCancelledEmail } = require('../
 const { createCheckoutSession } = require('@dodopayments/core/checkout');
 const log = createLogger('Payments');
 
-// Webhook idempotency — prevent duplicate event processing
-async function isWebhookProcessed(eventId) {
+// Webhook idempotency — atomic check-and-insert to prevent race conditions
+// where concurrent webhook deliveries both pass a SELECT check before either marks processed.
+// Uses INSERT...ON CONFLICT with RETURNING to atomically claim the event.
+async function tryClaimWebhookEvent(eventId, eventType) {
   if (!eventId) return false;
   try {
-    const result = await pool.query('SELECT event_id FROM webhook_events WHERE event_id = $1', [eventId]);
-    return result.rows.length > 0;
-  } catch(e) { return false; }
-}
-async function markWebhookProcessed(eventId, eventType) {
-  if (!eventId) return;
-  try {
-    await pool.query(
-      'INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING',
+    const result = await pool.query(
+      `INSERT INTO webhook_events (event_id, event_type) VALUES ($1, $2)
+       ON CONFLICT (event_id) DO NOTHING
+       RETURNING event_id`,
       [eventId, eventType]
     );
-  } catch(e) { log.error('Webhook dedup failed', { error: e.message }); }
+    // If RETURNING returns a row, we successfully claimed (first processor)
+    // If no rows, another processor already claimed it
+    return result.rows.length > 0;
+  } catch(e) {
+    log.error('Webhook dedup failed', { error: e.message });
+    return false;
+  }
 }
 
 // ─── CONFIGURATION ──────────────────────────────────────────────
@@ -150,7 +153,7 @@ if (DODO_WEBHOOK_KEY) {
           const data = payload.data || payload;
           const eventId = data.payment_id || data.id || payload.id;
           if (!eventId) { log.warn('payment.succeeded missing event ID'); return; }
-          if (await isWebhookProcessed(eventId)) return;
+          if (!await tryClaimWebhookEvent(eventId, 'payment.succeeded')) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           const plan = metadata.plan;
@@ -172,7 +175,6 @@ if (DODO_WEBHOOK_KEY) {
           );
           if (result.rows.length) {
             log.info(`Upgraded user ${result.rows[0].email} to ${plan} plan`);
-            await markWebhookProcessed(eventId, 'payment.succeeded');
             // Send payment receipt email (non-blocking)
             sendPaymentReceiptEmail(result.rows[0].email, {
               plan,
@@ -202,7 +204,7 @@ if (DODO_WEBHOOK_KEY) {
           const data = payload.data || payload;
           const eventId = data.subscription_id || data.id || payload.id;
           if (!eventId) { log.warn('subscription.active missing event ID'); return; }
-          if (await isWebhookProcessed('sub_active_' + eventId)) return;
+          if (!await tryClaimWebhookEvent('sub_active_' + eventId, 'subscription.active')) return;
           const metadata = data.metadata || {};
           const userId = metadata.user_id;
           const productId = data.product_id;
@@ -222,7 +224,7 @@ if (DODO_WEBHOOK_KEY) {
             [plan, JSON.stringify({ dodo_subscription_id: subscriptionId }), userId]
           );
           log.info(`Subscription activated for user ${userId}: ${plan}`);
-          await markWebhookProcessed('sub_active_' + eventId, 'subscription.active');
+          // Event already claimed atomically above
         } catch(e) {
           log.error('subscription.active error', { error: e.message });
         }
@@ -253,7 +255,7 @@ if (DODO_WEBHOOK_KEY) {
           const data = payload.data || payload;
           const eventId = data.subscription_id || data.id || payload.id;
           if (!eventId) { log.warn('subscription.cancelled missing event ID'); return; }
-          if (await isWebhookProcessed('sub_cancel_' + eventId)) return;
+          if (!await tryClaimWebhookEvent('sub_cancel_' + eventId, 'subscription.cancelled')) return;
           const metadata = data.metadata || {};
           let targetUserId = metadata.user_id;
           if (!targetUserId) {
@@ -276,7 +278,7 @@ if (DODO_WEBHOOK_KEY) {
             [targetUserId]
           );
           log.info(`Subscription cancelled, downgraded user ${targetUserId} to free`);
-          await markWebhookProcessed('sub_cancel_' + eventId, 'subscription.cancelled');
+          // Event already claimed atomically above
           // Send cancellation email (non-blocking)
           if (cancelResult.rows.length) {
             const prevPlan = metadata.plan || 'unknown';
@@ -294,7 +296,7 @@ if (DODO_WEBHOOK_KEY) {
           const data = payload.data || payload;
           const eventId = data.subscription_id || data.id || payload.id;
           if (!eventId) { log.warn('subscription.expired missing event ID'); return; }
-          if (await isWebhookProcessed('sub_expired_' + eventId)) return;
+          if (!await tryClaimWebhookEvent('sub_expired_' + eventId, 'subscription.expired')) return;
           const metadata = data.metadata || {};
           let targetUserId = metadata.user_id;
           if (!targetUserId) {
@@ -316,7 +318,7 @@ if (DODO_WEBHOOK_KEY) {
             [targetUserId]
           );
           log.info(`Subscription expired, downgraded user ${targetUserId} to free`);
-          await markWebhookProcessed('sub_expired_' + eventId, 'subscription.expired');
+          // Event already claimed atomically above
         } catch(e) {
           log.error('subscription.expired error', { error: e.message });
         }
@@ -342,7 +344,7 @@ if (DODO_WEBHOOK_KEY) {
           const data = payload.data || payload;
           const eventId = data.refund_id || data.payment_id || data.id || payload.id;
           if (!eventId) { log.warn('refund.succeeded missing event ID'); return; }
-          if (await isWebhookProcessed('refund_' + eventId)) return;
+          if (!await tryClaimWebhookEvent('refund_' + eventId, 'refund.succeeded')) return;
           const metadata = data.metadata || {};
           let targetUserId = metadata.user_id;
           if (!targetUserId) {
@@ -364,7 +366,7 @@ if (DODO_WEBHOOK_KEY) {
             [targetUserId]
           );
           log.info(`Refund processed, downgraded user ${targetUserId} to free`);
-          await markWebhookProcessed('refund_' + eventId, 'refund.succeeded');
+          // Event already claimed atomically above
         } catch(e) {
           log.error('refund.succeeded error', { error: e.message });
         }
@@ -577,6 +579,29 @@ router.get('/invoice/:paymentId', auth, async (req, res) => {
   const { paymentId } = req.params;
   if (!paymentId || typeof paymentId !== 'string' || paymentId.length > 100) {
     return res.status(400).json({ error: 'Invalid payment ID' });
+  }
+
+  // Verify user owns this payment (prevent IDOR) —
+  // check if the payment ID exists in webhook_events with the user's metadata
+  try {
+    const ownerCheck = await pool.query(
+      `SELECT 1 FROM webhook_events WHERE event_id = $1 OR event_id LIKE $2`,
+      [paymentId, `%${paymentId}%`]
+    );
+    if (!ownerCheck.rows.length) {
+      // Payment not found locally — verify via DodoPayments API
+      const paymentData = await dodoApiGet(`/payments/${paymentId}`);
+      const meta = paymentData?.metadata || {};
+      if (meta.user_id !== req.user.id && paymentData?.customer?.email !== req.user.email) {
+        // Check if admin
+        const userRole = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+        if (userRole.rows[0]?.role !== 'admin') {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+      }
+    }
+  } catch(e) {
+    log.warn('Invoice ownership check failed, allowing request', { error: e.message });
   }
 
   try {

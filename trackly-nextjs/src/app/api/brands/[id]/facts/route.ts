@@ -23,7 +23,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
   if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot edit facts' }, { status: 403 });
 
-  const { facts } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { facts } = body;
   if (!Array.isArray(facts)) return Response.json({ error: 'Facts must be an array' }, { status: 400 });
 
   try {

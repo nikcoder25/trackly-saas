@@ -10,7 +10,9 @@ export async function POST(request: Request) {
   const rl = await rateLimit('2fa_verify:' + user.id, 15 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { code } = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
+  const { code } = body;
   if (!code) return Response.json({ error: '2FA code required' }, { status: 400 });
 
   try {

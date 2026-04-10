@@ -255,7 +255,7 @@ router.post('/register', registerLimiter, async (req, res) => {
 
     const accessToken = jwt.sign({ id, email: email.toLowerCase(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
+    await pool.query('UPDATE users SET refresh_token = $1, refresh_token_at = NOW() WHERE id = $2', [refreshToken, id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, req.ip);
     setTokenCookies(res, accessToken, refreshToken);
@@ -288,7 +288,11 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
     if (totpSecret) {
       const { totpCode } = req.body;
       if (!totpCode) {
-        return res.status(202).json({ requires2FA: true, message: 'Enter your 2FA code' });
+        return res.status(401).json({ requires2FA: true, message: 'Enter your 2FA code' });
+      }
+      // Validate TOTP code format (6 digits or backup code format)
+      if (typeof totpCode !== 'string' || (!/^\d{6}$/.test(totpCode) && totpCode.length > 20)) {
+        return res.status(400).json({ error: 'Invalid 2FA code format' });
       }
       // Check TOTP code or backup code
       const backupCodes = user.settings?.totp_backup_codes || [];
@@ -332,7 +336,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
 
     const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id]);
+    await pool.query('UPDATE users SET refresh_token = $1, refresh_token_at = NOW() WHERE id = $2', [refreshToken, user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, {}, req.ip);
     setTokenCookies(res, accessToken, refreshToken);
@@ -353,7 +357,12 @@ router.get('/verify-email', verifyEmailLimiter, async (req, res) => {
       [token]
     );
     if (!result.rows.length) return res.status(400).json({ error: 'Invalid or expired verification token' });
-    await pool.query('UPDATE users SET email_verified = TRUE, verify_token = NULL, verify_token_expires = NULL WHERE id = $1', [result.rows[0].id]);
+    // Atomic: verify_token must still match to prevent race condition with /resend-verification
+    const updateResult = await pool.query(
+      'UPDATE users SET email_verified = TRUE, verify_token = NULL, verify_token_expires = NULL WHERE id = $1 AND verify_token = $2 RETURNING id',
+      [result.rows[0].id, token]
+    );
+    if (!updateResult.rows.length) return res.status(400).json({ error: 'Verification token already used or replaced' });
     auditLog(result.rows[0].id, 'email_verified', 'user', result.rows[0].id, {}, req.ip);
     res.json({ message: 'Email verified successfully!' });
   } catch(e) {
@@ -397,10 +406,14 @@ router.post('/refresh', async (req, res) => {
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
     // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent
-    // refresh requests both read the same token before either rotates it
+    // refresh requests both read the same token before either rotates it.
+    // Also enforce 30-day max age — reject tokens older than refresh_token_at + 30 days
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     const result = await pool.query(
-      'UPDATE users SET refresh_token = $1 WHERE refresh_token = $2 RETURNING id, email, role, plan',
+      `UPDATE users SET refresh_token = $1, refresh_token_at = NOW()
+       WHERE refresh_token = $2
+         AND (refresh_token_at IS NULL OR refresh_token_at > NOW() - INTERVAL '30 days')
+       RETURNING id, email, role, plan`,
       [newRefreshToken, refreshToken]
     );
     if (!result.rows.length) return res.status(401).json({ error: 'Invalid refresh token' });
@@ -751,7 +764,7 @@ router.post('/google', async (req, res) => {
     // Issue tokens
     const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
+    await pool.query('UPDATE users SET refresh_token = $1, refresh_token_at = NOW() WHERE id = $2', [newRefreshToken, user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, req.ip);
     setTokenCookies(res, accessToken, newRefreshToken);

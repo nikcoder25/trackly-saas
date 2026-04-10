@@ -252,14 +252,16 @@ export default function DashboardPage() {
     if (!newQuery.trim() || !brand) return;
     const updated = [...queries, newQuery.trim()];
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
-      .then(() => { setNewQuery(''); fetchBrands(); });
+      .then(() => { setNewQuery(''); fetchBrands(); })
+      .catch(() => { /* fetch error handled silently — user can retry */ });
   };
 
   const removeQuery = (idx: number) => {
     if (!brand) return;
     const updated = queries.filter((_, i) => i !== idx);
     fetch(`/api/brands/${brand.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ queries: updated }) })
-      .then(() => fetchBrands());
+      .then(() => fetchBrands())
+      .catch(() => { /* fetch error handled silently — user can retry */ });
   };
 
   // Last run age

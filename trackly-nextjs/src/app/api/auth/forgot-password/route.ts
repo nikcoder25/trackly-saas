@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
   const rl = await rateLimit('forgot_password:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const body = await request.json();
+  let body;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid request body' }, { status: 400 }); }
   const { email, website } = body;
 
   const successMsg = 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.';
