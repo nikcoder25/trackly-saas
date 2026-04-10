@@ -601,10 +601,10 @@ router.get('/invoice/:paymentId', auth, async (req, res) => {
       res.setHeader('Content-Disposition', `inline; filename="invoice-${paymentId}.pdf"`);
       apiRes.pipe(res);
     });
-    apiReq.on('timeout', () => { apiReq.destroy(); res.status(504).json({ error: 'Invoice request timed out' }); });
+    apiReq.on('timeout', () => { apiReq.destroy(); if (!res.headersSent) res.status(504).json({ error: 'Invoice request timed out' }); });
     apiReq.on('error', (e) => {
       log.error('Invoice download failed', { error: e.message });
-      res.status(500).json({ error: 'Failed to download invoice' });
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to download invoice' });
     });
     apiReq.end();
   } catch(e) {
