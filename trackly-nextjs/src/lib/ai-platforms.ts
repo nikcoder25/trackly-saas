@@ -96,6 +96,45 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
   return ((tokensIn || 0) * pricing.input + (tokensOut || 0) * pricing.output) / 1_000_000;
 }
 
+// ── Per-platform rate limiting ──────────────────────────────────
+// Minimum delay (ms) between requests per API key per platform.
+// Prevents hitting upstream 429s from concurrent runs.
+const PLATFORM_RATE_LIMITS: Record<string, { minDelayMs: number }> = {
+  ChatGPT:    { minDelayMs: 500 },
+  Claude:     { minDelayMs: 300 },
+  Gemini:     { minDelayMs: 300 },
+  Grok:       { minDelayMs: 250 },
+  Perplexity: { minDelayMs: 300 },
+};
+
+const lastRequestTimePerKey = new Map<string, number>();
+const rateLimitQueues = new Map<string, Promise<void>>();
+
+function rateLimitTrackKey(platform: string, apiKey: string): string {
+  return `${platform}:${apiKey.slice(-8)}`;
+}
+
+async function rateLimitWait(platform: string, apiKey: string): Promise<void> {
+  const limits = PLATFORM_RATE_LIMITS[platform];
+  if (!limits) return;
+  const trackKey = rateLimitTrackKey(platform, apiKey);
+
+  // Serialize access per trackKey to prevent concurrent requests from
+  // blasting the same API key simultaneously.
+  const prev = rateLimitQueues.get(trackKey) ?? Promise.resolve();
+  const gate = prev.then(async () => {
+    const now = Date.now();
+    const last = lastRequestTimePerKey.get(trackKey) || 0;
+    const elapsed = now - last;
+    if (elapsed < limits.minDelayMs) {
+      await new Promise(r => setTimeout(r, limits.minDelayMs - elapsed));
+    }
+    lastRequestTimePerKey.set(trackKey, Date.now());
+  });
+  rateLimitQueues.set(trackKey, gate.catch(() => {}));
+  return gate;
+}
+
 interface QueryResult {
   text: string;
   model: string;
@@ -152,6 +191,9 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
   const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
   const startMs = Date.now();
   let result: QueryResult;
+
+  // Enforce per-platform rate limiting before making the API call
+  await rateLimitWait(platform, apiKey);
 
   if (platform === 'ChatGPT') {
     const isSearch = useModel.includes('search');

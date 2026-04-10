@@ -64,7 +64,7 @@ const faqs = [
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan to get started. Paid plans start at $9/mo (Starter), with Pro at $29/mo and Agency at $89/mo.' },
+  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan to get started. Paid plans start at $19/mo (Starter), with Pro at $49/mo and Agency at $149/mo.' },
 ];
 
 const testimonials = [
@@ -581,7 +581,7 @@ export default function LivesovHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag">Pricing</span>
             <h2>Simple, transparent pricing</h2>
-            <p>Plans from $9/mo. Scale as you grow. Best value in AI visibility tracking.</p>
+            <p>Plans from $19/mo. Scale as you grow. Best value in AI visibility tracking.</p>
           </div>
 
           {/* Monthly / Annual toggle */}

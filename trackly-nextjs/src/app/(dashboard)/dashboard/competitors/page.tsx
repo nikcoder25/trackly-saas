@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRun } from '@/contexts/RunContext';
 import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -91,6 +91,16 @@ export default function CompetitorsPage() {
     if (!competitors.length || !hasData) return false;
     return competitors.every(c => (compStats[c] || 0) === 0);
   }, [competitors, hasData, compStats]);
+
+  // Auto-reprocess when all competitors show 0% but data exists
+  // (handles the common case of competitors added after query runs)
+  const autoReprocessed = useRef(false);
+  useEffect(() => {
+    if (allCompZero && brand?.id && !reprocessing && !autoReprocessed.current) {
+      autoReprocessed.current = true;
+      triggerReprocess(brand.id);
+    }
+  }, [allCompZero, brand?.id, reprocessing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Platform breakdown from API
   const platBreakdown = compStatsData?.platforms || {};

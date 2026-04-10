@@ -146,6 +146,90 @@ export async function sendContactFormEmail({
   );
 }
 
+// ── Weekly Digest Email ─────────────────────────────────────────
+export interface DigestData {
+  brandName: string;
+  currentSov: number;
+  previousSov: number | null;
+  totalRuns: number;
+  brandMentions: number;
+  totalQueries: number;
+  topPlatform: string | null;
+  topPlatformSov: number;
+  competitorChanges: Array<{ name: string; mentions: number; change: number }>;
+}
+
+export async function sendWeeklyDigestEmail(email: string, digest: DigestData): Promise<EmailResult> {
+  const sovChange = digest.previousSov !== null ? digest.currentSov - digest.previousSov : null;
+  const sovArrow = sovChange === null ? '' : sovChange > 0 ? '&#9650;' : sovChange < 0 ? '&#9660;' : '&#8212;';
+  const sovColor = sovChange === null ? '#6b7280' : sovChange > 0 ? '#16a34a' : sovChange < 0 ? '#dc2626' : '#6b7280';
+  const sovChangeText = sovChange !== null ? `${sovChange > 0 ? '+' : ''}${sovChange}%` : 'N/A';
+  const dashboardUrl = `${APP_URL}/dashboard`;
+
+  const competitorRows = digest.competitorChanges.length > 0
+    ? digest.competitorChanges.map(c => {
+        const changeColor = c.change > 0 ? '#dc2626' : c.change < 0 ? '#16a34a' : '#6b7280';
+        const changeArrow = c.change > 0 ? '&#9650;' : c.change < 0 ? '&#9660;' : '&#8212;';
+        return `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#374151;">${c.name}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#374151;text-align:center;">${c.mentions}x</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:${changeColor};text-align:center;font-weight:600;">${changeArrow} ${c.change > 0 ? '+' : ''}${c.change}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="3" style="padding:12px;text-align:center;color:#9ca3af;">No competitor data this week</td></tr>';
+
+  const html = `
+    <div style="font-family:Inter,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:0;">
+      <div style="background:#4f46e5;padding:24px 32px;border-radius:12px 12px 0 0;">
+        <h1 style="color:#fff;margin:0;font-size:20px;">Weekly AI Visibility Report</h1>
+        <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:14px;">${digest.brandName}</p>
+      </div>
+      <div style="background:#fff;padding:24px 32px;border:1px solid #e5e7eb;border-top:none;">
+        <div style="display:flex;gap:16px;margin-bottom:24px;">
+          <div style="flex:1;background:#f9fafb;border-radius:8px;padding:16px;text-align:center;">
+            <div style="font-size:32px;font-weight:800;color:#111827;">${digest.currentSov}%</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:2px;">Share of Voice</div>
+            <div style="font-size:13px;color:${sovColor};font-weight:600;margin-top:4px;">${sovArrow} ${sovChangeText} vs last week</div>
+          </div>
+        </div>
+        <table style="width:100%;margin-bottom:16px;">
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Runs this week</td>
+            <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${digest.totalRuns}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Brand mentions</td>
+            <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${digest.brandMentions} / ${digest.totalQueries}</td>
+          </tr>
+          ${digest.topPlatform ? `<tr>
+            <td style="padding:6px 0;color:#6b7280;font-size:13px;">Top platform</td>
+            <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600;text-align:right;">${digest.topPlatform} (${digest.topPlatformSov}%)</td>
+          </tr>` : ''}
+        </table>
+        ${digest.competitorChanges.length > 0 ? `
+        <h3 style="color:#374151;font-size:14px;margin:20px 0 8px;">Competitor Activity</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#f9fafb;">
+              <th style="padding:8px 12px;text-align:left;color:#6b7280;font-weight:600;">Competitor</th>
+              <th style="padding:8px 12px;text-align:center;color:#6b7280;font-weight:600;">Mentions</th>
+              <th style="padding:8px 12px;text-align:center;color:#6b7280;font-weight:600;">Change</th>
+            </tr>
+          </thead>
+          <tbody>${competitorRows}</tbody>
+        </table>` : ''}
+        <div style="margin-top:24px;text-align:center;">
+          <a href="${dashboardUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">View Full Dashboard</a>
+        </div>
+      </div>
+      <div style="padding:16px 32px;text-align:center;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;background:#f9fafb;">
+        <p style="color:#9ca3af;font-size:11px;margin:0;">You're receiving this because you have a Livesov account. <a href="${APP_URL}/dashboard/account" style="color:#6b7280;">Manage preferences</a></p>
+      </div>
+    </div>
+  `;
+  return sendEmail(email, `Weekly Report: ${digest.brandName} — ${digest.currentSov}% SOV`, html);
+}
+
 async function sendContactFormViaZoho(
   subject: string,
   html: string,
