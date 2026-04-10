@@ -81,17 +81,17 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             disabled={isDisabled}
             onClick={() => startRun(false)}
           >
-            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
+            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : live.errorMsg === 'run_limit' ? '❌ Run limit reached' : live.errorMsg === 'plan_limit' ? '🔒 Brand locked' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
           </button>
 
-          {/* Locked brand upgrade hint */}
-          {selectedBrandLocked && (
+          {/* Upgrade hint for locked brand, run limit, or plan limit */}
+          {(selectedBrandLocked || (live.status === 'error' && (live.errorMsg === 'run_limit' || live.errorMsg === 'plan_limit'))) && (
             <Link href="/dashboard/account" style={{
               display: 'block', marginTop: 4, padding: '5px 8px', background: 'rgba(245,158,11,.08)',
               border: '1px solid rgba(245,158,11,.2)', borderRadius: 4, textAlign: 'center',
               fontSize: 10, fontWeight: 600, color: 'var(--amber)', textDecoration: 'none',
             }}>
-              Upgrade to unlock →
+              {live.errorMsg === 'run_limit' ? 'Upgrade for more runs →' : 'Upgrade to unlock →'}
             </Link>
           )}
 

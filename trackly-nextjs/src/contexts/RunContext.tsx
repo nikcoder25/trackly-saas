@@ -243,6 +243,16 @@ export function RunProvider({ children }: { children: ReactNode }) {
           setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'A run is already in progress.', errorMsg: 'concurrent' }));
           return;
         }
+        if (response.status === 429) {
+          runningRef.current = false;
+          setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'Monthly run limit reached', errorMsg: 'run_limit' }));
+          return;
+        }
+        if (response.status === 403 && errData.planLimit) {
+          runningRef.current = false;
+          setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'Brand locked — upgrade plan', errorMsg: 'plan_limit' }));
+          return;
+        }
         throw new Error(errData.error || 'Request failed');
       }
 

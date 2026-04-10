@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       const runs = row.data?.runs || [];
       if (runs.length > 0) {
         const lastRun = runs[runs.length - 1];
-        const lastRunTime = new Date(lastRun.date).getTime();
+        const lastRunTime = new Date(lastRun.time || lastRun.date).getTime();
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
         if (hoursSince < scheduleHours) return false;
       }
