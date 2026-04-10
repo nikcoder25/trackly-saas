@@ -3,12 +3,12 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 
 export const metadata: Metadata = {
   title: 'Generative Engine Optimization (GEO) Guide | Livesov',
-  description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity & Grok.',
+  description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity, Grok & Google AI Overviews.',
   keywords: 'generative engine optimization, geo seo, ai search optimization, llm optimization, ai visibility optimization',
   alternates: { canonical: '/geo-optimization' },
   openGraph: {
     title: 'Generative Engine Optimization (GEO) Guide | Livesov',
-    description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity & Grok.',
+    description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity, Grok & Google AI Overviews.',
     url: 'https://livesov.com/geo-optimization',
     siteName: 'Livesov',
     type: 'website',
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Generative Engine Optimization (GEO) Guide | Livesov',
-    description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity & Grok.',
+    description: 'Learn how to optimize your brand for AI search engines. Complete guide to Generative Engine Optimization (GEO) for ChatGPT, Claude, Gemini, Perplexity, Grok & Google AI Overviews.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -32,7 +32,7 @@ export default function GeoOptimizationPage() {
       />
       <SeoContent>
         <h2>What is Generative Engine Optimization?</h2>
-        <p>GEO is the practice of optimizing your brand&apos;s digital presence so that AI models (ChatGPT, Claude, Gemini, Perplexity, Grok) accurately mention, recommend, and cite your brand in their responses.</p>
+        <p>GEO is the practice of optimizing your brand&apos;s digital presence so that AI models (ChatGPT, Claude, Gemini, Perplexity, Grok, Google AI Overviews) accurately mention, recommend, and cite your brand in their responses.</p>
 
         <h2>Key GEO Strategies</h2>
         <ul>

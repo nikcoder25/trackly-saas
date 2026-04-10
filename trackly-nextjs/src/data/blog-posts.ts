@@ -25,7 +25,7 @@ export const blogPosts: BlogPost[] = [
     content: `
 ## What is Generative Engine Optimization?
 
-Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence so that AI platforms — like ChatGPT, Perplexity, Claude, Gemini, and Grok — mention and recommend you when users ask relevant questions.
+Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence so that AI platforms — like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews — mention and recommend you when users ask relevant questions.
 
 Think of it as **SEO for the AI era**. Just as traditional SEO helps you rank on Google, GEO helps you appear in AI-generated answers.
 
@@ -72,7 +72,7 @@ AI models learn from the open web. To improve your AI visibility:
 
 GEO isn't a one-time fix. AI models update regularly, and your competitors are also optimizing. Set up automated tracking to:
 
-- Run queries daily across all 5 AI platforms
+- Run queries daily across all 6 AI platforms
 - Track SOV trends over time
 - Get alerts when your visibility changes
 - Benchmark against competitors
@@ -91,7 +91,7 @@ GEO isn't a one-time fix. AI models update regularly, and your competitors are a
 
 GEO is not replacing SEO — it's an **additional layer** of visibility that's growing rapidly. Brands that start optimizing for AI now will have a significant advantage as more users shift to AI-first discovery.
 
-The first step? [Check your AI visibility](https://livesov.com/signup) across all 5 platforms. You might be surprised by what you find.
+The first step? [Check your AI visibility](https://livesov.com/signup) across all 6 platforms. You might be surprised by what you find.
 `,
   },
   {
@@ -165,7 +165,7 @@ Unlike SEO where you can check Google Search Console, AI visibility requires a d
 4. **Track sentiment** (positive, neutral, or negative mentions)
 5. **Monitor trends** over time
 
-Tools like [Livesov](https://livesov.com) automate this process across ChatGPT, Perplexity, Claude, Gemini, and Grok — giving you a unified dashboard to track your AI visibility.
+Tools like [Livesov](https://livesov.com) automate this process across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews — giving you a unified dashboard to track your AI visibility.
 
 ## Action Steps
 
@@ -180,7 +180,7 @@ The brands that win in 2026 will be those that master both traditional SEO **and
   {
     slug: 'how-to-track-brand-across-ai-platforms',
     title: 'How to Track Your Brand Across ChatGPT, Perplexity & More',
-    description: 'A step-by-step guide to monitoring your brand\'s presence across 5 AI platforms and measuring your share of voice.',
+    description: 'A step-by-step guide to monitoring your brand\'s presence across 6 AI platforms and measuring your share of voice.',
     tag: 'Guide',
     date: '2026-03-15',
     readTime: '7 min read',
@@ -198,7 +198,7 @@ Every day, millions of users ask AI chatbots questions like:
 
 If AI isn't mentioning your brand in these conversations, you're missing a massive — and growing — discovery channel.
 
-## The 5 AI Platforms You Should Track
+## The 6 AI Platforms You Should Track
 
 ### 1. ChatGPT (OpenAI)
 The most popular AI chatbot with 200M+ weekly users. ChatGPT is where most buying-decision conversations happen.
@@ -214,6 +214,9 @@ Google's AI integrated into Search. As Google AI Overviews expand, visibility he
 
 ### 5. Grok (xAI)
 Built into X (Twitter), Grok has real-time data and a growing user base. Important for brands with social media presence.
+
+### 6. Google AI Overviews
+AI-generated summaries that appear at the top of Google Search results. As these expand, visibility here is critical for any brand that relies on search traffic.
 
 ## Step-by-Step: Setting Up Brand Tracking
 
@@ -243,8 +246,8 @@ For each query on each platform, record:
 **Share of Voice (SOV)** = (Queries where you're mentioned / Total queries) × 100
 
 Example:
-- You track 20 queries across 5 platforms = 100 total checks
-- Your brand is mentioned in 35 of them
+- You track 20 queries across 6 platforms = 120 total checks
+- Your brand is mentioned in 42 of them
 - Your SOV = 35%
 
 ### Step 4: Analyze by Platform
@@ -258,6 +261,7 @@ Break down your SOV by platform to find gaps:
 | Claude | 8 | 20 | 40% |
 | Gemini | 5 | 20 | 25% |
 | Grok | 0 | 20 | 0% |
+| Google AI Overviews | 7 | 20 | 35% |
 
 This tells you exactly where to focus your optimization efforts.
 
@@ -304,7 +308,7 @@ Share of Voice (SOV) in AI measures **what percentage of AI-generated responses 
 | | Traditional SOV | AI SOV |
 |---|---|---|
 | **Measures** | Ad impressions in market | Brand mentions in AI responses |
-| **Channels** | TV, radio, digital ads | ChatGPT, Perplexity, Claude, Gemini, Grok |
+| **Channels** | TV, radio, digital ads | ChatGPT, Perplexity, Claude, Gemini, Grok, Google AI Overviews |
 | **Control** | You buy visibility | You earn visibility |
 | **Cost** | Pay per impression | Optimize brand presence |
 
@@ -400,12 +404,13 @@ A local HVAC company might have:
 - **40% SOV** on Claude (moderate authority)
 - **20% SOV** on Gemini (low structured data)
 - **0% SOV** on Grok (no social presence)
+- **50% SOV** on Google AI Overviews (strong search presence)
 
 This platform-level breakdown reveals exactly where to focus.
 
 ## Start Tracking Your AI SOV Today
 
-You can't improve what you can't measure. [Start tracking your Share of Voice](https://livesov.com/signup) across all 5 AI platforms and get actionable insights to grow your AI visibility.
+You can't improve what you can't measure. [Start tracking your Share of Voice](https://livesov.com/signup) across all 6 AI platforms and get actionable insights to grow your AI visibility.
 `,
   },
   {
@@ -447,7 +452,7 @@ AI visibility requires ongoing monitoring and optimization — not a one-time fi
 
 ### Tier 1: AI Visibility Audit ($500-$2,000)
 **One-time assessment:**
-- Track client's brand across 5 AI platforms
+- Track client's brand across 6 AI platforms
 - Run 20-30 relevant queries
 - Analyze SOV, sentiment, and competitor positioning
 - Deliver a PDF report with recommendations

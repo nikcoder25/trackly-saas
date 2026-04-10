@@ -67,7 +67,7 @@ router.get('/meta/platforms', auth, async (req, res) => {
 // GET /api/meta/methodology — how Livesov measures (Epic 1.3)
 router.get('/meta/methodology', (req, res) => {
   res.json({
-    what_we_measure: 'Livesov tracks how your brand appears across 5 AI platforms by submitting configurable search prompts and analyzing the responses.',
+    what_we_measure: 'Livesov tracks how your brand appears across 6 AI platforms by submitting configurable search prompts and analyzing the responses.',
     how_often: 'Runs can be triggered manually or scheduled (hourly to daily depending on your plan).',
     how_we_sample: 'Each prompt is sent to each configured AI platform. Response randomness is inherent to LLMs, so we calculate confidence intervals using the Wilson score method.',
     metrics: {

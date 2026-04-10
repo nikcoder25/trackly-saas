@@ -180,7 +180,7 @@ function renderView(view){
     if (noBrands) {
       emptyEl.innerHTML = '<div class=\"global-empty-icon\">🚀</div>' +
         '<h2 class=\"global-empty-title\">Welcome to Livesov!</h2>' +
-        '<p class=\"global-empty-desc\">Start by adding your first brand to track how AI platforms mention your business across ChatGPT, Perplexity, Claude, Gemini, and more.</p>' +
+        '<p class=\"global-empty-desc\">Start by adding your first brand to track how AI platforms mention your business across ChatGPT, Perplexity, Claude, Gemini, Grok, Google AI Overviews, and more.</p>' +
         '<button class=\"global-empty-btn\" onclick=\"openAddBrand()\">+ Add Your First Brand</button>';
     } else {
       emptyEl.innerHTML = '<div class=\"global-empty-icon\">📋</div>' +

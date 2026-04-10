@@ -3,11 +3,11 @@ import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
   title: 'Integrations — AI Platforms We Track | Livesov',
-  description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, and Grok for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
+  description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
   alternates: { canonical: '/integrations' },
   openGraph: {
     title: 'Integrations — AI Platforms We Track | Livesov',
-    description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, and Grok for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
+    description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
     url: 'https://livesov.com/integrations',
     siteName: 'Livesov',
     type: 'website',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Integrations — AI Platforms We Track | Livesov',
-    description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, and Grok for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
+    description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -27,6 +27,7 @@ const platforms = [
   { icon: '✦', name: 'Gemini', color: '#4285f4', models: 'Gemini 2.5 Flash, Gemini 2.5 Pro', desc: 'See what Google\'s AI says about your brand.' },
   { icon: '◎', name: 'Perplexity', color: '#9b72ff', models: 'Sonar models with web search', desc: 'Track visibility in Perplexity\'s search-powered AI.' },
   { icon: '⚡', name: 'Grok', color: '#1d9bf0', models: 'Grok models with real-time X data', desc: 'Monitor mentions in xAI\'s Grok with live data.' },
+  { icon: '🔍', name: 'Google AI Overviews', color: '#34a853', models: 'DataForSEO API', desc: 'Track your brand in AI-generated summaries atop Google Search results.' },
 ];
 
 const extras = [
@@ -47,7 +48,7 @@ export default function IntegrationsPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Integrations', url: '/integrations' }]} />
       <SeoHero
-        title={<>Integrated with <span className="text-[var(--brand)]">5 AI Platforms</span></>}
+        title={<>Integrated with <span className="text-[var(--brand)]">6 AI Platforms</span></>}
         subtitle="Livesov connects directly to the APIs of all major AI platforms to track your brand visibility in real-time."
       />
 

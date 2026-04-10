@@ -77,7 +77,7 @@ src/
 ## Key Features
 
 - **Brand Setup** — Configure brand name, aliases, queries, nearby areas, AI platforms
-- **Query Runs** — Send queries to 5 AI platforms and analyze responses
+- **Query Runs** — Send queries to 6 AI platforms and analyze responses
 - **Evidence & Proof** — Full AI responses with brand mention highlighting
 - **SOV Tracking** — Share of Voice trends over time
 - **Competitors** — Track competitor mentions alongside your brand

@@ -41,7 +41,7 @@ const icons = {
 };
 
 const features = [
-  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok — all from a single dashboard.', accent: '#6366f1' },
+  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews — all from a single dashboard.', accent: '#6366f1' },
   { icon: icons.chart, title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.', accent: '#8b5cf6' },
   { icon: icons.shield, title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.', accent: '#06b6d4' },
   { icon: icons.target, title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.', accent: '#10b981' },
@@ -51,7 +51,7 @@ const features = [
 
 const steps = [
   { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. Smart default queries are generated automatically.' },
-  { num: '02', title: 'Auto-Track Daily', desc: 'Livesov queries all 5 AI platforms on your schedule. Results flow into your real-time dashboard.' },
+  { num: '02', title: 'Auto-Track Daily', desc: 'Livesov queries all 6 AI platforms on your schedule. Results flow into your real-time dashboard.' },
   { num: '03', title: 'Analyze & Report', desc: 'See what each AI says about you. Track trends, export proof, and share data-backed reports.' },
 ];
 
@@ -59,8 +59,8 @@ const pricingPlans = PRICING_PLANS;
 const pricingComparison = PRICING_COMPARISON;
 
 const faqs = [
-  { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
-  { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
+  { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
+  { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 6 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), and Google AI Overviews (DataForSEO).' },
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
@@ -69,7 +69,7 @@ const faqs = [
 
 const testimonials = [
   { text: 'We discovered that ChatGPT was consistently recommending a competitor we hadn\'t even considered. Once we saw the data, we adjusted our content strategy and started showing up within weeks.', name: 'S.K.', role: 'Marketing Director at a SaaS startup', initials: 'SK' },
-  { text: 'Our agency needed a way to show clients their AI visibility without manually querying five different chatbots. Livesov replaced hours of manual checking with an actual dashboard and exportable proof.', name: 'M.R.', role: 'Founder of a boutique digital agency', initials: 'MR' },
+  { text: 'Our agency needed a way to show clients their AI visibility without manually querying six different chatbots. Livesov replaced hours of manual checking with an actual dashboard and exportable proof.', name: 'M.R.', role: 'Founder of a boutique digital agency', initials: 'MR' },
   { text: 'As a solo founder, I had no idea whether AI platforms even knew my product existed. Turns out they didn\'t. Now I can track my progress as I work on improving it.', name: 'J.L.', role: 'Indie SaaS founder', initials: 'JL' },
 ];
 
@@ -130,7 +130,7 @@ function DemoSection() {
         <div className="tl-section-header">
           <span className="tl-section-tag">Live Demo</span>
           <h2>See Livesov in Action</h2>
-          <p>Here&apos;s what happens when you track a brand across all 5 AI platforms.</p>
+          <p>Here&apos;s what happens when you track a brand across all 6 AI platforms.</p>
         </div>
 
         <div className="tl-demo-window">

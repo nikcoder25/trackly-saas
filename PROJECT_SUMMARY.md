@@ -2,7 +2,7 @@
 
 ## What Is Livesov?
 
-Livesov is a SaaS platform that monitors how brands appear across AI platforms — ChatGPT, Perplexity, Claude, Gemini, and Grok. It helps marketers and brands understand their **Share of Voice (SOV)** in AI-generated answers, enabling **Generative Engine Optimization (GEO)** and **Answer Engine Optimization (AEO)** strategies.
+Livesov is a SaaS platform that monitors how brands appear across AI platforms — ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews. It helps marketers and brands understand their **Share of Voice (SOV)** in AI-generated answers, enabling **Generative Engine Optimization (GEO)** and **Answer Engine Optimization (AEO)** strategies.
 
 ---
 

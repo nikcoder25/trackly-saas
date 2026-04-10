@@ -36,13 +36,14 @@ To improve your recommendation rate:
 
 Visit the Recommendations page for personalized suggestions.`;
     } else if (q.includes('platform') || q.includes('chatgpt') || q.includes('perplexity') || q.includes('claude') || q.includes('gemini') || q.includes('grok')) {
-      reply = `Livesov tracks your brand across 5 AI platforms:
+      reply = `Livesov tracks your brand across 6 AI platforms:
 
 - **ChatGPT** (OpenAI) — The most popular AI assistant
 - **Perplexity** — AI-powered search engine with citations
 - **Claude** (Anthropic) — Known for detailed, nuanced responses
 - **Gemini** (Google) — Integrated with Google's knowledge graph
 - **Grok** (xAI) — Real-time information from X/Twitter
+- **Google AI Overviews** (DataForSEO) — AI-generated summaries in Google Search results
 
 Each platform has different data sources and response patterns. Check the Platform Status page for health and performance details.`;
     } else if (q.includes('competitor') || q.includes('competition')) {

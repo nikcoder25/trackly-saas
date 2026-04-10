@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Pricing — Livesov AI Visibility Tracker',
-  description: 'Simple, transparent pricing for AI brand tracking. Start free, upgrade as you grow. Track your brand across ChatGPT, Claude, Gemini, Perplexity & Grok.',
+  description: 'Simple, transparent pricing for AI brand tracking. Start free, upgrade as you grow. Track your brand across ChatGPT, Claude, Gemini, Perplexity, Grok & Google AI Overviews.',
   alternates: { canonical: '/pricing' },
   openGraph: {
     title: 'Pricing — Livesov AI Visibility Tracker',
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pricing — Livesov AI Visibility Tracker',
-    description: 'Free plan available. Paid plans from $9/mo. Track your brand across 5 AI platforms.',
+    description: 'Free plan available. Paid plans from $9/mo. Track your brand across 6 AI platforms.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

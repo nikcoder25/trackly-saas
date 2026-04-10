@@ -45,7 +45,7 @@ Most competitors count **1 prompt = 1 query tracked**, regardless of how many AI
 | Google AI Mode | No | No | No | Yes | Yes |
 | Copilot | No | No | No | Yes | Yes |
 
-**Livesov advantage**: 5 platforms included on all paid plans. Most competitors charge $89+ to get 3 platforms, or $20-30 per additional platform.
+**Livesov advantage**: 6 platforms included on all paid plans (including Google AI Overviews). Most competitors charge $89+ to get 3 platforms, or $20-30 per additional platform.
 
 ---
 
@@ -161,9 +161,9 @@ Most users don't max out. Assuming 50% average utilization:
 
 ### Where Livesov Wins
 
-1. **Price-to-value ratio**: $29/mo for 5 platforms + 90 runs. Competitors charge $89-199/mo for 3 platforms and fewer prompts.
+1. **Price-to-value ratio**: $29/mo for 6 platforms + 90 runs. Competitors charge $89-199/mo for 3 platforms and fewer prompts.
 2. **Free tier**: Only tool offering a free plan. Otterly's cheapest is $29/mo.
-3. **Platform coverage**: 5 AI platforms on all paid plans. Others charge extra per platform.
+3. **Platform coverage**: 6 AI platforms on all paid plans (including Google AI Overviews). Others charge extra per platform.
 4. **Claude + Grok included**: Most competitors don't track these. Profound charges $399+/mo for similar coverage.
 
 ### Where Competitors Win
@@ -178,9 +178,9 @@ Most users don't max out. Assuming 50% average utilization:
 
 **For small businesses** (Free/Starter): "Track your brand across AI platforms for free. See if ChatGPT and Perplexity recommend you."
 
-**For growing brands** (Pro): "Daily AI visibility monitoring across 5 platforms for $29/mo — 10x cheaper than alternatives."
+**For growing brands** (Pro): "Daily AI visibility monitoring across 6 platforms for $29/mo — 10x cheaper than alternatives."
 
-**For agencies** (Agency): "Monitor 20 client brands across ChatGPT, Perplexity, Claude, Gemini & Grok for $89/mo. Competitors charge $300+."
+**For agencies** (Agency): "Monitor 20 client brands across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews for $89/mo. Competitors charge $300+."
 
 ---
 

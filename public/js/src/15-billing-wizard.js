@@ -59,9 +59,9 @@ async function renderBilling() {
     const planPricing = [
       { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> prompts/month', '1 brand', '2 AI platforms', 'Basic SOV tracking'] },
       { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'Sentiment analysis'] },
-      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
-      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>1,000</strong> prompts/month', '20 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
-      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>10,000</strong> prompts/month', '100 brands', 'All 5 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
+      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>1,000</strong> prompts/month', '20 brands', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>10,000</strong> prompts/month', '100 brands', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
     ];
     cardsEl.innerHTML = `
       <div class="billing-cards-header">

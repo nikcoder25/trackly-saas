@@ -3,11 +3,11 @@ import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/Se
 
 export const metadata: Metadata = {
   title: 'About Livesov — AI Visibility Tracking Platform',
-  description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+  description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews.',
   alternates: { canonical: '/about' },
   openGraph: {
     title: 'About Livesov — AI Visibility Tracking Platform',
-    description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+    description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews.',
     url: 'https://livesov.com/about',
     siteName: 'Livesov',
     type: 'website',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'About Livesov — AI Visibility Tracking Platform',
-    description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, and Grok.',
+    description: 'Livesov helps brands track and optimize their visibility across AI platforms like ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews.',
     images: ['https://livesov.com/og-image.png'],
   },
 };
@@ -38,7 +38,7 @@ export default function AboutPage() {
 
         <h2>Our Platform</h2>
         <ul>
-          <li>Track 5 AI platforms: ChatGPT, Claude, Gemini, Perplexity, Grok</li>
+          <li>Track 6 AI platforms: ChatGPT, Claude, Gemini, Perplexity, Grok, Google AI Overviews</li>
           <li>Automated scheduled monitoring</li>
           <li>Real-time streaming results</li>
           <li>Competitor benchmarking</li>
