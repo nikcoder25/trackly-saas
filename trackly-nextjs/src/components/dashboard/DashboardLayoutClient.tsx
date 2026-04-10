@@ -221,76 +221,41 @@ function UsageLimitBanner() {
   if (dismissed === alertKey) return null;
 
   const hasDanger = alerts.some(a => a.severity === 'danger');
-  const borderColor = hasDanger ? 'rgba(239,68,68,.25)' : 'rgba(245,158,11,.25)';
-  const bgColor = hasDanger ? 'rgba(239,68,68,.04)' : 'rgba(245,158,11,.04)';
   const accentColor = hasDanger ? '#ef4444' : '#f59e0b';
+
+  // Build a concise summary of what hit the limit, e.g. "Brands 1/1, Runs 50/50"
+  const limitSummary = alerts.map(a => `${a.label} ${a.used}/${a.max >= 9999 ? '∞' : a.max}`).join(', ');
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', marginBottom: 14,
-      background: bgColor, border: `1px solid ${borderColor}`,
-      borderRadius: 'var(--radius-xs)', fontSize: 12,
+      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', marginBottom: 8,
+      background: hasDanger ? 'rgba(239,68,68,.05)' : 'rgba(245,158,11,.05)',
+      border: `1px solid ${hasDanger ? 'rgba(239,68,68,.15)' : 'rgba(245,158,11,.15)'}`,
+      borderRadius: 'var(--radius-xs)', fontSize: 11, lineHeight: 1.4,
     }}>
-      {/* Icon */}
-      <div style={{
-        width: 28, height: 28, borderRadius: 6, flexShrink: 0, display: 'flex',
-        alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700,
-        background: hasDanger ? 'rgba(239,68,68,.1)' : 'rgba(245,158,11,.1)',
-        color: accentColor,
+      <span style={{ color: accentColor, fontSize: 12, flexShrink: 0 }}>●</span>
+      <span style={{ flex: 1, minWidth: 0, color: 'var(--muted)' }}>
+        <span style={{ fontWeight: 600, color: accentColor }}>
+          {hasDanger ? 'Limit reached' : 'Nearing limit'}
+        </span>
+        <span style={{ margin: '0 4px', opacity: 0.4 }}>—</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500 }}>{limitSummary}</span>
+      </span>
+      <Link href="/dashboard/billing" style={{
+        fontSize: 10, color: 'var(--muted)', textDecoration: 'underline', whiteSpace: 'nowrap', flexShrink: 0,
       }}>
-        {hasDanger ? '!' : '!'}
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, color: accentColor, marginBottom: 4, fontSize: 12 }}>
-          {hasDanger ? 'Plan Limit Exceeded' : 'Approaching Plan Limits'}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: 'var(--muted)', lineHeight: 1.6 }}>
-          {alerts.map(a => (
-            <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 18, height: 18, borderRadius: 4, fontSize: 10,
-                background: a.severity === 'danger' ? 'rgba(239,68,68,.1)' : 'rgba(245,158,11,.1)',
-                color: a.severity === 'danger' ? '#ef4444' : '#f59e0b',
-              }}>{a.icon}</span>
-              <span>
-                <strong style={{ color: 'var(--text)' }}>{a.label}:</strong>{' '}
-                <span style={{
-                  fontFamily: 'var(--mono)', fontWeight: 600,
-                  color: a.severity === 'danger' ? '#ef4444' : '#f59e0b',
-                }}>
-                  {a.used}/{a.max >= 9999 ? '∞' : a.max}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Link href="/dashboard/account" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            padding: '5px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-            background: 'var(--primary)', color: '#fff', textDecoration: 'none',
-          }}>
-            Upgrade Plan
-          </Link>
-          <Link href="/dashboard/billing" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            padding: '5px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-            background: 'var(--bg3)', color: 'var(--muted)', textDecoration: 'none',
-            border: '1px solid var(--border)',
-          }}>
-            View Usage
-          </Link>
-        </div>
-      </div>
-
-      {/* Dismiss */}
+        View usage
+      </Link>
+      <Link href="/dashboard/account" style={{
+        fontSize: 10, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none',
+        whiteSpace: 'nowrap', flexShrink: 0,
+      }}>
+        Upgrade →
+      </Link>
       <button onClick={() => setDismissed(alertKey)} style={{
         background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer',
-        fontSize: 16, padding: 2, lineHeight: 1, flexShrink: 0, opacity: 0.6,
-      }} aria-label="Dismiss">&times;</button>
+        fontSize: 13, padding: 0, lineHeight: 1, flexShrink: 0, opacity: 0.4,
+      }} aria-label="Dismiss">×</button>
     </div>
   );
 }
