@@ -26,6 +26,7 @@ const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'Brands',           free: '1',   starter: '2',   pro: '5',    agency: '20',   owner: '∞' },
   { feature: 'Queries / brand',  free: '5',   starter: '25',  pro: '50',   agency: '100',  owner: '∞' },
   { feature: 'Runs / month',     free: '5',   starter: '30',  pro: '90',   agency: '240',  owner: '∞' },
+  { feature: 'Total queries',    free: '5',   starter: '50',  pro: '250',  agency: '2,000', owner: '∞' },
   { feature: 'Competitors',      free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
   { feature: 'Platforms',        free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
   { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
@@ -224,7 +225,49 @@ export default function BillingPage() {
     const s = getStatus(m.used, m.max);
     return s === 'warning' || s === 'danger';
   });
-  const anyOverLimit = meters.some(m => getStatus(m.used, m.max) === 'danger');
+  const anyAtLimit = meters.some(m => m.max < 9999 && m.used === m.max);
+  const anyOverLimit = meters.some(m => m.max < 9999 && m.used > m.max);
+  const anyAtOrOverLimit = anyAtLimit || anyOverLimit;
+
+  // Plan change modal state
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planSwitching, setPlanSwitching] = useState('');
+
+  async function switchPlan(targetPlan: string) {
+    const target = targetPlan.toLowerCase();
+    const PLAN_TIERS: Record<string, number> = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4 };
+    const currentTier = PLAN_TIERS[currentPlan] ?? 0;
+    const targetTier = PLAN_TIERS[target] ?? 0;
+
+    if (target === currentPlan) return;
+
+    if (target === 'free') {
+      if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
+      setPlanSwitching(target);
+      try {
+        await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
+        window.location.reload();
+      } catch { setPlanSwitching(''); }
+      return;
+    }
+
+    if (targetTier <= currentTier && currentPlan !== 'free') {
+      alert('To downgrade, please cancel your current subscription first or manage billing via the customer portal.');
+      return;
+    }
+
+    setPlanSwitching(target);
+    try {
+      const res = await fetch('/api/payments/checkout', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: target }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || 'Failed to start checkout'); setPlanSwitching(''); return; }
+      if (data.url) { window.location.href = data.url; } else { alert('No checkout URL returned.'); setPlanSwitching(''); }
+    } catch { setPlanSwitching(''); }
+  }
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
@@ -253,6 +296,9 @@ export default function BillingPage() {
             <div style={{ fontSize: 24, fontWeight: 700, opacity: 0.9, marginBottom: 8 }}>
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
+            <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
+              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · {limits.runsPerMonth >= 9999 ? '∞' : limits.runsPerMonth} runs/mo
+            </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
             </div>
@@ -262,13 +308,13 @@ export default function BillingPage() {
         {/* Quick Actions */}
         <div className="card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
           <div className="card-title" style={{ marginBottom: 2 }}>Quick Actions</div>
-          <Link href="/dashboard/account" style={{
+          <button onClick={() => setShowPlanModal(true)} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
             background: 'var(--primary)', color: '#fff', borderRadius: 'var(--radius-xs)',
-            textDecoration: 'none', fontSize: 13, fontWeight: 700, transition: 'opacity .15s',
+            border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, transition: 'opacity .15s', width: '100%',
           }}>
             <span style={{ fontSize: 15, lineHeight: 1 }}>&#8593;</span> Upgrade Plan
-          </Link>
+          </button>
           {currentPlan !== 'free' && (
             <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
@@ -364,6 +410,7 @@ export default function BillingPage() {
             const sc = statusColor(s);
             const isOver = s === 'danger';
             const isWarn = s === 'warning';
+            const isLocked = !isUnlimited && m.used > m.max;
 
             return (
               <div key={m.label} style={{
@@ -371,22 +418,32 @@ export default function BillingPage() {
                 borderBottom: '1px solid var(--border)',
                 borderRight: '1px solid var(--border)',
                 position: 'relative',
-                background: isOver ? 'rgba(239,68,68,.02)' : isWarn ? 'rgba(245,158,11,.02)' : 'transparent',
+                background: isLocked ? 'rgba(239,68,68,.04)' : isOver ? 'rgba(239,68,68,.02)' : isWarn ? 'rgba(245,158,11,.02)' : 'transparent',
               }}>
+                {isLocked && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8,
+                    fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 100,
+                    background: 'rgba(239,68,68,.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                  }}>
+                    <span style={{ fontSize: 10 }}>&#128274;</span> LOCKED
+                  </div>
+                )}
                 {/* Top: icon + label + badge */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div title={METER_TOOLTIPS[m.label] || ''} style={{
                       width: 32, height: 32, borderRadius: 8,
-                      background: `${m.color}12`, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 14, color: m.color, flexShrink: 0, cursor: 'help',
+                      background: isLocked ? 'rgba(239,68,68,.1)' : `${m.color}12`, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 14, color: isLocked ? '#ef4444' : m.color, flexShrink: 0, cursor: 'help',
                     }}>{m.icon}</div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{m.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: isLocked ? '#ef4444' : 'var(--text)', lineHeight: 1.2 }}>{m.label}</div>
                       <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.4 }}>{m.sublabel}</div>
                     </div>
                   </div>
-                  {!isUnlimited && (
+                  {!isUnlimited && !isLocked && (
                     <span style={{
                       fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
                       padding: '2px 8px', borderRadius: 100,
@@ -423,9 +480,13 @@ export default function BillingPage() {
                 {/* Remaining text */}
                 {!isUnlimited && (
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, fontFamily: 'var(--mono)' }}>
-                    {m.used >= m.max
-                      ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached</span>
-                      : `${m.max - m.used} remaining`}
+                    {isLocked
+                      ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Exceeds plan limit — upgrade to unlock</span>
+                      : m.used > m.max
+                        ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Exceeded limit by {m.used - m.max}</span>
+                        : m.used === m.max
+                          ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached</span>
+                          : `${m.max - m.used} remaining`}
                   </div>
                 )}
                 {isUnlimited && (
@@ -443,12 +504,12 @@ export default function BillingPage() {
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
             padding: '14px 24px',
-            background: anyOverLimit ? 'rgba(239,68,68,.04)' : 'rgba(99,102,241,.04)',
-            borderTop: `1px solid ${anyOverLimit ? 'rgba(239,68,68,.15)' : 'rgba(99,102,241,.15)'}`,
+            background: anyAtOrOverLimit ? 'rgba(239,68,68,.04)' : 'rgba(99,102,241,.04)',
+            borderTop: `1px solid ${anyAtOrOverLimit ? 'rgba(239,68,68,.15)' : 'rgba(99,102,241,.15)'}`,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: anyOverLimit ? '#ef4444' : 'var(--text)', marginBottom: 2 }}>
-                {anyOverLimit ? 'You\'ve exceeded your plan limits' : 'You\'re approaching your plan limits'}
+              <div style={{ fontSize: 13, fontWeight: 700, color: anyAtOrOverLimit ? '#ef4444' : 'var(--text)', marginBottom: 2 }}>
+                {anyOverLimit ? 'You\'ve exceeded your plan limits' : anyAtLimit ? 'You\'ve reached your plan limits' : 'You\'re approaching your plan limits'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
                 {meters.filter(m => { const s = getStatus(m.used, m.max); return s === 'warning' || s === 'danger'; }).map(m => (
@@ -458,13 +519,13 @@ export default function BillingPage() {
                 ))}
               </div>
             </div>
-            <Link href="/dashboard/account" style={{
+            <button onClick={() => setShowPlanModal(true)} style={{
               padding: '9px 20px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: anyOverLimit ? '#ef4444' : 'var(--primary)', color: '#fff',
-              textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+              background: anyAtOrOverLimit ? '#ef4444' : 'var(--primary)', color: '#fff',
+              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
             }}>
               Upgrade Plan
-            </Link>
+            </button>
           </div>
         )}
       </div>
@@ -491,12 +552,12 @@ export default function BillingPage() {
                 : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
             </div>
           </div>
-          <Link href="/dashboard/account" style={{
+          <button onClick={() => setShowPlanModal(true)} style={{
             padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-            background: 'var(--primary)', color: '#fff', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+            background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
           }}>
             {nextPlanPricing.price === 'Custom' ? 'Contact Sales' : `Upgrade to ${nextPlanKey.charAt(0).toUpperCase() + nextPlanKey.slice(1)}`}
-          </Link>
+          </button>
         </div>
       )}
 
@@ -640,12 +701,12 @@ export default function BillingPage() {
           </table>
         </div>
         <div style={{ textAlign: 'center', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-          <Link href="/dashboard/account" style={{
+          <button onClick={() => setShowPlanModal(true)} style={{
             display: 'inline-block', padding: '10px 32px', background: 'var(--primary)', color: '#fff',
-            borderRadius: 'var(--radius-xs)', fontSize: 13, fontWeight: 700, textDecoration: 'none',
+            borderRadius: 'var(--radius-xs)', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
           }}>
             Change Plan
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -676,6 +737,104 @@ export default function BillingPage() {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Change Plan Modal ── */}
+      {showPlanModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 20,
+        }} onClick={() => setShowPlanModal(false)}>
+          <div style={{
+            background: 'var(--card-bg, #fff)', borderRadius: 'var(--radius)', padding: '28px 32px',
+            maxWidth: 900, width: '100%', maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,.2)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>Choose Your Plan</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Select a plan that fits your needs. Current plan: <strong style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{currentPlan}</strong></div>
+              </div>
+              <button onClick={() => setShowPlanModal(false)} style={{
+                width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border)',
+                background: 'var(--bg3)', cursor: 'pointer', fontSize: 16, color: 'var(--muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>&times;</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+              {PRICING_PLANS.map(p => {
+                const planKey = p.name.toLowerCase();
+                const isCurrent = planKey === currentPlan;
+                const PLAN_TIERS: Record<string, number> = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4 };
+                const isDowngrade = (PLAN_TIERS[planKey] ?? 0) < (PLAN_TIERS[currentPlan] ?? 0);
+                const isUpgrade = (PLAN_TIERS[planKey] ?? 0) > (PLAN_TIERS[currentPlan] ?? 0);
+                const planLimits = PLAN_LIMITS[planKey];
+                return (
+                  <div key={p.name} style={{
+                    border: isCurrent ? '2px solid var(--primary)' : p.featured ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    borderRadius: 'var(--radius)', padding: '20px 16px', position: 'relative',
+                    background: isCurrent ? 'rgba(99,102,241,.04)' : 'transparent',
+                    boxShadow: p.featured && !isCurrent ? '0 0 0 1px var(--primary)' : 'none',
+                    opacity: planSwitching && planSwitching !== planKey ? 0.5 : 1,
+                  }}>
+                    {p.featured && !isCurrent && (
+                      <span style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 700, background: 'var(--primary)', color: '#fff', padding: '3px 12px', borderRadius: 100, whiteSpace: 'nowrap' }}>MOST POPULAR</span>
+                    )}
+                    {isCurrent && (
+                      <span style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', fontSize: 9, fontWeight: 700, background: 'var(--primary)', color: '#fff', padding: '3px 12px', borderRadius: 100 }}>CURRENT</span>
+                    )}
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{p.name}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: isCurrent ? 'var(--primary)' : 'var(--text)', marginTop: 4 }}>
+                      {annualBilling ? (p.annualPrice || p.price) : p.price}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)' }}>{p.price !== 'Custom' ? '/mo' : ''}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, marginBottom: 12 }}>{p.sub}</div>
+                    {planLimits && (
+                      <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
+                        <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands} brands</div>
+                        <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} queries/brand</div>
+                        <div>{planLimits.runsPerMonth >= 9999 ? '∞' : planLimits.runsPerMonth} runs/mo</div>
+                        <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
+                        <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands * planLimits.queries} total queries</div>
+                      </div>
+                    )}
+                    {isCurrent ? (
+                      <button disabled style={{
+                        width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--primary)',
+                        background: 'transparent', color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: 'default',
+                      }}>CURRENT PLAN</button>
+                    ) : p.price === 'Custom' ? (
+                      <a href="/contact" style={{
+                        display: 'block', width: '100%', padding: '8px 12px', borderRadius: 6,
+                        background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 700,
+                        textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box',
+                      }}>CONTACT US</a>
+                    ) : (
+                      <button
+                        disabled={!!planSwitching}
+                        onClick={() => switchPlan(p.name)}
+                        style={{
+                          width: '100%', padding: '8px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: isDowngrade ? 'var(--bg3)' : 'var(--primary)', color: isDowngrade ? 'var(--text)' : '#fff',
+                          fontSize: 11, fontWeight: 700,
+                        }}
+                      >
+                        {planSwitching === planKey ? 'PROCESSING...' : isUpgrade ? `UPGRADE TO ${p.name.toUpperCase()}` : `DOWNGRADE TO ${p.name.toUpperCase()}`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {currentPlan !== 'free' && (
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" style={{
+                  fontSize: 11, color: 'var(--muted)', textDecoration: 'underline',
+                }}>Manage billing via customer portal</a>
+              </div>
+            )}
           </div>
         </div>
       )}
