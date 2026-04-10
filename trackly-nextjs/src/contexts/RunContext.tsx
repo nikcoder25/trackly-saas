@@ -109,7 +109,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
           const newResults: LiveResult[] = (data.results || []).map((r: LiveResult) => ({ ...r, ts: Date.now() }));
           if (newResults.length > 0) {
-            lastResultCount = data.totalResults || (lastResultCount + newResults.length);
+            lastResultCount = data.totalResults !== undefined ? data.totalResults : (lastResultCount + newResults.length);
             pollDelay = 2000;
           } else {
             pollDelay = Math.min(pollDelay + 500, 5000);

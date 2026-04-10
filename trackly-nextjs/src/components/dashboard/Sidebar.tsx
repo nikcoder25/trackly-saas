@@ -81,7 +81,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             disabled={isDisabled}
             onClick={() => startRun(false)}
           >
-            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + (live.statusText.length > 30 ? live.statusText.substring(0, 28) + '...' : live.statusText)) : '▶ RUN QUERIES'}
+            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
           </button>
 
           {/* Locked brand upgrade hint */}

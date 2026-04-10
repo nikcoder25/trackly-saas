@@ -28,6 +28,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const result = await pool.query('SELECT * FROM alert_rules WHERE id = $1', [id]);
     return Response.json({ alert: result.rows[0] });
   } catch (e) {
+    console.error('[Alert Update]', (e as Error).message);
     return Response.json({ error: 'Failed to update alert' }, { status: 500 });
   }
 }
@@ -38,7 +39,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const user = authResult;
   const { id } = await params;
 
-  const result = await pool.query('DELETE FROM alert_rules WHERE id = $1 AND user_id = $2 RETURNING id', [id, user.id]);
-  if (!result.rows.length) return Response.json({ error: 'Alert not found' }, { status: 404 });
-  return Response.json({ success: true });
+  try {
+    const result = await pool.query('DELETE FROM alert_rules WHERE id = $1 AND user_id = $2 RETURNING id', [id, user.id]);
+    if (!result.rows.length) return Response.json({ error: 'Alert not found' }, { status: 404 });
+    return Response.json({ success: true });
+  } catch {
+    return Response.json({ error: 'Failed to delete alert' }, { status: 500 });
+  }
 }

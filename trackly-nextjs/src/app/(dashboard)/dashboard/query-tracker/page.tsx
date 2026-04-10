@@ -231,7 +231,7 @@ export default function QueryTrackerPage() {
 
                 return (
                   <div key={idx} className={`kt-row-wrap ${isExpanded ? 'kt-expanded' : ''}`}>
-                    <div className="kt-row" onClick={() => setExpanded(isExpanded ? null : idx)} style={{ cursor: 'pointer' }}>
+                    <div className="kt-row" role="button" tabIndex={0} onClick={() => setExpanded(isExpanded ? null : idx)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(isExpanded ? null : idx); } }} style={{ cursor: 'pointer' }} aria-expanded={isExpanded}>
                       <div className="kt-col kt-col-kw">
                         <span className="kt-expand-icon">{isExpanded ? '▼' : '▶'}</span>
                         <span className="kt-kw-text" title={kw.keyword}>{kw.keyword}</span>

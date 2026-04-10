@@ -199,7 +199,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       client.release();
     }
     return Response.json({ success: true });
-  } catch {
+  } catch (e) {
+    console.error('[Brand DELETE]', (e as Error).message);
     return Response.json({ error: 'Failed to delete brand' }, { status: 500 });
   }
 }
