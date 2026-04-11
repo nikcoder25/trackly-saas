@@ -227,7 +227,7 @@ const en = {
     signInToAccount: 'Sign in to your account',
     createYourAccount: 'Create your account',
     startTracking: 'Start tracking your AI visibility for free',
-    emailVerified: 'Email verified successfully! You can now log in.',
+    emailVerified: 'Email verified successfully! You can now log in.'
     enterResetEmail: "Enter your email and we'll send you a reset link.",
     enterNewPassword: 'Enter your new password below.',
     twoFACode: 'Two-Factor Authentication Code',
@@ -237,7 +237,7 @@ const en = {
     or: 'or',
     brandPanel: {
       title: 'Track your brand\'s AI visibility',
-      desc: 'See exactly how ChatGPT, Perplexity, Claude, Gemini, and other AI platforms mention your brand.',
+      desc: 'See exactly how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand.',
       features: [
         { title: 'Real-time AI Monitoring', desc: 'Track mentions across 6 AI platforms with live query results' },
         { title: 'Share of Voice Analytics', desc: "Measure your brand's visibility vs competitors in AI responses" },
