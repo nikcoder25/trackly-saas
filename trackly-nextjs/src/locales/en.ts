@@ -227,7 +227,7 @@ const en = {
     signInToAccount: 'Sign in to your account',
     createYourAccount: 'Create your account',
     startTracking: 'Start tracking your AI visibility for free',
-    emailVerified: 'Email verified successfully! You can 
+    emailVerified: 'Email verified successfully! You can now log in.', 
     enterResetEmail: "Enter your email and we'll send you a reset link.",
     enterNewPassword: 'Enter your new password below.',
     twoFACode: 'Two-Factor Authentication Code',
