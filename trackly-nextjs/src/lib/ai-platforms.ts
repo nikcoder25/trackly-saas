@@ -2,6 +2,9 @@
  * AI platform API integrations - ported from Express app
  */
 import { pool } from './db';
+import { checkAiOverview, isConfigured as isDataForSEOConfigured } from './dataforseo';
+
+export { isDataForSEOConfigured };
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -67,6 +70,9 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'sonar', label: 'Sonar', default: true },
     { id: 'sonar-pro', label: 'Sonar Pro' },
   ],
+  'Google AI Overviews': [
+    { id: 'google-ai-overviews', label: 'Google AI Overviews (DataForSEO)', default: true },
+  ],
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -81,6 +87,7 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'grok-4': { input: 3.00, output: 15.00 },
   'sonar': { input: 1.00, output: 1.00 },
   'sonar-pro': { input: 3.00, output: 15.00 },
+  'google-ai-overviews': { input: 0, output: 0 }, // DataForSEO flat-rate, not token-based
 };
 
 export function getDefaultModel(platform: string): string {
@@ -105,6 +112,7 @@ const PLATFORM_RATE_LIMITS: Record<string, { minDelayMs: number }> = {
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
   Perplexity: { minDelayMs: 300 },
+  'Google AI Overviews': { minDelayMs: 1000 }, // DataForSEO rate limit — more conservative
 };
 
 const lastRequestTimePerKey = new Map<string, number>();
@@ -248,6 +256,14 @@ export async function queryAI(platform: string, query: string, apiKey: string, m
       body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
     }, 60000, apiKey);
     result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [] };
+  } else if (platform === 'Google AI Overviews') {
+    if (!isDataForSEOConfigured()) throw new Error('DataForSEO credentials not configured (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD)');
+    const aio = await checkAiOverview(query, brand?.name || '', brand?.competitors || []);
+    const text = aio.hasAiOverview
+      ? (aio.content || '(AI Overview present but no text extracted)')
+      : '(No AI Overview shown for this query)';
+    const citations = aio.citations.map(c => c.url);
+    result = { text, model: 'google-ai-overviews', tokensIn: 0, tokensOut: 0, citations };
   } else {
     throw new Error(`Unknown platform: ${platform}`);
   }

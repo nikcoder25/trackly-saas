@@ -17,7 +17,7 @@ import type { BrandRunJobData } from './job-queue';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
-  Gemini: 'gemini', Grok: 'grok',
+  Gemini: 'gemini', Grok: 'grok', 'Google AI Overviews': 'dataforseo',
 };
 const FAIL_THRESHOLD = 5;
 const WORKER_TIMEOUT_MS = 300000; // 5 minutes

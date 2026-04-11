@@ -3,7 +3,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getDefaultModel, MODEL_PRICING } from '@/lib/ai-platforms';
 
-const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
+const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
 const AVG_INPUT_TOKENS = 150;
 const AVG_OUTPUT_TOKENS = 250;
 

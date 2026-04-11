@@ -3,7 +3,7 @@ import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
-import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, isDataForSEOConfigured } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -11,9 +11,9 @@ import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
-  Gemini: 'gemini', Grok: 'grok',
+  Gemini: 'gemini', Grok: 'grok', 'Google AI Overviews': 'dataforseo',
 };
-const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
+const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
 const FAIL_THRESHOLD = 5;
 
 function parseKeys(envVar: string): string[] {
@@ -32,6 +32,7 @@ function getServerKeys(): Record<string, string[]> {
     openai: parseKeys('OPENAI_API_KEY'), perplexity: parseKeys('PERPLEXITY_API_KEY'),
     gemini: parseKeys('GEMINI_API_KEY'), claude: parseKeys('CLAUDE_API_KEY'),
     grok: parseKeys('GROK_API_KEY'),
+    dataforseo: isDataForSEOConfigured() ? ['dataforseo-configured'] : [],
   };
 }
 
