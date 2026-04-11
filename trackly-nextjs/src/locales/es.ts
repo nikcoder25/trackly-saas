@@ -203,7 +203,7 @@ const es: Translations = {
     or: 'o',
     brandPanel: {
       title: 'Rastrea la visibilidad IA de tu marca',
-      desc: 'Ve exactamente cómo ChatGPT, Perplexity, Claude, Gemini y otras plataformas de IA mencionan tu marca.',
+      desc: 'Ve exactamente cómo ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overviews mencionan tu marca.',
       features: [
         { title: 'Monitoreo IA en Tiempo Real', desc: 'Rastrea menciones en 6 plataformas IA con resultados en vivo' },
         { title: 'Análisis de Cuota de Voz', desc: 'Mide la visibilidad de tu marca vs competidores en respuestas IA' },
