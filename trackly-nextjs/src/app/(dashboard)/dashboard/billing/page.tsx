@@ -30,7 +30,7 @@ const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
   { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
   { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
-  { feature: 'Priority Support', free: '—',   starter: '—',   pro: '—',    agency: '✓',    owner: '✓' },
+  { feature: 'Priority Support', free: '—',   starter: '—',   pro: '✓',    agency: '✓',    owner: '✓' },
 ];
 
 const METER_TOOLTIPS: Record<string, string> = {
