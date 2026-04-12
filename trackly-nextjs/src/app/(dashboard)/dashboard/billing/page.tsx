@@ -294,7 +294,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · Unlimited brands · {limits.runsPerMonth >= 9999 ? '∞' : limits.runsPerMonth} runs/mo
+              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · Unlimited brands
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
@@ -541,9 +541,8 @@ export default function BillingPage() {
             </div>
             <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
               Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
-              <strong>unlimited brands</strong>,{' '}
-              <strong>{nextPlanLimits.brands * nextPlanLimits.queries} total queries/mo</strong>, and{' '}
-              <strong>{nextPlanLimits.runsPerMonth} runs/mo</strong>
+              <strong>unlimited brands</strong> and{' '}
+              <strong>{nextPlanLimits.brands * nextPlanLimits.queries} total queries/mo</strong>
               {nextPlanPricing.price !== 'Custom'
                 ? <> — just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
                 : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
@@ -791,7 +790,6 @@ export default function BillingPage() {
                     {planLimits && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
                         <div>Unlimited brands</div>
-                        <div>{planLimits.runsPerMonth >= 9999 ? '∞' : planLimits.runsPerMonth} runs/mo</div>
                         <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands * planLimits.queries} total queries/mo</div>
                         <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
                       </div>
