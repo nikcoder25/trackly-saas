@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       ? 'https://api.dodopayments.com'
       : 'https://test.dodopayments.com';
 
-    const client = await safeConnect(pool);
+    const client = await safeConnect();
     if (!client) {
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
