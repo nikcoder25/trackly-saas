@@ -19,7 +19,7 @@ export const TOTP_CONFIG = {
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free:       { brands: 1, runsPerMonth: 5,   queries: 5,   competitors: 0,   platforms: 2, apiAccess: false, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 999, geoAudits: 3 },
-  starter:    { brands: 2, runsPerMonth: 30,  queries: 25,  competitors: 3,   platforms: 2, apiAccess: false, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 72,  geoAudits: 25 },
+  starter:    { brands: 2, runsPerMonth: 30,  queries: 25,  competitors: 3,   platforms: 2, apiAccess: false, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 25 },
   pro:        { brands: 5, runsPerMonth: 90,  queries: 50,  competitors: 10,  platforms: 6, apiAccess: false, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 100 },
   agency:     { brands: 20, runsPerMonth: 240, queries: 100, competitors: 30,  platforms: 6, apiAccess: false, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 12,  geoAudits: 500 },
   enterprise: { brands: 100, runsPerMonth: 500, queries: 500, competitors: 100, platforms: 6, apiAccess: true,  prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 6,   geoAudits: 5000 },
@@ -64,7 +64,7 @@ export interface PricingPlan {
 
 export const PRICING_PLANS: PricingPlan[] = [
   { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['1 brand', '5 queries', '5 total queries/month', '5 runs/month', '2 AI platforms', 'Manual runs only', 'Basic dashboard', '3 GEO audits/month'] },
-  { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['2 brands', '25 queries/brand', '50 total queries/month', '30 runs/month', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking', 'Competitor tracking (3)', 'Sentiment analysis', '25 GEO audits/month'] },
+  { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['2 brands', '25 queries/brand', '50 total queries/month', '30 runs/month', '2 AI platforms', 'Daily schedule', 'SOV tracking', 'Competitor tracking (3)', 'Sentiment analysis', '25 GEO audits/month'] },
   { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', '5 brands', '50 queries/brand', '250 total queries/month', '90 runs/month (3/day)', '6 AI platforms', 'Daily schedule', 'Competitor tracking (10)', 'Evidence & proof export', 'Email alerts', '100 GEO audits/month'] },
   { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['Everything in Pro, plus:', '20 brands', '100 queries/brand', '2,000 total queries/month', '240 runs/month (8/day)', '12-hour schedule', 'Competitor tracking (30)', 'Team collaboration', 'Priority support', '500 GEO audits/month'] },
   { name: 'Enterprise', price: 'Custom', annualPrice: 'Custom', sub: 'For large organizations', cta: 'Contact Us', features: ['Everything in Agency, plus:', '100 brands', '500 queries/brand', '50,000 total queries/month', '500 runs/month', '6-hour schedule', 'Competitor tracking (100)', 'API access', 'Dedicated support', '5,000 GEO audits/month', 'Custom integrations'] },

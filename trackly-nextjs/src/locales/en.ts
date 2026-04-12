@@ -84,7 +84,7 @@ const en = {
     plans: [
       {
         name: 'Starter', price: '$9', sub: 'Perfect for getting started',
-        features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Every 3 days schedule', 'SOV tracking & export'],
+        features: ['30 prompts/month', '1 brand', '2 AI platforms', 'Daily schedule', 'SOV tracking & export'],
       },
       {
         name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true,
