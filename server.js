@@ -425,13 +425,14 @@ IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
       }
       const limits = planCache[brand.userId];
 
-      // Enforce brand count limit — skip brands beyond the plan's allowed count
-      userBrandCounts[brand.userId] = (userBrandCounts[brand.userId] || 0) + 1;
-      if (userBrandCounts[brand.userId] > limits.brands) {
-        continue;
+      // Enforce tracked prompt limit — count total queries across all user's brands
+      const userQueries = (userBrandCounts[brand.userId] || 0) + (brand.queries?.length || 0);
+      if (userQueries > limits.prompts) {
+        continue; // skip — user has exceeded their tracked prompt limit
       }
+      userBrandCounts[brand.userId] = userQueries;
 
-      const effectiveSchedule = Math.max(brand.schedule, limits.minScheduleHours || 168);
+      const effectiveSchedule = Math.max(brand.schedule, limits.minScheduleHours || 24);
 
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
       const intervalMs = effectiveSchedule * 3600 * 1000;

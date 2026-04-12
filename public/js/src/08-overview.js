@@ -97,7 +97,7 @@ function renderOverview(){
   if (runningQueries) {
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
-    let actionsHtml = (queries > 0 && currentUser && currentUser.role === 'admin') ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
+    let actionsHtml = '';
     // PDF Report button — Pro plan and above only
     const pdfPlans = ['pro', 'agency', 'enterprise', 'owner'];
     const userPlan = (currentUser && currentUser.plan) || 'free';

@@ -143,11 +143,7 @@ export default function BillingPage() {
           const daysSinceFirst = Math.max(1, (Date.now() - oldestRunInWindow) / (24 * 60 * 60 * 1000));
           const avg = count / daysSinceFirst;
           setDailyAvg(Math.round(avg * 10) / 10);
-          const runsMax = (PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free).runsPerMonth;
-          if (runsMax < 9999 && avg > 0) {
-            const remaining = runsMax - count;
-            setProjectedDaysLeft(remaining > 0 ? Math.round(remaining / avg) : 0);
-          }
+          // Runs tracking removed — prompts are the usage gate now
         }
       })
       .catch(() => {});
@@ -185,24 +181,26 @@ export default function BillingPage() {
       .catch(() => {});
   }, [currentPlan]);
 
+  // Calculate total tracked prompts across all brands
+  const totalTrackedPrompts = brands.reduce((sum: number, b: Record<string, unknown>) => sum + (Array.isArray(b.queries) ? (b.queries as unknown[]).length : 0), 0);
+
   const meters: UsageMeter[] = [
-    { label: 'Brands',            sublabel: 'Active brands',                 used: brandCount,      max: limits.brands,       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
-    { label: 'Queries',           sublabel: 'Per brand (current)',           used: queryCount,       max: limits.queries,      icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
-    { label: 'Runs This Month',   sublabel: resetDate ? `Resets ${resetDate}` : 'Rolling 30 days', used: runsUsed,           max: limits.runsPerMonth, icon: '▶', color: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1, #818cf8)' },
+    { label: 'Tracked Prompts',   sublabel: 'Across all brands',            used: totalTrackedPrompts, max: limits.prompts,   icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
+    { label: 'Brands',            sublabel: 'Active brands (unlimited)',    used: brandCount,      max: limits.brands,       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
     { label: 'Competitors',       sublabel: 'Per brand (current)',           used: competitorCount,  max: limits.competitors,  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
     { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount || 5, max: limits.platforms,    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
     { label: 'GEO Audits',        sublabel: 'This month',                   used: geoAuditCount,    max: limits.geoAudits,    icon: '◉', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
   ];
 
-  // Separate runs meter for hero ring display
-  const runsMeter = meters[2];
-  const otherMeters = meters.filter((_, i) => i !== 2);
-  const runsStatus = getStatus(runsMeter.used, runsMeter.max);
-  const runsIsUnlimited = runsStatus === 'unlimited';
-  const runsPct = runsIsUnlimited ? 0 : runsMeter.max > 0 ? Math.min((runsMeter.used / runsMeter.max) * 100, 100) : 0;
-  const runsCircumference = 2 * Math.PI * 52;
-  const runsOffset = runsCircumference - (runsPct / 100) * runsCircumference;
-  const runsRingColor = runsStatus === 'danger' ? '#ef4444' : runsStatus === 'warning' ? '#f59e0b' : '#6366f1';
+  // Separate prompts meter for hero ring display
+  const promptsMeter = meters[0];
+  const otherMeters = meters.filter((_, i) => i !== 0);
+  const promptsStatus = getStatus(promptsMeter.used, promptsMeter.max);
+  const promptsIsUnlimited = promptsStatus === 'unlimited';
+  const promptsPct = promptsIsUnlimited ? 0 : promptsMeter.max > 0 ? Math.min((promptsMeter.used / promptsMeter.max) * 100, 100) : 0;
+  const promptsCircumference = 2 * Math.PI * 52;
+  const promptsOffset = promptsCircumference - (promptsPct / 100) * promptsCircumference;
+  const promptsRingColor = promptsStatus === 'danger' ? '#ef4444' : promptsStatus === 'warning' ? '#f59e0b' : '#f59e0b';
 
   // Determine next plan for upgrade nudge
   const currentPlanIndex = PLAN_ORDER.indexOf(currentPlan as typeof PLAN_ORDER[number]);
@@ -297,7 +295,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · {limits.runsPerMonth >= 9999 ? '∞' : limits.runsPerMonth} runs/mo
+              {limits.prompts >= 9999 ? '∞' : limits.prompts} tracked prompts · Daily automated tracking
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
@@ -358,7 +356,7 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* Runs Hero Ring */}
+        {/* Tracked Prompts Hero Ring */}
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           padding: '24px 24px 20px', borderBottom: '1px solid var(--border)',
@@ -366,8 +364,8 @@ export default function BillingPage() {
           <div style={{ position: 'relative', width: 140, height: 140 }}>
             <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%' }}>
               <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" strokeWidth="8" />
-              <circle cx="60" cy="60" r="52" fill="none" stroke={runsRingColor} strokeWidth="8"
-                strokeDasharray={runsCircumference} strokeDashoffset={mounted ? runsOffset : runsCircumference}
+              <circle cx="60" cy="60" r="52" fill="none" stroke={promptsRingColor} strokeWidth="8"
+                strokeDasharray={promptsCircumference} strokeDashoffset={mounted ? promptsOffset : promptsCircumference}
                 strokeLinecap="round" transform="rotate(-90 60 60)"
                 style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
             </svg>
@@ -375,29 +373,18 @@ export default function BillingPage() {
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             }}>
-              <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
-                {runsIsUnlimited ? '∞' : `${Math.round(runsPct)}%`}
+              <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: promptsStatus === 'danger' ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
+                {promptsIsUnlimited ? '∞' : `${Math.round(promptsPct)}%`}
               </span>
               <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--muted)', marginTop: 2 }}>USED</span>
             </div>
           </div>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Runs This Month</div>
-            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', marginTop: 4 }}>
-              {runsMeter.used} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>/ {runsIsUnlimited ? '∞' : runsMeter.max}</span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Tracked Prompts</div>
+            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--mono)', color: promptsStatus === 'danger' ? '#ef4444' : 'var(--text)', marginTop: 4 }}>
+              {promptsMeter.used} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>/ {promptsIsUnlimited ? '∞' : promptsMeter.max}</span>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{runsMeter.sublabel}</div>
-            {dailyAvg > 0 && !runsIsUnlimited && (
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
-                Averaging <strong style={{ color: 'var(--text)' }}>{dailyAvg} runs/day</strong>
-                {projectedDaysLeft !== null && projectedDaysLeft > 0 && (
-                  <span> · At this rate, you&apos;ll hit your limit in <strong style={{ color: projectedDaysLeft <= 3 ? '#ef4444' : projectedDaysLeft <= 7 ? '#f59e0b' : 'var(--text)' }}>{projectedDaysLeft} days</strong></span>
-                )}
-                {projectedDaysLeft === 0 && (
-                  <span> · <strong style={{ color: '#ef4444' }}>Limit reached</strong></span>
-                )}
-              </div>
-            )}
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{promptsMeter.sublabel}</div>
           </div>
         </div>
 
@@ -545,8 +532,8 @@ export default function BillingPage() {
             <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
               Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
               <strong>{nextPlanLimits.brands} brands</strong>,{' '}
-              <strong>{nextPlanLimits.queries} queries/brand</strong>, and{' '}
-              <strong>{nextPlanLimits.runsPerMonth} runs/mo</strong>
+              <strong>{nextPlanLimits.prompts} tracked prompts</strong>, and{' '}
+              <strong>{nextPlanLimits.platforms} AI platforms</strong>
               {nextPlanPricing.price !== 'Custom'
                 ? <> — just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
                 : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
@@ -794,10 +781,10 @@ export default function BillingPage() {
                     {planLimits && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
                         <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands} brands</div>
-                        <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} queries/brand</div>
-                        <div>{planLimits.runsPerMonth >= 9999 ? '∞' : planLimits.runsPerMonth} runs/mo</div>
+                        <div>{planLimits.prompts >= 9999 ? '∞' : planLimits.prompts} tracked prompts</div>
+                        <div>Unlimited brands</div>
                         <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
-                        <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands * planLimits.queries} total queries</div>
+                        <div>{planLimits.platforms} AI platforms</div>
                       </div>
                     )}
                     {isCurrent ? (

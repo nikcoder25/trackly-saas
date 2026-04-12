@@ -43,19 +43,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const plan = planResult.rows[0]?.plan || 'free';
     const limits = getPlanLimits(plan);
 
-    // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
-    const countResult = await pool.query(
-      `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at, id`,
-      [ownerId]
-    );
-    const brandIds = countResult.rows.map((r: { id: string }) => r.id);
-    const brandIndex = brandIds.indexOf(id);
-    if (brandIndex >= limits.brands) {
-      return Response.json({
-        error: `This brand is locked because the ${plan} plan allows up to ${limits.brands} brand(s). Upgrade the plan or delete unused brands to edit.`,
-        planLimit: true,
-      }, { status: 403 });
-    }
+    // Brands are unlimited — no brand count locking needed
 
     const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
     const safeBody: Record<string, unknown> = {};
@@ -139,10 +127,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       });
     }
 
-    // Per-brand query limit check
-    if (safeBody.queries && (safeBody.queries as string[]).length > limits.queries) {
-      return Response.json({ error: `Your ${plan} plan allows up to ${limits.queries} queries per brand. Upgrade for more.`, planLimit: true }, { status: 403 });
-    }
+    // Per-brand query limit removed — tracked prompts across all brands is the only gate
 
     if (safeBody.competitors && (safeBody.competitors as string[]).length > limits.competitors) {
       return Response.json({ error: limits.competitors === 0 ? 'Competitor tracking is available on Pro plans and above.' : `Your plan allows up to ${limits.competitors} competitors.`, planLimit: true }, { status: 403 });

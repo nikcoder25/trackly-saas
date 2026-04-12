@@ -184,13 +184,8 @@ router.post('/', auth, async (req, res) => {
     if (website && (typeof website !== 'string' || website.length > 500)) return res.status(400).json({ error: 'Website URL too long' });
     if (city && (typeof city !== 'string' || city.length > 100)) return res.status(400).json({ error: 'City must be 100 characters or less' });
 
-    const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM brands WHERE user_id = $1', [req.user.id]);
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
-    const brandCount = parseInt(countResult.rows[0]?.count, 10) || 0;
-    if (brandCount >= limits.brands) {
-      return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: brandCount, max: limits.brands });
-    }
 
     // Accept wizard-provided competitors, queries, nearbyAreas — with validation
     const safeComps = Array.isArray(competitors) ? competitors.filter(c => typeof c === 'string').map(c => c.trim()).filter(Boolean).slice(0, 100) : [];
@@ -310,14 +305,7 @@ router.put('/:id', auth, async (req, res) => {
     if (safeBody.competitors && safeBody.competitors.length > limits.competitors) {
       return res.status(403).json({ error: limits.competitors === 0 ? `Competitor tracking is available on Pro and Agency plans.` : `Your ${plan} plan allows up to ${limits.competitors} competitors. Upgrade for more.`, planLimit: true, limit: 'competitors', max: limits.competitors });
     }
-    if (safeBody.schedule) {
-      if (!limits.scheduledRuns) {
-        return res.status(403).json({ error: `Scheduled runs are not available on your current plan. Upgrade to enable.`, planLimit: true, limit: 'scheduledRuns' });
-      }
-      if (safeBody.schedule < limits.minScheduleHours) {
-        return res.status(403).json({ error: `Your ${plan} plan allows a minimum schedule interval of ${limits.minScheduleHours} hours. Upgrade for shorter intervals.`, planLimit: true, limit: 'minScheduleHours', min: limits.minScheduleHours });
-      }
-    }
+    // All plans now include daily automated scheduling — no manual schedule enforcement needed
     if (safeBody.webhookUrl && safeBody.webhookUrl.trim() && !isWebhookUrlSafe(safeBody.webhookUrl.trim())) {
       return res.status(400).json({ error: 'Webhook URL must be HTTPS and cannot target local/private addresses.' });
     }

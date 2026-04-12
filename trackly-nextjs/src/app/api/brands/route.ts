@@ -79,20 +79,17 @@ export async function GET(request: Request) {
       };
     });
 
-    // Add plan limit info so the client can show over-limit warnings
-    // Use plan from JWT auth context instead of redundant DB query
+    // Add plan limit info for client
     const plan = (user as unknown as Record<string, unknown>).plan as string || 'free';
     const limits = getPlanLimits(plan);
-    const brandLimit = limits.brands;
-    const overLimit = brands.length > brandLimit;
 
-    // Mark excess brands (oldest brands stay active, newest are locked)
-    const brandsWithStatus = brands.map((b: Record<string, unknown>, i: number) => ({
+    // Brands are unlimited — no locking needed
+    const brandsWithStatus = brands.map((b: Record<string, unknown>) => ({
       ...b,
-      lockedByPlan: overLimit && i >= brandLimit,
+      lockedByPlan: false,
     }));
 
-    return Response.json({ brands: brandsWithStatus, sharedBrands, plan, brandLimit, overLimit });
+    return Response.json({ brands: brandsWithStatus, sharedBrands, plan, brandLimit: 9999, overLimit: false });
   } catch (e) {
     console.error('[Brands GET]', (e as Error).message);
     return Response.json({ error: 'Failed to load brands' }, { status: 500 });
@@ -172,17 +169,11 @@ export async function POST(request: Request) {
       citations: {}, notes: {}, schedule: null,
     };
 
-    // Atomic insert with plan limit check to prevent race conditions
-    const insertResult = await pool.query(
-      `INSERT INTO brands (id, user_id, data)
-       SELECT $1, $2, $3::jsonb
-       WHERE (SELECT COUNT(*) FROM brands WHERE user_id = $2) < $4
-       RETURNING id`,
-      [id, user.id, JSON.stringify(data), limits.brands]
+    // Brands are unlimited — insert without count check
+    await pool.query(
+      `INSERT INTO brands (id, user_id, data) VALUES ($1, $2, $3::jsonb)`,
+      [id, user.id, JSON.stringify(data)]
     );
-    if (insertResult.rows.length === 0) {
-      return Response.json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true }, { status: 403 });
-    }
     const brand = { id, userId: user.id, ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     return Response.json({ brand });
   } catch (e) {

@@ -102,19 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const ownerPlan = planResult.rows[0]?.plan || 'free';
   const limits = getPlanLimits(ownerPlan);
 
-  // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
-  const countResult = await pool.query(
-    `SELECT id FROM brands WHERE user_id = $1 ORDER BY created_at, id`,
-    [ownerId]
-  );
-  const brandIds = countResult.rows.map((r: { id: string }) => r.id);
-  const brandIndex = brandIds.indexOf(id);
-  if (brandIndex >= limits.brands) {
-    return Response.json({
-      error: `This brand is locked because the ${ownerPlan} plan allows up to ${limits.brands} brand(s). Upgrade the plan or delete unused brands to run queries.`,
-      planLimit: true,
-    }, { status: 403 });
-  }
+  // Brands are unlimited — no brand count locking needed
 
   const queries: string[] = brand.queries || [];
   if (!queries.length) return Response.json({ error: 'No queries configured. Add queries in Brand Setup.' }, { status: 400 });
@@ -129,26 +117,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 
-  // --- Atomic monthly run limit check (prevents race condition with concurrent requests) ---
+  // --- Tracked prompt limit check (count total queries across all user's brands) ---
   try {
-    const runsResult = await pool.query(
-      `SELECT COUNT(*) as used FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
-       WHERE b.user_id = $1 AND ar.started_at >= NOW() - INTERVAL '30 days'
-       AND ar.status IN ('done', 'running')
-       FOR UPDATE`,
+    const promptResult = await pool.query(
+      `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
+       FROM brands WHERE user_id = $1`,
       [ownerId]
     );
-    const runsUsed = parseInt(runsResult.rows[0]?.used, 10) || 0;
-    if (runsUsed >= limits.runsPerMonth) {
+    const totalPrompts = parseInt(promptResult.rows[0]?.total, 10) || 0;
+    if (totalPrompts > limits.prompts) {
       return Response.json({
-        error: `Monthly run limit reached (${runsUsed}/${limits.runsPerMonth} runs used). Upgrade your plan or wait for the monthly reset.`,
+        error: `Tracked prompt limit reached (${totalPrompts}/${limits.prompts} prompts). Remove queries or upgrade your plan.`,
         planLimit: true,
-        runsUsed,
-        runsLimit: limits.runsPerMonth,
       }, { status: 429 });
     }
   } catch {
-    // If active_runs table doesn't exist yet, skip the check
+    // If query fails, skip the check
   }
 
   // --- Per-user concurrency limit (max 3 simultaneous runs) ---
@@ -168,13 +152,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Skip if table doesn't exist
   }
 
-  // --- Check per-brand query limit ---
-  if (queries.length > limits.queries) {
-    return Response.json({
-      error: `Your ${ownerPlan} plan allows up to ${limits.queries} queries per brand. You have ${queries.length}. Remove some queries or upgrade.`,
-      planLimit: true,
-    }, { status: 403 });
-  }
+  // Per-brand query limit removed — tracked prompts across all brands is the only gate
 
   // --- Check for existing active run (DB-based locking) ---
   await initTable();

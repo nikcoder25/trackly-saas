@@ -171,38 +171,19 @@ function UsageLimitBanner() {
 
   const alerts: LimitAlert[] = [];
 
-  // Brand limit
-  if (brands.length >= brandLimit && brandLimit < 9999) {
-    alerts.push({
-      key: 'brands', icon: '◆', label: 'Brands', used: brands.length, max: brandLimit,
-      severity: brands.length > brandLimit ? 'danger' : 'warning',
-      message: brands.length > brandLimit
-        ? `You have ${brands.length} brands but your plan allows ${brandLimit}. Excess brands are locked.`
-        : `You've reached your brand limit (${brandLimit}). Delete a brand or upgrade to add more.`,
-    });
-  }
-
-  // Run limit
-  if (limits.runsPerMonth < 9999) {
-    const runPct = limits.runsPerMonth > 0 ? (runsUsed / limits.runsPerMonth) * 100 : 0;
-    if (runPct >= 80) {
+  // Tracked prompt limit — count total queries across all brands
+  if (limits.prompts < 9999) {
+    const totalPrompts = brands.reduce((sum: number, b: Record<string, unknown>) => sum + (Array.isArray((b as Record<string, unknown>).queries) ? (b.queries as unknown[]).length : 0), 0);
+    const promptPct = limits.prompts > 0 ? (totalPrompts / limits.prompts) * 100 : 0;
+    if (promptPct >= 80) {
       alerts.push({
-        key: 'runs', icon: '▶', label: 'Runs', used: runsUsed, max: limits.runsPerMonth,
-        severity: runPct >= 100 ? 'danger' : 'warning',
-        message: runPct >= 100
-          ? `Monthly run limit reached (${runsUsed}/${limits.runsPerMonth}). You can't run queries until the limit resets.`
-          : `You've used ${runsUsed} of ${limits.runsPerMonth} monthly runs (${Math.round(runPct)}%). Consider upgrading if you need more.`,
+        key: 'prompts', icon: '⚡', label: 'Tracked Prompts', used: totalPrompts, max: limits.prompts,
+        severity: promptPct >= 100 ? 'danger' : 'warning',
+        message: promptPct >= 100
+          ? `Tracked prompt limit reached (${totalPrompts}/${limits.prompts}). Remove queries or upgrade for more.`
+          : `You're using ${totalPrompts} of ${limits.prompts} tracked prompts (${Math.round(promptPct)}%). Consider upgrading if you need more.`,
       });
     }
-  }
-
-  // Query-per-brand limit
-  if (limits.queries < 9999 && queryCount >= limits.queries) {
-    alerts.push({
-      key: 'queries', icon: '⚡', label: 'Queries', used: queryCount, max: limits.queries,
-      severity: queryCount > limits.queries ? 'danger' : 'warning',
-      message: `This brand has ${queryCount}/${limits.queries} queries. Remove some or upgrade to add more.`,
-    });
   }
 
   // Competitor limit

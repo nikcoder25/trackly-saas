@@ -64,43 +64,16 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <aside className={`sidebar ${open ? 'mobile-open' : ''}`} role="navigation" aria-label="Main navigation" style={{
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Run Queries Button */}
+        {/* Automated tracking indicator */}
         <div style={{ padding: '8px 8px 4px' }}>
-          <button
-            className={`run-btn${live.running ? ' running' : ''}`}
-            id="sidebar-run-btn"
-            aria-label={live.running ? 'Running queries' : 'Run queries'}
-            style={{
-              margin: 0,
-              opacity: isDisabled ? 0.5 : 1,
-              cursor: isDisabled ? 'not-allowed' : 'pointer',
-              background: selectedBrandLocked ? 'var(--muted)' : live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
-              fontSize: live.status === 'error' && live.errorMsg && live.errorMsg !== 'concurrent' ? '10px' : undefined,
-            }}
-            title={selectedBrandLocked ? 'This brand is locked — upgrade your plan to run queries' : live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
-            disabled={isDisabled}
-            onClick={() => startRun(false)}
-          >
-            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : live.errorMsg === 'run_limit' ? '❌ Run limit reached' : live.errorMsg === 'plan_limit' ? '🔒 Brand locked' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
-          </button>
-
-          {/* Upgrade hint for locked brand, run limit, or plan limit */}
-          {(selectedBrandLocked || (live.status === 'error' && (live.errorMsg === 'run_limit' || live.errorMsg === 'plan_limit'))) && (
-            <Link href="/dashboard/account" style={{
-              display: 'block', marginTop: 4, padding: '5px 8px', background: 'rgba(245,158,11,.08)',
-              border: '1px solid rgba(245,158,11,.2)', borderRadius: 4, textAlign: 'center',
-              fontSize: 10, fontWeight: 600, color: 'var(--amber)', textDecoration: 'none',
-            }}>
-              {live.errorMsg === 'run_limit' ? 'Upgrade for more runs →' : 'Upgrade to unlock →'}
-            </Link>
-          )}
-
-          {/* Force-run button for concurrent lock errors */}
-          {!selectedBrandLocked && live.status === 'error' && live.errorMsg === 'concurrent' && (
-            <button onClick={forceRun} style={{ width: '100%', marginTop: 4, padding: '6px 8px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--mono)' }}>
-              ⚡ FORCE RUN
-            </button>
-          )}
+          <div style={{
+            margin: 0, padding: '8px 12px', borderRadius: 6,
+            background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)',
+            textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--green)',
+            fontFamily: 'var(--mono)', letterSpacing: '.3px',
+          }}>
+            ● DAILY AUTO-TRACKING
+          </div>
         </div>
 
         {/* Nav groups */}

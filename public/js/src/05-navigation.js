@@ -15,9 +15,9 @@ async function initApp(){
   // Show admin nav if user is admin, or "Become Admin" button if no admin exists yet
   const adminNav = el('nav-admin');
   const becomeAdminNav = el('nav-become-admin');
-  // Show/hide Run Queries button based on role
-  const runBtn = el('run-btn');
-  if (runBtn) runBtn.style.display = '';
+  // Show auto-tracking indicator
+  const autoTrackEl = el('auto-track-indicator');
+  if (autoTrackEl) autoTrackEl.style.display = '';
 
   // Show Team nav for agency+ plans
   const teamNav = el('nav-team');
