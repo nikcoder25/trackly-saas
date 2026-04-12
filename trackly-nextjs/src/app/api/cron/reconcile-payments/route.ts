@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 // PLAN_MAP: product ID -> plan name (must match webhook handler)
 const PLAN_MAP: Record<string, string> = {};
 if (process.env.DODO_STARTER_PRODUCT_ID) PLAN_MAP[process.env.DODO_STARTER_PRODUCT_ID] = 'starter';
-if (process.env.DODO_PRO_PRODUCT_ID) PLAN_MAP[process.env.DODO_PRO_PRODUCT_ID] = 'pro';
+if (process.env.DODO_PRO_PRODUCT_ID) PLAN_MAP[processenv.DODO_PRO_PRODUCT_ID] = 'pro';
 if (process.env.DODO_AGENCY_PRODUCT_ID) PLAN_MAP[process.env.DODO_AGENCY_PRODUCT_ID] = 'agency';
 if (process.env.DODO_ENTERPRISE_PRODUCT_ID) PLAN_MAP[process.env.DODO_ENTERPRISE_PRODUCT_ID] = 'enterprise';
 
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
     const isLiveMode = process.env.DODO_LIVE_MODE === 'true';
     const baseUrl = isLiveMode
-      ? 'https://api.dodopayments.com'
+      ? 'https://live.dodopayments.com'
       : 'https://test.dodopayments.com';
 
     const client = await safeConnect();
