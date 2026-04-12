@@ -24,13 +24,11 @@ const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
   { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
-  { feature: 'Runs / month',     free: '5',   starter: '30',  pro: '90',   agency: '240',  owner: '∞' },
   { feature: 'Total queries',    free: '5',   starter: '50',  pro: '250',  agency: '2,000', owner: '∞' },
   { feature: 'Competitors',      free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
   { feature: 'Platforms',        free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
   { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
   { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
-  { feature: 'Scheduled Runs',   free: '—',   starter: '72h', pro: '24h',  agency: '12h',  owner: '1h' },
   { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
   { feature: 'Priority Support', free: '—',   starter: '—',   pro: '—',    agency: '✓',    owner: '✓' },
 ];
