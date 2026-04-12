@@ -24,13 +24,11 @@ const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
   { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
-  { feature: 'Runs / month',     free: '5',   starter: '30',  pro: '90',   agency: '240',  owner: '∞' },
   { feature: 'Total queries',    free: '5',   starter: '50',  pro: '250',  agency: '2,000', owner: '∞' },
   { feature: 'Competitors',      free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
   { feature: 'Platforms',        free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
   { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
   { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
-  { feature: 'Scheduled Runs',   free: '—',   starter: '72h', pro: '24h',  agency: '12h',  owner: '1h' },
   { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
   { feature: 'Priority Support', free: '—',   starter: '—',   pro: '—',    agency: '✓',    owner: '✓' },
 ];
@@ -296,7 +294,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · Unlimited brands · {limits.runsPerMonth >= 9999 ? '∞' : limits.runsPerMonth} runs/mo
+              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · Unlimited brands
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
@@ -543,9 +541,8 @@ export default function BillingPage() {
             </div>
             <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
               Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
-              <strong>unlimited brands</strong>,{' '}
-              <strong>{nextPlanLimits.brands * nextPlanLimits.queries} total queries/mo</strong>, and{' '}
-              <strong>{nextPlanLimits.runsPerMonth} runs/mo</strong>
+              <strong>unlimited brands</strong> and{' '}
+              <strong>{nextPlanLimits.brands * nextPlanLimits.queries} total queries/mo</strong>
               {nextPlanPricing.price !== 'Custom'
                 ? <> — just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
                 : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
@@ -793,7 +790,6 @@ export default function BillingPage() {
                     {planLimits && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
                         <div>Unlimited brands</div>
-                        <div>{planLimits.runsPerMonth >= 9999 ? '∞' : planLimits.runsPerMonth} runs/mo</div>
                         <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands * planLimits.queries} total queries/mo</div>
                         <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
                       </div>

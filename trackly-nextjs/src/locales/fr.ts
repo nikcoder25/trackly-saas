@@ -71,9 +71,9 @@ const fr: Translations = {
     contactSales: 'Contacter les Ventes',
     perMonth: '/mois',
     plans: [
-      { name: 'Starter', price: '9$', sub: 'Parfait pour débuter', features: ['30 requêtes/mois', '1 marque', '2 plateformes IA', 'Suivi hebdomadaire', 'Suivi SOV et export'] },
-      { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['250 requêtes/mois', '5 marques', 'Les 6 plateformes IA', 'Suivi quotidien', 'Suivi concurrents (5)', 'Analyse de sentiment', 'Exécutions planifiées'] },
-      { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['1 000 requêtes/mois', '20 marques', 'Les 6 plateformes IA', 'Suivi quotidien', 'Suivi concurrents (20)', 'Analyse de sentiment', 'Exécutions planifiées'] },
+      { name: 'Starter', price: '9$', sub: 'Parfait pour débuter', features: ['50 requêtes totales/mois', 'Marques illimitées', '2 plateformes IA', 'Suivi SOV et export', 'Analyse de sentiment'] },
+      { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['250 requêtes totales/mois', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (10)', 'Analyse de sentiment'] },
+      { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['2 000 requêtes totales/mois', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (30)', 'Analyse de sentiment', 'Support prioritaire'] },
     ],
     comparison: {
       title: 'Comment Livesov se compare',

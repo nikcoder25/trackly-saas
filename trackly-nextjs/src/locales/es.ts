@@ -71,9 +71,9 @@ const es: Translations = {
     contactSales: 'Contactar Ventas',
     perMonth: '/mes',
     plans: [
-      { name: 'Starter', price: '$9', sub: 'Perfecto para comenzar', features: ['30 consultas/mes', '1 marca', '2 plataformas IA', 'Rastreo semanal', 'Rastreo SOV y exportación'] },
-      { name: 'Pro', price: '$29', sub: 'Para negocios en crecimiento', featured: true, features: ['250 consultas/mes', '5 marcas', 'Las 6 plataformas IA', 'Rastreo diario', 'Rastreo de competidores (5)', 'Análisis de sentimiento', 'Ejecuciones programadas'] },
-      { name: 'Agency', price: '$89', sub: 'Para agencias y equipos', features: ['1,000 consultas/mes', '20 marcas', 'Las 6 plataformas IA', 'Rastreo diario', 'Rastreo de competidores (20)', 'Análisis de sentimiento', 'Ejecuciones programadas'] },
+      { name: 'Starter', price: '$9', sub: 'Perfecto para comenzar', features: ['50 consultas totales/mes', 'Marcas ilimitadas', '2 plataformas IA', 'Rastreo SOV y exportación', 'Análisis de sentimiento'] },
+      { name: 'Pro', price: '$29', sub: 'Para negocios en crecimiento', featured: true, features: ['250 consultas totales/mes', 'Marcas ilimitadas', 'Las 6 plataformas IA', 'Rastreo de competidores (10)', 'Análisis de sentimiento'] },
+      { name: 'Agency', price: '$89', sub: 'Para agencias y equipos', features: ['2,000 consultas totales/mes', 'Marcas ilimitadas', 'Las 6 plataformas IA', 'Rastreo de competidores (30)', 'Análisis de sentimiento', 'Soporte prioritario'] },
     ],
     comparison: {
       title: 'Cómo se compara Livesov',
