@@ -57,11 +57,11 @@ async function renderBilling() {
     const cardsEl = el('billing-plan-cards');
     const tiers = ['free','starter','pro','agency','enterprise'];
     const planPricing = [
-      { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> prompts/month', '1 brand', '2 AI platforms', 'Basic SOV tracking'] },
-      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> prompts/month', '1 brand', '2 AI platforms', 'Weekly tracking', 'Sentiment analysis'] },
-      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> prompts/month', '5 brands', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
-      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>1,000</strong> prompts/month', '20 brands', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
-      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>10,000</strong> prompts/month', '100 brands', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+      { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> total queries/month', 'Unlimited brands', 'Unlimited runs/month', '2 AI platforms', 'Basic SOV tracking'] },
+      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>50</strong> total queries/month', 'Unlimited brands', 'Unlimited runs/month', '2 AI platforms', 'Weekly tracking', 'Sentiment analysis'] },
+      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> total queries/month', 'Unlimited brands', 'Unlimited runs/month', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (5)', 'Sentiment analysis', 'Scheduled runs'] },
+      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>2,000</strong> total queries/month', 'Unlimited brands', 'Unlimited runs/month', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>50,000</strong> total queries/month', 'Unlimited brands', 'Unlimited runs/month', 'All 6 AI platforms', 'Daily tracking', 'Competitor tracking (100)', 'API access', 'Priority support'] }
     ];
     cardsEl.innerHTML = `
       <div class="billing-cards-header">
@@ -108,9 +108,11 @@ async function renderBilling() {
       const m = planMeta[p] || {};
       return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '—'}</span></td>`;
     };
+    const unlimitedCell = (p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">Unlimited</span></td>`;
     const features = [
-      { label: 'Monthly Prompts', icon: '&#9889;', key: 'prompts', type: 'num' },
-      { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'num' },
+      { label: 'Total Queries / Month', icon: '&#9889;', key: 'prompts', type: 'num' },
+      { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'unlimited' },
+      { label: 'Runs / Month', icon: '&#8635;', key: 'runsPerMonth', type: 'unlimited' },
       { label: 'Competitors', icon: '&#9878;', key: 'competitors', type: 'num' },
       { label: 'Platforms', icon: '&#9881;', key: 'platforms', type: 'num' },
       { label: 'Sentiment Analysis', icon: '&#9829;', key: 'sentiment', type: 'bool' },
@@ -141,7 +143,7 @@ async function renderBilling() {
             </tr>
             ${features.map((f, i) => `<tr class="cmp-row${i % 2 === 1 ? ' cmp-row-stripe' : ''}">
               <td class="cmp-feature-cell"><span class="cmp-feature-icon">${f.icon}</span>${f.label}</td>
-              ${displayPlans.map(p => f.type === 'bool' ? boolCell(allPlans[p][f.key], p) : numCell(allPlans[p][f.key], p)).join('')}
+              ${displayPlans.map(p => f.type === 'bool' ? boolCell(allPlans[p][f.key], p) : f.type === 'unlimited' ? unlimitedCell(p) : numCell(allPlans[p][f.key], p)).join('')}
             </tr>`).join('')}
           </tbody>
         </table>

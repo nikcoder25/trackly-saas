@@ -43,7 +43,7 @@
     --tl-text-3: #a1afc4;
     --tl-bg: #0f172a;
     --tl-bg-alt: #1e293b;
-    --tl-bg-surface: #0f172a;
+    --tl-bg-surface: #1e293b;
     --tl-border: #334155;
     --tl-border-light: #1e293b;
     --tl-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
@@ -1299,18 +1299,19 @@
    ══════════════════════════════════════ */
 .tl-pricing-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
   align-items: start;
 }
 
 .tl-price-card {
-  background: var(--tl-white);
+  background: var(--tl-bg-surface);
   border: 1px solid var(--tl-border);
   border-radius: var(--tl-radius-lg);
   padding: 32px 24px;
   position: relative;
   transition: all var(--tl-transition);
+  color: var(--tl-text);
 }
 
 .tl-price-card:hover {
@@ -1322,7 +1323,7 @@
   border: 2px solid var(--tl-primary);
   box-shadow: 0 4px 20px rgba(99,102,241,0.12);
   transform: scale(1.03);
-  background: linear-gradient(180deg, rgba(99,102,241,0.03) 0%, var(--tl-white) 20%);
+  background: linear-gradient(180deg, rgba(99,102,241,0.08) 0%, var(--tl-bg-surface) 20%);
 }
 
 .tl-price-card--featured:hover {
@@ -1768,6 +1769,12 @@
 /* ══════════════════════════════════════
    RESPONSIVE
    ══════════════════════════════════════ */
+@media (max-width: 1280px) {
+  .tl-pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .tl-pricing-grid {
     grid-template-columns: repeat(2, 1fr);
