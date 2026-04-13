@@ -6,7 +6,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { friendlyCompetitorName as friendlyCompName } from '@/lib/parser';
 
 interface Brand {
@@ -410,7 +410,7 @@ export default function DashboardPage() {
         </div>
         <div className="ov-hero-stats">
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={live.running?{color:'var(--green)'}:{}}>{displayM} / {displayQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{Object.values(platforms).filter(p=>normPlatform(p).total>0).length} / {Object.keys(PLATFORM_COLORS).length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
+          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{getPlanPlatforms(user?.plan||'free').filter(p=>normPlatform(platforms[p]).total>0).length} / {getPlanPlatforms(user?.plan||'free').length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:live.running?'var(--green)':lastRunAge.includes('d')?'var(--amber)':''}}>{live.running?elapsed||'0s':lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">{live.running?'Run Duration':'Last Run'}</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{live.running?`${live.received - live.foundCount - live.errorCount}`:fmtDuration(lastRun?.durationMs)}</div><div className="ov-hero-stat-lbl">{live.running?'Not Found':'Run Duration'}</div></div>
@@ -527,7 +527,7 @@ export default function DashboardPage() {
       {/* ═══ PLATFORM BREAKDOWN ═══ */}
       {show('platforms')&&<div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:10}}>Platform Breakdown</div>}
       {/* PLATFORM CARDS */}
-      {show('platforms')&&<div className="ov-plat-grid">{Object.entries(PLATFORM_COLORS).map(([name,color])=>{const n=normPlatform(platforms[name]);const isActive=n.total>0||n.sov>0;return <div key={name} className="ov-plat-card" style={{borderTop:`3px solid ${color}`}}><div className="ov-plat-name">{name}</div><div className="ov-plat-status" style={{color:isActive?'var(--green)':'var(--muted)'}}>● {isActive?'ACTIVE':'INACTIVE'}</div><div className="ov-plat-bar"><div className="ov-plat-bar-fill" style={{width:`${n.sov}%`,background:color}}/></div><div className="ov-plat-sov" style={{color:n.sov>=50?'var(--green)':n.sov>0?'var(--amber)':'var(--muted)'}}>{n.sov}%</div></div>;})}</div>}
+      {show('platforms')&&<div className="ov-plat-grid">{getPlanPlatforms(user?.plan||'free').map(name=>{const color=PLATFORM_COLORS[name]||'#888';const n=normPlatform(platforms[name]);const isActive=n.total>0||n.sov>0;return <div key={name} className="ov-plat-card" style={{borderTop:`3px solid ${color}`}}><div className="ov-plat-name">{name}</div><div className="ov-plat-status" style={{color:isActive?'var(--green)':'var(--muted)'}}>● {isActive?'ACTIVE':'INACTIVE'}</div><div className="ov-plat-bar"><div className="ov-plat-bar-fill" style={{width:`${n.sov}%`,background:color}}/></div><div className="ov-plat-sov" style={{color:n.sov>=50?'var(--green)':n.sov>0?'var(--amber)':'var(--muted)'}}>{n.sov}%</div></div>;})}</div>}
 
       {/* SOV TREND */}
       {show('trend')&&sovTrend.length>1&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">SOV Trend</div><div className="ov-card-sub">Last {sovTrend.length} runs</div></div>

@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState, useRef } from 'react';
-import { PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, ChartSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
@@ -42,6 +43,8 @@ function smoothPath(pts: { x: number; y: number }[], yMin?: number, yMax?: numbe
 }
 
 export default function TrendsPage() {
+  const { user } = useAuth();
+  const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
 
@@ -63,8 +66,8 @@ export default function TrendsPage() {
   const allPlatforms = useMemo(() => {
     const set = new Set<string>();
     history.forEach(h => { if (h.platforms) Object.keys(h.platforms).forEach(p => set.add(p)); });
-    return [...set];
-  }, [history]);
+    return [...set].filter(p => planPlatforms.includes(p));
+  }, [history, planPlatforms]);
 
   // Stats — guard against NaN with || 0
   const latest = history.length > 0 ? history[history.length - 1] : null;

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, TableSkeleton } from '@/components/dashboard/Skeleton';
@@ -14,6 +15,8 @@ interface Brand { id: string; name: string; mentions?: Mention[]; runs?: Run[]; 
 type FilterMode = 'all' | 'mentioned' | 'not_mentioned' | 'recommended' | 'errors';
 
 export default function MentionsPage() {
+  const { user } = useAuth();
+  const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
   const [selectedRunId, setSelectedRunId] = useState<string>('');
@@ -181,7 +184,7 @@ export default function MentionsPage() {
           {/* Platform filter chips */}
           <div style={{ display:'flex',gap:5,marginBottom:14,flexWrap:'wrap' }}>
             <button type="button" className={`plat-filter ${platformFilter==='all'?'active-filter':''}`} onClick={()=>{setPlatformFilter('all');}} style={{ cursor:'pointer' }}>All</button>
-            {Object.keys(PLATFORM_COLORS).map(p => {
+            {planPlatforms.map(p => {
               const c = platformCounts[p];
               return <button type="button" key={p} className={`plat-filter ${platformFilter===p?'active-filter':''}`} onClick={()=>setPlatformFilter(platformFilter===p?'all':p)} style={{ cursor:'pointer', opacity: c?.t ? 1 : 0.45 }}>{p}</button>;
             })}

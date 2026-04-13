@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
@@ -39,6 +39,7 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 
 export default function SetupPage() {
   const { user } = useAuth();
+  const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
@@ -217,6 +218,8 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 
 /* ── EDIT BRAND FORM (full feature parity with LiveSOV) ───────────────────── */
 function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
+  const { user } = useAuth();
+  const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const [name, setName] = useState(brand.name);
   const [industry, setIndustry] = useState(brand.industry || '');
   const [website, setWebsite] = useState(brand.website || '');
@@ -232,7 +235,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
   const [compInput, setCompInput] = useState('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(brand.selected_platforms || ALL_PLATFORMS);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -244,7 +247,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setCity(brand.city || ''); setGoal(brand.goal || 70);
     setAliases(brand.aliases || []); setQueries(brand.queries || []);
     setCompetitors(brand.competitors || []);
-    setSelectedPlatforms(brand.selected_platforms || ALL_PLATFORMS);
+    setSelectedPlatforms(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
     setNearbyAreas(brand.nearbyAreas || []);
     setError(''); setMessage('');
   }, [brand]);
@@ -478,7 +481,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
             <label className="flbl">AI Platforms to Track</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI models to query when running keyword tracking.</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {ALL_PLATFORMS.map(p => (
+              {planPlatforms.map(p => (
                 <button key={p} type="button" onClick={() => togglePlatform(p)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',

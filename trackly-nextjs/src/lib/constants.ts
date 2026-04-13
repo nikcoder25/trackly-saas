@@ -93,3 +93,13 @@ export const PLATFORM_COLORS: Record<string, string> = {
   Grok: '#1d9bf0',
   'Google AI Overviews': '#34a853',
 };
+
+// Plan-specific default platforms — mirrors backend PLAN_DEFAULT_PLATFORMS
+export const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
+  starter: ['ChatGPT', 'Claude'],
+  free: ['Gemini', 'Grok'],
+};
+
+export function getPlanPlatforms(plan: string): string[] {
+  return PLAN_DEFAULT_PLATFORMS[plan] || Object.keys(PLATFORM_COLORS);
+}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBrandData } from '@/hooks/useBrandData';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
 
@@ -11,6 +12,8 @@ interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ d
 type SortField = 'keyword' | 'mentionRate' | 'change' | 'totalRuns' | 'platformCount' | 'avgPosition' | 'lastUpdated';
 
 export default function QueryTrackerPage() {
+  const { user } = useAuth();
+  const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, loading } = useBrandData();
   const brand = rawBrand as Brand | null;
   const [keywords, setKeywords] = useState<KTKeyword[]>([]);
@@ -285,7 +288,7 @@ export default function QueryTrackerPage() {
                               ))}
                             </svg>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, fontSize: 10 }}>
-                              {Object.keys(PLATFORM_COLORS).map(p => (
+                              {planPlatforms.map(p => (
                                 <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORM_COLORS[p] }} /> {p}
                                 </span>
