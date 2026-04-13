@@ -400,13 +400,17 @@ router.post('/:id/run', auth, async (req, res) => {
     plan = await getUserPlan(req.user.id);
     limits = getPlanLimits(plan);
 
-    // Only admin/owner can trigger manual runs — regular users rely on scheduled runs
-    const userRoleRow = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
-    const userRole = userRoleRow.rows[0]?.role || '';
-    if (plan !== 'owner' && userRole !== 'admin') {
-      const errMsg = 'Runs are automated on your plan schedule. Manual runs are not available.';
-      if (streaming) return sseError(res, errMsg);
-      return res.status(403).json({ error: errMsg });
+    // Auto-triggered runs (brand creation, new queries) are allowed for all users.
+    // Manual "Run Queries" button is admin/owner only.
+    const isAutoRun = req.query.auto === '1';
+    if (!isAutoRun) {
+      const userRoleRow = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+      const userRole = userRoleRow.rows[0]?.role || '';
+      if (plan !== 'owner' && userRole !== 'admin') {
+        const errMsg = 'Runs are automated on your plan schedule. Manual runs are not available.';
+        if (streaming) return sseError(res, errMsg);
+        return res.status(403).json({ error: errMsg });
+      }
     }
 
     // Total prompts check — count across ALL brands
@@ -441,7 +445,12 @@ router.post('/:id/run', auth, async (req, res) => {
     } catch { /* table may not exist yet */ }
     modelPrefs = { ...userSettings.models, ...adminModelPrefs };
     const enabledPlatforms = userSettings.enabledPlatforms || {};
-    queries = brand.queries || [];
+    // Support running only specific queries (e.g. newly added ones) via request body
+    const allQueries = brand.queries || [];
+    const bodyQueries = req.body && req.body.queries;
+    queries = (bodyQueries && Array.isArray(bodyQueries) && bodyQueries.length > 0)
+      ? bodyQueries.filter(q => allQueries.includes(q))
+      : allQueries;
     if (!queries.length) return res.status(400).json({ error: 'No queries configured' });
 
     // ── Daily cost budget check ─────────────────────────────────
