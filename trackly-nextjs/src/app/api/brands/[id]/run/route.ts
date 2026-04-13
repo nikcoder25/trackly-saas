@@ -459,9 +459,20 @@ async function executeRunBackground(
     // done, because the client polls active_runs status and immediately calls
     // refreshBrands() when it sees "done". If brand data isn't saved yet, the
     // dashboard shows stale "Last Run" data.
+    // Re-read the brand from the database to get the LATEST data (user may have
+    // added queries, competitors, etc. while the run was in progress). Only merge
+    // run-specific fields (runs, sovHistory, mentions) to avoid overwriting user edits.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const brandData = { ...brand } as any;
-    delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
+    let brandData: any;
+    try {
+      const freshBrand = await pool.query('SELECT data FROM brands WHERE id = $1', [brandId]);
+      brandData = freshBrand.rows[0]?.data || {};
+      if (typeof brandData === 'string') brandData = JSON.parse(brandData);
+    } catch {
+      // Fallback to in-memory copy if re-read fails
+      brandData = { ...brand } as any;
+      delete brandData.id; delete brandData.userId; delete brandData.createdAt; delete brandData.updatedAt;
+    }
     if (!brandData.runs) brandData.runs = [];
     const lightResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
 
