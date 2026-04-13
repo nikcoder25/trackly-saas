@@ -262,6 +262,64 @@ function UsageLimitBanner() {
   );
 }
 
+/**
+ * Polls for background/scheduled run completions every 60s.
+ * When a cron/scheduled run finishes while the user has the dashboard open,
+ * this detects the new run and refreshes brand data across all pages.
+ */
+function BackgroundRunPoller() {
+  const { brands, refreshBrands } = useBrands();
+  const { live } = useRun();
+  const lastRunCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Don't poll while a user-triggered run is active (RunContext handles that)
+    if (live.running) return;
+
+    // Track current run count on mount
+    if (lastRunCountRef.current === null) {
+      let count = 0;
+      for (const brand of brands) {
+        const b = brand as Record<string, unknown>;
+        count += ((b.runs || []) as unknown[]).length;
+      }
+      lastRunCountRef.current = count;
+    }
+
+    const interval = setInterval(async () => {
+      // Skip if a run started while we were waiting
+      if (live.running) return;
+
+      try {
+        await refreshBrands();
+      } catch {
+        // Silently ignore — will retry next interval
+      }
+    }, 60000); // Poll every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [live.running, refreshBrands, brands]);
+
+  // Detect new runs after refreshBrands updates brands
+  useEffect(() => {
+    if (lastRunCountRef.current === null) return;
+
+    let count = 0;
+    for (const brand of brands) {
+      const b = brand as Record<string, unknown>;
+      count += ((b.runs || []) as unknown[]).length;
+    }
+
+    if (count > lastRunCountRef.current) {
+      // A new run was detected (likely from a scheduled/cron run)
+      window.dispatchEvent(new CustomEvent('livesov:run-complete'));
+    }
+    lastRunCountRef.current = count;
+  }, [brands]);
+
+  return null;
+}
+
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading } = useAuth();
@@ -281,6 +339,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     <RunProvider>
     <ToastProvider>
     <OnboardingModal />
+    <BackgroundRunPoller />
     <SkeletonStyles />
     <div id="app" style={{ display: 'grid', height: '100vh', overflow: 'hidden', gridTemplateColumns: '220px 1fr', gridTemplateRows: '52px 1fr', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
       <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
