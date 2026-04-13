@@ -266,6 +266,7 @@ export default function QueryTrackerPage() {
                           </div>
                         ) : kw.sparkline && kw.sparkline.length > 1 ? (
                           <div style={{ padding: '10px 0' }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Visibility Over Time</div>
                             <svg viewBox="0 0 600 200" style={{ width: '100%', maxHeight: 200 }}>
                               {/* Y-axis labels */}
                               {[0, 25, 50, 75, 100].map(v => {
@@ -277,7 +278,9 @@ export default function QueryTrackerPage() {
                                   </g>
                                 );
                               })}
-                              {/* Line */}
+                              {/* 0% baseline for visibility */}
+                              <line x1="40" y1={180} x2="580" y2={180} stroke="var(--border)" strokeWidth="1" />
+                              {/* Overall visibility line */}
                               <polyline
                                 points={kw.sparkline.map((v, i) => `${40 + (i / (kw.sparkline!.length - 1)) * 540},${180 - (v / 100) * 160}`).join(' ')}
                                 fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -286,13 +289,15 @@ export default function QueryTrackerPage() {
                               {kw.sparkline.map((v, i) => (
                                 <circle key={i} cx={40 + (i / (kw.sparkline!.length - 1)) * 540} cy={180 - (v / 100) * 160} r="3" fill="var(--bg2)" stroke="var(--green)" strokeWidth="2" />
                               ))}
+                              {/* Zero-line marker for platforms at 0% */}
+                              {kw.sparkline.every(v => v === 0) && (
+                                <text x="310" y={190} textAnchor="middle" style={{ fontSize: 10, fill: 'var(--muted)' }}>0% across all runs</text>
+                              )}
                             </svg>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, fontSize: 10 }}>
-                              {planPlatforms.map(p => (
-                                <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORM_COLORS[p] }} /> {p}
-                                </span>
-                              ))}
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--green)' }} /> Overall Visibility
+                              </span>
                             </div>
                           </div>
                         ) : (

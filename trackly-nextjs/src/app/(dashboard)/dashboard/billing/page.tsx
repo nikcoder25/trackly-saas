@@ -16,21 +16,21 @@ const PLAN_INFO: Record<string, { price: string; period: string; gradient: strin
 };
 
 const PLAN_PRICES: Record<string, string> = {
-  free: '$0', starter: '$9', pro: '$29', agency: '$89', owner: '—',
+  free: '$0', starter: '$9', pro: '$29', agency: '$89', enterprise: 'Custom', owner: '—',
 };
 
 const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
-  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
-  { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
-  { feature: 'Tracked queries',  free: '5',   starter: '30',  pro: '100',  agency: '500',  owner: '∞' },
-  { feature: 'Competitors',      free: '0',   starter: '3',   pro: '8',    agency: '20',   owner: '∞' },
-  { feature: 'Platforms',        free: '2',   starter: '2',   pro: '6',    agency: '6',    owner: '6' },
-  { feature: 'GEO Audits',       free: '3',   starter: '20',  pro: '75',   agency: '300',  owner: '∞' },
-  { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
-  { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
-  { feature: 'Priority Support', free: '—',   starter: '—',   pro: '✓',    agency: '✓',    owner: '✓' },
+  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  enterprise: 'Custom', owner: '—' },
+  { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   enterprise: '100', owner: '∞' },
+  { feature: 'Tracked queries',  free: '5',   starter: '30',  pro: '100',  agency: '500',  enterprise: '50,000', owner: '∞' },
+  { feature: 'Competitors',      free: '0',   starter: '3',   pro: '8',    agency: '20',   enterprise: '100', owner: '∞' },
+  { feature: 'Platforms',        free: '2',   starter: '2',   pro: '6',    agency: '6',    enterprise: '6', owner: '6' },
+  { feature: 'GEO Audits',       free: '3',   starter: '20',  pro: '75',   agency: '300',  enterprise: '5,000', owner: '∞' },
+  { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    enterprise: '✓', owner: '✓' },
+  { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    enterprise: '✓', owner: '✓' },
+  { feature: 'Priority Support', free: '—',   starter: '—',   pro: '✓',    agency: '✓',    enterprise: '✓', owner: '✓' },
 ];
 
 const METER_TOOLTIPS: Record<string, string> = {
@@ -83,8 +83,8 @@ export default function BillingPage() {
   const planInfo = PLAN_INFO[currentPlan] || PLAN_INFO.free;
 
   const visiblePlans = currentPlan === 'owner'
-    ? ['free', 'starter', 'pro', 'agency', 'owner'] as const
-    : ['free', 'starter', 'pro', 'agency'] as const;
+    ? ['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'] as const
+    : ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
   // Usage state
   const [brandCount, setBrandCount] = useState(0);
@@ -117,13 +117,35 @@ export default function BillingPage() {
       const b = brand as Record<string, unknown>;
       totalQueries += b?.queries ? (b.queries as string[]).length : 0;
       totalCompetitors += b?.competitors ? (b.competitors as string[]).length : 0;
-      const platCount = (b?.selected_platforms as string[] || []).length;
+      // Check selected_platforms first, fall back to counting unique platforms from latest run
+      const selectedPlats = (b?.selected_platforms as string[] || []);
+      let platCount = selectedPlats.length;
+      if (platCount === 0 && Array.isArray(b?.runs)) {
+        const runs = b.runs as Array<Record<string, unknown>>;
+        const latestRun = runs[runs.length - 1];
+        if (latestRun?.allResults) {
+          const uniquePlats = new Set((latestRun.allResults as Array<{ platform: string }>).map(r => r.platform));
+          platCount = uniquePlats.size;
+        }
+      }
       if (platCount > maxPlatformCount) maxPlatformCount = platCount;
     }
     setQueryCount(totalQueries);
     setCompetitorCount(totalCompetitors);
     setPlatformCount(maxPlatformCount);
-    setGeoAuditCount(0);
+
+    // Count GEO audits from localStorage
+    try {
+      const geoRaw = localStorage.getItem('livesov_geo_audits');
+      const geoAudits = geoRaw ? JSON.parse(geoRaw) : [];
+      // Count audits from this month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      const monthlyAudits = geoAudits.filter((a: { date: string }) => new Date(a.date).getTime() >= monthStart);
+      setGeoAuditCount(monthlyAudits.length);
+    } catch {
+      setGeoAuditCount(0);
+    }
 
     // Fetch actual monthly run count from brand data
     fetch('/api/brands', { credentials: 'include' })
@@ -224,7 +246,7 @@ export default function BillingPage() {
         : row)
     : PLAN_FEATURES;
   const displayPrices: Record<string, string> = annualBilling
-    ? { free: ANNUAL_PRICE_MAP.free || '$0', starter: ANNUAL_PRICE_MAP.starter || '$7', pro: ANNUAL_PRICE_MAP.pro || '$23', agency: ANNUAL_PRICE_MAP.agency || '$71', owner: '—' }
+    ? { free: ANNUAL_PRICE_MAP.free || '$0', starter: ANNUAL_PRICE_MAP.starter || '$7', pro: ANNUAL_PRICE_MAP.pro || '$23', agency: ANNUAL_PRICE_MAP.agency || '$71', enterprise: 'Custom', owner: '—' }
     : PLAN_PRICES;
 
   const anyNearLimit = meters.some(m => {
@@ -303,7 +325,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · Unlimited brands
+              {limits.queries >= 9999 ? '∞' : limits.queries} total queries · Unlimited brands
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
@@ -540,7 +562,7 @@ export default function BillingPage() {
             <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
               Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
               <strong>unlimited brands</strong> and{' '}
-              <strong>{nextPlanLimits.brands * nextPlanLimits.queries} total queries/mo</strong>
+              <strong>{nextPlanLimits.queries} total queries/mo</strong>
               {nextPlanPricing.price !== 'Custom'
                 ? <> — just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
                 : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
@@ -788,7 +810,7 @@ export default function BillingPage() {
                     {planLimits && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
                         <div>Unlimited brands</div>
-                        <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands * planLimits.queries} total queries/mo</div>
+                        <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} total queries/mo</div>
                         <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
                       </div>
                     )}
@@ -831,7 +853,7 @@ export default function BillingPage() {
         </div>
       )}
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .usage-meter-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -843,7 +865,7 @@ export default function BillingPage() {
         @media (max-width: 540px) {
           .usage-meter-grid { grid-template-columns: 1fr; }
         }
-      `}</style>
+      ` }} />
     </div>
   );
 }

@@ -435,7 +435,7 @@ export default function DashboardPage() {
       )}
       {compareMode !== 'current' && !compareRun && (
         <div style={{padding:'10px 16px',marginBottom:14,background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--muted)'}}>
-          No comparison data available for {compareMode === 'week' ? 'last week' : 'last month'}. Need more runs to compare.
+          No comparison data available for {compareMode === 'week' ? 'last week' : 'last month'}. Run queries regularly to build historical data for comparisons — {compareMode === 'week' ? 'at least 3 days' : 'at least 2 weeks'} of runs are needed.
         </div>
       )}
 

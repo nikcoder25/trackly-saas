@@ -409,7 +409,7 @@ export default function DashboardGeoAuditPage() {
                 </div>
 
                 {/* Expanded details */}
-                {expandedIdx === idx && (
+                {expandedIdx === idx && audit.result && (
                   <div
                     style={{
                       marginTop: 4,
@@ -419,34 +419,40 @@ export default function DashboardGeoAuditPage() {
                       background: 'var(--card-bg, #fff)',
                     }}
                   >
-                    <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
-                      <strong style={{ color: 'var(--text)' }}>Title:</strong> {audit.result.meta.title} &middot; {audit.result.meta.wordCount} words
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                      {categoriesAsArray(audit.result.categories).map((cat) => (
-                        <span
-                          key={cat.name || cat.label}
-                          style={{
-                            fontSize: 12,
-                            padding: '4px 10px',
-                            borderRadius: 6,
-                            background: `${scoreColor(cat.score)}15`,
-                            color: scoreColor(cat.score),
-                            fontWeight: 600,
-                          }}
-                        >
-                          {cat.name || cat.label}: {cat.score}
-                        </span>
-                      ))}
-                    </div>
-                    <div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Top recommendations:</span>
-                      <ul style={{ margin: '4px 0 0', paddingLeft: 16, fontSize: 12, color: 'var(--muted)', lineHeight: 1.8 }}>
-                        {audit.result.recommendations.slice(0, 3).map((r, i) => (
-                          <li key={i}>{r}</li>
+                    {audit.result.meta && (
+                      <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+                        <strong style={{ color: 'var(--text)' }}>Title:</strong> {audit.result.meta.title || 'Untitled'} &middot; {audit.result.meta.wordCount || 0} words
+                      </div>
+                    )}
+                    {audit.result.categories && (
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        {categoriesAsArray(audit.result.categories).map((cat) => (
+                          <span
+                            key={cat.name || cat.label}
+                            style={{
+                              fontSize: 12,
+                              padding: '4px 10px',
+                              borderRadius: 6,
+                              background: `${scoreColor(cat.score)}15`,
+                              color: scoreColor(cat.score),
+                              fontWeight: 600,
+                            }}
+                          >
+                            {cat.name || cat.label}: {cat.score}
+                          </span>
                         ))}
-                      </ul>
-                    </div>
+                      </div>
+                    )}
+                    {audit.result.recommendations && audit.result.recommendations.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Top recommendations:</span>
+                        <ul style={{ margin: '4px 0 0', paddingLeft: 16, fontSize: 12, color: 'var(--muted)', lineHeight: 1.8 }}>
+                          {audit.result.recommendations.slice(0, 3).map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

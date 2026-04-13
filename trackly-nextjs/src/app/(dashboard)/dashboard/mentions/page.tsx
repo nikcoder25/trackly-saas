@@ -172,7 +172,7 @@ export default function MentionsPage() {
               <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Found / Total</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)' }}>{Object.keys(platformCounts).length}</div>
+              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)' }}>{[...new Set(statsSource.map(r => r.platform))].length}</div>
               <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Platforms</div>
             </div>
             <div className="stat-card" style={{ textAlign:'center' }}>
@@ -270,7 +270,7 @@ export default function MentionsPage() {
           {/* Pagination — matches legacy exactly */}
           <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',flexWrap:'wrap',gap:8 }}>
             <div style={{ fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)' }}>
-              Showing {from+1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length} results
+              {filtered.length === 0 ? 'No results found' : `Showing ${from+1}–${Math.min(from + effectivePerPage, filtered.length)} of ${filtered.length} results`}
             </div>
             <div style={{ display:'flex',alignItems:'center',gap:8 }}>
               <span style={{ fontSize:11,color:'var(--muted)' }}>Show:</span>

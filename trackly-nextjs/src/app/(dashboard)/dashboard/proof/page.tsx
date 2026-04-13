@@ -36,16 +36,27 @@ export default function ProofPage() {
     return rq.length ? rq : resultQs.length ? resultQs : (brand?.queries || []);
   }, [run, allResults, brand]);
 
-  // Stats
-  const totalResults = allResults.length;
-  const foundCount = allResults.filter(r => r.mentioned).length;
+  // Filtered results (moved before stats so stats can use them)
+  const filtered = useMemo(() => allResults.filter(r => {
+    if (platFilter && r.platform !== platFilter) return false;
+    if (resultFilter === 'found' && !r.mentioned) return false;
+    if (resultFilter === 'notfound' && (r.mentioned || r.error)) return false;
+    return true;
+  }), [allResults, platFilter, resultFilter]);
+
+  // Stats — use filtered data when filters are active, otherwise use allResults
+  const statsSource = (platFilter || resultFilter) ? filtered : allResults;
+  const totalResults = statsSource.length;
+  const foundCount = statsSource.filter(r => r.mentioned).length;
   const notFoundCount = totalResults - foundCount;
-  const uniquePlats = [...new Set(allResults.map(r => r.platform))];
-  const sovPct = run?.sov || 0;
+  const uniquePlats = [...new Set(statsSource.map(r => r.platform))];
+  const sovPct = (platFilter || resultFilter)
+    ? (totalResults > 0 ? Math.round((foundCount / totalResults) * 100) : 0)
+    : (run?.sov || 0);
   const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';
   const foundPct = totalResults > 0 ? Math.round((foundCount / totalResults) * 100) : 0;
-  const sentPos = allResults.filter(r => r.sentiment === 'positive').length;
-  const sentNeg = allResults.filter(r => r.sentiment === 'negative').length;
+  const sentPos = statsSource.filter(r => r.sentiment === 'positive').length;
+  const sentNeg = statsSource.filter(r => r.sentiment === 'negative').length;
   const sentNeu = totalResults - sentPos - sentNeg;
 
   // Per-query stats
@@ -73,14 +84,6 @@ export default function ProofPage() {
     Object.entries(qStats).forEach(([q, s]) => { const sv = s.total > 0 ? Math.round((s.found / s.total) * 100) : 0; if (sv < worstS) { worstS = sv; worst = q; } });
     return { query: worst, pct: worstS };
   }, [qStats]);
-
-  // Filtered results
-  const filtered = useMemo(() => allResults.filter(r => {
-    if (platFilter && r.platform !== platFilter) return false;
-    if (resultFilter === 'found' && !r.mentioned) return false;
-    if (resultFilter === 'notfound' && (r.mentioned || r.error)) return false;
-    return true;
-  }), [allResults, platFilter, resultFilter]);
 
   // Grouped by query
   const grouped = useMemo(() => {
@@ -326,7 +329,7 @@ export default function ProofPage() {
           )}
 
           {filtered.length > 0 && (
-            <div className="ep-footer">Showing {filtered.length} of {totalResults} results across {uniquePlats.length} platform{uniquePlats.length !== 1 ? 's' : ''}</div>
+            <div className="ep-footer">Showing {filtered.length} of {allResults.length} results across {[...new Set(filtered.map(r => r.platform))].length} platform{[...new Set(filtered.map(r => r.platform))].length !== 1 ? 's' : ''}</div>
           )}
         </>
       )}

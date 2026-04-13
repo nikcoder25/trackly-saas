@@ -274,7 +274,7 @@ export default function PlatformsPage() {
                       </div>
                       {successRate !== null && (
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 2 }}>Success Rate</div>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 2 }} title="Percentage of successful API calls to this platform (excludes timeouts and errors)">API Success Rate</div>
                           <div style={{ fontSize: 16, fontWeight: 700, ...s.mono, color: successRate >= 95 ? 'var(--green)' : successRate >= 80 ? 'var(--amber)' : 'var(--red)' }}>{successRate}%</div>
                         </div>
                       )}

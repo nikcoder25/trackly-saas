@@ -50,11 +50,26 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  // Sync from BrandContext
+  // Sync from BrandContext and fetch full brand data for the selected brand
   useEffect(() => {
     if (ctxLoading) return;
     setBrands(ctxBrands as Brand[]);
-    if (!selectedBrand && ctxSelectedBrand) setSelectedBrand(ctxSelectedBrand as Brand);
+    if (ctxSelectedBrand) {
+      // Fetch full brand data to ensure all fields (industry, website, city) are available
+      fetch(`/api/brands/${ctxSelectedBrand.id}`, { credentials: 'include' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.brand) {
+            const fullBrand = { ...ctxSelectedBrand, ...d.brand } as Brand;
+            setSelectedBrand(fullBrand);
+          } else {
+            setSelectedBrand(ctxSelectedBrand as Brand);
+          }
+        })
+        .catch(() => {
+          setSelectedBrand(ctxSelectedBrand as Brand);
+        });
+    }
     setLoading(false);
   }, [ctxLoading, ctxBrands, ctxSelectedBrand]);
 

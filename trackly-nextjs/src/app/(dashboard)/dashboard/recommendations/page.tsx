@@ -173,7 +173,7 @@ export default function RecommendationsPage() {
             <>
               <div style={{ fontSize:28,marginBottom:8 }}>&#9733;</div>
               <div style={{ fontWeight:700,fontSize:14,marginBottom:4 }}>No Recommendations Yet</div>
-              <div style={{ fontSize:12 }}>Run your first query scan to get AI recommendations.</div>
+              <div style={{ fontSize:12 }}>No recommendations generated yet. Click <strong>Generate</strong> to create AI recommendations.</div>
             </>
           )}
         </div>
