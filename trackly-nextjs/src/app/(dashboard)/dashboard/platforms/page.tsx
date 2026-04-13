@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { PLATFORM_COLORS } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBrandData } from '@/hooks/useBrandData';
 
 import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
@@ -83,6 +84,8 @@ function Sparkline({ values, color, w = 100, h = 28 }: { values: number[]; color
 }
 
 export default function PlatformsPage() {
+  const { user } = useAuth();
+  const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, brands, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
 
@@ -108,7 +111,7 @@ export default function PlatformsPage() {
 
   // Summary counts
   const activePlatforms = Object.keys(platformData).length;
-  const healthyCount = Object.entries(PLATFORM_COLORS).filter(([name]) => {
+  const healthyCount = planPlatforms.filter(name => {
     const pd = platformData[name];
     return pd !== undefined && pd !== null && healthStatus(pd).label === 'Healthy';
   }).length;
@@ -116,11 +119,11 @@ export default function PlatformsPage() {
   const totalMentions = Object.values(platformData).reduce((s, pd) => s + normPlatform(pd).mentions, 0);
   const totalQueries = Object.values(platformData).reduce((s, pd) => s + normPlatform(pd).total, 0);
   const overallSov = totalQueries > 0 ? Math.round((totalMentions / totalQueries) * 100) : 0;
-  const totalPlatforms = Object.keys(PLATFORM_COLORS).length;
+  const totalPlatforms = planPlatforms.length;
 
   // Best & worst performing platform
-  const ranked = Object.entries(PLATFORM_COLORS)
-    .map(([name]) => ({ name, ...normPlatform(platformData[name]) }))
+  const ranked = planPlatforms
+    .map(name => ({ name, ...normPlatform(platformData[name]) }))
     .filter(p => p.total > 0)
     .sort((a, b) => b.sov - a.sov);
   const best = ranked[0] || null;
@@ -203,7 +206,8 @@ export default function PlatformsPage() {
       {/* ── Platform cards ── */}
       <div style={{ ...s.label, marginBottom: 10, fontSize: 12 }}>Platform Breakdown</div>
       <div className="platform-breakdown-grid">
-        {Object.entries(PLATFORM_COLORS).map(([name, color]) => {
+        {planPlatforms.map(name => {
+          const color = PLATFORM_COLORS[name] || '#888';
           const raw = platformData[name];
           const n = normPlatform(raw);
           const hasData = raw !== undefined && raw !== null;
