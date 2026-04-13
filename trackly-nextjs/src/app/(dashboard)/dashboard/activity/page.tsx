@@ -111,7 +111,6 @@ export default function ActivityPage() {
                 <tr style={{ background: 'var(--bg3)' }}>
                   <th className="th">Time</th>
                   <th className="th">Platform</th>
-                  <th className="th">Model</th>
                   <th className="th">Query</th>
                   <th className="th">Status</th>
                   <th className="th">Duration</th>
@@ -120,14 +119,13 @@ export default function ActivityPage() {
               </thead>
               <tbody>
                 {apiLogs.length === 0 ? (
-                  <tr><td colSpan={7} className="td" style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>No API calls logged yet.</td></tr>
+                  <tr><td colSpan={6} className="td" style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>No API calls logged yet.</td></tr>
                 ) : apiLogs.map((log, i) => {
                   const isRun = log.calls && log.calls > 1;
                   return (
                     <tr key={log.id || i} className="trow" style={isRun ? { background: 'rgba(59,130,246,.03)' } : {}}>
                       <td className="td"><span style={{ color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 11 }}>▶ {new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span></td>
                       <td className="td" style={{ fontWeight: isRun ? 700 : 400 }}>{isRun ? `${log.calls} calls · ${log.platforms_used || platforms} platforms` : log.platform}</td>
-                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{isRun ? (log.platforms_used || '') : (log.model || '—')}</td>
                       <td className="td">{log.query || (isRun ? `${log.calls} ok` : '—')}</td>
                       <td className="td"><span style={{ color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{typeof log.status === 'number' ? log.status : (log.status === 'ok' || log.status === 'success' ? okCount : log.status)}</span></td>
                       <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{log.duration ? (log.duration >= 60000 ? `${Math.floor(log.duration / 60000)}m ${Math.round((log.duration % 60000) / 1000)}s` : `${Math.round(log.duration / 1000)}s`) : '—'}</td>

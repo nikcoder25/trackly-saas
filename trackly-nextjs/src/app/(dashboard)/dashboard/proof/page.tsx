@@ -115,8 +115,8 @@ export default function ProofPage() {
 
   function exportCSV() {
     try {
-      const rows = [['Platform', 'Query', 'Mentioned', 'Sentiment', 'Recommended', 'Model', 'Response'].join(',')];
-      allResults.forEach(r => rows.push([csvSafe(r.platform), csvSafe(r.query), r.mentioned ? 'Yes' : 'No', r.sentiment || '', r.recommended ? 'Yes' : 'No', csvSafe(r.model || ''), csvSafe(r.response || r.raw || r.context || r.snippet || '')].join(',')));
+      const rows = [['Platform', 'Query', 'Mentioned', 'Sentiment', 'Recommended', 'Response'].join(',')];
+      allResults.forEach(r => rows.push([csvSafe(r.platform), csvSafe(r.query), r.mentioned ? 'Yes' : 'No', r.sentiment || '', r.recommended ? 'Yes' : 'No', csvSafe(r.response || r.raw || r.context || r.snippet || '')].join(',')));
       const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -350,7 +350,6 @@ function ProofRow({ r, highlightBrand, showQuery }: { r: { platform: string; mod
           <span className="ep-row-plat-dot" style={{ background: PLATFORM_COLORS[r.platform] || '#888' }} />
           <span className="ep-row-plat-name" style={{ color: PLATFORM_COLORS[r.platform] || '#888' }}>{r.platform}</span>
         </div>
-        {r.model && <div className="ep-row-model" title={r.model}>{r.model}</div>}
       </div>
       <div className="ep-row-mid">
         {showQuery && <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, marginBottom: 4, fontFamily: 'var(--mono)' }}>{r.query}</div>}

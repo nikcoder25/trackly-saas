@@ -29,7 +29,6 @@ function buildMentionCard(r, runTimeStr) {
         <div class="mt-item-query">${esc(r.query)}<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(r.query))},this)" title="Copy keyword">&#x2398;</button></div>
         <div class="mt-item-meta">
           <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
-          <span class="mt-item-model">${esc(r.model||'')}</span>
           ${runTimeStr ? `<span class="mt-item-model">${esc(runTimeStr)}</span>` : ''}
         </div>
       </div>

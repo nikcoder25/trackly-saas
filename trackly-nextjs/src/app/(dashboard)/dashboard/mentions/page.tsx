@@ -52,7 +52,7 @@ export default function MentionsPage() {
       if (filter === 'errors' && !r.error) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const hay = `${r.platform} ${r.query} ${r.response || r.raw || r.context || r.snippet || ''} ${r.model || ''}`.toLowerCase();
+        const hay = `${r.platform} ${r.query} ${r.response || r.raw || r.context || r.snippet || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -108,10 +108,10 @@ export default function MentionsPage() {
 
   function exportCSV() {
     if (!filtered.length) return;
-    const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview'].join(',')];
+    const rows = [['Platform','Query','Status','Sentiment','Recommended','Response Preview'].join(',')];
     filtered.forEach(m => {
       const preview = (m.response || m.raw || m.context || m.snippet || '').replace(/[\n\r]/g,' ').substring(0, 300);
-      rows.push([csvSafe(m.platform), csvSafe(m.model||''), csvSafe(m.query), m.error?'ERROR':m.mentioned?'Found':'Not Found', m.error?'N/A':(m.sentiment||'neutral'), m.error?'N/A':(m.recommended?'Yes':'No'), csvSafe(preview)].join(','));
+      rows.push([csvSafe(m.platform), csvSafe(m.query), m.error?'ERROR':m.mentioned?'Found':'Not Found', m.error?'N/A':(m.sentiment||'neutral'), m.error?'N/A':(m.recommended?'Yes':'No'), csvSafe(preview)].join(','));
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
@@ -252,7 +252,7 @@ export default function MentionsPage() {
                                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(responseText)) }} />
                                 )}
                                 <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
-                                  Model: {r.model || '—'} · Position: {posLabel} · Sentiment: {r.error ? '—' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '—' : (r.recommended ? 'Yes' : 'No')}
+                                  Position: {posLabel} · Sentiment: {r.error ? '—' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '—' : (r.recommended ? 'Yes' : 'No')}
                                 </div>
                               </div>
                             </td>
