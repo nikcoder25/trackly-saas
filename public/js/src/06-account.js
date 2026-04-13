@@ -50,10 +50,10 @@ function renderAccount(){
 
   // Plan cards — reuse landing page pricing card classes
   const planData = [
-    { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>50</strong> total queries/month', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
-    { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>250</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (10)', 'Sentiment analysis'] },
-    { id: 'agency', name: 'Agency', price: '$89', tagline: 'Scale with confidence', features: ['<strong>2,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (30)', 'Sentiment analysis'] },
-    { id: 'enterprise', name: 'Enterprise', price: 'Custom', tagline: 'Full power', features: ['<strong>50,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+    { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>30</strong> tracked queries', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
+    { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>100</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis'] },
+    { id: 'agency', name: 'Agency', price: '$89', tagline: 'Scale with confidence', features: ['<strong>500</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Sentiment analysis'] },
+    { id: 'enterprise', name: 'Enterprise', price: 'Custom', tagline: 'Full power', features: ['<strong>50,000</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
   ];
   const current = currentUser.plan || 'free';
   el('acct-plans').innerHTML = '<div class="land-pricing" style="margin-top:16px;">' + planData.map(p => {
@@ -754,10 +754,10 @@ function showUpgradeModal(reason) {
   }
   const current = (currentUser && currentUser.plan) || 'free';
   const planData = [
-    { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>50</strong> total queries/month', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
-    { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>250</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (10)', 'Sentiment analysis'] },
-    { id: 'agency', name: 'Agency', price: '$89', tagline: 'Scale with confidence', features: ['<strong>2,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (30)', 'Sentiment analysis'] },
-    { id: 'enterprise', name: 'Enterprise', price: 'Custom', tagline: 'Full power', features: ['<strong>50,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+    { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>30</strong> tracked queries', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
+    { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>100</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis'] },
+    { id: 'agency', name: 'Agency', price: '$89', tagline: 'Scale with confidence', features: ['<strong>500</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Sentiment analysis'] },
+    { id: 'enterprise', name: 'Enterprise', price: 'Custom', tagline: 'Full power', features: ['<strong>50,000</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
   ];
   el('upgrade-plans').innerHTML = '<div class="land-pricing">' + planData.map(p => {
     const isCurrent = p.id === current;

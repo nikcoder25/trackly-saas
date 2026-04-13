@@ -84,15 +84,15 @@ const en = {
     plans: [
       {
         name: 'Starter', price: '$9', sub: 'Perfect for getting started',
-        features: ['50 total queries/month', 'Unlimited brands', '2 AI platforms', 'SOV tracking & export', 'Sentiment analysis'],
+        features: ['30 tracked queries', 'Unlimited brands', '2 AI platforms', 'SOV tracking & export', 'Sentiment analysis'],
       },
       {
         name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true,
-        features: ['250 total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (10)', 'Sentiment analysis', 'Email alerts'],
+        features: ['100 tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis', 'Email alerts'],
       },
       {
         name: 'Agency', price: '$89', sub: 'For agencies & teams',
-        features: ['2,000 total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (30)', 'Team collaboration', 'Priority support'],
+        features: ['500 tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'],
       },
     ],
     comparison: {

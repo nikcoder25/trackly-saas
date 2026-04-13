@@ -596,7 +596,7 @@ router.get('/pricing', (req, res) => {
 <div class="highlight">
 <h3>$0/month — Get Started</h3>
 <ul>
-<li>5 total queries/month</li>
+<li>5 tracked queries</li>
 <li>Unlimited brands</li>
 <li>2 AI platforms</li>
 <li>Brand mention detection</li>
@@ -1120,8 +1120,8 @@ router.get('/changelog', (req, res) => {
 <h3>March 7 — Launch</h3>
 <ul>
 <li>Livesov launches with ChatGPT and Perplexity tracking</li>
-<li>Free tier with 5 total queries/month and unlimited brands</li>
-<li>Pro plan with 250 total queries/month</li>
+<li>Free tier with 5 tracked queries and unlimited brands</li>
+<li>Pro plan with 100 tracked queries</li>
 </ul>
 </div>
 

@@ -388,22 +388,11 @@ export default function BillingPage() {
             </div>
           </div>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Runs This Month</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Tracked Queries</div>
             <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', marginTop: 4 }}>
               {runsMeter.used} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>/ {runsIsUnlimited ? '∞' : runsMeter.max}</span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{runsMeter.sublabel}</div>
-            {dailyAvg > 0 && !runsIsUnlimited && (
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
-                Averaging <strong style={{ color: 'var(--text)' }}>{dailyAvg} runs/day</strong>
-                {projectedDaysLeft !== null && projectedDaysLeft > 0 && (
-                  <span> · At this rate, you&apos;ll hit your limit in <strong style={{ color: projectedDaysLeft <= 3 ? '#ef4444' : projectedDaysLeft <= 7 ? '#f59e0b' : 'var(--text)' }}>{projectedDaysLeft} days</strong></span>
-                )}
-                {projectedDaysLeft === 0 && (
-                  <span> · <strong style={{ color: '#ef4444' }}>Limit reached</strong></span>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
