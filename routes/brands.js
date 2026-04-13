@@ -224,7 +224,7 @@ router.post('/', auth, async (req, res) => {
       nearbyAreas: safeNearby,
       queries: safeQueries,
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
-      citations: {}, notes: {}, schedule: null
+      citations: {}, notes: {}, schedule: 24
     };
     await pool.query(
       'INSERT INTO brands (id, user_id, data) VALUES ($1, $2, $3)',

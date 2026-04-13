@@ -35,22 +35,26 @@ async function run() {
       SELECT COUNT(*) AS cnt FROM brands
       WHERE data->>'schedule' IS NULL
          OR data->'schedule' = 'null'::jsonb
+         OR data->'schedule' = '0'::jsonb
+         OR (data->>'schedule')::int <= 0
     `);
     const affected = parseInt(preview.rows[0].cnt, 10);
-    console.log(`Brands with schedule null or missing: ${affected}`);
+    console.log(`Brands with schedule null, missing, or zero: ${affected}`);
 
     if (affected === 0) {
       console.log('Nothing to update. Exiting.');
       return;
     }
 
-    // Update: set schedule to 24 (hours) where null or missing
+    // Update: set schedule to 24 (hours) where null, missing, or zero
     const result = await client.query(`
       UPDATE brands
       SET data = jsonb_set(data, '{schedule}', '24'),
           updated_at = NOW()
       WHERE data->>'schedule' IS NULL
          OR data->'schedule' = 'null'::jsonb
+         OR data->'schedule' = '0'::jsonb
+         OR (data->>'schedule')::int <= 0
     `);
 
     console.log(`Updated ${result.rowCount} brand(s) — schedule set to 24 (every 24 hours).`);

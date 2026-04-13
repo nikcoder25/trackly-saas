@@ -169,7 +169,7 @@ export async function POST(request: Request) {
       aliases: safeAliases,
       queries: safeQueries,
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
-      citations: {}, notes: {}, schedule: null,
+      citations: {}, notes: {}, schedule: 24,
     };
 
     // Atomic insert with plan limit check to prevent race conditions
