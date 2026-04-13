@@ -64,7 +64,7 @@ export interface PricingPlan {
 
 export const PRICING_PLANS: PricingPlan[] = [
   { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['Unlimited brands', '5 total queries/month', '2 AI platforms', 'Basic dashboard', '3 GEO audits/month'] },
-  { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['Unlimited brands', '50 total queries/month', '2 AI platforms', 'SOV tracking', 'Competitor tracking (3)', 'Sentiment analysis', '25 GEO audits/month'] },
+  { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['Unlimited brands', '50 total queries/month', 'ChatGPT & Claude', 'SOV tracking', 'Competitor tracking (3)', 'Sentiment analysis', '25 GEO audits/month'] },
   { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', 'Unlimited brands', '250 total queries/month', '5 AI platforms', 'Competitor tracking (10)', 'Evidence & proof export', 'Email alerts', '100 GEO audits/month'] },
   { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['Everything in Pro, plus:', 'Unlimited brands', '2,000 total queries/month', 'Competitor tracking (30)', 'Team collaboration', 'Priority support', '500 GEO audits/month'] },
   { name: 'Enterprise', price: 'Custom', annualPrice: 'Custom', sub: 'For large organizations', cta: 'Contact Us', features: ['Everything in Agency, plus:', 'Unlimited brands', '50,000 total queries/month', 'Competitor tracking (100)', 'API access', 'Dedicated support', '5,000 GEO audits/month', 'Custom integrations'] },
