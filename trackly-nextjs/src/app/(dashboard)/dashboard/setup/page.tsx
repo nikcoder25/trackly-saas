@@ -102,6 +102,8 @@ export default function SetupPage() {
 
 /* ── 3-STEP CREATION WIZARD ───────────────────── */
 function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void }) {
+  const { user } = useAuth();
+  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
