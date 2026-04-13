@@ -30,7 +30,7 @@ router.get('/api-logs', auth, async (req, res) => {
   try {
         const limit = Math.max(1, Math.min(parseInt(req.query.limit) || 100, 500));
     const brandId = req.query.brandId || null;
-    let query = 'SELECT * FROM api_logs WHERE user_id = $1';
+    let query = 'SELECT id, user_id, brand_id, platform, query, status, error, http_status, response_ms, cost, tokens_in, tokens_out, run_id, created_at FROM api_logs WHERE user_id = $1';
     const params = [req.user.id];
     if (brandId) {
       query += ' AND brand_id = $2';

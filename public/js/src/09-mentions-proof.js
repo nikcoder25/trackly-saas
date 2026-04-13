@@ -10,10 +10,10 @@ function exportMentionsCSV(){
   if (!b) return;
   const run = (b.runs||[]).find(r => r.id === el('mentions-run-sel').value);
   if (!run || !run.allResults) return;
-  const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview']];
+  const rows = [['Platform','Query','Status','Sentiment','Recommended','Response Preview']];
   run.allResults.forEach(r => {
     const preview = (r.raw || r.context || '').replace(/[#*_~`\n]/g,' ').substring(0,300);
-    rows.push([r.platform, r.model||'', r.query, r.error?'ERROR':r.mentioned?'Mentioned':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
+    rows.push([r.platform, r.query, r.error?'ERROR':r.mentioned?'Mentioned':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
   });
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
@@ -159,7 +159,7 @@ function renderMentions(){
     if (fv==='not-mentioned' && (r.mentioned||r.error)) return false;
     if (fv==='recommended' && !r.recommended) return false;
     if (fv==='errors' && !r.error) return false;
-    if (sq && !((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')+' '+(r.model||'')).toLowerCase().includes(sq)) return false;
+    if (sq && !((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')).toLowerCase().includes(sq)) return false;
     return true;
   });
 
@@ -204,7 +204,7 @@ function renderMentions(){
       const hlHtml = hre ? mdToHtml(full).replace(hre, (m) => '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">'+esc(m)+'</mark>') : mdToHtml(full);
       html += `<tr><td colspan="5" style="padding:16px;background:var(--bg);border-bottom:1px solid var(--bg3);">
         <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid ${r.mentioned?'var(--green)':'var(--red)'};">${hlHtml}</div>
-        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: ${esc(r.model||'—')} &middot; Position: ${posLabel} &middot; Sentiment: ${sent} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Position: ${posLabel} &middot; Sentiment: ${sent} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
       </td></tr>`;
     }
   });
@@ -259,7 +259,7 @@ function openResp(mentionId){
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
     titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
-    queryEl.innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
+    queryEl.innerHTML = esc(m.query) + (m.time ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
     textEl.style.whiteSpace = 'normal';
     const rawHtml = mdToHtml(m.raw || m.context || '');
     const hre = brandHighlightRe(b);
@@ -296,7 +296,7 @@ function openResultFromRun(runId, platform, encodedQuery){
     const textEl = el('resp-modal-text');
     if (!titleEl || !queryEl || !textEl) return;
     titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-    queryEl.innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+    queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
     const hre1 = brandHighlightRe(b);
@@ -334,7 +334,7 @@ function openFullResult(platform, encodedQuery){
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
     titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-    queryEl.innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+    queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
     const hre2 = brandHighlightRe(b);
@@ -662,15 +662,15 @@ function exportProofCSV(){
   const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
   if (!run) return;
   function csvField(val){ const s = String(val||'').replace(/"/g,'""').replace(/\n/g,' '); return '"'+s+'"'; }
-  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response'].map(csvField).join(',')];
+  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Full Response'].map(csvField).join(',')];
   const allResults = run.allResults || [];
   if (allResults.length) {
     allResults.forEach(r => {
-      rows.push([r.platform, r.query, r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', r.raw||r.context||''].map(csvField).join(','));
+      rows.push([r.platform, r.query, r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.raw||r.context||''].map(csvField).join(','));
     });
   } else {
     (run.mentions||[]).forEach(m => {
-      rows.push([m.platform, m.query, 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', m.raw||m.context||''].map(csvField).join(','));
+      rows.push([m.platform, m.query, 'Yes', m.sentiment, m.recommended?'Yes':'No', m.raw||m.context||''].map(csvField).join(','));
     });
   }
   const csv = rows.join('\n');

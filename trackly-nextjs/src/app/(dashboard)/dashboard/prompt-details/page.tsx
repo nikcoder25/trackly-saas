@@ -9,7 +9,7 @@ interface Run { id?: string; date?: string; time?: string; sov?: number; allResu
 interface Brand { id: string; name: string; queries?: string[]; runs?: Run[]; }
 
 export default function PromptDetailsPage() {
-  const { brand: rawBrand, loading } = useBrandData();
+  const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
   const [selectedQuery, setSelectedQuery] = useState('');
   const [platFilter, setPlatFilter] = useState('');

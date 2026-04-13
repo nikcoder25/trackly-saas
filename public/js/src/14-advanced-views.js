@@ -302,7 +302,7 @@ async function renderPromptDetail() {
       runsEl.style.display = '';
       if (runsCountEl) runsCountEl.textContent = `Showing ${runs.length} of ${runsData.total || runs.length} runs`;
       runsList.innerHTML = `<div class="pd-run-row" style="font-weight:700;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;cursor:default;background:var(--bg3);">
-          <div>Platform</div><div>Date</div><div>Model</div><div>Found</div><div>Sentiment</div><div style="text-align:right;">Actions</div>
+          <div>Platform</div><div>Date</div><div>Found</div><div>Sentiment</div><div style="text-align:right;">Actions</div>
         </div>` +
         runs.map(r => {
           const t = PLAT_THEME[r.platform] || {};
@@ -312,7 +312,6 @@ async function renderPromptDetail() {
           return `<div class="pd-run-row" onclick="viewPromptRun('${b.id}','${r.id}')">
             <div class="pd-run-plat" style="color:${t.color||'#888'};">${esc(r.platform)}</div>
             <div class="pd-run-date">${dateStr}</div>
-            <div class="pd-run-model">${esc(r.model || '—')}</div>
             <div class="pd-run-mentioned" style="color:${r.mentioned ? 'var(--green)' : 'var(--red)'};">${r.mentioned ? 'YES' : 'NO'}</div>
             <div class="pd-run-sent" style="color:${sentColor};">${esc(r.sentiment || '—')}</div>
             <div class="pd-run-view">View details &rarr;</div>
@@ -370,10 +369,6 @@ async function viewPromptRun(brandId, runId) {
             <div class="pd-meta-field">
               <div class="pd-meta-label">Platform</div>
               <div style="font-weight:700;color:${t.color||'#888'};">${esc(r.platform)}</div>
-            </div>
-            <div class="pd-meta-field">
-              <div class="pd-meta-label">Model</div>
-              <div style="font-family:var(--mono);font-size:12px;">${esc(r.model || 'N/A')}</div>
             </div>
             <div class="pd-meta-field">
               <div class="pd-meta-label">Date</div>

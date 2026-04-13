@@ -14,7 +14,7 @@ type SortField = 'keyword' | 'mentionRate' | 'change' | 'totalRuns' | 'platformC
 export default function QueryTrackerPage() {
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
-  const { brand: rawBrand, loading } = useBrandData();
+  const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
   const [keywords, setKeywords] = useState<KTKeyword[]>([]);
   const [period, setPeriod] = useState('day');

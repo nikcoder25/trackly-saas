@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await pool.query(
-      'SELECT platform, query, status, error, model, response_ms, cost, created_at FROM api_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 200',
+      'SELECT platform, query, status, error, response_ms, cost, created_at FROM api_logs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 200',
       [user.id]
     );
     return Response.json({ logs: result.rows });

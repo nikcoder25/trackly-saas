@@ -47,7 +47,7 @@ function _flushNotifQueue() {
     notif.innerHTML = `
       <div class="live-notif-icon" aria-hidden="true" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
       <div class="live-notif-body">
-        <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
+        <div class="live-notif-title">${esc(result.platform)}</div>
         <div class="live-notif-sub">${esc(queryShort)}</div>
       </div>
       <div class="live-notif-status ${statusCls}">${statusText}</div>`;
@@ -65,7 +65,7 @@ function _flushNotifQueue() {
         head.style.background = t2.bg||'var(--bg2)';
         head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
         titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-        queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+        queryEl.innerHTML = esc(result.query||'');
         textEl.style.whiteSpace = 'normal';
         const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
         const rawHtml = mdToHtml(raw);
@@ -529,7 +529,6 @@ function appendLiveProofCard(result) {
       <div class="proof-card-meta">
         <span class="badge ${sentBadge}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
         ${result.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-        ${result.model?`<span class="proof-card-tag">${esc(result.model)}</span>`:''}
       </div>
     </div>
   </div>`;

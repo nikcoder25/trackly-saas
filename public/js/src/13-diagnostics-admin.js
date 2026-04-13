@@ -68,7 +68,6 @@ async function renderApiLogs(){
       <thead style="position:sticky;top:0;z-index:1;"><tr style="background:var(--bg3);">
         <th class="th">Time</th>
         <th class="th">Platform</th>
-        <th class="th">Model</th>
         <th class="th">Query</th>
         <th class="th">Status</th>
         <th class="th">Time</th>
@@ -102,7 +101,6 @@ async function renderApiLogs(){
         tbl += `<tr style="background:rgba(59,130,246,.05);border-top:2px solid rgba(59,130,246,.2);cursor:pointer;" onclick="let s=this.nextElementSibling;while(s&&s.dataset.runid==='${g.id}'){s.style.display=s.style.display==='none'?'':'none';s=s.nextElementSibling;}">
           <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--blue);font-weight:700;white-space:nowrap;">▶ ${esc(timeStr)}</td>
           <td class="td" style="font-weight:700;font-size:11px;">${g.ok + g.errors} calls · ${[...g.platforms].length} platforms</td>
-          <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${[...g.platforms].join(', ')}</td>
           <td class="td" style="font-size:10px;color:var(--muted);">${g.ok} ok${g.errors ? ', <span style="color:var(--red);">' + g.errors + ' errors</span>' : ''}</td>
           <td class="td"><span class="status-found">${g.ok}</span></td>
           <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${durStr}</td>
@@ -120,17 +118,15 @@ async function renderApiLogs(){
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
       const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
       const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
-      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       const errMsg = isErr && log.error ? log.error : '';
       const errId = isErr && errMsg ? 'err-' + (log.id || Math.random().toString(36).slice(2)) : '';
-      const copyErrJson = isErr && errMsg ? JSON.stringify({platform:log.platform,model:log.model||'',query:log.query||'',status:log.http_status||'ERR',error:log.error,time:log.created_at}) : '';
+      const copyErrJson = isErr && errMsg ? JSON.stringify({platform:log.platform,query:log.query||'',status:log.http_status||'ERR',error:log.error,time:log.created_at}) : '';
 
       tbl += `<tr class="trow"${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.04);' : ''}">
         <td class="td" style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
         <td class="td" style="color:${t.color || 'var(--text)'};font-weight:700;font-size:11px;">${esc(log.platform)}</td>
-        <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${esc(modelShort || '—')}</td>
         <td class="td" style="font-size:11px;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
         <td class="td" style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${log.http_status || (isErr ? 'ERR' : '200')}</span></td>
         <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${respTime}</td>
