@@ -53,6 +53,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const { selectedBrandLocked } = useBrands();
 
   const isDisabled = live.running || selectedBrandLocked;
+  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
 
   return (
     <>
@@ -64,7 +65,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <aside className={`sidebar ${open ? 'mobile-open' : ''}`} role="navigation" aria-label="Main navigation" style={{
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Run Queries Button */}
+        {/* Run Queries Button — admin/owner only */}
+        {isAdmin ? (
         <div style={{ padding: '8px 8px 4px' }}>
           <button
             className={`run-btn${live.running ? ' running' : ''}`}
@@ -102,6 +104,13 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             </button>
           )}
         </div>
+        ) : (
+        <div style={{ padding: '8px 8px 4px' }}>
+          <div style={{ padding: '10px 12px', background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', textAlign: 'center', fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+            Queries run automatically on your plan schedule
+          </div>
+        </div>
+        )}
 
         {/* Nav groups */}
         <nav style={{ flex: 1, padding: '4px 8px' }}>

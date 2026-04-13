@@ -11,6 +11,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
   const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit } = useBrands();
   const { startRun } = useRun();
+  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
@@ -193,7 +194,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           setShowAddBrand(false);
           setSelectedBrand(brand);
           refreshBrands().then(() => {
-            setTimeout(() => startRun(false), 500);
+            if (isAdmin) setTimeout(() => startRun(false), 500);
           });
         }}
       />

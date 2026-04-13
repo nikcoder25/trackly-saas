@@ -42,6 +42,7 @@ export default function SetupPage() {
   const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
+  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +86,7 @@ export default function SetupPage() {
             setBrands([...brands, brand]);
             setSelectedBrand(brand);
             setCtxSelectedBrand(brand);
-            refreshBrands().then(() => { setTimeout(() => startRun(false), 500); });
+            refreshBrands().then(() => { if (isAdmin) setTimeout(() => startRun(false), 500); });
           }}
         />
       )}
@@ -205,7 +206,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={() => setStep(2)} style={{ flex: 1, padding: 10, background: 'var(--bg3)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>Back</button>
             <button onClick={handleCreate} disabled={saving} style={{ flex: 1, padding: 10, background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer', opacity: saving ? 0.5 : 1 }}>
-              {saving ? 'Creating...' : 'Create Brand & Run'}
+              {saving ? 'Creating...' : isAdmin ? 'Create Brand & Run' : 'Create Brand'}
             </button>
           </div>
         </div>

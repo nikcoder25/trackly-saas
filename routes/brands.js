@@ -400,6 +400,15 @@ router.post('/:id/run', auth, async (req, res) => {
     plan = await getUserPlan(req.user.id);
     limits = getPlanLimits(plan);
 
+    // Only admin/owner can trigger manual runs — regular users rely on scheduled runs
+    const userRoleRow = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    const userRole = userRoleRow.rows[0]?.role || '';
+    if (plan !== 'owner' && userRole !== 'admin') {
+      const errMsg = 'Runs are automated on your plan schedule. Manual runs are not available.';
+      if (streaming) return sseError(res, errMsg);
+      return res.status(403).json({ error: errMsg });
+    }
+
     // Total prompts check — count across ALL brands
     const allPromptsResult = await pool.query(
       `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total

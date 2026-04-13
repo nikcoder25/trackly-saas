@@ -77,10 +77,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const cronSecret = process.env.CRON_SECRET;
   const cronHeader = request.headers.get('x-cron-secret');
   let user: { id: string; email?: string };
+  let isCronCall = false;
 
   if (cronSecret && cronHeader && cronSecret.length === cronHeader.length &&
       crypto.timingSafeEqual(Buffer.from(cronSecret), Buffer.from(cronHeader))) {
     // Internal cron call — resolve brand owner from the brand record
+    isCronCall = true;
     const { id: brandId } = await params;
     const brandRow = await pool.query('SELECT user_id FROM brands WHERE id = $1', [brandId]);
     if (!brandRow.rows.length) return Response.json({ error: 'Brand not found' }, { status: 404 });
@@ -89,6 +91,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const authResult = await requireVerifiedAuth(request, pool);
     if (authResult instanceof Response) return authResult;
     user = authResult;
+
+    // Only admin/owner can trigger manual runs — regular users rely on scheduled runs
+    const roleResult = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
+    const userPlan = roleResult.rows[0]?.plan || 'free';
+    const userRole = roleResult.rows[0]?.role || '';
+    if (userPlan !== 'owner' && userRole !== 'admin') {
+      return Response.json({ error: 'Runs are automated on your plan schedule. Manual runs are not available.' }, { status: 403 });
+    }
   }
 
   const { id } = await params;
