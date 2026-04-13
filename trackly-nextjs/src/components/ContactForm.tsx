@@ -194,7 +194,7 @@ export default function ContactForm() {
       )}
 
       {/* Honeypot field — hidden from real users, bots will fill it */}
-      <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+      <div aria-hidden="true" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
         <label htmlFor="contact-website">Website</label>
         <input
           id="contact-website"

@@ -181,7 +181,7 @@ export default function GeoAuditPage() {
           }}
         >
           <form onSubmit={handleSubmit}>
-            <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+            <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true" tabIndex={-1}>
               <label htmlFor="audit-website">Website</label>
               <input id="audit-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
             </div>
@@ -201,6 +201,7 @@ export default function GeoAuditPage() {
               <input
                 id="auditUrl"
                 type="url"
+                name="url"
                 required
                 placeholder="https://yoursite.com/page"
                 value={url}

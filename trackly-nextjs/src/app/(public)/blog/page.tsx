@@ -152,7 +152,7 @@ export default function BlogPage() {
                   fontSize: 56, fontWeight: 800, color: 'rgba(255,255,255,.2)',
                   fontFamily: 'var(--mono, monospace)', letterSpacing: -2,
                 }}>
-                  {featured.tag}
+                  &#x25C6;
                 </div>
               </div>
               {/* Right: content */}
