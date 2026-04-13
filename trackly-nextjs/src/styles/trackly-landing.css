@@ -2308,13 +2308,13 @@
   outline: none;
   font-family: var(--tl-font);
   font-size: 15px;
-  color: var(--tl-text);
+  color: #0f172a;
   background: transparent;
   min-width: 0;
 }
 
 .tl-email-input::placeholder {
-  color: var(--tl-text-3);
+  color: #94a3b8;
 }
 
 .tl-email-input--error {
