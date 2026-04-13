@@ -100,6 +100,42 @@ function getAvailableChecker(userKeys?: Record<string, string | null>): { type: 
   return null;
 }
 
+/**
+ * Returns ALL available checker configurations across all providers and keys.
+ * Used for fallback: when one key/provider is rate-limited, try the next.
+ * Order: all Gemini keys → all OpenAI keys → all Claude keys → user-provided keys.
+ */
+function getAllAvailableCheckers(userKeys?: Record<string, string | null>): Array<{ type: 'gemini' | 'openai' | 'claude'; key: string; model: string }> {
+  const checkers: Array<{ type: 'gemini' | 'openai' | 'claude'; key: string; model: string }> = [];
+  const usedKeys = new Set<string>();
+
+  const geminiKeys = parseKeys('GEMINI_API_KEY');
+  for (const key of geminiKeys) { checkers.push({ type: 'gemini', key, model: CHECKER_MODELS.gemini }); usedKeys.add(key); }
+
+  const openaiKeys = parseKeys('OPENAI_API_KEY');
+  for (const key of openaiKeys) { checkers.push({ type: 'openai', key, model: CHECKER_MODELS.openai }); usedKeys.add(key); }
+
+  const claudeKeys = parseKeys('CLAUDE_API_KEY');
+  for (const key of claudeKeys) { checkers.push({ type: 'claude', key, model: CHECKER_MODELS.claude }); usedKeys.add(key); }
+
+  // User-provided keys as final fallback (skip duplicates)
+  if (userKeys) {
+    if (userKeys.gemini && !usedKeys.has(userKeys.gemini)) checkers.push({ type: 'gemini', key: userKeys.gemini, model: CHECKER_MODELS.gemini });
+    if (userKeys.openai && !usedKeys.has(userKeys.openai)) checkers.push({ type: 'openai', key: userKeys.openai, model: CHECKER_MODELS.openai });
+    if (userKeys.claude && !usedKeys.has(userKeys.claude)) checkers.push({ type: 'claude', key: userKeys.claude, model: CHECKER_MODELS.claude });
+  }
+
+  return checkers;
+}
+
+function isTransientError(e: Error): boolean {
+  const msg = (e.message || '').toLowerCase();
+  return msg.includes('429') || msg.includes('rate limit') || msg.includes('high demand')
+    || msg.includes('overloaded') || msg.includes('resource exhausted')
+    || msg.includes('aborterror') || msg.includes('timed out') || msg.includes('timeout')
+    || msg.includes('api error 5') || msg.includes('max retries exhausted');
+}
+
 function buildFactCheckPrompt(facts: CanonicalFact[], responseText: string, platform: string): string {
   const factsList = facts.map(f => `- ${f.key} (${f.category}): "${f.value}"`).join('\n');
 
@@ -322,9 +358,9 @@ export async function runFactCheck(
   facts: CanonicalFact[],
   runs: PromptRun[]
 ): Promise<FactCheckResult> {
-  const checker = getAvailableChecker();
+  const checkers = getAllAvailableCheckers();
 
-  if (!checker) {
+  if (checkers.length === 0) {
     return {
       issues: [],
       checkedRuns: 0,
@@ -371,7 +407,20 @@ export async function runFactCheck(
     const results = await Promise.allSettled(
       batch.map(async (run) => {
         const prompt = buildFactCheckPrompt(facts, run.response_raw, run.platform);
-        const responseText = await callChecker(checker, prompt);
+        // Try each checker in order until one succeeds
+        let responseText = '';
+        for (let ci = 0; ci < checkers.length; ci++) {
+          try {
+            responseText = await callChecker(checkers[ci], prompt);
+            break;
+          } catch (e) {
+            if (isTransientError(e as Error) && ci < checkers.length - 1) {
+              console.warn(`[FactCheck] ${checkers[ci].type} failed, trying next checker...`);
+              continue;
+            }
+            throw e;
+          }
+        }
         const findings = parseCheckerResponse(responseText);
         return { run, findings };
       })
@@ -587,8 +636,8 @@ export async function autoDiscoverFacts(
   existingResponses?: string[],
   userApiKeys?: Record<string, string | null>
 ): Promise<AutoDiscoverResult> {
-  const checker = getAvailableChecker(userApiKeys);
-  if (!checker) {
+  const checkers = getAllAvailableCheckers(userApiKeys);
+  if (checkers.length === 0) {
     return { facts: [], error: 'No AI API keys configured. Add API keys in Settings, or set GEMINI_API_KEY, OPENAI_API_KEY, or CLAUDE_API_KEY in your environment.' };
   }
 
@@ -604,56 +653,80 @@ export async function autoDiscoverFacts(
     return { facts: [], error: 'No data sources available. Add a website URL to your brand or run some queries first.' };
   }
 
-  try {
-    const prompt = buildDiscoverPrompt(brandName, websiteText, aiResponses);
-    const raw = await callChecker(checker, prompt);
+  const prompt = buildDiscoverPrompt(brandName, websiteText, aiResponses);
 
-    if (!raw || !raw.trim()) {
-      console.error('[AutoDiscover] AI returned empty response via', checker.type);
-      return { facts: [], error: `AI returned an empty response (${checker.type}). The request may have been blocked. Try again or check your API key.` };
-    }
+  // Try each available checker in order; on transient errors, fall back to next key/provider
+  let lastError: Error | null = null;
+  for (let ci = 0; ci < checkers.length; ci++) {
+    const checker = checkers[ci];
+    try {
+      const raw = await callChecker(checker, prompt);
 
-    const parsed = parseCheckerResponse(raw) as unknown as SuggestedFact[];
+      if (!raw || !raw.trim()) {
+        console.error('[AutoDiscover] AI returned empty response via', checker.type);
+        // Empty response might be a soft block — try next checker if available
+        if (ci < checkers.length - 1) {
+          console.warn(`[AutoDiscover] Trying next checker after empty response from ${checker.type}`);
+          continue;
+        }
+        return { facts: [], error: `AI returned an empty response (${checker.type}). The request may have been blocked. Try again or check your API key.` };
+      }
 
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      console.error('[AutoDiscover] Could not parse facts from response:', raw.slice(0, 200));
-      return { facts: [], error: 'AI could not extract facts from the available data. Try adding more content to your website or running more queries.' };
-    }
+      const parsed = parseCheckerResponse(raw) as unknown as SuggestedFact[];
 
-    // Validate and normalize
-    const validFacts: SuggestedFact[] = [];
-    for (const f of parsed) {
-      if (!f.key || !f.value) continue;
-      validFacts.push({
-        key: String(f.key).toLowerCase().replace(/\s+/g, '_').slice(0, 50),
-        value: String(f.value).slice(0, 500),
-        category: ['general', 'pricing', 'features', 'company'].includes(f.category) ? f.category : 'general',
-        source: f.source === 'ai_responses' ? 'ai_responses' : 'website',
-        confidence: ['high', 'medium', 'low'].includes(f.confidence) ? f.confidence : 'medium',
-      });
-    }
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        console.error('[AutoDiscover] Could not parse facts from response:', raw.slice(0, 200));
+        return { facts: [], error: 'AI could not extract facts from the available data. Try adding more content to your website or running more queries.' };
+      }
 
-    // Sort: high confidence first
-    const confOrder = { high: 0, medium: 1, low: 2 };
-    validFacts.sort((a, b) => confOrder[a.confidence] - confOrder[b.confidence]);
+      // Validate and normalize
+      const validFacts: SuggestedFact[] = [];
+      for (const f of parsed) {
+        if (!f.key || !f.value) continue;
+        validFacts.push({
+          key: String(f.key).toLowerCase().replace(/\s+/g, '_').slice(0, 50),
+          value: String(f.value).slice(0, 500),
+          category: ['general', 'pricing', 'features', 'company'].includes(f.category) ? f.category : 'general',
+          source: f.source === 'ai_responses' ? 'ai_responses' : 'website',
+          confidence: ['high', 'medium', 'low'].includes(f.confidence) ? f.confidence : 'medium',
+        });
+      }
 
-    return { facts: validFacts };
-  } catch (e) {
-    const msg = (e as Error).message || '';
-    console.error('[AutoDiscover]', msg);
-    // Return specific error messages so users know what went wrong
-    if (msg.includes('AbortError') || msg.includes('timed out') || msg.includes('timeout')) {
-      return { facts: [], error: 'AI request timed out. Please try again — this is usually temporary.' };
+      // Sort: high confidence first
+      const confOrder = { high: 0, medium: 1, low: 2 };
+      validFacts.sort((a, b) => confOrder[a.confidence] - confOrder[b.confidence]);
+
+      return { facts: validFacts };
+    } catch (e) {
+      lastError = e as Error;
+      const msg = (e as Error).message || '';
+
+      // On transient errors, try next checker if available
+      if (isTransientError(e as Error) && ci < checkers.length - 1) {
+        console.warn(`[AutoDiscover] ${checker.type} failed (${msg.slice(0, 80)}), falling back to next checker...`);
+        continue;
+      }
+
+      // Final checker or non-transient error — return user-friendly message
+      console.error('[AutoDiscover]', msg);
+      if (msg.includes('AbortError') || msg.includes('timed out') || msg.includes('timeout')) {
+        return { facts: [], error: 'AI request timed out. Please try again — this is usually temporary.' };
+      }
+      if (msg.includes('high demand') || msg.includes('overloaded') || msg.includes('resource exhausted')) {
+        return { facts: [], error: 'AI service is experiencing high demand. Please try again in a few moments.' };
+      }
+      if (msg.includes('API error 401') || msg.includes('invalid') || msg.includes('Unauthorized')) {
+        return { facts: [], error: 'API key is invalid or expired. Check your API keys in Settings.' };
+      }
+      if (msg.includes('API error 429') || msg.includes('rate limit')) {
+        return { facts: [], error: 'Rate limit reached. Please wait a moment and try again.' };
+      }
+      return { facts: [], error: `Failed to auto-discover facts: ${msg.slice(0, 120)}. Please try again.` };
     }
-    if (msg.includes('high demand') || msg.includes('overloaded') || msg.includes('resource exhausted')) {
-      return { facts: [], error: 'AI service is experiencing high demand. Please try again in a few moments.' };
-    }
-    if (msg.includes('API error 401') || msg.includes('invalid') || msg.includes('Unauthorized')) {
-      return { facts: [], error: 'API key is invalid or expired. Check your API keys in Settings.' };
-    }
-    if (msg.includes('API error 429') || msg.includes('rate limit')) {
-      return { facts: [], error: 'Rate limit reached. Please wait a moment and try again.' };
-    }
-    return { facts: [], error: `Failed to auto-discover facts: ${msg.slice(0, 120)}. Please try again.` };
   }
+
+  // All checkers exhausted with transient errors
+  const msg = lastError?.message || 'All AI services unavailable';
+  console.error('[AutoDiscover] All checkers exhausted:', msg);
+  return { facts: [], error: 'All AI services are currently busy. Please try again in a few moments.' };
 }
