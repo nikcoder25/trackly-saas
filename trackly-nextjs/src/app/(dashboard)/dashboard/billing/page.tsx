@@ -26,7 +26,7 @@ const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
   { feature: 'Total queries',    free: '5',   starter: '50',  pro: '250',  agency: '2,000', owner: '∞' },
   { feature: 'Competitors',      free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
-  { feature: 'Platforms',        free: '2',   starter: '2',   pro: '5',    agency: '5',    owner: '5' },
+  { feature: 'Platforms',        free: '2',   starter: '2',   pro: '6',    agency: '6',    owner: '6' },
   { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
   { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
   { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
@@ -35,9 +35,9 @@ const PLAN_FEATURES: Record<string, string | undefined>[] = [
 
 const METER_TOOLTIPS: Record<string, string> = {
   'Brands': 'Active brands: unlimited brands on all plans.',
-  'Queries': 'Total queries: the total number of search queries you can run across all brands per month.',
+  'Queries': 'Total queries: the total number of tracked queries across all brands combined.',
   'Runs This Month': 'Monthly runs: how many visibility scans you can perform across all brands per rolling 30-day period.',
-  'Competitors': 'Competitors per brand: the number of competitor brands you can track alongside each of your brands.',
+  'Competitors': 'Competitors: the total number of competitor brands you can track across all brands combined.',
   'Platforms': 'AI platforms tracked: the number of AI platforms (ChatGPT, Gemini, etc.) monitored per run.',
   'GEO Audits': 'GEO audits per month: the number of geographic URL audits you can perform monthly.',
 };
@@ -108,11 +108,22 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (brandsLoading) return;
-    const b = selectedBrand as Record<string, unknown>;
     setBrandCount(brands.length);
-    setQueryCount(b?.queries ? (b.queries as string[]).length : 0);
-    setCompetitorCount(b?.competitors ? (b.competitors as string[]).length : 0);
-    setPlatformCount((b?.selected_platforms as string[] || []).length || (Object.keys((b?.runs as Record<string, unknown>[] || []).slice(-1)[0]?.platforms as Record<string, unknown> || {}).length) || 0);
+
+    // Count queries and competitors across ALL brands (these are total limits, not per-brand)
+    let totalQueries = 0;
+    let totalCompetitors = 0;
+    let maxPlatformCount = 0;
+    for (const brand of brands) {
+      const b = brand as Record<string, unknown>;
+      totalQueries += b?.queries ? (b.queries as string[]).length : 0;
+      totalCompetitors += b?.competitors ? (b.competitors as string[]).length : 0;
+      const platCount = (b?.selected_platforms as string[] || []).length;
+      if (platCount > maxPlatformCount) maxPlatformCount = platCount;
+    }
+    setQueryCount(totalQueries);
+    setCompetitorCount(totalCompetitors);
+    setPlatformCount(maxPlatformCount);
     setGeoAuditCount(0);
 
     // Fetch actual monthly run count from brand data
@@ -184,10 +195,10 @@ export default function BillingPage() {
 
   const meters: UsageMeter[] = [
     { label: 'Brands',            sublabel: 'Active brands',                 used: brandCount,      max: limits.brands,       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
-    { label: 'Queries',           sublabel: 'Per brand (current)',           used: queryCount,       max: limits.queries,      icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
+    { label: 'Queries',           sublabel: 'Total across all brands',       used: queryCount,       max: limits.queries,      icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
     { label: 'Runs This Month',   sublabel: resetDate ? `Resets ${resetDate}` : 'Rolling 30 days', used: runsUsed,           max: limits.runsPerMonth, icon: '▶', color: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1, #818cf8)' },
-    { label: 'Competitors',       sublabel: 'Per brand (current)',           used: competitorCount,  max: limits.competitors,  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
-    { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount || 5, max: limits.platforms,    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
+    { label: 'Competitors',       sublabel: 'Total across all brands',      used: competitorCount,  max: limits.competitors,  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
+    { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount,    max: limits.platforms,    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
     { label: 'GEO Audits',        sublabel: 'This month',                   used: geoAuditCount,    max: limits.geoAudits,    icon: '◉', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
   ];
 
