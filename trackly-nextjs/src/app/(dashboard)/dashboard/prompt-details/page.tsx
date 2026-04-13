@@ -98,9 +98,9 @@ export default function PromptDetailsPage() {
 
   function exportCSV() {
     if (queryResults.length === 0) return;
-    const headers = ['Date', 'Platform', 'Model', 'Query', 'Mentioned', 'Sentiment', 'Position'];
+    const headers = ['Date', 'Platform', 'Query', 'Mentioned', 'Sentiment', 'Position'];
     const rows = queryResults.map(r => [
-      r.date || '', r.platform, r.model || '', r.query,
+      r.date || '', r.platform, r.query,
       r.mentioned ? 'Yes' : 'No', r.sentiment || '', String(r.listPosition || r.position || ''),
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -314,7 +314,6 @@ export default function PromptDetailsPage() {
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
                 <th className="th">Platform</th>
                 <th className="th">Date</th>
-                <th className="th">Model</th>
                 <th className="th">Found</th>
                 <th className="th">Sentiment</th>
                 <th className="th">Actions</th>
@@ -326,13 +325,12 @@ export default function PromptDetailsPage() {
                 <tr className="trow">
                   <td className="td"><span className="pd-run-plat" style={{ color: PLATFORM_COLORS[r.platform] || 'var(--text)' }}>{r.platform}</span></td>
                   <td className="td pd-run-date">{formatDate(r.runDate)}</td>
-                  <td className="td pd-run-model" title={r.model || ''} style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.model || '—'}</td>
                   <td className="td pd-run-mentioned"><span style={{ color: r.mentioned ? 'var(--green)' : 'var(--red)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 10 }}>{r.mentioned ? 'YES' : 'NO'}</span></td>
                   <td className="td pd-run-sent" style={{ color: r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)' }}>{r.sentiment || 'neutral'}</td>
                   <td className="td pd-run-view"><span onClick={() => setExpandedRun(expandedRun === i ? null : i)} style={{ color: 'var(--primary)', cursor: 'pointer', fontSize: 11 }}>{expandedRun === i ? 'Hide ▲' : 'View details →'}</span></td>
                 </tr>
                 {expandedRun === i && (
-                  <tr><td colSpan={6} style={{ padding: '12px 16px', background: 'var(--bg)', fontSize: 12, lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderBottom: '1px solid var(--border)' }}>
+                  <tr><td colSpan={5} style={{ padding: '12px 16px', background: 'var(--bg)', fontSize: 12, lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderBottom: '1px solid var(--border)' }}>
                     {r.snippet || r.response || r.raw || r.context || <span style={{ color: 'var(--muted)' }}>No response text available.</span>}
                   </td></tr>
                 )}
