@@ -655,6 +655,7 @@ async function setupAiGenerateQueries(){
       brandName: b.name,
       industry: b.industry,
       city: b.city || '',
+      website: b.website || '',
       existingQueries: b.queries || []
     });
     const suggestions = data.queries || [];

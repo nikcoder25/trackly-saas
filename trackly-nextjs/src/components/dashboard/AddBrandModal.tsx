@@ -69,7 +69,7 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
     try {
       const res = await fetch('/api/ai-generate-queries', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries, mode: 'suggest' }),
+        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', website: website || '', existingQueries: queries, mode: 'suggest' }),
       });
       if (!res.ok) throw new Error('API error');
       const data = await res.json();
@@ -92,7 +92,7 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
     try {
       const res = await fetch('/api/ai-generate-queries', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries }),
+        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', website: website || '', existingQueries: queries }),
       });
       if (!res.ok) throw new Error('API error');
       const data = await res.json();

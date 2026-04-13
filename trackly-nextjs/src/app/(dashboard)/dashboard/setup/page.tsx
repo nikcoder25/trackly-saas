@@ -334,7 +334,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setAiGenerating(true); setError('');
     try {
       const data = await api('POST', '/api/ai-generate-queries', {
-        brandName: name, industry, city, existingQueries: queries,
+        brandName: name, industry, city, website, existingQueries: queries,
       });
       const suggestions: string[] = data.queries || [];
       if (!suggestions.length) { setError('AI could not generate queries. Try again.'); setAiGenerating(false); return; }

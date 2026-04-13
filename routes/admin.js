@@ -467,7 +467,7 @@ const aiLimiter = rateLimit({
 
 // AI-powered query generation
 router.post('/ai-generate-queries', auth, aiLimiter, async (req, res) => {
-  const { brandName, industry, city, existingQueries } = req.body;
+  const { brandName, industry, city, website, existingQueries } = req.body;
   if (!brandName || !industry) return res.status(400).json({ error: 'Brand name and industry are required' });
 
   const keys = getServerKeys();
@@ -483,18 +483,36 @@ router.post('/ai-generate-queries', auth, aiLimiter, async (req, res) => {
     ? `\n\nAlready tracked queries (do NOT repeat these):\n${existingQueries.join('\n')}`
     : '';
 
-  const prompt = `Generate 10-15 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
+  const websiteLine = website ? `Website: ${website}` : '';
 
-These queries will be used to track whether the brand "${brandName}" appears in AI responses.
+  const prompt = `Act as an AI SEO expert specializing in GEO (Generative Engine Optimization) and AI brand visibility tracking. Analyze the following business and generate exactly 10 AI prompts/queries that should be tracked on AI platforms (ChatGPT, Perplexity, Google AI Overviews) to monitor whether this brand is being mentioned or recommended.
 
-Requirements:
-- Mix of general queries ("best ${industry} in ${city || 'my area'}") and specific queries ("affordable", "top rated", "most recommended", "near me")
-- Include different question styles: "who is the best...", "recommend a...", "top 5...", "which company..."
-- Include queries with and without location
-- Make them natural — how real people actually ask AI chatbots
-- Return ONLY a JSON array of strings, nothing else${existingList}
+Business Name: ${brandName}
+Industry/Services: ${industry}
+${city ? 'Primary Location: ' + city : ''}
+${websiteLine}
 
-Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${industry} company"]`;
+Instructions:
+
+1. Based on the business details above${website ? ' and the website URL' : ''}, understand the business name, services offered, service areas/locations, unique differentiators, and niche specializations.
+
+2. Generate exactly 10 prompts across these categories:
+   - Branded queries (1): Does AI know this business exists?
+   - Local intent for primary market (2): High-intent service queries for their main city/area
+   - Local intent for secondary markets (1-2): Key queries for other cities they serve
+   - Service-specific queries (2): Focused on their core and niche services
+   - Comparison/recommendation queries (2): Prompts where AI recommends or lists businesses
+   - Conversational/voice queries (1-2): Natural language queries mimicking how real users ask AI for help
+
+3. Prioritize prompts that:
+   - Have real commercial intent (someone looking to hire or buy)
+   - Focus on their strongest differentiators and niche services
+   - Cover their top geographic markets by importance
+   - Include the exact business name in branded queries only
+
+4. Return ONLY a JSON array of exactly 10 prompt strings. No tables, no extra columns, no explanations. Just the JSON array.${existingList}
+
+Example format: ["best ${industry} in ${city || 'my area'}", "who is the best ${industry} company near me"]`;
 
   try {
     const { queryAI } = require('../lib/ai-platforms');
@@ -510,7 +528,7 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
       queries = JSON.parse(jsonMatch[0])
         .filter(q => typeof q === 'string' && q.trim().length > 0)
         .map(q => q.trim())
-        .slice(0, 15);
+        .slice(0, 10);
     } catch(_) {
       return res.status(500).json({ error: 'AI returned malformed JSON. Please try again.' });
     }
