@@ -24,10 +24,10 @@ const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
   { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
   { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
-  { feature: 'Total queries',    free: '5',   starter: '50',  pro: '250',  agency: '2,000', owner: '∞' },
-  { feature: 'Competitors',      free: '0',   starter: '3',   pro: '10',   agency: '30',   owner: '∞' },
+  { feature: 'Tracked queries',  free: '5',   starter: '30',  pro: '100',  agency: '500',  owner: '∞' },
+  { feature: 'Competitors',      free: '0',   starter: '3',   pro: '8',    agency: '20',   owner: '∞' },
   { feature: 'Platforms',        free: '2',   starter: '2',   pro: '6',    agency: '6',    owner: '6' },
-  { feature: 'GEO Audits',       free: '3',   starter: '25',  pro: '100',  agency: '500',  owner: '∞' },
+  { feature: 'GEO Audits',       free: '3',   starter: '20',  pro: '75',   agency: '300',  owner: '∞' },
   { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
   { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
   { feature: 'Priority Support', free: '—',   starter: '—',   pro: '✓',    agency: '✓',    owner: '✓' },
@@ -35,8 +35,7 @@ const PLAN_FEATURES: Record<string, string | undefined>[] = [
 
 const METER_TOOLTIPS: Record<string, string> = {
   'Brands': 'Active brands: unlimited brands on all plans.',
-  'Queries': 'Total queries: the total number of tracked queries across all brands combined.',
-  'Runs This Month': 'Monthly runs: how many visibility scans you can perform across all brands per rolling 30-day period.',
+  'Queries': 'Tracked queries: the total number of tracked queries across all brands combined.',
   'Competitors': 'Competitors: the total number of competitor brands you can track across all brands combined.',
   'Platforms': 'AI platforms tracked: the number of AI platforms (ChatGPT, Gemini, etc.) monitored per run.',
   'GEO Audits': 'GEO audits per month: the number of geographic URL audits you can perform monthly.',
@@ -196,15 +195,14 @@ export default function BillingPage() {
   const meters: UsageMeter[] = [
     { label: 'Brands',            sublabel: 'Active brands',                 used: brandCount,      max: limits.brands,       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
     { label: 'Queries',           sublabel: 'Total across all brands',       used: queryCount,       max: limits.queries,      icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
-    { label: 'Runs This Month',   sublabel: resetDate ? `Resets ${resetDate}` : 'Rolling 30 days', used: runsUsed,           max: limits.runsPerMonth, icon: '▶', color: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1, #818cf8)' },
     { label: 'Competitors',       sublabel: 'Total across all brands',      used: competitorCount,  max: limits.competitors,  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
     { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount,    max: limits.platforms,    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
     { label: 'GEO Audits',        sublabel: 'This month',                   used: geoAuditCount,    max: limits.geoAudits,    icon: '◉', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
   ];
 
-  // Separate runs meter for hero ring display
-  const runsMeter = meters[2];
-  const otherMeters = meters.filter((_, i) => i !== 2);
+  // Use queries meter for hero ring display (most relevant usage indicator)
+  const runsMeter = meters[1]; // Queries meter
+  const otherMeters = meters.filter((_, i) => i !== 1);
   const runsStatus = getStatus(runsMeter.used, runsMeter.max);
   const runsIsUnlimited = runsStatus === 'unlimited';
   const runsPct = runsIsUnlimited ? 0 : runsMeter.max > 0 ? Math.min((runsMeter.used / runsMeter.max) * 100, 100) : 0;

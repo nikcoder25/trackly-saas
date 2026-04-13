@@ -73,7 +73,7 @@ const jsonLd = [
       { '@type': 'Question', name: 'Which AI platforms does Livesov support?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov tracks your brand across 6 AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), and Google AI Overviews (DataForSEO).' } },
       { '@type': 'Question', name: 'What is Share of Voice in AI?', acceptedAnswer: { '@type': 'Answer', text: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked.' } },
       { '@type': 'Question', name: 'What is Generative Engine Optimization (GEO)?', acceptedAnswer: { '@type': 'Answer', text: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers.' } },
-      { '@type': 'Question', name: 'How much does Livesov cost?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan to get started. Paid plans start at $9/mo (Starter) with 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' } },
+      { '@type': 'Question', name: 'How much does Livesov cost?', acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms. Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries and 6 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' } },
     ],
   },
   {

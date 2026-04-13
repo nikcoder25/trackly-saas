@@ -57,11 +57,11 @@ async function renderBilling() {
     const cardsEl = el('billing-plan-cards');
     const tiers = ['free','starter','pro','agency','enterprise'];
     const planPricing = [
-      { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> total queries/month', 'Unlimited brands', '2 AI platforms', 'Basic SOV tracking'] },
-      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>50</strong> total queries/month', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
-      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (5)', 'Sentiment analysis'] },
-      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>2,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
-      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>50,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+      { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> tracked queries', 'Unlimited brands', '2 AI platforms', 'Basic SOV tracking'] },
+      { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>30</strong> tracked queries', 'Unlimited brands', '2 AI platforms', 'Competitor tracking (3)', 'Sentiment analysis'] },
+      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>100</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>500</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'enterprise', name: 'Enterprise', price: 'Custom', period: '', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>50,000</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
     ];
     cardsEl.innerHTML = `
       <div class="billing-cards-header">
@@ -98,7 +98,7 @@ async function renderBilling() {
       starter: { label: 'Starter', price: '$9', color: '#f59e0b' },
       pro: { label: 'Pro', price: '$29', color: '#4f46e5' },
       agency: { label: 'Agency', price: '$89', color: '#7c3aed' },
-      enterprise: { label: 'Enterprise', price: '$499', color: '#9b72ff' },
+      enterprise: { label: 'Enterprise', price: 'Custom', color: '#9b72ff' },
       owner: { label: 'Owner', price: '—', color: '#059669' }
     };
     const isActive = (p) => p === plan;
@@ -110,7 +110,7 @@ async function renderBilling() {
     };
     const unlimitedCell = (p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">Unlimited</span></td>`;
     const features = [
-      { label: 'Total Queries / Month', icon: '&#9889;', key: 'prompts', type: 'num' },
+      { label: 'Tracked Queries', icon: '&#9889;', key: 'prompts', type: 'num' },
       { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'unlimited' },
       { label: 'Competitors', icon: '&#9878;', key: 'competitors', type: 'num' },
       { label: 'Platforms', icon: '&#9881;', key: 'platforms', type: 'num' },

@@ -141,7 +141,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Per-brand query limit check
     if (safeBody.queries && (safeBody.queries as string[]).length > limits.queries) {
-      return Response.json({ error: `Your ${plan} plan allows up to ${limits.queries} queries per brand. Upgrade for more.`, planLimit: true }, { status: 403 });
+      return Response.json({ error: `Your ${plan} plan allows up to ${limits.queries} total queries. Upgrade for more.`, planLimit: true }, { status: 403 });
     }
 
     if (safeBody.competitors && (safeBody.competitors as string[]).length > limits.competitors) {
