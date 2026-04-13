@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const status = url.searchParams.get('status');
     const severity = url.searchParams.get('severity');
 
-    let query = `SELECT id, brand_id, prompt, type, title, description, severity, category, status, playbook_id, payload, created_at
+    let query = `SELECT id, brand_id, prompt, type, title, description, severity, status, playbook_id, payload, created_at
                  FROM recommendations WHERE brand_id = $1`;
     const values: unknown[] = [id];
     let idx = 2;

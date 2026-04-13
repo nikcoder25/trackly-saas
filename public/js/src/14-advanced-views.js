@@ -713,43 +713,4 @@ async function renderCitationAnalysis() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// COPILOT VIEW (Epic 8.3)
-// ═══════════════════════════════════════════════════════════════════
-async function askCopilot() {
-  const b = brand();
-  if (!b) return;
-  const input = el('copilot-input');
-  const question = input.value.trim();
-  if (!question) return;
-  input.value = '';
-
-  const historyEl = el('copilot-history');
-  // Add user question bubble (right-aligned)
-  historyEl.innerHTML += `
-    <div style="display:flex;gap:10px;align-items:flex-start;flex-direction:row-reverse;">
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;">U</div>
-      <div style="background:var(--blue);color:#fff;padding:12px 16px;border-radius:12px 12px 4px 12px;font-size:12px;max-width:80%;">${esc(question)}</div>
-    </div>`;
-  // Scroll to bottom
-  historyEl.scrollTop = historyEl.scrollHeight;
-
-  try {
-    const data = await api('POST', `/api/brands/${b.id}/copilot`, { question });
-    historyEl.innerHTML += `
-      <div style="display:flex;gap:10px;align-items:flex-start;">
-        <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;">&#9672;</div>
-        <div style="background:var(--bg3);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.6;max-width:80%;">${mdToHtml(data.answer)}</div>
-      </div>`;
-    historyEl.scrollTop = historyEl.scrollHeight;
-  } catch(e) {
-    historyEl.innerHTML += `
-      <div style="display:flex;gap:10px;align-items:flex-start;">
-        <div style="width:28px;height:28px;border-radius:50%;background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:var(--red);">!</div>
-        <div style="background:rgba(239,68,68,.05);padding:12px 16px;border-radius:12px 12px 12px 4px;font-size:12px;max-width:80%;border:1px solid rgba(239,68,68,.2);">${esc(e.message)}</div>
-      </div>`;
-    historyEl.scrollTop = historyEl.scrollHeight;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
 // BILLING VIEW (Epic 7.1-7.2)
