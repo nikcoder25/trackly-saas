@@ -476,7 +476,6 @@ export default function DashboardPage() {
                     <span style={{ color: PLATFORM_COLORS[r.platform] || 'var(--muted)', marginRight: 6 }}>{r.platform}</span>
                     {r.query}
                   </div>
-                  {r.model && <div style={{ fontSize: 9, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{r.model}</div>}
                 </div>
                 <span style={{
                   fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
@@ -554,7 +553,75 @@ export default function DashboardPage() {
       </div>}
 
       {/* LAST RUN */}
-      {show('lastrun')&&lastRun&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">Last Run — {fmtDate(lastRun.date)}</div><div style={{display:'flex',gap:12,alignItems:'center'}}><span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}}>Found {totalM}/{totalQ}</span><Link href="/dashboard/mentions" style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--primary)',textDecoration:'none'}}>View All Results →</Link></div></div></div>}
+      {show('lastrun')&&lastRun&&(()=>{
+        const lr = lastRun;
+        const lrSov = lr.sov || 0;
+        const lrFound = lr.totalM || 0;
+        const lrTotal = lr.totalQ || 0;
+        const lrPlats = lr.platforms || {};
+        const lrDuration = lr.durationMs;
+        const lrSent = lr.sentiment || { positive: posCount, neutral: neuCount, negative: negCount };
+        const lrErrors = Object.values(lrPlats).reduce((s, p) => s + normPlatform(p).errors, 0);
+        const lrPlatEntries = Object.entries(lrPlats).filter(([, pd]) => normPlatform(pd).total > 0);
+        return (
+        <div className="ov-card">
+          <div className="ov-card-head">
+            <div className="ov-card-title">Last Run — {fmtDate(lr.date)}</div>
+            <div style={{display:'flex',gap:12,alignItems:'center'}}>
+              <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}}>{lastRunAge}</span>
+              <Link href="/dashboard/proof" style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--primary)',textDecoration:'none'}}>View All Results →</Link>
+            </div>
+          </div>
+          {/* Summary stats row */}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:10,marginTop:12}}>
+            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:lrSov>=50?'var(--green)':lrSov>0?'var(--amber)':'var(--red)'}}>{lrSov}%</div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>SOV</div>
+            </div>
+            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)'}}>{lrFound}<span style={{color:'var(--muted)',fontSize:13,fontWeight:500}}>/{lrTotal}</span></div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Found</div>
+            </div>
+            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)'}}>{lrPlatEntries.length}</div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Platforms</div>
+            </div>
+            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)'}}>{fmtDuration(lrDuration)}</div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Duration</div>
+            </div>
+            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
+              <div style={{display:'flex',gap:4,alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontFamily:'var(--mono)',fontSize:14,fontWeight:800,color:'var(--green)'}}>{(lrSent as Record<string,number>).positive||0}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)'}}>{(lrSent as Record<string,number>).neutral||0}</span>
+                <span style={{fontFamily:'var(--mono)',fontSize:14,fontWeight:800,color:'var(--red)'}}>{(lrSent as Record<string,number>).negative||0}</span>
+              </div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Sentiment</div>
+            </div>
+            {lrErrors>0&&<div style={{textAlign:'center',padding:'10px 6px',background:'rgba(239,68,68,.04)',borderRadius:'var(--radius-xs)',border:'1px solid rgba(239,68,68,.15)'}}>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--red)'}}>{lrErrors}</div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--red)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Errors</div>
+            </div>}
+          </div>
+          {/* Per-platform breakdown */}
+          {lrPlatEntries.length>0&&<div style={{marginTop:12}}>
+            <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:8}}>Platform Results</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {lrPlatEntries.map(([name, pd]) => {
+                const n = normPlatform(pd);
+                const pColor = n.sov>=50?'var(--green)':n.sov>0?'var(--amber)':'var(--red)';
+                return <div key={name} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',background:'var(--bg)',border:'1px solid var(--border)',borderRadius:100,fontSize:11}}>
+                  <span style={{width:8,height:8,borderRadius:'50%',background:PLATFORM_COLORS[name]||'#888',flexShrink:0}}/>
+                  <span style={{fontWeight:600,color:'var(--text)'}}>{name}</span>
+                  <span style={{fontFamily:'var(--mono)',fontWeight:700,color:pColor,fontSize:10}}>{n.mentions}/{n.total}</span>
+                  {n.errors>0&&<span style={{fontFamily:'var(--mono)',fontWeight:700,color:'var(--red)',fontSize:10}}>{n.errors} err</span>}
+                </div>;
+              })}
+            </div>
+          </div>}
+        </div>
+        );
+      })()}
 
       {/* TRACKED QUERIES */}
       {show('queries')&&<div className="ov-card" style={{marginBottom:0}}><div className="ov-card-head"><div className="ov-card-title">Tracked Queries</div><div className="ov-card-sub">{queries.length} / {planLimit>1000?'∞':planLimit} prompts</div></div>
