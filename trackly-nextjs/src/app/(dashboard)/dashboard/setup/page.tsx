@@ -240,6 +240,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const copyAllQueries = async () => {
+    if (!queries.length) return;
+    try {
+      await navigator.clipboard.writeText(queries.join('\n'));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch { /* fallback */ }
+  };
 
   useEffect(() => {
     setName(brand.name); setIndustry(brand.industry || ''); setWebsite(brand.website || '');
@@ -432,10 +442,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
                 </>
               )}
               {!selectMode && (
-                <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }}
-                  style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>
-                  CLEAR ALL
-                </button>
+                <>
+                  <button type="button" onClick={copyAllQueries} disabled={!queries.length}
+                    style={{ background: 'none', border: '1px solid var(--primary)', color: copySuccess ? 'var(--green)' : 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: queries.length ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-xs)', opacity: queries.length ? 1 : 0.4, borderColor: copySuccess ? 'var(--green)' : undefined }}>
+                    {copySuccess ? '✓ COPIED' : '⧉ COPY ALL'}
+                  </button>
+                  <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }}
+                    style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>
+                    CLEAR ALL
+                  </button>
+                </>
               )}
             </div>
 
