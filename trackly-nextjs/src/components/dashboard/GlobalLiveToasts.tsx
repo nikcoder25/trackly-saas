@@ -1,19 +1,34 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
 import { PLATFORM_COLORS } from '@/lib/constants';
+
+const AUTO_DISMISS_MS = 4000;
+const FADE_OUT_MS = 500;
 
 /**
  * Global live result toasts — shown as fixed bottom-right cards
  * across ALL dashboard pages when a query run is active.
- * Each new result slides in and auto-dismisses after 4s.
+ * Each new result slides in and auto-dismisses after a few seconds.
  */
 export default function GlobalLiveToasts() {
   const { live } = useRun();
   const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
+  const [fadingIds, setFadingIds] = useState<Set<number>>(new Set());
   const toastIdRef = useRef(0);
   const lastCountRef = useRef(0);
+  const timersRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+
+  const startFadeAndDismiss = useCallback((id: number) => {
+    setFadingIds(prev => new Set(prev).add(id));
+    const removeTimer = setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+      setFadingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+      timersRef.current.delete(id);
+    }, FADE_OUT_MS);
+    timersRef.current.set(id, removeTimer);
+  }, []);
 
   useEffect(() => {
     if (live.results.length <= lastCountRef.current) return;
@@ -21,12 +36,19 @@ export default function GlobalLiveToasts() {
     lastCountRef.current = live.results.length;
     const newToasts = newResults.map(r => ({ ...r, id: ++toastIdRef.current }));
     setToasts(prev => [...prev, ...newToasts].slice(-6));
-    const ids = newToasts.map(t => t.id);
-    const timer = setTimeout(() => {
-      setToasts(prev => prev.filter(t => !ids.includes(t.id)));
-    }, 3500);
-    return () => clearTimeout(timer);
-  }, [live.results.length]);
+
+    // Schedule individual auto-dismiss for each new toast
+    newToasts.forEach(t => {
+      const fadeTimer = setTimeout(() => startFadeAndDismiss(t.id), AUTO_DISMISS_MS);
+      timersRef.current.set(t.id, fadeTimer);
+    });
+  }, [live.results.length, startFadeAndDismiss]);
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => { timers.forEach(t => clearTimeout(t)); timers.clear(); };
+  }, []);
 
   // Reset counter when run finishes
   useEffect(() => {
@@ -37,8 +59,18 @@ export default function GlobalLiveToasts() {
 
   if (toasts.length === 0) return null;
 
-  const dismissOne = (id: number) => setToasts(prev => prev.filter(t => t.id !== id));
-  const dismissAll = () => setToasts([]);
+  const dismissOne = (id: number) => {
+    const existing = timersRef.current.get(id);
+    if (existing) clearTimeout(existing);
+    startFadeAndDismiss(id);
+  };
+  const dismissAll = () => {
+    timersRef.current.forEach(t => clearTimeout(t));
+    timersRef.current.clear();
+    const ids = toasts.map(t => t.id);
+    setFadingIds(new Set(ids));
+    setTimeout(() => { setToasts([]); setFadingIds(new Set()); }, FADE_OUT_MS);
+  };
 
   return (
     <>
@@ -65,7 +97,8 @@ export default function GlobalLiveToasts() {
             display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
             background: 'var(--bg2)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius-xs)', boxShadow: '0 4px 12px rgba(0,0,0,.15)',
-            minWidth: 280, maxWidth: 380, animation: 'globalToastIn .35s ease',
+            minWidth: 280, maxWidth: 380,
+            animation: fadingIds.has(t.id) ? `globalToastOut ${FADE_OUT_MS}ms ease forwards` : 'globalToastIn .35s ease',
             pointerEvents: 'auto',
             borderLeft: `3px solid ${t.error ? 'var(--amber)' : t.mentioned ? 'var(--green)' : 'var(--red)'}`,
           }}>
@@ -104,6 +137,10 @@ export default function GlobalLiveToasts() {
         @keyframes globalToastIn {
           from { opacity: 0; transform: translateX(40px); }
           to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes globalToastOut {
+          from { opacity: 1; transform: translateX(0); }
+          to { opacity: 0; transform: translateX(40px); }
         }
       `}</style>
     </>
