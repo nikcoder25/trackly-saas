@@ -14,6 +14,10 @@ const PLATFORM_KEY_MAP: Record<string, string> = {
   Gemini: 'gemini', Grok: 'grok', 'Google AI Overviews': 'dataforseo',
 };
 const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
+const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
+  starter: ['ChatGPT', 'Claude'],
+  free:    ['Gemini', 'Grok'],
+};
 const FAIL_THRESHOLD = 5;
 
 function parseKeys(envVar: string): string[] {
@@ -122,10 +126,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const userKeys = decryptApiKeys(planResult.rows[0]?.api_keys || {});
   const serverKeys = getServerKeys();
 
-  const activePlatforms = PLATFORMS.filter(p => {
+  let availablePlatforms = PLATFORMS.filter(p => {
     const keyName = PLATFORM_KEY_MAP[p];
     return (serverKeys[keyName]?.length || userKeys[keyName]) ? true : false;
-  }).slice(0, limits.platforms);
+  });
+  const planDefaults = PLAN_DEFAULT_PLATFORMS[ownerPlan];
+  if (planDefaults) {
+    const preferred = planDefaults.filter(p => availablePlatforms.includes(p));
+    if (preferred.length) availablePlatforms = preferred;
+  }
+  const activePlatforms = availablePlatforms.slice(0, limits.platforms);
 
   if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
 

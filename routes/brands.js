@@ -101,6 +101,12 @@ const PLATFORM_COST_ORDER = [
   'ChatGPT'      // gpt-5-search: $2.50/$10.00
 ];
 
+// Plan-specific default platforms (override cost-order for specific plans)
+const PLAN_DEFAULT_PLATFORMS = {
+  starter: ['ChatGPT', 'Claude'],
+  free:    ['Gemini', 'Grok'],
+};
+
 // List brands (includes team-shared brands)
 router.get('/', auth, async (req, res) => {
   try {
@@ -445,7 +451,14 @@ router.post('/:id/run', auth, async (req, res) => {
       .map(([plat]) => plat)
       .filter(plat => enabledPlatforms[plat] !== false);
 
-    availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+    // Use plan-specific platforms if defined, otherwise fall back to cost-order
+    const planDefaults = PLAN_DEFAULT_PLATFORMS[plan];
+    if (planDefaults) {
+      const preferred = planDefaults.filter(p => availablePlatforms.includes(p));
+      if (preferred.length) availablePlatforms = preferred;
+    } else {
+      availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+    }
     if (availablePlatforms.length > limits.platforms) availablePlatforms = availablePlatforms.slice(0, limits.platforms);
 
     if (!availablePlatforms.length) {
@@ -1106,7 +1119,13 @@ router.get('/:id/cost-estimate', auth, async (req, res) => {
       .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
       .map(([plat]) => plat)
       .filter(plat => enabledPlatforms[plat] !== false);
-    activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+    const planDefaults2 = PLAN_DEFAULT_PLATFORMS[plan];
+    if (planDefaults2) {
+      const preferred = planDefaults2.filter(p => activePlatforms.includes(p));
+      if (preferred.length) activePlatforms = preferred;
+    } else {
+      activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+    }
     if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
 
     const queries = brand.queries || [];
@@ -1571,8 +1590,14 @@ async function runBrandQueries(brand) {
     .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
     .map(([plat]) => plat)
     .filter(plat => enabledPlatforms[plat] !== false); // respect user toggle
-  // Sort by cost (cheapest first) so plan limits pick the most cost-effective platforms
-  activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+  // Use plan-specific platforms if defined, otherwise fall back to cost-order
+  const cronPlanDefaults = PLAN_DEFAULT_PLATFORMS[plan];
+  if (cronPlanDefaults) {
+    const preferred = cronPlanDefaults.filter(p => activePlatforms.includes(p));
+    if (preferred.length) activePlatforms = preferred;
+  } else {
+    activePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
+  }
   if (activePlatforms.length > limits.platforms) activePlatforms = activePlatforms.slice(0, limits.platforms);
   if (!activePlatforms.length || !queries.length) return;
 
