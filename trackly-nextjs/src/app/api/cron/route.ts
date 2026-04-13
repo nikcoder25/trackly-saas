@@ -33,30 +33,29 @@ export async function GET(request: Request) {
     }
 
     try {
-    // Find brands with active schedules that are due
+    // Find all brands — include those with schedule null (default to 24h)
     const result = await pool.query(`
       SELECT b.id, b.user_id, b.data, u.plan
       FROM brands b
       JOIN users u ON u.id = b.user_id
-      WHERE b.data->>'schedule' IS NOT NULL
-        AND (b.data->>'schedule')::int > 0
       ORDER BY b.updated_at ASC
       LIMIT 50
     `);
 
     // Filter eligible brands
     const eligible = result.rows.filter(row => {
-      const scheduleHours = parseInt(row.data?.schedule, 10);
-      if (!scheduleHours || scheduleHours <= 0) return false;
+      // Default schedule to 24h if null/missing/zero
+      const scheduleHours = parseInt(row.data?.schedule, 10) || 24;
       const limits = getPlanLimits(row.plan || 'free');
       if (!limits.scheduledRuns) return false;
-      if (scheduleHours < limits.minScheduleHours) return false;
+      // Use the greater of brand schedule or plan minimum
+      const effectiveSchedule = Math.max(scheduleHours, limits.minScheduleHours);
       const runs = row.data?.runs || [];
       if (runs.length > 0) {
         const lastRun = runs[runs.length - 1];
         const lastRunTime = new Date(lastRun.time || lastRun.date).getTime();
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
-        if (hoursSince < scheduleHours) return false;
+        if (hoursSince < effectiveSchedule) return false;
       }
       return true;
     });

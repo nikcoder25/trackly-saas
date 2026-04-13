@@ -19,8 +19,6 @@ function OnboardingModal() {
   const { startRun } = useRun();
   const { user } = useAuth();
   const [dismissed, setDismissed] = useState(false);
-  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
-
   // Show the AddBrandModal when user has zero brands (first-time onboarding)
   if (loading || brands.length > 0 || dismissed) return null;
 
@@ -30,7 +28,7 @@ function OnboardingModal() {
       onCreated={(brand) => {
         setSelectedBrand(brand);
         refreshBrands().then(() => {
-          if (isAdmin) setTimeout(() => startRun(false), 500);
+          setTimeout(() => startRun(false, { auto: true }), 500);
         });
       }}
     />

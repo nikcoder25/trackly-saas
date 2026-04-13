@@ -23,7 +23,7 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
   pro:        { brands: 9999, runsPerMonth: 90,  queries: 250,  competitors: 10,  platforms: 5, apiAccess: false, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 100 },
   agency:     { brands: 9999, runsPerMonth: 240, queries: 2000, competitors: 30,  platforms: 5, apiAccess: false, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 12,  geoAudits: 500 },
   enterprise: { brands: 100, runsPerMonth: 500, queries: 500, competitors: 100, platforms: 6, apiAccess: true,  prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 6,   geoAudits: 5000 },
-  owner:      { brands: 9999, runsPerMonth: 99999, queries: 99999, competitors: 9999, platforms: 6, apiAccess: true,  prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 1,   geoAudits: 99999 },
+  owner:      { brands: 9999, runsPerMonth: 99999, queries: 99999, competitors: 9999, platforms: 6, apiAccess: true,  prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 99999 },
 };
 
 export interface PlanLimits {

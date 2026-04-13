@@ -43,7 +43,6 @@ export default function SetupPage() {
   const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
-  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +86,7 @@ export default function SetupPage() {
             setBrands([...brands, brand]);
             setSelectedBrand(brand);
             setCtxSelectedBrand(brand);
-            refreshBrands().then(() => { if (isAdmin) setTimeout(() => startRun(false), 500); });
+            refreshBrands().then(() => { setTimeout(() => startRun(false, { auto: true }), 500); });
           }}
         />
       )}
@@ -207,7 +206,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={() => setStep(2)} style={{ flex: 1, padding: 10, background: 'var(--bg3)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>Back</button>
             <button onClick={handleCreate} disabled={saving} style={{ flex: 1, padding: 10, background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer', opacity: saving ? 0.5 : 1 }}>
-              {saving ? 'Creating...' : isAdmin ? 'Create Brand & Run' : 'Create Brand'}
+              {saving ? 'Creating...' : 'Create Brand & Run'}
             </button>
           </div>
         </div>
@@ -220,6 +219,8 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
+  const { startRun } = useRun();
+  const [originalQueries, setOriginalQueries] = useState<string[]>(brand.queries || []);
   const [name, setName] = useState(brand.name);
   const [industry, setIndustry] = useState(brand.industry || '');
   const [website, setWebsite] = useState(brand.website || '');
@@ -241,6 +242,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const copyAllQueries = async () => {
+    if (!queries.length) return;
+    try {
+      await navigator.clipboard.writeText(queries.join('\n'));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch { /* fallback */ }
+  };
 
   useEffect(() => {
     setName(brand.name); setIndustry(brand.industry || ''); setWebsite(brand.website || '');
@@ -249,6 +260,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setCompetitors(brand.competitors || []);
     setSelectedPlatforms(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
     setNearbyAreas(brand.nearbyAreas || []);
+    setOriginalQueries(brand.queries || []);
     setError(''); setMessage('');
   }, [brand]);
 
@@ -337,7 +349,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     e.preventDefault(); setSaving(true); setError(''); setMessage('');
     try {
       const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms, nearbyAreas });
-      onUpdated(data.brand); setMessage('Brand updated!');
+      onUpdated(data.brand);
+      // Detect newly added queries and auto-run only those
+      const newQueries = queries.filter(q => !originalQueries.includes(q));
+      if (newQueries.length > 0) {
+        setMessage(`Brand updated! Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'}...`);
+        setOriginalQueries(queries);
+        setTimeout(() => startRun(false, { auto: true, queries: newQueries }), 500);
+      } else {
+        setMessage('Brand updated!');
+      }
     } catch (e) { setError((e as Error).message); }
     setSaving(false);
   };
@@ -433,10 +454,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
                 </>
               )}
               {!selectMode && (
-                <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }}
-                  style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>
-                  CLEAR ALL
-                </button>
+                <>
+                  <button type="button" onClick={copyAllQueries} disabled={!queries.length}
+                    style={{ background: 'none', border: '1px solid var(--primary)', color: copySuccess ? 'var(--green)' : 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: queries.length ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-xs)', opacity: queries.length ? 1 : 0.4, borderColor: copySuccess ? 'var(--green)' : undefined }}>
+                    {copySuccess ? '✓ COPIED' : '⧉ COPY ALL'}
+                  </button>
+                  <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }}
+                    style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>
+                    CLEAR ALL
+                  </button>
+                </>
               )}
             </div>
 

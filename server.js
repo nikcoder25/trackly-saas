@@ -400,13 +400,12 @@ async function withCronLock(lockId, fn) {
 IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
   await withCronLock(1001, async () => {
   try {
-    // Only fetch brands that have a schedule configured (avoid full table scan)
+    // Fetch all brands — include those with schedule null (default to 24h)
     const result = await pool.query(
-      `SELECT b.* FROM brands b JOIN users u ON b.user_id = u.id
-       WHERE b.data->>'schedule' IS NOT NULL AND (b.data->>'schedule')::int > 0`
+      `SELECT b.* FROM brands b JOIN users u ON b.user_id = u.id`
     );
     if (!result.rows.length) return;
-    log.info(`Found ${result.rows.length} brands with active schedules`);
+    log.info(`Found ${result.rows.length} brands to evaluate for scheduled runs`);
     const now = Date.now();
 
     // Filter to brands that are due for a run (enforce plan-based minimum schedule + brand count limit)
@@ -415,7 +414,8 @@ IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
     const userBrandCounts = {}; // track how many brands per user we'll allow to run
     for (const row of result.rows) {
       const brand = { id: row.id, userId: row.user_id, ...row.data };
-      if (!brand.schedule) continue;
+      // Default schedule to 24h if null/missing/zero
+      const scheduleHours = parseInt(brand.schedule, 10) || 24;
 
       // Enforce plan-based minimum schedule interval
       if (!planCache[brand.userId]) {
@@ -424,6 +424,7 @@ IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
         userBrandCounts[brand.userId] = 0;
       }
       const limits = planCache[brand.userId];
+      if (!limits.scheduledRuns) continue;
 
       // Enforce brand count limit — skip brands beyond the plan's allowed count
       userBrandCounts[brand.userId] = (userBrandCounts[brand.userId] || 0) + 1;
@@ -431,7 +432,7 @@ IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
         continue;
       }
 
-      const effectiveSchedule = Math.max(brand.schedule, limits.minScheduleHours || 168);
+      const effectiveSchedule = Math.max(scheduleHours, limits.minScheduleHours || 168);
 
       const lastRun = brand.runs?.length ? new Date(brand.runs[brand.runs.length-1].time).getTime() : 0;
       const intervalMs = effectiveSchedule * 3600 * 1000;
