@@ -861,7 +861,6 @@ export default function AccuracyPage() {
                       </div>
                       <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
-                        {issue.model && <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.model}</span>}
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
                         {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
                         <SourceUrlLink issue={issue} />

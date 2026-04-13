@@ -564,7 +564,6 @@ function renderProof(){
     const hl = proofHre ? esc(excerpt).replace(proofHre, m => '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:0 3px;border-radius:3px;font-weight:700;">'+m+'</mark>') : esc(excerpt);
     const cls = isErr ? 'error' : isMentioned ? 'found' : 'notfound';
     const label = isErr ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
-    const model = r.model || '';
     const sent = r.sentiment || 'neutral';
     const sentC = sent==='positive' ? 'var(--green)' : sent==='negative' ? 'var(--red)' : 'var(--muted)';
     const pos = isMentioned && r.listPosition ? '#'+r.listPosition : '';
@@ -575,7 +574,6 @@ function renderProof(){
           <span class="ep-row-plat-dot" style="background:${t.color||'#888'};"></span>
           <span class="ep-row-plat-name" style="color:${t.color||'#888'};">${esc(r.platform)}</span>
         </div>
-        ${model ? '<div class="ep-row-model">'+esc(model)+'</div>' : ''}
       </div>
       <div class="ep-row-mid">
         ${showQ ? '<div class="ep-flat .ep-row-query" style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px;font-family:var(--mono);">'+esc(r.query)+'</div>' : ''}
