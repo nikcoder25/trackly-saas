@@ -1152,7 +1152,7 @@ router.get('/billing', auth, async (req, res) => {
       brands: { used: brandCount.rows[0].count, limit: limits.brands },
       runsToday: { used: todayRuns.rows[0].count, limit: limits.minScheduleHours <= 1 ? 99999 : Math.ceil(24 / limits.minScheduleHours) },
       queries: { used: totalQueries.rows[0].total || 0, limit: limits.queries },
-      prompts: { used: totalQueries.rows[0].total || 0, limit: limits.prompts },
+      prompts: { used: totalQueries.rows[0].total || 0, limit: limits.queries },
       platforms: { used: limits.platforms, limit: 7 }
     };
 
