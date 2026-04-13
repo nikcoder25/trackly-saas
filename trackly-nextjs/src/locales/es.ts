@@ -71,9 +71,9 @@ const es: Translations = {
     contactSales: 'Contactar Ventas',
     perMonth: '/mes',
     plans: [
-      { name: 'Starter', price: '$9', sub: 'Perfecto para comenzar', features: ['50 consultas totales/mes', 'Marcas ilimitadas', '2 plataformas IA', 'Rastreo SOV y exportación', 'Análisis de sentimiento'] },
-      { name: 'Pro', price: '$29', sub: 'Para negocios en crecimiento', featured: true, features: ['250 consultas totales/mes', 'Marcas ilimitadas', 'Las 6 plataformas IA', 'Rastreo de competidores (10)', 'Análisis de sentimiento'] },
-      { name: 'Agency', price: '$89', sub: 'Para agencias y equipos', features: ['2,000 consultas totales/mes', 'Marcas ilimitadas', 'Las 6 plataformas IA', 'Rastreo de competidores (30)', 'Análisis de sentimiento', 'Soporte prioritario'] },
+      { name: 'Starter', price: '$9', sub: 'Perfecto para comenzar', features: ['30 consultas rastreadas', 'Marcas ilimitadas', '2 plataformas IA', 'Rastreo SOV y exportación', 'Análisis de sentimiento'] },
+      { name: 'Pro', price: '$29', sub: 'Para negocios en crecimiento', featured: true, features: ['100 consultas rastreadas', 'Marcas ilimitadas', 'Las 6 plataformas IA', 'Rastreo de competidores (8)', 'Análisis de sentimiento'] },
+      { name: 'Agency', price: '$89', sub: 'Para agencias y equipos', features: ['500 consultas rastreadas', 'Marcas ilimitadas', 'Las 6 plataformas IA', 'Rastreo de competidores (20)', 'Análisis de sentimiento', 'Soporte prioritario'] },
     ],
     comparison: {
       title: 'Cómo se compara Livesov',
@@ -86,7 +86,7 @@ const es: Translations = {
         ['Análisis Sentimiento', '\u2713 Desde $29', '\u2717 No', '$199+/mes', '\u2713 Sí'],
         ['Rastreo Competidores', '\u2713 Desde $29', '\u2713 Sí', '\u2713 Sí', '\u2713 Sí'],
         ['Plan 30 consultas', '$9/mes', '$189/mes', '$199/mes', 'Personalizado'],
-        ['Plan 250 consultas', '$29/mes', '$189/mes', '$399/mes', 'Personalizado'],
+        ['Plan 100 consultas', '$29/mes', '$189/mes', '$399/mes', 'Personalizado'],
       ],
       disclaimer: 'Precios de competidores obtenidos de sitios web públicos a marzo de 2026. Los precios pueden haber cambiado.',
     },

@@ -71,9 +71,9 @@ const fr: Translations = {
     contactSales: 'Contacter les Ventes',
     perMonth: '/mois',
     plans: [
-      { name: 'Starter', price: '9$', sub: 'Parfait pour débuter', features: ['50 requêtes totales/mois', 'Marques illimitées', '2 plateformes IA', 'Suivi SOV et export', 'Analyse de sentiment'] },
-      { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['250 requêtes totales/mois', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (10)', 'Analyse de sentiment'] },
-      { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['2 000 requêtes totales/mois', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (30)', 'Analyse de sentiment', 'Support prioritaire'] },
+      { name: 'Starter', price: '9$', sub: 'Parfait pour débuter', features: ['30 requêtes suivies', 'Marques illimitées', '2 plateformes IA', 'Suivi SOV et export', 'Analyse de sentiment'] },
+      { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['100 requêtes suivies', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (8)', 'Analyse de sentiment'] },
+      { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['500 requêtes suivies', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (20)', 'Analyse de sentiment', 'Support prioritaire'] },
     ],
     comparison: {
       title: 'Comment Livesov se compare',
@@ -86,7 +86,7 @@ const fr: Translations = {
         ['Analyse Sentiment', '\u2713 Dès 29$', '\u2717 Non', '199$+/mois', '\u2713 Oui'],
         ['Suivi Concurrents', '\u2713 Dès 29$', '\u2713 Oui', '\u2713 Oui', '\u2713 Oui'],
         ['Plan 30 requêtes', '9$/mois', '189$/mois', '199$/mois', 'Personnalisé'],
-        ['Plan 250 requêtes', '29$/mois', '189$/mois', '399$/mois', 'Personnalisé'],
+        ['Plan 100 requêtes', '29$/mois', '189$/mois', '399$/mois', 'Personnalisé'],
       ],
       disclaimer: 'Prix des concurrents provenant de sites web publics en mars 2026. Les prix peuvent avoir changé.',
     },
