@@ -1846,7 +1846,7 @@ function _flushNotifQueue() {
     notif.innerHTML = `
       <div class="live-notif-icon" aria-hidden="true" style="background:${t.bg || 'var(--bg3)'};color:${t.color || 'var(--muted)'};">${t.logo || '?'}</div>
       <div class="live-notif-body">
-        <div class="live-notif-title">${esc(result.platform)} · ${esc(result.model || '')}</div>
+        <div class="live-notif-title">${esc(result.platform)}</div>
         <div class="live-notif-sub">${esc(queryShort)}</div>
       </div>
       <div class="live-notif-status ${statusCls}">${statusText}</div>`;
@@ -1864,7 +1864,7 @@ function _flushNotifQueue() {
         head.style.background = t2.bg||'var(--bg2)';
         head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
         titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-        queryEl.innerHTML = esc(result.query||'') + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+        queryEl.innerHTML = esc(result.query||'');
         textEl.style.whiteSpace = 'normal';
         const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
         const rawHtml = mdToHtml(raw);
@@ -2328,7 +2328,6 @@ function appendLiveProofCard(result) {
       <div class="proof-card-meta">
         <span class="badge ${sentBadge}">${sentiment==='positive'?'Positive':sentiment==='negative'?'Negative':'Neutral'}</span>
         ${result.recommended?'<span class="badge pos">RECOMMENDED</span>':''}
-        ${result.model?`<span class="proof-card-tag">${esc(result.model)}</span>`:''}
       </div>
     </div>
   </div>`;
@@ -3614,10 +3613,10 @@ function exportMentionsCSV(){
   if (!b) return;
   const run = (b.runs||[]).find(r => r.id === el('mentions-run-sel').value);
   if (!run || !run.allResults) return;
-  const rows = [['Platform','Model','Query','Status','Sentiment','Recommended','Response Preview']];
+  const rows = [['Platform','Query','Status','Sentiment','Recommended','Response Preview']];
   run.allResults.forEach(r => {
     const preview = (r.raw || r.context || '').replace(/[#*_~`\n]/g,' ').substring(0,300);
-    rows.push([r.platform, r.model||'', r.query, r.error?'ERROR':r.mentioned?'Mentioned':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
+    rows.push([r.platform, r.query, r.error?'ERROR':r.mentioned?'Mentioned':'Not Found', r.sentiment||'neutral', r.recommended?'Yes':'No', preview]);
   });
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
@@ -3763,7 +3762,7 @@ function renderMentions(){
     if (fv==='not-mentioned' && (r.mentioned||r.error)) return false;
     if (fv==='recommended' && !r.recommended) return false;
     if (fv==='errors' && !r.error) return false;
-    if (sq && !((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')+' '+(r.model||'')).toLowerCase().includes(sq)) return false;
+    if (sq && !((r.platform||'')+' '+(r.query||'')+' '+(r.raw||r.context||'')).toLowerCase().includes(sq)) return false;
     return true;
   });
 
@@ -3808,7 +3807,7 @@ function renderMentions(){
       const hlHtml = hre ? mdToHtml(full).replace(hre, (m) => '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">'+esc(m)+'</mark>') : mdToHtml(full);
       html += `<tr><td colspan="5" style="padding:16px;background:var(--bg);border-bottom:1px solid var(--bg3);">
         <div style="background:var(--bg3);padding:14px;border-radius:var(--radius-xs);font-size:12px;color:var(--text);line-height:1.7;border-left:3px solid ${r.mentioned?'var(--green)':'var(--red)'};">${hlHtml}</div>
-        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Model: ${esc(r.model||'—')} &middot; Position: ${posLabel} &middot; Sentiment: ${sent} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);">Position: ${posLabel} &middot; Sentiment: ${sent} &middot; Recommended: ${r.recommended?'Yes':'No'}</div>
       </td></tr>`;
     }
   });
@@ -3863,7 +3862,7 @@ function openResp(mentionId){
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
     titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
-    queryEl.innerHTML = esc(m.query) + (m.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(m.model)+' | Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
+    queryEl.innerHTML = esc(m.query) + (m.time ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
     textEl.style.whiteSpace = 'normal';
     const rawHtml = mdToHtml(m.raw || m.context || '');
     const hre = brandHighlightRe(b);
@@ -3900,7 +3899,7 @@ function openResultFromRun(runId, platform, encodedQuery){
     const textEl = el('resp-modal-text');
     if (!titleEl || !queryEl || !textEl) return;
     titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-    queryEl.innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+    queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
     const hre1 = brandHighlightRe(b);
@@ -3938,7 +3937,7 @@ function openFullResult(platform, encodedQuery){
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
     titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
-    queryEl.innerHTML = esc(q) + (result.model ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Model: '+esc(result.model)+'</div>' : '');
+    queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
     const hre2 = brandHighlightRe(b);
@@ -4168,7 +4167,6 @@ function renderProof(){
     const hl = proofHre ? esc(excerpt).replace(proofHre, m => '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:0 3px;border-radius:3px;font-weight:700;">'+m+'</mark>') : esc(excerpt);
     const cls = isErr ? 'error' : isMentioned ? 'found' : 'notfound';
     const label = isErr ? 'ERROR' : isMentioned ? 'FOUND' : 'NOT FOUND';
-    const model = r.model || '';
     const sent = r.sentiment || 'neutral';
     const sentC = sent==='positive' ? 'var(--green)' : sent==='negative' ? 'var(--red)' : 'var(--muted)';
     const pos = isMentioned && r.listPosition ? '#'+r.listPosition : '';
@@ -4179,7 +4177,6 @@ function renderProof(){
           <span class="ep-row-plat-dot" style="background:${t.color||'#888'};"></span>
           <span class="ep-row-plat-name" style="color:${t.color||'#888'};">${esc(r.platform)}</span>
         </div>
-        ${model ? '<div class="ep-row-model">'+esc(model)+'</div>' : ''}
       </div>
       <div class="ep-row-mid">
         ${showQ ? '<div class="ep-flat .ep-row-query" style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px;font-family:var(--mono);">'+esc(r.query)+'</div>' : ''}
@@ -4266,15 +4263,15 @@ function exportProofCSV(){
   const run = (b.runs||[]).find(r => r.id === el('proof-run-sel').value);
   if (!run) return;
   function csvField(val){ const s = String(val||'').replace(/"/g,'""').replace(/\n/g,' '); return '"'+s+'"'; }
-  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Model','Full Response'].map(csvField).join(',')];
+  let rows = [['Platform','Query','Mentioned','Sentiment','Recommended','Full Response'].map(csvField).join(',')];
   const allResults = run.allResults || [];
   if (allResults.length) {
     allResults.forEach(r => {
-      rows.push([r.platform, r.query, r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.model||'', r.raw||r.context||''].map(csvField).join(','));
+      rows.push([r.platform, r.query, r.mentioned?'Yes':'No', r.sentiment||'', r.recommended?'Yes':'No', r.raw||r.context||''].map(csvField).join(','));
     });
   } else {
     (run.mentions||[]).forEach(m => {
-      rows.push([m.platform, m.query, 'Yes', m.sentiment, m.recommended?'Yes':'No', m.model||'', m.raw||m.context||''].map(csvField).join(','));
+      rows.push([m.platform, m.query, 'Yes', m.sentiment, m.recommended?'Yes':'No', m.raw||m.context||''].map(csvField).join(','));
     });
   }
   const csv = rows.join('\n');
@@ -5781,7 +5778,6 @@ function buildMentionCard(r, runTimeStr) {
         <div class="mt-item-query">${esc(r.query)}<button class="copy-query-btn" onclick="event.stopPropagation();copyQuery(${escAttr(JSON.stringify(r.query))},this)" title="Copy keyword">&#x2398;</button></div>
         <div class="mt-item-meta">
           <span class="mt-item-pname" style="color:${t.color||'var(--muted)'}">${esc(r.platform)}</span>
-          <span class="mt-item-model">${esc(r.model||'')}</span>
           ${runTimeStr ? `<span class="mt-item-model">${esc(runTimeStr)}</span>` : ''}
         </div>
       </div>
@@ -6397,7 +6393,6 @@ async function renderApiLogs(){
       <thead style="position:sticky;top:0;z-index:1;"><tr style="background:var(--bg3);">
         <th class="th">Time</th>
         <th class="th">Platform</th>
-        <th class="th">Model</th>
         <th class="th">Query</th>
         <th class="th">Status</th>
         <th class="th">Time</th>
@@ -6431,7 +6426,6 @@ async function renderApiLogs(){
         tbl += `<tr style="background:rgba(59,130,246,.05);border-top:2px solid rgba(59,130,246,.2);cursor:pointer;" onclick="let s=this.nextElementSibling;while(s&&s.dataset.runid==='${g.id}'){s.style.display=s.style.display==='none'?'':'none';s=s.nextElementSibling;}">
           <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--blue);font-weight:700;white-space:nowrap;">▶ ${esc(timeStr)}</td>
           <td class="td" style="font-weight:700;font-size:11px;">${g.ok + g.errors} calls · ${[...g.platforms].length} platforms</td>
-          <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${[...g.platforms].join(', ')}</td>
           <td class="td" style="font-size:10px;color:var(--muted);">${g.ok} ok${g.errors ? ', <span style="color:var(--red);">' + g.errors + ' errors</span>' : ''}</td>
           <td class="td"><span class="status-found">${g.ok}</span></td>
           <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${durStr}</td>
@@ -6449,17 +6443,15 @@ async function renderApiLogs(){
       const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
       const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
       const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
-      const modelShort = (log.model || '').replace(/^(gpt-|claude-|gemini-|grok-|sonar-)/, '').substring(0, 18);
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       const errMsg = isErr && log.error ? log.error : '';
       const errId = isErr && errMsg ? 'err-' + (log.id || Math.random().toString(36).slice(2)) : '';
-      const copyErrJson = isErr && errMsg ? JSON.stringify({platform:log.platform,model:log.model||'',query:log.query||'',status:log.http_status||'ERR',error:log.error,time:log.created_at}) : '';
+      const copyErrJson = isErr && errMsg ? JSON.stringify({platform:log.platform,query:log.query||'',status:log.http_status||'ERR',error:log.error,time:log.created_at}) : '';
 
       tbl += `<tr class="trow"${dataAttr} style="${item.runId ? 'display:none;' : ''}${isErr ? 'background:rgba(239,68,68,.04);' : ''}">
         <td class="td" style="font-family:var(--mono);font-size:10px;white-space:nowrap;${item.runId ? 'padding-left:24px;' : ''}">${esc(timeStr)}</td>
         <td class="td" style="color:${t.color || 'var(--text)'};font-weight:700;font-size:11px;">${esc(log.platform)}</td>
-        <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${esc(modelShort || '—')}</td>
         <td class="td" style="font-size:11px;" title="${esc(log.query || '')}">${esc(queryShort)}</td>
         <td class="td" style="text-align:center;"><span style="color:${isErr ? 'var(--red)' : 'var(--green)'};font-weight:700;font-size:10px;">${log.http_status || (isErr ? 'ERR' : '200')}</span></td>
         <td class="td" style="font-family:var(--mono);font-size:10px;color:var(--muted);">${respTime}</td>
@@ -7090,7 +7082,7 @@ async function renderPromptDetail() {
       runsEl.style.display = '';
       if (runsCountEl) runsCountEl.textContent = `Showing ${runs.length} of ${runsData.total || runs.length} runs`;
       runsList.innerHTML = `<div class="pd-run-row" style="font-weight:700;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;cursor:default;background:var(--bg3);">
-          <div>Platform</div><div>Date</div><div>Model</div><div>Found</div><div>Sentiment</div><div style="text-align:right;">Actions</div>
+          <div>Platform</div><div>Date</div><div>Found</div><div>Sentiment</div><div style="text-align:right;">Actions</div>
         </div>` +
         runs.map(r => {
           const t = PLAT_THEME[r.platform] || {};
@@ -7100,7 +7092,6 @@ async function renderPromptDetail() {
           return `<div class="pd-run-row" onclick="viewPromptRun('${b.id}','${r.id}')">
             <div class="pd-run-plat" style="color:${t.color||'#888'};">${esc(r.platform)}</div>
             <div class="pd-run-date">${dateStr}</div>
-            <div class="pd-run-model">${esc(r.model || '—')}</div>
             <div class="pd-run-mentioned" style="color:${r.mentioned ? 'var(--green)' : 'var(--red)'};">${r.mentioned ? 'YES' : 'NO'}</div>
             <div class="pd-run-sent" style="color:${sentColor};">${esc(r.sentiment || '—')}</div>
             <div class="pd-run-view">View details &rarr;</div>
@@ -7158,10 +7149,6 @@ async function viewPromptRun(brandId, runId) {
             <div class="pd-meta-field">
               <div class="pd-meta-label">Platform</div>
               <div style="font-weight:700;color:${t.color||'#888'};">${esc(r.platform)}</div>
-            </div>
-            <div class="pd-meta-field">
-              <div class="pd-meta-label">Model</div>
-              <div style="font-family:var(--mono);font-size:12px;">${esc(r.model || 'N/A')}</div>
             </div>
             <div class="pd-meta-field">
               <div class="pd-meta-label">Date</div>
@@ -7607,9 +7594,9 @@ async function renderBilling() {
     const planPricing = [
       { id: 'free', name: 'Free', price: '$0', period: '/mo', tagline: 'Explore the basics', color: '#6b7280', features: ['<strong>5</strong> total queries/month', 'Unlimited brands', '2 AI platforms', 'Basic SOV tracking'] },
       { id: 'starter', name: 'Starter', price: '$9', period: '/mo', tagline: 'Perfect for getting started', color: '#f59e0b', features: ['<strong>50</strong> total queries/month', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
-      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (10)', 'Sentiment analysis'] },
-      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>2,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (30)', 'Sentiment analysis', 'Priority support'] },
-      { id: 'enterprise', name: 'Enterprise', price: 'Custom', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>50,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
+      { id: 'pro', name: 'Pro', price: '$29', period: '/mo', tagline: 'For growing businesses', color: '#4f46e5', featured: true, features: ['<strong>250</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (5)', 'Sentiment analysis'] },
+      { id: 'agency', name: 'Agency', price: '$89', period: '/mo', tagline: 'For agencies & teams', color: '#7c3aed', features: ['<strong>2,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Sentiment analysis', 'Priority support'] },
+      { id: 'enterprise', name: 'Enterprise', price: '$499', period: '/mo', tagline: 'For large organizations', color: '#9b72ff', features: ['<strong>50,000</strong> total queries/month', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (100)', 'API access', 'Priority support'] }
     ];
     cardsEl.innerHTML = `
       <div class="billing-cards-header">
@@ -7652,11 +7639,11 @@ async function renderBilling() {
     const isActive = (p) => p === plan;
     const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
     const numCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
-    const unlimitedCell = (p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">Unlimited</span></td>`;
     const priceCell = (p) => {
       const m = planMeta[p] || {};
       return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '—'}</span></td>`;
     };
+    const unlimitedCell = (p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">Unlimited</span></td>`;
     const features = [
       { label: 'Total Queries / Month', icon: '&#9889;', key: 'prompts', type: 'num' },
       { label: 'Brands', icon: '&#9733;', key: 'brands', type: 'unlimited' },

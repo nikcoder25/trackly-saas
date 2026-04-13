@@ -511,7 +511,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
           {/* AI Platforms to Track */}
           <div style={{ marginBottom: 20 }}>
             <label className="flbl">AI Platforms to Track</label>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI models to query when running keyword tracking.</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI platforms to query when running keyword tracking.</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {planPlatforms.map(p => (
                 <button key={p} type="button" onClick={() => togglePlatform(p)}
