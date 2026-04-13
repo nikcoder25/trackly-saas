@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
 import { RunProvider, useRun } from '@/contexts/RunContext';
@@ -17,6 +17,8 @@ import Link from 'next/link';
 function OnboardingModal() {
   const { brands, loading, setSelectedBrand, refreshBrands } = useBrands();
   const { startRun } = useRun();
+  const startRunRef = useRef(startRun);
+  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const { user } = useAuth();
   const [dismissed, setDismissed] = useState(false);
   // Show the AddBrandModal when user has zero brands (first-time onboarding)
@@ -28,7 +30,7 @@ function OnboardingModal() {
       onCreated={(brand) => {
         setSelectedBrand(brand);
         refreshBrands().then(() => {
-          setTimeout(() => startRun(false, { auto: true }), 500);
+          setTimeout(() => startRunRef.current(false, { auto: true }), 600);
         });
       }}
     />

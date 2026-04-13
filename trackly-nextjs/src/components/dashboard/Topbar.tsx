@@ -11,6 +11,8 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
   const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit } = useBrands();
   const { startRun } = useRun();
+  const startRunRef = useRef(startRun);
+  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
@@ -193,7 +195,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           setShowAddBrand(false);
           setSelectedBrand(brand);
           refreshBrands().then(() => {
-            setTimeout(() => startRun(false, { auto: true }), 500);
+            setTimeout(() => startRunRef.current(false, { auto: true }), 600);
           });
         }}
       />

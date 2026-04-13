@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -43,6 +43,8 @@ export default function SetupPage() {
   const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
+  const startRunRef = useRef(startRun);
+  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,7 @@ export default function SetupPage() {
             setBrands([...brands, brand]);
             setSelectedBrand(brand);
             setCtxSelectedBrand(brand);
-            refreshBrands().then(() => { setTimeout(() => startRun(false, { auto: true }), 500); });
+            refreshBrands().then(() => { setTimeout(() => startRunRef.current(false, { auto: true }), 600); });
           }}
         />
       )}
@@ -220,6 +222,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { startRun } = useRun();
+  const startRunRef = useRef(startRun);
+  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [originalQueries, setOriginalQueries] = useState<string[]>(brand.queries || []);
   const [name, setName] = useState(brand.name);
   const [industry, setIndustry] = useState(brand.industry || '');
@@ -349,13 +353,14 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     e.preventDefault(); setSaving(true); setError(''); setMessage('');
     try {
       const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms, nearbyAreas });
-      onUpdated(data.brand);
-      // Detect newly added queries and auto-run only those
+      // Detect newly added queries BEFORE calling onUpdated (which triggers re-renders)
       const newQueries = queries.filter(q => !originalQueries.includes(q));
+      onUpdated(data.brand);
       if (newQueries.length > 0) {
         setMessage(`Brand updated! Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'}...`);
         setOriginalQueries(queries);
-        setTimeout(() => startRun(false, { auto: true, queries: newQueries }), 500);
+        // Use ref to always get the latest startRun; small delay lets BrandContext settle
+        setTimeout(() => startRunRef.current(false, { auto: true, queries: newQueries }), 600);
       } else {
         setMessage('Brand updated!');
       }
