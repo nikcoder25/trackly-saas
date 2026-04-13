@@ -77,6 +77,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/#features">Features</Link>
             <Link href="/pricing">Pricing</Link>
             <Link href="/how-it-works">How it Works</Link>
+            <Link href="/use-cases">Use Cases</Link>
             <Link href="/integrations">Integrations</Link>
           </div>
           <div className="land-footer-col">
@@ -97,6 +98,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/claude-brand-tracking">Claude Tracking</Link>
             <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
             <Link href="/grok-brand-tracking">Grok Tracking</Link>
+            <Link href="/google-ai-overviews-tracking">AI Overviews Tracking</Link>
           </div>
           <div className="land-footer-col">
             <h4>Legal</h4>

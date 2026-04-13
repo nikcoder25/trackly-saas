@@ -252,7 +252,7 @@ function EmailCapture() {
 
   return (
     <form className="tl-email-form" onSubmit={handleSubmit}>
-      <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
+      <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true" tabIndex={-1}>
         <label htmlFor="newsletter-website">Website</label>
         <input id="newsletter-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
       </div>
@@ -265,6 +265,7 @@ function EmailCapture() {
           <div className="tl-email-input-wrap">
             <input
               type="email"
+              name="email"
               placeholder="Enter your email"
               value={email}
               onChange={(e) => { setEmail(e.target.value); if (status === 'error') setStatus('idle'); }}
@@ -598,6 +599,8 @@ export default function LivesovHomePage() {
                 transition: 'background 0.2s',
               }}
               aria-label="Toggle annual pricing"
+              role="switch"
+              aria-checked={annual}
             >
               <span style={{
                 display: 'inline-block', height: 20, width: 20, borderRadius: '50%',
@@ -770,6 +773,7 @@ export default function LivesovHomePage() {
               <Link href="/#features">{t.footer.links.features}</Link>
               <Link href="/pricing">{t.footer.links.pricing}</Link>
               <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
+              <Link href="/use-cases">Use Cases</Link>
               <Link href="/integrations">{t.footer.links.integrations}</Link>
             </div>
             <div className="tl-footer-col">

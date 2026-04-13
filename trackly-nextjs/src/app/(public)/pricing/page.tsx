@@ -32,6 +32,8 @@ export default function PricingPage() {
             onClick={() => setAnnual(!annual)}
             className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${annual ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
             aria-label="Toggle annual pricing"
+            role="switch"
+            aria-checked={annual}
           >
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${annual ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
@@ -52,7 +54,6 @@ export default function PricingPage() {
               <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[var(--brand)] text-white ring-2 ring-[var(--brand)] shadow-lg shadow-[var(--brand)]/20' : isEnterprise ? 'bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200' : 'bg-white border border-gray-200'}`}>
                 <div className="flex items-center gap-2">
                   <h3 className={`text-lg font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
-                  {isEnterprise && <span className="text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Custom</span>}
                 </div>
                 <div className="mt-3 mb-1">
                   {showStrike && (

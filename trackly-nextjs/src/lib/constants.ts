@@ -55,7 +55,7 @@ export const API_ENDPOINTS = {
 export interface PricingPlan {
   name: string;
   price: string;
-  annualPrice?: string;
+  annualPrice: string;
   sub: string;
   features: string[];
   cta: string;
