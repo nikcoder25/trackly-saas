@@ -77,6 +77,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const runningRef = useRef(false);
   const pollRef = useRef(false); // prevents duplicate poll loops
+  const pendingQueriesRef = useRef<string[] | null>(null); // queued queries to run after current run
 
   // Live timer
   useEffect(() => {
@@ -136,13 +137,23 @@ export function RunProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem('livesov_active_run');
             const finalResult = data.finalData;
             if (data.status === 'done' && finalResult) {
+              const queued = pendingQueriesRef.current;
+              pendingQueriesRef.current = null;
               setLive(prev => ({
                 ...prev, running: false, status: 'done',
                 liveSov: finalResult.sov ?? null,
-                statusText: `Done! Found in ${finalResult.newMentions || finalResult.totalM || 0} of ${finalResult.totalQ || 0} responses`,
+                statusText: queued
+                  ? `Done! Running ${queued.length} queued queries next...`
+                  : `Done! Found in ${finalResult.newMentions || finalResult.totalM || 0} of ${finalResult.totalQ || 0} responses`,
               }));
-              setTimeout(() => { setLive(INITIAL_STATE); refreshBrands();
-                window.dispatchEvent(new CustomEvent('livesov:run-complete')); }, 2500);
+              setTimeout(() => {
+                setLive(INITIAL_STATE); refreshBrands();
+                window.dispatchEvent(new CustomEvent('livesov:run-complete'));
+                // Auto-run queued queries that were added during the previous run
+                if (queued && queued.length > 0) {
+                  setTimeout(() => startRunRef.current(false, { auto: true, queries: queued }), 500);
+                }
+              }, 2500);
             } else {
               setLive(prev => ({
                 ...prev, running: false, status: 'error',
@@ -213,9 +224,21 @@ export function RunProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, [pollRunStatus, refreshBrands]);
 
+  // Ref to latest startRun for use in callbacks
+  const startRunRef = useRef<(force?: boolean, options?: StartRunOptions) => Promise<void>>(async () => {});
+
   // ── Start run (POST + poll) ────────────────────────
   const startRun = useCallback(async (force = false, options?: StartRunOptions) => {
-    if (runningRef.current) return;
+    // If a run is already active, queue the new queries to run after it finishes
+    if (runningRef.current) {
+      if (options?.queries && options.queries.length > 0) {
+        const existing = pendingQueriesRef.current || [];
+        const merged = [...new Set([...existing, ...options.queries])];
+        pendingQueriesRef.current = merged;
+        setLive(prev => ({ ...prev, statusText: prev.statusText + ` · ${merged.length} queries queued` }));
+      }
+      return;
+    }
     runningRef.current = true;
 
     setLive({
@@ -246,8 +269,14 @@ export function RunProvider({ children }: { children: ReactNode }) {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: 'Request failed' }));
         if (response.status === 409) {
+          // Shouldn't normally reach here (caught by runningRef check above),
+          // but handle it as a safety net — queue queries if any
           runningRef.current = false;
-          setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'A run is already in progress.', errorMsg: 'concurrent' }));
+          if (options?.queries && options.queries.length > 0) {
+            const existing = pendingQueriesRef.current || [];
+            pendingQueriesRef.current = [...new Set([...existing, ...options.queries])];
+          }
+          setLive(prev => ({ ...prev, running: false, status: 'idle', statusText: '', errorMsg: null }));
           return;
         }
         if (response.status === 429) {
@@ -289,6 +318,9 @@ export function RunProvider({ children }: { children: ReactNode }) {
       setTimeout(() => setLive(INITIAL_STATE), 5000);
     }
   }, [pollRunStatus, selectedBrand]);
+
+  // Keep ref in sync so completion callback can use latest startRun
+  useEffect(() => { startRunRef.current = startRun; }, [startRun]);
 
   // ── Force-run ──────────────────────────────────────
   const forceRun = useCallback(async () => {
