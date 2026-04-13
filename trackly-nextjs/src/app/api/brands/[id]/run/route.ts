@@ -92,17 +92,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (authResult instanceof Response) return authResult;
     user = authResult;
 
-    // Only admin/owner can trigger manual runs — regular users rely on scheduled runs
-    const roleResult = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
-    const userPlan = roleResult.rows[0]?.plan || 'free';
-    const userRole = roleResult.rows[0]?.role || '';
-    if (userPlan !== 'owner' && userRole !== 'admin') {
-      return Response.json({ error: 'Runs are automated on your plan schedule. Manual runs are not available.' }, { status: 403 });
+    // Auto-triggered runs (brand creation, new queries) are allowed for all users.
+    // Manual "Run Queries" button is admin/owner only.
+    const isAutoRun = new URL(request.url).searchParams.get('auto') === '1';
+    if (!isAutoRun) {
+      const roleResult = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
+      const userPlan = roleResult.rows[0]?.plan || 'free';
+      const userRole = roleResult.rows[0]?.role || '';
+      if (userPlan !== 'owner' && userRole !== 'admin') {
+        return Response.json({ error: 'Runs are automated on your plan schedule. Manual runs are not available.' }, { status: 403 });
+      }
     }
   }
 
   const { id } = await params;
-  const forceRun = new URL(request.url).searchParams.get('force') === '1';
+  const url = new URL(request.url);
+  const forceRun = url.searchParams.get('force') === '1';
 
   // --- Validation ---
   const access = await getBrandWithAccess(id, user.id);
@@ -130,7 +135,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }, { status: 403 });
   }
 
-  const queries: string[] = brand.queries || [];
+  // Support running only specific queries (e.g. newly added ones) via request body
+  let body: { queries?: string[] } = {};
+  try { body = await request.json(); } catch { /* no body or invalid JSON is fine */ }
+  const allQueries: string[] = brand.queries || [];
+  const queries: string[] = (body.queries && Array.isArray(body.queries) && body.queries.length > 0)
+    ? body.queries.filter((q: string) => allQueries.includes(q))  // only allow queries that exist on the brand
+    : allQueries;
   if (!queries.length) return Response.json({ error: 'No queries configured. Add queries in Brand Setup.' }, { status: 400 });
 
   const userKeys = decryptApiKeys(planResult.rows[0]?.api_keys || {});

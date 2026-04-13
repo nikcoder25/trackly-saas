@@ -42,7 +42,6 @@ export default function SetupPage() {
   const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
-  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [brands, setBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +85,7 @@ export default function SetupPage() {
             setBrands([...brands, brand]);
             setSelectedBrand(brand);
             setCtxSelectedBrand(brand);
-            refreshBrands().then(() => { if (isAdmin) setTimeout(() => startRun(false), 500); });
+            refreshBrands().then(() => { setTimeout(() => startRun(false, { auto: true }), 500); });
           }}
         />
       )}
@@ -102,8 +101,6 @@ export default function SetupPage() {
 
 /* ── 3-STEP CREATION WIZARD ───────────────────── */
 function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void }) {
-  const { user } = useAuth();
-  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -208,7 +205,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={() => setStep(2)} style={{ flex: 1, padding: 10, background: 'var(--bg3)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>Back</button>
             <button onClick={handleCreate} disabled={saving} style={{ flex: 1, padding: 10, background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer', opacity: saving ? 0.5 : 1 }}>
-              {saving ? 'Creating...' : isAdmin ? 'Create Brand & Run' : 'Create Brand'}
+              {saving ? 'Creating...' : 'Create Brand & Run'}
             </button>
           </div>
         </div>
@@ -219,6 +216,8 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 
 /* ── EDIT BRAND FORM (full feature parity with LiveSOV) ───────────────────── */
 function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
+  const { startRun } = useRun();
+  const [originalQueries, setOriginalQueries] = useState<string[]>(brand.queries || []);
   const [name, setName] = useState(brand.name);
   const [industry, setIndustry] = useState(brand.industry || '');
   const [website, setWebsite] = useState(brand.website || '');
@@ -258,6 +257,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setCompetitors(brand.competitors || []);
     setSelectedPlatforms(brand.selected_platforms || ALL_PLATFORMS);
     setNearbyAreas(brand.nearbyAreas || []);
+    setOriginalQueries(brand.queries || []);
     setError(''); setMessage('');
   }, [brand]);
 
@@ -346,7 +346,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     e.preventDefault(); setSaving(true); setError(''); setMessage('');
     try {
       const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms, nearbyAreas });
-      onUpdated(data.brand); setMessage('Brand updated!');
+      onUpdated(data.brand);
+      // Detect newly added queries and auto-run only those
+      const newQueries = queries.filter(q => !originalQueries.includes(q));
+      if (newQueries.length > 0) {
+        setMessage(`Brand updated! Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'}...`);
+        setOriginalQueries(queries);
+        setTimeout(() => startRun(false, { auto: true, queries: newQueries }), 500);
+      } else {
+        setMessage('Brand updated!');
+      }
     } catch (e) { setError((e as Error).message); }
     setSaving(false);
   };

@@ -35,11 +35,16 @@ export interface RunLiveState {
   liveSov: number | null;
 }
 
+interface StartRunOptions {
+  auto?: boolean;
+  queries?: string[];
+}
+
 interface RunContextType {
   live: RunLiveState;
   elapsed: string;
   pct: number;
-  startRun: (force?: boolean) => Promise<void>;
+  startRun: (force?: boolean, options?: StartRunOptions) => Promise<void>;
   forceRun: () => Promise<void>;
 }
 
@@ -209,7 +214,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
   }, [pollRunStatus, refreshBrands]);
 
   // ── Start run (POST + poll) ────────────────────────
-  const startRun = useCallback(async (force = false) => {
+  const startRun = useCallback(async (force = false, options?: StartRunOptions) => {
     if (runningRef.current) return;
     runningRef.current = true;
 
@@ -229,11 +234,13 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
       const brandId = selectedBrand.id;
       const forceParam = force ? '&force=1' : '';
+      const autoParam = options?.auto ? '&auto=1' : '';
 
       // POST to start the run — returns immediately with runId
-      const response = await fetch(`/api/brands/${brandId}/run?x=1${forceParam}`, {
+      const response = await fetch(`/api/brands/${brandId}/run?x=1${forceParam}${autoParam}`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        body: options?.queries ? JSON.stringify({ queries: options.queries }) : undefined,
       });
 
       if (!response.ok) {
