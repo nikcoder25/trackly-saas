@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid } from '@/lib/helpers';
+import { getPlanLimits } from '@/lib/constants';
 
 // Recommendation thresholds (mirrors Express config/constants.js)
 const THRESHOLDS = {
@@ -25,6 +26,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+
+  // Check plan allows sentiment/recommendations
+  const ownerId = access.brand.userId || user.id;
+  const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
+  const plan = planResult.rows[0]?.plan || 'free';
+  const limits = getPlanLimits(plan);
+  if (!limits.sentiment) {
+    return Response.json({ error: 'Recommendations are available on Starter plans and above. Upgrade to access.', planLimit: true }, { status: 403 });
+  }
 
   try {
     const url = new URL(request.url);
@@ -65,6 +75,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+
+  // Check plan allows sentiment/recommendations
+  const ownerId = access.brand.userId || user.id;
+  const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
+  const plan = planResult.rows[0]?.plan || 'free';
+  const limits = getPlanLimits(plan);
+  if (!limits.sentiment) {
+    return Response.json({ error: 'Recommendations are available on Starter plans and above. Upgrade to access.', planLimit: true }, { status: 403 });
+  }
 
   try {
     // Gather analytics data from prompt_runs for this brand

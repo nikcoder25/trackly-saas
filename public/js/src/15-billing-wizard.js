@@ -115,7 +115,6 @@ async function renderBilling() {
       { label: 'Competitors', icon: '&#9878;', key: 'competitors', type: 'num' },
       { label: 'Platforms', icon: '&#9881;', key: 'platforms', type: 'num' },
       { label: 'Sentiment Analysis', icon: '&#9829;', key: 'sentiment', type: 'bool' },
-      { label: 'API Access', icon: '&#10100;', key: 'apiAccess', type: 'bool' },
       { label: 'Priority Support', icon: '&#9993;', key: 'prioritySupport', type: 'bool' }
     ];
     plansEl.innerHTML = `
