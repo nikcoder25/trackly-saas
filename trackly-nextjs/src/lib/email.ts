@@ -146,6 +146,67 @@ export async function sendContactFormEmail({
   );
 }
 
+export async function addContactToAudience(email: string): Promise<EmailResult> {
+  const audienceId = process.env.RESEND_AUDIENCE_ID;
+  if (!audienceId) {
+    console.warn('[Email] RESEND_AUDIENCE_ID not set — skipping audience contact creation');
+    return { sent: false, reason: 'RESEND_AUDIENCE_ID not configured' };
+  }
+  if (!EMAIL_API_KEY) {
+    console.log(`[Email] DEV MODE — Would add ${email} to audience ${audienceId}`);
+    return { sent: true };
+  }
+
+  try {
+    const resp = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${EMAIL_API_KEY}`,
+      },
+      body: JSON.stringify({ email, unsubscribed: false }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      const reason = `Resend Audience API returned ${resp.status}: ${text}`;
+      console.error(`[Email] Failed to add contact=${email} to audience: ${reason}`);
+      return { sent: false, reason };
+    }
+
+    return { sent: true };
+  } catch (e) {
+    const reason = (e as Error).message;
+    console.error(`[Email] Audience contact error email=${email} error=${reason}`);
+    return { sent: false, reason };
+  }
+}
+
+export async function sendWelcomeEmail(email: string): Promise<EmailResult> {
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#4f46e5;">Welcome to Livesov! 🎉</h2>
+      <p style="color:#374151;line-height:1.6;">
+        Thanks for subscribing! You'll receive AI visibility tips and insights to help you
+        grow your online presence.
+      </p>
+      <p style="color:#374151;line-height:1.6;">
+        We keep things short and useful — no spam, just actionable tips.
+      </p>
+      <p style="color:#374151;line-height:1.6;">
+        If you have any questions, just reply to this email!
+      </p>
+      <p style="color:#374151;line-height:1.6;">
+        — The Livesov Team
+      </p>
+      <p style="color:#999;font-size:12px;margin-top:24px;">
+        You're receiving this because you subscribed to the Livesov newsletter.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, 'Welcome to Livesov!', html, 'hello@livesov.com');
+}
+
 async function sendContactFormViaZoho(
   subject: string,
   html: string,

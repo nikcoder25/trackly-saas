@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { addContactToAudience, sendWelcomeEmail } from '@/lib/email';
 
 // Ensure the newsletter_subscribers table exists
 async function ensureTable() {
@@ -43,12 +44,29 @@ export async function POST(request: NextRequest) {
       tableReady = true;
     }
 
-    await pool.query(
+    const result = await pool.query(
       `INSERT INTO newsletter_subscribers (email, source)
        VALUES ($1, $2)
-       ON CONFLICT (email) DO UPDATE SET unsubscribed_at = NULL, subscribed_at = NOW()`,
+       ON CONFLICT (email) DO UPDATE SET unsubscribed_at = NULL, subscribed_at = NOW()
+       RETURNING (xmax = 0) AS is_new`,
       [trimmed, 'home_page']
     );
+
+    const isNew = result.rows[0]?.is_new;
+
+    // Add contact to Resend Audience
+    const audienceResult = await addContactToAudience(trimmed);
+    if (!audienceResult.sent) {
+      console.warn(`[Newsletter] Failed to add ${trimmed} to Resend Audience: ${audienceResult.reason}`);
+    }
+
+    // Send welcome email only for new subscribers
+    if (isNew) {
+      const emailResult = await sendWelcomeEmail(trimmed);
+      if (!emailResult.sent) {
+        console.warn(`[Newsletter] Failed to send welcome email to ${trimmed}: ${emailResult.reason}`);
+      }
+    }
 
     return Response.json({ success: true });
   } catch (e) {
