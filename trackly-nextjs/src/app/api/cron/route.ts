@@ -70,9 +70,10 @@ export async function GET(request: Request) {
       const results = await Promise.allSettled(
         batch.map(async (row) => {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout per run trigger
+          const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout per run trigger (brand runs call multiple AI APIs)
           try {
-            const runUrl = new URL(`/api/brands/${row.id}/run`, request.url);
+            const baseUrl = process.env.APP_URL || request.url;
+            const runUrl = new URL(`/api/brands/${row.id}/run`, baseUrl);
             await fetch(runUrl.toString(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-cron-secret': cronSecret },
