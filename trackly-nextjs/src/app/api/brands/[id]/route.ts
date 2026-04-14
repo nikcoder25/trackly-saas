@@ -148,6 +148,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return Response.json({ error: limits.competitors === 0 ? 'Competitor tracking is available on Pro plans and above.' : `Your plan allows up to ${limits.competitors} competitors.`, planLimit: true }, { status: 403 });
     }
 
+    // Validate schedule against plan limits
+    if (safeBody.schedule !== undefined) {
+      const scheduleHours = Number(safeBody.schedule);
+      if (isNaN(scheduleHours) || scheduleHours < 1) {
+        return Response.json({ error: 'Schedule must be a positive number of hours' }, { status: 400 });
+      }
+      if (!limits.scheduledRuns) {
+        return Response.json({ error: 'Scheduled runs are not available on your plan. Upgrade to enable automatic scheduling.', planLimit: true }, { status: 403 });
+      }
+      if (scheduleHours < limits.minScheduleHours) {
+        return Response.json({ error: `Your ${plan} plan allows a minimum schedule interval of ${limits.minScheduleHours} hours. Upgrade for more frequent runs.`, planLimit: true }, { status: 403 });
+      }
+    }
+
     const updated = { ...brand, ...safeBody, id: brand.id, userId: brand.userId };
     const { id: _id, userId: _uid, createdAt: _ca, updatedAt: _ua, ...dataOnly } = updated;
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(dataOnly), id]);
