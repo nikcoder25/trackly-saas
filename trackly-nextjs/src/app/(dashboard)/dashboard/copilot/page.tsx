@@ -71,7 +71,7 @@ export default function CopilotPage() {
         AI-powered assistant for visibility strategy and analysis.
         {selectedBrand && (
           <span style={{ marginLeft: 8, color: 'var(--primary)', fontWeight: 600 }}>
-            Analyzing: {selectedBrand.data?.name || 'Brand'}
+            Analyzing: {selectedBrand?.name || 'Brand'}
           </span>
         )}
       </div>
@@ -92,7 +92,7 @@ export default function CopilotPage() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
               <div style={{ fontSize: 48, opacity: 0.3 }}>◈</div>
               <div style={{ textAlign: 'center', maxWidth: 400 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Ask me anything about {selectedBrand.data?.name || 'your brand'}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Ask me anything about {selectedBrand?.name || 'your brand'}</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>I can analyze your data, suggest strategies, and help you understand your brand&apos;s presence across AI platforms.</div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 500 }}>
@@ -154,7 +154,7 @@ export default function CopilotPage() {
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12 }}>◈</div>
               <div style={{ background: 'var(--bg3)', padding: '12px 16px', borderRadius: '12px 12px 12px 4px', fontSize: 12, color: 'var(--muted)' }}>
-                Analyzing{selectedBrand ? ` ${selectedBrand.data?.name || 'brand'} data` : ''}<span style={{ animation: 'pulse 1s infinite' }}>...</span>
+                Analyzing{selectedBrand ? ` ${selectedBrand?.name || 'brand'} data` : ''}<span style={{ animation: 'pulse 1s infinite' }}>...</span>
               </div>
             </div>
           )}
@@ -165,7 +165,7 @@ export default function CopilotPage() {
         <div style={{ display: 'flex', gap: 8, borderTop: '1px solid var(--border)', padding: 12, flexShrink: 0 }}>
           <input className="finp" value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') send(); }}
-            placeholder={noBrand ? 'Select a brand first...' : `Ask about ${selectedBrand.data?.name || 'your brand'}...`}
+            placeholder={noBrand ? 'Select a brand first...' : `Ask about ${selectedBrand?.name || 'your brand'}...`}
             disabled={noBrand}
             style={{ flex: 1, margin: 0, padding: '10px 14px', opacity: noBrand ? 0.5 : 1 }} />
           <button onClick={() => send()} disabled={sending || noBrand}
