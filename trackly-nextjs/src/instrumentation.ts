@@ -1,6 +1,37 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
+
+    // Self-triggering cron scheduler for non-Vercel environments (e.g. DigitalOcean)
+    // where vercel.json crons are ignored.
+    const cronSecret = process.env.CRON_SECRET;
+    const appUrl = process.env.APP_URL;
+    if (cronSecret && appUrl) {
+      const INITIAL_DELAY_MS = 30_000; // 30 seconds
+      const INTERVAL_MS = 60 * 60 * 1000; // 60 minutes
+
+      const triggerCron = async () => {
+        try {
+          const res = await fetch(`${appUrl}/api/cron`, {
+            method: "GET",
+            headers: { Authorization: `Bearer ${cronSecret}` },
+          });
+          console.log(
+            `[Cron Scheduler] Triggered /api/cron — status ${res.status}`
+          );
+        } catch (err) {
+          console.error(
+            "[Cron Scheduler] Failed to trigger /api/cron:",
+            (err as Error).message
+          );
+        }
+      };
+
+      setTimeout(() => {
+        triggerCron();
+        setInterval(triggerCron, INTERVAL_MS);
+      }, INITIAL_DELAY_MS);
+    }
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {
