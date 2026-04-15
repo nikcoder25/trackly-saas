@@ -625,11 +625,11 @@ export default function BillingPage() {
           </div>
         </div>
         <div style={{ overflowX: 'auto', marginTop: 16 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'center', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '28%' }} />
               {visiblePlans.map(p => (
-                <col key={p} style={{ width: `${80 / visiblePlans.length}%` }} />
+                <col key={p} style={{ width: `${72 / visiblePlans.length}%` }} />
               ))}
             </colgroup>
             <thead>
@@ -640,7 +640,7 @@ export default function BillingPage() {
                   const isRecommended = p === recommendedPlan && p !== currentPlan;
                   return (
                     <th key={p} style={{
-                      padding: '12px 8px', fontWeight: 700,
+                      padding: '12px 8px', fontWeight: 700, textAlign: 'center',
                       textTransform: 'uppercase', fontSize: 11, letterSpacing: .5,
                       color: isCurrent ? 'var(--primary)' : isRecommended ? '#10b981' : 'var(--muted)',
                       background: isCurrent ? 'rgba(99,102,241,.04)' : isRecommended ? 'rgba(16,185,129,.04)' : 'transparent',
@@ -678,7 +678,7 @@ export default function BillingPage() {
                     const isRecommended = p === recommendedPlan && p !== currentPlan;
                     return (
                       <td key={p} style={{
-                        padding: '11px 8px',
+                        padding: '11px 8px', textAlign: 'center',
                         color: isCheck ? 'var(--green)' : isDash ? 'var(--muted)' : isCurrent ? 'var(--primary)' : isRecommended ? '#10b981' : 'var(--text)',
                         fontWeight: isCurrent || isRecommended ? 700 : isCheck ? 600 : 400,
                         fontFamily: !isCheck && !isDash ? 'var(--mono)' : 'var(--font)',
