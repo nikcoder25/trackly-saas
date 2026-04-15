@@ -86,7 +86,8 @@ router.post('/checkout', auth, async (req, res) => {
       return res.status(400).json({ error: `You are already on the ${user.plan} plan.` });
     }
 
-    const returnUrl = DODO_RETURN_URL || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = DODO_RETURN_URL || `${req.protocol}://${req.get('host')}`;
+    const returnUrl = baseUrl.replace(/\/+$/, '') + '/#billing?payment=success';
 
     const checkoutPayload = {
       product_cart: [

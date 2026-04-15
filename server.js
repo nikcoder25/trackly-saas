@@ -124,7 +124,15 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '2mb' }));
+// Skip JSON body parsing for the DodoPayments webhook route — the
+// @dodopayments/express Webhooks adapter needs the raw body stream
+// intact to compute the HMAC signature for verification.
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payments/webhooks/dodopayments') {
+    return next();
+  }
+  express.json({ limit: '2mb' })(req, res, next);
+});
 app.use(cookieParser());
 
 // ─── CSRF PROTECTION ─────────────────────────────────────────────
