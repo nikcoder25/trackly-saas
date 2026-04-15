@@ -48,6 +48,7 @@ function EmailVerificationBanner() {
   const handleResend = async () => {
     setSending(true);
     setError('');
+    setSent(false);
     try {
       let res = await fetch('/api/auth/resend-verification', {
         method: 'POST',
@@ -56,17 +57,26 @@ function EmailVerificationBanner() {
 
       // If token expired, refresh and retry once
       if (res.status === 401) {
-        const refreshRes = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
-        if (refreshRes.ok) {
-          res = await fetch('/api/auth/resend-verification', {
-            method: 'POST',
-            credentials: 'include',
-          });
+        try {
+          const refreshRes = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+          if (refreshRes.ok) {
+            res = await fetch('/api/auth/resend-verification', {
+              method: 'POST',
+              credentials: 'include',
+            });
+          }
+        } catch {
+          // Refresh failed — fall through with original 401 response
         }
       }
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Server error — please try again later.');
+      }
+      if (!res.ok) throw new Error(data.error || 'Failed to send verification email');
 
       // Backend says already verified — refresh user state to hide the banner
       if (data.message === 'Email already verified') {

@@ -27,11 +27,7 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
     const isResend = EMAIL_API_URL.includes('resend.com');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
-    if (isResend) {
-      headers['Authorization'] = `Bearer ${EMAIL_API_KEY}`;
-    } else {
-      headers['Authorization'] = `Bearer ${EMAIL_API_KEY}`;
-    }
+    headers['Authorization'] = `Bearer ${EMAIL_API_KEY}`;
 
     const resendPayload: Record<string, unknown> = { from: EMAIL_FROM, to: [to], subject, html };
     if (replyTo && isResend) {
