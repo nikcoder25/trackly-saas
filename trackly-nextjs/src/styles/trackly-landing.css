@@ -44,6 +44,7 @@
     --tl-bg: #0f172a;
     --tl-bg-alt: #1e293b;
     --tl-bg-surface: #1e293b;
+    --tl-white: #1e293b;
     --tl-border: #334155;
     --tl-border-light: #1e293b;
     --tl-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
@@ -1764,6 +1765,105 @@
 
 .tl-footer-social a:hover {
   color: #ffffff;
+}
+
+/* ══════════════════════════════════════
+   DARK MODE — Component Overrides
+   ══════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  /* Showcase — override hardcoded light backgrounds */
+  .tl-showcase {
+    background: linear-gradient(180deg, #1e293b 0%, var(--tl-bg) 40%);
+  }
+
+  .tl-showcase-card {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: var(--tl-border);
+  }
+
+  .tl-showcase-platforms {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: var(--tl-border);
+  }
+
+  /* Demo — toolbar header distinction from body */
+  .tl-demo-toolbar {
+    background: #151d2e;
+  }
+
+  /* Feature cards — visible hover state on dark backgrounds */
+  .tl-feature-card:hover {
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Price cards — featured gradient on dark surface */
+  .tl-price-card--featured {
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, var(--tl-white) 20%);
+  }
+
+  /* Comparison table — header distinction from body */
+  .tl-comparison-table thead th {
+    background: #151d2e;
+  }
+
+  /* Why cards — boost paragraph text contrast */
+  .tl-why-card p {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  /* Footer — boost text visibility */
+  .tl-footer {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .tl-footer-brand p {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .tl-footer-col a {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  /* Comparison disclaimer — boost visibility */
+  .tl-comparison-disclaimer {
+    opacity: 0.8;
+  }
+
+  /* Mobile menu — dark background */
+  .tl-mobile-menu {
+    background: var(--tl-bg);
+    border-bottom: 1px solid var(--tl-border);
+  }
+
+  .tl-mobile-menu a {
+    color: var(--tl-text);
+  }
+
+  .tl-mobile-menu a:hover {
+    background: var(--tl-bg-alt);
+  }
+
+  .tl-mobile-menu-actions {
+    border-top-color: var(--tl-border);
+  }
+
+  /* Checker input — dark surface */
+  .tl-checker-input-wrap {
+    box-shadow: var(--tl-shadow-lg);
+  }
+
+  /* Google sign-in button */
+  .tl-btn-google {
+    background: var(--tl-bg-alt);
+    border-color: var(--tl-border);
+  }
+
+  /* Social notification */
+  .tl-social-notif {
+    background: var(--tl-bg-alt);
+    border-color: var(--tl-border);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  }
 }
 
 /* ══════════════════════════════════════
