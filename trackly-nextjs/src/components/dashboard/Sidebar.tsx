@@ -30,7 +30,6 @@ const navGroups = [
   {
     label: 'Tools',
     items: [
-      { href: '/dashboard/copilot', label: 'Copilot', icon: '✦' },
       { href: '/dashboard/geo-audit', label: 'GEO Audit', icon: '◉' },
     ],
   },

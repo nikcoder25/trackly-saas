@@ -303,7 +303,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : `${limits.brands * limits.queries}`} total queries · Unlimited brands
+              {limits.queries >= 9999 ? '∞' : limits.queries} tracked queries · Unlimited brands
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
@@ -540,7 +540,7 @@ export default function BillingPage() {
             <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
               Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
               <strong>unlimited brands</strong> and{' '}
-              <strong>{nextPlanLimits.brands * nextPlanLimits.queries} total queries/mo</strong>
+              <strong>{nextPlanLimits.queries >= 9999 ? '∞' : nextPlanLimits.queries} tracked queries/mo</strong>
               {nextPlanPricing.price !== 'Custom'
                 ? <> — just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
                 : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
@@ -625,11 +625,11 @@ export default function BillingPage() {
           </div>
         </div>
         <div style={{ overflowX: 'auto', marginTop: 16 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'center', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '28%' }} />
               {visiblePlans.map(p => (
-                <col key={p} style={{ width: `${80 / visiblePlans.length}%` }} />
+                <col key={p} style={{ width: `${72 / visiblePlans.length}%` }} />
               ))}
             </colgroup>
             <thead>
@@ -640,7 +640,7 @@ export default function BillingPage() {
                   const isRecommended = p === recommendedPlan && p !== currentPlan;
                   return (
                     <th key={p} style={{
-                      padding: '12px 8px', fontWeight: 700,
+                      padding: '12px 8px', fontWeight: 700, textAlign: 'center',
                       textTransform: 'uppercase', fontSize: 11, letterSpacing: .5,
                       color: isCurrent ? 'var(--primary)' : isRecommended ? '#10b981' : 'var(--muted)',
                       background: isCurrent ? 'rgba(99,102,241,.04)' : isRecommended ? 'rgba(16,185,129,.04)' : 'transparent',
@@ -678,7 +678,7 @@ export default function BillingPage() {
                     const isRecommended = p === recommendedPlan && p !== currentPlan;
                     return (
                       <td key={p} style={{
-                        padding: '11px 8px',
+                        padding: '11px 8px', textAlign: 'center',
                         color: isCheck ? 'var(--green)' : isDash ? 'var(--muted)' : isCurrent ? 'var(--primary)' : isRecommended ? '#10b981' : 'var(--text)',
                         fontWeight: isCurrent || isRecommended ? 700 : isCheck ? 600 : 400,
                         fontFamily: !isCheck && !isDash ? 'var(--mono)' : 'var(--font)',
@@ -788,7 +788,7 @@ export default function BillingPage() {
                     {planLimits && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
                         <div>Unlimited brands</div>
-                        <div>{planLimits.brands >= 9999 ? '∞' : planLimits.brands * planLimits.queries} total queries/mo</div>
+                        <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} tracked queries/mo</div>
                         <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
                       </div>
                     )}

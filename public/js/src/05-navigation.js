@@ -217,6 +217,5 @@ function renderView(view){
   if (view==='accuracy')        renderAccuracyMonitor();
   if (view==='citations')       renderCitationAnalysis();
   if (view==='keywordtracker')  renderKeywordTracker();
-  if (view==='copilot')         { /* copilot is interactive, no auto-render */ }
   if (view==='billing')         renderBilling();
 }

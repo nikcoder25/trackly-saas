@@ -109,7 +109,7 @@
 - **Fix:** Add `WHERE user_id = $1` filter
 
 ### HIGH-8: 12+ Endpoints Skip Email Verification Check
-- **Affected:** facts, keyword-tracker, citation-analysis, accuracy, prompt-runs, competitor-analysis, alerts, recommendations, cost-estimate, export, ai-generate-queries, copilot
+- **Affected:** facts, keyword-tracker, citation-analysis, accuracy, prompt-runs, competitor-analysis, alerts, recommendations, cost-estimate, export, ai-generate-queries
 - **Impact:** Unverified email users can access data and trigger AI API calls
 - **Fix:** Replace `verifyRequestAuth` with `requireVerifiedAuth` on all data endpoints
 
@@ -349,7 +349,6 @@
 ### DASH-2: XSS via dangerouslySetInnerHTML in 3 Dashboard Pages (HIGH)
 - **File:** `(dashboard)/dashboard/mentions/page.tsx:233` - AI response text
 - **File:** `(dashboard)/dashboard/proof/page.tsx:338` - AI response excerpts
-- **File:** `(dashboard)/dashboard/copilot/page.tsx:105` - Bot responses with regex-based markdown parsing
 - `escHtml()` only escapes `&`, `<`, `>` but not quotes/attributes. Brand names survive regex escaping but could be dangerous in HTML attribute contexts
 
 ### DASH-3: Team Invite Adds Users Without Their Consent (HIGH)
