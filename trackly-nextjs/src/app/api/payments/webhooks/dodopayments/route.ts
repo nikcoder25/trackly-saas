@@ -34,9 +34,9 @@ export async function POST(request: Request) {
           const rawBody = await request.text();
 
       // Webhook signature verification
-      const webhookSecret = process.env.DODO_WEBHOOK_SECRET;
+      const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_KEY || process.env.DODO_WEBHOOK_SECRET;
           if (!webhookSecret) {
-                  console.error('[Webhook] DODO_WEBHOOK_SECRET not configured');
+                  console.error('[Webhook] DODO_PAYMENTS_WEBHOOK_KEY not configured');
                   return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
           }
           const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
