@@ -61,5 +61,5 @@ const nextConfig: NextConfig = {
 // Always wrap with Sentry so the webpack plugin instruments the bundle at build time.
 // The DSN is checked at runtime inside sentry.client.config.ts / sentry.server.config.ts.
 export default withSentryConfig(nextConfig, {
-    disableLogger: true,
+    silent: true,
 });
