@@ -160,8 +160,6 @@ export async function GET(request: Request) {
           errors.push(`${batch[j].id}: ${reason}`);
           console.error(`[Cron] Failed brand ${batch[j].id}:`, reason);
         }
-
-        if (result.rows.length < PAGE_SIZE) break;
       }
     }
 
