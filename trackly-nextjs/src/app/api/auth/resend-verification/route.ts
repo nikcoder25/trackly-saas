@@ -9,10 +9,10 @@ export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
-  const rl = await rateLimit('resend_verify:' + user.id, 15 * 60 * 1000, 3);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
-
   try {
+    const rl = await rateLimit('resend_verify:' + user.id, 15 * 60 * 1000, 3);
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
+
     const result = await pool.query('SELECT email, email_verified FROM users WHERE id = $1', [user.id]);
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
     if (result.rows[0].email_verified) return Response.json({ message: 'Email already verified' });
@@ -22,7 +22,13 @@ export async function POST(request: Request) {
     const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
     await pool.query('UPDATE users SET verify_token = $1, verify_token_expires = $2 WHERE id = $3', [verifyToken, verifyTokenExpires, user.id]);
 
-    const emailResult = await sendVerificationEmail(email, verifyToken);
+    let emailResult;
+    try {
+      emailResult = await sendVerificationEmail(email, verifyToken);
+    } catch (emailErr) {
+      console.error('[Resend Verification] sendVerificationEmail threw:', emailErr);
+      return Response.json({ error: 'Failed to send verification email. Please try again later.' }, { status: 500 });
+    }
     if (!emailResult.sent) {
       console.error('[Resend Verification] Email failed:', emailResult.reason);
       return Response.json({ error: 'Failed to send verification email. Please try again later.' }, { status: 500 });
@@ -30,7 +36,7 @@ export async function POST(request: Request) {
 
     return Response.json({ message: 'Verification email sent.' });
   } catch (e) {
-    console.error('[Resend Verification] Error:', (e as Error).message);
-    return Response.json({ error: 'Failed to resend verification' }, { status: 500 });
+    console.error('[Resend Verification] Unhandled error:', e);
+    return Response.json({ error: 'Failed to resend verification. Please try again later.' }, { status: 500 });
   }
 }
