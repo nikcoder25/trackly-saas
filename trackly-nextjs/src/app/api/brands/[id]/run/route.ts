@@ -3,7 +3,7 @@ import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
-import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, isDataForSEOConfigured } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, isDataForSEOConfigured, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -339,7 +339,11 @@ async function executeRunBackground(
   }
 
   function processError(plat: string, q: string, err: Error) {
-    platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+    // Transient errors (429, 503, capacity) don't count toward the
+    // consecutive-failure threshold — the platform isn't broken, just busy.
+    if (!isTransientError(err)) {
+      platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+    }
     allResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, sentiment: 'neutral', recommended: false,
@@ -354,10 +358,10 @@ async function executeRunBackground(
     });
   }
 
-  // Track last request time per platform to stagger calls and avoid rate limits
-  const platLastCall: Record<string, number> = {};
-  const PLATFORM_STAGGER_MS = 500; // minimum ms between calls to the same platform
-  const WORKER_TIMEOUT_MS = 300000; // 5 minutes per individual AI call
+  // 10 min cap to accommodate the 8-min deep-retry budget in queryAI plus
+  // headroom for slow providers. Transient rate limits can take several
+  // minutes to clear under sustained provider-side load.
+  const WORKER_TIMEOUT_MS = 600000;
 
   async function runWorker() {
     while (nextIdx < tasks.length) {
@@ -368,30 +372,41 @@ async function executeRunBackground(
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
           throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
         }
-        // Stagger requests to the same platform to avoid 429s
-        const lastCall = platLastCall[plat] || 0;
-        const elapsed = Date.now() - lastCall;
-        if (elapsed < PLATFORM_STAGGER_MS) {
-          await new Promise(r => setTimeout(r, PLATFORM_STAGGER_MS - elapsed));
-        }
+
+        // Build the per-attempt call: pick a healthy key (skips circuit-broken
+        // and cooling keys), acquire a platform slot (semaphore + RPM window),
+        // then call the provider. Wrapped in withDeepRetry so transient errors
+        // keep retrying until the wall-clock budget expires.
         const keyName = PLATFORM_KEY_MAP[plat];
+        const userKey = userKeys[keyName];
         const serverKeyList = serverKeys[keyName] || [];
-        const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
-        if (!rawKey) throw new Error('No API key available for ' + plat);
+        const keyPool: string[] = userKey ? [userKey] : serverKeyList;
+        if (!keyPool.length) throw new Error('No API key available for ' + plat);
 
-        // Circuit breaker: skip keys with too many auth failures
-        if (circuitBreakerCheck(rawKey)) {
-          throw new Error('Circuit breaker open for API key — too many auth failures');
-        }
+        const singleAttempt = async () => {
+          const rawKey = pickBestKey(keyPool);
+          if (!rawKey) throw new Error('No usable API key for ' + plat);
+          if (circuitBreakerCheck(rawKey)) {
+            throw new Error('Circuit breaker open for API key — too many auth failures');
+          }
+          const release = await acquirePlatformSlot(plat);
+          try {
+            const r = await queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand);
+            resetApiKeyFailures(rawKey);
+            return r;
+          } finally {
+            release();
+          }
+        };
 
-        platLastCall[plat] = Date.now();
-        // Worker-level timeout: 5 minutes per individual AI call
         const result = await Promise.race([
-          queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
+          withDeepRetry(plat, singleAttempt),
+          new Promise<never>((_, rej) => setTimeout(
+            () => rej(new Error(`Worker timeout after ${Math.round(WORKER_TIMEOUT_MS / 60000)} minutes`)),
+            WORKER_TIMEOUT_MS,
+          )),
         ]);
         platFailCount[plat] = 0;
-        resetApiKeyFailures(rawKey);
         processResult(plat, q, result);
       } catch (err) {
         processError(plat, q, err as Error);
@@ -402,9 +417,10 @@ async function executeRunBackground(
   }
 
   try {
-    // Cap concurrency to number of platforms (1 worker per platform avoids hammering)
-    const CONCURRENCY = Math.min(activePlatforms.length, tasks.length);
-    await Promise.all(Array.from({ length: CONCURRENCY }, () => runWorker()));
+    // Cap concurrency at 8 workers; platform-level semaphore in queryAI
+    // further limits per-provider parallelism to avoid 429s.
+    const CONCURRENCY = Math.min(activePlatforms.length, 8);
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => runWorker()));
 
     // Final flush
     await flushProgress(true);
