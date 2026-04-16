@@ -186,10 +186,11 @@ export async function POST(request: Request) {
 
       const body = JSON.parse(rawBody);
 
-      // Require a real event ID from the payload
-      const eventId = body.event_id || body.id || body.payload?.payment_id || body.payload?.subscription_id;
+      // DodoPayments payload structure: { business_id, data, timestamp, type }
+      // The event ID comes from the webhook-id header (Standard Webhooks), not the payload
+      const eventId = webhookId || body.event_id || body.id;
           if (!eventId) {
-                  console.error('[Webhook] Missing event_id in payload. Keys:', Object.keys(body).join(', '));
+                  console.error('[Webhook] Missing event ID. No webhook-id header and no event_id in payload. Keys:', Object.keys(body).join(', '));
                   return Response.json({ error: 'Missing event_id' }, { status: 400 });
           }
           const eventType = body.type || body.event_type || '';
