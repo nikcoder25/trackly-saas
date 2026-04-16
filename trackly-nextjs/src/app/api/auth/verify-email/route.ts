@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { pool, auditLog } from '@/lib/db';
+import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
   if (!token) return Response.json({ error: 'Verification token required' }, { status: 400 });
 
   try {
+    await ensureColumns();
+
     const result = await pool.query(
       'SELECT id, email FROM users WHERE verify_token = $1 AND (verify_token_expires IS NULL OR verify_token_expires > NOW())',
       [token]

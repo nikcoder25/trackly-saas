@@ -1,6 +1,6 @@
 /**
  * Database configuration - connects to the SAME PostgreSQL database
- * as the existing Express app. No schema changes needed.
+ * as the existing Express app. Ensures required columns exist on startup.
  */
 import { Pool } from 'pg';
 
@@ -14,7 +14,7 @@ const sslConfig = process.env.DATABASE_URL
   : false;
 
 // Use global to prevent multiple pool instances in development (Next.js hot reload)
-const globalForDb = globalThis as unknown as { pool: Pool | undefined };
+const globalForDb = globalThis as unknown as { pool: Pool | undefined; dbMigrated: boolean | undefined };
 
 export const pool =
   globalForDb.pool ??
@@ -32,6 +32,44 @@ export const pool =
 if (process.env.NODE_ENV !== 'production') {
   globalForDb.pool = pool;
 }
+
+/**
+ * Ensure required columns exist in the users table.
+ * The Express app's config/db.js creates these via ALTER TABLE migrations,
+ * but when the Next.js app is deployed independently (or first), these
+ * columns may not exist yet. Runs once per process lifetime.
+ */
+let migratePromise: Promise<void> | null = null;
+
+function runMigrations(): Promise<void> {
+  if (globalForDb.dbMigrated) return Promise.resolve();
+  if (migratePromise) return migratePromise;
+
+  migratePromise = (async () => {
+    try {
+      await pool.query(`
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token_expires TIMESTAMPTZ;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS refresh_token TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+      `);
+      globalForDb.dbMigrated = true;
+    } catch (e) {
+      // Log but don't crash — columns may already exist, or table may not
+      // exist yet (Express app creates it). Reset so next call retries.
+      console.error('[DB] Migration check failed:', (e as Error).message);
+      migratePromise = null;
+    }
+  })();
+
+  return migratePromise;
+}
+
+export { runMigrations as ensureColumns };
 
 /**
  * Safe pool client wrapper — prevents double-release.
