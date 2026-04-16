@@ -75,6 +75,26 @@ export async function GET(request: Request) {
           });
 
           if (!response.ok) {
+            if (response.status === 404) {
+              // Subscription no longer exists at DodoPayments — clean up stale data
+              console.log(`[Reconciliation] Subscription ${subscriptionId} not found (404) for user ${user.id}, cleaning up`);
+              await client.query('BEGIN');
+              if (user.plan !== 'free') {
+                await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', user.id]);
+                details.push({ userId: user.id, action: 'stale_subscription_cleanup', from: user.plan, to: 'free' });
+                reconciled++;
+              }
+              await client.query(
+                `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"not_found"}'::jsonb WHERE id = $1`,
+                [user.id]
+              );
+              await client.query('COMMIT');
+              console.log(`[Reconciliation] Cleaned up stale subscription for user ${user.id}`);
+              await auditLog('system', 'cron_reconcile_stale_sub', 'user', user.id, {
+                previousPlan: user.plan, subscriptionId, reason: 'subscription_not_found_404',
+              }, 'cron').catch(() => {});
+              continue;
+            }
             console.warn(`[Reconciliation] Failed to fetch subscription ${subscriptionId} for user ${user.id}: ${response.status}`);
             errors++;
             continue;
