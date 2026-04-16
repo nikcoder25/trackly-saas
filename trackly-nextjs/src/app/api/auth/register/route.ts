@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { pool, auditLog } from '@/lib/db';
+import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity } from '@/lib/auth';
 import { getPlanLimits, AUTH } from '@/lib/constants';
@@ -97,6 +97,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await ensureColumns();
+
     if (trimmedUsername) {
       const existingUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
       if (existingUser.rows.length) return Response.json({ error: 'Username already taken' }, { status: 400 });

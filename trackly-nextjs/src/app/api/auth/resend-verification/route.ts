@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { pool } from '@/lib/db';
+import { pool, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { sendVerificationEmail } from '@/lib/email';
 import { AUTH } from '@/lib/constants';
@@ -10,6 +10,7 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
 
   try {
+    await ensureColumns();
     const rl = await rateLimit('resend_verify:' + user.id, 15 * 60 * 1000, 3);
     if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
