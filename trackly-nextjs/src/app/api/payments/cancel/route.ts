@@ -35,9 +35,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Downgrade to free
+    // Downgrade to free and clean up subscription data
     await pool.query(
-      `UPDATE users SET plan = 'free', settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
+      `UPDATE users SET plan = 'free', settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
       [user.id]
     );
 

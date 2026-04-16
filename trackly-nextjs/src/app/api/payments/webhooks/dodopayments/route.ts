@@ -29,48 +29,184 @@ const DOWNGRADE_EVENTS = new Set([
     'refund.succeeded',
   ]);
 
+// Collect all configured webhook secrets to try (handles env var name mismatches)
+function getWebhookSecrets(): string[] {
+  const secrets: string[] = [];
+  const key = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
+  const secret = process.env.DODO_WEBHOOK_SECRET;
+  if (key) secrets.push(key);
+  if (secret && secret !== key) secrets.push(secret);
+  return secrets;
+}
+
+// Verify HMAC-SHA256 signature against one or more secrets
+function verifySignature(rawBody: string, signature: string, secrets: string[]): boolean {
+  for (const secret of secrets) {
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    try {
+      const sigBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expected, 'hex');
+      if (sigBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+        return true;
+      }
+    } catch {
+      // Signature might not be valid hex — try base64 comparison
+    }
+    // Also try direct string comparison for non-hex signatures
+    if (signature === expected) return true;
+  }
+  return false;
+}
+
 export async function POST(request: Request) {
     try {
           const rawBody = await request.text();
 
+      // Diagnostic: log all incoming headers for debugging
+      const allHeaders: Record<string, string> = {};
+      request.headers.forEach((value, key) => {
+        // Redact auth tokens but keep signature headers
+        if (key.toLowerCase().includes('authorization')) {
+          allHeaders[key] = '[REDACTED]';
+        } else {
+          allHeaders[key] = value;
+        }
+      });
+      console.log('[Webhook] Incoming request headers:', JSON.stringify(allHeaders));
+      console.log('[Webhook] Raw body length:', rawBody.length);
+      console.log('[Webhook] Raw body preview:', rawBody.substring(0, 200));
+
       // Webhook signature verification
-      const webhookSecret = process.env.DODO_PAYMENTS_WEBHOOK_KEY || process.env.DODO_WEBHOOK_SECRET;
-          if (!webhookSecret) {
-                  console.error('[Webhook] DODO_PAYMENTS_WEBHOOK_KEY not configured');
+      const secrets = getWebhookSecrets();
+          if (!secrets.length) {
+                  console.error('[Webhook] No webhook secrets configured (checked DODO_PAYMENTS_WEBHOOK_KEY and DODO_WEBHOOK_SECRET)');
                   return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
           }
-          const signature = request.headers.get('x-webhook-signature') || request.headers.get('x-dodo-signature');
-          if (!signature) {
-                  console.error('[Webhook] Missing signature header');
-                  return Response.json({ error: 'Missing signature' }, { status: 401 });
+
+      // Check all common signature header names that DodoPayments might use
+      const signatureHeaders = [
+        'webhook-signature',
+        'x-webhook-signature',
+        'x-dodo-signature',
+        'x-signature',
+        'dodo-signature',
+      ];
+      let signature: string | null = null;
+      let matchedHeader = '';
+      for (const headerName of signatureHeaders) {
+        const val = request.headers.get(headerName);
+        if (val) {
+          signature = val;
+          matchedHeader = headerName;
+          break;
+        }
+      }
+
+      if (!signature) {
+        console.error('[Webhook] No signature header found. Checked:', signatureHeaders.join(', '));
+        console.error('[Webhook] Available headers:', Object.keys(allHeaders).join(', '));
+        return Response.json({ error: 'Missing signature' }, { status: 401 });
+      }
+
+      console.log('[Webhook] Signature found in header:', matchedHeader, '=', signature.substring(0, 20) + '...');
+
+      // DodoPayments Standard Webhooks format: "v1,<base64-signature>"
+      // Try extracting the actual signature if it has a version prefix
+      let rawSignature = signature;
+      if (signature.startsWith('v1,')) {
+        const base64Sig = signature.slice(3);
+        // Convert base64 signature to hex for comparison
+        rawSignature = Buffer.from(base64Sig, 'base64').toString('hex');
+        console.log('[Webhook] Detected v1 prefix, decoded base64 signature to hex');
+      }
+
+      // Also handle Standard Webhooks which use webhook-id + webhook-timestamp + body
+      const webhookId = request.headers.get('webhook-id');
+      const webhookTimestamp = request.headers.get('webhook-timestamp');
+      let verified = false;
+
+      if (webhookId && webhookTimestamp) {
+        // Standard Webhooks format: sign(webhookId.webhookTimestamp.body)
+        const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`;
+        console.log('[Webhook] Using Standard Webhooks format: webhook-id=%s, webhook-timestamp=%s', webhookId, webhookTimestamp);
+
+        for (const secret of secrets) {
+          // Standard Webhooks secrets may be prefixed with "whsec_" and base64-encoded
+          let keyBytes: Buffer;
+          if (secret.startsWith('whsec_')) {
+            keyBytes = Buffer.from(secret.slice(6), 'base64');
+          } else {
+            keyBytes = Buffer.from(secret, 'utf8');
           }
-          const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-          const sigBuffer = Buffer.from(signature, 'hex');
-          const expectedBuffer = Buffer.from(expected, 'hex');
-          if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-                  console.error('[Webhook] Invalid signature');
-                  return Response.json({ error: 'Invalid signature' }, { status: 401 });
+          const expected = crypto.createHmac('sha256', keyBytes).update(signedContent).digest('base64');
+
+          // The signature header may contain multiple space-separated signatures (v1,<sig> v1,<sig2>)
+          const sigParts = signature.split(' ');
+          for (const part of sigParts) {
+            const sigValue = part.startsWith('v1,') ? part.slice(3) : part;
+            if (sigValue === expected) {
+              verified = true;
+              console.log('[Webhook] Signature verified using Standard Webhooks format');
+              break;
+            }
           }
+          if (verified) break;
+        }
+      }
+
+      // Fallback: try simple HMAC(body) verification
+      if (!verified) {
+        verified = verifySignature(rawBody, rawSignature, secrets);
+        if (verified) {
+          console.log('[Webhook] Signature verified using simple HMAC(body) format');
+        }
+      }
+
+      if (!verified) {
+        // Log detailed diagnostic info for debugging
+        const firstSecret = secrets[0];
+        const simpleExpected = crypto.createHmac('sha256', firstSecret).update(rawBody).digest('hex');
+        console.error('[Webhook] Signature verification FAILED');
+        console.error('[Webhook] Received signature:', signature);
+        console.error('[Webhook] Expected (simple HMAC hex):', simpleExpected.substring(0, 20) + '...');
+        if (webhookId && webhookTimestamp) {
+          const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`;
+          let keyBytes: Buffer;
+          if (firstSecret.startsWith('whsec_')) {
+            keyBytes = Buffer.from(firstSecret.slice(6), 'base64');
+          } else {
+            keyBytes = Buffer.from(firstSecret, 'utf8');
+          }
+          const stdExpected = crypto.createHmac('sha256', keyBytes).update(signedContent).digest('base64');
+          console.error('[Webhook] Expected (Standard Webhooks base64):', stdExpected.substring(0, 20) + '...');
+        }
+        console.error('[Webhook] Number of secrets tried:', secrets.length);
+        return Response.json({ error: 'Invalid signature' }, { status: 401 });
+      }
 
       const body = JSON.parse(rawBody);
 
       // Require a real event ID from the payload
-      const eventId = body.event_id || body.id;
+      const eventId = body.event_id || body.id || body.payload?.payment_id || body.payload?.subscription_id;
           if (!eventId) {
-                  console.error('[Webhook] Missing event_id in payload');
+                  console.error('[Webhook] Missing event_id in payload. Keys:', Object.keys(body).join(', '));
                   return Response.json({ error: 'Missing event_id' }, { status: 400 });
           }
           const eventType = body.type || body.event_type || '';
 
-      // Log the full webhook payload for debugging (redact sensitive fields)
-      console.log('[Webhook] Received:', JSON.stringify({
+      // Log the full webhook payload for debugging
+      console.log('[Webhook] Processing event:', JSON.stringify({
               eventId,
               eventType,
-              product_id: body.product_id || body.data?.product_id,
-              subscription_id: body.subscription_id || body.data?.subscription_id,
-              customer_id: body.customer_id || body.data?.customer_id,
-              metadata: body.metadata || body.data?.metadata,
+              bodyKeys: Object.keys(body),
+              product_id: body.product_id || body.data?.product_id || body.payload?.product_id,
+              subscription_id: body.subscription_id || body.data?.subscription_id || body.payload?.subscription_id,
+              customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id,
+              metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
       }));
+
+      // Extract nested data — DodoPayments may nest under .data or .payload
+      const eventData = body.data || body.payload || body;
 
       // Use a transaction with SERIALIZABLE isolation to prevent race conditions
       // on duplicate webhook events and ensure atomic plan updates
@@ -90,14 +226,14 @@ export async function POST(request: Request) {
                   }
 
             // Extract userId from metadata (check multiple possible locations)
-            const metadata = body.metadata || body.data?.metadata || {};
+            const metadata = body.metadata || body.data?.metadata || body.payload?.metadata || {};
                   const userId = metadata.userId || metadata.user_id;
 
             // Handle plan upgrade events
             if (UPGRADE_EVENTS.has(eventType)) {
                       if (!userId || typeof userId !== 'string') {
                                   await client.query('ROLLBACK');
-                                  console.error('[Webhook] Upgrade event missing userId:', { eventId, eventType, metadata });
+                                  console.error('[Webhook] Upgrade event missing userId:', { eventId, eventType, metadata, bodyKeys: Object.keys(body) });
                                   return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
                       }
                       const userCheck = await client.query('SELECT id, plan, settings FROM users WHERE id = $1', [userId]);
@@ -108,12 +244,14 @@ export async function POST(request: Request) {
                       }
 
                     const currentUser = userCheck.rows[0];
-                      const productId = body.product_id || body.data?.product_id;
+                      const productId = eventData.product_id || body.product_id;
                       // Also check metadata.plan as fallback (set during checkout)
                     const plan = productId ? PLAN_MAP[productId] : (metadata.plan || null);
 
+                    console.log('[Webhook] Upgrade resolution:', { userId, productId, plan, currentPlan: currentUser.plan, knownProducts: Object.keys(PLAN_MAP) });
+
                     if (plan) {
-                                const customerId = body.customer_id || body.data?.customer_id;
+                                const customerId = eventData.customer_id || body.customer_id;
                                 if (customerId) {
                                               const existingCustomerId = currentUser.settings?.dodo_customer_id;
                                               if (existingCustomerId && existingCustomerId !== customerId) {
@@ -133,7 +271,7 @@ export async function POST(request: Request) {
                         const settingsUpdate: Record<string, string> = {
                                       subscription_status: 'active',
                         };
-                                const subscriptionId = body.subscription_id || body.data?.subscription_id;
+                                const subscriptionId = eventData.subscription_id || body.subscription_id;
                                 if (subscriptionId) {
                                               settingsUpdate.subscription_id = subscriptionId;
                                 }
@@ -153,6 +291,7 @@ export async function POST(request: Request) {
                                 console.warn('[Webhook] Could not determine plan from event:', {
                                               eventId, eventType, productId,
                                               knownProducts: Object.keys(PLAN_MAP),
+                                              metadataPlan: metadata.plan,
                                 });
                     }
             }
@@ -174,7 +313,7 @@ export async function POST(request: Request) {
                     const previousPlan = userCheck2.rows[0].plan;
                       await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
                       await client.query(
-                                  `UPDATE users SET settings = settings || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
+                                  `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
                                   [userId]
                                 );
                       console.log('[Webhook] Plan downgraded:', { userId, from: previousPlan, to: 'free', eventType });
@@ -208,11 +347,12 @@ export async function POST(request: Request) {
             if (userId) {
                       auditLog('system', 'webhook_plan_change', 'user', userId, {
                                   eventId, eventType,
-                                  product_id: body.product_id || body.data?.product_id,
-                                  subscription_id: body.subscription_id || body.data?.subscription_id,
+                                  product_id: eventData.product_id || body.product_id,
+                                  subscription_id: eventData.subscription_id || body.subscription_id,
                       }, 'webhook');
             }
 
+            console.log('[Webhook] Successfully processed event:', eventId, eventType);
             return Response.json({ received: true });
           } catch (txErr) {
                   await client.query('ROLLBACK').catch(() => {});
@@ -223,12 +363,7 @@ export async function POST(request: Request) {
     } catch (e) {
           const errorMessage = (e as Error).message;
           console.error('[Webhook] Processing error:', errorMessage, (e as Error).stack);
-          // Return 200 for transient/parse errors so Dodo doesn't stop retrying permanently
-      // Only return 500 for truly fatal configuration errors
-      if (errorMessage.includes('Webhook secret') || errorMessage.includes('not configured')) {
-              return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
-      }
-          // Return 500 to trigger Dodo's retry mechanism for transient errors
-      return Response.json({ error: 'Webhook processing failed, will retry' }, { status: 500 });
+          // Return 500 for all errors to trigger Dodo's retry mechanism
+          return Response.json({ error: 'Webhook processing failed, will retry' }, { status: 500 });
     }
 }
