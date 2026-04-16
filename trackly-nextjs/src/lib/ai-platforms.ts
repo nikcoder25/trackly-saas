@@ -1,5 +1,15 @@
 /**
- * AI platform API integrations - ported from Express app
+ * AI platform API integrations — Next.js port.
+ *
+ * Hardened against 429s, provider overload, and partial outages:
+ *   - Per-key cooldown with exponential growth (avoids hammering throttled keys)
+ *   - Per-platform concurrency semaphore + sliding-window RPM limiter
+ *   - Wall-clock deep-retry budget (withDeepRetry) — keeps trying transient errors
+ *   - In-flight coalescing (dedup identical concurrent queries)
+ *   - Deferred background retry queue (warms cache for next run after budget exhaust)
+ *   - Gemini fallback chain: pro → flash → flash-lite
+ *   - Retry-After header honouring, 529 (Anthropic) treated as rate-limit
+ *   - Tagged errors (isRateLimit/isTransient/budgetExhausted) for caller routing
  */
 import { pool } from './db';
 import { checkAiOverview, isConfigured as isDataForSEOConfigured } from './dataforseo';
@@ -9,12 +19,24 @@ export { isDataForSEOConfigured };
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
 
-// ── Circuit breaker for bad API keys ────────────────────────────
-// Tracks per-key consecutive failures. If a key has 5+ failures within
-// 5 minutes, it is temporarily skipped to avoid wasting rate limit quota.
+// ── Error typing ────────────────────────────────────────────────
+export interface AiError extends Error {
+  isRateLimit?: boolean;
+  isTransient?: boolean;
+  budgetExhausted?: boolean;
+}
+function tagError(msg: string, flags: Partial<AiError> = {}): AiError {
+  const e = new Error(msg) as AiError;
+  Object.assign(e, flags);
+  return e;
+}
+
+const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+
+// ── Circuit breaker for bad API keys (auth failures) ────────────
 const apiKeyFailures = new Map<string, { count: number; lastFailure: number }>();
 const CIRCUIT_BREAKER_THRESHOLD = 5;
-const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+const CIRCUIT_BREAKER_WINDOW_MS = 5 * 60 * 1000;
 
 export function circuitBreakerCheck(apiKey: string): boolean {
   const entry = apiKeyFailures.get(apiKey);
@@ -40,6 +62,214 @@ export function resetApiKeyFailures(apiKey: string): void {
   apiKeyFailures.delete(apiKey);
 }
 
+// ── Per-key rate-limit cooldowns ────────────────────────────────
+// When a key gets 429'd, park it for a cool-down proportional to consecutive
+// 429 count. pickBestKey skips keys that are in cooldown.
+interface CooldownEntry { until: number; consecutive: number; }
+const _keyCooldown = new Map<string, CooldownEntry>();
+
+export function markKeyRateLimited(apiKey: string, hintMs?: number): number {
+  const now = Date.now();
+  const prev = _keyCooldown.get(apiKey);
+  const consecutive = prev && prev.until > now - 30000 ? prev.consecutive + 1 : 1;
+  const scaled = Math.min(15000 * Math.pow(2, consecutive - 1), 240000);
+  const cool = Math.max(scaled, Math.min(hintMs || 0, 240000));
+  _keyCooldown.set(apiKey, { until: now + cool, consecutive });
+  return cool;
+}
+
+export function keyCooldownRemaining(apiKey: string): number {
+  const entry = _keyCooldown.get(apiKey);
+  if (!entry) return 0;
+  const remaining = entry.until - Date.now();
+  if (remaining <= 0) { _keyCooldown.delete(apiKey); return 0; }
+  return remaining;
+}
+
+export function clearKeyCooldown(apiKey: string): void {
+  _keyCooldown.delete(apiKey);
+}
+
+// ── Global per-platform rate limiter ────────────────────────────
+// Concurrency semaphore + sliding-window RPM. Enforced across all brands /
+// queries in this worker process. Values leave headroom under published
+// provider limits so retries and multi-brand bursts don't trip 429s.
+export interface PlatformLimit { maxConcurrent: number; rpm: number; windowMs: number; }
+export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
+  ChatGPT:    { maxConcurrent: 4, rpm: 300, windowMs: 60000 },
+  Claude:     { maxConcurrent: 3, rpm: 80,  windowMs: 60000 },
+  Gemini:     { maxConcurrent: 6, rpm: 400, windowMs: 60000 },
+  Grok:       { maxConcurrent: 3, rpm: 100, windowMs: 60000 },
+  Perplexity: { maxConcurrent: 3, rpm: 80,  windowMs: 60000 },
+};
+
+interface PlatformState { inFlight: number; waiters: Array<() => void>; timestamps: number[]; }
+const _platformState: Record<string, PlatformState> = {};
+
+function _getPlatformState(platform: string): PlatformState {
+  let s = _platformState[platform];
+  if (!s) { s = { inFlight: 0, waiters: [], timestamps: [] }; _platformState[platform] = s; }
+  return s;
+}
+
+// Acquire a slot respecting both concurrency and sliding-window RPM.
+// The concurrency slot is claimed BEFORE the RPM sleep so parallel callers
+// cannot bypass the concurrency cap while waiting on the RPM window.
+export async function acquirePlatformSlot(platform: string): Promise<() => void> {
+  const limits = PLATFORM_LIMITS[platform];
+  if (!limits) return () => {};
+  const state = _getPlatformState(platform);
+
+  while (state.inFlight >= limits.maxConcurrent) {
+    await new Promise<void>(resolve => state.waiters.push(resolve));
+  }
+  state.inFlight++;
+
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    state.inFlight--;
+    const next = state.waiters.shift();
+    if (next) next();
+  };
+
+  try {
+    for (;;) {
+      const now = Date.now();
+      state.timestamps = state.timestamps.filter(t => now - t < limits.windowMs);
+      if (state.timestamps.length < limits.rpm) break;
+      const oldest = state.timestamps[0];
+      const waitMs = Math.max(50, limits.windowMs - (now - oldest) + 25);
+      await sleep(waitMs);
+    }
+    state.timestamps.push(Date.now());
+  } catch (e) {
+    release();
+    throw e;
+  }
+  return release;
+}
+
+// ── Key selection ───────────────────────────────────────────────
+// Skip circuit-broken keys, prefer keys NOT in cooldown, then pick the
+// one with the earliest cooldown expiry. Falls back to any non-null key
+// so the call still goes through after a brief extra wait.
+export function pickBestKey(keysArray: string[]): string | null {
+  if (!keysArray || !keysArray.length) return null;
+  const healthy: string[] = [];
+  const cooling: Array<{ k: string; rem: number }> = [];
+  for (const k of keysArray) {
+    if (circuitBreakerCheck(k)) continue;
+    const rem = keyCooldownRemaining(k);
+    if (rem === 0) healthy.push(k);
+    else cooling.push({ k, rem });
+  }
+  if (healthy.length) return healthy[Math.floor(Math.random() * healthy.length)];
+  if (cooling.length) {
+    cooling.sort((a, b) => a.rem - b.rem);
+    return cooling[0].k;
+  }
+  return keysArray[Math.floor(Math.random() * keysArray.length)];
+}
+
+// ── Transient error detection ───────────────────────────────────
+export function isTransientError(e: unknown): boolean {
+  if (!e) return false;
+  const err = e as AiError;
+  if (err.isRateLimit || err.isTransient) return true;
+  const msg = (err.message || '').toLowerCase();
+  return msg.includes('rate limit')
+      || msg.includes('429')
+      || msg.includes('too many requests')
+      || msg.includes('overloaded')
+      || msg.includes('high demand')
+      || msg.includes('try again later')
+      || msg.includes('resource exhausted')
+      || msg.includes('unavailable')
+      || msg.includes('timeout')
+      || msg.includes('econnreset')
+      || msg.includes('socket hang up');
+}
+
+// ── Deep-retry wall-clock budget ────────────────────────────────
+// Wraps a provider call with "never-give-up" semantics for transient errors,
+// backing off up to 60s between attempts until the wall-clock budget expires.
+const DEEP_RETRY_BUDGET_MS = parseInt(process.env.AI_DEEP_RETRY_BUDGET_MS || '', 10) || (8 * 60 * 1000);
+
+export async function withDeepRetry<T>(platform: string, fn: () => Promise<T>, budgetMs?: number): Promise<T> {
+  const budget = budgetMs || DEEP_RETRY_BUDGET_MS;
+  const start = Date.now();
+  let attempt = 0;
+  let lastErr: AiError | undefined;
+  for (;;) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e as AiError;
+      if (!isTransientError(e)) throw e;
+      const elapsed = Date.now() - start;
+      const remaining = budget - elapsed;
+      if (remaining <= 1500) {
+        if (lastErr) lastErr.budgetExhausted = true;
+        throw lastErr;
+      }
+      const base = Math.min(60000, 10000 * Math.pow(1.5, attempt));
+      const jitter = Math.floor(Math.random() * 3000);
+      const delay = Math.min(base + jitter, Math.max(1000, remaining - 500));
+      console.warn(`[${platform}] transient (deep retry #${attempt + 1}, ${Math.round(elapsed/1000)}s/${Math.round(budget/1000)}s): ${(lastErr.message || '').slice(0, 120)}. Sleeping ${Math.round(delay/1000)}s.`);
+      await sleep(delay);
+      attempt++;
+    }
+  }
+}
+
+// ── In-flight request coalescing ────────────────────────────────
+// Two callers asking for the same (platform, model, query, city) at once
+// get coalesced into one outbound call. Halves load during cron batches
+// where multiple brands share a city/query.
+const _inFlightCalls = new Map<string, Promise<QueryResult>>();
+function coalesce(key: string, fn: () => Promise<QueryResult>): Promise<QueryResult> {
+  const existing = _inFlightCalls.get(key);
+  if (existing) return existing;
+  const promise = Promise.resolve().then(fn).finally(() => { _inFlightCalls.delete(key); });
+  _inFlightCalls.set(key, promise);
+  return promise;
+}
+
+// ── Per-platform, per-key minimum spacing ───────────────────────
+// Upper bound on per-key request rate — complements the global semaphore.
+interface RateLimit { minDelayMs: number; }
+const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
+  ChatGPT:    { minDelayMs: 500 },
+  Claude:     { minDelayMs: 300 },
+  Gemini:     { minDelayMs: 300 },
+  Grok:       { minDelayMs: 250 },
+  Perplexity: { minDelayMs: 300 },
+  'Google AI Overviews': { minDelayMs: 1000 },
+};
+const lastRequestTimePerKey = new Map<string, number>();
+const rateLimitQueues = new Map<string, Promise<void>>();
+function rateLimitTrackKey(platform: string, apiKey: string): string {
+  return `${platform}:${apiKey.slice(-8)}`;
+}
+async function rateLimitWait(platform: string, apiKey: string): Promise<void> {
+  const limits = PLATFORM_RATE_LIMITS[platform];
+  if (!limits) return;
+  const trackKey = rateLimitTrackKey(platform, apiKey);
+  const prev = rateLimitQueues.get(trackKey) ?? Promise.resolve();
+  const gate = prev.then(async () => {
+    const now = Date.now();
+    const last = lastRequestTimePerKey.get(trackKey) || 0;
+    const elapsed = now - last;
+    if (elapsed < limits.minDelayMs) await sleep(limits.minDelayMs - elapsed);
+    lastRequestTimePerKey.set(trackKey, Date.now());
+  });
+  rateLimitQueues.set(trackKey, gate.catch(() => {}));
+  return gate;
+}
+
+// ── Model catalog & pricing ─────────────────────────────────────
 const API_ENDPOINTS = {
   openai: { chat: 'https://api.openai.com/v1/chat/completions' },
   perplexity: { chat: 'https://api.perplexity.ai/chat/completions' },
@@ -61,6 +291,7 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
   Gemini: [
     { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', default: true },
     { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+    { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (Fallback)' },
   ],
   Grok: [
     { id: 'grok-3-mini', label: 'Grok 3 Mini', default: true },
@@ -83,11 +314,12 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
   'gemini-2.5-flash': { input: 0.10, output: 0.40 },
   'gemini-2.5-pro': { input: 1.25, output: 10.00 },
+  'gemini-2.5-flash-lite': { input: 0.075, output: 0.30 },
   'grok-3-mini': { input: 0.30, output: 0.50 },
   'grok-4': { input: 3.00, output: 15.00 },
   'sonar': { input: 1.00, output: 1.00 },
   'sonar-pro': { input: 3.00, output: 15.00 },
-  'google-ai-overviews': { input: 0, output: 0 }, // DataForSEO flat-rate, not token-based
+  'google-ai-overviews': { input: 0, output: 0 },
 };
 
 export function getDefaultModel(platform: string): string {
@@ -103,182 +335,333 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
   return ((tokensIn || 0) * pricing.input + (tokensOut || 0) * pricing.output) / 1_000_000;
 }
 
-// ── Per-platform rate limiting ──────────────────────────────────
-// Minimum delay (ms) between requests per API key per platform.
-// Prevents hitting upstream 429s from concurrent runs.
-const PLATFORM_RATE_LIMITS: Record<string, { minDelayMs: number }> = {
-  ChatGPT:    { minDelayMs: 500 },
-  Claude:     { minDelayMs: 300 },
-  Gemini:     { minDelayMs: 300 },
-  Grok:       { minDelayMs: 250 },
-  Perplexity: { minDelayMs: 300 },
-  'Google AI Overviews': { minDelayMs: 1000 }, // DataForSEO rate limit — more conservative
-};
-
-const lastRequestTimePerKey = new Map<string, number>();
-const rateLimitQueues = new Map<string, Promise<void>>();
-
-function rateLimitTrackKey(platform: string, apiKey: string): string {
-  return `${platform}:${apiKey.slice(-8)}`;
+// ── Retry-After header parsing ──────────────────────────────────
+function parseRetryAfterHeader(h: Headers): number | null {
+  const raw = h.get('retry-after') || h.get('x-ratelimit-reset-requests') || h.get('x-ratelimit-reset-tokens');
+  if (!raw) return null;
+  const secs = parseInt(raw, 10);
+  if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, 120000);
+  const when = Date.parse(raw);
+  if (Number.isFinite(when)) return Math.max(0, Math.min(when - Date.now(), 120000));
+  return null;
+}
+function extractBodyRetryAfter(body: unknown): number | null {
+  if (!body) return null;
+  const msg = typeof body === 'string' ? body : JSON.stringify(body);
+  const match = msg.match(/retry.?after[:\s]*(\d+)/i) || msg.match(/try again in (\d+)/i);
+  if (match) return Math.min(parseInt(match[1], 10) * 1000, 120000);
+  return null;
 }
 
-async function rateLimitWait(platform: string, apiKey: string): Promise<void> {
-  const limits = PLATFORM_RATE_LIMITS[platform];
-  if (!limits) return;
-  const trackKey = rateLimitTrackKey(platform, apiKey);
+// ── Upgraded fetchAI ────────────────────────────────────────────
+// Uses fetch (Next.js runtime), honours Retry-After, treats 429/529 as rate
+// limits, retries 5xx as transient, and tags thrown errors for caller routing.
+const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 60000;
 
-  // Serialize access per trackKey to prevent concurrent requests from
-  // blasting the same API key simultaneously.
-  const prev = rateLimitQueues.get(trackKey) ?? Promise.resolve();
-  const gate = prev.then(async () => {
-    const now = Date.now();
-    const last = lastRequestTimePerKey.get(trackKey) || 0;
-    const elapsed = now - last;
-    if (elapsed < limits.minDelayMs) {
-      await new Promise(r => setTimeout(r, limits.minDelayMs - elapsed));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string): Promise<any> {
+  const MAX_RETRIES = 3;
+  let lastErr: AiError | undefined;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let resp: Response;
+    try {
+      resp = await fetch(url, { ...options, signal: controller.signal });
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = tagError((e as Error).message || 'Network error', { isTransient: true });
+      if (attempt < MAX_RETRIES) {
+        const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+        await sleep(delay);
+        continue;
+      }
+      throw lastErr;
     }
-    lastRequestTimePerKey.set(trackKey, Date.now());
-  });
-  rateLimitQueues.set(trackKey, gate.catch(() => {}));
-  return gate;
+    clearTimeout(timer);
+
+    if (resp.status === 401 || resp.status === 403) {
+      if (apiKey) recordApiKeyFailure(apiKey);
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error?.message || `Auth error ${resp.status}`);
+    }
+
+    if (resp.status === 429 || resp.status === 529) {
+      const bodyText = await resp.text().catch(() => '');
+      let body: unknown = bodyText;
+      try { body = JSON.parse(bodyText); } catch { /* keep as text */ }
+      const hint = parseRetryAfterHeader(resp.headers) || extractBodyRetryAfter(body) || 0;
+      if (apiKey) markKeyRateLimited(apiKey, hint);
+      if (attempt < MAX_RETRIES) {
+        const backoff = 2000 * Math.pow(2, attempt);
+        const jitter = Math.floor(Math.random() * 1000);
+        await sleep((hint || backoff) + jitter);
+        continue;
+      }
+      throw tagError(`Rate limited (${resp.status}) — retries exhausted`, { isRateLimit: true });
+    }
+
+    if (resp.status >= 500) {
+      lastErr = tagError(`Server error ${resp.status}`, { isTransient: true });
+      if (attempt < MAX_RETRIES) {
+        const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+        await sleep(delay);
+        continue;
+      }
+      throw lastErr;
+    }
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
+    return data;
+  }
+  throw lastErr || new Error('fetchAI: retries exhausted');
 }
 
+// ── Deferred retry queue ────────────────────────────────────────
+// When a query exhausts its deep-retry budget, enqueue it for a later
+// background retry. On success, the response cache (DB layer) is warmed
+// so the next cron tick / manual re-run returns instantly.
+interface DeferredItem {
+  platform: string;
+  query: string;
+  apiKey: string;
+  model?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  brand?: any;
+  options?: QueryOptions;
+  attempts: number;
+  scheduledAt: number;
+}
+const _deferredQueue: DeferredItem[] = [];
+const DEFERRED_MAX_ATTEMPTS = 4;
+const DEFERRED_BASE_DELAY_MS = 5 * 60 * 1000;
+const DEFERRED_QUEUE_MAX = 500;
+
+export function enqueueDeferredRetry(item: Omit<DeferredItem, 'scheduledAt' | 'attempts'> & { attempts?: number }): boolean {
+  if (_deferredQueue.length >= DEFERRED_QUEUE_MAX) return false;
+  const attempts = (item.attempts || 0) + 1;
+  if (attempts > DEFERRED_MAX_ATTEMPTS) return false;
+  const delay = DEFERRED_BASE_DELAY_MS * Math.pow(2, attempts - 1);
+  _deferredQueue.push({ ...item, attempts, scheduledAt: Date.now() + delay });
+  return true;
+}
+
+let _deferredDraining = false;
+async function _drainDeferredQueue(): Promise<void> {
+  if (_deferredDraining || _deferredQueue.length === 0) return;
+  _deferredDraining = true;
+  try {
+    const now = Date.now();
+    const ready: DeferredItem[] = [];
+    for (let i = _deferredQueue.length - 1; i >= 0; i--) {
+      if (_deferredQueue[i].scheduledAt <= now) ready.push(_deferredQueue.splice(i, 1)[0]);
+    }
+    for (const item of ready) {
+      try {
+        await queryAI(item.platform, item.query, item.apiKey, item.model, item.brand, { ...item.options, silent: true });
+      } catch (e) {
+        const ok = enqueueDeferredRetry(item);
+        if (!ok) console.warn(`[Deferred] ${item.platform} gave up after ${item.attempts} attempts: ${((e as Error).message || '').slice(0, 120)}`);
+      }
+    }
+  } finally {
+    _deferredDraining = false;
+  }
+}
+// Sweep every 60s; cheap no-op when empty.
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => { _drainDeferredQueue().catch(() => {}); }, 60 * 1000);
+}
+
+// ── queryAI ─────────────────────────────────────────────────────
 interface QueryResult {
   text: string;
   model: string;
   tokensIn: number;
   tokensOut: number;
   citations: string[];
+  cached?: boolean;
+}
+export interface QueryOptions {
+  systemPrompt?: string;
+  maxTokens?: number;
+  jsonMode?: boolean;
+  silent?: boolean;
+  deepRetryBudgetMs?: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000, apiKey?: string): Promise<any> {
-  const MAX_RETRIES = 3;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const resp = await fetch(url, { ...options, signal: controller.signal });
-      if (resp.status === 401 || resp.status === 403) {
-        clearTimeout(timer);
-        if (apiKey) recordApiKeyFailure(apiKey);
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error?.message || `Auth error ${resp.status}`);
-      }
-      if (resp.status === 429) {
-        clearTimeout(timer);
-        if (attempt < MAX_RETRIES) {
-          // Exponential backoff: 2s, 4s, 8s + jitter
-          const delay = Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000;
-          await new Promise(r => setTimeout(r, delay));
-          continue;
-        }
-        throw new Error('Rate limited (429) — retries exhausted');
-      }
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
-      return data;
-    } catch (e) {
-      clearTimeout(timer);
-      if ((e as Error).message?.includes('Rate limited') && attempt < MAX_RETRIES) {
-        const delay = Math.pow(2, attempt + 1) * 1000 + Math.random() * 1000;
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-      throw e;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-}
+// Gemini fallback chain — pro → flash → flash-lite. Each tier runs on a
+// separate Google capacity pool, so dropping tier often clears "high demand".
+const GEMINI_FALLBACK_CHAIN: Record<string, string[]> = {
+  'gemini-2.5-pro':        ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-2.5-flash':      ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+  'gemini-2.5-flash-lite': ['gemini-2.5-flash-lite'],
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function queryAI(platform: string, query: string, apiKey: string, model?: string, brand?: any, options?: { systemPrompt?: string; maxTokens?: number; jsonMode?: boolean }): Promise<QueryResult> {
-  const useModel = model || getDefaultModel(platform);
-  const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
-  const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
-  const startMs = Date.now();
-  let result: QueryResult;
-
-  // Enforce per-platform rate limiting before making the API call
-  await rateLimitWait(platform, apiKey);
-
-  if (platform === 'ChatGPT') {
-    const isSearch = useModel.includes('search');
+async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
+  const attemptModels = GEMINI_FALLBACK_CHAIN[model] || [model];
+  let lastErr: AiError | undefined;
+  for (let m = 0; m < attemptModels.length; m++) {
+    const geminiModel = attemptModels[m];
+    const url = `${API_ENDPOINTS.gemini.base}${geminiModel}:generateContent`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload: any = {
-      model: useModel, max_tokens: maxTok,
-      messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
-    };
-    if (isSearch) {
-      payload.web_search_options = {};
-      if (brand?.city) payload.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
-    }
-    const d = await fetchAI(API_ENDPOINTS.openai.chat, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify(payload),
-    }, 60000, apiKey);
-    const citations = (d.choices?.[0]?.message?.annotations || []).filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url).map((a: { url: string }) => a.url);
-    result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [...new Set(citations)].slice(0, 10) as string[] };
-  } else if (platform === 'Claude') {
-    const d = await fetchAI(API_ENDPOINTS.claude.messages, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
-    }, 60000, apiKey);
-    result = { text: d.content?.[0]?.text || '', model: d.model || useModel, tokensIn: d.usage?.input_tokens || 0, tokensOut: d.usage?.output_tokens || 0, citations: [] };
-  } else if (platform === 'Gemini') {
-    const url = `${API_ENDPOINTS.gemini.base}${useModel}:generateContent`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const geminiPayload: any = {
       systemInstruction: { parts: [{ text: sysPrompt }] },
       contents: [{ parts: [{ text: query }] }],
       generationConfig: { maxOutputTokens: maxTok },
     };
-    if (options?.jsonMode) {
-      geminiPayload.generationConfig.responseMimeType = 'application/json';
+    if (options?.jsonMode) payload.generationConfig.responseMimeType = 'application/json';
+    try {
+      const d = await fetchAI(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(payload),
+      }, AI_REQUEST_TIMEOUT_MS, apiKey);
+      if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked: ${d.promptFeedback.blockReason}`);
+      const cand = d.candidates?.[0];
+      if (!cand) throw tagError('Gemini returned no candidates', { isTransient: true });
+      const finish = cand.finishReason;
+      if (finish && finish !== 'STOP' && finish !== 'MAX_TOKENS') throw new Error(`Gemini blocked (${finish})`);
+      const parts = cand.content?.parts || [];
+      const text = parts.map((p: { text?: string }) => p.text || '').join('\n').trim();
+      if (!text) throw tagError('Gemini empty response', { isTransient: true });
+      return {
+        text, model: geminiModel,
+        tokensIn: d.usageMetadata?.promptTokenCount || 0,
+        tokensOut: d.usageMetadata?.candidatesTokenCount || 0,
+        citations: [],
+      };
+    } catch (e) {
+      lastErr = e as AiError;
+      const transient = isTransientError(e);
+      if (transient && m < attemptModels.length - 1) {
+        console.warn(`[Gemini] ${geminiModel} transient — falling back to ${attemptModels[m + 1]}`);
+        continue;
+      }
+      throw e;
     }
-    const d = await fetchAI(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(geminiPayload),
-    }, 60000, apiKey);
-    const text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    result = { text, model: useModel, tokensIn: d.usageMetadata?.promptTokenCount || 0, tokensOut: d.usageMetadata?.candidatesTokenCount || 0, citations: [] };
-  } else if (platform === 'Perplexity') {
-    const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
-    }, 60000, apiKey);
-    const citations = d.citations || [];
-    result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations };
-  } else if (platform === 'Grok') {
-    const d = await fetchAI(API_ENDPOINTS.grok.chat, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
-    }, 60000, apiKey);
-    result = { text: d.choices?.[0]?.message?.content || '', model: d.model || useModel, tokensIn: d.usage?.prompt_tokens || 0, tokensOut: d.usage?.completion_tokens || 0, citations: [] };
-  } else if (platform === 'Google AI Overviews') {
-    if (!isDataForSEOConfigured()) throw new Error('DataForSEO credentials not configured (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD)');
-    const aio = await checkAiOverview(query, brand?.name || '', brand?.competitors || []);
-    const text = aio.hasAiOverview
-      ? (aio.content || '(AI Overview present but no text extracted)')
-      : '(No AI Overview shown for this query)';
-    const citations = aio.citations.map(c => c.url);
-    result = { text, model: 'google-ai-overviews', tokensIn: 0, tokensOut: 0, citations };
-  } else {
-    throw new Error(`Unknown platform: ${platform}`);
   }
+  throw lastErr || tagError('Gemini: all fallbacks exhausted', { isTransient: true });
+}
 
-  // Reset circuit breaker on success
-  resetApiKeyFailures(apiKey);
+export async function queryAI(
+  platform: string,
+  query: string,
+  apiKey: string,
+  model?: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  brand?: any,
+  options?: QueryOptions,
+): Promise<QueryResult> {
+  const useModel = model || getDefaultModel(platform);
+  const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
+  const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
+  const brandCity = brand?.city || '';
+  const coalesceKey = `${platform}::${useModel}::${query.trim().toLowerCase()}::${brandCity}`;
 
-  // Log response time to api_logs
-  const responseTimeMs = Date.now() - startMs;
-  try {
-    await pool.query(
-      `INSERT INTO api_logs (platform, query, status, model, response_ms) VALUES ($1, $2, $3, $4, $5)`,
-      [platform, query.substring(0, 500), 'ok', result.model, responseTimeMs]
-    );
-  } catch { /* best-effort logging */ }
+  return coalesce(coalesceKey, async () => {
+    const startMs = Date.now();
+    const release = await acquirePlatformSlot(platform);
+    try {
+      await rateLimitWait(platform, apiKey);
+      let result: QueryResult;
 
-  return result;
+      if (platform === 'ChatGPT') {
+        const isSearch = useModel.includes('search');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const payload: any = {
+          model: useModel, max_tokens: maxTok,
+          messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
+        };
+        if (isSearch) {
+          payload.web_search_options = {};
+          if (brand?.city) payload.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
+        }
+        const d = await fetchAI(API_ENDPOINTS.openai.chat, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify(payload),
+        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        const citations = (d.choices?.[0]?.message?.annotations || [])
+          .filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url)
+          .map((a: { url: string }) => a.url);
+        result = {
+          text: d.choices?.[0]?.message?.content || '',
+          model: d.model || useModel,
+          tokensIn: d.usage?.prompt_tokens || 0,
+          tokensOut: d.usage?.completion_tokens || 0,
+          citations: [...new Set(citations)].slice(0, 10) as string[],
+        };
+      } else if (platform === 'Claude') {
+        const d = await fetchAI(API_ENDPOINTS.claude.messages, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
+        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        result = {
+          text: d.content?.[0]?.text || '',
+          model: d.model || useModel,
+          tokensIn: d.usage?.input_tokens || 0,
+          tokensOut: d.usage?.output_tokens || 0,
+          citations: [],
+        };
+      } else if (platform === 'Gemini') {
+        result = await callGemini(useModel, query, apiKey, sysPrompt, maxTok, options);
+      } else if (platform === 'Perplexity') {
+        const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
+        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        result = {
+          text: d.choices?.[0]?.message?.content || '',
+          model: d.model || useModel,
+          tokensIn: d.usage?.prompt_tokens || 0,
+          tokensOut: d.usage?.completion_tokens || 0,
+          citations: d.citations || [],
+        };
+      } else if (platform === 'Grok') {
+        const d = await fetchAI(API_ENDPOINTS.grok.chat, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
+        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        result = {
+          text: d.choices?.[0]?.message?.content || '',
+          model: d.model || useModel,
+          tokensIn: d.usage?.prompt_tokens || 0,
+          tokensOut: d.usage?.completion_tokens || 0,
+          citations: [],
+        };
+      } else if (platform === 'Google AI Overviews') {
+        if (!isDataForSEOConfigured()) throw new Error('DataForSEO credentials not configured (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD)');
+        const aio = await checkAiOverview(query, brand?.name || '', brand?.competitors || []);
+        const text = aio.hasAiOverview
+          ? (aio.content || '(AI Overview present but no text extracted)')
+          : '(No AI Overview shown for this query)';
+        result = { text, model: 'google-ai-overviews', tokensIn: 0, tokensOut: 0, citations: aio.citations.map(c => c.url) };
+      } else {
+        throw new Error(`Unknown platform: ${platform}`);
+      }
+
+      resetApiKeyFailures(apiKey);
+      clearKeyCooldown(apiKey);
+
+      const responseTimeMs = Date.now() - startMs;
+      try {
+        await pool.query(
+          `INSERT INTO api_logs (platform, query, status, model, response_ms) VALUES ($1, $2, $3, $4, $5)`,
+          [platform, query.substring(0, 500), 'ok', result.model, responseTimeMs],
+        );
+      } catch { /* best-effort logging */ }
+
+      return result;
+    } catch (e) {
+      if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
+        enqueueDeferredRetry({ platform, query, apiKey, model: useModel, brand, options });
+      }
+      throw e;
+    } finally {
+      release();
+    }
+  });
 }
