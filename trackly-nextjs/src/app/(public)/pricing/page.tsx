@@ -1,6 +1,3 @@
-'use client';
-
-import { useState } from 'react';
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
 import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
@@ -15,39 +12,17 @@ const monthlyPlans = PRICING_PLANS.map(p => ({
 const comparisonData = PRICING_COMPARISON;
 
 export default function PricingPage() {
-  const [annual, setAnnual] = useState(false);
-
   return (
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
       <section className="py-20 px-6 text-center">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Simple, transparent pricing</h1>
-        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start free. Upgrade as your AI visibility needs grow.</p>
-        <p className="text-sm text-gray-400 mb-8">No credit card required &middot; 14-day money-back guarantee</p>
-
-        {/* Monthly / Annual toggle */}
-        <div className="flex items-center justify-center gap-3 mb-12">
-          <span className={`text-sm font-medium ${!annual ? 'text-gray-900' : 'text-gray-400'}`}>Monthly</span>
-          <button
-            onClick={() => setAnnual(!annual)}
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${annual ? 'bg-[var(--brand)]' : 'bg-gray-300'}`}
-            aria-label="Toggle annual pricing"
-            role="switch"
-            aria-checked={annual}
-          >
-            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${annual ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
-          <span className={`text-sm font-medium ${annual ? 'text-gray-900' : 'text-gray-400'}`}>Annual</span>
-          {annual && (
-            <span className="ml-1 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">Save 20%</span>
-          )}
-        </div>
+        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Free plan available. Paid plans from $9/mo.</p>
+        <p className="text-sm text-gray-400 mb-12">No credit card required &middot; 14-day money-back guarantee</p>
 
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {monthlyPlans.map((plan) => {
             const isCustom = plan.price === 'Custom';
-            const displayPrice = isCustom ? 'Custom' : annual ? plan.annualPrice : plan.price;
-            const showStrike = !isCustom && annual && plan.price !== '$0' && plan.price !== plan.annualPrice;
             const isEnterprise = plan.name === 'Enterprise';
 
             return (
@@ -56,17 +31,11 @@ export default function PricingPage() {
                   <h3 className={`text-lg font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
                 </div>
                 <div className="mt-3 mb-1">
-                  {showStrike && (
-                    <span className={`text-lg line-through mr-2 ${plan.highlighted ? 'text-white/50' : 'text-gray-300'}`}>{plan.price}</span>
-                  )}
-                  <span className={`text-3xl font-extrabold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{displayPrice}</span>
+                  <span className={`text-3xl font-extrabold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.price}</span>
                   {!isCustom && <span className={`text-sm ${plan.highlighted ? 'text-white/70' : 'text-gray-400'}`}>{plan.period}</span>}
                 </div>
-                {!isCustom && annual && plan.price !== '$0' && (
-                  <p className={`text-xs mb-4 ${plan.highlighted ? 'text-white/60' : 'text-gray-400'}`}>billed annually</p>
-                )}
                 {isCustom && <p className="text-xs mb-4 text-indigo-500 font-medium">tailored to your needs</p>}
-                {!isCustom && (!annual || plan.price === '$0') && <div className="mb-6" />}
+                {!isCustom && <div className="mb-6" />}
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map((f) => {
                     const isNegative = f.toLowerCase().startsWith('no ');

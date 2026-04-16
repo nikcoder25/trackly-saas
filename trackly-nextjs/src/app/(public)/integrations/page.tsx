@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 const platforms = [
   { icon: '⬡', name: 'ChatGPT', color: '#10a37f', models: 'GPT-4o, GPT-4o-mini, GPT-4o Search', desc: 'Track brand mentions in OpenAI\'s flagship AI assistant.' },
-  { icon: '◈', name: 'Claude', color: '#d97706', models: 'Claude Sonnet, Claude Opus', desc: 'Monitor how Anthropic\'s Claude references your brand.' },
+  { icon: '◈', name: 'Claude', color: '#d97706', models: 'Claude 4, Claude 3.5 Sonnet', desc: 'Monitor how Anthropic\'s Claude references your brand.' },
   { icon: '✦', name: 'Gemini', color: '#4285f4', models: 'Gemini 2.5 Flash, Gemini 2.5 Pro', desc: 'See what Google\'s AI says about your brand.' },
   { icon: '◎', name: 'Perplexity', color: '#9b72ff', models: 'Sonar models with web search', desc: 'Track visibility in Perplexity\'s search-powered AI.' },
   { icon: '⚡', name: 'Grok', color: '#1d9bf0', models: 'Grok models with real-time X data', desc: 'Monitor mentions in xAI\'s Grok with live data.' },

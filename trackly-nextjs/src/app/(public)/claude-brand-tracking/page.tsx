@@ -36,7 +36,7 @@ export default function ClaudeBrandTrackingPage() {
 
         <h2>What Livesov Tracks in Claude</h2>
         <ul>
-          <li>Brand mention rates across Claude Sonnet and Opus models</li>
+          <li>Brand mention rates across Claude Sonnet and Opus model families (including latest versions)</li>
           <li>Position in recommendation lists</li>
           <li>Sentiment and tone of brand descriptions</li>
           <li>Competitor co-occurrence analysis</li>

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Headphones, Building2, Handshake } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 import ContactForm from '@/components/ContactForm';
 
@@ -47,29 +47,14 @@ export default function ContactPage() {
         <div className="border-t border-gray-200" />
       </div>
 
-      {/* Contact Info Cards */}
-      <div className="max-w-4xl mx-auto px-6 mt-6 pb-10">
+      {/* Contact Info Card */}
+      <div className="max-w-2xl mx-auto px-6 mt-6 pb-10">
         <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Or Reach Out Directly</h2>
-        <p className="text-gray-500 text-sm text-center mb-10">Prefer email? Contact the right team directly.</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
-            <Headphones className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
-            <h3 className="font-bold text-gray-900 mb-2">General Support</h3>
-            <p className="text-gray-500 text-sm mb-3">For questions about your account, billing, or features.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
-            <Building2 className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
-            <h3 className="font-bold text-gray-900 mb-2">Enterprise Sales</h3>
-            <p className="text-gray-500 text-sm mb-3">For custom plans, volume pricing, and enterprise features.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
-            <Handshake className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
-            <h3 className="font-bold text-gray-900 mb-2">Partnerships</h3>
-            <p className="text-gray-500 text-sm mb-3">For integration partnerships and reseller opportunities.</p>
-            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
-          </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center transition-shadow hover:shadow-md mt-8">
+          <Mail className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
+          <h3 className="font-bold text-gray-900 mb-2">Email Us</h3>
+          <p className="text-gray-500 text-sm mb-3">For all inquiries including support, sales, and partnerships.</p>
+          <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
         </div>
       </div>
     </SeoLayout>
