@@ -347,63 +347,76 @@ export default function BillingPage() {
       </div>
 
       {/* ── Usage This Period ── */}
-      <div className="card" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px 0' }}>
+      <div style={{ marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Usage This Period</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-              Rolling 30-day window{resetDate ? ` · Next reset: ${resetDate}` : ''}
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>Usage This Period</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              Rolling 30-day window{resetDate ? ` · Resets ${resetDate}` : ''}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {anyOverLimit && (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(239,68,68,.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)' }}>
-                OVER LIMIT
-              </span>
-            )}
-            {anyNearLimit && !anyOverLimit && (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 100, background: 'rgba(245,158,11,.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,.2)' }}>
-                APPROACHING LIMIT
-              </span>
-            )}
-          </div>
+          {anyOverLimit && (
+            <span className="usage-status-badge usage-status-danger">OVER LIMIT</span>
+          )}
+          {anyNearLimit && !anyOverLimit && (
+            <span className="usage-status-badge usage-status-warning">NEAR LIMIT</span>
+          )}
         </div>
 
-        {/* Runs Hero Ring */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '24px 24px 20px', borderBottom: '1px solid var(--border)',
-        }}>
-          <div style={{ position: 'relative', width: 140, height: 140 }}>
-            <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%' }}>
-              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" strokeWidth="8" />
-              <circle cx="60" cy="60" r="52" fill="none" stroke={runsRingColor} strokeWidth="8"
-                strokeDasharray={runsCircumference} strokeDashoffset={mounted ? runsOffset : runsCircumference}
-                strokeLinecap="round" transform="rotate(-90 60 60)"
-                style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-            </svg>
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
-                {runsIsUnlimited ? '∞' : `${Math.round(runsPct)}%`}
+        {/* Hero: Tracked Queries — full-width card */}
+        <Link href="/dashboard" className="usage-hero-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <div className="usage-hero-left">
+            <div className="usage-hero-ring">
+              <svg viewBox="0 0 120 120" style={{ width: '100%', height: '100%' }}>
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--bg3)" strokeWidth="10" />
+                <circle cx="60" cy="60" r="52" fill="none" stroke={runsRingColor} strokeWidth="10"
+                  strokeDasharray={runsCircumference} strokeDashoffset={mounted ? runsOffset : runsCircumference}
+                  strokeLinecap="round" transform="rotate(-90 60 60)"
+                  style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)' }} />
+              </svg>
+              <div className="usage-hero-ring-label">
+                <span style={{ fontSize: 26, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
+                  {runsIsUnlimited ? '∞' : `${Math.round(runsPct)}%`}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="usage-hero-right">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 18 }}>&#9889;</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>Tracked Queries</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12 }}>Total queries across all your brands</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
+              <span style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
+                {runsMeter.used}
               </span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--muted)', marginTop: 2 }}>USED</span>
+              <span style={{ fontSize: 16, color: 'var(--muted)', fontWeight: 500 }}>
+                / {runsIsUnlimited ? '∞' : runsMeter.max}
+              </span>
+            </div>
+            <div style={{ height: 8, borderRadius: 4, background: 'var(--bg3)', overflow: 'hidden', maxWidth: 280 }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                width: runsIsUnlimited ? '0%' : mounted ? `${Math.min(runsPct, 100)}%` : '0%',
+                background: runsStatus === 'danger' ? '#ef4444' : runsStatus === 'warning' ? '#f59e0b' : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                transition: 'width 1s cubic-bezier(.4,0,.2,1)',
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {runsIsUnlimited
+                ? <span style={{ color: '#10b981', fontWeight: 600 }}>Unlimited on your plan</span>
+                : runsMeter.used >= runsMeter.max
+                  ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached — upgrade for more</span>
+                  : <>{runsMeter.max - runsMeter.used} remaining</>
+              }
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>View Queries &#8594;</span>
             </div>
           </div>
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Tracked Queries</div>
-            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--mono)', color: runsStatus === 'danger' ? '#ef4444' : 'var(--text)', marginTop: 4 }}>
-              {runsMeter.used} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>/ {runsIsUnlimited ? '∞' : runsMeter.max}</span>
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{runsMeter.sublabel}</div>
-          </div>
-        </div>
+        </Link>
 
-        {/* Meter Grid — remaining meters (3 on desktop, 2 on tablet, 1 on mobile) */}
-        <div className="usage-meter-grid">
+        {/* Usage Cards Grid */}
+        <div className="usage-cards-grid">
           {otherMeters.map(m => {
             const s = getStatus(m.used, m.max);
             const isUnlimited = s === 'unlimited';
@@ -411,54 +424,47 @@ export default function BillingPage() {
             const sc = statusColor(s);
             const isOver = s === 'danger';
             const isWarn = s === 'warning';
-            const isLocked = !isUnlimited && m.used > m.max;
+            const href = m.label === 'Brands' ? '/dashboard/setup'
+              : m.label === 'Competitors' ? '/dashboard/setup'
+              : m.label === 'Platforms' ? '/dashboard'
+              : m.label === 'GEO Audits' ? '/dashboard/geo-audit'
+              : '/dashboard';
+            const navLabel = m.label === 'Brands' ? 'Manage Brands'
+              : m.label === 'Competitors' ? 'Edit Competitors'
+              : m.label === 'Platforms' ? 'View Platforms'
+              : m.label === 'GEO Audits' ? 'Run Audit'
+              : 'View';
 
             return (
-              <div key={m.label} style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid var(--border)',
-                borderRight: '1px solid var(--border)',
-                position: 'relative',
-                background: isLocked ? 'rgba(239,68,68,.04)' : isOver ? 'rgba(239,68,68,.02)' : isWarn ? 'rgba(245,158,11,.02)' : 'transparent',
+              <Link key={m.label} href={href} className="usage-meter-card" style={{
+                textDecoration: 'none', color: 'inherit',
+                borderTop: `3px solid ${isOver ? '#ef4444' : m.color}`,
               }}>
-                {isLocked && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                   <div style={{
-                    position: 'absolute', top: 8, right: 8,
-                    fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 100,
-                    background: 'rgba(239,68,68,.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,.2)',
-                    display: 'flex', alignItems: 'center', gap: 3,
-                  }}>
-                    <span style={{ fontSize: 10 }}>&#128274;</span> LOCKED
-                  </div>
-                )}
-                {/* Top: icon + label + badge */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div title={METER_TOOLTIPS[m.label] || ''} style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: isLocked ? 'rgba(239,68,68,.1)' : `${m.color}12`, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 14, color: isLocked ? '#ef4444' : m.color, flexShrink: 0, cursor: 'help',
-                    }}>{m.icon}</div>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: isLocked ? '#ef4444' : 'var(--text)', lineHeight: 1.2 }}>{m.label}</div>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.4 }}>{m.sublabel}</div>
-                    </div>
-                  </div>
-                  {!isUnlimited && !isLocked && (
+                    width: 40, height: 40, borderRadius: 10,
+                    background: isOver ? 'rgba(239,68,68,.08)' : `${m.color}10`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18, color: isOver ? '#ef4444' : m.color,
+                  }}>{m.icon}</div>
+                  {!isUnlimited && (
                     <span style={{
-                      fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)',
-                      padding: '2px 8px', borderRadius: 100,
-                      background: isOver ? 'rgba(239,68,68,.1)' : isWarn ? 'rgba(245,158,11,.1)' : 'rgba(16,185,129,.1)',
-                      color: sc,
+                      fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
+                      padding: '3px 10px', borderRadius: 100,
+                      background: isOver ? 'rgba(239,68,68,.08)' : isWarn ? 'rgba(245,158,11,.08)' : `${m.color}08`,
+                      color: isOver ? '#ef4444' : isWarn ? '#f59e0b' : sc,
+                      border: `1px solid ${isOver ? 'rgba(239,68,68,.15)' : isWarn ? 'rgba(245,158,11,.15)' : `${m.color}20`}`,
                     }}>
                       {isOver ? 'OVER' : `${Math.round(pct)}%`}
                     </span>
                   )}
                 </div>
 
-                {/* Value */}
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{m.label}</div>
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 14 }}>{m.sublabel}</div>
+
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 10 }}>
-                  <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: isOver ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
+                  <span style={{ fontSize: 30, fontWeight: 800, fontFamily: 'var(--mono)', color: isOver ? '#ef4444' : 'var(--text)', lineHeight: 1 }}>
                     {m.used}
                   </span>
                   <span style={{ fontSize: 14, color: 'var(--muted)', fontWeight: 400 }}>
@@ -466,64 +472,49 @@ export default function BillingPage() {
                   </span>
                 </div>
 
-                {/* Progress bar */}
-                <div style={{
-                  height: 6, borderRadius: 3, background: 'var(--bg3)', overflow: 'hidden',
-                }}>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--bg3)', overflow: 'hidden', marginBottom: 8 }}>
                   <div style={{
                     height: '100%', borderRadius: 3,
                     width: isUnlimited ? '0%' : mounted ? `${Math.min(pct, 100)}%` : '0%',
                     background: isOver ? '#ef4444' : isWarn ? '#f59e0b' : m.gradient,
-                    transition: 'width 0.5s ease',
+                    transition: 'width 0.8s cubic-bezier(.4,0,.2,1)',
                   }} />
                 </div>
 
-                {/* Remaining text */}
-                {!isUnlimited && (
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6, fontFamily: 'var(--mono)' }}>
-                    {isLocked
-                      ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Exceeds plan limit — upgrade to unlock</span>
-                      : m.used > m.max
-                        ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Exceeded limit by {m.used - m.max}</span>
-                        : m.used === m.max
-                          ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached</span>
-                          : `${m.max - m.used} remaining`}
-                  </div>
-                )}
-                {isUnlimited && (
-                  <div style={{ fontSize: 10, color: '#10b981', marginTop: 6, fontFamily: 'var(--mono)', fontWeight: 600 }}>
-                    Unlimited
-                  </div>
-                )}
-              </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: isOver ? '#ef4444' : isUnlimited ? '#10b981' : 'var(--muted)', fontWeight: isOver || isUnlimited ? 600 : 400 }}>
+                    {isUnlimited ? 'Unlimited' : isOver ? `Over by ${m.used - m.max}` : m.used === m.max ? 'Limit reached' : `${m.max - m.used} remaining`}
+                  </span>
+                  <span style={{ fontSize: 10, color: m.color, fontWeight: 600 }}>{navLabel} &#8594;</span>
+                </div>
+              </Link>
             );
           })}
         </div>
 
-        {/* Upgrade Banner — shows when any meter is at 80%+ */}
+        {/* Upgrade Banner */}
         {anyNearLimit && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-            padding: '14px 24px',
-            background: anyAtOrOverLimit ? 'rgba(239,68,68,.04)' : 'rgba(99,102,241,.04)',
-            borderTop: `1px solid ${anyAtOrOverLimit ? 'rgba(239,68,68,.15)' : 'rgba(99,102,241,.15)'}`,
+          <div className="usage-upgrade-banner" style={{
+            background: anyAtOrOverLimit ? 'linear-gradient(135deg, rgba(239,68,68,.06), rgba(239,68,68,.02))' : 'linear-gradient(135deg, rgba(99,102,241,.06), rgba(139,92,246,.03))',
+            border: `1px solid ${anyAtOrOverLimit ? 'rgba(239,68,68,.15)' : 'rgba(99,102,241,.15)'}`,
           }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: anyAtOrOverLimit ? '#ef4444' : 'var(--text)', marginBottom: 2 }}>
-                {anyOverLimit ? 'You\'ve exceeded your plan limits' : anyAtLimit ? 'You\'ve reached your plan limits' : 'You\'re approaching your plan limits'}
+              <div style={{ fontSize: 14, fontWeight: 700, color: anyAtOrOverLimit ? '#ef4444' : 'var(--text)', marginBottom: 4 }}>
+                {anyOverLimit ? 'You\'ve exceeded your plan limits' : anyAtLimit ? 'You\'ve hit your plan limits' : 'Running low on resources'}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
                 {meters.filter(m => { const s = getStatus(m.used, m.max); return s === 'warning' || s === 'danger'; }).map(m => (
-                  <span key={m.label} style={{ marginRight: 12 }}>
+                  <span key={m.label} style={{ marginRight: 14 }}>
                     <strong>{m.label}:</strong> {m.used}/{m.max >= 9999 ? '∞' : m.max}
                   </span>
                 ))}
               </div>
             </div>
             <button onClick={() => setShowPlanModal(true)} style={{
-              padding: '9px 20px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700,
               background: anyAtOrOverLimit ? '#ef4444' : 'var(--primary)', color: '#fff',
               border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+              boxShadow: `0 2px 12px ${anyAtOrOverLimit ? 'rgba(239,68,68,.25)' : 'rgba(99,102,241,.25)'}`,
             }}>
               Upgrade Plan
             </button>
@@ -838,16 +829,60 @@ export default function BillingPage() {
       )}
 
       <style>{`
-        .usage-meter-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0;
+        .usage-status-badge {
+          font-size: 10px; font-weight: 700; padding: 5px 14px; border-radius: 100;
+          letter-spacing: .5px; font-family: var(--mono);
         }
-        @media (max-width: 900px) {
-          .usage-meter-grid { grid-template-columns: repeat(2, 1fr); }
+        .usage-status-danger { background: rgba(239,68,68,.08); color: #ef4444; border: 1px solid rgba(239,68,68,.2); }
+        .usage-status-warning { background: rgba(245,158,11,.08); color: #f59e0b; border: 1px solid rgba(245,158,11,.2); }
+
+        .usage-hero-card {
+          display: flex; align-items: center; gap: 32px;
+          padding: 28px 32px; border-radius: var(--radius);
+          background: var(--bg2); border: 1px solid var(--border);
+          margin-bottom: 14px; transition: border-color .2s, box-shadow .2s;
+          cursor: pointer;
         }
-        @media (max-width: 540px) {
-          .usage-meter-grid { grid-template-columns: 1fr; }
+        .usage-hero-card:hover {
+          border-color: var(--primary); box-shadow: 0 4px 20px rgba(99,102,241,.08);
+        }
+        .usage-hero-ring {
+          position: relative; width: 110px; height: 110px; flex-shrink: 0;
+        }
+        .usage-hero-ring-label {
+          position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .usage-hero-left { flex-shrink: 0; }
+        .usage-hero-right { flex: 1; min-width: 0; }
+
+        .usage-cards-grid {
+          display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+        }
+        .usage-meter-card {
+          padding: 22px 20px; border-radius: var(--radius);
+          background: var(--bg2); border: 1px solid var(--border);
+          transition: border-color .2s, box-shadow .2s, transform .15s;
+          cursor: pointer; display: block;
+        }
+        .usage-meter-card:hover {
+          border-color: var(--primary); box-shadow: 0 4px 20px rgba(99,102,241,.08);
+          transform: translateY(-2px);
+        }
+
+        .usage-upgrade-banner {
+          margin-top: 14px; padding: 18px 24px; border-radius: var(--radius);
+          display: flex; align-items: center; justify-content: space-between; gap: 16; flex-wrap: wrap;
+        }
+
+        @media (max-width: 1024px) {
+          .usage-cards-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 640px) {
+          .usage-cards-grid { grid-template-columns: 1fr; }
+          .usage-hero-card { flex-direction: column; text-align: center; gap: 16px; padding: 24px 20px; }
+          .usage-hero-right { text-align: left; }
+          .usage-upgrade-banner { flex-direction: column; text-align: center; }
         }
       `}</style>
     </div>
