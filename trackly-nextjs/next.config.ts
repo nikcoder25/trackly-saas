@@ -7,9 +7,15 @@ const nextConfig: NextConfig = {
     images: {
           remotePatterns: [
             { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
-            { protocol: 'https', hostname: 'api.qrserver.com' },
                 ],
     },
+    redirects: async () => [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+    ],
     headers: async () => [
       {
               source: '/(.*)',
@@ -26,9 +32,9 @@ const nextConfig: NextConfig = {
                             value: [
                                           "default-src 'self'",
                                           "script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://browser.sentry-cdn.com https://challenges.cloudflare.com",
-                                          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                                          "font-src 'self' https://fonts.gstatic.com",
-                                          "img-src 'self' data: https://lh3.googleusercontent.com https://api.qrserver.com",
+                                          "style-src 'self' 'unsafe-inline'",
+                                          "font-src 'self'",
+                                          "img-src 'self' data: https://lh3.googleusercontent.com",
                                           "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com",
                                           "worker-src 'self' blob:",
                                           "frame-src https://accounts.google.com https://challenges.cloudflare.com",

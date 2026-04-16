@@ -2379,6 +2379,57 @@
   transform: scale(1.3);
 }
 
+.tl-carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.tl-carousel-controls .tl-carousel-dots {
+  margin-top: 0;
+}
+
+.tl-carousel-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--tl-border);
+  background: var(--tl-white);
+  color: var(--tl-text-muted);
+  cursor: pointer;
+  transition: all var(--tl-transition);
+}
+
+.tl-carousel-arrow:hover {
+  border-color: var(--tl-primary);
+  color: var(--tl-primary);
+}
+
+.tl-carousel-pause {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--tl-border);
+  background: var(--tl-white);
+  color: var(--tl-text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  transition: all var(--tl-transition);
+}
+
+.tl-carousel-pause:hover {
+  border-color: var(--tl-primary);
+  color: var(--tl-primary);
+}
+
 /* ══════════════════════════════════════
    EMAIL CAPTURE FORM
    ══════════════════════════════════════ */

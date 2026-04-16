@@ -32,7 +32,7 @@ const benefitIcons = {
 const benefits = [
   {
     title: 'Recurring Revenue',
-    description: 'Earn 20% recurring commission for the lifetime of every client you refer. Average partner earns $500-2,000/month.',
+    description: 'Partners earn 20% recurring commission on every referral for the lifetime of the client.',
   },
   {
     title: 'White-Label Reports',

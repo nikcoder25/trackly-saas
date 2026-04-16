@@ -65,7 +65,7 @@ const faqs = [
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms. Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 6 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
+  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 6 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
 ];
 
 const testimonials = [
@@ -186,13 +186,32 @@ function TestimonialCarousel() {
     return () => clearInterval(timer);
   }, [paused]);
 
+  const goTo = (index: number) => setActive(index);
+  const goPrev = () => setActive((active - 1 + testimonials.length) % testimonials.length);
+  const goNext = () => setActive((active + 1) % testimonials.length);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') { goPrev(); setPaused(true); }
+    else if (e.key === 'ArrowRight') { goNext(); setPaused(true); }
+  };
+
   return (
-    <div className="tl-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="tl-carousel-track" style={{ transform: `translateX(-${active * 100}%)` }}>
-        {testimonials.map(t => (
-          <div key={t.name} className="tl-carousel-slide">
+    <div
+      className="tl-carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      onKeyDown={handleKeyDown}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Customer testimonials"
+    >
+      <div className="tl-carousel-track" aria-live={paused ? 'polite' : 'off'} style={{ transform: `translateX(-${active * 100}%)` }}>
+        {testimonials.map((t, i) => (
+          <div key={t.name} className="tl-carousel-slide" role="group" aria-roledescription="slide" aria-label={`Testimonial ${i + 1} of ${testimonials.length}`} aria-hidden={active !== i}>
             <div className="tl-carousel-quote">
-              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                 <path d="M6 18C6 14.5 8 12 12 10L13 12C10 13.5 9.5 15.5 9.5 16.5H13V22H6V18ZM18 18C18 14.5 20 12 24 10L25 12C22 13.5 21.5 15.5 21.5 16.5H25V22H18V18Z" fill="currentColor" opacity="0.15"/>
               </svg>
               <p>&ldquo;{t.text}&rdquo;</p>
@@ -207,11 +226,26 @@ function TestimonialCarousel() {
           </div>
         ))}
       </div>
-      <div className="tl-carousel-dots">
-        {testimonials.map((_, i) => (
-          <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
-            onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`} />
-        ))}
+      <div className="tl-carousel-controls">
+        <button className="tl-carousel-arrow" onClick={goPrev} aria-label="Previous testimonial">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <div className="tl-carousel-dots">
+          {testimonials.map((_, i) => (
+            <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
+              onClick={() => goTo(i)} aria-label={`Go to testimonial ${i + 1}`} aria-current={active === i ? 'true' : undefined} />
+          ))}
+        </div>
+        <button className="tl-carousel-arrow" onClick={goNext} aria-label="Next testimonial">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <button
+          className="tl-carousel-pause"
+          onClick={() => setPaused(!paused)}
+          aria-label={paused ? 'Play auto-rotation' : 'Pause auto-rotation'}
+        >
+          {paused ? '▶' : '⏸'}
+        </button>
       </div>
     </div>
   );
@@ -298,7 +332,6 @@ export default function LivesovHomePage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const [annual, setAnnual] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleClientIdRef = useRef<string | null>(null);
@@ -409,7 +442,7 @@ export default function LivesovHomePage() {
       {/* ═══════ NAVIGATION ═══════ */}
       <nav className={`tl-nav ${scrolled ? 'tl-nav--scrolled' : ''}`}>
         <div className="tl-nav-inner">
-          <Link href="/" className="tl-logo">
+          <Link href="/" className="tl-logo" aria-label="Livesov - Go to homepage">
             Live<span>sov</span>
           </Link>
 
@@ -550,19 +583,19 @@ export default function LivesovHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag tl-section-tag--light">Why it Matters</span>
             <h2>AI is the new search. Are you visible?</h2>
-            <p>40% of searches now use AI chatbots. If AI doesn't recommend you, you're invisible to a growing audience.</p>
+            <p>A growing share of searches now use AI chatbots. If AI doesn't recommend you, you're invisible to a growing audience.</p>
           </div>
 
           <div className="tl-why-grid">
             <div className="tl-why-card">
-              <div className="tl-why-stat">40%</div>
+              <div className="tl-why-stat">Growing</div>
               <h3>Searches use AI</h3>
               <p>Users are shifting from Google to ChatGPT and Perplexity for buying decisions.</p>
             </div>
             <div className="tl-why-card">
-              <div className="tl-why-stat">0%</div>
-              <h3>Traditional SEO covers 0% of AI platforms</h3>
-              <p>Ranking #1 on Google doesn&apos;t mean AI will recommend you. Different signals matter.</p>
+              <div className="tl-why-stat">&ne;</div>
+              <h3>Traditional SEO wasn&apos;t built for AI platforms</h3>
+              <p>Ranking #1 on Google doesn&apos;t guarantee AI will recommend you. AI visibility requires different signals.</p>
             </div>
             <div className="tl-why-card">
               <div className="tl-why-stat">GEO</div>
@@ -584,54 +617,19 @@ export default function LivesovHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag">Pricing</span>
             <h2>Simple, transparent pricing</h2>
-            <p>Plans from $9/mo. Scale as you grow. Best value in AI visibility tracking.</p>
-          </div>
-
-          {/* Monthly / Annual toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 40 }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: !annual ? 'var(--tl-text, #fff)' : 'var(--tl-text-muted, #9ca3af)' }}>Monthly</span>
-            <button
-              onClick={() => setAnnual(!annual)}
-              style={{
-                position: 'relative', display: 'inline-flex', height: 28, width: 48,
-                alignItems: 'center', borderRadius: 100, border: 'none', cursor: 'pointer',
-                background: annual ? 'var(--brand, #6366f1)' : 'rgba(255,255,255,0.2)',
-                transition: 'background 0.2s',
-              }}
-              aria-label="Toggle annual pricing"
-              role="switch"
-              aria-checked={annual}
-            >
-              <span style={{
-                display: 'inline-block', height: 20, width: 20, borderRadius: '50%',
-                background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
-                transition: 'transform 0.2s',
-                transform: annual ? 'translateX(24px)' : 'translateX(4px)',
-              }} />
-            </button>
-            <span style={{ fontSize: 14, fontWeight: 600, color: annual ? 'var(--tl-text, #fff)' : 'var(--tl-text-muted, #9ca3af)' }}>Annual</span>
-            {annual && (
-              <span style={{ marginLeft: 4, display: 'inline-flex', alignItems: 'center', borderRadius: 100, background: 'rgba(16,185,129,.15)', padding: '4px 10px', fontSize: 12, fontWeight: 700, color: '#10b981' }}>Save 20%</span>
-            )}
+            <p>Free plan available. Paid plans from $9/mo. Best value in AI visibility tracking.</p>
           </div>
 
           <div className="tl-pricing-grid">
             {pricingPlans.map(plan => {
               const isCustom = plan.price === 'Custom';
-              const displayPrice = isCustom ? 'Custom' : annual ? plan.annualPrice : plan.price;
               return (
                 <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
                   {plan.featured && <div className="tl-price-badge">Most Popular</div>}
                   <h3>{plan.name}</h3>
                   <div className="tl-price-amount">
-                    {!isCustom && annual && plan.price !== '$0' && plan.price !== plan.annualPrice && (
-                      <span style={{ fontSize: '0.5em', textDecoration: 'line-through', opacity: 0.5, marginRight: 6 }}>{plan.price}</span>
-                    )}
-                    {displayPrice}{!isCustom && <span>/mo</span>}
+                    {plan.price}{!isCustom && <span>/mo</span>}
                   </div>
-                  {!isCustom && annual && plan.price !== '$0' && (
-                    <p style={{ fontSize: 12, opacity: 0.6, marginTop: -4, marginBottom: 8 }}>billed annually</p>
-                  )}
                   <p className="tl-price-sub">{plan.sub}</p>
                   <ul className="tl-price-features">
                     {plan.features.map(f => {
@@ -689,7 +687,7 @@ export default function LivesovHomePage() {
                 </tbody>
               </table>
             </div>
-            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of {new Date().getFullYear()}. Subject to change.</p>
+            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of April 2026. Competitor pricing and features may have changed.</p>
           </div>
 
         </div>
@@ -701,7 +699,7 @@ export default function LivesovHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag">Early Feedback</span>
             <h2>What Early Adopters Are Saying</h2>
-            <p>Real feedback from marketers, agency owners, and founders using Livesov.</p>
+            <p>Feedback from early adopters and beta testers.</p>
           </div>
 
           <TestimonialCarousel />
@@ -716,16 +714,21 @@ export default function LivesovHomePage() {
             <h2>Frequently Asked Questions</h2>
           </div>
 
-          <div className="tl-faq-list">
+          <div className="tl-faq-list" role="list">
             {faqs.map((f, i) => (
-              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`}>
-                <button className="tl-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`} role="listitem">
+                <button
+                  className="tl-faq-q"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-answer-${i}`}
+                >
                   <span>{f.q}</span>
-                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-                <div className="tl-faq-a">
+                <div className="tl-faq-a" id={`faq-answer-${i}`} role="region" aria-labelledby={`faq-q-${i}`}>
                   <p>{f.a}</p>
                 </div>
               </div>

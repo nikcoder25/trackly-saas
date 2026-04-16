@@ -27,7 +27,7 @@ export default function PrivacyPage() {
       <Breadcrumbs items={[{ name: 'Privacy Policy', url: '/privacy' }]} />
       <SeoHero title="Privacy Policy" subtitle="How we collect, use, store, and protect your personal data." hideCta />
       <div className="max-w-3xl mx-auto px-6 pb-4">
-        <p className="text-sm text-gray-400 mt-2">Last updated: March 2026</p>
+        <p className="text-sm text-gray-400 mt-2">Last updated: March 15, 2026</p>
       </div>
       <SeoContent>
         <h2>1. Information We Collect</h2>
@@ -49,10 +49,10 @@ export default function PrivacyPage() {
         <p>Account data is retained while your account is active. API logs are retained for 7 days. Query run data is retained for 90 days. You can delete your account at any time, which removes all associated data.</p>
 
         <h2>7. Your Rights (GDPR/CCPA)</h2>
-        <p>You have the right to access, correct, delete, and export your data. You can exercise these rights through your account settings or by contacting us at privacy@livesov.com.</p>
+        <p>You have the right to access, correct, delete, and export your data. You can exercise these rights through your account settings or by contacting us at hello@livesov.com.</p>
 
         <h2>8. Contact</h2>
-        <p>For privacy-related inquiries, contact us at privacy@livesov.com.</p>
+        <p>For privacy-related inquiries, contact us at hello@livesov.com.</p>
       </SeoContent>
     </SeoLayout>
   );
