@@ -106,16 +106,25 @@ export async function auditLog(
   ip?: string
 ): Promise<boolean> {
   try {
+    // For system-level actions, verify the user_id exists to avoid FK violations
+    // on orphaned records. Use a NULL user_id for system actions if user is gone.
+    let effectiveUserId: string | null = userId;
+    if (userId === 'system' || userId === '') {
+      effectiveUserId = null;
+    }
     await pool.query(
       'INSERT INTO audit_logs (user_id, action, target_type, target_id, details, ip) VALUES ($1, $2, $3, $4, $5, $6)',
-      [userId, action, targetType || null, targetId || null, JSON.stringify(details || {}), ip || null]
+      [effectiveUserId, action, targetType || null, targetId || null, JSON.stringify(details || {}), ip || null]
     );
     return true;
   } catch (e) {
-    console.error('[AuditLog] Failed to write audit log:', {
-      action,
-      error: (e as Error).message,
-    });
+    const msg = (e as Error).message;
+    // FK violation on user_id means the user was deleted — not actionable, log quietly
+    if (msg.includes('foreign key constraint')) {
+      console.warn('[AuditLog] Skipped audit log (user no longer exists):', { action, userId });
+    } else {
+      console.error('[AuditLog] Failed to write audit log:', { action, error: msg });
+    }
     return false;
   }
 }
