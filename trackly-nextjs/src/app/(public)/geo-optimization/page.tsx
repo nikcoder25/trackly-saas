@@ -49,7 +49,7 @@ export default function GeoOptimizationPage() {
 
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 my-6">
           <h3>GEO vs SEO</h3>
-          <p className="!mb-0">Traditional SEO focuses on website rankings in search results. GEO focuses on how AI models mention your brand in generated responses. Both are important — GEO is becoming essential as AI-powered search grows.</p>
+          <p className="!mb-0">Traditional SEO focuses on website rankings in search results. GEO focuses on how AI models mention your brand in generated responses. Both are important - GEO is becoming essential as AI-powered search grows.</p>
         </div>
       </SeoContent>
     </SeoLayout>

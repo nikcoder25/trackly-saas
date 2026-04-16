@@ -12,8 +12,8 @@
   --card-shadow-lg:0 4px 16px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
 
   /* Colors */
-  --brand:#6366f1;           /* Indigo — brand highlight / CTA */
-  --primary:#6366f1;        /* Indigo — matches landing page */
+  --brand:#6366f1;           /* Indigo - brand highlight / CTA */
+  --primary:#6366f1;        /* Indigo - matches landing page */
   --primary-hover:#4f46e5;
   --primary-light:rgba(99,102,241,.08);
   --primary-border:rgba(99,102,241,.2);
@@ -33,7 +33,7 @@
   --text-muted:#64748b;
   --text-inverse:#ffffff;
 
-  /* App (light premium theme — startup dashboard) */
+  /* App (light premium theme - startup dashboard) */
   --bg:#f8f9fb;--bg2:#ffffff;--bg3:#f1f3f5;--bg4:#e9ecef;
   --border:#e2e5ea;--text:#1a1a2e;--muted:#6b7280;
   --green:#10b981;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;
@@ -453,7 +453,7 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
 .auth-tab.active{background:var(--white);color:var(--text-primary);box-shadow:0 1px 3px rgba(0,0,0,.08);}
 .auth-panel{display:none;} .auth-panel.active{display:block;}
 
-/* Auth form — polished overrides for labels, inputs, buttons */
+/* Auth form - polished overrides for labels, inputs, buttons */
 .auth-form-panel .flbl{
   display:block;font-size:13px;font-weight:600;
   color:var(--text-primary);text-transform:none;
@@ -606,7 +606,7 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
   border-radius:var(--radius-xs);
 }
 
-/* Auth responsive — stack on mobile */
+/* Auth responsive - stack on mobile */
 @media(max-width:768px){
   .auth-container{flex-direction:column;}
   .auth-left{flex:0 0 auto;padding:32px 24px;}
@@ -1009,7 +1009,7 @@ body:has(#app[style*="display:grid"]){
 .plat-sov{font-family:var(--mono);font-size:18px;font-weight:700;margin-left:auto;}
 .plat-status{font-family:var(--font);font-size:10px;margin-top:2px;}
 
-/* ── EVIDENCE & PROOF — REDESIGN ─────── */
+/* ── EVIDENCE & PROOF - REDESIGN ─────── */
 
 /* Hero header with export */
 .proof-hero{
@@ -1043,7 +1043,7 @@ body:has(#app[style*="display:grid"]){
 .proof-filter-select{margin:0 !important;min-width:130px;}
 .proof-filter-run{min-width:240px;}
 
-/* Summary strip — horizontal stat pills */
+/* Summary strip - horizontal stat pills */
 .proof-summary{
   display:flex;gap:8px;align-items:center;flex-wrap:wrap;
   padding:12px 16px;margin-bottom:20px;
@@ -1098,7 +1098,7 @@ body:has(#app[style*="display:grid"]){
 }
 .proof-card:hover{transform:translateY(-3px);box-shadow:var(--app-shadow-lg);}
 
-/* Card header — platform branding strip */
+/* Card header - platform branding strip */
 .proof-card-header{
   display:flex;align-items:center;gap:10px;
   padding:12px 16px;
@@ -1112,7 +1112,7 @@ body:has(#app[style*="display:grid"]){
   letter-spacing:.2px;
 }
 
-/* Card body — query + response */
+/* Card body - query + response */
 .proof-card-body{
   padding:16px;font-size:14px;line-height:1.7;
   flex:1;display:flex;flex-direction:column;
@@ -1145,7 +1145,7 @@ body:has(#app[style*="display:grid"]){
   border-radius:3px;padding:1px 5px;font-weight:600;
 }
 
-/* Card footer — metadata + actions */
+/* Card footer - metadata + actions */
 .proof-card-footer{
   padding:10px 16px;display:flex;gap:6px;align-items:center;
   border-top:1px solid var(--border);flex-wrap:wrap;
@@ -2244,7 +2244,7 @@ input.brand-select{padding:7px 10px;}
 }
 .preset-seo_manager .ov-preset-banner-title{color:#60a5fa;}
 
-/* SEO: Compact hero — data density matters */
+/* SEO: Compact hero - data density matters */
 .preset-seo_manager .ov-hero{
   padding:20px 24px;gap:24px;
   border-left:3px solid #3b82f6;
@@ -2260,7 +2260,7 @@ input.brand-select{padding:7px 10px;}
 .preset-seo_manager .ov-score-icon{font-size:22px;}
 .preset-seo_manager .ov-score-val{font-size:24px;}
 
-/* SEO: Platform grid — dense 4-column view */
+/* SEO: Platform grid - dense 4-column view */
 .preset-seo_manager .ov-plat-grid{
   grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;
 }
@@ -2363,7 +2363,7 @@ input.brand-select{padding:7px 10px;}
 
 /* Pause all animations/transitions when browser tab is hidden (saves CPU/GPU) */
 
-/* —— GLOBAL EMPTY STATE (no brand) —————————————————————————— */
+/* -- GLOBAL EMPTY STATE (no brand) -------------------------- */
 .global-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 24px;min-height:60vh;width:100%;}
 .global-empty-icon{font-size:64px;margin-bottom:24px;}
 .global-empty-title{font-size:28px;font-weight:700;color:var(--text);margin-bottom:12px;}
@@ -2372,7 +2372,7 @@ input.brand-select{padding:7px 10px;}
 .global-empty-btn:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.3);}
 .tab-hidden *,.tab-hidden *::before,.tab-hidden *::after{animation-play-state:paused !important;transition:none !important;}
 
-/* —— ACTIVITY & LOGS TABS —————————————————————————— */
+/* -- ACTIVITY & LOGS TABS -------------------------- */
 .al-tab{padding:10px 20px;border:none;background:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
 .al-tab:hover{color:var(--text);}
 .al-tab.al-tab-active{color:var(--primary);border-bottom-color:var(--primary);}

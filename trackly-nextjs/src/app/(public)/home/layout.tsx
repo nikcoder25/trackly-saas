@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Livesov — AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews',
+  title: 'Livesov - AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews',
   description:
     'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews. Free plan available.',
   keywords: [
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     'brand monitoring AI',
   ],
   openGraph: {
-    title: 'Livesov — Is Your Brand Visible in AI Answers?',
+    title: 'Livesov - Is Your Brand Visible in AI Answers?',
     description:
       'Track how ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews mention your brand. Get real proof, measure share of voice, and optimize your AI visibility.',
     type: 'website',
@@ -29,12 +29,12 @@ export const metadata: Metadata = {
       url: 'https://livesov.com/og-image.png',
       width: 1200,
       height: 630,
-      alt: 'Livesov — AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews',
+      alt: 'Livesov - AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews',
     }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov — AI Visibility Tracker',
+    title: 'Livesov - AI Visibility Tracker',
     description:
       'Monitor your brand across 6 AI platforms. Track mentions, sentiment & share of voice. Free plan available.',
   },
@@ -51,7 +51,7 @@ const jsonLd = {
       '@type': 'Organization',
       name: 'Livesov',
       url: 'https://livesov.com',
-      description: 'AI Visibility Tracker — Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.',
+      description: 'AI Visibility Tracker - Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.',
       contactPoint: {
         '@type': 'ContactPoint',
         email: 'hello@livesov.com',
@@ -94,7 +94,7 @@ const jsonLd = {
         {
           '@type': 'Question',
           name: 'How is this different from traditional SEO tools?',
-          acceptedAnswer: { '@type': 'Answer', text: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
+          acceptedAnswer: { '@type': 'Answer', text: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
         },
         {
           '@type': 'Question',

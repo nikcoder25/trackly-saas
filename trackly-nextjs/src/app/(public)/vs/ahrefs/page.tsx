@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
+  title: 'Livesov vs Ahrefs - AI Visibility vs Backlink Analysis | Livesov',
   description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
   keywords: 'livesov vs ahrefs, ai visibility vs seo, ai brand tracking tool, ahrefs alternative for ai',
   alternates: { canonical: '/vs/ahrefs' },
   openGraph: {
-    title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
+    title: 'Livesov vs Ahrefs - AI Visibility vs Backlink Analysis | Livesov',
     description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
     url: 'https://livesov.com/vs/ahrefs',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov vs Ahrefs - AI Visibility vs Backlink Analysis | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov vs Ahrefs — AI Visibility vs Backlink Analysis | Livesov',
+    title: 'Livesov vs Ahrefs - AI Visibility vs Backlink Analysis | Livesov',
     description: 'Compare Livesov and Ahrefs. Livesov tracks AI brand visibility. Ahrefs excels at backlink analysis and traditional SEO. Use both for maximum impact.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -53,7 +53,7 @@ export default function VsAhrefsPage() {
         </ul>
 
         <h2>Better Together</h2>
-        <p>Use Ahrefs to build authoritative content that ranks well — this same content improves your AI visibility. Then use Livesov to measure how effectively AI platforms pick up and recommend your brand based on that content.</p>
+        <p>Use Ahrefs to build authoritative content that ranks well - this same content improves your AI visibility. Then use Livesov to measure how effectively AI platforms pick up and recommend your brand based on that content.</p>
       </SeoContent>
     </SeoLayout>
   );

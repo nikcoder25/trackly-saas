@@ -111,7 +111,7 @@ export default function RecommendationsPage() {
 
   return (
     <div>
-      {/* Header — matches screenshot */}
+      {/* Header - matches screenshot */}
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
         <div>
           <div className="view-title">Recommendations</div>
@@ -123,7 +123,7 @@ export default function RecommendationsPage() {
         </button>
       </div>
 
-      {/* KPI Cards — 4 score-cards matching screenshot */}
+      {/* KPI Cards - 4 score-cards matching screenshot */}
       <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
         <div className="score-card">
           <div className="score-val" style={{ fontSize:24 }}>{allRecs.length}</div>
@@ -143,7 +143,7 @@ export default function RecommendationsPage() {
         </div>
       </div>
 
-      {/* Filters — matching screenshot */}
+      {/* Filters - matching screenshot */}
       <div style={{ display:'flex',gap:8,marginBottom:14,alignItems:'center' }}>
         <select className="finp" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ width:140,margin:0 }}>
           <option value="">All Status</option>
@@ -160,7 +160,7 @@ export default function RecommendationsPage() {
         </select>
       </div>
 
-      {/* Recommendations List — matches legacy renderRecommendations() exactly */}
+      {/* Recommendations List - matches legacy renderRecommendations() exactly */}
       {recs.length === 0 ? (
         <div className="card" style={{ padding:32,textAlign:'center',color:'var(--muted)' }}>
           {allRecs.some(r => r.status === 'done' || r.status === 'ignored') ? (

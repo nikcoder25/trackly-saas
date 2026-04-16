@@ -16,9 +16,9 @@
 | **ZipTie** | $69/mo | $159/mo | Custom | 3 | Credits |
 | **Profound** | $99/mo | $399/mo | $2,000+/mo | 1-10+ | Prompts + runs |
 | **Writesonic** | $249/mo | $499/mo | Custom | 3-8 | Prompts/month |
-| **Scrunch AI** | $300/mo | — | Custom | 7+ | Prompts/month |
+| **Scrunch AI** | $300/mo | - | Custom | 7+ | Prompts/month |
 | **LLM Pulse** | $49/mo | $99/mo | $1,199/mo | Multiple | Prompts/month |
-| **Ahrefs Brand Radar** | $828/mo | — | $1,148+/mo | 6 | Checks/month |
+| **Ahrefs Brand Radar** | $828/mo | - | $1,148+/mo | 6 | Checks/month |
 
 ### How Competitors Structure Limits
 
@@ -57,10 +57,10 @@ Assumes ~150 input tokens, ~300 output tokens per query.
 
 | Platform | Model Used | Input $/M | Output $/M | Extra Fee | **Cost/Query** |
 |----------|-----------|-----------|------------|-----------|---------------|
-| Gemini | gemini-2.5-flash | $0.30 | $2.50 | — | **$0.0001** |
-| Grok | grok-3-mini | $0.30 | $0.50 | — | **$0.0002** |
-| Perplexity | sonar | $1.00 | $1.00 | — | **$0.0004** |
-| Claude | claude-haiku-4.5 | $1.00 | $5.00 | — | **$0.0016** |
+| Gemini | gemini-2.5-flash | $0.30 | $2.50 | - | **$0.0001** |
+| Grok | grok-3-mini | $0.30 | $0.50 | - | **$0.0002** |
+| Perplexity | sonar | $1.00 | $1.00 | - | **$0.0004** |
+| Claude | claude-haiku-4.5 | $1.00 | $5.00 | - | **$0.0016** |
 | ChatGPT | gpt-4o-mini-search | $0.15 | $0.60 | $0.01/call | **$0.0102** |
 
 ### Cost Per "Run" (all platforms)
@@ -168,17 +168,17 @@ Most users don't max out. Assuming 50% average utilization:
 
 ### Where Competitors Win
 
-1. **Prompt volume data** (Profound): Shows how many people are asking AI about a topic — unique feature.
+1. **Prompt volume data** (Profound): Shows how many people are asking AI about a topic - unique feature.
 2. **GA4 integration** (Scrunch): Tracks actual AI referral traffic to your website.
 3. **Google AI Mode** (Ahrefs, Profound): New Google feature not yet tracked by Livesov.
 4. **Microsoft Copilot** (Profound, Ahrefs): Growing enterprise AI not tracked by Livesov.
-5. **Static prompt libraries** (Ahrefs): 260M+ prompts — shows industry-wide visibility, not just your queries.
+5. **Static prompt libraries** (Ahrefs): 260M+ prompts - shows industry-wide visibility, not just your queries.
 
 ### Value Proposition for Marketing
 
 **For small businesses** (Free/Starter): "Track your brand across AI platforms for free. See if ChatGPT and Perplexity recommend you."
 
-**For growing brands** (Pro): "Daily AI visibility monitoring across 6 platforms for $29/mo — 10x cheaper than alternatives."
+**For growing brands** (Pro): "Daily AI visibility monitoring across 6 platforms for $29/mo - 10x cheaper than alternatives."
 
 **For agencies** (Agency): "Monitor 20 client brands across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews for $89/mo. Competitors charge $300+."
 
@@ -186,21 +186,21 @@ Most users don't max out. Assuming 50% average utilization:
 
 ## 6. Key Metrics to Track
 
-1. **Cost per user per month** — Monitor actual API spend vs projected
-2. **Average runs per user** — If consistently low, limits can be raised further
-3. **Plan distribution** — Target 30% Pro, 20% Agency for healthy MRR
-4. **Churn rate by plan** — If Agency users churn, run limits may still be too restrictive
-5. **ChatGPT cost ratio** — ChatGPT Search is 80% of API cost; monitor OpenAI pricing changes
+1. **Cost per user per month** - Monitor actual API spend vs projected
+2. **Average runs per user** - If consistently low, limits can be raised further
+3. **Plan distribution** - Target 30% Pro, 20% Agency for healthy MRR
+4. **Churn rate by plan** - If Agency users churn, run limits may still be too restrictive
+5. **ChatGPT cost ratio** - ChatGPT Search is 80% of API cost; monitor OpenAI pricing changes
 
 ---
 
 ## 7. Future Considerations
 
-1. **Add Google AI Mode tracking** — All competitors have it. Could use existing Gemini API.
-2. **Add Microsoft Copilot** — Growing enterprise demand. Bing API integration.
-3. **Offer annual billing** — Industry standard 15-20% discount. Improves cash flow.
-4. **Consider prompt volume data** — Profound's unique feature. Would require large-scale query monitoring.
-5. **GA4 integration** — Track AI-referred traffic. High demand feature.
+1. **Add Google AI Mode tracking** - All competitors have it. Could use existing Gemini API.
+2. **Add Microsoft Copilot** - Growing enterprise demand. Bing API integration.
+3. **Offer annual billing** - Industry standard 15-20% discount. Improves cash flow.
+4. **Consider prompt volume data** - Profound's unique feature. Would require large-scale query monitoring.
+5. **GA4 integration** - Track AI-referred traffic. High demand feature.
 
 ---
 

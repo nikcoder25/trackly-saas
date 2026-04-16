@@ -57,7 +57,7 @@ async function run() {
          OR (data->>'schedule')::int <= 0
     `);
 
-    console.log(`Updated ${result.rowCount} brand(s) — schedule set to 24 (every 24 hours).`);
+    console.log(`Updated ${result.rowCount} brand(s) - schedule set to 24 (every 24 hours).`);
   } finally {
     client.release();
     await pool.end();

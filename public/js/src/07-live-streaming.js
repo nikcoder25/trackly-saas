@@ -2,12 +2,12 @@
 const _NOTIF_MAX = 5;       // max visible at once
 const _NOTIF_DURATION = 3500; // ms before auto-dismiss
 const _notifSeen = new Set();
-// Notification queue — batch DOM writes to reduce layout thrashing
+// Notification queue - batch DOM writes to reduce layout thrashing
 let _notifQueue = [];
 let _notifFlushTimer = null;
 
 function showLiveNotif(result) {
-  // Dedup — don't show same platform+query combo twice in one run
+  // Dedup - don't show same platform+query combo twice in one run
   const dedupKey = (result.platform || '') + '||' + (result.query || '');
   if (_notifSeen.has(dedupKey)) return;
   _notifSeen.add(dedupKey);
@@ -64,7 +64,7 @@ function _flushNotifQueue() {
         if (!head || !titleEl || !queryEl || !textEl) return;
         head.style.background = t2.bg||'var(--bg2)';
         head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
-        titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+        titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">- FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">- ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">- NOT FOUND</span>');
         queryEl.innerHTML = esc(result.query||'');
         textEl.style.whiteSpace = 'normal';
         const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
@@ -96,7 +96,7 @@ function _flushNotifQueue() {
   // Single DOM write: append all at once
   cont.appendChild(frag);
 
-  // Cap visible notifications — remove oldest in one pass
+  // Cap visible notifications - remove oldest in one pass
   while (cont.children.length > _NOTIF_MAX) {
     cont.removeChild(cont.children[0]);
   }
@@ -111,12 +111,12 @@ function clearLiveNotifs() {
 }
 
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
-// Called on every new result during streaming — updates whichever view is active
+// Called on every new result during streaming - updates whichever view is active
 // Throttle heavy DOM updates to prevent UI freezing during rapid SSE events
 let _liveUpdateTimer = null;
 let _liveUpdatePending = null;
 
-// Incremental counters updated O(1) per result — avoids re-filtering liveResults array
+// Incremental counters updated O(1) per result - avoids re-filtering liveResults array
 let _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() };
 function _resetLiveCounters() { _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() }; }
 function _updateLiveCounters(r) {
@@ -169,7 +169,7 @@ function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
   _updateLiveCounters(result);
 
-  // Show bottom-right notification popup (lightweight — no throttle needed)
+  // Show bottom-right notification popup (lightweight - no throttle needed)
   showLiveNotif(result);
 
   // Throttle heavy view updates: batch DOM writes to at most every 500ms
@@ -254,7 +254,7 @@ function setupLiveProof() {
   }
 }
 
-// Live overview — recalculate everything from accumulated liveResults
+// Live overview - recalculate everything from accumulated liveResults
 function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const b = brand();
   if (!b) return;
@@ -343,7 +343,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     `;
   }
 
-  // Update platform cards — use incremental counters instead of re-iterating liveResults
+  // Update platform cards - use incremental counters instead of re-iterating liveResults
   const pg = el('ov-plat-grid');
   if (pg) {
     const platSOV = {};
@@ -386,7 +386,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     </div>`;
   }
 
-  // Category SOV — computed from incremental counters
+  // Category SOV - computed from incremental counters
   const catRow = el('ov-category-row');
   if (catRow && validCount > 0) {
     const chatAI = ['ChatGPT', 'Claude', 'Grok'];
@@ -407,7 +407,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   }
 }
 
-// Set up live feed on overview — shows each result as it streams in
+// Set up live feed on overview - shows each result as it streams in
 let _liveFeedCount = 0;
 function setupLiveFeed() {
   const feed = el('ov-live-feed');
@@ -464,7 +464,7 @@ function hideLiveFeed() {
   _liveFeedCount = 0;
 }
 
-// Cache the brand highlight regex for the duration of a run — avoids recompiling 80+ times
+// Cache the brand highlight regex for the duration of a run - avoids recompiling 80+ times
 let _cachedHighlightRe = null;
 let _cachedHighlightBrandId = null;
 

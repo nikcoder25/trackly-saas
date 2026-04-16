@@ -65,7 +65,7 @@ setInterval(() => {
       activeRuns.delete(id);
       brandRunLocks.delete(run.brandId);
     } else if (!run.completedAt && run.startedAt && run.startedAt < cutoff) {
-      // Run never completed (crash/error without setting completedAt) — clean up
+      // Run never completed (crash/error without setting completedAt) - clean up
       activeRuns.delete(id);
       brandRunLocks.delete(run.brandId);
     }
@@ -75,10 +75,10 @@ setInterval(() => {
       const hasActive = [...activeRuns.values()].some(r => r.brandId === brandId && r.status === 'running');
       const lockAge = Date.now() - (lock?.lockedAt || 0);
       if (!hasActive) {
-        // No active run — orphaned lock
+        // No active run - orphaned lock
         brandRunLocks.delete(brandId);
       } else if (lockAge > MAX_LOCK_AGE_MS) {
-        // Lock expired — force-release even if active run exists
+        // Lock expired - force-release even if active run exists
         console.log(`[Cleanup] Force-releasing expired lock for brand ${brandId} (age: ${Math.round(lockAge/1000)}s)`);
         const stuckRun = [...activeRuns.values()].find(r => r.brandId === brandId && r.status === 'running');
         if (stuckRun) {
@@ -91,7 +91,7 @@ setInterval(() => {
     }
 }, 60 * 1000);
 
-// Cheapest platforms first — used to prioritize when plan limits truncate the list
+// Cheapest platforms first - used to prioritize when plan limits truncate the list
 // Based on default model cost per query (input+output)
 const PLATFORM_COST_ORDER = [
   'Gemini',      // gemini-2.0-flash: $0.10/$0.40
@@ -122,7 +122,7 @@ router.get('/', auth, async (req, res) => {
           const isRecent = ri >= data.runs.length - 2; // keep last 2 runs' allResults
           if (run.allResults) {
             if (!isRecent) {
-              // Old runs: drop allResults entirely — summary fields (sov, totalQ, totalM, platforms) suffice
+              // Old runs: drop allResults entirely - summary fields (sov, totalQ, totalM, platforms) suffice
               delete run.allResults;
             } else {
               // Recent runs: keep allResults but strip raw text
@@ -198,7 +198,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ error: `Your ${plan} plan allows up to ${limits.brands} brand(s). Upgrade to add more.`, planLimit: true, limit: 'brands', current: brandCount, max: limits.brands });
     }
 
-    // Accept wizard-provided competitors, queries, nearbyAreas — with validation
+    // Accept wizard-provided competitors, queries, nearbyAreas - with validation
     const safeComps = Array.isArray(competitors) ? competitors.filter(c => typeof c === 'string').map(c => c.trim()).filter(Boolean).slice(0, 100) : [];
     const safeNearby = Array.isArray(nearbyAreas) ? nearbyAreas.filter(a => typeof a === 'string').map(a => a.trim()).filter(Boolean).slice(0, 100) : [];
     const defaultQueries = city
@@ -300,7 +300,7 @@ router.put('/:id', auth, async (req, res) => {
       });
     }
 
-    // Total prompts check — count queries across ALL brands, not just this one
+    // Total prompts check - count queries across ALL brands, not just this one
     if (safeBody.queries) {
       const allBrandsResult = await pool.query(
         `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
@@ -348,7 +348,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Run queries — execution is decoupled from the HTTP response so that
+// Run queries - execution is decoupled from the HTTP response so that
 // closing the browser tab does NOT stop the run.  The server fires off
 // the work in the background and the frontend can reconnect via the
 // GET /:id/run-status/:runId polling endpoint.
@@ -367,7 +367,7 @@ router.post('/:id/force-release', auth, async (req, res) => {
     }
     brandRunLocks.delete(brand.id);
     
-    console.log(`[Force-Release] Brand ${brand.id} — hadLock: ${hadLock}, hadActiveRun: ${!!activeRun}`);
+    console.log(`[Force-Release] Brand ${brand.id} - hadLock: ${hadLock}, hadActiveRun: ${!!activeRun}`);
     res.json({ success: true, released: hadLock || !!activeRun });
   } catch (err) {
     console.error('[Force-Release] Error:', err);
@@ -376,7 +376,7 @@ router.post('/:id/force-release', auth, async (req, res) => {
 });
 
 router.post('/:id/run', auth, async (req, res) => {
-  // Brand access verified below — owners and team editors can run queries.
+  // Brand access verified below - owners and team editors can run queries.
   req.setTimeout(600000); // 10 min to match MAX_LOCK_AGE_MS
   const streaming = req.query.stream === '1';
     const forceRun = req.query.force === '1';
@@ -413,7 +413,7 @@ router.post('/:id/run', auth, async (req, res) => {
       }
     }
 
-    // Total prompts check — count across ALL brands
+    // Total prompts check - count across ALL brands
     const allPromptsResult = await pool.query(
       `SELECT COALESCE(SUM(jsonb_array_length(CASE WHEN data->'queries' IS NOT NULL THEN data->'queries' ELSE '[]'::jsonb END)), 0) as total
        FROM brands WHERE user_id = $1`,
@@ -426,7 +426,7 @@ router.post('/:id/run', auth, async (req, res) => {
       return res.status(403).json({ error: errMsg, planLimit: true, limit: 'prompts' });
     }
 
-    // Soft overage warning — approaching prompt limit
+    // Soft overage warning - approaching prompt limit
     const _overageWarnings = [];
     const promptUsagePct = limits.prompts > 0 ? totalPrompts / limits.prompts : 0;
     if (promptUsagePct >= 0.8) {
@@ -519,12 +519,12 @@ router.post('/:id/run', auth, async (req, res) => {
         }
         brandRunLocks.delete(brand.id);
       } else if (activeRun) {
-        // Active run exists and lock is within time limit — block
+        // Active run exists and lock is within time limit - block
         const errMsg = 'A run is already in progress for this brand. Please wait for it to finish.';
         if (streaming) return sseError(res, errMsg);
         return res.status(409).json({ error: errMsg });
       } else {
-        // No active run — stale/orphaned lock, release it
+        // No active run - stale/orphaned lock, release it
         console.log(`[Run] Auto-releasing stale lock for brand ${brand.id} (age: ${Math.round(lockAge/1000)}s)`);
         brandRunLocks.delete(brand.id);
       }
@@ -575,7 +575,7 @@ router.post('/:id/run', auth, async (req, res) => {
       'Connection': 'keep-alive',
       'X-Accel-Buffering': 'no'
     });
-    // Disable Nagle's algorithm — send each SSE event immediately without buffering
+    // Disable Nagle's algorithm - send each SSE event immediately without buffering
     if (res.socket) res.socket.setNoDelay(true);
     // When the client disconnects, stop writing but do NOT stop execution
     res.on('close', () => { clientConnected = false; });
@@ -598,19 +598,19 @@ router.post('/:id/run', auth, async (req, res) => {
   const platSOV = {};
   let totalQ = 0, totalM = 0;
 
-  // Pre-compile brand regex patterns once — reused for all 80+ parse calls
+  // Pre-compile brand regex patterns once - reused for all 80+ parse calls
   const matcher = buildBrandMatcher(brand);
 
   // Track consecutive failures per platform for early-abort
   const platFailCount = {};
   const FAIL_THRESHOLD = RUN.failThreshold;
 
-  // Detect stable queries — reuse cached results for queries unchanged across 3+ runs
+  // Detect stable queries - reuse cached results for queries unchanged across 3+ runs
   // Same optimization as cron path, saves ~20-40% API calls for brands with frequent runs
   const stableQueries = getStableQueries(brand);
   let stableSkipCount = 0;
 
-  // Build interleaved list — query-first order spreads requests across platforms
+  // Build interleaved list - query-first order spreads requests across platforms
   // so concurrent workers naturally hit different APIs (reducing rate limit waits)
   const tasks = [];
   for (const plat of activePlatforms) {
@@ -638,7 +638,7 @@ router.post('/:id/run', auth, async (req, res) => {
       function processResult(plat, q, result) {
         try {
           if (!result) {
-            console.error(`[${plat}] Null result for query "${q}" — API key may be missing`);
+            console.error(`[${plat}] Null result for query "${q}" - API key may be missing`);
             processError(plat, q, new Error('No API key available for ' + plat));
             return;
           }
@@ -698,7 +698,7 @@ router.post('/:id/run', auth, async (req, res) => {
       function processError(plat, q, err) {
         const errMsg = err?.message || 'Unknown error';
         // Rate-limit and transient errors (429, 503, capacity) don't count toward
-        // consecutive failure threshold — the platform isn't broken, just busy.
+        // consecutive failure threshold - the platform isn't broken, just busy.
         const isTransient = err?.isRateLimit || err?.isTransient;
         if (!isTransient) {
           platFailCount[plat] = (platFailCount[plat] || 0) + 1;
@@ -728,7 +728,7 @@ router.post('/:id/run', auth, async (req, res) => {
           const idx = nextIdx++;
           const { plat, q } = tasks[idx];
 
-          // Skip stable queries — reuse last result without API call
+          // Skip stable queries - reuse last result without API call
           const stableKey = `${q}::${plat}`;
           const stableResult = stableQueries.get(stableKey);
           if (stableResult) {
@@ -739,7 +739,7 @@ router.post('/:id/run', auth, async (req, res) => {
 
           try {
             if (platFailCount[plat] >= FAIL_THRESHOLD) {
-              throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+              throw new Error(`Skipped - ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
             }
             // Worker-level timeout: 5 minutes per individual AI call
             const result = await Promise.race([
@@ -774,7 +774,7 @@ router.post('/:id/run', auth, async (req, res) => {
       const saveBrandObj = freshBrand || brand;
 
       if (!saveBrandObj.runs) saveBrandObj.runs = [];
-      // Strip `raw` text from allResults before storing in brand JSON — full raw text
+      // Strip `raw` text from allResults before storing in brand JSON - full raw text
       // is already persisted in the prompt_runs table. Keeping raw in allResults causes
       // the brand object to grow by ~3KB per result, leading to 20-100MB+ brand objects
       // after 30 runs that freeze the browser and bloat the database.
@@ -800,11 +800,11 @@ router.post('/:id/run', auth, async (req, res) => {
         saveBrandObj.runs = saveBrandObj.runs.slice(-30);
       }
 
-      // Rebuild queryStats — single pass over runs (O(runs × mentions) instead of O(runs × queries))
+      // Rebuild queryStats - single pass over runs (O(runs × mentions) instead of O(runs × queries))
       const qsNew = {};
       queries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
       saveBrandObj.runs.forEach(run => {
-        // Count runs per query — use a Set of mentioned queries for O(1) lookup
+        // Count runs per query - use a Set of mentioned queries for O(1) lookup
         const mentionedQueries = new Set((run.mentions||[]).map(m => m.query));
               const queriesInRun = new Set((run.allResults||[]).map(r => r.query));
         for (const q of queries) {
@@ -816,11 +816,11 @@ router.post('/:id/run', auth, async (req, res) => {
         }
       });
       saveBrandObj.queryStats = qsNew;
-      // Remove legacy citations map — never used by frontend, citations are
+      // Remove legacy citations map - never used by frontend, citations are
       // already persisted in the citations DB table. Saves ~10-50KB per brand.
       delete saveBrandObj.citations;
 
-      // Update all-time mentions (strip raw text — full text is in prompt_runs table)
+      // Update all-time mentions (strip raw text - full text is in prompt_runs table)
       if (!saveBrandObj.mentions) saveBrandObj.mentions = [];
       const lightMentions = newMentions.map(m => {
         const { raw, ...rest } = m;
@@ -839,11 +839,11 @@ router.post('/:id/run', auth, async (req, res) => {
       // Abort check: if lock was force-released while we were running, skip saving
       // to prevent data corruption from a concurrent run
       if (runState.aborted) {
-        console.warn(`[Run] Brand ${brand.id} run aborted (lock expired) — skipping save to prevent corruption`);
+        console.warn(`[Run] Brand ${brand.id} run aborted (lock expired) - skipping save to prevent corruption`);
         return;
       }
 
-      // Verify this run is still the active one in DB before saving — prevents
+      // Verify this run is still the active one in DB before saving - prevents
       // data corruption if a newer run took over (e.g. after lock force-release)
       try {
         const activeCheck = await pool.query(
@@ -851,13 +851,13 @@ router.post('/:id/run', auth, async (req, res) => {
           [brand.id, 'running']
         );
         if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
-          console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} — skipping save to prevent corruption`);
+          console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} - skipping save to prevent corruption`);
           runState.status = 'error';
           runState.error = 'Superseded by newer run';
           runState.completedAt = Date.now();
           return;
         }
-      } catch (e) { /* active_runs table may not exist in Express backend — skip check */ }
+      } catch (e) { /* active_runs table may not exist in Express backend - skip check */ }
 
       saveBrandObj.updatedAt = new Date().toISOString();
       await saveBrand(saveBrandObj);
@@ -993,7 +993,7 @@ router.post('/:id/run', auth, async (req, res) => {
       brandRunLocks.delete(brand.id);
       releaseDbBrandLock(brand.id);
 
-      // Stream final event — send only the result summary, NOT the full brand object.
+      // Stream final event - send only the result summary, NOT the full brand object.
       // The full brand object can be 20-100MB+ with historical runs and raw AI text,
       // which freezes the browser when parsed via JSON.parse() on the main thread.
       // The frontend already fetches fresh brand data via GET /api/brands after the run.
@@ -1077,7 +1077,7 @@ function sseError(res, msg) {
 router.get('/:id/run-status/:runId', auth, async (req, res) => {
   const runState = activeRuns.get(req.params.runId);
   if (!runState) {
-    // Run not in memory — check if it completed and was saved to DB
+    // Run not in memory - check if it completed and was saved to DB
     const access = await getBrandWithAccess(req.params.id, req.user.id);
     const brand = access ? access.brand : null;
     if (brand) {
@@ -1403,7 +1403,7 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
       }
     }
 
-    // Rebuild queryStats — single pass
+    // Rebuild queryStats - single pass
     const allQueries = brand.queries || [];
     const qsNew = {};
     allQueries.forEach(q => { qsNew[q] = { runs: 0, mentions: 0 }; });
@@ -1597,7 +1597,7 @@ async function runBrandQueries(brand) {
   // Enforce plan limits for scheduled runs
   const plan = await getUserPlan(brand.userId);
   const limits = getPlanLimits(plan);
-  // scheduledRuns check removed — all plans now have scheduled runs // plan doesn't allow scheduled runs
+  // scheduledRuns check removed - all plans now have scheduled runs // plan doesn't allow scheduled runs
 
   // Load user settings for scheduled runs
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);
@@ -1632,7 +1632,7 @@ async function runBrandQueries(brand) {
   const platFailCount = {};
   const FAIL_THRESHOLD = RUN.failThreshold;
 
-  // Detect stable queries — skip API calls for queries with unchanged results
+  // Detect stable queries - skip API calls for queries with unchanged results
   const stableQueries = getStableQueries(brand);
   let stableSkipCount = 0;
 
@@ -1692,13 +1692,13 @@ async function runBrandQueries(brand) {
         console.log(`[Cron] Claude Batch: ${batchMap.size}/${claudeQueries.length} succeeded (50% cost savings)`);
       } catch (batchErr) {
         console.error(`[Cron] Claude Batch failed, falling back to individual calls:`, batchErr.message);
-        // Fall through — Claude tasks without batch results will use normal queryAI below
+        // Fall through - Claude tasks without batch results will use normal queryAI below
       }
     }
   }
 
   // ── OpenAI Batch API (50% cheaper for scheduled runs) ──────────
-  // Same pattern as Claude Batch — separate ChatGPT tasks for batch processing.
+  // Same pattern as Claude Batch - separate ChatGPT tasks for batch processing.
   const openaiEnabled = activePlatforms.includes('ChatGPT');
   const openaiKeyArr = keys.openai || [];
   const openaiBatchKey = openaiKeyArr.length > 0 ? openaiKeyArr[0] : null;
@@ -1741,7 +1741,7 @@ async function runBrandQueries(brand) {
     }
   }
 
-  // Bounded concurrency worker pool — skip batch-handled tasks
+  // Bounded concurrency worker pool - skip batch-handled tasks
   const CRON_CONCURRENCY = Math.min(activePlatforms.length, 8);
   let cronNextIdx = 0;
   const cronResults = new Array(tasks.length);
@@ -1761,7 +1761,7 @@ async function runBrandQueries(brand) {
       if (claudeBatchResults.has(idx) || openaiBatchResults.has(idx)) continue;
       const { plat, q } = tasks[idx];
 
-      // Skip stable queries — reuse last result without API call
+      // Skip stable queries - reuse last result without API call
       const stableKey = `${q}::${plat}`;
       const stableResult = stableQueries.get(stableKey);
       if (stableResult) {
@@ -1772,7 +1772,7 @@ async function runBrandQueries(brand) {
       }
 
       try {
-        if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped — ${plat} down`);
+        if (platFailCount[plat] >= FAIL_THRESHOLD) throw new Error(`Skipped - ${plat} down`);
         const result = await queryAI(q, plat, brand, keys, modelPrefs, logCtx);
         platFailCount[plat] = 0;
         cronResults[idx] = { status: 'fulfilled', value: { plat, q, result } };
@@ -1797,7 +1797,7 @@ async function runBrandQueries(brand) {
       try {
         const { result } = s.value;
         if (!result) {
-          console.error(`[Cron][${plat}] Null result for query "${q}" — API key may be missing`);
+          console.error(`[Cron][${plat}] Null result for query "${q}" - API key may be missing`);
           logApiCall({ userId: brand.userId, brandId: brand.id, platform: plat, query: q, status: 'error', error: 'No API key available', keyHint: null, model: null, responseMs: 0, tokensIn: 0, tokensOut: 0, cost: null });
           allResults.push({ platform: plat, query: q, context: '[API Error] No API key available', raw: '', mentioned: false, sentiment: 'neutral', recommended: false, citations: [], error: true, errorMessage: 'No API key available' });
           totalQ++; continue;
@@ -1872,7 +1872,7 @@ async function runBrandQueries(brand) {
 
   const sov = totalQ ? Math.round((totalM/totalQ)*100) : 0;
   if (!brand.runs) brand.runs = [];
-  // Strip raw text from allResults before storing in brand JSON — full raw text
+  // Strip raw text from allResults before storing in brand JSON - full raw text
   // is in prompt_runs table. Prevents brand object from growing 20-100MB+ over time.
   const lightResults = allResults.map(r => { const { raw, ...rest } = r; return rest; });
   const cronCompCounts = {};
@@ -2008,14 +2008,14 @@ function classifyDomain(domain) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// AI OVERVIEWS — DataForSEO Google SERP integration
+// AI OVERVIEWS - DataForSEO Google SERP integration
 // ═══════════════════════════════════════════════════════════════════
 
 // Check AI Overviews for a brand's queries
 router.post('/:id/ai-overviews/check', auth, async (req, res) => {
   try {
     if (!isDataForSEOConfigured()) {
-      return res.status(503).json({ error: 'Google AI Overview checking is not available — DataForSEO not configured.' });
+      return res.status(503).json({ error: 'Google AI Overview checking is not available - DataForSEO not configured.' });
     }
 
     const access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -2026,7 +2026,7 @@ router.post('/:id/ai-overviews/check', auth, async (req, res) => {
     const queries = brand.queries || [];
     if (!queries.length) return res.status(400).json({ error: 'No queries configured for this brand.' });
 
-    // Check cache — skip queries checked within the TTL window
+    // Check cache - skip queries checked within the TTL window
     const cachedRows = await pool.query(
       'SELECT query, checked_at FROM ai_overview_results WHERE brand_id = $1 AND checked_at > NOW() - INTERVAL \'1 millisecond\' * $2',
       [brand.id, DATAFORSEO.cacheTtlMs]
@@ -2035,7 +2035,7 @@ router.post('/:id/ai-overviews/check', auth, async (req, res) => {
     const queriesToCheck = queries.filter(q => !recentlyChecked.has(q));
 
     if (!queriesToCheck.length) {
-      // All queries are cached — return existing results
+      // All queries are cached - return existing results
       const existing = await pool.query(
         'SELECT * FROM ai_overview_results WHERE brand_id = $1 ORDER BY checked_at DESC',
         [brand.id]
@@ -2145,7 +2145,7 @@ router.get('/:id/ai-overviews/status', auth, async (req, res) => {
 });
 
 // ─── PDF REPORT GENERATION ─────────────────────────────────────
-// GET /api/brands/:id/report/pdf — Generate and download a PDF visibility report
+// GET /api/brands/:id/report/pdf - Generate and download a PDF visibility report
 // Requires Pro plan or above (not Free/Starter)
 router.get('/:id/report/pdf', auth, async (req, res) => {
   try {
@@ -2177,7 +2177,7 @@ router.get('/:id/report/pdf', auth, async (req, res) => {
           brandMentioned: r.brand_mentioned,
         }));
       } catch (e) {
-        // Non-fatal — continue without AI Overview data
+        // Non-fatal - continue without AI Overview data
       }
     }
 

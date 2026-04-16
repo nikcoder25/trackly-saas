@@ -17,7 +17,7 @@ export async function register() {
             headers: { Authorization: `Bearer ${cronSecret}` },
           });
           console.log(
-            `[Cron Scheduler] Triggered /api/cron — status ${res.status}`
+            `[Cron Scheduler] Triggered /api/cron - status ${res.status}`
           );
         } catch (err) {
           console.error(

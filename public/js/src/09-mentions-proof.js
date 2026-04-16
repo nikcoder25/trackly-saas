@@ -65,9 +65,9 @@ async function recheckQuery(runId, platform, query, btnEl){
     if (!resp.ok) throw new Error(data.error || 'Recheck failed');
     const idx = brands.findIndex(x => x.id === b.id);
     if (idx !== -1 && data.brand) brands[idx] = data.brand;
-    const msg = data.statusChange === 'now_mentioned' ? 'Recheck complete — now mentioned!'
-      : data.statusChange === 'no_longer_mentioned' ? 'Recheck complete — no longer mentioned'
-      : 'Recheck complete — status unchanged';
+    const msg = data.statusChange === 'now_mentioned' ? 'Recheck complete - now mentioned!'
+      : data.statusChange === 'no_longer_mentioned' ? 'Recheck complete - no longer mentioned'
+      : 'Recheck complete - status unchanged';
     toast(msg);
     mentionsExpandedRow = null;
     renderMentions();
@@ -91,7 +91,7 @@ function renderMentions(){
   const runs = (b.runs||[]).slice().reverse();
   if (!runs.length) {
     kpis.innerHTML = ''; platFilters.innerHTML = '';
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet — run queries to start tracking.</p></div>';
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet - run queries to start tracking.</p></div>';
     return;
   }
   runs.forEach(r => {
@@ -188,8 +188,8 @@ function renderMentions(){
       : r.mentioned ? '<span class="status-found">FOUND</span>'
       : '<span class="status-notfound">NOT FOUND</span>';
     const sentColor = sent==='positive' ? 'var(--green)' : sent==='negative' ? 'var(--red)' : 'var(--muted)';
-    const sentLabel = isErr || !r.mentioned ? '—' : `<span style="color:${sentColor};">${sent.charAt(0).toUpperCase()+sent.slice(1)}</span>`;
-    const posLabel = r.mentioned && r.listPosition ? '#'+r.listPosition : '—';
+    const sentLabel = isErr || !r.mentioned ? '-' : `<span style="color:${sentColor};">${sent.charAt(0).toUpperCase()+sent.slice(1)}</span>`;
+    const posLabel = r.mentioned && r.listPosition ? '#'+r.listPosition : '-';
     html += `<tr class="trow" style="cursor:pointer;" onclick="toggleMentionRow(${from+i})">
       <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${esc(r.platform)}</span></td>
       <td class="td">${esc(r.query)}</td>
@@ -258,7 +258,7 @@ function openResp(mentionId){
     if (!head || !titleEl || !queryEl || !textEl) return;
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-    titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">- FOUND</span>';
     queryEl.innerHTML = esc(m.query) + (m.time ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
     textEl.style.whiteSpace = 'normal';
     const rawHtml = mdToHtml(m.raw || m.context || '');
@@ -295,7 +295,7 @@ function openResultFromRun(runId, platform, encodedQuery){
     const queryEl = el('resp-modal-query');
     const textEl = el('resp-modal-text');
     if (!titleEl || !queryEl || !textEl) return;
-    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">- FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">- NOT FOUND</span>');
     queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
@@ -333,7 +333,7 @@ function openFullResult(platform, encodedQuery){
     if (!head || !titleEl || !queryEl || !textEl) return;
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">- FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">- NOT FOUND</span>');
     queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
@@ -372,7 +372,7 @@ function renderProof(){
     opt.value = r.id;
     const d = new Date(r.time || r.date || 0);
     const dateStr = isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    opt.textContent = dateStr + ' \u2014 SOV '+r.sov+'%';
+    opt.textContent = dateStr + ' - SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -488,7 +488,7 @@ function renderProof(){
         <div class="ep-banner-metric-lbl">Hit Rate</div>
       </div>`}
       <div class="ep-banner-metric">
-        <div class="ep-banner-metric-val" style="font-size:14px;color:var(--text);">${run.durationMs ? (run.durationMs/1000).toFixed(1)+'s' : '\u2014'}</div>
+        <div class="ep-banner-metric-val" style="font-size:14px;color:var(--text);">${run.durationMs ? (run.durationMs/1000).toFixed(1)+'s' : '-'}</div>
         <div class="ep-banner-metric-lbl">Run Time</div>
       </div>
     </div>

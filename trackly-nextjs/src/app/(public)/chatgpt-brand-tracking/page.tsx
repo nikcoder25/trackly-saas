@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
+  title: 'ChatGPT Brand Tracking - Monitor Your AI Visibility | Livesov',
   description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
   keywords: 'chatgpt brand tracking, chatgpt brand monitoring, chatgpt seo, ai visibility chatgpt, openai brand mentions',
   alternates: { canonical: '/chatgpt-brand-tracking' },
   openGraph: {
-    title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
+    title: 'ChatGPT Brand Tracking - Monitor Your AI Visibility | Livesov',
     description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
     url: 'https://livesov.com/chatgpt-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'ChatGPT Brand Tracking - Monitor Your AI Visibility | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ChatGPT Brand Tracking — Monitor Your AI Visibility | Livesov',
+    title: 'ChatGPT Brand Tracking - Monitor Your AI Visibility | Livesov',
     description: 'Track how ChatGPT mentions and recommends your brand. Monitor share of voice, detect hallucinations, and optimize your visibility in OpenAI\'s ChatGPT responses.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -54,7 +54,7 @@ export default function ChatGPTBrandTrackingPage() {
         </div>
 
         <h2>ChatGPT vs Traditional SEO</h2>
-        <p>Traditional SEO tools track your Google rankings. But with AI-powered search growing rapidly, you need to track both. Livesov is purpose-built for AI visibility — tracking how AI models recommend brands, not just how websites rank in search results.</p>
+        <p>Traditional SEO tools track your Google rankings. But with AI-powered search growing rapidly, you need to track both. Livesov is purpose-built for AI visibility - tracking how AI models recommend brands, not just how websites rank in search results.</p>
       </SeoContent>
     </SeoLayout>
   );

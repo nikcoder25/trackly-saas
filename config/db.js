@@ -21,7 +21,7 @@ if (process.env.NODE_ENV === 'production' && process.env.DATABASE_URL && process
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: sslConfig,
-  // Scale pool for concurrent users — default pg Pool is 10 which can bottleneck
+  // Scale pool for concurrent users - default pg Pool is 10 which can bottleneck
   // at 100+ concurrent requests (runs, rechecks, cron jobs all need connections).
   max: parseInt(process.env.PG_POOL_MAX, 10) || 50,
   // Return idle connections after 30s (default 10s) to reduce churn
@@ -465,7 +465,7 @@ async function logApiCall(entry) {
   }
 }
 
-// Cleanup old api_logs (keep last 7 days) — call periodically
+// Cleanup old api_logs (keep last 7 days) - call periodically
 async function cleanupApiLogs() {
   try {
     await pool.query(`DELETE FROM api_logs WHERE created_at < NOW() - INTERVAL '1 day' * $1`, [RETENTION.apiLogsDays]);

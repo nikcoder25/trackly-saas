@@ -1,5 +1,5 @@
 /**
- * Authentication routes — register, login, me
+ * Authentication routes - register, login, me
  */
 const express = require('express');
 const bcrypt  = require('bcryptjs');
@@ -17,7 +17,7 @@ const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = requi
 const { RATE_LIMITS, AUTH, API_ENDPOINTS } = require('../config/constants');
 const crypto = require('crypto');
 
-// ─── Registration rate limiter — 5 signups per 15 min per IP ───
+// ─── Registration rate limiter - 5 signups per 15 min per IP ───
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -34,7 +34,7 @@ function isGibberishName(name) {
   if (!name || name.length < 2) return false;
   const cleaned = name.replace(/[^a-zA-Z]/g, '').toLowerCase();
   if (cleaned.length < 4) return false;
-  // Check consonant-to-vowel ratio — real names have ~40% vowels
+  // Check consonant-to-vowel ratio - real names have ~40% vowels
   const vowels = (cleaned.match(/[aeiou]/g) || []).length;
   const ratio = vowels / cleaned.length;
   if (ratio < 0.15) return true; // almost no vowels = gibberish
@@ -67,7 +67,7 @@ function isDisposableEmail(email) {
 function isDotTrickedGmail(email) {
   const [local, domain] = email.toLowerCase().split('@');
   if (!domain || !domain.endsWith('gmail.com')) return false;
-  // Count dots in local part — legitimate users rarely have 3+ dots
+  // Count dots in local part - legitimate users rarely have 3+ dots
   const dotCount = (local.match(/\./g) || []).length;
   return dotCount >= 3;
 }
@@ -116,7 +116,7 @@ function clearTokenCookies(res) {
   res.clearCookie('livesov_refresh', cookieOpts);
 }
 
-// Per-account brute force protection — 10 failed attempts per 15 min per email/username
+// Per-account brute force protection - 10 failed attempts per 15 min per email/username
 // Prevents distributed attacks targeting a single account from many IPs
 const loginAccountLimiter = rateLimit({
   windowMs: RATE_LIMITS.loginAccount.windowMs,
@@ -129,7 +129,7 @@ const loginAccountLimiter = rateLimit({
   skipSuccessfulRequests: true
 });
 
-// Stricter rate limit for 2FA attempts — 5 attempts per 15 minutes per IP
+// Stricter rate limit for 2FA attempts - 5 attempts per 15 minutes per IP
 const twoFALimiter = rateLimit({
   windowMs: RATE_LIMITS.twoFA.windowMs,
   max: RATE_LIMITS.twoFA.max,
@@ -141,7 +141,7 @@ const twoFALimiter = rateLimit({
   skip: (req) => !req.body?.totpCode
 });
 
-// Rate limit for forgot-password — 5 requests per hour per IP
+// Rate limit for forgot-password - 5 requests per hour per IP
 const forgotPasswordLimiter = rateLimit({
   windowMs: RATE_LIMITS.forgotPassword.windowMs,
   max: RATE_LIMITS.forgotPassword.max,
@@ -151,7 +151,7 @@ const forgotPasswordLimiter = rateLimit({
   validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-// Rate limit for reset-password — 10 attempts per hour per IP
+// Rate limit for reset-password - 10 attempts per hour per IP
 const resetPasswordLimiter = rateLimit({
   windowMs: RATE_LIMITS.resetPassword.windowMs,
   max: RATE_LIMITS.resetPassword.max,
@@ -161,7 +161,7 @@ const resetPasswordLimiter = rateLimit({
   validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-// Rate limit for email verification — 20 attempts per hour per IP
+// Rate limit for email verification - 20 attempts per hour per IP
 const verifyEmailLimiter = rateLimit({
   windowMs: RATE_LIMITS.verifyEmail.windowMs,
   max: RATE_LIMITS.verifyEmail.max,
@@ -171,7 +171,7 @@ const verifyEmailLimiter = rateLimit({
   validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
-// Rate limit for 2FA setup/verify — 10 attempts per 15 minutes per user
+// Rate limit for 2FA setup/verify - 10 attempts per 15 minutes per user
 const twoFASetupLimiter = rateLimit({
   windowMs: RATE_LIMITS.twoFASetup.windowMs,
   max: RATE_LIMITS.twoFASetup.max,
@@ -204,14 +204,14 @@ router.post('/register', registerLimiter, async (req, res) => {
   // Block heavily dot-tricked Gmail (f.r.a.n.c.o@gmail.com)
   if (isDotTrickedGmail(email)) return res.status(400).json({ error: 'Please use a valid email address' });
 
-  // Flag gibberish names — don't hard-block but delay response (tarpit)
+  // Flag gibberish names - don't hard-block but delay response (tarpit)
   if (name && isGibberishName(name)) {
     await new Promise(r => setTimeout(r, 3000)); // slow down bots
   }
   if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (password.length > 128) return res.status(400).json({ error: 'Password too long' });
   if (name && (typeof name !== 'string' || name.length > 100)) return res.status(400).json({ error: 'Name must be 100 characters or less' });
-  // Username validation — if user provides one, validate it; otherwise auto-generate
+  // Username validation - if user provides one, validate it; otherwise auto-generate
   let trimmedUsername = username ? username.trim().toLowerCase() : null;
   if (trimmedUsername) {
     if (trimmedUsername.length < 3) return res.status(400).json({ error: 'Username must be at least 3 characters' });
@@ -297,7 +297,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
       if (!isValidTotp && backupIndex === -1) {
         return res.status(400).json({ error: 'Invalid 2FA code' });
       }
-      // Consume backup code atomically — use a transaction to prevent race condition
+      // Consume backup code atomically - use a transaction to prevent race condition
       // where two simultaneous logins both use the same backup code
       if (backupIndex !== -1) {
         const client = await safeConnect();
@@ -390,7 +390,7 @@ router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
   }
 });
 
-// Refresh token — exchange refresh token for new access token
+// Refresh token - exchange refresh token for new access token
 router.post('/refresh', async (req, res) => {
   // Accept refresh token from request body or httpOnly cookie
   const refreshToken = req.body.refreshToken || req.cookies?.livesov_refresh;
@@ -471,7 +471,7 @@ router.delete('/account', auth, async (req, res) => {
   }
 });
 
-// Forgot password — generate reset token (stored in PostgreSQL)
+// Forgot password - generate reset token (stored in PostgreSQL)
 router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -533,7 +533,7 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
 
 router.get('/me', auth, async (req, res) => {
   try {
-    // SECURITY: Only select needed columns — never fetch password_hash
+    // SECURITY: Only select needed columns - never fetch password_hash
     const result = await pool.query('SELECT id, email, username, name, plan, role, api_keys, settings, created_at, google_id, avatar_url FROM users WHERE id = $1', [req.user.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -655,7 +655,7 @@ router.post('/google', async (req, res) => {
     let googleId, email, name, avatarUrl;
 
     if (access_token) {
-      // OAuth2 access token flow — verify by calling Google's userinfo API server-side
+      // OAuth2 access token flow - verify by calling Google's userinfo API server-side
       const https = require('https');
       const userInfo = await new Promise((resolve, reject) => {
         const url = API_ENDPOINTS.google.userinfo;
@@ -682,7 +682,7 @@ router.post('/google', async (req, res) => {
         return res.status(400).json({ error: 'Google email is not verified' });
       }
     } else {
-      // Legacy ID token flow — verify via tokeninfo API
+      // Legacy ID token flow - verify via tokeninfo API
       const https = require('https');
       const googlePayload = await new Promise((resolve, reject) => {
         const url = `${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential)}`;
@@ -719,7 +719,7 @@ router.post('/google', async (req, res) => {
     )).rows[0];
 
     if (!user) {
-      // Case 2: Existing account with same email — link Google
+      // Case 2: Existing account with same email - link Google
       user = (await pool.query(
         'SELECT id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE LOWER(email) = $1',
         [email]
@@ -731,7 +731,7 @@ router.post('/google', async (req, res) => {
         user.avatar_url = user.avatar_url || avatarUrl;
         user.email_verified = true;
       } else {
-        // Case 3: Brand new user — auto-generate username from Google name/email
+        // Case 3: Brand new user - auto-generate username from Google name/email
         const id = uid();
         const autoUsername = await generateUsername(name || email);
         const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
@@ -762,7 +762,7 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// Logout — clear httpOnly cookies and invalidate refresh token
+// Logout - clear httpOnly cookies and invalidate refresh token
 router.post('/logout', auth, async (req, res) => {
   try {
     await pool.query('UPDATE users SET refresh_token = NULL WHERE id = $1', [req.user.id]);

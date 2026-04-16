@@ -42,7 +42,7 @@ function LoginForm() {
         return;
       }
       if (existing) {
-        // Script tag exists but not yet loaded — poll for it
+        // Script tag exists but not yet loaded - poll for it
         let tries = 0;
         const poll = setInterval(() => {
           if (window.google?.accounts) { clearInterval(poll); onReady(); }

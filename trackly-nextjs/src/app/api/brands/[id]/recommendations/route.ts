@@ -411,7 +411,7 @@ async function generateRecommendations(brandId: string, analytics: AnalyticsData
       recommendations.push({
         type: 'low_rank',
         severity: 'medium',
-        title: `Average list position is #${analytics.avgRank.toFixed(1)} — aim for top 3`,
+        title: `Average list position is #${analytics.avgRank.toFixed(1)} - aim for top 3`,
         description: 'Your brand appears in AI responses but is typically ranked low. Top-3 positions get significantly more user attention.',
         playbook_id: 'low_citation_authority',
         payload: { avgRank: analytics.avgRank },

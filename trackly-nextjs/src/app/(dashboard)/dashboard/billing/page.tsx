@@ -12,25 +12,25 @@ const PLAN_INFO: Record<string, { price: string; period: string; gradient: strin
   pro:        { price: '$29',    period: '/mo', gradient: 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)' },
   agency:     { price: '$89',    period: '/mo', gradient: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)' },
   enterprise: { price: 'Custom', period: '',    gradient: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)' },
-  owner:      { price: '—',      period: '',    gradient: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' },
+  owner:      { price: '-',      period: '',    gradient: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' },
 };
 
 const PLAN_PRICES: Record<string, string> = {
-  free: '$0', starter: '$9', pro: '$29', agency: '$89', owner: '—',
+  free: '$0', starter: '$9', pro: '$29', agency: '$89', owner: '-',
 };
 
 const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
 const PLAN_FEATURES: Record<string, string | undefined>[] = [
-  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '—' },
+  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '-' },
   { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
   { feature: 'Tracked queries',  free: '5',   starter: '30',  pro: '100',  agency: '500',  owner: '∞' },
   { feature: 'Competitors',      free: '0',   starter: '3',   pro: '8',    agency: '20',   owner: '∞' },
   { feature: 'Platforms',        free: '2',   starter: '2',   pro: '6',    agency: '6',    owner: '6' },
   { feature: 'GEO Audits',       free: '3',   starter: '20',  pro: '75',   agency: '300',  owner: '∞' },
-  { feature: 'Sentiment',        free: '—',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
-  { feature: 'API Access',       free: '—',   starter: '—',   pro: '—',    agency: '—',    owner: '✓' },
-  { feature: 'Priority Support', free: '—',   starter: '—',   pro: '✓',    agency: '✓',    owner: '✓' },
+  { feature: 'Sentiment',        free: '-',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
+  { feature: 'API Access',       free: '-',   starter: '-',   pro: '-',    agency: '-',    owner: '✓' },
+  { feature: 'Priority Support', free: '-',   starter: '-',   pro: '✓',    agency: '✓',    owner: '✓' },
 ];
 
 const METER_TOOLTIPS: Record<string, string> = {
@@ -41,7 +41,7 @@ const METER_TOOLTIPS: Record<string, string> = {
   'GEO Audits': 'GEO audits per month: the number of geographic URL audits you can perform monthly.',
 };
 
-const ANNUAL_PRICE_MAP: Record<string, string> = { owner: '—' };
+const ANNUAL_PRICE_MAP: Record<string, string> = { owner: '-' };
 PRICING_PLANS.forEach(p => {
   ANNUAL_PRICE_MAP[p.name.toLowerCase()] = p.annualPrice || p.price;
 });
@@ -220,11 +220,11 @@ export default function BillingPage() {
   // Dynamic plan features/prices for annual toggle
   const displayFeatures = annualBilling
     ? PLAN_FEATURES.map(row => row.feature === 'Price / month'
-        ? { ...row, free: ANNUAL_PRICE_MAP.free, starter: ANNUAL_PRICE_MAP.starter, pro: ANNUAL_PRICE_MAP.pro, agency: ANNUAL_PRICE_MAP.agency, owner: '—' }
+        ? { ...row, free: ANNUAL_PRICE_MAP.free, starter: ANNUAL_PRICE_MAP.starter, pro: ANNUAL_PRICE_MAP.pro, agency: ANNUAL_PRICE_MAP.agency, owner: '-' }
         : row)
     : PLAN_FEATURES;
   const displayPrices: Record<string, string> = annualBilling
-    ? { free: ANNUAL_PRICE_MAP.free || '$0', starter: ANNUAL_PRICE_MAP.starter || '$7', pro: ANNUAL_PRICE_MAP.pro || '$23', agency: ANNUAL_PRICE_MAP.agency || '$71', owner: '—' }
+    ? { free: ANNUAL_PRICE_MAP.free || '$0', starter: ANNUAL_PRICE_MAP.starter || '$7', pro: ANNUAL_PRICE_MAP.pro || '$23', agency: ANNUAL_PRICE_MAP.agency || '$71', owner: '-' }
     : PLAN_PRICES;
 
   const anyNearLimit = meters.some(m => {
@@ -312,7 +312,7 @@ export default function BillingPage() {
               {limits.queries >= 9999 ? '∞' : limits.queries} tracked queries · Unlimited brands
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
-              Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
+              Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '-'}
             </div>
           </div>
         </div>
@@ -363,7 +363,7 @@ export default function BillingPage() {
           )}
         </div>
 
-        {/* Hero: Tracked Queries — full-width card */}
+        {/* Hero: Tracked Queries - full-width card */}
         <Link href="/dashboard" className="usage-hero-card" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div className="usage-hero-left">
             <div className="usage-hero-ring">
@@ -407,7 +407,7 @@ export default function BillingPage() {
               {runsIsUnlimited
                 ? <span style={{ color: '#10b981', fontWeight: 600 }}>Unlimited on your plan</span>
                 : runsMeter.used >= runsMeter.max
-                  ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached — upgrade for more</span>
+                  ? <span style={{ color: '#ef4444', fontWeight: 600 }}>Limit reached - upgrade for more</span>
                   : <>{runsMeter.max - runsMeter.used} remaining</>
               }
               <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>View Queries &#8594;</span>
@@ -539,8 +539,8 @@ export default function BillingPage() {
               <strong>unlimited brands</strong> and{' '}
               <strong>{nextPlanLimits.queries >= 9999 ? '∞' : nextPlanLimits.queries} tracked queries/mo</strong>
               {nextPlanPricing.price !== 'Custom'
-                ? <> — just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
-                : <> — <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
+                ? <> - just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
+                : <> - <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
             </div>
           </div>
           <button onClick={() => setShowPlanModal(true)} style={{
@@ -577,7 +577,7 @@ export default function BillingPage() {
                     <td className="td" style={{ fontFamily: 'var(--mono)' }}>
                       {b.date && !isNaN(new Date(b.date).getTime())
                         ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : '—'}
+                        : '-'}
                     </td>
                     <td className="td" style={{ textTransform: 'uppercase', fontWeight: 600 }}>{b.plan}</td>
                     <td className="td" style={{ fontFamily: 'var(--mono)' }}>{b.amount}</td>
@@ -670,7 +670,7 @@ export default function BillingPage() {
                   {visiblePlans.map(p => {
                     const val = row[p];
                     const isCheck = val === '✓';
-                    const isDash = val === '—';
+                    const isDash = val === '-';
                     const isCurrent = p === currentPlan;
                     const isRecommended = p === recommendedPlan && p !== currentPlan;
                     return (

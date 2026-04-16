@@ -18,8 +18,8 @@ interface EmailResult {
 
 async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<EmailResult> {
   if (!EMAIL_API_KEY) {
-    // Don't log full HTML (may contain tokens) — just log recipient and subject
-    console.log(`[Email] DEV MODE — Would send to ${to}: ${subject} (HTML body omitted for security)`);
+    // Don't log full HTML (may contain tokens) - just log recipient and subject
+    console.log(`[Email] DEV MODE - Would send to ${to}: ${subject} (HTML body omitted for security)`);
     return { sent: true };
   }
 
@@ -145,11 +145,11 @@ export async function sendContactFormEmail({
 export async function addContactToAudience(email: string): Promise<EmailResult> {
   const audienceId = process.env.RESEND_AUDIENCE_ID;
   if (!audienceId) {
-    console.warn('[Email] RESEND_AUDIENCE_ID not set — skipping audience contact creation');
+    console.warn('[Email] RESEND_AUDIENCE_ID not set - skipping audience contact creation');
     return { sent: false, reason: 'RESEND_AUDIENCE_ID not configured' };
   }
   if (!EMAIL_API_KEY) {
-    console.log(`[Email] DEV MODE — Would add ${email} to audience ${audienceId}`);
+    console.log(`[Email] DEV MODE - Would add ${email} to audience ${audienceId}`);
     return { sent: true };
   }
 
@@ -187,13 +187,13 @@ export async function sendWelcomeEmail(email: string): Promise<EmailResult> {
         grow your online presence.
       </p>
       <p style="color:#374151;line-height:1.6;">
-        We keep things short and useful — no spam, just actionable tips.
+        We keep things short and useful - no spam, just actionable tips.
       </p>
       <p style="color:#374151;line-height:1.6;">
         If you have any questions, just reply to this email!
       </p>
       <p style="color:#374151;line-height:1.6;">
-        — The Livesov Team
+        - The Livesov Team
       </p>
       <p style="color:#999;font-size:12px;margin-top:24px;">
         You're receiving this because you subscribed to the Livesov newsletter.

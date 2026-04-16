@@ -1,5 +1,5 @@
 /**
- * Admin routes — user management, plan changes
+ * Admin routes - user management, plan changes
  */
 const express = require('express');
 const router  = express.Router();
@@ -15,7 +15,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { RATE_LIMITS } = require('../config/constants');
 
-// Rate limit for data exports — 10 requests per minute per user
+// Rate limit for data exports - 10 requests per minute per user
 const exportLimiter = rateLimit({
   windowMs: RATE_LIMITS.api.windowMs,
   max: RATE_LIMITS.admin.max,
@@ -74,7 +74,7 @@ router.delete('/api-logs', auth, async (req, res) => {
   }
 });
 
-// ─── ACTIVITY LOG (audit trail — scoped to current user) ────────
+// ─── ACTIVITY LOG (audit trail - scoped to current user) ────────
 router.get('/activity-logs', auth, async (req, res) => {
   try {
         const limit = Math.max(1, Math.min(parseInt(req.query.limit) || 50, 200));
@@ -112,7 +112,7 @@ router.get('/plans', auth, (req, res) => {
 // Self-service plan change (downgrade only; upgrades require DodoPayments)
 router.post('/upgrade', auth, async (req, res) => {
   const { plan } = req.body;
-  // SECURITY: Never allow self-service upgrade to 'owner' — only admin-assigned
+  // SECURITY: Never allow self-service upgrade to 'owner' - only admin-assigned
   if (!['free', 'starter', 'pro', 'agency', 'enterprise'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
   }
@@ -122,7 +122,7 @@ router.post('/upgrade', auth, async (req, res) => {
     const currentPlan = currentUser.rows[0].plan || 'free';
     const settings = currentUser.rows[0].settings || {};
     const tiers = { free: 0, starter: 1, pro: 2, agency: 3, enterprise: 4, owner: 5 };
-    // Block any upgrade attempt — upgrades must go through DodoPayments checkout
+    // Block any upgrade attempt - upgrades must go through DodoPayments checkout
     if ((tiers[plan] || 0) > (tiers[currentPlan] || 0)) {
       return res.status(403).json({ error: 'Payment required for plan upgrades. Use the upgrade button to proceed with payment.' });
     }
@@ -455,7 +455,7 @@ router.get('/query-suggestions', auth, (req, res) => {
   res.json({ suggestions });
 });
 
-// Rate limit for AI-powered routes — 5 requests per minute per user
+// Rate limit for AI-powered routes - 5 requests per minute per user
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
@@ -491,7 +491,7 @@ Requirements:
 - Mix of general queries ("best ${industry} in ${city || 'my area'}") and specific queries ("affordable", "top rated", "most recommended", "near me")
 - Include different question styles: "who is the best...", "recommend a...", "top 5...", "which company..."
 - Include queries with and without location
-- Make them natural — how real people actually ask AI chatbots
+- Make them natural - how real people actually ask AI chatbots
 - Return ONLY a JSON array of strings, nothing else${existingList}
 
 Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${industry} company"]`;
@@ -527,7 +527,7 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
 router.post('/nearby-areas', auth, aiLimiter, async (req, res) => {
   const { city } = req.body;
   if (!city || !city.trim()) return res.status(400).json({ error: 'City is required' });
-  // Sanitize city input to prevent prompt injection — allow only letters, numbers, spaces, commas, periods, hyphens
+  // Sanitize city input to prevent prompt injection - allow only letters, numbers, spaces, commas, periods, hyphens
   const sanitizedCity = city.trim().replace(/[^\w\s,.\-']/g, '').substring(0, 100);
   if (!sanitizedCity) return res.status(400).json({ error: 'Invalid city name' });
 
@@ -598,7 +598,7 @@ router.get('/admin/audit-logs', auth, requireAdmin, async (req, res) => {
   }
 });
 
-// Data export — full brand data as JSON
+// Data export - full brand data as JSON
 router.get('/export/brand/:id', auth, exportLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
@@ -616,7 +616,7 @@ router.get('/export/brand/:id', auth, exportLimiter, async (req, res) => {
   }
 });
 
-// Data export — all brands as JSON
+// Data export - all brands as JSON
 router.get('/export/all', auth, exportLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM brands WHERE user_id = $1 ORDER BY created_at', [req.user.id]);
@@ -630,7 +630,7 @@ router.get('/export/all', auth, exportLimiter, async (req, res) => {
   }
 });
 
-// Data export — brand as CSV
+// Data export - brand as CSV
 router.get('/export/brand/:id/csv', auth, exportLimiter, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);

@@ -87,11 +87,11 @@ export async function POST(request: NextRequest) {
     let user = (await pool.query(`SELECT ${selectCols} FROM users WHERE google_id = $1`, [googleId])).rows[0];
 
     if (!user) {
-      // Case 2: Existing account with same email — link Google
+      // Case 2: Existing account with same email - link Google
       user = (await pool.query(`SELECT ${selectCols} FROM users WHERE LOWER(email) = $1`, [email])).rows[0];
 
       if (user) {
-        // Existing account with same email but no google_id — do NOT auto-link.
+        // Existing account with same email but no google_id - do NOT auto-link.
         // User must log in with password first and link Google from account settings.
         return Response.json(
           { error: 'An account with this email already exists. Please log in with your password and link Google from Account Settings.' },

@@ -66,7 +66,7 @@ function EmailVerificationBanner() {
             });
           }
         } catch {
-          // Refresh failed — fall through with original 401 response
+          // Refresh failed - fall through with original 401 response
         }
       }
 
@@ -74,11 +74,11 @@ function EmailVerificationBanner() {
       try {
         data = await res.json();
       } catch {
-        throw new Error('Server error — please try again later.');
+        throw new Error('Server error - please try again later.');
       }
       if (!res.ok) throw new Error(data.error || 'Failed to send verification email');
 
-      // Backend says already verified — refresh user state to hide the banner
+      // Backend says already verified - refresh user state to hide the banner
       if (data.message === 'Email already verified') {
         await refreshUser();
         return;
@@ -228,7 +228,7 @@ function UsageLimitBanner() {
 
   if (alerts.length === 0) return null;
 
-  // Allow dismiss — but key it to the current alert state so it re-appears when limits change
+  // Allow dismiss - but key it to the current alert state so it re-appears when limits change
   const alertKey = alerts.map(a => a.key).sort().join(',');
   if (dismissed === alertKey) return null;
 
@@ -250,7 +250,7 @@ function UsageLimitBanner() {
         <span style={{ fontWeight: 600, color: accentColor }}>
           {hasDanger ? 'Limit reached' : 'Nearing limit'}
         </span>
-        <span style={{ margin: '0 4px', opacity: 0.4 }}>—</span>
+        <span style={{ margin: '0 4px', opacity: 0.4 }}>-</span>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500 }}>{limitSummary}</span>
       </span>
       <Link href="/dashboard/billing" style={{
@@ -303,7 +303,7 @@ function BackgroundRunPoller() {
       try {
         await refreshBrands();
       } catch {
-        // Silently ignore — will retry next interval
+        // Silently ignore - will retry next interval
       }
     }, 60000); // Poll every 60 seconds
 

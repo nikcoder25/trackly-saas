@@ -28,7 +28,7 @@ async function initApp(){
     if (becomeAdminNav) becomeAdminNav.style.display = 'none';
   } else {
     if (adminNav) adminNav.style.display = 'none';
-    // Check if any admin exists — if not, show the "Become Admin" button
+    // Check if any admin exists - if not, show the "Become Admin" button
     if (becomeAdminNav) {
       try {
         const resp = await api('GET', '/api/admin/check-admin');

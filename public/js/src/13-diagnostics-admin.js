@@ -7,7 +7,7 @@ async function renderApiLogs(){
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
     errBanner = `<div style="margin-bottom:14px;padding:12px 16px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.04);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:12px;"><span style="color:var(--red);font-weight:700;">${clientErrors.length} recent run failure${clientErrors.length>1?'s':''}</span> <span style="color:var(--muted);">— check console for details</span></div>
+      <div style="font-size:12px;"><span style="color:var(--red);font-weight:700;">${clientErrors.length} recent run failure${clientErrors.length>1?'s':''}</span> <span style="color:var(--muted);">- check console for details</span></div>
       <button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS</button>
     </div>`;
   }
@@ -28,7 +28,7 @@ async function renderApiLogs(){
       return;
     }
 
-    // Stats summary line — recalculate cost to include client-estimated costs for all platforms
+    // Stats summary line - recalculate cost to include client-estimated costs for all platforms
     let recalcCost = 0;
     logs.forEach(l => {
       recalcCost += parseFloat(l.cost) || clientEstimateCost(l.model, l.tokens_in, l.tokens_out);
@@ -114,10 +114,10 @@ async function renderApiLogs(){
       const timeStr = dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isErr = log.status === 'error';
       const t = PLAT_THEME[log.platform] || {};
-      const queryShort = (log.query || '').length > 40 ? log.query.substring(0, 40) + '...' : (log.query || '—');
-      const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
+      const queryShort = (log.query || '').length > 40 ? log.query.substring(0, 40) + '...' : (log.query || '-');
+      const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '-';
       const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
-      const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
+      const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '-';
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       const errMsg = isErr && log.error ? log.error : '';
@@ -250,19 +250,19 @@ function renderAdminTable(users){
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
     const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(255,97,84,.1)' : 'rgba(255,255,255,.05)';
     const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(255,97,84,.3)' : 'var(--border)';
-    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
     const keyCount = (u.hasKeys||[]).length;
     const isMe = u.id === currentUser.id;
     html += `<tr>
       <td>
-        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:2px 6px;border-radius:4px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '-')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:2px 6px;border-radius:4px;margin-left:6px;">YOU</span>' : ''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>
         <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
       </td>
       <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
-      <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '-'}</td>
       <td style="font-family:var(--mono);font-size:11px;color:${keyCount ? 'var(--green)' : 'var(--muted)'};">${keyCount ? keyCount + ' configured' : 'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
       <td style="text-align:right;">
@@ -283,11 +283,11 @@ function openAdminEdit(userId){
   el('admin-edit-name').value = u.name || '';
   el('admin-edit-plan').value = u.plan || 'free';
   el('admin-edit-role').value = u.role || 'user';
-  el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
+  el('admin-edit-title').textContent = 'Edit User - ' + (u.name || u.email);
   // Read-only info
-  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
   el('admin-edit-joined').textContent = joined;
-  el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
+  el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '-') + ' / ' + (u.limits?.brands || '?') + ' allowed';
   el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
   el('admin-edit-limits').textContent = (u.limits?.prompts || '?') + ' prompts, ' + (u.limits?.brands || '?') + ' brands';
   // Disable role change for self, hide delete for self

@@ -50,7 +50,7 @@ function verifySignature(rawBody: string, signature: string, secrets: string[]):
         return true;
       }
     } catch {
-      // Signature might not be valid hex — try base64 comparison
+      // Signature might not be valid hex - try base64 comparison
     }
     // Also try direct string comparison for non-hex signatures
     if (signature === expected) return true;
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
               metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
       }));
 
-      // Extract nested data — DodoPayments may nest under .data or .payload
+      // Extract nested data - DodoPayments may nest under .data or .payload
       const eventData = body.data || body.payload || body;
 
       // Use a transaction with SERIALIZABLE isolation to prevent race conditions

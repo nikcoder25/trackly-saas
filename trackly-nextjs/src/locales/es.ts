@@ -41,7 +41,7 @@ const es: Translations = {
     title: 'Todo lo que necesitas para rastrear visibilidad IA',
     subtitle: 'Monitorea tu marca en todas las principales plataformas de IA desde un panel.',
     items: [
-      { title: '6 Plataformas IA', desc: 'Rastrea menciones en ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overviews \u2014 todo desde un solo lugar.', icon: '\u25CE' },
+      { title: '6 Plataformas IA', desc: 'Rastrea menciones en ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overviews - todo desde un solo lugar.', icon: '\u25CE' },
       { title: 'Evidencia y Pruebas', desc: 'Obtén respuestas completas de IA guardadas como prueba. Comparte con clientes, exporta a CSV.', icon: '\u25C6' },
       { title: 'Cuota de Voz', desc: 'Mide qué porcentaje de respuestas de IA mencionan tu marca vs competidores.', icon: '\u25CB' },
       { title: 'Análisis de Sentimiento', desc: 'Sabé si la IA recomienda tu marca positiva, negativa o neutralmente.', icon: '\u26A1' },
@@ -97,9 +97,9 @@ const es: Translations = {
     subtitle: 'Los chatbots de IA se están convirtiendo en la forma #1 de descubrir marcas. Si no eres visible, eres invisible.',
     items: [
       { title: '40% de búsquedas usan IA', desc: 'Los usuarios están pasando de Google a chatbots de IA para recomendaciones. ChatGPT, Perplexity y otras plataformas de IA están reemplazando la búsqueda tradicional.', icon: '\u25B2' },
-      { title: 'El SEO tradicional no es suficiente', desc: 'Estar #1 en Google no significa que la IA te recomendará. Los modelos de IA usan diferentes señales \u2014 reseñas, autoridad, calidad de contenido.', icon: '\u25CE' },
+      { title: 'El SEO tradicional no es suficiente', desc: 'Estar #1 en Google no significa que la IA te recomendará. Los modelos de IA usan diferentes señales - reseñas, autoridad, calidad de contenido.', icon: '\u25CE' },
       { title: 'GEO es el futuro del marketing', desc: 'La Optimización de Motor Generativo (GEO) es cómo las marcas aseguran aparecer en respuestas de IA. Livesov te da los datos para medir y mejorar tu estrategia GEO.', icon: '\u25C6' },
-      { title: 'Pruebas para tus clientes', desc: 'Si eres agencia o consultor SEO, Livesov proporciona evidencia verificable de visibilidad IA \u2014 respuestas API reales, no capturas de pantalla.', icon: '\u25A0' },
+      { title: 'Pruebas para tus clientes', desc: 'Si eres agencia o consultor SEO, Livesov proporciona evidencia verificable de visibilidad IA - respuestas API reales, no capturas de pantalla.', icon: '\u25A0' },
     ],
   },
   useCases: {
@@ -107,7 +107,7 @@ const es: Translations = {
     title: '¿Quién usa Livesov?',
     subtitle: 'Desde negocios locales hasta agencias empresariales.',
     items: [
-      { title: 'Negocios Locales', desc: 'HVAC, plomeros, dentistas, abogados \u2014 rastrea si la IA recomienda tu negocio cuando los locales buscan servicios.', icon: '\u25CB' },
+      { title: 'Negocios Locales', desc: 'HVAC, plomeros, dentistas, abogados - rastrea si la IA recomienda tu negocio cuando los locales buscan servicios.', icon: '\u25CB' },
       { title: 'Agencias SEO', desc: 'Ofrece rastreo de visibilidad IA como servicio. Muestra a clientes pruebas reales de la presencia de su marca.', icon: '\u25C8' },
       { title: 'SaaS y E-commerce', desc: 'Monitorea si las plataformas de IA recomiendan tu producto cuando los usuarios buscan soluciones en tu categoría.', icon: '\u2B21' },
       { title: 'Equipos de Marketing', desc: 'Rastrea la percepción de marca en plataformas de IA. Mide el impacto de campañas de PR.', icon: '\u25C6' },
@@ -126,7 +126,7 @@ const es: Translations = {
       { q: '¿Qué es la Cuota de Voz en IA?', a: 'La Cuota de Voz (SOV) en IA mide qué porcentaje de respuestas generadas por IA mencionan tu marca cuando se hacen consultas relevantes.' },
       { q: '¿Qué es la Optimización de Motor Generativo (GEO)?', a: 'La Optimización de Motor Generativo (GEO) es la práctica de optimizar la presencia en línea de tu marca para aparecer más frecuentemente en respuestas generadas por IA.' },
       { q: '¿Puedo usar Livesov para reportes de clientes?', a: 'Sí. Livesov guarda respuestas completas de IA como prueba, que puedes exportar como informes CSV.' },
-      { q: '¿Cuánto cuesta Livesov?', a: 'Livesov comienza en $9/mes con el plan Starter \u2014 1 marca, 2 plataformas IA y 30 consultas/mes.' },
+      { q: '¿Cuánto cuesta Livesov?', a: 'Livesov comienza en $9/mes con el plan Starter - 1 marca, 2 plataformas IA y 30 consultas/mes.' },
       { q: '¿Con qué frecuencia ejecuta consultas Livesov?', a: 'Livesov soporta rastreo automatizado diario en todos los planes de pago. También puedes ejecutar consultas manualmente en cualquier momento.' },
       { q: '¿En qué se diferencia Livesov de las herramientas SEO tradicionales?', a: 'Las herramientas SEO tradicionales rastrean tus rankings en Google Search. Livesov rastrea tu visibilidad en respuestas generadas por IA.' },
     ],
@@ -147,7 +147,7 @@ const es: Translations = {
     note: 'Planes desde solo $9/mes. Configura en menos de 2 minutos.',
   },
   footer: {
-    desc: 'AI Visibility Tracker \u2014 Rastrea cómo las plataformas de IA mencionan tu marca en ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overviews.',
+    desc: 'AI Visibility Tracker - Rastrea cómo las plataformas de IA mencionan tu marca en ChatGPT, Perplexity, Claude, Gemini, Grok y Google AI Overviews.',
     product: 'Producto',
     resources: 'Recursos',
     legal: 'Legal',

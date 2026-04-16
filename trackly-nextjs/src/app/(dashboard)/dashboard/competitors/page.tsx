@@ -289,7 +289,7 @@ export default function CompetitorsPage() {
         </div>
       )}
 
-      {/* Competitor Comparison — horizontal bar chart */}
+      {/* Competitor Comparison - horizontal bar chart */}
       {competitors.length > 0 && hasData && (
         <div className="card" style={{ marginTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

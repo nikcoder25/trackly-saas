@@ -19,7 +19,7 @@ async function verifyTurnstileToken(token: string, ip: string): Promise<boolean>
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
   if (!secretKey) {
     // If no secret key is configured, skip Turnstile verification (dev mode)
-    console.warn('[Contact] TURNSTILE_SECRET_KEY not set — skipping Turnstile verification');
+    console.warn('[Contact] TURNSTILE_SECRET_KEY not set - skipping Turnstile verification');
     return true;
   }
 

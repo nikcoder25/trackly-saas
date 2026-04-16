@@ -1,5 +1,5 @@
 /**
- * Centralized constants — all hardcoded values in one place.
+ * Centralized constants - all hardcoded values in one place.
  * Grouped by category for easy discovery and modification.
  */
 
@@ -36,16 +36,16 @@ const API_ENDPOINTS = {
 
 // ─── TIMEOUTS (ms) ──────────────────────────────────────────────
 const TIMEOUTS = {
-  emailApi: 10000,          // 10s — email provider API
-  paymentApi: 15000,        // 15s — DodoPayments checkout
-  batchResults: 30000,      // 30s — batch result fetching (Claude/OpenAI)
+  emailApi: 10000,          // 10s - email provider API
+  paymentApi: 15000,        // 15s - DodoPayments checkout
+  batchResults: 30000,      // 30s - batch result fetching (Claude/OpenAI)
   batchPollInterval: 10000, // 10s between batch status polls
   batchMaxWait: 5 * 60 * 1000, // 5 min max wait for batch completion
-  gracefulShutdownDb: 5000, // 5s — DB pool close on shutdown
-  gracefulShutdownMax: 10000, // 10s — force exit on shutdown
-  cleanupInterval: 24 * 60 * 60 * 1000, // 24h — cleanup job interval
-  cacheSweepInterval: 60 * 60 * 1000,   // 1h — memory cache sweep
-  rateLimitCleanup: 300000, // 5 min — stale rate-limit entry cleanup
+  gracefulShutdownDb: 5000, // 5s - DB pool close on shutdown
+  gracefulShutdownMax: 10000, // 10s - force exit on shutdown
+  cleanupInterval: 24 * 60 * 60 * 1000, // 24h - cleanup job interval
+  cacheSweepInterval: 60 * 60 * 1000,   // 1h - memory cache sweep
+  rateLimitCleanup: 300000, // 5 min - stale rate-limit entry cleanup
 };
 
 // ─── RATE LIMITING ──────────────────────────────────────────────
@@ -122,15 +122,15 @@ const AI = {
 
 // ─── BATCH PROCESSING ───────────────────────────────────────────
 const BATCH = {
-  promptRunInsert: 10,   // PR_BATCH — prompt runs per INSERT batch (keep under PG 1000 param limit: 10 × 19 = 190)
-  citationInsert: 30,    // CIT_BATCH — citations per INSERT batch
+  promptRunInsert: 10,   // PR_BATCH - prompt runs per INSERT batch (keep under PG 1000 param limit: 10 × 19 = 190)
+  citationInsert: 30,    // CIT_BATCH - citations per INSERT batch
   cronBatchSize: 5,      // brands processed in parallel during cron
   costMultiplier: 0.5,   // batch API discount (50% of standard cost)
 };
 
 // ─── BRAND RUN SETTINGS ─────────────────────────────────────────
 const RUN = {
-  maxLockAgeMs: 20 * 60 * 1000,  // 20 min — auto-release stuck locks (increased from 10 to prevent overwriting long-running runs)
+  maxLockAgeMs: 20 * 60 * 1000,  // 20 min - auto-release stuck locks (increased from 10 to prevent overwriting long-running runs)
   failThreshold: 5,               // skip platform after N consecutive failures
   stableRunThreshold: 3,          // reuse results after N identical runs
   webhookMaxRetries: 3,

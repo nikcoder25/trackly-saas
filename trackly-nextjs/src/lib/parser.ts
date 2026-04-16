@@ -1,5 +1,5 @@
 /**
- * Response parsing — brand detection, sentiment analysis, competitor detection
+ * Response parsing - brand detection, sentiment analysis, competitor detection
  * Ported from Express app's lib/parser.js
  */
 
@@ -380,7 +380,7 @@ export function friendlyCompetitorName(comp: string): string {
       if (!part) continue;
       const alpha = part.replace(/^\d+/, '');
       const prefix = part.slice(0, part.length - alpha.length);
-      // Purely numeric or short alphanumeric like "a", "1" — keep as-is
+      // Purely numeric or short alphanumeric like "a", "1" - keep as-is
       if (part.length <= 2) { parts.push(part.toUpperCase()); continue; }
       if (prefix && alpha.length < 3) { parts.push(part.toUpperCase()); continue; }
       if (prefix) parts.push(prefix);

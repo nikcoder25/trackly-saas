@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
+  title: 'Livesov vs Semrush - AI Visibility vs Traditional SEO | Livesov',
   description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
   keywords: 'livesov vs semrush, ai seo tool, chatgpt tracking vs semrush, ai visibility tool comparison',
   alternates: { canonical: '/vs/semrush' },
   openGraph: {
-    title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
+    title: 'Livesov vs Semrush - AI Visibility vs Traditional SEO | Livesov',
     description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
     url: 'https://livesov.com/vs/semrush',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Livesov vs Semrush - AI Visibility vs Traditional SEO | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Livesov vs Semrush — AI Visibility vs Traditional SEO | Livesov',
+    title: 'Livesov vs Semrush - AI Visibility vs Traditional SEO | Livesov',
     description: 'Compare Livesov and Semrush. Livesov tracks AI visibility (ChatGPT, Claude, Gemini). Semrush tracks traditional Google SEO. Use both for complete coverage.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -32,7 +32,7 @@ export default function VsSemrushPage() {
       />
       <SeoContent>
         <h2>The Key Difference</h2>
-        <p>Semrush is a comprehensive traditional SEO suite — it tracks Google rankings, backlinks, keyword difficulty, and paid ads. Livesov is purpose-built for AI visibility — tracking how ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews mention and recommend your brand.</p>
+        <p>Semrush is a comprehensive traditional SEO suite - it tracks Google rankings, backlinks, keyword difficulty, and paid ads. Livesov is purpose-built for AI visibility - tracking how ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews mention and recommend your brand.</p>
 
         <h2>When to Use Livesov</h2>
         <ul>

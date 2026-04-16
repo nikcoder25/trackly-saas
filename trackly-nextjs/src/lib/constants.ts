@@ -1,5 +1,5 @@
 /**
- * Centralized constants — mirrors the Express app's config/constants.js
+ * Centralized constants - mirrors the Express app's config/constants.js
  */
 
 export const AUTH = {
@@ -93,7 +93,7 @@ export const PLATFORM_COLORS: Record<string, string> = {
   'Google AI Overviews': '#34a853',
 };
 
-// Plan-specific default platforms — mirrors backend PLAN_DEFAULT_PLATFORMS
+// Plan-specific default platforms - mirrors backend PLAN_DEFAULT_PLATFORMS
 export const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
   starter: ['ChatGPT', 'Claude'],
   free: ['Gemini', 'Grok'],

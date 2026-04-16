@@ -9,7 +9,7 @@ function renderAccount(){
   el('acct-email').textContent = currentUser.email;
   // Username
   const usernameEl = el('acct-username');
-  if (usernameEl) usernameEl.textContent = currentUser.username ? '@' + currentUser.username : '—';
+  if (usernameEl) usernameEl.textContent = currentUser.username ? '@' + currentUser.username : '-';
   // Email verification status
   const verifyEl = el('acct-email-verify');
   if (verifyEl) {
@@ -48,7 +48,7 @@ function renderAccount(){
   const acctUsageEl = el('acct-usage');
   if (acctUsageEl) acctUsageEl.innerHTML = usageHtml;
 
-  // Plan cards — reuse landing page pricing card classes
+  // Plan cards - reuse landing page pricing card classes
   const planData = [
     { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>30</strong> tracked queries', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
     { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>100</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis'] },
@@ -138,14 +138,14 @@ async function loadBillingHistory() {
         <th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Plan</th><th style="padding:6px 8px;">Amount</th><th style="padding:6px 8px;">Status</th><th style="padding:6px 8px;"></th>
       </tr></thead>
       <tbody>${payments.map(p => {
-        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-        const amt = p.amount != null ? ('$' + (p.amount / 100).toFixed(2)) : '—';
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+        const amt = p.amount != null ? ('$' + (p.amount / 100).toFixed(2)) : '-';
         const statusColor = p.status === 'succeeded' ? 'var(--green)' : p.status === 'failed' ? 'var(--red)' : 'var(--muted)';
         return `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:6px 8px;">${date}</td>
-          <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '—'}</td>
+          <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '-'}</td>
           <td style="padding:6px 8px;">${amt}</td>
-          <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '—'}</td>
+          <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '-'}</td>
           <td style="padding:6px 8px;">${p.paymentId ? `<a href="/api/payments/invoice/${p.paymentId}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:10px;">INVOICE</a>` : ''}</td>
         </tr>`;
       }).join('')}</tbody>
@@ -308,7 +308,7 @@ async function saveUsername(){
   try {
     const data = await api('PUT', '/api/auth/username', { username: trimmed || null });
     currentUser.username = data.username;
-    display.textContent = data.username ? '@' + data.username : '—';
+    display.textContent = data.username ? '@' + data.username : '-';
     toast(data.username ? 'Username set to @' + data.username : 'Username removed', 'ok');
     input.style.display = 'none';
     display.style.display = '';
@@ -371,7 +371,7 @@ async function importBrandConfig(fileInput){
     const data = JSON.parse(text);
     // Support both single brand export and full export format
     const brandData = data.brand || data;
-    if (!brandData.name) { toast('Invalid brand file — missing name', 'err'); return; }
+    if (!brandData.name) { toast('Invalid brand file - missing name', 'err'); return; }
     const payload = {
       name: brandData.name,
       industry: brandData.industry || '',
@@ -472,9 +472,9 @@ async function renderActivityLog() {
       const icon = actionIcons[log.action] || '&#x25CF;';
       const details = log.details || {};
       let detailStr = '';
-      if (details.brand) detailStr = ' — ' + esc(details.brand);
-      if (details.plan) detailStr = ' — plan: ' + esc(details.plan);
-      if (details.email) detailStr = ' — ' + esc(details.email);
+      if (details.brand) detailStr = ' - ' + esc(details.brand);
+      if (details.plan) detailStr = ' - plan: ' + esc(details.plan);
+      if (details.email) detailStr = ' - ' + esc(details.email);
       if (details.role) detailStr += ' (role: ' + esc(details.role) + ')';
       html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
         <span style="font-size:16px;flex-shrink:0;width:24px;text-align:center;">${icon}</span>

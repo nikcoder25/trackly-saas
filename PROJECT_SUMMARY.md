@@ -2,7 +2,7 @@
 
 ## What Is Livesov?
 
-Livesov is a SaaS platform that monitors how brands appear across AI platforms — ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews. It helps marketers and brands understand their **Share of Voice (SOV)** in AI-generated answers, enabling **Generative Engine Optimization (GEO)** and **Answer Engine Optimization (AEO)** strategies.
+Livesov is a SaaS platform that monitors how brands appear across AI platforms - ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews. It helps marketers and brands understand their **Share of Voice (SOV)** in AI-generated answers, enabling **Generative Engine Optimization (GEO)** and **Answer Engine Optimization (AEO)** strategies.
 
 ---
 
@@ -38,12 +38,12 @@ Livesov is a SaaS platform that monitors how brands appear across AI platforms �
 - Per-brand platform and model selection
 
 ### AI Response Analysis
-- **Sentiment analysis** — positive, negative, or recommended classification
-- **Brand mention detection** — 6 matching strategies (exact, fuzzy, domain, aliases, etc.)
-- **Competitor tracking** — detect when competitors appear in AI responses
-- **Citation extraction** — pull source URLs from AI-generated answers
-- **List position detection** — identify ranking in numbered lists
-- **Location-based relevance** — detect geographic mentions
+- **Sentiment analysis** - positive, negative, or recommended classification
+- **Brand mention detection** - 6 matching strategies (exact, fuzzy, domain, aliases, etc.)
+- **Competitor tracking** - detect when competitors appear in AI responses
+- **Citation extraction** - pull source URLs from AI-generated answers
+- **List position detection** - identify ranking in numbered lists
+- **Location-based relevance** - detect geographic mentions
 
 ### Dashboard & Metrics
 - Share of Voice (SOV) percentage across platforms
@@ -82,7 +82,7 @@ Livesov is a SaaS platform that monitors how brands appear across AI platforms �
 
 - AES-256-GCM encryption for API keys at rest
 - bcryptjs password hashing (cost factor 12)
-- Rate limiting — auth (20/15min), general (120/min), query runs (5/min)
+- Rate limiting - auth (20/15min), general (120/min), query runs (5/min)
 - HTTPS enforcement + HSTS headers in production
 - Helmet security headers, CORS validation
 - Parameterized SQL queries (no ORM, no injection)

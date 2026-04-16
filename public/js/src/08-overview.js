@@ -87,7 +87,7 @@ function renderOverview(){
 
   // ─── Header ──────────────────────────────────────────────────
   const presetTitle = _activePreset && _presetMeta[_activePreset] ? _presetMeta[_activePreset].title : '';
-  el('ov-brand-title').textContent = presetTitle ? (b.name || 'Overview') + ' — ' + presetTitle : (b.name || 'Overview');
+  el('ov-brand-title').textContent = presetTitle ? (b.name || 'Overview') + ' - ' + presetTitle : (b.name || 'Overview');
   const baseSub = [b.industry, b.city].filter(Boolean).join(' · ') || 'Select a brand and run queries to see results.';
   el('ov-sub').textContent = baseSub;
 
@@ -98,7 +98,7 @@ function renderOverview(){
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
     let actionsHtml = (queries > 0 && currentUser && currentUser.role === 'admin') ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
-    // PDF Report button — Pro plan and above only
+    // PDF Report button - Pro plan and above only
     const pdfPlans = ['pro', 'agency', 'enterprise', 'owner'];
     const userPlan = (currentUser && currentUser.plan) || 'free';
     if (pdfPlans.includes(userPlan) && lastRun) {
@@ -129,7 +129,7 @@ function renderOverview(){
         const oh = Math.floor(overdueMs / 3600000);
         const om = Math.floor((overdueMs % 3600000) / 60000);
         const overdueText = oh > 0 ? oh + 'h ' + om + 'm' : om + 'm';
-        el('ov-next-run-text').textContent = 'Overdue by ' + overdueText + ' — waiting for next scheduled run';
+        el('ov-next-run-text').textContent = 'Overdue by ' + overdueText + ' - waiting for next scheduled run';
         nextRunBadge.style.display = '';
       }
     } else {
@@ -250,7 +250,7 @@ function renderOverview(){
     el('ov-last-run-age').textContent = runAgeText;
     el('ov-last-run-age').style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
 
-    // Run duration — show how long the last crawl took
+    // Run duration - show how long the last crawl took
     const durationEl = el('ov-run-duration');
     if (lastRun && lastRun.durationMs) {
       const ds = Math.floor(lastRun.durationMs / 1000);
@@ -453,7 +453,7 @@ function renderOverview(){
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid var(--green);">
         <div class="ov-cat-label">🏆 Best Platform</div>
         <div class="ov-cat-val" style="color:var(--green);">${esc(best[0])}</div>
-        <div class="ov-cat-sub">${best[1]}% SOV — strongest visibility</div>
+        <div class="ov-cat-sub">${best[1]}% SOV - strongest visibility</div>
       </div>`;
     }
     catRow.innerHTML = catHtml;
@@ -521,7 +521,7 @@ function renderOverview(){
     });
 
     if (strongPlats.length > 0 && missingPlats.length > 0) {
-      tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources — diversify your online presence.`, color: 'var(--amber)' });
+      tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources - diversify your online presence.`, color: 'var(--amber)' });
     }
 
     if (sov === 0 && _ovValid > 0) {
@@ -642,7 +642,7 @@ function renderOverview(){
       patterns.forEach(pat => {
         let m;
         while ((m = pat.exec(text)) !== null) {
-          const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-—:].*/,'').trim();
+          const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-\u2014:].*/,'').trim();
           if (name.length >= 3 && name.length <= 50 && name.toLowerCase() !== brandName && !/^(the|and|for|with|best|top|most|also|here|this|that|these|note)$/i.test(name)) {
             competitors[name] = (competitors[name] || 0) + 1;
           }
@@ -738,11 +738,11 @@ function renderOverview(){
     const runTime = new Date(lastRun.time || lastRun.date);
     const summaryTitle = _activePreset === 'agency_manager' ? 'Run Status Report' : _activePreset === 'founder' ? 'Latest Activity' : 'Last Run';
     const timeStr = `${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
-    let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${summaryTitle} — ${timeStr}</div></div>`;
+    let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${summaryTitle} - ${timeStr}</div></div>`;
     if (errors.length > 0) {
       summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;border-radius:var(--radius-xs);">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
-      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('activitylog');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
+      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">- Check API keys or <a href="#" onclick="go('activitylog');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
       summaryHtml += `</div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
@@ -910,7 +910,7 @@ async function ovAddQuery(){
   if (!q) return;
   const b = brand();
   if (!b) return;
-  // Total prompts check — count across all brands
+  // Total prompts check - count across all brands
   const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
   const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
   if (totalPrompts >= promptLimit) {
@@ -1007,7 +1007,7 @@ async function clearAllQueries(){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// —— MULTI-SELECT QUERY MANAGEMENT ——————————————————
+// -- MULTI-SELECT QUERY MANAGEMENT ------------------
 let _querySelectMode = false;
 let _selectedQueryIndices = new Set();
 
@@ -1241,9 +1241,9 @@ function renderAiOverviews(data) {
 
   for (const row of rows) {
     const aioIcon = row.has_ai_overview ? '<span style="color:var(--green);">&#10003;</span>' : '<span style="color:var(--muted);">&#10005;</span>';
-    const brandIcon = row.has_ai_overview ? (row.brand_mentioned ? '<span style="color:var(--green);font-weight:700;">&#10003; Yes</span>' : '<span style="color:var(--red);">&#10005; No</span>') : '<span style="color:var(--muted);">—</span>';
+    const brandIcon = row.has_ai_overview ? (row.brand_mentioned ? '<span style="color:var(--green);font-weight:700;">&#10003; Yes</span>' : '<span style="color:var(--red);">&#10005; No</span>') : '<span style="color:var(--muted);">-</span>';
     const competitors = row.competitor_mentions || [];
-    const compText = competitors.length > 0 ? competitors.map(c => '<span style="background:rgba(239,68,68,.08);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--red);">' + esc(typeof c === 'string' ? c : c.toString()) + '</span>').join(' ') : '<span style="color:var(--muted);">—</span>';
+    const compText = competitors.length > 0 ? competitors.map(c => '<span style="background:rgba(239,68,68,.08);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--red);">' + esc(typeof c === 'string' ? c : c.toString()) + '</span>').join(' ') : '<span style="color:var(--muted);">-</span>';
     const citations = row.citations || [];
     const citeCount = citations.length;
 

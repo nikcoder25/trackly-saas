@@ -26,7 +26,7 @@ const PLATFORM_CONFIG = {
   Grok:       { collection_method: 'api', endpoint: 'api.x.ai', rate_limits: '60 RPM', search_capable: true },
 };
 
-// GET /api/meta/platforms — platform health & methodology (Epic 1.4)
+// GET /api/meta/platforms - platform health & methodology (Epic 1.4)
 router.get('/meta/platforms', auth, async (req, res) => {
   try {
     // Get recent success/failure rates from api_logs
@@ -64,7 +64,7 @@ router.get('/meta/platforms', auth, async (req, res) => {
   }
 });
 
-// GET /api/meta/methodology — how Livesov measures (Epic 1.3)
+// GET /api/meta/methodology - how Livesov measures (Epic 1.3)
 router.get('/meta/methodology', (req, res) => {
   res.json({
     what_we_measure: 'Livesov tracks how your brand appears across 6 AI platforms by submitting configurable search prompts and analyzing the responses.',
@@ -87,7 +87,7 @@ router.get('/meta/methodology', (req, res) => {
 // Epic 1.5: Raw response inspection
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/prompt-runs — list individual runs for a prompt (Epic 1.5)
+// GET /api/brands/:id/prompt-runs - list individual runs for a prompt (Epic 1.5)
 router.get('/brands/:id/prompt-runs', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -118,7 +118,7 @@ router.get('/brands/:id/prompt-runs', auth, async (req, res) => {
   }
 });
 
-// GET /api/brands/:id/prompt-runs/:runId — single run with full response (Epic 1.5)
+// GET /api/brands/:id/prompt-runs/:runId - single run with full response (Epic 1.5)
 router.get('/brands/:id/prompt-runs/:runId', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -141,7 +141,7 @@ router.get('/brands/:id/prompt-runs/:runId', auth, async (req, res) => {
 // Epic 2.1: Prompt metadata (intent, funnel, tags)
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/prompt-metadata — list all prompt metadata
+// GET /api/brands/:id/prompt-metadata - list all prompt metadata
 router.get('/brands/:id/prompt-metadata', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -158,7 +158,7 @@ router.get('/brands/:id/prompt-metadata', auth, async (req, res) => {
   }
 });
 
-// PUT /api/brands/:id/prompt-metadata — upsert prompt metadata
+// PUT /api/brands/:id/prompt-metadata - upsert prompt metadata
 router.put('/brands/:id/prompt-metadata', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -193,7 +193,7 @@ router.put('/brands/:id/prompt-metadata', auth, async (req, res) => {
 // Epic 2.2: Prompt-level metrics API
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/prompt-visibility — SOV per prompt per platform with CIs
+// GET /api/brands/:id/prompt-visibility - SOV per prompt per platform with CIs
 router.get('/brands/:id/prompt-visibility', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -231,7 +231,7 @@ router.get('/brands/:id/prompt-visibility', auth, async (req, res) => {
   }
 });
 
-// GET /api/brands/:id/prompt-history — time series for a specific prompt
+// GET /api/brands/:id/prompt-history - time series for a specific prompt
 router.get('/brands/:id/prompt-history', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -286,10 +286,10 @@ router.get('/brands/:id/prompt-history', auth, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// Keyword Tracker — all queries with rank/visibility history
+// Keyword Tracker - all queries with rank/visibility history
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/keyword-tracker — keyword table + sparkline data
+// GET /api/brands/:id/keyword-tracker - keyword table + sparkline data
 router.get('/brands/:id/keyword-tracker', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -419,14 +419,14 @@ router.get('/brands/:id/keyword-tracker', auth, async (req, res) => {
 // Epic 2.3: Competitor co-occurrence
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/competitor-analysis — co-occurrence data
+// GET /api/brands/:id/competitor-analysis - co-occurrence data
 router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
     if (!_access) return res.status(404).json({ error: 'Brand not found' });
     const brand = _access.brand;
 
-    // Plan enforcement — competitor analysis requires a plan with competitors > 0
+    // Plan enforcement - competitor analysis requires a plan with competitors > 0
     const plan = await getUserPlan(req.user.id);
     const limits = getPlanLimits(plan);
     if (limits.competitors === 0) {
@@ -497,7 +497,7 @@ router.get('/brands/:id/competitor-analysis', auth, async (req, res) => {
   }
 });
 
-// GET /api/brands/:id/diagnostics — diagnostic events (Epic 2.3)
+// GET /api/brands/:id/diagnostics - diagnostic events (Epic 2.3)
 router.get('/brands/:id/diagnostics', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -621,7 +621,7 @@ router.get('/brands/:id/recommendations', auth, async (req, res) => {
   }
 });
 
-// POST /api/brands/:id/recommendations/generate — trigger generation
+// POST /api/brands/:id/recommendations/generate - trigger generation
 router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -741,7 +741,7 @@ router.post('/brands/:id/recommendations/generate', auth, async (req, res) => {
   }
 });
 
-// PUT /api/recommendations/:id — update recommendation status
+// PUT /api/recommendations/:id - update recommendation status
 router.put('/recommendations/:id', auth, async (req, res) => {
   try {
     const { status, assigned_to } = req.body;
@@ -793,12 +793,12 @@ router.put('/recommendations/:id', auth, async (req, res) => {
   }
 });
 
-// GET /api/playbooks — list all playbooks
+// GET /api/playbooks - list all playbooks
 router.get('/playbooks', auth, (req, res) => {
   res.json({ playbooks: getAllPlaybooks() });
 });
 
-// GET /api/playbooks/:id — single playbook
+// GET /api/playbooks/:id - single playbook
 router.get('/playbooks/:id', auth, (req, res) => {
   const playbook = getPlaybook(req.params.id);
   if (!playbook) return res.status(404).json({ error: 'Playbook not found' });
@@ -809,7 +809,7 @@ router.get('/playbooks/:id', auth, (req, res) => {
 // Epic 4.3-4.4: Enhanced exports & Public API
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/export/prompts — export prompt-level data
+// GET /api/export/prompts - export prompt-level data
 router.get('/export/prompts', auth, async (req, res) => {
   try {
     const { brandId, format = 'json' } = req.query;
@@ -844,7 +844,7 @@ router.get('/export/prompts', auth, async (req, res) => {
   }
 });
 
-// GET /api/export/visibility — export visibility data
+// GET /api/export/visibility - export visibility data
 router.get('/export/visibility', auth, async (req, res) => {
   try {
     const { brandId, format = 'json' } = req.query;
@@ -885,7 +885,7 @@ router.get('/export/visibility', auth, async (req, res) => {
   }
 });
 
-// GET /api/export/recommendations — export recommendations
+// GET /api/export/recommendations - export recommendations
 router.get('/export/recommendations', auth, async (req, res) => {
   try {
     const { brandId, format = 'json' } = req.query;
@@ -924,7 +924,7 @@ router.get('/export/recommendations', auth, async (req, res) => {
 // Epic 4.4: Webhook subscriptions
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/webhooks — list webhook subscriptions
+// GET /api/brands/:id/webhooks - list webhook subscriptions
 router.get('/brands/:id/webhooks', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -941,7 +941,7 @@ router.get('/brands/:id/webhooks', auth, async (req, res) => {
 // Epic 6.2: Alert rules management
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/alerts — list alert rules
+// GET /api/brands/:id/alerts - list alert rules
 router.get('/brands/:id/alerts', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -958,7 +958,7 @@ router.get('/brands/:id/alerts', auth, async (req, res) => {
   }
 });
 
-// POST /api/brands/:id/alerts — create alert rule
+// POST /api/brands/:id/alerts - create alert rule
 router.post('/brands/:id/alerts', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -991,7 +991,7 @@ router.post('/brands/:id/alerts', auth, async (req, res) => {
   }
 });
 
-// PUT /api/alerts/:id — update alert rule
+// PUT /api/alerts/:id - update alert rule
 router.put('/alerts/:id', auth, async (req, res) => {
   try {
     const { name, condition_params, action_type, action_params, enabled, cooldown_hours } = req.body;
@@ -1020,7 +1020,7 @@ router.put('/alerts/:id', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/alerts/:id — delete alert rule
+// DELETE /api/alerts/:id - delete alert rule
 router.delete('/alerts/:id', auth, async (req, res) => {
   try {
     const result = await pool.query(
@@ -1054,7 +1054,7 @@ async function verifyCommentAccess(userId, targetType, targetId) {
   return false;
 }
 
-// GET /api/comments — list comments for a target
+// GET /api/comments - list comments for a target
 router.get('/comments', auth, async (req, res) => {
   try {
     const { target_type, target_id } = req.query;
@@ -1077,7 +1077,7 @@ router.get('/comments', auth, async (req, res) => {
   }
 });
 
-// POST /api/comments — add comment
+// POST /api/comments - add comment
 router.post('/comments', auth, async (req, res) => {
   try {
     const { target_type, target_id, content } = req.body;
@@ -1101,7 +1101,7 @@ router.post('/comments', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/comments/:id — delete own comment
+// DELETE /api/comments/:id - delete own comment
 router.delete('/comments/:id', auth, async (req, res) => {
   try {
     const result = await pool.query(
@@ -1119,7 +1119,7 @@ router.delete('/comments/:id', auth, async (req, res) => {
 // Epic 7.1: Tier logic & billing info
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/billing — billing page data
+// GET /api/billing - billing page data
 router.get('/billing', auth, async (req, res) => {
   try {
     const user = await pool.query('SELECT plan, settings, created_at FROM users WHERE id = $1', [req.user.id]);
@@ -1183,7 +1183,7 @@ router.get('/billing', auth, async (req, res) => {
 // Epic 8.1: Hallucination / accuracy monitor
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/facts — canonical facts
+// GET /api/brands/:id/facts - canonical facts
 router.get('/brands/:id/facts', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -1200,7 +1200,7 @@ router.get('/brands/:id/facts', auth, async (req, res) => {
   }
 });
 
-// PUT /api/brands/:id/facts — upsert canonical facts
+// PUT /api/brands/:id/facts - upsert canonical facts
 router.put('/brands/:id/facts', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -1232,7 +1232,7 @@ router.put('/brands/:id/facts', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/brands/:id/facts/:factId — delete a fact
+// DELETE /api/brands/:id/facts/:factId - delete a fact
 router.delete('/brands/:id/facts/:factId', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -1247,7 +1247,7 @@ router.delete('/brands/:id/facts/:factId', auth, async (req, res) => {
   }
 });
 
-// GET /api/brands/:id/accuracy — check AI responses against canonical facts
+// GET /api/brands/:id/accuracy - check AI responses against canonical facts
 router.get('/brands/:id/accuracy', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -1322,7 +1322,7 @@ router.get('/brands/:id/accuracy', auth, async (req, res) => {
 // Epic 8.2: Citation authority
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/brands/:id/citation-analysis — citation domain analysis
+// GET /api/brands/:id/citation-analysis - citation domain analysis
 router.get('/brands/:id/citation-analysis', auth, async (req, res) => {
   try {
     const _access = await getBrandWithAccess(req.params.id, req.user.id);
@@ -1385,7 +1385,7 @@ function categorizeDomain(domain) {
 
 /**
  * Estimate domain authority score (0-100) based on domain type and known sites.
- * This is a heuristic approximation — not real DA from Moz/Ahrefs.
+ * This is a heuristic approximation - not real DA from Moz/Ahrefs.
  */
 function estimateDomainAuthority(domain) {
   // Tier 1: Very high authority (80-95)
@@ -1408,7 +1408,7 @@ function estimateDomainAuthority(domain) {
 // Epic 5.2: Dashboard view presets
 // ═══════════════════════════════════════════════════════════
 
-// GET /api/dashboard-presets — available presets
+// GET /api/dashboard-presets - available presets
 router.get('/dashboard-presets', auth, (req, res) => {
   res.json({
     presets: {

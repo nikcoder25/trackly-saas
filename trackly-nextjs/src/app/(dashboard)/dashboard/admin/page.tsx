@@ -51,7 +51,7 @@ export default function AdminPage() {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  // Check admin access — wait for auth to load before showing access denied
+  // Check admin access - wait for auth to load before showing access denied
   if (authLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
@@ -176,7 +176,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[var(--muted)] text-xs font-mono">{u.username ? `@${u.username}` : '—'}</td>
+                  <td className="px-4 py-3 text-[var(--muted)] text-xs font-mono">{u.username ? `@${u.username}` : '-'}</td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" style={{ color: PLAN_COLORS[u.plan] || 'var(--muted)', background: `color-mix(in srgb, ${PLAN_COLORS[u.plan] || 'gray'} 10%, transparent)` }}>
                       {u.plan}
@@ -196,7 +196,7 @@ export default function AdminPage() {
                       <span className="text-[var(--amber)] text-xs">✗ Unverified</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[var(--muted)]" style={{ whiteSpace: 'nowrap' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '—'}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--muted)]" style={{ whiteSpace: 'nowrap' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '-'}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
@@ -262,7 +262,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Name</label>
-                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>{editingUser.name || '—'}</p>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, padding: '8px 12px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)' }}>{editingUser.name || '-'}</p>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Plan</label>

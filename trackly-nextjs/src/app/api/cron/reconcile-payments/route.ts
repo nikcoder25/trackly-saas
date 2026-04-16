@@ -76,7 +76,7 @@ export async function GET(request: Request) {
 
           if (!response.ok) {
             if (response.status === 404) {
-              // Subscription no longer exists at DodoPayments — clean up stale data
+              // Subscription no longer exists at DodoPayments - clean up stale data
               console.log(`[Reconciliation] Subscription ${subscriptionId} not found (404) for user ${user.id}, cleaning up`);
               await client.query('BEGIN');
               if (user.plan !== 'free') {

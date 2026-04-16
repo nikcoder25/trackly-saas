@@ -69,7 +69,7 @@ export default function AlertsPage() {
   return (
     <div>
       <div className="view-title">Alerts &amp; Notifications</div>
-      <div className="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules — all in one place.</div>
+      <div className="view-sub">Manage alert rules, webhook URLs, notification preferences, and report schedules - all in one place.</div>
 
       {/* Alert Rules */}
       <div className="card">

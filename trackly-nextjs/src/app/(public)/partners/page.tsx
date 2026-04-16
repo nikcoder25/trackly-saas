@@ -4,20 +4,20 @@ import { DollarSign, BarChart3, HeadphonesIcon } from 'lucide-react';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Agency Partner Program — Livesov AI Visibility Tracker',
+  title: 'Agency Partner Program - Livesov AI Visibility Tracker',
   description: 'Partner with Livesov to offer AI visibility tracking to your clients. Earn recurring commissions, get white-label reports, and grow your agency.',
   alternates: { canonical: '/partners' },
   openGraph: {
-    title: 'Agency Partner Program — Livesov AI Visibility Tracker',
+    title: 'Agency Partner Program - Livesov AI Visibility Tracker',
     description: 'Partner with Livesov to offer AI visibility tracking to your clients. Earn recurring commissions, get white-label reports, and grow your agency.',
     url: 'https://livesov.com/partners',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Agency Partner Program — Livesov AI Visibility Tracker' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Agency Partner Program - Livesov AI Visibility Tracker' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Agency Partner Program — Livesov AI Visibility Tracker',
+    title: 'Agency Partner Program - Livesov AI Visibility Tracker',
     description: 'Partner with Livesov to offer AI visibility tracking to your clients. Earn recurring commissions, get white-label reports, and grow your agency.',
     images: ['https://livesov.com/og-image.png'],
   },

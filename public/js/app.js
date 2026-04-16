@@ -145,7 +145,7 @@ function skeletonHTML(rows) {
   return h + '</div>';
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-// Safe brand update — avoids brands[-1] corruption when findIndex returns -1
+// Safe brand update - avoids brands[-1] corruption when findIndex returns -1
 function updateBrandInList(updatedBrand) {
   const idx = brands.findIndex(x => x.id === updatedBrand.id);
   if (idx !== -1) brands[idx] = updatedBrand;
@@ -154,7 +154,7 @@ function escAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;'
 function safeBtoa(s){ try { return btoa(s); } catch(e) { return btoa(encodeURIComponent(s).replace(/%[0-9A-F]{2}/g,'')); } }
 function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
 // Simple markdown to HTML for AI responses
-// Regex patterns pre-compiled once — avoids recompilation on each of 640+ calls per run
+// Regex patterns pre-compiled once - avoids recompilation on each of 640+ calls per run
 const _mdRe = {
   headers: /^#{1,4}\s+(.+)$/gm,
   bold: /\*\*(.+?)\*\*/g,
@@ -226,9 +226,9 @@ function friendlyError(msg){
   if (!msg) return 'Unknown error';
   const msgLower = msg.toLowerCase();
   if (msgLower.includes('rate limit') || msgLower.includes('rate_limit') || msgLower.includes('too many requests'))
-    return 'Rate limited — too many requests. Retried automatically but limit persists. Try again in a few minutes.';
+    return 'Rate limited - too many requests. Retried automatically but limit persists. Try again in a few minutes.';
   if (msgLower.includes('exceed') && msgLower.includes('rate'))
-    return 'Rate limited — request limit exceeded. Try again in a few minutes.';
+    return 'Rate limited - request limit exceeded. Try again in a few minutes.';
   if (msgLower.includes('credit') || msgLower.includes('billing') || msgLower.includes('quota') || msgLower.includes('insufficient'))
     return 'No credits / quota exceeded. Check your API billing.';
   if (msgLower.includes('invalid') && (msgLower.includes('key') || msgLower.includes('auth')))
@@ -364,7 +364,7 @@ function updatePasswordStrength(pw){
   el('pw-strength-text').style.color = colors[score];
 }
 
-// Token refresh lock — prevents multiple simultaneous refresh attempts
+// Token refresh lock - prevents multiple simultaneous refresh attempts
 let _refreshPromise = null;
 
 async function api(method, path, data, extraHeaders){
@@ -386,7 +386,7 @@ async function api(method, path, data, extraHeaders){
     throw new Error('Unable to connect to the server. Please check your connection and try again.');
   }
   clearTimeout(timeoutId);
-  // Auto-refresh token on 401 (not for auth endpoints themselves). Don't check in-memory refreshToken — httpOnly cookie handles it on page reload.
+  // Auto-refresh token on 401 (not for auth endpoints themselves). Don't check in-memory refreshToken - httpOnly cookie handles it on page reload.
   if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
     try {
       // Use shared promise to prevent concurrent refresh attempts
@@ -420,7 +420,7 @@ async function api(method, path, data, extraHeaders){
       throw new Error('Session expired. Please log in again.');
     }
   }
-  // Validate response is JSON before parsing — HTML responses (e.g. from redirects) cause cryptic errors
+  // Validate response is JSON before parsing - HTML responses (e.g. from redirects) cause cryptic errors
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     throw new Error('Server returned an unexpected response. Please refresh and try again.');
@@ -435,9 +435,9 @@ async function api(method, path, data, extraHeaders){
     if (json.planLimit) {
       showUpgradeModal(json.error);
     }
-    // Rate limit — include retry info in error message
+    // Rate limit - include retry info in error message
     if (res.status === 429 && json.retryAfter) {
-      throw new Error(`Rate limited — please wait ${json.retryAfter} seconds before retrying.`);
+      throw new Error(`Rate limited - please wait ${json.retryAfter} seconds before retrying.`);
     }
     throw new Error(json.error || 'Request failed');
   }
@@ -473,7 +473,7 @@ async function initGoogleSignIn() {
     // Load Google Identity Services script lazily (uses shared promise)
     loadGoogleScript().catch(() => {});
   } catch(e) {
-    // Google Sign-In not available — silently skip
+    // Google Sign-In not available - silently skip
   }
 }
 
@@ -507,7 +507,7 @@ async function triggerGoogleSignIn() {
 
   el('auth-err').style.display = 'none';
 
-  // Use OAuth2 token flow — opens a proper Google account chooser popup
+  // Use OAuth2 token flow - opens a proper Google account chooser popup
   const tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: 'openid email profile',
@@ -566,7 +566,7 @@ function authTab(tab){
   const panel = el('panel-' + tab);
   if (panel) panel.classList.add('active');
   el('auth-err').style.display = 'none';
-  // Google buttons are always visible in HTML — they show a helpful message if not configured
+  // Google buttons are always visible in HTML - they show a helpful message if not configured
 }
 
 async function doLogin(){
@@ -586,7 +586,7 @@ async function doLogin(){
     const body = { email, password };
     if (totpCode) body.totpCode = totpCode;
     const data = await api('POST', '/api/auth/login', body);
-    // Handle 2FA challenge — server returns requires2FA when TOTP is needed
+    // Handle 2FA challenge - server returns requires2FA when TOTP is needed
     if (data.requires2FA) {
       const wrap = el('login-2fa-wrap');
       if (wrap) { wrap.style.display = 'block'; }
@@ -647,7 +647,7 @@ async function doRegister(){
     currentUser = data.user;
     localStorage.setItem('livesov_session', '1');
     await initApp();
-    if (currentUser.username) toast('Your username is @' + currentUser.username + ' — you can change it in Account settings', 'ok');
+    if (currentUser.username) toast('Your username is @' + currentUser.username + ' - you can change it in Account settings', 'ok');
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';
@@ -794,7 +794,7 @@ async function initApp(){
     if (becomeAdminNav) becomeAdminNav.style.display = 'none';
   } else {
     if (adminNav) adminNav.style.display = 'none';
-    // Check if any admin exists — if not, show the "Become Admin" button
+    // Check if any admin exists - if not, show the "Become Admin" button
     if (becomeAdminNav) {
       try {
         const resp = await api('GET', '/api/admin/check-admin');
@@ -996,7 +996,7 @@ function renderAccount(){
   el('acct-email').textContent = currentUser.email;
   // Username
   const usernameEl = el('acct-username');
-  if (usernameEl) usernameEl.textContent = currentUser.username ? '@' + currentUser.username : '—';
+  if (usernameEl) usernameEl.textContent = currentUser.username ? '@' + currentUser.username : '-';
   // Email verification status
   const verifyEl = el('acct-email-verify');
   if (verifyEl) {
@@ -1035,7 +1035,7 @@ function renderAccount(){
   const acctUsageEl = el('acct-usage');
   if (acctUsageEl) acctUsageEl.innerHTML = usageHtml;
 
-  // Plan cards — reuse landing page pricing card classes
+  // Plan cards - reuse landing page pricing card classes
   const planData = [
     { id: 'starter', name: 'Starter', price: '$9', tagline: 'Perfect for getting started', features: ['<strong>30</strong> tracked queries', 'Unlimited brands', '2 AI platforms', 'Sentiment analysis'] },
     { id: 'pro', name: 'Pro', price: '$29', tagline: 'For growing businesses', featured: true, features: ['<strong>100</strong> tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis'] },
@@ -1125,14 +1125,14 @@ async function loadBillingHistory() {
         <th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Plan</th><th style="padding:6px 8px;">Amount</th><th style="padding:6px 8px;">Status</th><th style="padding:6px 8px;"></th>
       </tr></thead>
       <tbody>${payments.map(p => {
-        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-        const amt = p.amount != null ? ('$' + (p.amount / 100).toFixed(2)) : '—';
+        const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+        const amt = p.amount != null ? ('$' + (p.amount / 100).toFixed(2)) : '-';
         const statusColor = p.status === 'succeeded' ? 'var(--green)' : p.status === 'failed' ? 'var(--red)' : 'var(--muted)';
         return `<tr style="border-bottom:1px solid var(--border);">
           <td style="padding:6px 8px;">${date}</td>
-          <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '—'}</td>
+          <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '-'}</td>
           <td style="padding:6px 8px;">${amt}</td>
-          <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '—'}</td>
+          <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '-'}</td>
           <td style="padding:6px 8px;">${p.paymentId ? `<a href="/api/payments/invoice/${p.paymentId}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:10px;">INVOICE</a>` : ''}</td>
         </tr>`;
       }).join('')}</tbody>
@@ -1295,7 +1295,7 @@ async function saveUsername(){
   try {
     const data = await api('PUT', '/api/auth/username', { username: trimmed || null });
     currentUser.username = data.username;
-    display.textContent = data.username ? '@' + data.username : '—';
+    display.textContent = data.username ? '@' + data.username : '-';
     toast(data.username ? 'Username set to @' + data.username : 'Username removed', 'ok');
     input.style.display = 'none';
     display.style.display = '';
@@ -1358,7 +1358,7 @@ async function importBrandConfig(fileInput){
     const data = JSON.parse(text);
     // Support both single brand export and full export format
     const brandData = data.brand || data;
-    if (!brandData.name) { toast('Invalid brand file — missing name', 'err'); return; }
+    if (!brandData.name) { toast('Invalid brand file - missing name', 'err'); return; }
     const payload = {
       name: brandData.name,
       industry: brandData.industry || '',
@@ -1459,9 +1459,9 @@ async function renderActivityLog() {
       const icon = actionIcons[log.action] || '&#x25CF;';
       const details = log.details || {};
       let detailStr = '';
-      if (details.brand) detailStr = ' — ' + esc(details.brand);
-      if (details.plan) detailStr = ' — plan: ' + esc(details.plan);
-      if (details.email) detailStr = ' — ' + esc(details.email);
+      if (details.brand) detailStr = ' - ' + esc(details.brand);
+      if (details.plan) detailStr = ' - plan: ' + esc(details.plan);
+      if (details.email) detailStr = ' - ' + esc(details.email);
       if (details.role) detailStr += ' (role: ' + esc(details.role) + ')';
       html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12px;">
         <span style="font-size:16px;flex-shrink:0;width:24px;text-align:center;">${icon}</span>
@@ -1800,12 +1800,12 @@ function renderAll(){
 const _NOTIF_MAX = 5;       // max visible at once
 const _NOTIF_DURATION = 3500; // ms before auto-dismiss
 const _notifSeen = new Set();
-// Notification queue — batch DOM writes to reduce layout thrashing
+// Notification queue - batch DOM writes to reduce layout thrashing
 let _notifQueue = [];
 let _notifFlushTimer = null;
 
 function showLiveNotif(result) {
-  // Dedup — don't show same platform+query combo twice in one run
+  // Dedup - don't show same platform+query combo twice in one run
   const dedupKey = (result.platform || '') + '||' + (result.query || '');
   if (_notifSeen.has(dedupKey)) return;
   _notifSeen.add(dedupKey);
@@ -1862,7 +1862,7 @@ function _flushNotifQueue() {
         if (!head || !titleEl || !queryEl || !textEl) return;
         head.style.background = t2.bg||'var(--bg2)';
         head.style.borderBottom = '1px solid '+(t2.color||'var(--border)');
-        titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">— ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+        titleEl.innerHTML = (t2.logo||'') + ' ' + esc(result.platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">- FOUND</span>' : result.error ? ' <span style="color:var(--amber);font-size:11px;">- ERROR</span>' : ' <span style="color:var(--red);font-size:11px;">- NOT FOUND</span>');
         queryEl.innerHTML = esc(result.query||'');
         textEl.style.whiteSpace = 'normal';
         const raw = result.error ? (result.error) : (result.raw || result.context || '[No response text]');
@@ -1894,7 +1894,7 @@ function _flushNotifQueue() {
   // Single DOM write: append all at once
   cont.appendChild(frag);
 
-  // Cap visible notifications — remove oldest in one pass
+  // Cap visible notifications - remove oldest in one pass
   while (cont.children.length > _NOTIF_MAX) {
     cont.removeChild(cont.children[0]);
   }
@@ -1909,12 +1909,12 @@ function clearLiveNotifs() {
 }
 
 // ─── LIVE UPDATE DURING STREAMING ──────────────────────────────────
-// Called on every new result during streaming — updates whichever view is active
+// Called on every new result during streaming - updates whichever view is active
 // Throttle heavy DOM updates to prevent UI freezing during rapid SSE events
 let _liveUpdateTimer = null;
 let _liveUpdatePending = null;
 
-// Incremental counters updated O(1) per result — avoids re-filtering liveResults array
+// Incremental counters updated O(1) per result - avoids re-filtering liveResults array
 let _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() };
 function _resetLiveCounters() { _liveCounters = { platCounts: {}, platMentions: {}, posCount: 0, negCount: 0, neuCount: 0, recCount: 0, locRelevant: 0, locTotal: 0, activePlats: new Set() }; }
 function _updateLiveCounters(r) {
@@ -1967,7 +1967,7 @@ function onLiveResult(result, received, totalExpected, liveFound, liveErrors) {
   liveResults.push(result);
   _updateLiveCounters(result);
 
-  // Show bottom-right notification popup (lightweight — no throttle needed)
+  // Show bottom-right notification popup (lightweight - no throttle needed)
   showLiveNotif(result);
 
   // Throttle heavy view updates: batch DOM writes to at most every 500ms
@@ -2052,7 +2052,7 @@ function setupLiveProof() {
   }
 }
 
-// Live overview — recalculate everything from accumulated liveResults
+// Live overview - recalculate everything from accumulated liveResults
 function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   const b = brand();
   if (!b) return;
@@ -2141,7 +2141,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     `;
   }
 
-  // Update platform cards — use incremental counters instead of re-iterating liveResults
+  // Update platform cards - use incremental counters instead of re-iterating liveResults
   const pg = el('ov-plat-grid');
   if (pg) {
     const platSOV = {};
@@ -2184,7 +2184,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
     </div>`;
   }
 
-  // Category SOV — computed from incremental counters
+  // Category SOV - computed from incremental counters
   const catRow = el('ov-category-row');
   if (catRow && validCount > 0) {
     const chatAI = ['ChatGPT', 'Claude', 'Grok'];
@@ -2205,7 +2205,7 @@ function renderOverviewLive(received, totalExpected, liveFound, liveErrors) {
   }
 }
 
-// Set up live feed on overview — shows each result as it streams in
+// Set up live feed on overview - shows each result as it streams in
 let _liveFeedCount = 0;
 function setupLiveFeed() {
   const feed = el('ov-live-feed');
@@ -2262,7 +2262,7 @@ function hideLiveFeed() {
   _liveFeedCount = 0;
 }
 
-// Cache the brand highlight regex for the duration of a run — avoids recompiling 80+ times
+// Cache the brand highlight regex for the duration of a run - avoids recompiling 80+ times
 let _cachedHighlightRe = null;
 let _cachedHighlightBrandId = null;
 
@@ -2427,7 +2427,7 @@ function renderOverview(){
 
   // ─── Header ──────────────────────────────────────────────────
   const presetTitle = _activePreset && _presetMeta[_activePreset] ? _presetMeta[_activePreset].title : '';
-  el('ov-brand-title').textContent = presetTitle ? (b.name || 'Overview') + ' — ' + presetTitle : (b.name || 'Overview');
+  el('ov-brand-title').textContent = presetTitle ? (b.name || 'Overview') + ' - ' + presetTitle : (b.name || 'Overview');
   const baseSub = [b.industry, b.city].filter(Boolean).join(' · ') || 'Select a brand and run queries to see results.';
   el('ov-sub').textContent = baseSub;
 
@@ -2438,7 +2438,7 @@ function renderOverview(){
     actionsEl.innerHTML = `<div class="ov-live-badge"><span class="ov-live-dot"></span>RUNNING</div>`;
   } else {
     let actionsHtml = (queries > 0 && currentUser && currentUser.role === 'admin') ? `<button onclick="runQueries()" class="ov-run-btn">▶ RUN NOW</button>` : '';
-    // PDF Report button — Pro plan and above only
+    // PDF Report button - Pro plan and above only
     const pdfPlans = ['pro', 'agency', 'enterprise', 'owner'];
     const userPlan = (currentUser && currentUser.plan) || 'free';
     if (pdfPlans.includes(userPlan) && lastRun) {
@@ -2469,7 +2469,7 @@ function renderOverview(){
         const oh = Math.floor(overdueMs / 3600000);
         const om = Math.floor((overdueMs % 3600000) / 60000);
         const overdueText = oh > 0 ? oh + 'h ' + om + 'm' : om + 'm';
-        el('ov-next-run-text').textContent = 'Overdue by ' + overdueText + ' — waiting for next scheduled run';
+        el('ov-next-run-text').textContent = 'Overdue by ' + overdueText + ' - waiting for next scheduled run';
         nextRunBadge.style.display = '';
       }
     } else {
@@ -2590,7 +2590,7 @@ function renderOverview(){
     el('ov-last-run-age').textContent = runAgeText;
     el('ov-last-run-age').style.color = ageDotClass === 'bad' ? 'var(--red)' : ageDotClass === 'warn' ? 'var(--amber)' : '';
 
-    // Run duration — show how long the last crawl took
+    // Run duration - show how long the last crawl took
     const durationEl = el('ov-run-duration');
     if (lastRun && lastRun.durationMs) {
       const ds = Math.floor(lastRun.durationMs / 1000);
@@ -2793,7 +2793,7 @@ function renderOverview(){
       catHtml += `<div class="ov-cat-card" style="border-top:2px solid var(--green);">
         <div class="ov-cat-label">🏆 Best Platform</div>
         <div class="ov-cat-val" style="color:var(--green);">${esc(best[0])}</div>
-        <div class="ov-cat-sub">${best[1]}% SOV — strongest visibility</div>
+        <div class="ov-cat-sub">${best[1]}% SOV - strongest visibility</div>
       </div>`;
     }
     catRow.innerHTML = catHtml;
@@ -2861,7 +2861,7 @@ function renderOverview(){
     });
 
     if (strongPlats.length > 0 && missingPlats.length > 0) {
-      tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources — diversify your online presence.`, color: 'var(--amber)' });
+      tips.push({ type: 'gap', icon: '⚡', title: 'Platform Gap Detected', text: `Strong on <strong>${strongPlats.join(', ')}</strong> but invisible on <strong>${missingPlats.join(', ')}</strong>. Different AI platforms pull from different sources - diversify your online presence.`, color: 'var(--amber)' });
     }
 
     if (sov === 0 && _ovValid > 0) {
@@ -2982,7 +2982,7 @@ function renderOverview(){
       patterns.forEach(pat => {
         let m;
         while ((m = pat.exec(text)) !== null) {
-          const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-—:].*/,'').trim();
+          const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-\u2014:].*/,'').trim();
           if (name.length >= 3 && name.length <= 50 && name.toLowerCase() !== brandName && !/^(the|and|for|with|best|top|most|also|here|this|that|these|note)$/i.test(name)) {
             competitors[name] = (competitors[name] || 0) + 1;
           }
@@ -3078,11 +3078,11 @@ function renderOverview(){
     const runTime = new Date(lastRun.time || lastRun.date);
     const summaryTitle = _activePreset === 'agency_manager' ? 'Run Status Report' : _activePreset === 'founder' ? 'Latest Activity' : 'Last Run';
     const timeStr = `${runTime.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${runTime.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}`;
-    let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${summaryTitle} — ${timeStr}</div></div>`;
+    let summaryHtml = `<div class="ov-card"><div class="ov-card-head"><div class="ov-card-title">${summaryTitle} - ${timeStr}</div></div>`;
     if (errors.length > 0) {
       summaryHtml += `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);padding:10px 14px;margin-bottom:12px;font-family:var(--mono);font-size:11px;border-radius:var(--radius-xs);">`;
       summaryHtml += `<span style="color:var(--red);font-weight:700;">${errors.length} API error${errors.length>1?'s':''}</span>`;
-      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">— Check API keys or <a href="#" onclick="go('activitylog');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
+      summaryHtml += `<span style="color:var(--muted);margin-left:8px;">- Check API keys or <a href="#" onclick="go('activitylog');return false;" style="color:var(--red);text-decoration:none;">view logs</a></span>`;
       summaryHtml += `</div>`;
     }
     summaryHtml += `<div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${found.length} found / ${lastRun.allResults.length} total responses · <a href="#" onclick="go('mentions');return false;" style="color:var(--green);text-decoration:none;">View All Results →</a></div>`;
@@ -3250,7 +3250,7 @@ async function ovAddQuery(){
   if (!q) return;
   const b = brand();
   if (!b) return;
-  // Total prompts check — count across all brands
+  // Total prompts check - count across all brands
   const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
   const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
   if (totalPrompts >= promptLimit) {
@@ -3347,7 +3347,7 @@ async function clearAllQueries(){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// —— MULTI-SELECT QUERY MANAGEMENT ——————————————————
+// -- MULTI-SELECT QUERY MANAGEMENT ------------------
 let _querySelectMode = false;
 let _selectedQueryIndices = new Set();
 
@@ -3581,9 +3581,9 @@ function renderAiOverviews(data) {
 
   for (const row of rows) {
     const aioIcon = row.has_ai_overview ? '<span style="color:var(--green);">&#10003;</span>' : '<span style="color:var(--muted);">&#10005;</span>';
-    const brandIcon = row.has_ai_overview ? (row.brand_mentioned ? '<span style="color:var(--green);font-weight:700;">&#10003; Yes</span>' : '<span style="color:var(--red);">&#10005; No</span>') : '<span style="color:var(--muted);">—</span>';
+    const brandIcon = row.has_ai_overview ? (row.brand_mentioned ? '<span style="color:var(--green);font-weight:700;">&#10003; Yes</span>' : '<span style="color:var(--red);">&#10005; No</span>') : '<span style="color:var(--muted);">-</span>';
     const competitors = row.competitor_mentions || [];
-    const compText = competitors.length > 0 ? competitors.map(c => '<span style="background:rgba(239,68,68,.08);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--red);">' + esc(typeof c === 'string' ? c : c.toString()) + '</span>').join(' ') : '<span style="color:var(--muted);">—</span>';
+    const compText = competitors.length > 0 ? competitors.map(c => '<span style="background:rgba(239,68,68,.08);padding:2px 6px;border-radius:4px;font-size:10px;color:var(--red);">' + esc(typeof c === 'string' ? c : c.toString()) + '</span>').join(' ') : '<span style="color:var(--muted);">-</span>';
     const citations = row.citations || [];
     const citeCount = citations.length;
 
@@ -3667,9 +3667,9 @@ async function recheckQuery(runId, platform, query, btnEl){
     if (!resp.ok) throw new Error(data.error || 'Recheck failed');
     const idx = brands.findIndex(x => x.id === b.id);
     if (idx !== -1 && data.brand) brands[idx] = data.brand;
-    const msg = data.statusChange === 'now_mentioned' ? 'Recheck complete — now mentioned!'
-      : data.statusChange === 'no_longer_mentioned' ? 'Recheck complete — no longer mentioned'
-      : 'Recheck complete — status unchanged';
+    const msg = data.statusChange === 'now_mentioned' ? 'Recheck complete - now mentioned!'
+      : data.statusChange === 'no_longer_mentioned' ? 'Recheck complete - no longer mentioned'
+      : 'Recheck complete - status unchanged';
     toast(msg);
     mentionsExpandedRow = null;
     renderMentions();
@@ -3693,7 +3693,7 @@ function renderMentions(){
   const runs = (b.runs||[]).slice().reverse();
   if (!runs.length) {
     kpis.innerHTML = ''; platFilters.innerHTML = '';
-    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet — run queries to start tracking.</p></div>';
+    cont.innerHTML = '<div class="empty-state"><div class="icon">◎</div><p>No results yet - run queries to start tracking.</p></div>';
     return;
   }
   runs.forEach(r => {
@@ -3790,8 +3790,8 @@ function renderMentions(){
       : r.mentioned ? '<span class="status-found">FOUND</span>'
       : '<span class="status-notfound">NOT FOUND</span>';
     const sentColor = sent==='positive' ? 'var(--green)' : sent==='negative' ? 'var(--red)' : 'var(--muted)';
-    const sentLabel = isErr || !r.mentioned ? '—' : `<span style="color:${sentColor};">${sent.charAt(0).toUpperCase()+sent.slice(1)}</span>`;
-    const posLabel = r.mentioned && r.listPosition ? '#'+r.listPosition : '—';
+    const sentLabel = isErr || !r.mentioned ? '-' : `<span style="color:${sentColor};">${sent.charAt(0).toUpperCase()+sent.slice(1)}</span>`;
+    const posLabel = r.mentioned && r.listPosition ? '#'+r.listPosition : '-';
     html += `<tr class="trow" style="cursor:pointer;" onclick="toggleMentionRow(${from+i})">
       <td class="td"><span style="color:${t.color||'#888'};font-weight:700;">${esc(r.platform)}</span></td>
       <td class="td">${esc(r.query)}</td>
@@ -3860,7 +3860,7 @@ function openResp(mentionId){
     if (!head || !titleEl || !queryEl || !textEl) return;
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-    titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">— FOUND</span>';
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(m.platform) + ' <span style="color:var(--green);font-size:11px;">- FOUND</span>';
     queryEl.innerHTML = esc(m.query) + (m.time ? '<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">Captured: '+new Date(m.time).toLocaleString()+'</div>' : '');
     textEl.style.whiteSpace = 'normal';
     const rawHtml = mdToHtml(m.raw || m.context || '');
@@ -3897,7 +3897,7 @@ function openResultFromRun(runId, platform, encodedQuery){
     const queryEl = el('resp-modal-query');
     const textEl = el('resp-modal-text');
     if (!titleEl || !queryEl || !textEl) return;
-    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">- FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">- NOT FOUND</span>');
     queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml1 = mdToHtml(result.raw || result.context || '[No response text]');
@@ -3935,7 +3935,7 @@ function openFullResult(platform, encodedQuery){
     if (!head || !titleEl || !queryEl || !textEl) return;
     head.style.background = t.bg||'var(--bg2)';
     head.style.borderBottom = '1px solid '+(t.color||'var(--border)');
-    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">— FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">— NOT FOUND</span>');
+    titleEl.innerHTML = (t.logo||'') + ' ' + esc(platform) + (result.mentioned ? ' <span style="color:var(--green);font-size:11px;">- FOUND</span>' : ' <span style="color:var(--red);font-size:11px;">- NOT FOUND</span>');
     queryEl.innerHTML = esc(q);
     textEl.style.whiteSpace = 'normal';
     const rawHtml2 = mdToHtml(result.raw || result.context || '[No response text]');
@@ -3974,7 +3974,7 @@ function renderProof(){
     opt.value = r.id;
     const d = new Date(r.time || r.date || 0);
     const dateStr = isNaN(d.getTime()) ? 'Unknown' : d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    opt.textContent = dateStr + ' \u2014 SOV '+r.sov+'%';
+    opt.textContent = dateStr + ' - SOV '+r.sov+'%';
     sel.appendChild(opt);
   });
   if (curVal && [...sel.options].some(o=>o.value===curVal)) sel.value = curVal;
@@ -4090,7 +4090,7 @@ function renderProof(){
         <div class="ep-banner-metric-lbl">Hit Rate</div>
       </div>`}
       <div class="ep-banner-metric">
-        <div class="ep-banner-metric-val" style="font-size:14px;color:var(--text);">${run.durationMs ? (run.durationMs/1000).toFixed(1)+'s' : '\u2014'}</div>
+        <div class="ep-banner-metric-val" style="font-size:14px;color:var(--text);">${run.durationMs ? (run.durationMs/1000).toFixed(1)+'s' : '-'}</div>
         <div class="ep-banner-metric-lbl">Run Time</div>
       </div>
     </div>
@@ -4305,8 +4305,8 @@ async function renderPlatformStatus(){
     const statusColor = hasKey ? 'var(--green)' : 'var(--muted)';
     const health = platformHealth[plat] || {};
     const latencyMs = health.avg_latency_ms;
-    const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '—';
-    const successRate = health.success_rate != null ? health.success_rate + '%' : '—';
+    const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '-';
+    const successRate = health.success_rate != null ? health.success_rate + '%' : '-';
     const apiStatus = health.status === 'red' ? 'Degraded' : health.status === 'amber' ? 'Slow' : health.status === 'no_data' ? 'No Data' : 'Healthy';
     const apiStatusColor = health.status === 'red' ? 'var(--red)' : health.status === 'amber' ? 'var(--amber)' : health.status === 'no_data' ? 'var(--muted)' : 'var(--green)';
     const calls24h = health.total_calls_24h || 0;
@@ -4370,7 +4370,7 @@ function renderQPerf(){
   const topQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) > 0.6; }).length;
   const lowQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) <= 0.3; }).length;
 
-  // Hide KPI row — clean bar chart layout
+  // Hide KPI row - clean bar chart layout
   kpis.innerHTML = '';
 
   // Sort queries by rate descending
@@ -4476,7 +4476,7 @@ async function renderCompetitors(){
   }
 
   // Fetch co-occurrence and per-platform data from prompt_runs (historical API data,
-  // independent of last run — always load when competitors are configured)
+  // independent of last run - always load when competitors are configured)
   const cooccDiv = el('comp-cooccurrence');
   const platBreakDiv = el('comp-platform-breakdown');
   try {
@@ -4510,7 +4510,7 @@ async function renderCompetitors(){
         const maxPlatApp = Math.max(...byPlat.map(x => x.appearances), 1);
         const pct = (p.appearances / maxPlatApp) * 100;
         pbHtml += `<div class="qperf-bar-row">
-          <div class="qperf-bar-label"><span style="color:${t.color||'#888'};font-weight:600;">${t.logo||''} ${esc(p.platform)}</span> — ${esc(p.competitor)}</div>
+          <div class="qperf-bar-label"><span style="color:${t.color||'#888'};font-weight:600;">${t.logo||''} ${esc(p.platform)}</span> - ${esc(p.competitor)}</div>
           <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${t.color||'#888'};"></div></div>
           <div class="qperf-bar-value" style="color:var(--text);">${p.appearances}x</div>
         </div>`;
@@ -4604,7 +4604,7 @@ function _renderTrendsCharts(b) {
     history.forEach((h, i) => {
       const pct = Math.max((h.overall / 100) * 100, 4);
       const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
-      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
+      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% - ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
     });
     barHtml += '</div>';
     barContainer.innerHTML = barHtml;
@@ -4818,7 +4818,7 @@ function _ktFilteredKeywords() {
       let va = a[_ktSortField];
       let vb = b[_ktSortField];
 
-      // Handle nulls — push to bottom
+      // Handle nulls - push to bottom
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -4932,7 +4932,7 @@ function _ktRenderExpandedChart(kw, idx) {
 }
 
 function _ktSparkline(data) {
-  if (!data || data.length < 2) return '<span style="color:var(--muted);font-size:10px;">—</span>';
+  if (!data || data.length < 2) return '<span style="color:var(--muted);font-size:10px;">-</span>';
   const values = data.map(d => d.mentionRate);
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
@@ -5193,7 +5193,7 @@ function generateAliasesFromBrand(name, website){
   }
 
   // Common misspelling: doubled letters reduced ("brookks" → "brooks")
-  // and single letters doubled — skip this to avoid noise
+  // and single letters doubled - skip this to avoid noise
 
   return [...aliases].filter(a => a.length >= 2);
 }
@@ -5709,7 +5709,7 @@ async function doAddBrand(){
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
     renderAll();
-    toast('Brand "'+name+'" created — running first scan...', 'ok');
+    toast('Brand "'+name+'" created - running first scan...', 'ok');
     // Auto-run queries after brand creation so new users see results immediately
     const queryCount = (data.brand.queries || []).length;
     if (queryCount > 0) {
@@ -5746,7 +5746,7 @@ async function deleteBrand(){
   } catch(e) { toast(e.message, 'err'); }
 }
 
-// ─── RUN QUERIES (streaming — results appear live) ───────────────
+// ─── RUN QUERIES (streaming - results appear live) ───────────────
 function buildMentionCard(r, runTimeStr) {
   const t = PLAT_THEME[r.platform]||{};
   const isErr = r.error;
@@ -5825,7 +5825,7 @@ async function runQueries(){
     timerEl.textContent = fmtTime(Date.now()-startTime);
   }, 1000);
 
-  // Stay on current view — render live state
+  // Stay on current view - render live state
   if (currentView === 'overview') { renderOverview(); setupLiveFeed(); }
   if (currentView === 'mentions') setupLiveMentions();
   if (currentView === 'proof') setupLiveProof();
@@ -5851,7 +5851,7 @@ async function runQueries(){
       `<span style="color:var(--muted);">${received}/${totalExpected} (${pct}%)</span>`;
   }
 
-  // Abort controller for timeout (10 min) — declared outside try so catch can access
+  // Abort controller for timeout (10 min) - declared outside try so catch can access
   const abortCtrl = new AbortController();
   const fetchTimeout = setTimeout(() => abortCtrl.abort(), 10 * 60 * 1000);
 
@@ -5941,9 +5941,9 @@ async function runQueries(){
           // Feed result to all live views
           onLiveResult(r, received, totalExpected, liveFoundCount, liveErrorCount);
 
-          // Throttle status bar updates — only update every 3rd result or at completion
+          // Throttle status bar updates - only update every 3rd result or at completion
           if (received % 3 === 0 || received >= totalExpected) {
-            statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
+            statusTxt.textContent = `${received}/${totalExpected} - ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
             updateLiveStats();
           }
         } else if (evt.type === 'done') {
@@ -6012,16 +6012,16 @@ async function runQueries(){
 
     if (errors > 0) {
       const okCount = result.totalQ - errors;
-      toast(`Run complete — ${okCount} succeeded, ${errors} failed. Filter by "Errors" in Mentions.`, 'warn');
+      toast(`Run complete - ${okCount} succeeded, ${errors} failed. Filter by "Errors" in Mentions.`, 'warn');
     } else {
       const toastMsg = result.sov === 0
-        ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
-        : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`;
+        ? `Run complete - SOV: 0%. AI didn't mention your brand yet.`
+        : `Run complete - SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`;
       toast(toastMsg, result.sov > 0 ? 'ok' : 'warn');
     }
   } catch(e) {
     clearTimeout(fetchTimeout);
-    // Handle abort/timeout specifically — just fall through to polling
+    // Handle abort/timeout specifically - just fall through to polling
     if (e.name === 'AbortError') {
       console.warn('[runQueries] Fetch timed out after 10 min. Falling back to polling.');
       toast('Connection timed out. Checking if run is still in progress...', 'warn');
@@ -6032,7 +6032,7 @@ async function runQueries(){
     // Switch to polling instead of showing an error.
     if (activeRunId) {
       console.log('[Run] SSE connection lost, switching to polling for runId:', activeRunId);
-      statusTxt.textContent = 'Reconnecting — queries still running on server...';
+      statusTxt.textContent = 'Reconnecting - queries still running on server...';
       try {
         await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, lastResultCount: received, timerInt: setInterval(() => { timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000) });
         return; // pollRunStatus handles cleanup
@@ -6075,7 +6075,7 @@ async function runQueries(){
     clearLiveNotifs();
     btn.classList.remove('running');
     btn.textContent = '▶ RUN QUERIES';
-    toast('Run failed — check API Logs for details.', 'err');
+    toast('Run failed - check API Logs for details.', 'err');
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
@@ -6127,9 +6127,9 @@ async function pollRunStatus(brandId, runId, opts) {
         pollErrors = 0; // Reset on success
         // Reset delay on success (new data arriving = stay responsive)
         if (data.results && data.results.length > lastResultCount) {
-          pollDelay = 2000; // New data — poll frequently
+          pollDelay = 2000; // New data - poll frequently
         } else {
-          // No new data — back off gradually (2s → 3s → 4.5s → ... max 10s)
+          // No new data - back off gradually (2s → 3s → 4.5s → ... max 10s)
           pollDelay = Math.min(pollDelay * 1.5, 10000);
         }
 
@@ -6141,7 +6141,7 @@ async function pollRunStatus(brandId, runId, opts) {
 
         const pct = totalExpected > 0 ? Math.round((received / totalExpected) * 100) : 0;
         if (fill) fill.style.width = pct + '%';
-        if (statusTxt) statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
+        if (statusTxt) statusTxt.textContent = `${received}/${totalExpected} - ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
 
         // Feed any new results to live views
         if (data.results && data.results.length > lastResultCount) {
@@ -6198,11 +6198,11 @@ async function pollRunStatus(brandId, runId, opts) {
 
             const errors = result.errorCount || liveErrorCount;
             if (errors > 0) {
-              toast(`Run complete — ${result.totalQ - errors} succeeded, ${errors} failed.`, 'warn');
+              toast(`Run complete - ${result.totalQ - errors} succeeded, ${errors} failed.`, 'warn');
             } else {
               toast(result.sov === 0
-                ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
-                : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`,
+                ? `Run complete - SOV: 0%. AI didn't mention your brand yet.`
+                : `Run complete - SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`,
                 result.sov > 0 ? 'ok' : 'warn');
             }
             resolve();
@@ -6223,7 +6223,7 @@ async function pollRunStatus(brandId, runId, opts) {
             runningQueries = false;
             clearLiveNotifs();
             if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
-            toast('Run failed — check API Logs for details.', 'err');
+            toast('Run failed - check API Logs for details.', 'err');
             setTimeout(() => { if (prog) prog.style.display = 'none'; if (statusTxt) statusTxt.style.color = ''; if (fill) fill.style.background = ''; renderView(currentView); }, 2000);
             resolve();
           }
@@ -6240,8 +6240,8 @@ async function pollRunStatus(brandId, runId, opts) {
           localStorage.removeItem('livesov_active_run');
           liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
           if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
-          if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
-          toast('Lost connection — refresh page to check run status.', 'err');
+          if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress - refresh to check.'; }
+          toast('Lost connection - refresh page to check run status.', 'err');
           resolve();
         } else {
           schedulePoll(); // Retry with increased delay
@@ -6290,7 +6290,7 @@ async function checkActiveRun() {
         lastResultCount: 0  // Feed all results from scratch on resume
       });
     } else {
-      // Run already finished while we were away — just clear and reload
+      // Run already finished while we were away - just clear and reload
       localStorage.removeItem('livesov_active_run');
       invalidateCache('/api/brands');
       try {
@@ -6316,7 +6316,7 @@ async function checkActiveRun() {
       }
     }
   } catch(_) {
-    // Run not found — probably already cleaned up, just clear localStorage
+    // Run not found - probably already cleaned up, just clear localStorage
     localStorage.removeItem('livesov_active_run');
   }
 }
@@ -6331,7 +6331,7 @@ async function renderApiLogs(){
   const clientErrors = getStoredRunErrors();
   if (clientErrors.length > 0) {
     errBanner = `<div style="margin-bottom:14px;padding:12px 16px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.04);border-radius:var(--radius-sm);display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:12px;"><span style="color:var(--red);font-weight:700;">${clientErrors.length} recent run failure${clientErrors.length>1?'s':''}</span> <span style="color:var(--muted);">— check console for details</span></div>
+      <div style="font-size:12px;"><span style="color:var(--red);font-weight:700;">${clientErrors.length} recent run failure${clientErrors.length>1?'s':''}</span> <span style="color:var(--muted);">- check console for details</span></div>
       <button onclick="clearStoredRunErrors();renderApiLogs();" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:4px 12px;cursor:pointer;font-family:var(--mono);border-radius:var(--radius-xs);">DISMISS</button>
     </div>`;
   }
@@ -6352,7 +6352,7 @@ async function renderApiLogs(){
       return;
     }
 
-    // Stats summary line — recalculate cost to include client-estimated costs for all platforms
+    // Stats summary line - recalculate cost to include client-estimated costs for all platforms
     let recalcCost = 0;
     logs.forEach(l => {
       recalcCost += parseFloat(l.cost) || clientEstimateCost(l.model, l.tokens_in, l.tokens_out);
@@ -6438,10 +6438,10 @@ async function renderApiLogs(){
       const timeStr = dt.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
       const isErr = log.status === 'error';
       const t = PLAT_THEME[log.platform] || {};
-      const queryShort = (log.query || '').length > 40 ? log.query.substring(0, 40) + '...' : (log.query || '—');
-      const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '—';
+      const queryShort = (log.query || '').length > 40 ? log.query.substring(0, 40) + '...' : (log.query || '-');
+      const respTime = log.response_ms ? (log.response_ms/1000).toFixed(1) + 's' : '-';
       const costVal = parseFloat(log.cost) || clientEstimateCost(log.model, log.tokens_in, log.tokens_out);
-      const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '—';
+      const costStr = costVal > 0 ? '$' + costVal.toFixed(3) : '-';
       const dataAttr = item.runId ? ` data-runid="${esc(item.runId)}"` : '';
 
       const errMsg = isErr && log.error ? log.error : '';
@@ -6574,19 +6574,19 @@ function renderAdminTable(users){
     const planColor = u.plan === 'agency' ? 'var(--purple)' : u.plan === 'pro' ? 'var(--green)' : 'var(--muted)';
     const planBg = u.plan === 'agency' ? 'rgba(155,114,255,.1)' : u.plan === 'pro' ? 'rgba(255,97,84,.1)' : 'rgba(255,255,255,.05)';
     const planBorder = u.plan === 'agency' ? 'rgba(155,114,255,.3)' : u.plan === 'pro' ? 'rgba(255,97,84,.3)' : 'var(--border)';
-    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+    const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
     const keyCount = (u.hasKeys||[]).length;
     const isMe = u.id === currentUser.id;
     html += `<tr>
       <td>
-        <div style="font-weight:600;font-size:13px;">${esc(u.name || '—')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:2px 6px;border-radius:4px;margin-left:6px;">YOU</span>' : ''}</div>
+        <div style="font-weight:600;font-size:13px;">${esc(u.name || '-')}${isMe ? ' <span style="font-family:var(--mono);font-size:9px;color:var(--green);border:1px solid rgba(255,97,84,.3);padding:2px 6px;border-radius:4px;margin-left:6px;">YOU</span>' : ''}</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;">${esc(u.email)}${u.username ? ' · <span style="color:var(--green);">@' + esc(u.username) + '</span>' : ''}</div>
       </td>
       <td>
         <span style="display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;background:${planBg};color:${planColor};border:1px solid ${planBorder};text-transform:uppercase;">${u.plan}</span>
       </td>
       <td><span class="badge ${u.role==='admin'?'pos':'neu'}">${u.role||'user'}</span></td>
-      <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;">${u.brandCount !== undefined ? u.brandCount : '-'}</td>
       <td style="font-family:var(--mono);font-size:11px;color:${keyCount ? 'var(--green)' : 'var(--muted)'};">${keyCount ? keyCount + ' configured' : 'None'}</td>
       <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${joined}</td>
       <td style="text-align:right;">
@@ -6607,11 +6607,11 @@ function openAdminEdit(userId){
   el('admin-edit-name').value = u.name || '';
   el('admin-edit-plan').value = u.plan || 'free';
   el('admin-edit-role').value = u.role || 'user';
-  el('admin-edit-title').textContent = 'Edit User — ' + (u.name || u.email);
+  el('admin-edit-title').textContent = 'Edit User - ' + (u.name || u.email);
   // Read-only info
-  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
   el('admin-edit-joined').textContent = joined;
-  el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '—') + ' / ' + (u.limits?.brands || '?') + ' allowed';
+  el('admin-edit-brands').textContent = (u.brandCount !== undefined ? u.brandCount : '-') + ' / ' + (u.limits?.brands || '?') + ' allowed';
   el('admin-edit-keys').textContent = (u.hasKeys||[]).length ? (u.hasKeys||[]).join(', ') : 'None';
   el('admin-edit-limits').textContent = (u.limits?.prompts || '?') + ' prompts, ' + (u.limits?.brands || '?') + ' brands';
   // Disable role change for self, hide delete for self
@@ -6778,7 +6778,7 @@ async function becomeAdmin(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PROMPT DETAILS VIEW (Epic 2.4) — Redesigned
+// PROMPT DETAILS VIEW (Epic 2.4) - Redesigned
 // ═══════════════════════════════════════════════════════════════════
 let _pdVisChart = null, _pdCompChart = null;
 
@@ -6917,7 +6917,7 @@ async function renderPromptDetail() {
             <div class="pd-metric-label">Avg Position</div>
             <div class="pd-metric-icon">&#9733;</div>
           </div>
-          <div class="pd-metric-val" style="color:var(--purple);">${avgRank ? '#' + avgRank.toFixed(1) : '—'}</div>
+          <div class="pd-metric-val" style="color:var(--purple);">${avgRank ? '#' + avgRank.toFixed(1) : '-'}</div>
           <div class="pd-metric-bar"><div class="pd-metric-bar-fill" style="width:${avgRank ? Math.max(5, 100 - avgRank * 10) : 0}%;background:var(--purple);"></div></div>
           <div class="pd-metric-sub">${rankedPlatforms.length} platforms with ranking data</div>
         </div>
@@ -6928,7 +6928,7 @@ async function renderPromptDetail() {
         const icons = ['&#9673;','&#9632;','&#9829;','&#9733;'];
         return `<div class="pd-metric-card ${cls}">
           <div class="pd-metric-top"><div class="pd-metric-label">${label}</div><div class="pd-metric-icon">${icons[i]}</div></div>
-          <div class="pd-metric-val" style="color:var(--muted);">—</div>
+          <div class="pd-metric-val" style="color:var(--muted);">-</div>
           <div class="pd-metric-bar"><div class="pd-metric-bar-fill" style="width:0;"></div></div>
           <div class="pd-metric-sub">No data yet</div>
         </div>`;
@@ -7042,10 +7042,10 @@ async function renderPromptDetail() {
         const found = (pData.mention_count || 0) > 0;
         const mentionRate = pData.total_runs > 0 ? ((pData.mention_count / pData.total_runs) * 100).toFixed(0) : 0;
         const sent = pData.sentiment_distribution || {};
-        const domS = (sent.positive||0) >= (sent.negative||0) ? (sent.positive ? 'Positive' : '—') : 'Negative';
+        const domS = (sent.positive||0) >= (sent.negative||0) ? (sent.positive ? 'Positive' : '-') : 'Negative';
         const domSC = domS === 'Positive' ? 'var(--green)' : domS === 'Negative' ? 'var(--red)' : '';
         const sentBadgeClass = domS === 'Positive' ? 'pos' : domS === 'Negative' ? 'neg' : 'neu';
-        const avgR = pData.avg_rank ? '#' + parseFloat(pData.avg_rank).toFixed(0) : '—';
+        const avgR = pData.avg_rank ? '#' + parseFloat(pData.avg_rank).toFixed(0) : '-';
         const rateColor = mentionRate >= 60 ? 'var(--green)' : mentionRate >= 30 ? 'var(--amber)' : 'var(--red)';
         tableRows += `<tr class="trow">
           <td class="td"><span class="pd-plat-badge"><span class="pd-plat-dot" style="background:${t.color||'#888'};"></span> ${esc(plat)}</span></td>
@@ -7054,7 +7054,7 @@ async function renderPromptDetail() {
           <td class="td" style="font-family:var(--mono);font-weight:700;color:var(--purple);">${avgR}</td>
           <td class="td"><span class="badge ${sentBadgeClass}">${domS}</span></td>
           <td class="td" style="font-family:var(--mono);font-size:11px;color:var(--muted);">${pData.total_runs || 0}</td>
-          <td class="td">${found ? (pData.recommended_count > 0 ? '<span style="color:var(--green);font-weight:700;">Yes</span>' : '<span style="color:var(--muted);">No</span>') : '<span style="color:var(--muted);">—</span>'}</td>
+          <td class="td">${found ? (pData.recommended_count > 0 ? '<span style="color:var(--green);font-weight:700;">Yes</span>' : '<span style="color:var(--muted);">No</span>') : '<span style="color:var(--muted);">-</span>'}</td>
         </tr>`;
       });
       tableEl.innerHTML = `<div class="pd-table-title-row">
@@ -7092,7 +7092,7 @@ async function renderPromptDetail() {
             <div class="pd-run-plat" style="color:${t.color||'#888'};">${esc(r.platform)}</div>
             <div class="pd-run-date">${dateStr}</div>
             <div class="pd-run-mentioned" style="color:${r.mentioned ? 'var(--green)' : 'var(--red)'};">${r.mentioned ? 'YES' : 'NO'}</div>
-            <div class="pd-run-sent" style="color:${sentColor};">${esc(r.sentiment || '—')}</div>
+            <div class="pd-run-sent" style="color:${sentColor};">${esc(r.sentiment || '-')}</div>
             <div class="pd-run-view">View details &rarr;</div>
           </div>`;
         }).join('');
@@ -7139,7 +7139,7 @@ async function viewPromptRun(brandId, runId) {
         <div class="modal-head">
           <span style="display:flex;align-items:center;gap:8px;">
             <span class="pd-plat-dot" style="background:${t.color||'#888'};"></span>
-            Response Details — ${esc(r.platform)}
+            Response Details - ${esc(r.platform)}
           </span>
           <button class="modal-close" onclick="this.closest('.overlay').remove()">&times;</button>
         </div>
@@ -7317,9 +7317,9 @@ async function renderAccuracyMonitor() {
 
   // Show loading state
   kpisEl.innerHTML = `
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Accuracy Rate</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Inaccuracies Found</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Claims Verified</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Accuracy Rate</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Inaccuracies Found</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Claims Verified</div></div>
   `;
 
   try {
@@ -7378,7 +7378,7 @@ async function renderAccuracyMonitor() {
             <span style="color:${severity};font-size:14px;flex-shrink:0;">&#9888;</span>
             <div style="font-size:12px;line-height:1.6;">
               <strong>${esc(m.platform || 'Unknown')}</strong>
-              ${m.fact_key ? ` stated incorrect <strong>${esc(m.fact_key)}</strong> — expected: <em>${esc(expectedVal)}</em>` : esc(m.description || 'Mismatch detected')}
+              ${m.fact_key ? ` stated incorrect <strong>${esc(m.fact_key)}</strong> - expected: <em>${esc(expectedVal)}</em>` : esc(m.description || 'Mismatch detected')}
               ${dateStr ? ` <span style="color:var(--muted);">${dateStr}</span>` : ''}
             </div>
           </div>`;
@@ -7443,9 +7443,9 @@ async function renderCitationAnalysis() {
 
   // Show loading skeleton
   summaryEl.innerHTML = `
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Domains Cited</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Total Citations</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Your Domain Cited</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Domains Cited</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Total Citations</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Your Domain Cited</div></div>
   `;
   domainsEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Loading citations...</div>';
 
@@ -7594,14 +7594,14 @@ async function renderBilling() {
       pro: { label: 'Pro', price: '$29', color: '#4f46e5' },
       agency: { label: 'Agency', price: '$89', color: '#7c3aed' },
       enterprise: { label: 'Enterprise', price: 'Custom', color: '#9b72ff' },
-      owner: { label: 'Owner', price: '—', color: '#059669' }
+      owner: { label: 'Owner', price: '-', color: '#059669' }
     };
     const isActive = (p) => p === plan;
-    const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
+    const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">-</span>'}</td>`;
     const numCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
     const priceCell = (p) => {
       const m = planMeta[p] || {};
-      return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '—'}</span></td>`;
+      return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '-'}</span></td>`;
     };
     const unlimitedCell = (p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">Unlimited</span></td>`;
     const features = [
@@ -7610,7 +7610,6 @@ async function renderBilling() {
       { label: 'Competitors', icon: '&#9878;', key: 'competitors', type: 'num' },
       { label: 'Platforms', icon: '&#9881;', key: 'platforms', type: 'num' },
       { label: 'Sentiment Analysis', icon: '&#9829;', key: 'sentiment', type: 'bool' },
-      { label: 'API Access', icon: '&#10100;', key: 'apiAccess', type: 'bool' },
       { label: 'Priority Support', icon: '&#9993;', key: 'prioritySupport', type: 'bool' }
     ];
     plansEl.innerHTML = `
@@ -7684,7 +7683,7 @@ const _presetMeta = {
   founder: {
     icon: '👔',
     title: 'Founder Overview',
-    desc: 'High-level KPIs and trends for executive decision-making. Focus on what matters most — growth trajectory, brand sentiment, and competitive position.',
+    desc: 'High-level KPIs and trends for executive decision-making. Focus on what matters most - growth trajectory, brand sentiment, and competitive position.',
     className: 'preset-founder'
   },
   seo_manager: {
@@ -8055,7 +8054,7 @@ document.addEventListener('keydown', e => {
     const cfg = await fetch('/api/config', { signal: cfgCtrl.signal }).then(r => r.json());
     clearTimeout(cfgTimeout);
     if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
-  } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
+  } catch(e) { /* config unavailable - Google sign-in will be hidden */ }
   // Show Google landing button only when configured
   if (window.__GOOGLE_CLIENT_ID) {
     const lg = document.getElementById('land-google-signin');
@@ -8072,7 +8071,7 @@ document.addEventListener('keydown', e => {
     el('panel-reset').classList.add('active');
     return;
   }
-  // Direct /login or /signup URL — show auth form immediately (skip landing page)
+  // Direct /login or /signup URL - show auth form immediately (skip landing page)
   if ((window.location.pathname === '/login' || window.location.pathname === '/signup') && !_hasSession) {
     el('landing-page').style.display = 'none';
     el('auth-page').style.display = 'flex';
@@ -8093,7 +8092,7 @@ document.addEventListener('keydown', e => {
     currentUser = data.user;
     await initApp();
   } catch(e) {
-    // Cookie invalid or expired — show login page directly (not landing)
+    // Cookie invalid or expired - show login page directly (not landing)
     localStorage.removeItem('livesov_session');
     token = '';
     el('landing-page').style.display = 'none';

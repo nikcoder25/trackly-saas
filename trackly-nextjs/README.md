@@ -1,6 +1,6 @@
-# Livesov — Next.js Frontend
+# Livesov - Next.js Frontend
 
-AI Visibility Tracker — Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand.
+AI Visibility Tracker - Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand.
 
 ## Tech Stack
 
@@ -76,11 +76,11 @@ src/
 
 ## Key Features
 
-- **Brand Setup** — Configure brand name, aliases, queries, nearby areas, AI platforms
-- **Query Runs** — Send queries to 6 AI platforms and analyze responses
-- **Evidence & Proof** — Full AI responses with brand mention highlighting
-- **SOV Tracking** — Share of Voice trends over time
-- **Competitors** — Track competitor mentions alongside your brand
-- **Citation Analysis** — See which sources AI platforms cite
-- **Scheduled Runs** — Automatic cron-based query execution
-- **Team Sharing** — Invite team members with role-based access
+- **Brand Setup** - Configure brand name, aliases, queries, nearby areas, AI platforms
+- **Query Runs** - Send queries to 6 AI platforms and analyze responses
+- **Evidence & Proof** - Full AI responses with brand mention highlighting
+- **SOV Tracking** - Share of Voice trends over time
+- **Competitors** - Track competitor mentions alongside your brand
+- **Citation Analysis** - See which sources AI platforms cite
+- **Scheduled Runs** - Automatic cron-based query execution
+- **Team Sharing** - Invite team members with role-based access

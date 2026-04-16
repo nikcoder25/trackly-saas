@@ -83,7 +83,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
       {points.map((p, i) => (
         <g key={i}>
           <circle cx={p.x} cy={p.y} r={3} fill="var(--bg)" stroke="var(--primary)" strokeWidth={2} />
-          {/* X labels — show first, last, and middle */}
+          {/* X labels - show first, last, and middle */}
           {(i === 0 || i === points.length - 1 || i === Math.floor(points.length / 2)) && (
             <text x={p.x} y={chartHeight - 2} textAnchor="middle" fontSize={8} fill="var(--muted)" fontFamily="var(--mono)">
               {new Date(p.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -312,7 +312,7 @@ export default function AccuracyPage() {
       } else if (d.checkedRuns) {
         const runs = d.checkedRuns;
         const issueCount = (d.issues || []).length;
-        setCheckMessage({ text: `AI analyzed ${runs} response${runs > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''} — found ${issueCount} issue${issueCount !== 1 ? 's' : ''}`, isError: false });
+        setCheckMessage({ text: `AI analyzed ${runs} response${runs > 1 ? 's' : ''} against ${facts.length} fact${facts.length > 1 ? 's' : ''} - found ${issueCount} issue${issueCount !== 1 ? 's' : ''}`, isError: false });
       }
     }).catch(() => {
       setCheckMessage({ text: 'Failed to run accuracy check. Please try again.', isError: true });
@@ -412,13 +412,13 @@ export default function AccuracyPage() {
         return r.json();
       }).then(d => {
       if (d.stillInaccurate) {
-        // Issue returned — unfix it
+        // Issue returned - unfix it
         setIssues(prev => prev.map(iss =>
           iss.id === issue.id ? { ...iss, fixed: false, fixed_at: undefined, found: d.found || iss.found, explanation: d.explanation || iss.explanation } : iss
         ));
-        toast('Issue still present — marked as unfixed.', 'error');
+        toast('Issue still present - marked as unfixed.', 'error');
       } else {
-        toast('Verified — issue is fixed!');
+        toast('Verified - issue is fixed!');
       }
     }).catch(() => toast('Re-verify failed. Try again.', 'error'))
       .finally(() => setReverifying(null));
@@ -543,11 +543,11 @@ export default function AccuracyPage() {
         </div>
       )}
 
-      {/* KPI Cards — 4 score cards */}
+      {/* KPI Cards - 4 score cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
         <div className="score-card">
           <div className="score-val" style={{ fontSize: 24, color: accuracyRate != null ? rateColor(accuracyRate) : 'var(--muted)' }}>
-            {accuracyRate != null ? `${accuracyRate}%` : '—'}
+            {accuracyRate != null ? `${accuracyRate}%` : '-'}
           </div>
           <div className="score-label">Accuracy Rate</div>
           {accuracyRate != null && trend.length >= 2 && (() => {
@@ -580,7 +580,7 @@ export default function AccuracyPage() {
         <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Your Brand Facts</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Define what&apos;s true about your brand — AI accuracy is checked against these.</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Define what&apos;s true about your brand - AI accuracy is checked against these.</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={autoDiscover} disabled={discovering}
@@ -600,7 +600,7 @@ export default function AccuracyPage() {
               <span style={{ fontSize: 13, color: ACCENT_PURPLE, fontWeight: 600 }}>AI is analyzing your brand to discover facts...</span>
             </div>
           )}
-          {/* Add Fact Form — inline */}
+          {/* Add Fact Form - inline */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 160px', minWidth: 140 }}>
               <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Fact Key</label>

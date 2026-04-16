@@ -1,5 +1,5 @@
 /**
- * DodoPayments integration — checkout, webhooks, customer portal
+ * DodoPayments integration - checkout, webhooks, customer portal
  * Uses @dodopayments/express adapter for Express.js
  */
 const express = require('express');
@@ -15,7 +15,7 @@ const { sendPaymentReceiptEmail, sendSubscriptionCancelledEmail } = require('../
 const { createCheckoutSession } = require('@dodopayments/core/checkout');
 const log = createLogger('Payments');
 
-// Webhook idempotency — prevent duplicate event processing
+// Webhook idempotency - prevent duplicate event processing
 async function isWebhookProcessed(eventId) {
   if (!eventId) return false;
   try {
@@ -39,7 +39,7 @@ const DODO_WEBHOOK_KEY    = process.env.DODO_PAYMENTS_WEBHOOK_KEY || '';
 const DODO_ENVIRONMENT    = process.env.DODO_PAYMENTS_ENVIRONMENT; // 'test_mode' or 'live_mode'
 const DODO_RETURN_URL     = process.env.DODO_PAYMENTS_RETURN_URL || '';
 
-// Product IDs — set these in your DodoPayments dashboard, then configure via env vars
+// Product IDs - set these in your DodoPayments dashboard, then configure via env vars
 const DODO_STARTER_PRODUCT_ID    = process.env.DODO_STARTER_PRODUCT_ID || '';
 const DODO_PRO_PRODUCT_ID        = process.env.DODO_PRO_PRODUCT_ID || '';
 const DODO_AGENCY_PRODUCT_ID     = process.env.DODO_AGENCY_PRODUCT_ID || '';
@@ -54,7 +54,7 @@ function planFromProductId(productId) {
   return null;
 }
 
-// ─── CHECKOUT — Create a payment link for plan upgrade ──────────
+// ─── CHECKOUT - Create a payment link for plan upgrade ──────────
 router.post('/checkout', auth, async (req, res) => {
   if (!DODO_API_KEY) {
     return res.status(503).json({ error: 'Payment system not configured. Contact support.' });
@@ -136,7 +136,7 @@ router.post('/checkout', auth, async (req, res) => {
   }
 });
 
-// ─── WEBHOOK — Handle DodoPayments events ──────────────────────
+// ─── WEBHOOK - Handle DodoPayments events ──────────────────────
 // Uses @dodopayments/express Webhooks handler for signature verification
 if (DODO_WEBHOOK_KEY) {
   const { Webhooks } = require('@dodopayments/express');
@@ -145,7 +145,7 @@ if (DODO_WEBHOOK_KEY) {
     Webhooks({
       webhookKey: DODO_WEBHOOK_KEY,
 
-      // Payment succeeded — upgrade user plan
+      // Payment succeeded - upgrade user plan
       onPaymentSucceeded: async (payload) => {
         try {
           const data = payload.data || payload;
@@ -229,7 +229,7 @@ if (DODO_WEBHOOK_KEY) {
         }
       },
 
-      // Subscription renewed — re-confirm the plan is active
+      // Subscription renewed - re-confirm the plan is active
       onSubscriptionRenewed: async (payload) => {
         try {
           const data = payload.data || payload;
@@ -248,7 +248,7 @@ if (DODO_WEBHOOK_KEY) {
         }
       },
 
-      // Subscription cancelled — downgrade to free
+      // Subscription cancelled - downgrade to free
       onSubscriptionCancelled: async (payload) => {
         try {
           const data = payload.data || payload;
@@ -269,7 +269,7 @@ if (DODO_WEBHOOK_KEY) {
             }
           }
           if (!targetUserId) {
-            log.warn('subscription.cancelled — could not resolve user');
+            log.warn('subscription.cancelled - could not resolve user');
             return;
           }
           const cancelResult = await pool.query(
@@ -289,7 +289,7 @@ if (DODO_WEBHOOK_KEY) {
         }
       },
 
-      // Subscription expired — downgrade to free
+      // Subscription expired - downgrade to free
       onSubscriptionExpired: async (payload) => {
         try {
           const data = payload.data || payload;
@@ -309,7 +309,7 @@ if (DODO_WEBHOOK_KEY) {
             }
           }
           if (!targetUserId) {
-            log.warn('subscription.expired — could not resolve user');
+            log.warn('subscription.expired - could not resolve user');
             return;
           }
           await pool.query(
@@ -323,7 +323,7 @@ if (DODO_WEBHOOK_KEY) {
         }
       },
 
-      // Subscription on hold — keep plan but warn user
+      // Subscription on hold - keep plan but warn user
       onSubscriptionOnHold: async (payload) => {
         const data = payload.data || payload;
         const metadata = data.metadata || {};
@@ -337,7 +337,7 @@ if (DODO_WEBHOOK_KEY) {
         }
       },
 
-      // Refund succeeded — downgrade to free
+      // Refund succeeded - downgrade to free
       onRefundSucceeded: async (payload) => {
         try {
           const data = payload.data || payload;
@@ -357,7 +357,7 @@ if (DODO_WEBHOOK_KEY) {
             }
           }
           if (!targetUserId) {
-            log.warn('refund.succeeded — could not resolve user');
+            log.warn('refund.succeeded - could not resolve user');
             return;
           }
           await pool.query(
@@ -378,13 +378,13 @@ if (DODO_WEBHOOK_KEY) {
     })
   );
 } else {
-  // No webhook key configured — return 503 for webhook requests
+  // No webhook key configured - return 503 for webhook requests
   router.post('/webhooks/dodopayments', (req, res) => {
     res.status(503).json({ error: 'Webhook not configured' });
   });
 }
 
-// ─── CANCEL SUBSCRIPTION — Called during self-service downgrade ─
+// ─── CANCEL SUBSCRIPTION - Called during self-service downgrade ─
 async function cancelDodoSubscription(subscriptionId) {
   if (!DODO_API_KEY || !subscriptionId) return false;
   const baseUrl = DODO_ENVIRONMENT === 'live_mode'
@@ -423,7 +423,7 @@ async function cancelDodoSubscription(subscriptionId) {
   });
 }
 
-// ─── DODO API HELPER — GET requests to DodoPayments API ─────────
+// ─── DODO API HELPER - GET requests to DodoPayments API ─────────
 function dodoApiGet(path) {
   if (!DODO_API_KEY) return Promise.resolve(null);
   const baseUrl = DODO_ENVIRONMENT === 'live_mode'
@@ -452,7 +452,7 @@ function dodoApiGet(path) {
   });
 }
 
-// ─── CANCEL SUBSCRIPTION — User self-service cancellation ───────
+// ─── CANCEL SUBSCRIPTION - User self-service cancellation ───────
 router.post('/cancel', auth, async (req, res) => {
   try {
     const userResult = await pool.query('SELECT id, plan, settings FROM users WHERE id = $1', [req.user.id]);
@@ -489,7 +489,7 @@ router.post('/cancel', auth, async (req, res) => {
   }
 });
 
-// ─── SUBSCRIPTION STATUS — Get current subscription info ────────
+// ─── SUBSCRIPTION STATUS - Get current subscription info ────────
 router.get('/subscription', auth, async (req, res) => {
   try {
     const userResult = await pool.query('SELECT plan, settings FROM users WHERE id = $1', [req.user.id]);
@@ -527,7 +527,7 @@ router.get('/subscription', auth, async (req, res) => {
   }
 });
 
-// ─── PAYMENT HISTORY — List past payments for this user ─────────
+// ─── PAYMENT HISTORY - List past payments for this user ─────────
 router.get('/history', auth, async (req, res) => {
   if (!DODO_API_KEY) {
     return res.status(503).json({ error: 'Payment system not configured.' });
@@ -538,7 +538,7 @@ router.get('/history', auth, async (req, res) => {
     const settings = userResult.rows[0].settings || {};
     const subscriptionId = settings.dodo_subscription_id;
 
-    // Fetch payments — DodoPayments doesn't filter by customer email in list,
+    // Fetch payments - DodoPayments doesn't filter by customer email in list,
     // so we fetch recent payments and filter by metadata user_id on our side
     const data = await dodoApiGet('/payments?page_size=50');
     if (!data) {
@@ -570,7 +570,7 @@ router.get('/history', auth, async (req, res) => {
   }
 });
 
-// ─── INVOICE DOWNLOAD — Proxy invoice PDF from DodoPayments ─────
+// ─── INVOICE DOWNLOAD - Proxy invoice PDF from DodoPayments ─────
 router.get('/invoice/:paymentId', auth, async (req, res) => {
   if (!DODO_API_KEY) {
     return res.status(503).json({ error: 'Payment system not configured.' });
@@ -614,7 +614,7 @@ router.get('/invoice/:paymentId', auth, async (req, res) => {
   }
 });
 
-// ─── PAYMENT STATUS — Check if DodoPayments is configured ──────
+// ─── PAYMENT STATUS - Check if DodoPayments is configured ──────
 router.get('/payment-status', auth, (req, res) => {
   res.json({
     configured: !!(DODO_API_KEY && DODO_WEBHOOK_KEY),

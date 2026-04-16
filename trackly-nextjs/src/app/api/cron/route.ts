@@ -172,7 +172,7 @@ export async function GET(request: Request) {
     console.error('[Cron]', (e as Error).message);
     return Response.json({ error: 'Cron job failed' }, { status: 500 });
   } finally {
-    // Release lock — only the holder (matching instance_id) can release
+    // Release lock - only the holder (matching instance_id) can release
     await pool.query(
       `UPDATE cron_locks SET locked_at = NULL WHERE name = 'scheduler' AND instance_id = $1`,
       [instanceId]

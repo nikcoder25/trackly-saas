@@ -2,7 +2,7 @@
  * Rate limiter backed by PostgreSQL for persistence across deploys and instances.
  * Falls back to in-memory if DB is unavailable.
  *
- * Same API as before: rateLimit(key, windowMs, max) — but now async.
+ * Same API as before: rateLimit(key, windowMs, max) - but now async.
  */
 import { pool } from './db';
 
@@ -23,7 +23,7 @@ async function ensureTable() {
     `);
     tableReady = true;
   } catch {
-    // Table creation failed — will use in-memory fallback
+    // Table creation failed - will use in-memory fallback
   }
 }
 
@@ -91,7 +91,7 @@ export async function rateLimit(key: string, windowMs: number, max: number): Pro
     }
     return { allowed: true, retryAfter: 0 };
   } catch {
-    // DB unavailable — fall back to in-memory
+    // DB unavailable - fall back to in-memory
     return memFallback(key, windowMs, max);
   }
 }

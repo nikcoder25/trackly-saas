@@ -28,7 +28,7 @@ async function initGoogleSignIn() {
     // Load Google Identity Services script lazily (uses shared promise)
     loadGoogleScript().catch(() => {});
   } catch(e) {
-    // Google Sign-In not available — silently skip
+    // Google Sign-In not available - silently skip
   }
 }
 
@@ -62,7 +62,7 @@ async function triggerGoogleSignIn() {
 
   el('auth-err').style.display = 'none';
 
-  // Use OAuth2 token flow — opens a proper Google account chooser popup
+  // Use OAuth2 token flow - opens a proper Google account chooser popup
   const tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: 'openid email profile',
@@ -121,7 +121,7 @@ function authTab(tab){
   const panel = el('panel-' + tab);
   if (panel) panel.classList.add('active');
   el('auth-err').style.display = 'none';
-  // Google buttons are always visible in HTML — they show a helpful message if not configured
+  // Google buttons are always visible in HTML - they show a helpful message if not configured
 }
 
 async function doLogin(){
@@ -141,7 +141,7 @@ async function doLogin(){
     const body = { email, password };
     if (totpCode) body.totpCode = totpCode;
     const data = await api('POST', '/api/auth/login', body);
-    // Handle 2FA challenge — server returns requires2FA when TOTP is needed
+    // Handle 2FA challenge - server returns requires2FA when TOTP is needed
     if (data.requires2FA) {
       const wrap = el('login-2fa-wrap');
       if (wrap) { wrap.style.display = 'block'; }
@@ -202,7 +202,7 @@ async function doRegister(){
     currentUser = data.user;
     localStorage.setItem('livesov_session', '1');
     await initApp();
-    if (currentUser.username) toast('Your username is @' + currentUser.username + ' — you can change it in Account settings', 'ok');
+    if (currentUser.username) toast('Your username is @' + currentUser.username + ' - you can change it in Account settings', 'ok');
   } catch(e) {
     el('auth-err').textContent = e.message;
     el('auth-err').style.display = 'block';

@@ -23,7 +23,7 @@
   border-width: 0;
 }
 
-/* Skip-to-content link — visible only on keyboard focus */
+/* Skip-to-content link - visible only on keyboard focus */
 .skip-to-content {
   position: absolute;
   width: 1px;
@@ -137,7 +137,7 @@
    utility only sets width, not color. These rules ensure all
    dashboard elements get proper borders and spacing. */
 
-/* Tailwind v4 .border class only sets width — add color for dashboard cards/containers.
+/* Tailwind v4 .border class only sets width - add color for dashboard cards/containers.
    Scoped to direct children and common card patterns to avoid overriding component-level borders. */
 .main > div > .border,
 .main .card.border,
@@ -152,7 +152,7 @@
   box-shadow: var(--app-shadow);
 }
 
-/* Grid gaps — Tailwind gap-3 = 12px, gap-3.5 = 14px, gap-4 = 16px */
+/* Grid gaps - Tailwind gap-3 = 12px, gap-3.5 = 14px, gap-4 = 16px */
 .main .gap-3\.5, .main .gap-4 {
   gap: 14px;
 }
@@ -203,7 +203,7 @@
   margin-bottom: 14px;
 }
 
-/* Tailwind v4 spacing/font fallbacks — only applied if Tailwind utilities aren't generating.
+/* Tailwind v4 spacing/font fallbacks - only applied if Tailwind utilities aren't generating.
    No !important so component-level Tailwind classes can still override. */
 .main .p-4 { padding: 16px; }
 .main .p-5 { padding: 20px; }
@@ -282,7 +282,7 @@
 }
 .pill-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary-border); }
 
-/* Default form element styles in dashboard — only applies to unstyled inputs.
+/* Default form element styles in dashboard - only applies to unstyled inputs.
    Inputs with explicit Tailwind classes (h-11, pl-9, etc.) won't be overridden
    since these rules have low specificity and no !important. */
 .main select:not([class*="h-"]),

@@ -55,7 +55,7 @@ export default function CitationsPage() {
         </div>
       </div>
 
-      {/* KPI Cards — 3 score cards */}
+      {/* KPI Cards - 3 score cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
         <div className="score-card">
           <div className="score-val" style={{ fontSize: 24, color: 'var(--blue)' }}>{domainCount}</div>
@@ -71,7 +71,7 @@ export default function CitationsPage() {
         </div>
       </div>
 
-      {/* Top Cited Domains — horizontal bar chart */}
+      {/* Top Cited Domains - horizontal bar chart */}
       <div className="card" style={{ padding: '20px 24px' }}>
         <div className="section-title">Top Cited Domains</div>
         {sortedDomains.length === 0 ? (

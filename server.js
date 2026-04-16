@@ -22,7 +22,7 @@ if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET && process.e
   process.exit(1);
 }
 if (process.env.NODE_ENV === 'production' && !process.env.ENCRYPTION_KEY) {
-  console.warn('[WARN] ENCRYPTION_KEY not set in production — falling back to JWT_SECRET.');
+  console.warn('[WARN] ENCRYPTION_KEY not set in production - falling back to JWT_SECRET.');
   console.warn('       Rotating JWT_SECRET will make ALL encrypted API keys UNRECOVERABLE.');
   console.warn('       Set ENCRYPTION_KEY: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
 }
@@ -78,7 +78,7 @@ if (process.env.NODE_ENV === 'production') {
       const statusCode = (req.method === 'GET' || req.method === 'HEAD') ? 301 : 308;
       return res.redirect(statusCode, 'https://' + host + req.url);
     }
-    // HSTS header — force HTTPS for 1 year
+    // HSTS header - force HTTPS for 1 year
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   });
@@ -106,7 +106,7 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } // needed for Google Sign-In popup
 }));
 
-// Gzip compression — skip SSE streaming endpoints so results arrive in real-time.
+// Gzip compression - skip SSE streaming endpoints so results arrive in real-time.
 // Check raw req.url string (always available) rather than req.query (may not be parsed yet)
 // or res.getHeader (not set until route handler runs).
 app.use(compression({
@@ -116,7 +116,7 @@ app.use(compression({
   }
 }));
 
-// CORS — require explicit ALLOWED_ORIGINS in all environments
+// CORS - require explicit ALLOWED_ORIGINS in all environments
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
@@ -124,7 +124,7 @@ app.use(cors({
   credentials: true
 }));
 
-// Skip JSON body parsing for the DodoPayments webhook route — the
+// Skip JSON body parsing for the DodoPayments webhook route - the
 // @dodopayments/express Webhooks adapter needs the raw body stream
 // intact to compute the HMAC signature for verification.
 app.use((req, res, next) => {
@@ -152,14 +152,14 @@ app.use((req, res, next) => {
     // In production, reject state-changing requests without Origin header
     // unless they come with a valid Authorization header (API/server-to-server calls)
     const hasAuth = req.headers.authorization || req.cookies?.livesov_token;
-    if (!hasAuth) return res.status(403).json({ error: 'Forbidden — missing origin header' });
+    if (!hasAuth) return res.status(403).json({ error: 'Forbidden - missing origin header' });
     return next();
   }
   if (allowed.includes(origin)) return next();
-  return res.status(403).json({ error: 'Forbidden — origin not allowed' });
+  return res.status(403).json({ error: 'Forbidden - origin not allowed' });
 });
 
-// Rate limit handler — includes retryAfter in response body
+// Rate limit handler - includes retryAfter in response body
 function rateLimitHandler(windowMs) {
   return (req, res) => {
     const retryAfterSec = Math.ceil(windowMs / 1000);
@@ -171,7 +171,7 @@ function rateLimitHandler(windowMs) {
   };
 }
 
-// Shared key generator — per-user when authenticated, per-IP otherwise
+// Shared key generator - per-user when authenticated, per-IP otherwise
 function userOrIpKey(prefix) {
   return (req) => {
     const authHeader = req.headers.authorization || '';
@@ -186,7 +186,7 @@ function userOrIpKey(prefix) {
   };
 }
 
-// Rate limiting — auth endpoints (prevent brute force)
+// Rate limiting - auth endpoints (prevent brute force)
 const authLimiter = rateLimit({
   windowMs: RATE_LIMITS.auth.windowMs,
   max: RATE_LIMITS.auth.max,
@@ -198,7 +198,7 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// Rate limiting — API endpoints (general, excludes long-running run endpoint)
+// Rate limiting - API endpoints (general, excludes long-running run endpoint)
 const apiLimiter = rateLimit({
   windowMs: RATE_LIMITS.api.windowMs,
   max: RATE_LIMITS.api.max,
@@ -211,7 +211,7 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
-// Rate limiting — run endpoint (prevent abuse of expensive AI queries)
+// Rate limiting - run endpoint (prevent abuse of expensive AI queries)
 const runLimiter = rateLimit({
   windowMs: RATE_LIMITS.run.windowMs,
   max: RATE_LIMITS.run.max,
@@ -223,7 +223,7 @@ const runLimiter = rateLimit({
 });
 app.use('/api/brands/:id/run', runLimiter);
 
-// Static assets — versioned CSS/JS (with ?v= query string) get long cache;
+// Static assets - versioned CSS/JS (with ?v= query string) get long cache;
 // HTML has no-cache so users always get the latest SPA shell.
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '7d',
@@ -233,13 +233,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache');
     } else if (filePath.endsWith('.min.js') || filePath.endsWith('.min.css')) {
-      // Minified assets are versioned via query string — cache aggressively
+      // Minified assets are versioned via query string - cache aggressively
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
   }
 }));
 
-// ─── HEALTH CHECK (before auth — accessible to monitoring tools) ──
+// ─── HEALTH CHECK (before auth - accessible to monitoring tools) ──
 app.get('/api/health', async (req, res) => {
   let status = 'ok';
   let code = 200;
@@ -305,7 +305,7 @@ app.get('/api/monitoring/health', async (req, res) => {
   }
 });
 
-// ─── CONFIG ENDPOINT (public — serves non-secret configuration) ──
+// ─── CONFIG ENDPOINT (public - serves non-secret configuration) ──
 app.get('/api/config', (req, res) => {
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null
@@ -372,7 +372,7 @@ const IS_CRON_WORKER = !process.env.CLUSTER_WORKER_ID || process.env.CLUSTER_WOR
 const { runBrandQueries } = require('./routes/brands');
 const { getUserPlan, getPlanLimits } = require('./lib/plans');
 
-// Cron concurrency — process up to 5 brands simultaneously to avoid
+// Cron concurrency - process up to 5 brands simultaneously to avoid
 // sequential bottleneck at scale (300+ users with scheduled brands).
 const CRON_BATCH_SIZE = parseInt(process.env.CRON_BATCH_SIZE, 10) || 5;
 
@@ -383,7 +383,7 @@ async function withCronLock(lockId, fn) {
   try {
     client = await safeConnect();
   } catch(e) {
-    // Cannot get DB connection — skip this cron cycle rather than running unprotected
+    // Cannot get DB connection - skip this cron cycle rather than running unprotected
     log.warn('Cron lock: failed to get DB connection, skipping cycle', { error: e.message });
     return;
   }
@@ -398,7 +398,7 @@ async function withCronLock(lockId, fn) {
       await client.query('SELECT pg_advisory_unlock($1)', [lockId]).catch(() => {});
     }
   } catch(e) {
-    // Lock query failed — skip rather than running unprotected (prevents duplicate runs)
+    // Lock query failed - skip rather than running unprotected (prevents duplicate runs)
     log.warn('Cron lock acquisition failed, skipping cycle', { error: e.message, lockId });
   } finally {
     client.release();
@@ -408,7 +408,7 @@ async function withCronLock(lockId, fn) {
 IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
   await withCronLock(1001, async () => {
   try {
-    // Fetch all brands — include those with schedule null (default to 24h)
+    // Fetch all brands - include those with schedule null (default to 24h)
     const result = await pool.query(
       `SELECT b.* FROM brands b JOIN users u ON b.user_id = u.id`
     );
@@ -434,7 +434,7 @@ IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
       const limits = planCache[brand.userId];
       if (!limits.scheduledRuns) continue;
 
-      // Enforce brand count limit — skip brands beyond the plan's allowed count
+      // Enforce brand count limit - skip brands beyond the plan's allowed count
       userBrandCounts[brand.userId] = (userBrandCounts[brand.userId] || 0) + 1;
       if (userBrandCounts[brand.userId] > limits.brands) {
         continue;
@@ -476,7 +476,7 @@ IS_CRON_WORKER && cron.schedule('0 * * * *', async () => {
   }); // end withCronLock
 });
 
-// ─── SCHEDULED REPORTS (cron — every Monday 8am and 1st of month 8am) ──
+// ─── SCHEDULED REPORTS (cron - every Monday 8am and 1st of month 8am) ──
 const { sendReportEmail, isEmailConfigured } = require('./lib/email');
 
 IS_CRON_WORKER && cron.schedule('0 8 * * 1', () => sendScheduledReports('weekly').catch(e => log.error('Weekly report cron failed', { error: e.message })));   // Monday 8am
@@ -621,7 +621,7 @@ const server = app.listen(PORT, () => {
   };
   const missingDodo = Object.entries(dodoVars).filter(([, v]) => !v).map(([k]) => k);
   if (missingDodo.length) {
-    log.warn(`DodoPayments partially configured — missing: ${missingDodo.join(', ')}`);
+    log.warn(`DodoPayments partially configured - missing: ${missingDodo.join(', ')}`);
     log.warn('Paid plan upgrades will not work until all DODO_* env vars are set');
   } else {
     log.info(`DodoPayments ready (${process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode'})`);

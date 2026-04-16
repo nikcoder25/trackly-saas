@@ -41,7 +41,7 @@ const fr: Translations = {
     title: "Tout ce dont vous avez besoin pour suivre la visibilité IA",
     subtitle: "Surveillez votre marque sur toutes les grandes plateformes IA depuis un seul tableau de bord.",
     items: [
-      { title: '6 Plateformes IA', desc: 'Suivez les mentions sur ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews \u2014 tout en un seul endroit.', icon: '\u25CE' },
+      { title: '6 Plateformes IA', desc: 'Suivez les mentions sur ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews - tout en un seul endroit.', icon: '\u25CE' },
       { title: 'Évidence et Preuves', desc: 'Obtenez les réponses IA complètes comme preuve. Partagez avec les clients, exportez en CSV.', icon: '\u25C6' },
       { title: 'Part de Voix', desc: 'Mesurez quel pourcentage de réponses IA mentionnent votre marque vs les concurrents.', icon: '\u25CB' },
       { title: "Analyse de Sentiment", desc: "Sachez si l'IA recommande votre marque positivement, négativement ou de manière neutre.", icon: '\u26A1' },
@@ -99,7 +99,7 @@ const fr: Translations = {
       { title: "40% des recherches utilisent l'IA", desc: "Les utilisateurs passent de Google aux chatbots IA. ChatGPT, Perplexity et d'autres plateformes IA remplacent la recherche traditionnelle.", icon: '\u25B2' },
       { title: 'Le SEO traditionnel ne suffit plus', desc: "Être #1 sur Google ne signifie pas que l'IA vous recommandera. Les modèles IA utilisent différents signaux.", icon: '\u25CE' },
       { title: "Le GEO est l'avenir du marketing", desc: "L'Optimisation de Moteur Génératif (GEO) assure votre présence dans les réponses IA. Livesov vous donne les données pour mesurer et améliorer.", icon: '\u25C6' },
-      { title: 'Des preuves pour vos clients', desc: "Si vous êtes une agence, Livesov fournit des preuves vérifiables de visibilité IA \u2014 des réponses API réelles.", icon: '\u25A0' },
+      { title: 'Des preuves pour vos clients', desc: "Si vous êtes une agence, Livesov fournit des preuves vérifiables de visibilité IA - des réponses API réelles.", icon: '\u25A0' },
     ],
   },
   useCases: {
@@ -107,7 +107,7 @@ const fr: Translations = {
     title: 'Qui utilise Livesov ?',
     subtitle: "Des entreprises locales aux agences.",
     items: [
-      { title: 'Entreprises Locales', desc: "HVAC, plombiers, dentistes, avocats \u2014 vérifiez si l'IA recommande votre entreprise.", icon: '\u25CB' },
+      { title: 'Entreprises Locales', desc: "HVAC, plombiers, dentistes, avocats - vérifiez si l'IA recommande votre entreprise.", icon: '\u25CB' },
       { title: 'Agences SEO', desc: "Offrez le suivi de visibilité IA comme service. Montrez des preuves réelles aux clients.", icon: '\u25C8' },
       { title: 'SaaS et E-commerce', desc: "Surveillez si les plateformes IA recommandent votre produit. Suivez les concurrents.", icon: '\u2B21' },
       { title: 'Équipes Marketing', desc: "Suivez la perception de marque dans les réponses IA. Mesurez l'impact des campagnes.", icon: '\u25C6' },
@@ -126,7 +126,7 @@ const fr: Translations = {
       { q: "Qu'est-ce que la Part de Voix en IA ?", a: "La Part de Voix (SOV) mesure quel pourcentage de réponses IA mentionnent votre marque." },
       { q: "Qu'est-ce que le GEO ?", a: "L'Optimisation de Moteur Génératif (GEO) optimise votre présence pour apparaître dans les réponses IA." },
       { q: 'Puis-je utiliser Livesov pour les rapports clients ?', a: "Oui. Livesov sauvegarde les réponses IA complètes comme preuve, exportables en CSV." },
-      { q: 'Combien coûte Livesov ?', a: "Livesov commence à 9$/mois avec le plan Starter \u2014 1 marque, 2 plateformes IA, 30 requêtes/mois." },
+      { q: 'Combien coûte Livesov ?', a: "Livesov commence à 9$/mois avec le plan Starter - 1 marque, 2 plateformes IA, 30 requêtes/mois." },
       { q: 'À quelle fréquence Livesov exécute les requêtes ?', a: "Livesov supporte le suivi automatique quotidien sur tous les plans payants." },
       { q: 'En quoi Livesov diffère des outils SEO ?', a: "Les outils SEO traditionnels suivent vos classements Google. Livesov suit votre visibilité dans les réponses IA." },
     ],
@@ -147,7 +147,7 @@ const fr: Translations = {
     note: "Plans à partir de 9$/mois. Configuration en moins de 2 minutes.",
   },
   footer: {
-    desc: "AI Visibility Tracker \u2014 Suivez comment les plateformes IA mentionnent votre marque sur ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews.",
+    desc: "AI Visibility Tracker - Suivez comment les plateformes IA mentionnent votre marque sur ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews.",
     product: 'Produit',
     resources: 'Ressources',
     legal: 'Légal',

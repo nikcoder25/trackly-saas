@@ -1,5 +1,5 @@
 /**
- * Cluster mode wrapper — runs server.js across multiple CPU cores.
+ * Cluster mode wrapper - runs server.js across multiple CPU cores.
  *
  * Usage:
  *   node cluster.js          # auto-detect CPU count
@@ -32,7 +32,7 @@ if (cluster.isPrimary) {
     cluster.fork();
   });
 
-  // Graceful shutdown — forward signals to all workers
+  // Graceful shutdown - forward signals to all workers
   const shutdown = (signal) => {
     console.log(`[Cluster] ${signal} received. Shutting down workers...`);
     for (const id in cluster.workers) {

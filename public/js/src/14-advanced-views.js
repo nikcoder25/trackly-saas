@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════
-// PROMPT DETAILS VIEW (Epic 2.4) — Redesigned
+// PROMPT DETAILS VIEW (Epic 2.4) - Redesigned
 // ═══════════════════════════════════════════════════════════════════
 let _pdVisChart = null, _pdCompChart = null;
 
@@ -138,7 +138,7 @@ async function renderPromptDetail() {
             <div class="pd-metric-label">Avg Position</div>
             <div class="pd-metric-icon">&#9733;</div>
           </div>
-          <div class="pd-metric-val" style="color:var(--purple);">${avgRank ? '#' + avgRank.toFixed(1) : '—'}</div>
+          <div class="pd-metric-val" style="color:var(--purple);">${avgRank ? '#' + avgRank.toFixed(1) : '-'}</div>
           <div class="pd-metric-bar"><div class="pd-metric-bar-fill" style="width:${avgRank ? Math.max(5, 100 - avgRank * 10) : 0}%;background:var(--purple);"></div></div>
           <div class="pd-metric-sub">${rankedPlatforms.length} platforms with ranking data</div>
         </div>
@@ -149,7 +149,7 @@ async function renderPromptDetail() {
         const icons = ['&#9673;','&#9632;','&#9829;','&#9733;'];
         return `<div class="pd-metric-card ${cls}">
           <div class="pd-metric-top"><div class="pd-metric-label">${label}</div><div class="pd-metric-icon">${icons[i]}</div></div>
-          <div class="pd-metric-val" style="color:var(--muted);">—</div>
+          <div class="pd-metric-val" style="color:var(--muted);">-</div>
           <div class="pd-metric-bar"><div class="pd-metric-bar-fill" style="width:0;"></div></div>
           <div class="pd-metric-sub">No data yet</div>
         </div>`;
@@ -263,10 +263,10 @@ async function renderPromptDetail() {
         const found = (pData.mention_count || 0) > 0;
         const mentionRate = pData.total_runs > 0 ? ((pData.mention_count / pData.total_runs) * 100).toFixed(0) : 0;
         const sent = pData.sentiment_distribution || {};
-        const domS = (sent.positive||0) >= (sent.negative||0) ? (sent.positive ? 'Positive' : '—') : 'Negative';
+        const domS = (sent.positive||0) >= (sent.negative||0) ? (sent.positive ? 'Positive' : '-') : 'Negative';
         const domSC = domS === 'Positive' ? 'var(--green)' : domS === 'Negative' ? 'var(--red)' : '';
         const sentBadgeClass = domS === 'Positive' ? 'pos' : domS === 'Negative' ? 'neg' : 'neu';
-        const avgR = pData.avg_rank ? '#' + parseFloat(pData.avg_rank).toFixed(0) : '—';
+        const avgR = pData.avg_rank ? '#' + parseFloat(pData.avg_rank).toFixed(0) : '-';
         const rateColor = mentionRate >= 60 ? 'var(--green)' : mentionRate >= 30 ? 'var(--amber)' : 'var(--red)';
         tableRows += `<tr class="trow">
           <td class="td"><span class="pd-plat-badge"><span class="pd-plat-dot" style="background:${t.color||'#888'};"></span> ${esc(plat)}</span></td>
@@ -275,7 +275,7 @@ async function renderPromptDetail() {
           <td class="td" style="font-family:var(--mono);font-weight:700;color:var(--purple);">${avgR}</td>
           <td class="td"><span class="badge ${sentBadgeClass}">${domS}</span></td>
           <td class="td" style="font-family:var(--mono);font-size:11px;color:var(--muted);">${pData.total_runs || 0}</td>
-          <td class="td">${found ? (pData.recommended_count > 0 ? '<span style="color:var(--green);font-weight:700;">Yes</span>' : '<span style="color:var(--muted);">No</span>') : '<span style="color:var(--muted);">—</span>'}</td>
+          <td class="td">${found ? (pData.recommended_count > 0 ? '<span style="color:var(--green);font-weight:700;">Yes</span>' : '<span style="color:var(--muted);">No</span>') : '<span style="color:var(--muted);">-</span>'}</td>
         </tr>`;
       });
       tableEl.innerHTML = `<div class="pd-table-title-row">
@@ -313,7 +313,7 @@ async function renderPromptDetail() {
             <div class="pd-run-plat" style="color:${t.color||'#888'};">${esc(r.platform)}</div>
             <div class="pd-run-date">${dateStr}</div>
             <div class="pd-run-mentioned" style="color:${r.mentioned ? 'var(--green)' : 'var(--red)'};">${r.mentioned ? 'YES' : 'NO'}</div>
-            <div class="pd-run-sent" style="color:${sentColor};">${esc(r.sentiment || '—')}</div>
+            <div class="pd-run-sent" style="color:${sentColor};">${esc(r.sentiment || '-')}</div>
             <div class="pd-run-view">View details &rarr;</div>
           </div>`;
         }).join('');
@@ -360,7 +360,7 @@ async function viewPromptRun(brandId, runId) {
         <div class="modal-head">
           <span style="display:flex;align-items:center;gap:8px;">
             <span class="pd-plat-dot" style="background:${t.color||'#888'};"></span>
-            Response Details — ${esc(r.platform)}
+            Response Details - ${esc(r.platform)}
           </span>
           <button class="modal-close" onclick="this.closest('.overlay').remove()">&times;</button>
         </div>
@@ -538,9 +538,9 @@ async function renderAccuracyMonitor() {
 
   // Show loading state
   kpisEl.innerHTML = `
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Accuracy Rate</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Inaccuracies Found</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Claims Verified</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Accuracy Rate</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Inaccuracies Found</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Claims Verified</div></div>
   `;
 
   try {
@@ -599,7 +599,7 @@ async function renderAccuracyMonitor() {
             <span style="color:${severity};font-size:14px;flex-shrink:0;">&#9888;</span>
             <div style="font-size:12px;line-height:1.6;">
               <strong>${esc(m.platform || 'Unknown')}</strong>
-              ${m.fact_key ? ` stated incorrect <strong>${esc(m.fact_key)}</strong> — expected: <em>${esc(expectedVal)}</em>` : esc(m.description || 'Mismatch detected')}
+              ${m.fact_key ? ` stated incorrect <strong>${esc(m.fact_key)}</strong> - expected: <em>${esc(expectedVal)}</em>` : esc(m.description || 'Mismatch detected')}
               ${dateStr ? ` <span style="color:var(--muted);">${dateStr}</span>` : ''}
             </div>
           </div>`;
@@ -664,9 +664,9 @@ async function renderCitationAnalysis() {
 
   // Show loading skeleton
   summaryEl.innerHTML = `
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Domains Cited</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Total Citations</div></div>
-    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">—</div><div class="score-label">Your Domain Cited</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Domains Cited</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Total Citations</div></div>
+    <div class="score-card"><div class="score-val" style="font-size:24px;color:var(--muted);">-</div><div class="score-label">Your Domain Cited</div></div>
   `;
   domainsEl.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Loading citations...</div>';
 

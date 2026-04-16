@@ -1,5 +1,5 @@
 
-// Token refresh lock — prevents multiple simultaneous refresh attempts
+// Token refresh lock - prevents multiple simultaneous refresh attempts
 let _refreshPromise = null;
 
 async function api(method, path, data, extraHeaders){
@@ -21,7 +21,7 @@ async function api(method, path, data, extraHeaders){
     throw new Error('Unable to connect to the server. Please check your connection and try again.');
   }
   clearTimeout(timeoutId);
-  // Auto-refresh token on 401 (not for auth endpoints themselves). Don't check in-memory refreshToken — httpOnly cookie handles it on page reload.
+  // Auto-refresh token on 401 (not for auth endpoints themselves). Don't check in-memory refreshToken - httpOnly cookie handles it on page reload.
   if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register' && path !== '/api/auth/refresh') {
     try {
       // Use shared promise to prevent concurrent refresh attempts
@@ -55,7 +55,7 @@ async function api(method, path, data, extraHeaders){
       throw new Error('Session expired. Please log in again.');
     }
   }
-  // Validate response is JSON before parsing — HTML responses (e.g. from redirects) cause cryptic errors
+  // Validate response is JSON before parsing - HTML responses (e.g. from redirects) cause cryptic errors
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
     throw new Error('Server returned an unexpected response. Please refresh and try again.');
@@ -70,9 +70,9 @@ async function api(method, path, data, extraHeaders){
     if (json.planLimit) {
       showUpgradeModal(json.error);
     }
-    // Rate limit — include retry info in error message
+    // Rate limit - include retry info in error message
     if (res.status === 429 && json.retryAfter) {
-      throw new Error(`Rate limited — please wait ${json.retryAfter} seconds before retrying.`);
+      throw new Error(`Rate limited - please wait ${json.retryAfter} seconds before retrying.`);
     }
     throw new Error(json.error || 'Request failed');
   }

@@ -229,7 +229,7 @@ function generateAliasesFromBrand(name, website){
   }
 
   // Common misspelling: doubled letters reduced ("brookks" → "brooks")
-  // and single letters doubled — skip this to avoid noise
+  // and single letters doubled - skip this to avoid noise
 
   return [...aliases].filter(a => a.length >= 2);
 }
@@ -745,7 +745,7 @@ async function doAddBrand(){
     el('brand-select').value = currentBrandId;
     closeModal('add-brand-modal');
     renderAll();
-    toast('Brand "'+name+'" created — running first scan...', 'ok');
+    toast('Brand "'+name+'" created - running first scan...', 'ok');
     // Auto-run queries after brand creation so new users see results immediately
     const queryCount = (data.brand.queries || []).length;
     if (queryCount > 0) {

@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Livesov',
-  description: 'Livesov Terms of Service — rules and conditions for using our AI visibility tracking platform.',
+  title: 'Terms of Service - Livesov',
+  description: 'Livesov Terms of Service - rules and conditions for using our AI visibility tracking platform.',
   alternates: { canonical: '/terms' },
   openGraph: {
-    title: 'Terms of Service — Livesov',
-    description: 'Livesov Terms of Service — rules and conditions for using our AI visibility tracking platform.',
+    title: 'Terms of Service - Livesov',
+    description: 'Livesov Terms of Service - rules and conditions for using our AI visibility tracking platform.',
     url: 'https://livesov.com/terms',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Terms of Service — Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Terms of Service - Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Terms of Service — Livesov',
-    description: 'Livesov Terms of Service — rules and conditions for using our AI visibility tracking platform.',
+    title: 'Terms of Service - Livesov',
+    description: 'Livesov Terms of Service - rules and conditions for using our AI visibility tracking platform.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

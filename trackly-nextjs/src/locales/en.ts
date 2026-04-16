@@ -48,7 +48,7 @@ const en = {
     title: 'Everything you need to track AI visibility',
     subtitle: 'Monitor your brand across all major AI platforms in one dashboard.',
     items: [
-      { title: '6 AI Platforms', desc: 'Track mentions on ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews \u2014 all from one place.', icon: '\u25CE' },
+      { title: '6 AI Platforms', desc: 'Track mentions on ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews - all from one place.', icon: '\u25CE' },
       { title: 'Evidence & Proof', desc: 'Get full AI responses saved as proof. Share with clients, export to CSV, and build trust with real evidence.', icon: '\u25C6' },
       { title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors across platforms.', icon: '\u25CB' },
       { title: 'Sentiment Analysis', desc: 'Know whether AI is recommending your brand positively, negatively, or neutrally.', icon: '\u26A1' },
@@ -119,9 +119,9 @@ const en = {
     subtitle: 'AI chatbots are becoming the #1 way people discover brands. If you\'re not visible, you\'re invisible.',
     items: [
       { title: '40% of searches now use AI', desc: 'Users are shifting from Google to AI chatbots for recommendations. ChatGPT, Perplexity, and other AI platforms are replacing traditional search for buying decisions.', icon: '\u25B2' },
-      { title: 'Traditional SEO isn\'t enough', desc: 'Ranking #1 on Google doesn\'t mean AI will recommend you. AI models pull from different signals \u2014 reviews, authority, content quality, and brand mentions across the web.', icon: '\u25CE' },
+      { title: 'Traditional SEO isn\'t enough', desc: 'Ranking #1 on Google doesn\'t mean AI will recommend you. AI models pull from different signals - reviews, authority, content quality, and brand mentions across the web.', icon: '\u25CE' },
       { title: 'GEO is the future of marketing', desc: 'Generative Engine Optimization (GEO) is how brands ensure they appear in AI-generated answers. Livesov gives you the data to measure and improve your GEO strategy.', icon: '\u25C6' },
-      { title: 'Proof for your clients', desc: 'If you\'re an agency or SEO consultant, Livesov provides verifiable evidence of AI visibility \u2014 real API responses, not screenshots. Export proof as CSV reports.', icon: '\u25A0' },
+      { title: 'Proof for your clients', desc: 'If you\'re an agency or SEO consultant, Livesov provides verifiable evidence of AI visibility - real API responses, not screenshots. Export proof as CSV reports.', icon: '\u25A0' },
     ],
   },
 
@@ -131,7 +131,7 @@ const en = {
     title: 'Who uses Livesov?',
     subtitle: 'From local businesses to enterprise agencies.',
     items: [
-      { title: 'Local Businesses', desc: 'HVAC, plumbers, dentists, lawyers \u2014 track if AI recommends your business when locals ask for services in your area.', icon: '\u25CB' },
+      { title: 'Local Businesses', desc: 'HVAC, plumbers, dentists, lawyers - track if AI recommends your business when locals ask for services in your area.', icon: '\u25CB' },
       { title: 'SEO Agencies', desc: 'Offer AI visibility tracking as a service. Show clients real proof of their brand\'s presence across ChatGPT, Perplexity, and more.', icon: '\u25C8' },
       { title: 'SaaS & E-commerce', desc: 'Monitor if AI platforms recommend your product when users ask for solutions in your category. Track competitors too.', icon: '\u2B21' },
       { title: 'Marketing Teams', desc: 'Track brand perception across AI platforms. Measure the impact of PR campaigns and content strategies on AI recommendations.', icon: '\u25C6' },
@@ -152,9 +152,9 @@ const en = {
       { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users.' },
       { q: 'What is Generative Engine Optimization (GEO)?', a: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers. Unlike traditional SEO, GEO focuses on being mentioned and recommended by AI chatbots.' },
       { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, which you can export as CSV reports. The Evidence & Proof section shows full AI responses with brand name highlighted, model used, and timestamp.' },
-      { q: 'How much does Livesov cost?', a: 'Livesov starts at $9/mo with the Starter plan \u2014 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' },
+      { q: 'How much does Livesov cost?', a: 'Livesov starts at $9/mo with the Starter plan - 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' },
       { q: 'How often does Livesov run queries?', a: 'Livesov supports daily automated tracking on all paid plans. You can also run queries manually at any time. Pro and Agency plans include scheduled runs with webhook notifications so you\'re alerted when your AI visibility changes.' },
-      { q: 'How is Livesov different from traditional SEO tools?', a: 'Traditional SEO tools track your rankings on Google Search. Livesov tracks your visibility in AI-generated answers \u2014 a completely different channel. As more users shift to AI, tracking AI visibility becomes essential.' },
+      { q: 'How is Livesov different from traditional SEO tools?', a: 'Traditional SEO tools track your rankings on Google Search. Livesov tracks your visibility in AI-generated answers - a completely different channel. As more users shift to AI, tracking AI visibility becomes essential.' },
     ],
   },
 
@@ -179,7 +179,7 @@ const en = {
 
   // Footer
   footer: {
-    desc: 'AI Visibility Tracker \u2014 Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.',
+    desc: 'AI Visibility Tracker - Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.',
     product: 'Product',
     resources: 'Resources',
     legal: 'Legal',

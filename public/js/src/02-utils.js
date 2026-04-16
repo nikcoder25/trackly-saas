@@ -54,7 +54,7 @@ function skeletonHTML(rows) {
   return h + '</div>';
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-// Safe brand update — avoids brands[-1] corruption when findIndex returns -1
+// Safe brand update - avoids brands[-1] corruption when findIndex returns -1
 function updateBrandInList(updatedBrand) {
   const idx = brands.findIndex(x => x.id === updatedBrand.id);
   if (idx !== -1) brands[idx] = updatedBrand;
@@ -63,7 +63,7 @@ function escAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/'/g,'&#39;'
 function safeBtoa(s){ try { return btoa(s); } catch(e) { return btoa(encodeURIComponent(s).replace(/%[0-9A-F]{2}/g,'')); } }
 function safeHref(url){ return /^https?:\/\//i.test(url) ? esc(url) : '#'; }
 // Simple markdown to HTML for AI responses
-// Regex patterns pre-compiled once — avoids recompilation on each of 640+ calls per run
+// Regex patterns pre-compiled once - avoids recompilation on each of 640+ calls per run
 const _mdRe = {
   headers: /^#{1,4}\s+(.+)$/gm,
   bold: /\*\*(.+?)\*\*/g,
@@ -135,9 +135,9 @@ function friendlyError(msg){
   if (!msg) return 'Unknown error';
   const msgLower = msg.toLowerCase();
   if (msgLower.includes('rate limit') || msgLower.includes('rate_limit') || msgLower.includes('too many requests'))
-    return 'Rate limited — too many requests. Retried automatically but limit persists. Try again in a few minutes.';
+    return 'Rate limited - too many requests. Retried automatically but limit persists. Try again in a few minutes.';
   if (msgLower.includes('exceed') && msgLower.includes('rate'))
-    return 'Rate limited — request limit exceeded. Try again in a few minutes.';
+    return 'Rate limited - request limit exceeded. Try again in a few minutes.';
   if (msgLower.includes('credit') || msgLower.includes('billing') || msgLower.includes('quota') || msgLower.includes('insufficient'))
     return 'No credits / quota exceeded. Check your API billing.';
   if (msgLower.includes('invalid') && (msgLower.includes('key') || msgLower.includes('auth')))

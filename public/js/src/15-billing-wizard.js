@@ -99,14 +99,14 @@ async function renderBilling() {
       pro: { label: 'Pro', price: '$29', color: '#4f46e5' },
       agency: { label: 'Agency', price: '$89', color: '#7c3aed' },
       enterprise: { label: 'Enterprise', price: 'Custom', color: '#9b72ff' },
-      owner: { label: 'Owner', price: '—', color: '#059669' }
+      owner: { label: 'Owner', price: '-', color: '#059669' }
     };
     const isActive = (p) => p === plan;
-    const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">—</span>'}</td>`;
+    const boolCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}">${val ? '<span class="cmp-check">&#10003;</span>' : '<span class="cmp-dash">-</span>'}</td>`;
     const numCell = (val, p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">${val >= 9999 ? '∞' : val.toLocaleString()}</span></td>`;
     const priceCell = (p) => {
       const m = planMeta[p] || {};
-      return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '—'}</span></td>`;
+      return `<td class="cmp-cell cmp-cell-price${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-price-val">${m.price || '-'}</span></td>`;
     };
     const unlimitedCell = (p) => `<td class="cmp-cell${isActive(p) ? ' cmp-cell-active' : ''}"><span class="cmp-num">Unlimited</span></td>`;
     const features = [
@@ -188,7 +188,7 @@ const _presetMeta = {
   founder: {
     icon: '👔',
     title: 'Founder Overview',
-    desc: 'High-level KPIs and trends for executive decision-making. Focus on what matters most — growth trajectory, brand sentiment, and competitive position.',
+    desc: 'High-level KPIs and trends for executive decision-making. Focus on what matters most - growth trajectory, brand sentiment, and competitive position.',
     className: 'preset-founder'
   },
   seo_manager: {
@@ -559,7 +559,7 @@ document.addEventListener('keydown', e => {
     const cfg = await fetch('/api/config', { signal: cfgCtrl.signal }).then(r => r.json());
     clearTimeout(cfgTimeout);
     if (cfg.googleClientId) window.__GOOGLE_CLIENT_ID = cfg.googleClientId;
-  } catch(e) { /* config unavailable — Google sign-in will be hidden */ }
+  } catch(e) { /* config unavailable - Google sign-in will be hidden */ }
   // Show Google landing button only when configured
   if (window.__GOOGLE_CLIENT_ID) {
     const lg = document.getElementById('land-google-signin');
@@ -576,7 +576,7 @@ document.addEventListener('keydown', e => {
     el('panel-reset').classList.add('active');
     return;
   }
-  // Direct /login or /signup URL — show auth form immediately (skip landing page)
+  // Direct /login or /signup URL - show auth form immediately (skip landing page)
   if ((window.location.pathname === '/login' || window.location.pathname === '/signup') && !_hasSession) {
     el('landing-page').style.display = 'none';
     el('auth-page').style.display = 'flex';
@@ -597,7 +597,7 @@ document.addEventListener('keydown', e => {
     currentUser = data.user;
     await initApp();
   } catch(e) {
-    // Cookie invalid or expired — show login page directly (not landing)
+    // Cookie invalid or expired - show login page directly (not landing)
     localStorage.removeItem('livesov_session');
     token = '';
     el('landing-page').style.display = 'none';

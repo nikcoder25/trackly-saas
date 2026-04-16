@@ -23,8 +23,8 @@ async function renderPlatformStatus(){
     const statusColor = hasKey ? 'var(--green)' : 'var(--muted)';
     const health = platformHealth[plat] || {};
     const latencyMs = health.avg_latency_ms;
-    const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '—';
-    const successRate = health.success_rate != null ? health.success_rate + '%' : '—';
+    const latencyStr = latencyMs ? (latencyMs / 1000).toFixed(1) + 's' : '-';
+    const successRate = health.success_rate != null ? health.success_rate + '%' : '-';
     const apiStatus = health.status === 'red' ? 'Degraded' : health.status === 'amber' ? 'Slow' : health.status === 'no_data' ? 'No Data' : 'Healthy';
     const apiStatusColor = health.status === 'red' ? 'var(--red)' : health.status === 'amber' ? 'var(--amber)' : health.status === 'no_data' ? 'var(--muted)' : 'var(--green)';
     const calls24h = health.total_calls_24h || 0;
@@ -88,7 +88,7 @@ function renderQPerf(){
   const topQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) > 0.6; }).length;
   const lowQueries = queries.filter(q => { const s = qs[q]; return s && s.runs && (s.mentions / s.runs) <= 0.3; }).length;
 
-  // Hide KPI row — clean bar chart layout
+  // Hide KPI row - clean bar chart layout
   kpis.innerHTML = '';
 
   // Sort queries by rate descending
@@ -194,7 +194,7 @@ async function renderCompetitors(){
   }
 
   // Fetch co-occurrence and per-platform data from prompt_runs (historical API data,
-  // independent of last run — always load when competitors are configured)
+  // independent of last run - always load when competitors are configured)
   const cooccDiv = el('comp-cooccurrence');
   const platBreakDiv = el('comp-platform-breakdown');
   try {
@@ -228,7 +228,7 @@ async function renderCompetitors(){
         const maxPlatApp = Math.max(...byPlat.map(x => x.appearances), 1);
         const pct = (p.appearances / maxPlatApp) * 100;
         pbHtml += `<div class="qperf-bar-row">
-          <div class="qperf-bar-label"><span style="color:${t.color||'#888'};font-weight:600;">${t.logo||''} ${esc(p.platform)}</span> — ${esc(p.competitor)}</div>
+          <div class="qperf-bar-label"><span style="color:${t.color||'#888'};font-weight:600;">${t.logo||''} ${esc(p.platform)}</span> - ${esc(p.competitor)}</div>
           <div class="qperf-bar-track"><div class="qperf-bar-fill" style="width:${pct}%;background:${t.color||'#888'};"></div></div>
           <div class="qperf-bar-value" style="color:var(--text);">${p.appearances}x</div>
         </div>`;
@@ -322,7 +322,7 @@ function _renderTrendsCharts(b) {
     history.forEach((h, i) => {
       const pct = Math.max((h.overall / 100) * 100, 4);
       const opacity = 0.4 + (i / Math.max(history.length - 1, 1)) * 0.6;
-      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% — ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
+      barHtml += `<div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;opacity:${opacity};transition:height .3s ease;" title="${h.overall}% - ${new Date(h.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}"></div>`;
     });
     barHtml += '</div>';
     barContainer.innerHTML = barHtml;
@@ -536,7 +536,7 @@ function _ktFilteredKeywords() {
       let va = a[_ktSortField];
       let vb = b[_ktSortField];
 
-      // Handle nulls — push to bottom
+      // Handle nulls - push to bottom
       if (va == null && vb == null) return 0;
       if (va == null) return 1;
       if (vb == null) return -1;
@@ -650,7 +650,7 @@ function _ktRenderExpandedChart(kw, idx) {
 }
 
 function _ktSparkline(data) {
-  if (!data || data.length < 2) return '<span style="color:var(--muted);font-size:10px;">—</span>';
+  if (!data || data.length < 2) return '<span style="color:var(--muted);font-size:10px;">-</span>';
   const values = data.map(d => d.mentionRate);
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);

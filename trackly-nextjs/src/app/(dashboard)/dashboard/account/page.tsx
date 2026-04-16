@@ -180,9 +180,9 @@ export default function AccountPage() {
       <div className="card">
         <div className="section-title">Account Info</div>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 12, lineHeight: 2.2 }}>
-          <div>Email: <strong>{user?.email}</strong> {emailVerified ? <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(16,185,129,.08)', color: 'var(--green)', border: '1px solid rgba(16,185,129,.2)' }}>VERIFIED</span> : <><span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(239,68,68,.08)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)' }}>UNVERIFIED</span> <button className="pbtn" onClick={async () => { try { let res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); if (res.status === 401) { try { const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }); if (r.ok) res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); } catch { /* refresh failed */ } } let d; try { d = await res.json(); } catch { alert('Server error — please try again later.'); return; } alert(res.ok ? 'Verification email sent!' : d.error || 'Failed to send verification email'); } catch { alert('Failed to send verification email. Please try again later.'); } }} style={{ fontSize: 9, padding: '2px 8px', marginLeft: 4 }}>RESEND VERIFICATION</button></>}</div>
+          <div>Email: <strong>{user?.email}</strong> {emailVerified ? <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(16,185,129,.08)', color: 'var(--green)', border: '1px solid rgba(16,185,129,.2)' }}>VERIFIED</span> : <><span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(239,68,68,.08)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)' }}>UNVERIFIED</span> <button className="pbtn" onClick={async () => { try { let res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); if (res.status === 401) { try { const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }); if (r.ok) res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); } catch { /* refresh failed */ } } let d; try { d = await res.json(); } catch { alert('Server error - please try again later.'); return; } alert(res.ok ? 'Verification email sent!' : d.error || 'Failed to send verification email'); } catch { alert('Failed to send verification email. Please try again later.'); } }} style={{ fontSize: 9, padding: '2px 8px', marginLeft: 4 }}>RESEND VERIFICATION</button></>}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            Username: <strong style={{ color: 'var(--primary)' }}>@{usernameEdit ? '' : (user?.username || '—')}</strong>
+            Username: <strong style={{ color: 'var(--primary)' }}>@{usernameEdit ? '' : (user?.username || '-')}</strong>
             {usernameEdit ? (
               <><input className="finp" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ margin: 0, padding: '2px 8px', width: 180, fontSize: 12 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="pbtn" onClick={saveUsername} style={{ fontSize: 9, padding: '3px 8px' }}>SAVE</button></>
             ) : (
@@ -190,7 +190,7 @@ export default function AccountPage() {
             )}
           </div>
           <div>Plan: <strong style={{ textTransform: 'uppercase' }}>{plan}</strong> <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(16,185,129,.08)', color: 'var(--green)' }}>ACTIVE</span></div>
-          <div>Member since: <span style={{ color: 'var(--muted)' }}>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</span></div>
+          <div>Member since: <span style={{ color: 'var(--muted)' }}>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-'}</span></div>
           {plan !== 'free' && <div style={{ marginTop: 8 }}><button onClick={cancelSubscription} style={{ padding: '6px 14px', background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, cursor: 'pointer', borderRadius: 'var(--radius-xs)', letterSpacing: '.5px' }}>CANCEL SUBSCRIPTION</button></div>}
         </div>
       </div>
@@ -207,7 +207,7 @@ export default function AccountPage() {
             <tbody>
               {billingHistory.map((b, i) => (
                 <tr key={i} className="trow">
-                  <td className="td">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                  <td className="td">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
                   <td className="td" style={{ textTransform: 'uppercase', fontWeight: 600 }}>{b.plan}</td>
                   <td className="td">{b.amount}</td>
                   <td className="td"><span style={{ color: b.status === 'succeeded' ? 'var(--green)' : 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{b.status}</span></td>
@@ -222,7 +222,7 @@ export default function AccountPage() {
       <div className="card" style={{ marginTop: 14 }}>
         <div className="section-title">Two-Factor Authentication</div>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-          {twoFAEnabled ? 'Enabled — your account is protected with 2FA.' : 'Not enabled. Add an extra layer of security to your account with an authenticator app.'}
+          {twoFAEnabled ? 'Enabled - your account is protected with 2FA.' : 'Not enabled. Add an extra layer of security to your account with an authenticator app.'}
         </div>
         {twoFAMsg && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: twoFAMsg.includes('success') || twoFAMsg.includes('enabled') || twoFAMsg.includes('disabled') ? 'var(--green)' : 'var(--red)', marginBottom: 12 }}>{twoFAMsg}</div>}
 
@@ -279,7 +279,7 @@ export default function AccountPage() {
         {/* Backup Codes Display */}
         {backupCodes.length > 0 && (
           <div style={{ marginTop: 16, padding: 16, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup Codes — Save these somewhere safe!</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup Codes - Save these somewhere safe!</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
               {backupCodes.map((code, i) => (
                 <div key={i} style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg2)', borderRadius: 4, textAlign: 'center' }}>{code}</div>

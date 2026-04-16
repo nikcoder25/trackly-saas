@@ -5,7 +5,7 @@ import { useBrands } from '@/contexts/BrandContext';
 
 /**
  * Shows a banner when the currently selected brand is locked due to plan limits.
- * Drop this into any dashboard page — it reads from BrandContext automatically.
+ * Drop this into any dashboard page - it reads from BrandContext automatically.
  */
 export default function LockedBrandBanner() {
   const { selectedBrand, selectedBrandLocked, plan, brandLimit } = useBrands();
@@ -25,7 +25,7 @@ export default function LockedBrandBanner() {
         </div>
         <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
           Your <strong>{plan}</strong> plan allows {brandLimit} brand{brandLimit !== 1 ? 's' : ''}.
-          {' '}<strong>{selectedBrand.name}</strong> is read-only — you can view data but cannot run queries or make edits.
+          {' '}<strong>{selectedBrand.name}</strong> is read-only - you can view data but cannot run queries or make edits.
         </div>
       </div>
       <Link href="/dashboard/account" style={{

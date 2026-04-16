@@ -397,7 +397,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
             <label className="flbl">Alternate Names / Aliases</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
               AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br />
-              Auto-generated from brand name &amp; website — add more if needed.
+              Auto-generated from brand name &amp; website - add more if needed.
             </div>
             <TagList items={aliases} onRemove={i => setAliases(aliases.filter((_, j) => j !== i))} />
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>

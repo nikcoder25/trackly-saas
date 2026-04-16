@@ -112,7 +112,7 @@ const PLATFORM_RATE_LIMITS: Record<string, { minDelayMs: number }> = {
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
   Perplexity: { minDelayMs: 300 },
-  'Google AI Overviews': { minDelayMs: 1000 }, // DataForSEO rate limit — more conservative
+  'Google AI Overviews': { minDelayMs: 1000 }, // DataForSEO rate limit - more conservative
 };
 
 const lastRequestTimePerKey = new Map<string, number>();
@@ -173,7 +173,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = 60000, api
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
-        throw new Error('Rate limited (429) — retries exhausted');
+        throw new Error('Rate limited (429) - retries exhausted');
       }
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);

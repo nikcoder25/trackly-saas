@@ -105,7 +105,7 @@ export default function AdminAuditLogsPage() {
                 </div>
 
                 {/* IP */}
-                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{log.ip || '—'}</span>
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{log.ip || '-'}</span>
 
                 {/* Time */}
                 <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>

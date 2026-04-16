@@ -1,4 +1,4 @@
-// ─── RUN QUERIES (streaming — results appear live) ───────────────
+// ─── RUN QUERIES (streaming - results appear live) ───────────────
 function buildMentionCard(r, runTimeStr) {
   const t = PLAT_THEME[r.platform]||{};
   const isErr = r.error;
@@ -77,7 +77,7 @@ async function runQueries(){
     timerEl.textContent = fmtTime(Date.now()-startTime);
   }, 1000);
 
-  // Stay on current view — render live state
+  // Stay on current view - render live state
   if (currentView === 'overview') { renderOverview(); setupLiveFeed(); }
   if (currentView === 'mentions') setupLiveMentions();
   if (currentView === 'proof') setupLiveProof();
@@ -103,7 +103,7 @@ async function runQueries(){
       `<span style="color:var(--muted);">${received}/${totalExpected} (${pct}%)</span>`;
   }
 
-  // Abort controller for timeout (10 min) — declared outside try so catch can access
+  // Abort controller for timeout (10 min) - declared outside try so catch can access
   const abortCtrl = new AbortController();
   const fetchTimeout = setTimeout(() => abortCtrl.abort(), 10 * 60 * 1000);
 
@@ -193,9 +193,9 @@ async function runQueries(){
           // Feed result to all live views
           onLiveResult(r, received, totalExpected, liveFoundCount, liveErrorCount);
 
-          // Throttle status bar updates — only update every 3rd result or at completion
+          // Throttle status bar updates - only update every 3rd result or at completion
           if (received % 3 === 0 || received >= totalExpected) {
-            statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
+            statusTxt.textContent = `${received}/${totalExpected} - ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
             updateLiveStats();
           }
         } else if (evt.type === 'done') {
@@ -264,16 +264,16 @@ async function runQueries(){
 
     if (errors > 0) {
       const okCount = result.totalQ - errors;
-      toast(`Run complete — ${okCount} succeeded, ${errors} failed. Filter by "Errors" in Mentions.`, 'warn');
+      toast(`Run complete - ${okCount} succeeded, ${errors} failed. Filter by "Errors" in Mentions.`, 'warn');
     } else {
       const toastMsg = result.sov === 0
-        ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
-        : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`;
+        ? `Run complete - SOV: 0%. AI didn't mention your brand yet.`
+        : `Run complete - SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`;
       toast(toastMsg, result.sov > 0 ? 'ok' : 'warn');
     }
   } catch(e) {
     clearTimeout(fetchTimeout);
-    // Handle abort/timeout specifically — just fall through to polling
+    // Handle abort/timeout specifically - just fall through to polling
     if (e.name === 'AbortError') {
       console.warn('[runQueries] Fetch timed out after 10 min. Falling back to polling.');
       toast('Connection timed out. Checking if run is still in progress...', 'warn');
@@ -284,7 +284,7 @@ async function runQueries(){
     // Switch to polling instead of showing an error.
     if (activeRunId) {
       console.log('[Run] SSE connection lost, switching to polling for runId:', activeRunId);
-      statusTxt.textContent = 'Reconnecting — queries still running on server...';
+      statusTxt.textContent = 'Reconnecting - queries still running on server...';
       try {
         await pollRunStatus(b.id, activeRunId, { startTime, received, totalExpected, liveFoundCount, liveErrorCount, lastResultCount: received, timerInt: setInterval(() => { timerEl.textContent = fmtTime(Date.now()-startTime); }, 1000) });
         return; // pollRunStatus handles cleanup
@@ -327,7 +327,7 @@ async function runQueries(){
     clearLiveNotifs();
     btn.classList.remove('running');
     btn.textContent = '▶ RUN QUERIES';
-    toast('Run failed — check API Logs for details.', 'err');
+    toast('Run failed - check API Logs for details.', 'err');
     setTimeout(() => {
       prog.style.display = 'none';
       statusTxt.style.color = '';
@@ -379,9 +379,9 @@ async function pollRunStatus(brandId, runId, opts) {
         pollErrors = 0; // Reset on success
         // Reset delay on success (new data arriving = stay responsive)
         if (data.results && data.results.length > lastResultCount) {
-          pollDelay = 2000; // New data — poll frequently
+          pollDelay = 2000; // New data - poll frequently
         } else {
-          // No new data — back off gradually (2s → 3s → 4.5s → ... max 10s)
+          // No new data - back off gradually (2s → 3s → 4.5s → ... max 10s)
           pollDelay = Math.min(pollDelay * 1.5, 10000);
         }
 
@@ -393,7 +393,7 @@ async function pollRunStatus(brandId, runId, opts) {
 
         const pct = totalExpected > 0 ? Math.round((received / totalExpected) * 100) : 0;
         if (fill) fill.style.width = pct + '%';
-        if (statusTxt) statusTxt.textContent = `${received}/${totalExpected} — ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
+        if (statusTxt) statusTxt.textContent = `${received}/${totalExpected} - ${liveFoundCount} found · ${fmtTime(Date.now()-startTime)}`;
 
         // Feed any new results to live views
         if (data.results && data.results.length > lastResultCount) {
@@ -450,11 +450,11 @@ async function pollRunStatus(brandId, runId, opts) {
 
             const errors = result.errorCount || liveErrorCount;
             if (errors > 0) {
-              toast(`Run complete — ${result.totalQ - errors} succeeded, ${errors} failed.`, 'warn');
+              toast(`Run complete - ${result.totalQ - errors} succeeded, ${errors} failed.`, 'warn');
             } else {
               toast(result.sov === 0
-                ? `Run complete — SOV: 0%. AI didn't mention your brand yet.`
-                : `Run complete — SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`,
+                ? `Run complete - SOV: 0%. AI didn't mention your brand yet.`
+                : `Run complete - SOV: ${result.sov}%! Found in ${result.newMentions} response${result.newMentions>1?'s':''}`,
                 result.sov > 0 ? 'ok' : 'warn');
             }
             resolve();
@@ -475,7 +475,7 @@ async function pollRunStatus(brandId, runId, opts) {
             runningQueries = false;
             clearLiveNotifs();
             if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
-            toast('Run failed — check API Logs for details.', 'err');
+            toast('Run failed - check API Logs for details.', 'err');
             setTimeout(() => { if (prog) prog.style.display = 'none'; if (statusTxt) statusTxt.style.color = ''; if (fill) fill.style.background = ''; renderView(currentView); }, 2000);
             resolve();
           }
@@ -492,8 +492,8 @@ async function pollRunStatus(brandId, runId, opts) {
           localStorage.removeItem('livesov_active_run');
           liveResults = []; liveRunTime = null; runningQueries = false; clearLiveNotifs();
           if (btn) { btn.classList.remove('running'); btn.textContent = '▶ RUN QUERIES'; }
-          if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress — refresh to check.'; }
-          toast('Lost connection — refresh page to check run status.', 'err');
+          if (statusTxt) { statusTxt.style.color = 'var(--red)'; statusTxt.textContent = 'Lost connection to server. Run may still be in progress - refresh to check.'; }
+          toast('Lost connection - refresh page to check run status.', 'err');
           resolve();
         } else {
           schedulePoll(); // Retry with increased delay
@@ -542,7 +542,7 @@ async function checkActiveRun() {
         lastResultCount: 0  // Feed all results from scratch on resume
       });
     } else {
-      // Run already finished while we were away — just clear and reload
+      // Run already finished while we were away - just clear and reload
       localStorage.removeItem('livesov_active_run');
       invalidateCache('/api/brands');
       try {
@@ -568,7 +568,7 @@ async function checkActiveRun() {
       }
     }
   } catch(_) {
-    // Run not found — probably already cleaned up, just clear localStorage
+    // Run not found - probably already cleaned up, just clear localStorage
     localStorage.removeItem('livesov_active_run');
   }
 }
