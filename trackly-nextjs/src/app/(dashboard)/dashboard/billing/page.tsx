@@ -251,9 +251,15 @@ export default function BillingPage() {
       if (!confirm('Cancel your subscription? You will lose access to paid features at the end of your billing period.')) return;
       setPlanSwitching(target);
       try {
-        await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
+        const res = await fetch('/api/payments/cancel', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Failed to cancel subscription. Please try again or contact support.');
+          setPlanSwitching('');
+          return;
+        }
         window.location.reload();
-      } catch { setPlanSwitching(''); }
+      } catch { alert('Failed to cancel subscription. Please try again.'); setPlanSwitching(''); }
       return;
     }
 
