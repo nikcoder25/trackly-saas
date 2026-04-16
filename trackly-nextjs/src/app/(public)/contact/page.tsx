@@ -56,19 +56,19 @@ export default function ContactPage() {
             <Headphones className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
             <h3 className="font-bold text-gray-900 mb-2">General Support</h3>
             <p className="text-gray-500 text-sm mb-3">For questions about your account, billing, or features.</p>
-            <a href="mailto:support@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">support@livesov.com</a>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
             <Building2 className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
             <h3 className="font-bold text-gray-900 mb-2">Enterprise Sales</h3>
             <p className="text-gray-500 text-sm mb-3">For custom plans, volume pricing, and enterprise features.</p>
-            <a href="mailto:sales@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">sales@livesov.com</a>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
           </div>
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-center transition-shadow hover:shadow-md">
             <Handshake className="w-8 h-8 text-[var(--brand)] mx-auto mb-3" />
             <h3 className="font-bold text-gray-900 mb-2">Partnerships</h3>
             <p className="text-gray-500 text-sm mb-3">For integration partnerships and reseller opportunities.</p>
-            <a href="mailto:partners@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">partners@livesov.com</a>
+            <a href="mailto:hello@livesov.com" className="text-[var(--brand)] font-medium text-sm hover:underline">hello@livesov.com</a>
           </div>
         </div>
       </div>
