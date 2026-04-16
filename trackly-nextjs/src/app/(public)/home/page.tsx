@@ -186,13 +186,32 @@ function TestimonialCarousel() {
     return () => clearInterval(timer);
   }, [paused]);
 
+  const goTo = (index: number) => setActive(index);
+  const goPrev = () => setActive((active - 1 + testimonials.length) % testimonials.length);
+  const goNext = () => setActive((active + 1) % testimonials.length);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') { goPrev(); setPaused(true); }
+    else if (e.key === 'ArrowRight') { goNext(); setPaused(true); }
+  };
+
   return (
-    <div className="tl-carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
-      <div className="tl-carousel-track" style={{ transform: `translateX(-${active * 100}%)` }}>
-        {testimonials.map(t => (
-          <div key={t.name} className="tl-carousel-slide">
+    <div
+      className="tl-carousel"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+      onKeyDown={handleKeyDown}
+      role="region"
+      aria-roledescription="carousel"
+      aria-label="Customer testimonials"
+    >
+      <div className="tl-carousel-track" aria-live={paused ? 'polite' : 'off'} style={{ transform: `translateX(-${active * 100}%)` }}>
+        {testimonials.map((t, i) => (
+          <div key={t.name} className="tl-carousel-slide" role="group" aria-roledescription="slide" aria-label={`Testimonial ${i + 1} of ${testimonials.length}`} aria-hidden={active !== i}>
             <div className="tl-carousel-quote">
-              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                 <path d="M6 18C6 14.5 8 12 12 10L13 12C10 13.5 9.5 15.5 9.5 16.5H13V22H6V18ZM18 18C18 14.5 20 12 24 10L25 12C22 13.5 21.5 15.5 21.5 16.5H25V22H18V18Z" fill="currentColor" opacity="0.15"/>
               </svg>
               <p>&ldquo;{t.text}&rdquo;</p>
@@ -207,11 +226,26 @@ function TestimonialCarousel() {
           </div>
         ))}
       </div>
-      <div className="tl-carousel-dots">
-        {testimonials.map((_, i) => (
-          <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
-            onClick={() => setActive(i)} aria-label={`Testimonial ${i + 1}`} />
-        ))}
+      <div className="tl-carousel-controls">
+        <button className="tl-carousel-arrow" onClick={goPrev} aria-label="Previous testimonial">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <div className="tl-carousel-dots">
+          {testimonials.map((_, i) => (
+            <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
+              onClick={() => goTo(i)} aria-label={`Go to testimonial ${i + 1}`} aria-current={active === i ? 'true' : undefined} />
+          ))}
+        </div>
+        <button className="tl-carousel-arrow" onClick={goNext} aria-label="Next testimonial">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <button
+          className="tl-carousel-pause"
+          onClick={() => setPaused(!paused)}
+          aria-label={paused ? 'Play auto-rotation' : 'Pause auto-rotation'}
+        >
+          {paused ? '▶' : '⏸'}
+        </button>
       </div>
     </div>
   );
@@ -716,16 +750,21 @@ export default function LivesovHomePage() {
             <h2>Frequently Asked Questions</h2>
           </div>
 
-          <div className="tl-faq-list">
+          <div className="tl-faq-list" role="list">
             {faqs.map((f, i) => (
-              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`}>
-                <button className="tl-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`} role="listitem">
+                <button
+                  className="tl-faq-q"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-answer-${i}`}
+                >
                   <span>{f.q}</span>
-                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-                <div className="tl-faq-a">
+                <div className="tl-faq-a" id={`faq-answer-${i}`} role="region" aria-labelledby={`faq-q-${i}`}>
                   <p>{f.a}</p>
                 </div>
               </div>

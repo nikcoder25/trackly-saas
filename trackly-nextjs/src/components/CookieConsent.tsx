@@ -20,6 +20,7 @@ export default function CookieConsent() {
 
   const handleChoice = (choice: 'accepted' | 'declined') => {
     try { localStorage.setItem('cookie-consent', choice); } catch { /* noop */ }
+    window.dispatchEvent(new Event('cookie-consent-change'));
     setShow(false);
   };
 
@@ -110,6 +111,7 @@ export function CookiePreferencesButton() {
     <button
       onClick={() => {
         try { localStorage.removeItem('cookie-consent'); } catch { /* noop */ }
+        window.dispatchEvent(new Event('cookie-consent-change'));
         window.location.reload();
       }}
       style={{

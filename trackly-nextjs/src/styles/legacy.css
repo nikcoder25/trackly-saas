@@ -42,9 +42,9 @@
   --app-shadow-lg:0 4px 16px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.03);
 
   /* Typography */
-  --font:'Inter',system-ui,-apple-system,sans-serif;
-  --font-display:'Inter',system-ui,-apple-system,sans-serif;
-  --mono:'JetBrains Mono','SF Mono','Fira Code',monospace;
+  --font:var(--font-inter,'Inter'),system-ui,-apple-system,sans-serif;
+  --font-display:var(--font-inter,'Inter'),system-ui,-apple-system,sans-serif;
+  --mono:var(--font-jetbrains,'JetBrains Mono'),'SF Mono','Fira Code',monospace;
 
   /* Spacing */
   --radius:12px;
