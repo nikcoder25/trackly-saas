@@ -4,9 +4,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRun, type LiveResult } from '@/contexts/RunContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useBrandData } from '@/hooks/useBrandData';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms, PLAN_LIMITS } from '@/lib/constants';
 import { friendlyCompetitorName as friendlyCompName } from '@/lib/parser';
 
 interface Brand {
@@ -44,6 +45,21 @@ export default function DashboardPage() {
   const [suggesting, setSuggesting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [queryMsg, setQueryMsg] = useState('');
+
+  // Payment success banner
+  const searchParams = useSearchParams();
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+  const dismissPaymentBanner = useCallback(() => {
+    setShowPaymentSuccess(false);
+    window.history.replaceState({}, '', '/dashboard');
+  }, []);
+  useEffect(() => {
+    if (searchParams.get('payment') === 'success') {
+      setShowPaymentSuccess(true);
+      const timer = setTimeout(dismissPaymentBanner, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, dismissPaymentBanner]);
 
   // Preset section visibility
   const allSections = ['hero', 'health', 'scores', 'categories', 'location', 'platforms', 'trend', 'qperf', 'citations', 'insights', 'lastrun', 'queries'];
@@ -332,6 +348,58 @@ export default function DashboardPage() {
   return (
     <div>
       <LockedBrandBanner />
+
+      {/* ═══ PAYMENT SUCCESS BANNER ═══ */}
+      {showPaymentSuccess && (() => {
+        const planName = (user?.plan || 'pro').charAt(0).toUpperCase() + (user?.plan || 'pro').slice(1);
+        const limits = PLAN_LIMITS[(user?.plan || 'pro') as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.pro;
+        return (
+          <div style={{
+            marginBottom: 16, padding: '24px 28px', borderRadius: 'var(--radius)',
+            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%)',
+            color: '#fff', position: 'relative', overflow: 'hidden',
+            boxShadow: '0 4px 24px rgba(99,102,241,.3)',
+            animation: 'fadeInUp .4s ease',
+          }}>
+            <div style={{ position: 'absolute', top: -20, right: -20, fontSize: 80, opacity: 0.12, lineHeight: 1 }}>&#10003;</div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <span style={{
+                    width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                  }}>&#10003;</span>
+                  <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px' }}>Welcome to {planName}!</span>
+                </div>
+                <div style={{ fontSize: 14, opacity: 0.9, marginBottom: 14, lineHeight: 1.5 }}>
+                  Your plan has been upgraded successfully. Here&apos;s what you now have access to:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {[
+                    `${limits.queries >= 9999 ? 'Unlimited' : limits.queries} tracked queries`,
+                    `${limits.platforms} AI platforms`,
+                    `${limits.competitors} competitors`,
+                    ...(limits.sentiment ? ['Sentiment analysis'] : []),
+                    ...(limits.prioritySupport ? ['Priority support'] : []),
+                    ...(limits.scheduledRuns ? ['Scheduled runs'] : []),
+                  ].map((f, i) => (
+                    <span key={i} style={{
+                      padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 600,
+                      background: 'rgba(255,255,255,.18)', backdropFilter: 'blur(4px)',
+                    }}>{f}</span>
+                  ))}
+                </div>
+              </div>
+              <button onClick={dismissPaymentBanner} style={{
+                background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', cursor: 'pointer',
+                padding: '8px 20px', borderRadius: 'var(--radius-xs)', fontSize: 13, fontWeight: 700,
+                fontFamily: 'var(--font)', whiteSpace: 'nowrap', flexShrink: 0,
+              }}>Got it!</button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ═══ LIVE PROGRESS BAR (main content area) ═══ */}
       {(live.running || live.status === 'done') && (
         <div style={{ marginBottom: 14, padding: '12px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)' }}>
