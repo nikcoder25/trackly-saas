@@ -79,7 +79,7 @@ export default function GlobalLiveToasts() {
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: PLATFORM_COLORS[t.platform] || 'var(--muted)', fontWeight: 700 }}>
-                {t.platform}{t.model ? ` · ${t.model}` : ''}
+                {t.platform}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {t.query}
