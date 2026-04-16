@@ -130,7 +130,8 @@ export async function middleware(request: NextRequest) {
   // If user is on any dashboard or onboarding page but not logged in, redirect to login
   if ((pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding')) && !hasValidToken) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
+    const search = request.nextUrl.search;
+    loginUrl.searchParams.set('redirect', pathname + (search || ''));
     return NextResponse.redirect(loginUrl);
   }
 

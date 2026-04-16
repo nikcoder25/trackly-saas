@@ -38,8 +38,8 @@ export function createTokenCookieHeaders(accessToken: string, refreshToken: stri
   const isProduction = process.env.NODE_ENV === 'production';
   const secure = isProduction ? '; Secure' : '';
   return [
-    `livesov_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH.accessTokenMaxAge / 1000)}${secure}`,
-    `livesov_refresh=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH.refreshTokenMaxAge / 1000)}${secure}`,
+    `livesov_token=${accessToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(AUTH.accessTokenMaxAge / 1000)}${secure}`,
+    `livesov_refresh=${refreshToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(AUTH.refreshTokenMaxAge / 1000)}${secure}`,
   ];
 }
 
@@ -47,8 +47,8 @@ export function createClearCookieHeaders(): Array<string> {
   const isProduction = process.env.NODE_ENV === 'production';
   const secure = isProduction ? '; Secure' : '';
   return [
-    `livesov_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`,
-    `livesov_refresh=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`,
+    `livesov_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`,
+    `livesov_refresh=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`,
   ];
 }
 
