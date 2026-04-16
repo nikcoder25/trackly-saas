@@ -721,7 +721,10 @@ router.post('/:id/run', auth, async (req, res) => {
         sendEvent('result', { result: { ...errObj, raw: undefined }, totalQ, totalM });
       }
 
-      const WORKER_TIMEOUT_MS = 300000; // 5 minutes per individual AI call
+      // 10 min cap to accommodate the 8-min deep-retry budget in ai-platforms.queryAI
+      // plus headroom for slow providers. Transient rate limits can take several
+      // minutes to clear under sustained provider-side load.
+      const WORKER_TIMEOUT_MS = 600000;
 
       async function runWorker() {
         while (nextIdx < tasks.length) {
@@ -744,7 +747,7 @@ router.post('/:id/run', auth, async (req, res) => {
             // Worker-level timeout: 5 minutes per individual AI call
             const result = await Promise.race([
               queryAI(q, plat, brand, keys, modelPrefs, logCtx),
-              new Promise((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
+              new Promise((_, rej) => setTimeout(() => rej(new Error(`Worker timeout after ${Math.round(WORKER_TIMEOUT_MS / 60000)} minutes`)), WORKER_TIMEOUT_MS)),
             ]);
             platFailCount[plat] = 0;
             // Process and stream result immediately
