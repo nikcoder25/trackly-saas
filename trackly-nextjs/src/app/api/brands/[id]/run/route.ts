@@ -155,10 +155,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const keyName = PLATFORM_KEY_MAP[p];
     return (serverKeys[keyName]?.length || userKeys[keyName]) ? true : false;
   });
-  const planDefaults = PLAN_DEFAULT_PLATFORMS[ownerPlan];
-  if (planDefaults) {
-    const preferred = planDefaults.filter(p => availablePlatforms.includes(p));
-    if (preferred.length) availablePlatforms = preferred;
+  // Honour the user's saved platform selection when present; otherwise fall
+  // back to the plan's default platforms.
+  const userSelected: string[] = Array.isArray(brand.selected_platforms) ? brand.selected_platforms : [];
+  if (userSelected.length > 0) {
+    const chosen = userSelected.filter((p: string) => availablePlatforms.includes(p));
+    if (chosen.length) availablePlatforms = chosen;
+  } else {
+    const planDefaults = PLAN_DEFAULT_PLATFORMS[ownerPlan];
+    if (planDefaults) {
+      const preferred = planDefaults.filter(p => availablePlatforms.includes(p));
+      if (preferred.length) availablePlatforms = preferred;
+    }
   }
   const activePlatforms = availablePlatforms.slice(0, limits.platforms);
 
