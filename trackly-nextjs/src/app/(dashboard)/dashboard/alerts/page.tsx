@@ -24,12 +24,16 @@ export default function AlertsPage() {
   const [alertCooldown, setAlertCooldown] = useState(24);
 
   useEffect(() => {
-    if (!brand) return;
-    fetch(`/api/brands/${brand.id}/alerts`, { credentials: 'include' })
+    if (!brand?.id) return;
+    const load = () => fetch(`/api/brands/${brand.id}/alerts`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => { setRules(d.rules || []); setNotifications(d.notifications || []); setWebhookUrl(d.webhookUrl || ''); setReportFreq(d.reportFreq || 'off'); })
       .catch(() => {});
-  }, [brand]);
+    load();
+    const handler = () => load();
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [brand?.id]);
 
   function saveAlert() {
     if (!brand || !alertName.trim()) { toast('Alert name is required', 'error'); return; }

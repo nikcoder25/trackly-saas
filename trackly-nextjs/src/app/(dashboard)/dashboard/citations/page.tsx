@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
 
 interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
@@ -11,25 +11,38 @@ export default function CitationsPage() {
   const brand = rawBrand as Brand | null;
   const [citData, setCitData] = useState<CitationData | null>(null);
 
-  useEffect(() => {
-    if (!brand) return;
-    fetch(`/api/brands/${brand.id}/citation-analysis`, { credentials: 'include' })
+  const loadCitations = useCallback((b: Brand) => {
+    fetch(`/api/brands/${b.id}/citation-analysis`, { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => setCitData({ domains: d?.domains ?? {}, totalCitations: d?.totalCitations ?? 0, ownDomain: d?.ownDomain, ownDomainName: d?.ownDomainName }))
       .catch(() => {
         // Compute from runs if API not available
         const domains: Record<string, number> = {};
-        (brand.runs || []).forEach(run => {
+        (b.runs || []).forEach(run => {
           (run.allResults || []).forEach(r => {
             (r.citations || []).forEach(url => {
-              try { const d = new URL(url).hostname.replace(/^www\./, ''); domains[d] = (domains[d] || 0) + 1; } catch {}
+              try { const dn = new URL(url).hostname.replace(/^www\./, ''); domains[dn] = (domains[dn] || 0) + 1; } catch {}
             });
           });
         });
         const total = Object.values(domains).reduce((s, n) => s + n, 0);
         setCitData({ domains, totalCitations: total });
       });
-  }, [brand]);
+  }, []);
+
+  useEffect(() => {
+    if (!brand) return;
+    loadCitations(brand);
+  }, [brand?.id, loadCitations]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Re-fetch citations when a run completes — keeps the page in sync with
+  // the live toast notifications without requiring a reload.
+  useEffect(() => {
+    if (!brand) return;
+    const handler = () => loadCitations(brand);
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [brand?.id, loadCitations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortedDomains = useMemo(() => {
     if (!citData?.domains) return [];

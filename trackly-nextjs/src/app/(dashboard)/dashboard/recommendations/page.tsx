@@ -42,6 +42,14 @@ export default function RecommendationsPage() {
 
   useEffect(() => { loadRecs(); }, [selectedBrand?.id, filterStatus, filterSeverity]);
 
+  // Reload recommendations when a run completes so new suggestions (derived
+  // from fresh run data) appear without requiring a manual refresh.
+  useEffect(() => {
+    const handler = () => loadRecs();
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [selectedBrand?.id, filterStatus, filterSeverity]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const generate = async () => {
     if (!selectedBrand || generating) return;
     setGenerating(true);

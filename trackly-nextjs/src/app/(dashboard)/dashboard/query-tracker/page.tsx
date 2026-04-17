@@ -23,6 +23,15 @@ export default function QueryTrackerPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expanded, setExpanded] = useState<number | null>(null);
 
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  // Refresh keyword tracker data when a run completes.
+  useEffect(() => {
+    const handler = () => setRefreshTick(t => t + 1);
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, []);
+
   useEffect(() => {
     if (!brand) return;
     let cancelled = false;
@@ -97,7 +106,7 @@ export default function QueryTrackerPage() {
     }
 
     return () => { cancelled = true; };
-  }, [brand?.id, period]);
+  }, [brand?.id, period, refreshTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     let rows = [...keywords];
