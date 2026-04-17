@@ -33,6 +33,23 @@ function tagError(msg: string, flags: Partial<AiError> = {}): AiError {
 
 const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
 
+// ── Shared narrow types for provider calls ──────────────────────
+// The fields AI code actually reads off a brand record.  Keeps the
+// call signature strict without dragging the full Brand entity in.
+export interface BrandContext {
+  id?: string;
+  name?: string;
+  city?: string | null;
+  industry?: string | null;
+  [key: string]: unknown;
+}
+
+// Raw JSON body returned by upstream AI provider APIs. Shape varies per
+// provider, so callers still do property lookups, but the top-level
+// object-ness is at least preserved instead of a bare `any`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AiResponseData = Record<string, any>;
+
 // ── Circuit breaker for bad API keys (auth failures) ────────────
 const apiKeyFailures = new Map<string, { count: number; lastFailure: number }>();
 const CIRCUIT_BREAKER_THRESHOLD = 5;
@@ -358,8 +375,7 @@ function extractBodyRetryAfter(body: unknown): number | null {
 // limits, retries 5xx as transient, and tags thrown errors for caller routing.
 const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 60000;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string): Promise<any> {
+async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string): Promise<AiResponseData> {
   const MAX_RETRIES = 3;
   let lastErr: AiError | undefined;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -427,8 +443,7 @@ interface DeferredItem {
   query: string;
   apiKey: string;
   model?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  brand?: any;
+  brand?: BrandContext;
   options?: QueryOptions;
   attempts: number;
   scheduledAt: number;
@@ -499,15 +514,19 @@ const GEMINI_FALLBACK_CHAIN: Record<string, string[]> = {
   'gemini-2.5-flash-lite': ['gemini-2.5-flash-lite'],
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface GeminiPayload {
+  systemInstruction: { parts: Array<{ text: string }> };
+  contents: Array<{ parts: Array<{ text: string }> }>;
+  generationConfig: { maxOutputTokens: number; responseMimeType?: string };
+}
+
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
   const attemptModels = GEMINI_FALLBACK_CHAIN[model] || [model];
   let lastErr: AiError | undefined;
   for (let m = 0; m < attemptModels.length; m++) {
     const geminiModel = attemptModels[m];
     const url = `${API_ENDPOINTS.gemini.base}${geminiModel}:generateContent`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const payload: any = {
+    const payload: GeminiPayload = {
       systemInstruction: { parts: [{ text: sysPrompt }] },
       contents: [{ parts: [{ text: query }] }],
       generationConfig: { maxOutputTokens: maxTok },
@@ -551,8 +570,7 @@ export async function queryAI(
   query: string,
   apiKey: string,
   model?: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  brand?: any,
+  brand?: BrandContext,
   options?: QueryOptions,
 ): Promise<QueryResult> {
   const useModel = model || getDefaultModel(platform);
@@ -570,8 +588,18 @@ export async function queryAI(
 
       if (platform === 'ChatGPT') {
         const isSearch = useModel.includes('search');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const payload: any = {
+        interface OpenAiPayload {
+          model: string;
+          max_tokens: number;
+          messages: Array<{ role: string; content: string }>;
+          web_search_options?: {
+            user_location?: {
+              type: 'approximate';
+              approximate: { city: string; country: string };
+            };
+          };
+        }
+        const payload: OpenAiPayload = {
           model: useModel, max_tokens: maxTok,
           messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
         };
@@ -634,7 +662,8 @@ export async function queryAI(
         };
       } else if (platform === 'Google AI Overviews') {
         if (!isDataForSEOConfigured()) throw new Error('DataForSEO credentials not configured (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD)');
-        const aio = await checkAiOverview(query, brand?.name || '', brand?.competitors || []);
+        const competitors = Array.isArray(brand?.competitors) ? (brand.competitors as string[]) : [];
+        const aio = await checkAiOverview(query, brand?.name || '', competitors);
         const text = aio.hasAiOverview
           ? (aio.content || '(AI Overview present but no text extracted)')
           : '(No AI Overview shown for this query)';

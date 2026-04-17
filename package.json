@@ -1,36 +1,14 @@
 {
-  "name": "livesov-saas",
+  "name": "livesov",
   "version": "1.0.0",
-  "description": "AI Visibility Tracker - SaaS Platform",
-  "main": "server.js",
+  "description": "Livesov — AI Visibility Tracker (Next.js). The app source lives in ./trackly-nextjs/.",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "start:cluster": "node cluster.js",
-    "dev": "node server.js",
-    "build": "npm run build:concat && npm run build:js && npm run build:css",
-    "build:concat": "cat public/js/src/01-constants.js public/js/src/02-utils.js public/js/src/03-api.js public/js/src/04-auth.js public/js/src/05-navigation.js public/js/src/06-account.js public/js/src/07-live-streaming.js public/js/src/08-overview.js public/js/src/09-mentions-proof.js public/js/src/10-analytics.js public/js/src/11-brand-setup.js public/js/src/12-run-queries.js public/js/src/13-diagnostics-admin.js public/js/src/14-advanced-views.js public/js/src/15-billing-wizard.js > public/js/app.js",
-    "build:js": "terser public/js/app.js -o public/js/app.min.js -c -m --source-map",
-    "build:css": "cleancss -o public/css/styles.min.css public/css/styles.css",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@dodopayments/express": "^0.2.6",
-    "bcryptjs": "^2.4.3",
-    "compression": "^1.8.1",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.18.2",
-    "express-rate-limit": "^8.3.1",
-    "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "node-cron": "^3.0.3",
-    "pdfkit": "^0.18.0",
-    "pg": "^8.20.0"
-  },
-  "devDependencies": {
-    "clean-css-cli": "^5.6.3",
-    "terser": "^5.46.1",
-    "vitest": "^4.1.0"
+    "dev": "npm --prefix trackly-nextjs run dev",
+    "build": "npm --prefix trackly-nextjs run build",
+    "start": "npm --prefix trackly-nextjs start",
+    "lint": "npm --prefix trackly-nextjs run lint",
+    "test": "npm --prefix trackly-nextjs test",
+    "install:all": "npm --prefix trackly-nextjs install"
   }
 }

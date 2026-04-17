@@ -45,13 +45,23 @@ function renderContent(content: string) {
   let codeLines: string[] = [];
 
   const escHtml = (s: string) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Only let http(s) and site-relative URLs through, and re-escape the URL
+  // before embedding it in an href attribute so a rogue URL can't break out
+  // of the attribute and inject onclick/onerror.
+  const sanitizeUrl = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '#';
+    if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) return '#';
+    // Reject URLs containing attribute-breaking chars even after escHtml
+    if (/[\s"'<>`]/.test(trimmed)) return '#';
+    return escHtml(trimmed);
+  };
   const parseInline = (text: string) => {
     // Escape HTML first, then apply markdown formatting
     return escHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
-        const safeUrl = /^https?:\/\//.test(url) || url.startsWith('/') ? url : '#';
-        return `<a href="${safeUrl}" class="blog-link">${label}</a>`;
+        return `<a href="${sanitizeUrl(url)}" class="blog-link">${label}</a>`;
       })
       .replace(/`([^`]+)`/g, '<code class="blog-code">$1</code>');
   };
