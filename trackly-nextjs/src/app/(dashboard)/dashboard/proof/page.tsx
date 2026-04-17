@@ -7,6 +7,7 @@ import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useRun } from '@/contexts/RunContext';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; error?: string; errorMessage?: string; competitorMentions?: string[]; citations?: string[]; }
 interface Run { id?: string; date?: string; time?: string; created_at?: string; sov?: number; durationMs?: number; queries?: string[]; allResults?: Result[]; results?: Result[]; }
@@ -15,6 +16,7 @@ interface Brand { id: string; name: string; queries?: string[]; runs?: Run[]; }
 export default function ProofPage() {
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const brand = rawBrand as Brand | null;
+  const { live, pct: runPct } = useRun();
   const [selectedRunId, setSelectedRunId] = useState('');
   const [platFilter, setPlatFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
@@ -29,7 +31,14 @@ export default function ProofPage() {
     return (brand?.runs || []).find(r => r.id === selectedRunId) || runs[0] || null;
   }, [selectedRunId, runs, brand]);
 
-  const allResults: Result[] = run?.allResults || run?.results || [];
+  // Show live run results in place of the stored "latest" run while a run is
+  // active for this brand. Historical runs show their stored data unchanged.
+  const viewingLatest = !selectedRunId || selectedRunId === (runs[0]?.id || '');
+  const liveForThisBrand = live.running && live.brandId === brand?.id;
+  const showLive = liveForThisBrand && viewingLatest && live.results.length > 0;
+  const allResults: Result[] = showLive
+    ? (live.results as Result[])
+    : (run?.allResults || run?.results || []);
   const queries = useMemo(() => {
     const rq = run?.queries || [];
     const resultQs = [...new Set(allResults.map(r => r.query))];
@@ -41,9 +50,11 @@ export default function ProofPage() {
   const foundCount = allResults.filter(r => r.mentioned).length;
   const notFoundCount = totalResults - foundCount;
   const uniquePlats = [...new Set(allResults.map(r => r.platform))];
-  const sovPct = run?.sov || 0;
-  const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';
   const foundPct = totalResults > 0 ? Math.round((foundCount / totalResults) * 100) : 0;
+  // During a live run, the stored run.sov refers to the previous run — derive
+  // SOV from in-progress results instead so the banner stays accurate.
+  const sovPct = showLive ? foundPct : (run?.sov || 0);
+  const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';
   const sentPos = allResults.filter(r => r.sentiment === 'positive').length;
   const sentNeg = allResults.filter(r => r.sentiment === 'negative').length;
   const sentNeu = totalResults - sentPos - sentNeg;
@@ -151,14 +162,22 @@ export default function ProofPage() {
           <div className="view-title">Evidence &amp; Proof</div>
           <div className="view-sub">Every AI response about your brand — verified and organized.</div>
         </div>
-        <button className="pbtn" onClick={exportCSV} style={{ borderRadius: 10 }}>↓ Export CSV</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {showLive && (
+            <span title="A run is in progress — showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
+              <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
+              LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
+            </span>
+          )}
+          <button className="pbtn" onClick={exportCSV} style={{ borderRadius: 10 }}>↓ Export CSV</button>
+        </div>
       </div>
 
       {/* Toolbar */}
       <div className="proof-toolbar">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Run</label>
-          <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run">
+          <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run" disabled={showLive} title={showLive ? 'Live run in progress — showing current run' : undefined}>
             {runs.map((r, i) => {
               const d = new Date(r.time || r.date || 0);
               const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — SOV ${r.sov || 0}%`;
@@ -188,7 +207,7 @@ export default function ProofPage() {
         </div>
       </div>
 
-      {!run ? (
+      {!run && !showLive ? (
         <div style={{ textAlign: 'center', padding: '70px 20px' }}>
           <div style={{ fontSize: 36, opacity: .25, marginBottom: 12 }}>◆</div>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', marginBottom: 4 }}>No runs yet</div>
