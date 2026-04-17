@@ -57,7 +57,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }, { status: 403 });
     }
 
-    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
+    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'selected_platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
     const safeBody: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (body[key] !== undefined) safeBody[key] = body[key];
@@ -126,6 +126,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (safeBody.platforms !== undefined) {
       if (!Array.isArray(safeBody.platforms)) return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
       if (safeBody.platforms.length > 20) return Response.json({ error: 'Maximum 20 platforms allowed' }, { status: 400 });
+    }
+    if (safeBody.selected_platforms !== undefined) {
+      if (!Array.isArray(safeBody.selected_platforms)) return Response.json({ error: 'selected_platforms must be an array' }, { status: 400 });
+      if (safeBody.selected_platforms.length > 20) return Response.json({ error: 'Maximum 20 platforms allowed' }, { status: 400 });
     }
 
     // Deduplicate queries

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms, getPlanLimits } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
@@ -221,6 +221,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
+  const planLimits = getPlanLimits(user?.plan || 'free');
   const { startRun } = useRun();
   const startRunRef = useRef(startRun);
   useEffect(() => { startRunRef.current = startRun; }, [startRun]);
@@ -240,7 +241,12 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
   const [compInput, setCompInput] = useState('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
+  // If the user has a saved selection, keep it (filtered against valid platforms).
+  // Otherwise default to the plan's default platforms.
+  const savedPlatforms = brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p));
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
+    savedPlatforms && savedPlatforms.length > 0 ? savedPlatforms : planPlatforms
+  );
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -262,7 +268,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setCity(brand.city || ''); setGoal(brand.goal || 70);
     setAliases(brand.aliases || []); setQueries(brand.queries || []);
     setCompetitors(brand.competitors || []);
-    setSelectedPlatforms(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
+    const savedForBrand = brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p));
+    setSelectedPlatforms(savedForBrand && savedForBrand.length > 0 ? savedForBrand : planPlatforms);
     setNearbyAreas(brand.nearbyAreas || []);
     setOriginalQueries(brand.queries || []);
     setError(''); setMessage('');
@@ -325,7 +332,24 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const deleteSelected = () => { setQueries(queries.filter((_, i) => !selected.has(i))); setSelected(new Set()); setSelectMode(false); };
 
   const togglePlatform = (p: string) => {
-    setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+    setSelectedPlatforms(prev => {
+      if (prev.includes(p)) {
+        // Always allow unchecking — but require at least 1 platform selected
+        if (prev.length <= 1) {
+          setError('At least one AI platform must be selected.');
+          return prev;
+        }
+        setError('');
+        return prev.filter(x => x !== p);
+      }
+      // Only allow adding if under plan limit
+      if (prev.length >= planLimits.platforms) {
+        setError(`Your plan allows up to ${planLimits.platforms} AI platforms. Upgrade to add more.`);
+        return prev;
+      }
+      setError('');
+      return [...prev, p];
+    });
   };
 
   const handleAiGenerate = async () => {
@@ -352,7 +376,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setError(''); setMessage('');
     try {
-      const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms, nearbyAreas });
+      const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms, selected_platforms: selectedPlatforms, nearbyAreas });
       // Detect newly added queries BEFORE calling onUpdated (which triggers re-renders)
       const newQueries = queries.filter(q => !originalQueries.includes(q));
       onUpdated(data.brand);
