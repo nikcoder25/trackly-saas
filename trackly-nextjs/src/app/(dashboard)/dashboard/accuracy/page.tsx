@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
@@ -257,9 +257,8 @@ export default function AccuracyPage() {
   const [reverifying, setReverifying] = useState<number | null>(null);
   const [togglingFixed, setTogglingFixed] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!brand) return;
-    brandApi(brand.id)
+  const loadAccuracy = useCallback((id: string) => {
+    brandApi(id)
       .then(r => r.json())
       .then(d => {
         setFacts(d.facts || []);
@@ -271,7 +270,20 @@ export default function AccuracyPage() {
         setLastChecked(d.lastChecked || null);
       })
       .catch(() => { setFacts([]); setIssues([]); });
-  }, [brand]);
+  }, []);
+
+  useEffect(() => {
+    if (!brand?.id) return;
+    loadAccuracy(brand.id);
+  }, [brand?.id, loadAccuracy]);
+
+  // Pick up freshly-verified facts after each run finishes.
+  useEffect(() => {
+    if (!brand?.id) return;
+    const handler = () => loadAccuracy(brand.id);
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [brand?.id, loadAccuracy]);
 
   function addFact() {
     if (!factKey.trim() || !factValue.trim() || !brand) return;

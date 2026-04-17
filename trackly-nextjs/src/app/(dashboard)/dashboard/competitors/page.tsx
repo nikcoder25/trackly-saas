@@ -70,6 +70,18 @@ export default function CompetitorsPage() {
     }
   }, [brand?.id, fetchCitations, fetchCompetitorStats]);
 
+  // Refresh aggregated competitor/citation stats when a run finishes so the
+  // page reflects the new mentions in real time (matches the toast behaviour).
+  useEffect(() => {
+    if (!brand?.id) return;
+    const handler = () => {
+      fetchCitations(brand.id);
+      fetchCompetitorStats(brand.id);
+    };
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [brand?.id, fetchCitations, fetchCompetitorStats]);
+
   const competitors = brand?.competitors || [];
 
   // Use API data for stats (aggregated across all runs in last 30 days)
