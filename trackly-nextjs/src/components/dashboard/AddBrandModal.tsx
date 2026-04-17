@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
+import { api, getErrorMessage } from '@/lib/fetch-client';
 
 interface Brand {
   id: string;
@@ -16,15 +17,6 @@ interface Brand {
   competitors: string[];
   nearbyAreas?: string[];
   [key: string]: unknown;
-}
-
-async function api(method: string, path: string, body?: unknown) {
-  const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(path, opts);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
 }
 
 export default function AddBrandModal({ onClose, onCreated }: { onClose: () => void; onCreated: (brand: Brand) => void }) {
@@ -67,13 +59,10 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
     if (!name) { setError('Set brand name first'); return; }
     setSuggesting(true); setQueryMsg(''); setError('');
     try {
-      const res = await fetch('/api/ai-generate-queries', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries, mode: 'suggest' }),
+      const data = await api<{ queries?: string[] }>('POST', '/api/ai-generate-queries', {
+        brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries, mode: 'suggest',
       });
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      const suggestions = (data.queries || []).filter((s: string) => !queries.includes(s));
+      const suggestions = (data.queries || []).filter((s) => !queries.includes(s));
       if (suggestions.length) { setQueries([...queries, ...suggestions]); setQueryMsg(`Added ${suggestions.length} suggested queries`); }
       else { setQueryMsg('All suggestions already added'); }
     } catch {
@@ -90,13 +79,10 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
     if (!name) { setError('Set brand name first'); return; }
     setAiGenerating(true); setQueryMsg(''); setError('');
     try {
-      const res = await fetch('/api/ai-generate-queries', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries }),
+      const data = await api<{ queries?: string[] }>('POST', '/api/ai-generate-queries', {
+        brandName: name, industry: industry || 'services', city: city || '', existingQueries: queries,
       });
-      if (!res.ok) throw new Error('API error');
-      const data = await res.json();
-      const generated = (data.queries || []).filter((s: string) => !queries.includes(s));
+      const generated = (data.queries || []).filter((s) => !queries.includes(s));
       if (generated.length) { setQueries([...queries, ...generated]); setQueryMsg(`Added ${generated.length} AI-generated queries`); }
       else { setQueryMsg('All AI suggestions already added'); }
     } catch {
@@ -110,9 +96,9 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const handleCreate = async () => {
     setSaving(true); setError('');
     try {
-      const data = await api('POST', '/api/brands', { name, industry, website, city, nearbyAreas, competitors, queries });
+      const data = await api<{ brand: Brand }>('POST', '/api/brands', { name, industry, website, city, nearbyAreas, competitors, queries });
       onCreated(data.brand);
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) { setError(getErrorMessage(e, 'Failed to create brand')); }
     setSaving(false);
   };
 
@@ -120,17 +106,12 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
     if (!city.trim()) { setAreaError('Enter a city first'); return; }
     setFetchingAreas(true); setAreaError('');
     try {
-      const res = await fetch('/api/nearby-areas', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ city: city.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch');
+      const data = await api<{ areas?: string[] }>('POST', '/api/nearby-areas', { city: city.trim() });
       const existing = new Set(nearbyAreas.map(a => a.toLowerCase()));
-      const newAreas = (data.areas || []).filter((a: string) => !existing.has(a.toLowerCase()));
+      const newAreas = (data.areas || []).filter((a) => !existing.has(a.toLowerCase()));
       if (!newAreas.length) { setAreaError('No new areas found'); setFetchingAreas(false); return; }
       setNearbyAreas([...nearbyAreas, ...newAreas]);
-    } catch (e) { setAreaError((e as Error).message); }
+    } catch (e) { setAreaError(getErrorMessage(e, 'Failed to fetch')); }
     setFetchingAreas(false);
   };
 
