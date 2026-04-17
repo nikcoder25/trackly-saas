@@ -41,6 +41,23 @@ function findAvailablePlatform(): { platform: string; apiKey: string } | null {
   return null;
 }
 
+// Per-platform attempt timeout. queryAI has its own internal retry budget that
+// can balloon to 8 minutes on transient errors — this caps each attempt so the
+// user isn't stuck on "FETCHING..." forever. Bounded by TOTAL_BUDGET_MS across
+// both primary + fallback platforms.
+const PER_ATTEMPT_TIMEOUT_MS = 20000;
+const TOTAL_BUDGET_MS = 45000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
@@ -49,14 +66,20 @@ export async function POST(request: Request) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const body = await request.json().catch(() => ({}));
-  const { city } = body;
+  const { city, industry, website } = body;
   if (!city || typeof city !== 'string' || !city.trim()) {
     return Response.json({ error: 'City is required' }, { status: 400 });
   }
 
-  // Sanitize city input
+  // Sanitize inputs
   const sanitizedCity = city.trim().replace(/[^\w\s,.\-']/g, '').substring(0, 100);
   if (!sanitizedCity) return Response.json({ error: 'Invalid city name' }, { status: 400 });
+  const sanitizedIndustry = typeof industry === 'string'
+    ? industry.trim().replace(/[^\w\s,.\-&/']/g, '').substring(0, 60)
+    : '';
+  const sanitizedWebsite = typeof website === 'string'
+    ? website.trim().replace(/[^\w\s:/.\-?=&%#]/g, '').substring(0, 200)
+    : '';
 
   // Find an available AI platform
   const found = findAvailablePlatform();
@@ -66,38 +89,65 @@ export async function POST(request: Request) {
     }, { status: 503 });
   }
 
-  const { platform, apiKey } = found;
-  const prompt = `List exactly 10-15 nearby cities, towns, suburbs, and service areas within a 30-mile radius of "${sanitizedCity}". Return ONLY a JSON array of strings, nothing else. Example format: ["City 1", "City 2", "City 3"]. Include the county/region name and state abbreviation. Do not include the original city itself.`;
+  const contextParts: string[] = [];
+  if (sanitizedIndustry) contextParts.push(`Business type: ${sanitizedIndustry}`);
+  if (sanitizedWebsite) contextParts.push(`Website: ${sanitizedWebsite}`);
+  const contextHeader = contextParts.length ? contextParts.join('. ') + '. ' : '';
 
-  // Try up to 2 platforms if the first one fails
+  const prompt = `${contextHeader}List exactly 10-15 nearby cities, towns, suburbs, and service areas within a 30-mile radius of "${sanitizedCity}" that this business would reasonably serve. Return ONLY a JSON array of strings, nothing else. Example format: ["City 1", "City 2", "City 3"]. Include the county/region name and state abbreviation. Do not include "${sanitizedCity}" itself.`;
+
+  // Try up to 2 platforms if the first one fails, bounded by TOTAL_BUDGET_MS
+  const { platform, apiKey } = found;
   const platformsToTry = [{ platform, apiKey }];
   const fallbackPlatform = findFallbackPlatform(platform);
   if (fallbackPlatform) platformsToTry.push(fallbackPlatform);
 
+  const startedAt = Date.now();
+  let lastError: unknown = null;
+
   for (const { platform: plat, apiKey: key } of platformsToTry) {
+    const remainingBudget = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    if (remainingBudget < 3000) break;
+    const attemptTimeout = Math.min(PER_ATTEMPT_TIMEOUT_MS, remainingBudget);
+
     try {
       const model = getDefaultModel(plat);
-      const result = await queryAI(plat, prompt, key, model, undefined, {
-        systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
-        maxTokens: 800,
-        jsonMode: true,
-      });
+      const result = await withTimeout(
+        queryAI(plat, prompt, key, model, undefined, {
+          systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',
+          maxTokens: 800,
+          jsonMode: true,
+          silent: true,
+        }),
+        attemptTimeout,
+        `nearby-areas[${plat}]`,
+      );
 
-      if (!result?.text) continue;
+      if (!result?.text) {
+        console.warn(`[nearby-areas] ${plat} returned empty text`);
+        continue;
+      }
 
       const areas = parseAreas(result.text);
       if (areas.length > 0) {
         return Response.json({ areas, city: sanitizedCity, platform: plat });
       }
-    } catch {
-      // Try next platform
+      console.warn(`[nearby-areas] ${plat} response did not parse into areas:`, result.text.slice(0, 200));
+    } catch (e) {
+      lastError = e;
+      const msg = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+      console.warn(`[nearby-areas] ${plat} failed: ${msg}`);
       continue;
     }
   }
 
+  const lastMsg = lastError instanceof Error ? lastError.message.toLowerCase() : '';
+  const timedOut = lastMsg.includes('timed out') || lastMsg.includes('timeout');
   return Response.json({
-    error: 'Could not fetch nearby areas. Please try again or add areas manually.',
-  }, { status: 500 });
+    error: timedOut
+      ? 'AI service is slow right now. Please try again or add areas manually.'
+      : 'Could not fetch nearby areas. Please try again or add areas manually.',
+  }, { status: timedOut ? 504 : 500 });
 }
 
 function findFallbackPlatform(exclude: string): { platform: string; apiKey: string } | null {
