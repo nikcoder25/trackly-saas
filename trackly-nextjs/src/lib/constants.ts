@@ -46,6 +46,21 @@ export function getPlanLimits(plan: string): PlanLimits {
 
 // Free trial duration — 7 days from signup, 30 prompts, all 6 AI platforms.
 export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+// Email signups start with a shorter provisional trial to contain bot abuse.
+// On email verification the trial is extended to TRIAL_DURATION_MS.
+export const TRIAL_INITIAL_UNVERIFIED_MS = 24 * 60 * 60 * 1000;
+
+// Anti-abuse caps for trial accounts. Values are overridable via env for ops.
+export const TRIAL_DAILY_PROMPT_CAP_PER_USER = parseInt(
+  process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '10', 10
+);
+export const TRIAL_DAILY_GLOBAL_PROMPT_CAP = parseInt(
+  process.env.TRIAL_DAILY_GLOBAL_PROMPT_CAP || '5000', 10
+);
+// Maximum recent signups from the same /24 IP block before we reject new ones
+export const SIGNUP_IP_BLOCK_HOURLY_LIMIT = parseInt(
+  process.env.SIGNUP_IP_BLOCK_HOURLY_LIMIT || '5', 10
+);
 
 /**
  * If the user is on the 'trial' plan and the trial has expired, returns 'free'.

@@ -2,11 +2,12 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
-import { uid, safeUser } from '@/lib/helpers';
+import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity } from '@/lib/auth';
-import { getPlanLimits, AUTH, TRIAL_DURATION_MS } from '@/lib/constants';
+import { getPlanLimits, AUTH, TRIAL_INITIAL_UNVERIFIED_MS } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
 
 // ─── Anti-spam helpers ──────────────────────────────────────────
 
@@ -64,7 +65,8 @@ async function generateUsername(nameOrEmail: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
-  const rl = await rateLimit('auth:' + ip, 15 * 60 * 1000, 20);
+  // Trial-with-AI signups get a tight per-IP cap to limit drive-by abuse.
+  const rl = await rateLimit('auth_register:' + ip, 60 * 60 * 1000, 5);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const body = await request.json();
@@ -99,6 +101,13 @@ export async function POST(request: NextRequest) {
   try {
     await ensureColumns();
 
+    // Anti-abuse gauntlet: duplicate identity (normalised email), IP frequency,
+    // optional datacenter check. Denials log an audit event.
+    const abuse = await runSignupAbuseChecks({ email, ip, name });
+    if (!abuse.allowed) {
+      return Response.json({ error: abuse.reason }, { status: 400 });
+    }
+
     if (trimmedUsername) {
       const existingUser = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [trimmedUsername]);
       if (existingUser.rows.length) return Response.json({ error: 'Username already taken' }, { status: 400 });
@@ -113,14 +122,18 @@ export async function POST(request: NextRequest) {
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
-    const trialEndsAt = new Date(Date.now() + TRIAL_DURATION_MS);
+    // Email signups start with a short provisional trial (24h). Verification
+    // extends the trial to the full 7 days in the verify-email route.
+    const trialEndsAt = new Date(Date.now() + TRIAL_INITIAL_UNVERIFIED_MS);
+    const emailLower = email.toLowerCase();
+    const emailNorm = normaliseEmail(emailLower);
 
     const insertResult = await pool.query(
-      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires, trial_ends_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires, trial_ends_at, email_normalized, signup_ip)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (email) DO NOTHING
        RETURNING id`,
-      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'trial', verifyToken, verifyTokenExpires, trialEndsAt]
+      [id, emailLower, trimmedUsername, userName, hash, 'trial', verifyToken, verifyTokenExpires, trialEndsAt, emailNorm, ip]
     );
     if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try again or use a different email.' }, { status: 400 });
 
@@ -134,6 +147,8 @@ export async function POST(request: NextRequest) {
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, ip);
+    // Fire-and-forget alert for signup bursts from the same /24 block
+    logSuspiciousSignupPattern(ip, email.toLowerCase()).catch(() => {});
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, refreshToken);
     return jsonWithCookies({

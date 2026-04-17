@@ -6,6 +6,40 @@ import { pool } from './db';
 import { getPlanLimits, getEffectivePlan } from './constants';
 
 /**
+ * Normalise an email so variant addresses collapse to a single identity.
+ * Strips `+tag`, lower-cases, and removes dots for Gmail / Googlemail.
+ * Used for anti-abuse dedup when handing out free trials.
+ */
+export function normaliseEmail(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const lower = raw.trim().toLowerCase();
+  const [local, domain] = lower.split('@');
+  if (!local || !domain) return lower;
+  const stripped = local.split('+')[0];
+  const isGoogle = domain === 'gmail.com' || domain === 'googlemail.com';
+  const cleaned = isGoogle ? stripped.replace(/\./g, '') : stripped;
+  return `${cleaned}@${isGoogle ? 'gmail.com' : domain}`;
+}
+
+/**
+ * Returns the /24 block of an IPv4 address (e.g. "203.0.113.0/24") or the
+ * /64 prefix for IPv6, for coarse abuse-pattern bucketing. Returns the
+ * original string when the address can't be parsed.
+ */
+export function ipBlockKey(ip: string): string {
+  if (!ip || ip === 'unknown') return 'unknown';
+  // IPv4
+  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/);
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}.0/24`;
+  // IPv6 — take the first four hextets as an approximate /64
+  if (ip.includes(':')) {
+    const parts = ip.split(':').slice(0, 4).join(':');
+    return `${parts}::/64`;
+  }
+  return ip;
+}
+
+/**
  * Look up a user's effective plan, respecting trial expiration.
  * Returns 'free' if the user's trial has expired or they aren't found.
  */

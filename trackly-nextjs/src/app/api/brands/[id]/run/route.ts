@@ -8,6 +8,7 @@ import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
+import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -233,6 +234,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const runId = uid();
   const totalExpected = queries.length * activePlatforms.length;
+
+  // --- Trial prompt budgets (per-user daily + global daily) ---
+  // Reserved against the brand owner's account so team runs still count.
+  const budgetCheck = await reserveTrialPromptBudget(ownerId, ownerPlan, totalExpected);
+  if (!budgetCheck.allowed) {
+    return Response.json(
+      { error: budgetCheck.reason, planLimit: true, code: budgetCheck.code },
+      { status: 429 }
+    );
+  }
 
   // --- Atomically check lock and create run record in DB ---
   // Uses a CTE to avoid race conditions between checking and inserting
