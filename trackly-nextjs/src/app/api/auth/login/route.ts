@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { pool, safeConnect, auditLog } from '@/lib/db';
+import { pool, safeConnect, auditLog, ensureColumns } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await ensureColumns();
     const isEmail = email.includes('@');
     const loginCols = 'id, email, username, name, plan, trial_ends_at, role, password_hash, api_keys, settings, email_verified, created_at, google_id, avatar_url';
     const result = isEmail

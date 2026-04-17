@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { pool, auditLog } from '@/lib/db';
+import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
 import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
   if (!clientId) return Response.json({ error: 'Google Sign-In is not configured' }, { status: 400 });
 
   try {
+    await ensureColumns();
     let googleId: string, email: string, name: string, avatarUrl: string | null;
 
     if (access_token) {

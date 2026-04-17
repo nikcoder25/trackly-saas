@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { pool, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { uid } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
@@ -80,6 +80,7 @@ export async function GET(request: Request) {
     });
 
     // Query plan from database (not JWT) so upgrades are reflected immediately
+    await ensureColumns();
     const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
     const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
@@ -118,6 +119,7 @@ export async function POST(request: Request) {
   if (country && (typeof country !== 'string' || country.length > 100)) return Response.json({ error: 'Country must be 100 characters or less' }, { status: 400 });
 
   try {
+    await ensureColumns();
     const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
     const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
