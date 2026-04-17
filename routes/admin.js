@@ -480,10 +480,28 @@ router.post('/ai-generate-queries', auth, aiLimiter, async (req, res) => {
   if (!platform) return res.status(400).json({ error: 'No AI platform API keys configured.' });
 
   const existingList = (existingQueries || []).length > 0
-    ? `\n\nAlready tracked queries (do NOT repeat these):\n${existingQueries.join('\n')}`
+    ? `\n\nAlready tracked queries — your output MUST NOT repeat any of these (case-insensitive) or paraphrase them:\n${existingQueries.join('\n')}`
     : '';
 
-  const prompt = `Generate 10-15 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
+  // Rotate angles each call so repeated clicks produce fresh queries rather than cycling
+  // back to the same "best X in Y" patterns.
+  const ANGLES = [
+    'price-focused ("cheap", "affordable", "budget")',
+    'quality-focused ("top rated", "premium", "best reviewed")',
+    'urgency ("emergency", "same-day", "24/7")',
+    'comparison ("vs", "alternatives", "which is better")',
+    'trust signals ("licensed", "insured", "recommended by")',
+    'question framing ("who is the best", "how do I find", "can you recommend")',
+    'neighborhood or near-me variations',
+    'review-oriented ("reviews", "testimonials", "ratings")',
+    'long-tail conversational phrasing',
+    'specific sub-services inside "' + industry + '"',
+  ];
+  const shuffled = ANGLES.slice().sort(() => Math.random() - 0.5).slice(0, 4);
+  const anglesHint = '\n\nThis round, favor queries from these angles (mix them, but vary from prior rounds):\n- ' + shuffled.join('\n- ');
+  const seed = Math.random().toString(36).slice(2, 8);
+
+  const prompt = `Generate 12-18 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
 
 These queries will be used to track whether the brand "${brandName}" appears in AI responses.
 
@@ -492,7 +510,10 @@ Requirements:
 - Include different question styles: "who is the best...", "recommend a...", "top 5...", "which company..."
 - Include queries with and without location
 - Make them natural — how real people actually ask AI chatbots
-- Return ONLY a JSON array of strings, nothing else${existingList}
+- Every query in your output must be distinct from every other query in your output
+- Return ONLY a JSON array of strings, nothing else${anglesHint}${existingList}
+
+Variation seed (use this as inspiration for freshness, do not include it in output): ${seed}
 
 Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${industry} company"]`;
 
@@ -509,13 +530,24 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
     try {
       queries = JSON.parse(jsonMatch[0])
         .filter(q => typeof q === 'string' && q.trim().length > 0)
-        .map(q => q.trim())
-        .slice(0, 15);
+        .map(q => q.trim());
     } catch(_) {
       return res.status(500).json({ error: 'AI returned malformed JSON. Please try again.' });
     }
 
-    if (!queries.length) return res.status(500).json({ error: 'No queries generated' });
+    // Server-side dedupe (case-insensitive) against the caller's existing list so
+    // repeated clicks on "AI Generate" actually yield fresh prompts.
+    const existingLower = new Set((existingQueries || []).map(q => q.toLowerCase()));
+    const seen = new Set();
+    queries = queries.filter(q => {
+      const k = q.toLowerCase();
+      if (existingLower.has(k)) return false;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    }).slice(0, 18);
+
+    if (!queries.length) return res.status(200).json({ queries: [], platform, note: 'No new queries this round — try again.' });
     res.json({ queries, platform });
   } catch(e) {
     console.error('[AI Generate Queries]', e.message);

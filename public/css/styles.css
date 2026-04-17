@@ -1448,6 +1448,12 @@ body:has(#app[style*="display:grid"]){
 .query-tag-selectable{cursor:pointer;user-select:none;}
 .query-tag-selectable:hover{background:var(--primary-light);border-color:var(--primary-border);}
 .query-tag-selected{background:var(--primary-light);border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);}
+.query-tag-duplicate-flash{background:rgba(245,158,11,.2);border-color:var(--amber);box-shadow:0 0 0 2px var(--amber);animation:query-tag-pulse 1.6s ease-out;}
+@keyframes query-tag-pulse{
+  0%  {box-shadow:0 0 0 0 rgba(245,158,11,.7);}
+  50% {box-shadow:0 0 0 6px rgba(245,158,11,0);}
+  100%{box-shadow:0 0 0 0 rgba(245,158,11,0);}
+}
 .query-select-cb{margin-right:6px;cursor:pointer;accent-color:var(--primary);width:14px;height:14px;}
 .ov-btn-active{background:var(--primary-light)!important;border-color:var(--primary)!important;color:var(--primary)!important;}
 .add-query-row{display:flex;gap:8px;margin-top:10px;}

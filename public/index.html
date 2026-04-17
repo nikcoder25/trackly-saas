@@ -1394,6 +1394,8 @@
             <button id="setup-select-all-btn" onclick="setupSelectAllQueries()" style="display:none;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">Select All</button>
             <button id="setup-deselect-all-btn" onclick="setupDeselectAllQueries()" style="display:none;background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">Deselect All</button>
             <button id="setup-delete-selected-btn" onclick="setupDeleteSelectedQueries()" style="display:none;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);" disabled>DELETE SELECTED (<span id="setup-selected-count">0</span>)</button>
+            <button id="setup-copy-selected-btn" onclick="setupCopySelectedQueries()" style="display:none;background:none;border:1px solid var(--primary);color:var(--primary);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">COPY SELECTED</button>
+            <button id="setup-copy-all-btn" onclick="setupCopyAllQueries()" style="background:none;border:1px solid var(--primary);color:var(--primary);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">&#x29C9; COPY ALL</button>
             <button onclick="setupClearAllQueries()" style="background:none;border:1px solid var(--red);color:var(--red);font-family:var(--mono);font-size:10px;padding:6px 12px;cursor:pointer;border-radius:var(--radius-xs);">CLEAR ALL</button>
           </div>
           <!-- Add single query -->
@@ -1421,8 +1423,9 @@
         </div>
         <div class="form-group">
           <label class="flbl">AI Platforms to Track</label>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">Select which AI models to query when running keyword tracking.</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;">Select which AI platforms to query when running keyword tracking. Only the platforms you pick will be scanned.</div>
           <div id="setup-plat-list" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+          <div id="setup-plat-limit-hint" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:6px;"></div>
         </div>
         <button class="btn-primary" onclick="saveBrandSetup()">SAVE CHANGES</button>
         <button onclick="deleteBrand()" style="width:100%;padding:10px;background:none;border:1px solid var(--red);color:var(--red);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-top:10px;border-radius:var(--radius-xs);">DELETE BRAND</button>

@@ -289,6 +289,20 @@ router.put('/:id', auth, async (req, res) => {
       }
     }
 
+    // Validate platforms against the known set so bad input can't poison the run.
+    if (safeBody.platforms !== undefined) {
+      if (!Array.isArray(safeBody.platforms)) {
+        return res.status(400).json({ error: 'platforms must be an array' });
+      }
+      const validPlatforms = Object.keys(PLATFORM_KEY_MAP);
+      const bad = safeBody.platforms.find(p => typeof p !== 'string' || !validPlatforms.includes(p));
+      if (bad !== undefined) {
+        return res.status(400).json({ error: 'Invalid platform: ' + bad + '. Allowed: ' + validPlatforms.join(', ') });
+      }
+      // Dedupe while preserving user order
+      safeBody.platforms = [...new Set(safeBody.platforms)];
+    }
+
     // Server-side deduplication (case-insensitive)
     if (safeBody.queries && Array.isArray(safeBody.queries)) {
       const seen = new Set();
@@ -464,33 +478,53 @@ router.post('/:id/run', auth, async (req, res) => {
       return res.status(429).json({ error: errMsg, dailyBudget: true, spent: currentDailyCost, limit: dailyBudget });
     }
 
-    let availablePlatforms = Object.entries(PLATFORM_KEY_MAP)
+    // Platforms the server can actually run (API key present + not disabled in Account settings)
+    const runnablePlatforms = Object.entries(PLATFORM_KEY_MAP)
       .filter(([, keyName]) => keys[keyName] && keys[keyName].length > 0)
       .map(([plat]) => plat)
       .filter(plat => enabledPlatforms[plat] !== false);
 
-    // Use plan-specific platforms if defined, otherwise fall back to cost-order
-    const planDefaults = PLAN_DEFAULT_PLATFORMS[plan];
-    if (planDefaults) {
-      const preferred = planDefaults.filter(p => availablePlatforms.includes(p));
-      if (preferred.length) availablePlatforms = preferred;
-    } else {
-      availablePlatforms.sort((a, b) => (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) - (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b)));
-    }
-    if (availablePlatforms.length > limits.platforms) availablePlatforms = availablePlatforms.slice(0, limits.platforms);
-
-    if (!availablePlatforms.length) {
+    if (!runnablePlatforms.length) {
       return res.status(400).json({ error: 'No AI platforms enabled. Enable platforms in Account settings.' });
     }
 
-    const requestedPlatforms = req.body.platforms || brand.platforms;
-    activePlatforms = (requestedPlatforms && Array.isArray(requestedPlatforms) && requestedPlatforms.length)
-      ? availablePlatforms.filter(p => requestedPlatforms.includes(p))
-      : availablePlatforms;
+    // User's explicit selection (from request body or persisted on the brand).
+    // When the user picks platforms in Brand Setup, that selection is authoritative —
+    // we only fall back to plan defaults / cost order when nothing has been chosen.
+    const requestedPlatforms = Array.isArray(req.body.platforms)
+      ? req.body.platforms
+      : (Array.isArray(brand.platforms) ? brand.platforms : null);
 
-    if (!activePlatforms.length) {
-      if (streaming) return sseError(res, 'No valid platforms selected.');
-      return res.status(400).json({ error: 'No valid platforms selected.' });
+    if (requestedPlatforms && requestedPlatforms.length) {
+      // Honor the user's selection, filtered by what's actually runnable.
+      activePlatforms = requestedPlatforms.filter(p => runnablePlatforms.includes(p));
+      // Enforce plan cap on the user's selection order (first N they chose).
+      if (activePlatforms.length > limits.platforms) {
+        activePlatforms = activePlatforms.slice(0, limits.platforms);
+      }
+      if (!activePlatforms.length) {
+        const errMsg = 'None of the selected AI platforms are currently available. Add an API key or enable them in Account settings.';
+        if (streaming) return sseError(res, errMsg);
+        return res.status(400).json({ error: errMsg });
+      }
+    } else {
+      // No user selection — pick defaults: plan-specific list, else cheapest-first.
+      const planDefaults = PLAN_DEFAULT_PLATFORMS[plan];
+      let defaults;
+      if (planDefaults) {
+        defaults = planDefaults.filter(p => runnablePlatforms.includes(p));
+        if (!defaults.length) defaults = runnablePlatforms.slice();
+      } else {
+        defaults = runnablePlatforms.slice().sort((a, b) =>
+          (PLATFORM_COST_ORDER.indexOf(a) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(a)) -
+          (PLATFORM_COST_ORDER.indexOf(b) === -1 ? 99 : PLATFORM_COST_ORDER.indexOf(b))
+        );
+      }
+      activePlatforms = defaults.slice(0, limits.platforms);
+      if (!activePlatforms.length) {
+        if (streaming) return sseError(res, 'No valid platforms selected.');
+        return res.status(400).json({ error: 'No valid platforms selected.' });
+      }
     }
 
     totalExpected = queries.length * activePlatforms.length;

@@ -140,7 +140,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // Support running only specific queries (e.g. newly added ones) via request body
-  let body: { queries?: string[] } = {};
+  let body: { queries?: string[]; platforms?: string[] } = {};
   try { body = await request.json(); } catch { /* no body or invalid JSON is fine */ }
   const allQueries: string[] = brand.queries || [];
   const queries: string[] = (body.queries && Array.isArray(body.queries) && body.queries.length > 0)
@@ -151,18 +151,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const userKeys = decryptApiKeys(planResult.rows[0]?.api_keys || {});
   const serverKeys = getServerKeys();
 
-  let availablePlatforms = PLATFORMS.filter(p => {
+  const runnablePlatforms = PLATFORMS.filter(p => {
     const keyName = PLATFORM_KEY_MAP[p];
     return (serverKeys[keyName]?.length || userKeys[keyName]) ? true : false;
   });
-  const planDefaults = PLAN_DEFAULT_PLATFORMS[ownerPlan];
-  if (planDefaults) {
-    const preferred = planDefaults.filter(p => availablePlatforms.includes(p));
-    if (preferred.length) availablePlatforms = preferred;
-  }
-  const activePlatforms = availablePlatforms.slice(0, limits.platforms);
 
-  if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
+  // User's saved selection (or an override in the request body) is authoritative —
+  // plan defaults only apply when the user has not chosen anything.
+  const requestedPlatforms: string[] | null = Array.isArray(body.platforms)
+    ? (body.platforms as string[])
+    : (Array.isArray(brand.platforms) ? (brand.platforms as string[]) : null);
+
+  let activePlatforms: string[];
+  if (requestedPlatforms && requestedPlatforms.length) {
+    activePlatforms = requestedPlatforms.filter(p => runnablePlatforms.includes(p));
+    if (activePlatforms.length > limits.platforms) {
+      activePlatforms = activePlatforms.slice(0, limits.platforms);
+    }
+    if (!activePlatforms.length) {
+      return Response.json({ error: 'None of the selected AI platforms have API keys configured.' }, { status: 400 });
+    }
+  } else {
+    const planDefaults = PLAN_DEFAULT_PLATFORMS[ownerPlan];
+    let defaults = planDefaults
+      ? planDefaults.filter(p => runnablePlatforms.includes(p))
+      : runnablePlatforms.slice();
+    if (!defaults.length) defaults = runnablePlatforms.slice();
+    activePlatforms = defaults.slice(0, limits.platforms);
+    if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
+  }
 
   // --- Atomic monthly run limit check (prevents race condition with concurrent requests) ---
   try {
