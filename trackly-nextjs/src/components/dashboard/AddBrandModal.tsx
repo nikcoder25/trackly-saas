@@ -105,13 +105,25 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const fetchNearbyAreas = async () => {
     if (!city.trim()) { setAreaError('Enter a city first'); return; }
     setFetchingAreas(true); setAreaError('');
+    // Client-side timeout — server caps at ~45s; add headroom for network.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
     try {
-      const data = await api<{ areas?: string[] }>('POST', '/api/nearby-areas', { city: city.trim() });
+      const data = await api<{ areas?: string[] }>(
+        'POST',
+        '/api/nearby-areas',
+        { city: city.trim(), industry: industry.trim(), website: website.trim() },
+        { signal: controller.signal },
+      );
       const existing = new Set(nearbyAreas.map(a => a.toLowerCase()));
       const newAreas = (data.areas || []).filter((a) => !existing.has(a.toLowerCase()));
-      if (!newAreas.length) { setAreaError('No new areas found'); setFetchingAreas(false); return; }
+      if (!newAreas.length) { setAreaError('No new areas found'); setFetchingAreas(false); clearTimeout(timeoutId); return; }
       setNearbyAreas([...nearbyAreas, ...newAreas]);
-    } catch (e) { setAreaError(getErrorMessage(e, 'Failed to fetch')); }
+    } catch (e) {
+      const aborted = e instanceof DOMException && e.name === 'AbortError';
+      setAreaError(aborted ? 'Request timed out. Please try again.' : getErrorMessage(e, 'Failed to fetch'));
+    }
+    clearTimeout(timeoutId);
     setFetchingAreas(false);
   };
 
