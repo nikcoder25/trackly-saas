@@ -511,7 +511,7 @@ export default function LivesovHomePage() {
             </a>
           </div>
 
-          <p className="tl-hero-note">No credit card required &middot; Free plan available &middot; Set up in 2 minutes</p>
+          <p className="tl-hero-note">7-day free trial &middot; No credit card required &middot; All 6 AI platforms included</p>
         </div>
 
         {/* Platform pills floating */}
@@ -617,7 +617,7 @@ export default function LivesovHomePage() {
           <div className="tl-section-header">
             <span className="tl-section-tag">Pricing</span>
             <h2>Simple, transparent pricing</h2>
-            <p>Free plan available. Paid plans from $9/mo. Best value in AI visibility tracking.</p>
+            <p>7-day free trial on every paid plan. No credit card required. Plans from $9/mo.</p>
           </div>
 
           <div className="tl-pricing-grid">

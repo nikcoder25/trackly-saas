@@ -644,7 +644,7 @@ router.get('/pricing', (req, res) => {
 <p>Yes. Upgrade, downgrade, or cancel at any time. No long-term contracts.</p>
 
 <h3>Is there a free trial?</h3>
-<p>The Free plan is free forever — no credit card required. You can start tracking immediately after signing up.</p>
+<p>Yes. Every new account starts with a 7-day free trial that includes all 6 AI platforms, 30 tracked queries, sentiment analysis, and scheduled runs — no credit card required. After 7 days you'll automatically drop to the Free plan unless you upgrade.</p>
 
 <h3>What payment methods do you accept?</h3>
 <p>We accept all major credit cards via Stripe. Enterprise customers can pay by invoice.</p>

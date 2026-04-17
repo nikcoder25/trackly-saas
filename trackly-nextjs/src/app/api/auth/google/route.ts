@@ -2,9 +2,10 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
-import { uid, safeUser } from '@/lib/helpers';
+import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
-import { API_ENDPOINTS, AUTH } from '@/lib/constants';
+import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
+import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
   let base = (nameOrEmail || '').trim().toLowerCase();
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     if (!email) return Response.json({ error: 'Google account has no email' }, { status: 400 });
 
-    const selectCols = 'id, email, username, name, plan, role, api_keys, settings, email_verified, created_at, google_id, avatar_url';
+    const selectCols = 'id, email, username, name, plan, trial_ends_at, role, api_keys, settings, email_verified, created_at, google_id, avatar_url';
 
     // Case 1: Existing user with this google_id
     let user = (await pool.query(`SELECT ${selectCols} FROM users WHERE google_id = $1`, [googleId])).rows[0];
@@ -99,20 +100,32 @@ export async function POST(request: NextRequest) {
         );
       } else {
         // Case 3: Brand new user
+        // Anti-abuse checks only apply on new Google signups. Existing Google
+        // users skip these since they're already established accounts.
+        const abuse = await runSignupAbuseChecks({ email, ip, name });
+        if (!abuse.allowed) {
+          return Response.json({ error: abuse.reason }, { status: 400 });
+        }
+
         const id = uid();
         const autoUsername = await generateUsername(name || email);
         const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), AUTH.bcryptRounds);
+        // Google emails are pre-verified so they get the full 7-day trial.
+        const trialEndsAt = new Date(Date.now() + TRIAL_DURATION_MS);
+        const emailNorm = normaliseEmail(email);
         await pool.query(
-          `INSERT INTO users (id, email, username, name, password_hash, plan, google_id, avatar_url, email_verified)
-           VALUES ($1, $2, $3, $4, $5, 'free', $6, $7, TRUE)`,
-          [id, email, autoUsername, name, dummyHash, googleId, avatarUrl]
+          `INSERT INTO users (id, email, username, name, password_hash, plan, trial_ends_at, google_id, avatar_url, email_verified, email_normalized, signup_ip)
+           VALUES ($1, $2, $3, $4, $5, 'trial', $6, $7, $8, TRUE, $9, $10)`,
+          [id, email, autoUsername, name, dummyHash, trialEndsAt, googleId, avatarUrl, emailNorm, ip]
         );
         user = (await pool.query(`SELECT ${selectCols} FROM users WHERE id = $1`, [id])).rows[0];
         auditLog(id, 'register', 'user', id, { email, method: 'google' }, ip);
+        logSuspiciousSignupPattern(ip, email).catch(() => {});
       }
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: user.plan || undefined });
+    const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
 

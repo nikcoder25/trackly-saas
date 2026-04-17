@@ -3,10 +3,46 @@
  */
 import crypto from 'crypto';
 import { pool } from './db';
-import { getPlanLimits } from './constants';
+import { getPlanLimits, getEffectivePlan } from './constants';
 
 export function uid(): string {
   return Date.now().toString(36) + crypto.randomBytes(6).toString('hex');
+}
+
+/**
+ * Collapse variant addresses (Gmail dots, +tags) to one identity so a single
+ * person can't grab multiple trials from the same mailbox.
+ */
+export function normaliseEmail(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const lower = raw.trim().toLowerCase();
+  const [local, domain] = lower.split('@');
+  if (!local || !domain) return lower;
+  const stripped = local.split('+')[0];
+  const isGoogle = domain === 'gmail.com' || domain === 'googlemail.com';
+  const cleaned = isGoogle ? stripped.replace(/\./g, '') : stripped;
+  return `${cleaned}@${isGoogle ? 'gmail.com' : domain}`;
+}
+
+/**
+ * Coarse /24 (IPv4) or /64 (IPv6) bucket for abuse-pattern detection.
+ */
+export function ipBlockKey(ip: string): string {
+  if (!ip || ip === 'unknown') return 'unknown';
+  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/);
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}.0/24`;
+  if (ip.includes(':')) {
+    const parts = ip.split(':').slice(0, 4).join(':');
+    return `${parts}::/64`;
+  }
+  return ip;
+}
+
+export async function getUserEffectivePlan(userId: string): Promise<string> {
+  const result = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [userId]);
+  const row = result.rows[0] as { plan?: string; trial_ends_at?: string | Date } | undefined;
+  if (!row) return 'free';
+  return getEffectivePlan(row.plan, row.trial_ends_at);
 }
 
 // ── API Key Encryption ───────────────────────────────
@@ -76,10 +112,11 @@ export function decryptApiKeys(keys: Record<string, string>): Record<string, str
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function safeUser(u: any) {
-  const plan = u.plan || 'free';
+  // Expired trials transparently resolve to 'free'. The DB row isn't mutated
+  // here — it's re-evaluated on every read so the countdown stays accurate.
+  const plan = getEffectivePlan(u.plan, u.trial_ends_at);
   const rawKeys = u.api_keys || {};
   const decrypted = decryptApiKeys(rawKeys);
-  // Explicitly strip ALL sensitive keys from settings (defense-in-depth)
   const rawSettings = u.settings || {};
   const SENSITIVE_KEYS = new Set([
     'totp_secret', 'totp_secret_pending', 'totp_backup_codes',
@@ -95,6 +132,8 @@ export function safeUser(u: any) {
     username: u.username || null,
     name: u.name,
     plan,
+    rawPlan: u.plan || 'free',
+    trialEndsAt: u.trial_ends_at ? new Date(u.trial_ends_at).toISOString() : null,
     role: u.role || null,
     createdAt: u.created_at,
     emailVerified: u.email_verified || false,

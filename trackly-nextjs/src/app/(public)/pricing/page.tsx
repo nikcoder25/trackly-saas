@@ -17,13 +17,15 @@ export default function PricingPage() {
       <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
       <section className="py-20 px-6 text-center">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Simple, transparent pricing</h1>
-        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Free plan available. Paid plans from $9/mo.</p>
-        <p className="text-sm text-gray-400 mb-12">No credit card required &middot; 14-day money-back guarantee</p>
+        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start with a 7-day free trial &mdash; all 6 AI platforms included.</p>
+        <p className="text-sm text-gray-400 mb-12">No credit card required &middot; Cancel anytime &middot; 14-day money-back guarantee</p>
 
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {monthlyPlans.map((plan) => {
             const isCustom = plan.price === 'Custom';
             const isEnterprise = plan.name === 'Enterprise';
+            const isFree = plan.name === 'Free';
+            const showTrialBadge = !isCustom && !isFree;
 
             return (
               <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[var(--brand)] text-white ring-2 ring-[var(--brand)] shadow-lg shadow-[var(--brand)]/20' : isEnterprise ? 'bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200' : 'bg-white border border-gray-200'}`}>
@@ -35,7 +37,12 @@ export default function PricingPage() {
                   {!isCustom && <span className={`text-sm ${plan.highlighted ? 'text-white/70' : 'text-gray-400'}`}>{plan.period}</span>}
                 </div>
                 {isCustom && <p className="text-xs mb-4 text-indigo-500 font-medium">tailored to your needs</p>}
-                {!isCustom && <div className="mb-6" />}
+                {showTrialBadge && (
+                  <p className={`text-xs mb-4 font-semibold ${plan.highlighted ? 'text-white/90' : 'text-green-600'}`}>
+                    Start with 7-day free trial
+                  </p>
+                )}
+                {isFree && <div className="mb-6" />}
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map((f) => {
                     const isNegative = f.toLowerCase().startsWith('no ');
