@@ -56,6 +56,21 @@ function runMigrations(): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS email_normalized TEXT;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip TEXT;
+        CREATE INDEX IF NOT EXISTS users_email_normalized_idx ON users(email_normalized);
+        CREATE INDEX IF NOT EXISTS users_signup_ip_idx ON users(signup_ip);
+        CREATE TABLE IF NOT EXISTS trial_usage (
+          user_id TEXT NOT NULL,
+          usage_date DATE NOT NULL,
+          prompts_used INT NOT NULL DEFAULT 0,
+          PRIMARY KEY (user_id, usage_date)
+        );
+        CREATE TABLE IF NOT EXISTS trial_global_usage (
+          usage_date DATE PRIMARY KEY,
+          prompts_used INT NOT NULL DEFAULT 0
+        );
       `);
       globalForDb.dbMigrated = true;
     } catch (e) {

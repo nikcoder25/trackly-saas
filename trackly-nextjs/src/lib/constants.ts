@@ -19,6 +19,7 @@ export const TOTP_CONFIG = {
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
   free:       { brands: 9999, runsPerMonth: 3,   queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 999, geoAudits: 3 },
+  trial:      { brands: 9999, runsPerMonth: 10,  queries: 30,   competitors: 5,   platforms: 6, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
   starter:    { brands: 9999, runsPerMonth: 10,  queries: 30,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 72,  geoAudits: 20 },
   pro:        { brands: 9999, runsPerMonth: 30,  queries: 100,  competitors: 8,   platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
   agency:     { brands: 9999, runsPerMonth: 30,  queries: 500,  competitors: 20,  platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
@@ -41,6 +42,37 @@ export interface PlanLimits {
 
 export function getPlanLimits(plan: string): PlanLimits {
   return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+}
+
+// Free trial — 7 days from signup, 30 prompts, all 6 AI platforms.
+export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+// Email signups start with a short provisional trial so a bot can't spin up
+// an account and start burning AI spend before the email is proven.
+export const TRIAL_INITIAL_UNVERIFIED_MS = 24 * 60 * 60 * 1000;
+
+// Anti-abuse caps for trial accounts. Overridable via env for ops.
+export const TRIAL_DAILY_PROMPT_CAP_PER_USER = parseInt(
+  process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '10', 10
+);
+export const TRIAL_DAILY_GLOBAL_PROMPT_CAP = parseInt(
+  process.env.TRIAL_DAILY_GLOBAL_PROMPT_CAP || '5000', 10
+);
+export const SIGNUP_IP_BLOCK_HOURLY_LIMIT = parseInt(
+  process.env.SIGNUP_IP_BLOCK_HOURLY_LIMIT || '5', 10
+);
+
+/**
+ * Returns 'free' if the user's trial has expired, otherwise the plan as-is.
+ * The stored plan in the DB isn't mutated here — it's re-evaluated on every
+ * read so the countdown stays accurate until an upgrade or explicit clear.
+ */
+export function getEffectivePlan(plan: string | undefined | null, trialEndsAt: string | Date | null | undefined): string {
+  const p = plan || 'free';
+  if (p !== 'trial') return p;
+  if (!trialEndsAt) return 'free';
+  const end = typeof trialEndsAt === 'string' ? new Date(trialEndsAt) : trialEndsAt;
+  if (isNaN(end.getTime())) return 'free';
+  return end.getTime() > Date.now() ? 'trial' : 'free';
 }
 
 export const API_ENDPOINTS = {
@@ -102,3 +134,18 @@ export const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
 export function getPlanPlatforms(plan: string): string[] {
   return PLAN_DEFAULT_PLATFORMS[plan] || Object.keys(PLATFORM_COLORS);
 }
+
+// Common countries for the brand location dropdown. Users can also type a
+// custom value via the datalist.
+export const COUNTRIES: string[] = [
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany',
+  'France', 'Spain', 'Italy', 'Netherlands', 'Sweden', 'Norway', 'Denmark',
+  'Ireland', 'Belgium', 'Switzerland', 'Austria', 'Portugal', 'Poland',
+  'Finland', 'Greece', 'India', 'Pakistan', 'Bangladesh', 'Sri Lanka',
+  'Singapore', 'Malaysia', 'Indonesia', 'Philippines', 'Thailand', 'Vietnam',
+  'Japan', 'South Korea', 'China', 'Hong Kong', 'Taiwan', 'New Zealand',
+  'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Kuwait', 'Bahrain',
+  'Israel', 'Turkey', 'Egypt', 'South Africa', 'Nigeria', 'Kenya', 'Ghana',
+  'Brazil', 'Mexico', 'Argentina', 'Chile', 'Colombia', 'Peru',
+  'Russia', 'Ukraine', 'Czech Republic', 'Hungary', 'Romania', 'Bulgaria',
+];

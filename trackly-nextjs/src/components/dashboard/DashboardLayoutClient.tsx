@@ -37,6 +37,36 @@ function OnboardingModal() {
   );
 }
 
+function TrialBanner() {
+  const { user } = useAuth();
+  if (!user || user.plan !== 'trial' || !user.trialEndsAt) return null;
+  const endMs = new Date(user.trialEndsAt).getTime();
+  if (isNaN(endMs)) return null;
+  const msLeft = endMs - Date.now();
+  if (msLeft <= 0) return null;
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
+  const label = daysLeft > 1 ? `${daysLeft} days` : `${hoursLeft} hour${hoursLeft === 1 ? '' : 's'}`;
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', marginBottom: 10,
+      background: 'rgba(16,185,129,.06)', border: '1px solid rgba(16,185,129,.25)',
+      borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
+    }}>
+      <span style={{ fontSize: 14, color: 'var(--green)' }}>★</span>
+      <div style={{ flex: 1 }}>
+        <strong>Free trial active</strong>
+        <span style={{ margin: '0 6px', opacity: 0.5 }}>—</span>
+        <span>{label} left &middot; 30 prompts &middot; all 6 AI platforms</span>
+      </div>
+      <Link href="/dashboard/account" style={{
+        fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none',
+      }}>Upgrade →</Link>
+    </div>
+  );
+}
+
 function EmailVerificationBanner() {
   const { user, refreshUser } = useAuth();
   const [sending, setSending] = useState(false);
@@ -355,6 +385,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main">
+          <TrialBanner />
           <EmailVerificationBanner />
           <UsageLimitBanner />
           <GlobalRunProgress />

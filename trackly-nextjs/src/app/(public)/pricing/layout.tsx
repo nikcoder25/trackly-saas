@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pricing — Livesov AI Visibility Tracker',
-    description: 'Free plan available. Paid plans from $9/mo. Track your brand across 6 AI platforms.',
+    description: '7-day free trial on every plan. No credit card required. Track your brand across 6 AI platforms from $9/mo.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
-import { getPlanLimits } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, isDataForSEOConfigured, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
@@ -121,8 +122,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const brand = access.brand;
   const ownerId = brand.userId || user.id;
   // Use brand owner's plan for limits (not team member's plan)
-  const planResult = await pool.query('SELECT u.plan, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
-  const ownerPlan = planResult.rows[0]?.plan || 'free';
+  const planResult = await pool.query('SELECT u.plan, u.trial_ends_at, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
+  const ownerPlan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
   const limits = getPlanLimits(ownerPlan);
 
   // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
@@ -241,6 +242,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const runId = uid();
   const totalExpected = queries.length * activePlatforms.length;
+
+  // --- Trial prompt budgets (per-user daily + global daily) ---
+  // Reserved against the brand owner so team runs still count against it.
+  const budgetCheck = await reserveTrialPromptBudget(ownerId, ownerPlan, totalExpected);
+  if (!budgetCheck.allowed) {
+    return Response.json(
+      { error: budgetCheck.reason, planLimit: true, code: budgetCheck.code },
+      { status: 429 }
+    );
+  }
 
   // --- Atomically check lock and create run record in DB ---
   // Uses a CTE to avoid race conditions between checking and inserting
