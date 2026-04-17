@@ -16,6 +16,9 @@
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
 
+/* Accessibility: visually hidden labels that remain screen-reader accessible */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
 /* Layout */
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg2);}
 .topbar-logo{font-size:20px;font-weight:800;letter-spacing:-1px;}
@@ -108,16 +111,18 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 
 <!-- Login Screen -->
 <div id="login-screen" class="login-screen" style="display:none;">
-  <div class="login-box">
+  <form class="login-box" onsubmit="event.preventDefault(); doLogin();" autocomplete="on">
     <h2>Admin Panel</h2>
     <p>Login to manage your Livesov users.</p>
-    <input class="finput" id="login-email" type="email" placeholder="Email address">
-    <input class="finput" id="login-pass" type="password" placeholder="Password">
+    <label for="login-email" class="sr-only">Email address</label>
+    <input class="finput" id="login-email" name="email" type="email" placeholder="Email address" autocomplete="email" required>
+    <label for="login-pass" class="sr-only">Password</label>
+    <input class="finput" id="login-pass" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
     <div style="margin-top:6px;">
-      <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="doLogin()">LOGIN</button>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:10px;">LOGIN</button>
     </div>
-    <p id="login-error" style="color:var(--red);font-size:12px;margin-top:12px;display:none;"></p>
-  </div>
+    <p id="login-error" role="alert" aria-live="polite" style="color:var(--red);font-size:12px;margin-top:12px;display:none;"></p>
+  </form>
 </div>
 
 <!-- Not Admin Screen -->

@@ -25,6 +25,18 @@ const exportLimiter = rateLimit({
   validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
+// Rate limit for bootstrap admin claim. Even though the endpoint is
+// auth-gated and requires ADMIN_SECRET, it's still a high-value brute-force
+// target, so cap hard at 5 attempts per hour per IP.
+const makeFirstAdminLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
 // ─── API LOGS (per-user, server-side) ────────────────────────────
 router.get('/api-logs', auth, async (req, res) => {
   try {
@@ -341,7 +353,7 @@ router.get('/admin/check-admin', auth, async (req, res) => {
 // Make current user admin (if no admin exists yet)
 // If no admin exists, any authenticated user can claim admin (first-come, first-served)
 // If ADMIN_SECRET is set, it's required via X-Admin-Key header for extra security
-router.post('/admin/make-first-admin', auth, async (req, res) => {
+router.post('/admin/make-first-admin', makeFirstAdminLimiter, auth, async (req, res) => {
   try {
     // Check if any admin already exists first
     const existingAdmin = await pool.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);

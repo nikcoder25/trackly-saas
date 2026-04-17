@@ -146,7 +146,7 @@ async function loadBillingHistory() {
           <td style="padding:6px 8px;text-transform:uppercase;">${p.plan || '—'}</td>
           <td style="padding:6px 8px;">${amt}</td>
           <td style="padding:6px 8px;color:${statusColor};text-transform:uppercase;">${p.status || '—'}</td>
-          <td style="padding:6px 8px;">${p.paymentId ? `<a href="/api/payments/invoice/${p.paymentId}" target="_blank" style="color:var(--primary);text-decoration:none;font-size:10px;">INVOICE</a>` : ''}</td>
+          <td style="padding:6px 8px;">${p.paymentId ? `<a href="/api/payments/invoice/${encodeURIComponent(p.paymentId)}" download="invoice-${encodeURIComponent(p.paymentId)}.pdf" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-size:10px;">INVOICE</a>` : ''}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;

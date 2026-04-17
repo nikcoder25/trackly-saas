@@ -63,10 +63,13 @@ a{color:var(--accent);}
 <h2>2. What We Store</h2>
 <table>
   <tr><th>Name</th><th>Type</th><th>Purpose</th><th>Duration</th></tr>
-  <tr><td>livesov_token</td><td>httpOnly cookie</td><td>Authentication — keeps you logged in</td><td>Until logout</td></tr>
-  <tr><td>refreshToken</td><td>sessionStorage</td><td>Token refresh — renews your session</td><td>Until tab close</td></tr>
-  <tr><td>theme</td><td>localStorage</td><td>Stores your UI theme preference</td><td>Persistent</td></tr>
+  <tr><td>livesov_token</td><td>httpOnly cookie</td><td>Short-lived access token — keeps you logged in between requests</td><td>15 minutes, renewed automatically</td></tr>
+  <tr><td>livesov_refresh</td><td>httpOnly cookie</td><td>Refresh token — lets the app renew your session without re-login</td><td>Until logout or 30 days</td></tr>
+  <tr><td>livesov_session</td><td>localStorage</td><td>Non-sensitive flag that tells the app a session exists so it calls the backend on page load</td><td>Until logout</td></tr>
+  <tr><td>livesov_brand</td><td>localStorage</td><td>Remembers the brand you had selected so the dashboard re-opens where you left it</td><td>Until you switch brands or log out</td></tr>
+  <tr><td>theme</td><td>localStorage</td><td>Your UI theme preference</td><td>Persistent</td></tr>
 </table>
+<p>Session tokens live in httpOnly cookies and are never exposed to JavaScript, so an XSS bug on another page cannot read them. The items in local storage do not contain any authentication material.</p>
 
 <h2>3. Third-Party Storage</h2>
 <p>If you sign in with Google, Google may set its own cookies as part of the authentication flow. Refer to <a href="https://policies.google.com/privacy" rel="noopener noreferrer" target="_blank">Google's Privacy Policy</a> for details.</p>

@@ -32,14 +32,19 @@ const activeRuns = new Map(); // runId → { status, received, totalExpected, re
 const brandRunLocks = new Map();
 const MAX_LOCK_AGE_MS = RUN.maxLockAgeMs;
 
+// Derive a deterministic 31-bit numeric advisory-lock key from a brand ID.
+// Both acquire and release MUST use identical derivation or the unlock no-ops
+// and the lock leaks forever.
+function brandLockKey(brandId) {
+  const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
+  return Number(hash.readBigInt64BE(0) % BigInt(2147483647));
+}
+
 // Attempt to acquire a PostgreSQL advisory lock for a brand run.
-// Uses a hash of the brand ID as the lock key. Returns true if acquired.
+// Returns true if acquired.
 async function acquireDbBrandLock(brandId) {
   try {
-    // Convert brand ID string to a numeric hash for pg_try_advisory_lock
-    const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
-    // Use readBigInt64BE for 64-bit key to minimize collision risk across 10k+ brands
-    const lockKey = Number(hash.readBigInt64BE(0) % BigInt(2147483647));
+    const lockKey = brandLockKey(brandId);
     const result = await pool.query('SELECT pg_try_advisory_lock($1) AS acquired', [lockKey]);
     return result.rows[0]?.acquired === true;
   } catch(e) {
@@ -51,8 +56,7 @@ async function acquireDbBrandLock(brandId) {
 
 async function releaseDbBrandLock(brandId) {
   try {
-    const hash = require('crypto').createHash('md5').update('brand_run:' + brandId).digest();
-    const lockKey = hash.readInt32BE(0);
+    const lockKey = brandLockKey(brandId);
     await pool.query('SELECT pg_advisory_unlock($1)', [lockKey]);
   } catch(e) { /* best-effort */ }
 }
@@ -1478,18 +1482,65 @@ router.post('/:id/recheck-query', auth, async (req, res) => {
 });
 
 // Validate webhook URL is safe (prevent SSRF)
+function isPrivateIPv4(hostname) {
+  const m = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const o = m.slice(1).map(Number);
+  if (o.some(n => n < 0 || n > 255)) return true; // bogus — treat as unsafe
+  // 0.0.0.0/8 — "this network"
+  if (o[0] === 0) return true;
+  // 10.0.0.0/8
+  if (o[0] === 10) return true;
+  // 100.64.0.0/10 — CGNAT
+  if (o[0] === 100 && o[1] >= 64 && o[1] <= 127) return true;
+  // 127.0.0.0/8 — loopback
+  if (o[0] === 127) return true;
+  // 169.254.0.0/16 — link-local (includes AWS/GCP metadata 169.254.169.254)
+  if (o[0] === 169 && o[1] === 254) return true;
+  // 172.16.0.0/12 — private
+  if (o[0] === 172 && o[1] >= 16 && o[1] <= 31) return true;
+  // 192.0.0.0/24, 192.0.2.0/24, 192.88.99.0/24, 192.168.0.0/16
+  if (o[0] === 192 && o[1] === 0) return true;
+  if (o[0] === 192 && o[1] === 88 && o[2] === 99) return true;
+  if (o[0] === 192 && o[1] === 168) return true;
+  // 198.18.0.0/15 — benchmark
+  if (o[0] === 198 && (o[1] === 18 || o[1] === 19)) return true;
+  // 198.51.100.0/24, 203.0.113.0/24 — TEST-NET
+  if (o[0] === 198 && o[1] === 51 && o[2] === 100) return true;
+  if (o[0] === 203 && o[1] === 0 && o[2] === 113) return true;
+  // 224.0.0.0/4 — multicast
+  if (o[0] >= 224 && o[0] <= 239) return true;
+  // 240.0.0.0/4 — reserved (includes 255.255.255.255 broadcast)
+  if (o[0] >= 240) return true;
+  return false;
+}
+
+function isPrivateIPv6(hostname) {
+  const h = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (h === '::' || h === '::1') return true;
+  // IPv4-mapped IPv6 — strip and recheck as IPv4
+  const mapped = h.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPrivateIPv4(mapped[1]);
+  // fc00::/7 — unique local
+  if (/^f[cd][0-9a-f]{2}:/.test(h)) return true;
+  // fe80::/10 — link-local
+  if (/^fe[89ab][0-9a-f]:/.test(h)) return true;
+  // ff00::/8 — multicast
+  if (/^ff[0-9a-f]{2}:/.test(h)) return true;
+  return false;
+}
+
 function isWebhookUrlSafe(urlStr) {
   try {
     const parsed = new URL(urlStr);
     if (parsed.protocol !== 'https:') return false;
     const hostname = parsed.hostname.toLowerCase();
-    // Reject localhost, private IPs, and metadata endpoints
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') return false;
-    if (hostname === '0.0.0.0') return false;
-    if (hostname === '169.254.169.254') return false; // cloud metadata
-    if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false;
-    if (/^(::ffff:)?(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(hostname)) return false; // IPv6-mapped
+    // Explicitly reject common aliases for "this host"
+    if (hostname === 'localhost' || hostname.endsWith('.localhost')) return false;
     if (hostname.endsWith('.local') || hostname.endsWith('.internal')) return false;
+    // IPv4 / IPv6 literal in URL — block private/reserved ranges
+    if (isPrivateIPv4(hostname)) return false;
+    if (hostname.includes(':') && isPrivateIPv6(hostname)) return false;
     return true;
   } catch { return false; }
 }
@@ -1635,6 +1686,22 @@ async function runBrandQueries(brand) {
   const plan = await getUserPlan(brand.userId);
   const limits = getPlanLimits(plan);
   // scheduledRuns check removed — all plans now have scheduled runs // plan doesn't allow scheduled runs
+
+  // Enforce the per-user daily cost budget here as well as in the /run route.
+  // Without this, a user whose plan caps at (e.g.) $0.50/day could still incur
+  // arbitrary cost by letting cron drive their brands every hour — the cron
+  // path previously bypassed the budget check entirely.
+  try {
+    const dailyBudget = DAILY_COST_BUDGETS[plan] || DAILY_COST_BUDGETS.starter;
+    const dailyCostData = await getDailyCost(brand.userId);
+    const currentDailyCost = parseFloat(dailyCostData.total_cost) || 0;
+    if (currentDailyCost >= dailyBudget) {
+      console.log(`[Cron] Skipping brand ${brand.id} — daily budget reached ($${currentDailyCost.toFixed(2)}/$${dailyBudget.toFixed(2)}) for user ${brand.userId}`);
+      return;
+    }
+  } catch (budgetErr) {
+    console.warn('[Cron] Daily budget check failed, proceeding cautiously:', budgetErr.message);
+  }
 
   // Load user settings for scheduled runs
   const userRow = await pool.query('SELECT settings FROM users WHERE id = $1', [brand.userId]);

@@ -116,10 +116,22 @@ app.use(compression({
   }
 }));
 
-// CORS — require explicit ALLOWED_ORIGINS in all environments
+// CORS — require explicit ALLOWED_ORIGINS in all environments.
+// Origins are compared by exact equality after normalisation (trim, lower,
+// strip trailing slash) so `https://example.com` and `https://example.com/`
+// are treated the same, but `https://example.com.evil.com` is still rejected.
+function normaliseOrigin(s) {
+  return String(s || '').trim().toLowerCase().replace(/\/+$/, '');
+}
+const ALLOWED_ORIGIN_LIST = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(normaliseOrigin).filter(Boolean)
+  : null;
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+  origin: ALLOWED_ORIGIN_LIST
+    ? (incoming, cb) => {
+        if (!incoming) return cb(null, true); // same-origin / server-to-server
+        cb(null, ALLOWED_ORIGIN_LIST.includes(normaliseOrigin(incoming)));
+      }
     : (process.env.NODE_ENV === 'production' ? false : true),
   credentials: true
 }));
@@ -143,11 +155,8 @@ app.use((req, res, next) => {
       // Allow webhook endpoints (verified via webhook signature, not origin)
   if (req.originalUrl.includes('/webhooks/dodopayments') || req.path.includes('/webhooks/dodopayments')) return next();
   const origin = req.headers.origin;
-  const allowed = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-    : null;
   // In dev mode (no ALLOWED_ORIGINS), allow all origins
-  if (!allowed) return next();
+  if (!ALLOWED_ORIGIN_LIST) return next();
   if (!origin) {
     // In production, reject state-changing requests without Origin header
     // unless they come with a valid Authorization header (API/server-to-server calls)
@@ -155,7 +164,7 @@ app.use((req, res, next) => {
     if (!hasAuth) return res.status(403).json({ error: 'Forbidden — missing origin header' });
     return next();
   }
-  if (allowed.includes(origin)) return next();
+  if (ALLOWED_ORIGIN_LIST.includes(normaliseOrigin(origin))) return next();
   return res.status(403).json({ error: 'Forbidden — origin not allowed' });
 });
 
@@ -319,40 +328,96 @@ app.use('/api',          adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api',          analyticsRoutes);
 
-// ─── Admin panel page (secured with JWT-based admin auth) ───────
+// ─── Admin panel page (secured by ADMIN_SECRET gate) ────────────
+// Two ways in:
+//   1. `X-Admin-Key: <secret>` header (preferred for CLI/curl).
+//   2. `?key=<secret>` query param (one-time — immediately traded for a
+//      signed, httpOnly, 30-minute session cookie and stripped from the URL).
+//
+// The session cookie is an HMAC of (expiry + secret) so it can't be forged
+// without the secret, and it's session-scoped so leaking its value doesn't
+// grant access after the TTL. Every successful entry is audit-logged.
+const ADMIN_SESSION_COOKIE = '_admin_session';
+const ADMIN_SESSION_TTL_MS = 30 * 60 * 1000;
+
+function signAdminSession(secret, expiresAt) {
+  const cryptoMod = require('crypto');
+  const payload = String(expiresAt);
+  const sig = cryptoMod.createHmac('sha256', secret).update(payload).digest('hex');
+  return `${payload}.${sig}`;
+}
+
+function verifyAdminSession(secret, cookieValue) {
+  if (!cookieValue || typeof cookieValue !== 'string') return false;
+  const dot = cookieValue.indexOf('.');
+  if (dot < 1) return false;
+  const expiresAt = Number(cookieValue.slice(0, dot));
+  const sig = cookieValue.slice(dot + 1);
+  if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
+  const cryptoMod = require('crypto');
+  const expected = cryptoMod.createHmac('sha256', secret).update(String(expiresAt)).digest('hex');
+  const a = Buffer.from(sig, 'hex');
+  const b = Buffer.from(expected, 'hex');
+  if (a.length !== b.length) return false;
+  try { return cryptoMod.timingSafeEqual(a, b); } catch { return false; }
+}
+
+function timingSafeEqualStr(a, b) {
+  const cryptoMod = require('crypto');
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  try { return cryptoMod.timingSafeEqual(ab, bb); } catch { return false; }
+}
+
 app.get('/admin', async (req, res) => {
   const secret = process.env.ADMIN_SECRET;
   if (!secret) return res.status(404).json({ error: 'Not found' });
-  // Accept secret via X-Admin-Key header or ?key= query param (for browser navigation)
-  const provided = req.headers['x-admin-key'] || req.query.key || '';
-  if (typeof provided !== 'string') {
-    return res.status(404).json({ error: 'Not found' });
+
+  const headerKey = req.headers['x-admin-key'];
+  const queryKey = req.query.key;
+  const sessionCookie = req.cookies && req.cookies[ADMIN_SESSION_COOKIE];
+
+  let authed = false;
+  let source = null;
+
+  if (typeof headerKey === 'string' && headerKey && timingSafeEqualStr(headerKey, secret)) {
+    authed = true;
+    source = 'header';
+  } else if (typeof queryKey === 'string' && queryKey && timingSafeEqualStr(queryKey, secret)) {
+    authed = true;
+    source = 'query';
+  } else if (verifyAdminSession(secret, sessionCookie)) {
+    authed = true;
+    source = 'cookie';
   }
-  // Use timing-safe comparison to prevent timing attacks
+
+  if (!authed) return res.status(404).json({ error: 'Not found' });
+
+  // Log every successful entry so misuse is visible in audit trail.
+  // Best-effort; don't block the response.
   try {
-    const crypto = require('crypto');
-    const providedBuf = Buffer.from(provided);
-    const secretBuf = Buffer.from(secret);
-    if (providedBuf.length !== secretBuf.length || !crypto.timingSafeEqual(providedBuf, secretBuf)) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-  } catch(e) {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  // If secret was passed via query param, redirect to clean URL to strip it from browser history/logs
-  if (req.query.key) {
-    // Set a short-lived cookie so the admin page loads without the secret in the URL
-    res.cookie('_admin_verified', '1', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', maxAge: 60000 });
+    auditLog('system', 'admin_page_access', 'admin', '/admin', {
+      source,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'] || null,
+    }, req.ip);
+  } catch (_) { /* ignore */ }
+
+  // Mint / refresh the signed session cookie so the user doesn't have to
+  // keep pasting the secret, and strip ?key= from the URL if it's there.
+  const expiresAt = Date.now() + ADMIN_SESSION_TTL_MS;
+  res.cookie(ADMIN_SESSION_COOKIE, signAdminSession(secret, expiresAt), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: ADMIN_SESSION_TTL_MS,
+  });
+
+  if (source === 'query') {
     return res.redirect('/admin');
   }
-  // Also accept the verification cookie (valid for 60s after query-param redirect)
-  if (!req.headers['x-admin-key'] && !req.query.key) {
-    if (!req.cookies || req.cookies._admin_verified !== '1') {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    // Clear the one-time cookie after use
-    res.clearCookie('_admin_verified');
-  }
+
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
@@ -671,3 +736,19 @@ function shutdown(signal) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Surface, don't swallow — previously these could terminate the process
+// silently on a stray rejection. Log visibly and stay up; crash-looping the
+// server on a single bad query is worse than alerting loudly.
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('Unhandled promise rejection', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+});
+process.on('uncaughtException', (err) => {
+  log.error('Uncaught exception', { error: err.message, stack: err.stack });
+  // Uncaught exceptions leave the process in an undefined state; drain and
+  // let the supervisor (pm2, systemd, Docker) restart us.
+  shutdown('uncaughtException');
+});

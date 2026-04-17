@@ -79,7 +79,7 @@ a{color:var(--accent);}
 <p>Your data is retained as long as your account is active. You may delete your account and all associated data at any time from the settings page.</p>
 
 <h2>7. Cookies</h2>
-<p>Livesov uses a JWT token stored in your browser's local storage to maintain your session. We do not use third-party tracking cookies. See our <a href="/cookies">Cookie Policy</a> for more details.</p>
+<p>Livesov stores your session tokens in httpOnly cookies (<code>livesov_token</code> and <code>livesov_refresh</code>) so they cannot be read by JavaScript. A small amount of non-sensitive UI state — such as the active brand and your theme preference — is kept in your browser's local storage. We do not use third-party tracking or advertising cookies. See our <a href="/cookies">Cookie Policy</a> for the full list.</p>
 
 <h2>8. Your Rights (GDPR)</h2>
 <p>If you are located in the European Economic Area (EEA) or the United Kingdom, you have the following rights under the General Data Protection Regulation (GDPR):</p>

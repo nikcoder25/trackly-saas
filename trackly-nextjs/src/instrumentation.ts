@@ -2,6 +2,12 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
 
+    if (process.env.NODE_ENV === "production" && !process.env.CRON_SECRET) {
+      console.warn(
+        "[WARN] CRON_SECRET is not set — /api/cron* endpoints will return 500 and scheduled runs will not execute."
+      );
+    }
+
     // Self-triggering cron scheduler for non-Vercel environments (e.g. DigitalOcean)
     // where vercel.json crons are ignored.
     const cronSecret = process.env.CRON_SECRET;

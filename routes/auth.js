@@ -17,6 +17,12 @@ const { generateSecret, verifyTOTP, getOTPAuthURL, generateBackupCodes } = requi
 const { RATE_LIMITS, AUTH, API_ENDPOINTS } = require('../config/constants');
 const crypto = require('crypto');
 
+// Hash opaque bearer tokens (refresh, password-reset) before storing them at
+// rest so a DB read-only breach can't be replayed. The plaintext token is
+// still returned to the legitimate caller via cookie/JSON; only the sha256
+// digest lives in Postgres.
+const hashToken = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
+
 // ─── Registration rate limiter — 5 signups per 15 min per IP ───
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -181,6 +187,17 @@ const twoFASetupLimiter = rateLimit({
   validate: { trustProxy: false, xForwardedForHeader: false }
 });
 
+// Rate limit for token refresh — bursts are legitimate (tab wake-ups, SPA
+// boot, multi-tab users) so allow 30/minute, but blocks obvious brute-force.
+const refreshLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: 'Too many refresh attempts. Please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false }
+});
+
 router.post('/register', registerLimiter, async (req, res) => {
   const { email, password, name, username } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -255,7 +272,7 @@ router.post('/register', registerLimiter, async (req, res) => {
 
     const accessToken = jwt.sign({ id, email: email.toLowerCase(), role: 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [hashToken(refreshToken), id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, req.ip);
     setTokenCookies(res, accessToken, refreshToken);
@@ -332,7 +349,7 @@ router.post('/login', loginAccountLimiter, twoFALimiter, async (req, res) => {
 
     const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, user.id]);
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [hashToken(refreshToken), user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, {}, req.ip);
     setTokenCookies(res, accessToken, refreshToken);
@@ -391,17 +408,18 @@ router.post('/resend-verification', auth, resendLimiter, async (req, res) => {
 });
 
 // Refresh token — exchange refresh token for new access token
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshLimiter, async (req, res) => {
   // Accept refresh token from request body or httpOnly cookie
   const refreshToken = req.body.refreshToken || req.cookies?.livesov_refresh;
   if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
   try {
     // Atomic rotate: UPDATE...RETURNING prevents TOCTOU race where two concurrent
-    // refresh requests both read the same token before either rotates it
+    // refresh requests both read the same token before either rotates it.
+    // We compare by sha256 digest because the DB only stores hashed tokens.
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     const result = await pool.query(
       'UPDATE users SET refresh_token = $1 WHERE refresh_token = $2 RETURNING id, email, role, plan',
-      [newRefreshToken, refreshToken]
+      [hashToken(newRefreshToken), hashToken(refreshToken)]
     );
     if (!result.rows.length) return res.status(401).json({ error: 'Invalid refresh token' });
     const user = result.rows[0];
@@ -481,19 +499,22 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     if (!result.rows.length) return res.json({ message: 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.' });
     const user = result.rows[0];
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
-    // Delete any existing tokens for this user, then insert new one
+    // Delete any existing tokens for this user, then insert the hashed new one.
+    // Only the plaintext `token` is emailed to the user; the DB column stores
+    // its sha256 digest so a DB leak alone can't mint password resets.
     await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
     await pool.query(
       'INSERT INTO password_reset_tokens (token, user_id, email, expires_at) VALUES ($1, $2, $3, $4)',
-      [token, user.id, user.email, expiresAt]
+      [tokenHash, user.id, user.email, expiresAt]
     );
     // Send password reset email and verify it was actually sent
     const emailResult = await sendPasswordResetEmail(user.email, token);
     if (!emailResult.sent) {
       console.error('[ForgotPassword] Email not sent:', emailResult.reason);
       // Clean up the token since email wasn't delivered
-      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [tokenHash]);
       return res.status(500).json({ error: 'Unable to send reset email. Please try again later or contact support.' });
     }
     res.json({ message: 'If an account exists with that email, a reset link has been sent. Check your inbox and spam folder.' });
@@ -511,19 +532,20 @@ router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
   if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (newPassword.length > 128) return res.status(400).json({ error: 'Password too long' });
   try {
+    const tokenHash = hashToken(token);
     const result = await pool.query(
       'SELECT user_id, email FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
-      [token]
+      [tokenHash]
     );
     if (!result.rows.length) {
       // Clean up expired token if it exists
-      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [tokenHash]);
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
     const entry = result.rows[0];
     const hash = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, entry.user_id]);
-    await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+    await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [tokenHash]);
     res.json({ message: 'Password reset successfully. You can now log in.' });
   } catch(e) {
     console.error('[Reset Password]', e.message);
@@ -751,7 +773,7 @@ router.post('/google', async (req, res) => {
     // Issue tokens
     const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '15m' });
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [hashToken(newRefreshToken), user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, req.ip);
     setTokenCookies(res, accessToken, newRefreshToken);

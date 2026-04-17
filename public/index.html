@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Livesov — AI Visibility Tracker | Track Your Brand on ChatGPT, Perplexity, Gemini & More</title>
-<meta name="description" content="Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviewss mention your brand. GEO & AEO optimization tool — get real proof, measure share of voice, and monitor AI visibility with Livesov.">
+<meta name="description" content="Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand. GEO & AEO optimization tool — get real proof, measure share of voice, and monitor AI visibility with Livesov.">
 <meta name="keywords" content="AI visibility tracker, AI brand monitoring, ChatGPT brand tracking, Perplexity tracking, GEO optimization, generative engine optimization, AEO optimization, answer engine optimization, AI mention tracker, share of voice AI, AI rank tracker, AI SEO tool, brand monitoring AI, AI search tracking, AI overview tracking, LLM brand monitoring, AI citation tracker, AI brand visibility">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 <link rel="canonical" href="https://livesov.com/">
@@ -15,17 +15,17 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://livesov.com/">
 <meta property="og:title" content="Livesov — Track Your Brand Visibility Across AI Platforms">
-<meta property="og:description" content="See how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviewss mention your brand. Get real AI responses as proof, measure share of voice, and outrank competitors.">
+<meta property="og:description" content="See how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand. Get real AI responses as proof, measure share of voice, and outrank competitors.">
 <meta property="og:site_name" content="Livesov">
 <meta property="og:image" content="https://livesov.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Livesov — AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviewss">
+<meta property="og:image:alt" content="Livesov — AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Livesov — AI Visibility Tracker">
-<meta name="twitter:description" content="Track your brand mentions across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviewss. Real proof. Real data.">
+<meta name="twitter:description" content="Track your brand mentions across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews. Real proof. Real data.">
 <meta name="twitter:image" content="https://livesov.com/og-image.png">
 <!-- Favicon -->
 <link rel="icon" href="/favicon.ico" type="image/x-icon">
@@ -1023,16 +1023,16 @@
       <!-- Citation Sources -->
       <div id="ov-citations" style="display:none;"></div>
 
-      <!-- Google AI Overviewss -->
+      <!-- Google AI Overviews -->
       <div id="ov-ai-overviews" class="ov-card" style="display:none;">
         <div class="ov-card-head">
-          <div class="ov-card-title">Google AI Overviewss</div>
+          <div class="ov-card-title">Google AI Overviews</div>
           <button onclick="checkAiOverviews()" class="ov-btn-subtle ov-btn-blue" id="ov-aio-check-btn">CHECK NOW</button>
         </div>
         <div id="ov-aio-summary" style="margin-bottom:12px;"></div>
         <div id="ov-aio-results"></div>
         <div id="ov-aio-loading" style="display:none;text-align:center;padding:24px;color:var(--muted);font-size:13px;">
-          Checking Google AI Overviewss via DataForSEO...
+          Checking Google AI Overviews via DataForSEO...
         </div>
       </div>
 
@@ -1468,13 +1468,15 @@
         <div id="twofa-setup-form" style="display:none;margin-top:12px;">
           <div id="twofa-qr-area" style="margin-bottom:12px;"></div>
           <div style="display:flex;gap:8px;align-items:center;max-width:400px;">
-            <input class="finp" id="twofa-verify-code" type="text" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" style="margin:0;flex:1;">
+            <label for="twofa-verify-code" class="sr-only">Two-factor authentication code</label>
+            <input class="finp" id="twofa-verify-code" type="text" placeholder="Enter 6-digit code" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="margin:0;flex:1;">
             <button class="pbtn" style="background:var(--primary);color:#fff;border-color:var(--primary);white-space:nowrap;" onclick="verify2FA()">VERIFY</button>
           </div>
         </div>
         <div id="twofa-disable-form" style="display:none;margin-top:12px;">
           <div style="display:flex;gap:8px;align-items:center;max-width:400px;">
-            <input class="finp" id="twofa-disable-pw" type="password" placeholder="Enter password to confirm" style="margin:0;flex:1;">
+            <label for="twofa-disable-pw" class="sr-only">Account password (to confirm disabling 2FA)</label>
+            <input class="finp" id="twofa-disable-pw" type="password" placeholder="Enter password to confirm" autocomplete="current-password" style="margin:0;flex:1;">
             <button class="pbtn" onclick="disable2FA()" style="border-color:var(--red);color:var(--red);white-space:nowrap;">DISABLE 2FA</button>
           </div>
         </div>
@@ -1502,9 +1504,12 @@
       <div class="card" style="margin-top:14px;">
         <div class="section-title">Change Password</div>
         <div style="display:flex;flex-direction:column;gap:10px;max-width:400px;">
-          <input class="finp" id="pw-current" type="password" placeholder="Current password">
-          <input class="finp" id="pw-new" type="password" placeholder="New password (min 8 characters)">
-          <input class="finp" id="pw-confirm" type="password" placeholder="Confirm new password">
+          <label for="pw-current" class="sr-only">Current password</label>
+          <input class="finp" id="pw-current" type="password" placeholder="Current password" autocomplete="current-password">
+          <label for="pw-new" class="sr-only">New password</label>
+          <input class="finp" id="pw-new" type="password" placeholder="New password (min 8 characters)" autocomplete="new-password">
+          <label for="pw-confirm" class="sr-only">Confirm new password</label>
+          <input class="finp" id="pw-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password">
           <button class="pbtn" onclick="changePassword()" style="width:fit-content;">UPDATE PASSWORD</button>
         </div>
       </div>

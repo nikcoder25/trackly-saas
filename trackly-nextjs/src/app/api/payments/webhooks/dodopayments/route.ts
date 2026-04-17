@@ -29,13 +29,27 @@ const DOWNGRADE_EVENTS = new Set([
     'refund.succeeded',
   ]);
 
-// Collect all configured webhook secrets to try (handles env var name mismatches)
+// The canonical env var is DODO_PAYMENTS_WEBHOOK_KEY (matches .env.example
+// and the provider dashboard). DODO_WEBHOOK_SECRET is accepted as a legacy
+// alias; if both are set to different values we log a warning so the
+// misconfiguration is caught before it silently drops webhooks.
+let _loggedSecretConflict = false;
 function getWebhookSecrets(): string[] {
   const secrets: string[] = [];
-  const key = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
-  const secret = process.env.DODO_WEBHOOK_SECRET;
-  if (key) secrets.push(key);
-  if (secret && secret !== key) secrets.push(secret);
+  const canonical = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
+  const legacy = process.env.DODO_WEBHOOK_SECRET;
+  if (canonical) secrets.push(canonical);
+  if (legacy && legacy !== canonical) {
+    secrets.push(legacy);
+    if (canonical && !_loggedSecretConflict) {
+      _loggedSecretConflict = true;
+      console.warn(
+        '[Webhook] Both DODO_PAYMENTS_WEBHOOK_KEY and DODO_WEBHOOK_SECRET are set ' +
+        'with different values. The canonical name is DODO_PAYMENTS_WEBHOOK_KEY; ' +
+        'remove DODO_WEBHOOK_SECRET once you confirm webhooks are flowing.'
+      );
+    }
+  }
   return secrets;
 }
 

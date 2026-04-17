@@ -1,62 +1,95 @@
-# Livesov - AI Visibility Tracker SaaS
+# Livesov — AI Visibility Tracker SaaS
 
-Track where your brand appears in ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews.
+Track how your brand appears in ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews.
+
+The repository hosts two applications that share one PostgreSQL database:
+
+- `./` — the production Express monolith (`server.js`, `routes/*`, `lib/*`).
+- `./trackly-nextjs/` — a Next.js rewrite of the same product (see its own README).
+
+Unless you have a reason to work in the Next.js tree, the Express app is the one to run.
 
 ---
 
-## Quick Start (Local)
+## Quick start (local)
 
 ```bash
 # 1. Install dependencies
 npm install
 
-# 2. Copy env file
+# 2. Copy env template and fill it in
 cp .env.example .env
-# Edit .env and set JWT_SECRET to a long random string
+#    You MUST set at minimum:
+#       DATABASE_URL=postgres://...
+#       JWT_SECRET=<64 random hex bytes>
 
-# 3. Start server
+# 3. Start server (dev)
 npm start
-# Open http://localhost:3000
+# Server listens on http://localhost:3000
+```
+
+### Required environment variables
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string. Schema is auto-created on boot. |
+| `JWT_SECRET` | Signs session JWTs. In production it must be at least 32 characters. |
+
+### Strongly recommended
+
+| Variable | Purpose |
+|---|---|
+| `ENCRYPTION_KEY` | 32-byte hex. Encrypts user API keys at rest. If unset, `JWT_SECRET` is used — rotating `JWT_SECRET` will then make every stored key unrecoverable. |
+| `ALLOWED_ORIGINS` | Comma-separated list of origins (e.g. `https://livesov.com,https://www.livesov.com`). Required for CORS/CSRF. |
+| `ADMIN_SECRET` | Gate for `/admin` panel and the `make-first-admin` bootstrap. Long random string. |
+| `CRON_SECRET` | Required by the Next.js cron endpoints (`/api/cron*`). Ignored by Express, which runs in-process cron. |
+
+### Optional
+
+DodoPayments (`DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_WEBHOOK_KEY`, `DODO_STARTER_PRODUCT_ID`, `DODO_PRO_PRODUCT_ID`, `DODO_AGENCY_PRODUCT_ID`, `DODO_ENTERPRISE_PRODUCT_ID`), Resend / SMTP for transactional email, DataForSEO for Google AI Overviews checks, Google OAuth (`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) and Sentry. See `.env.example` for the full list.
+
+---
+
+## Build the frontend bundle
+
+```bash
+npm run build
+# Concatenates public/js/src/*.js → public/js/app.js,
+# then minifies to public/js/app.min.js and
+# minifies public/css/styles.css → public/css/styles.min.css.
 ```
 
 ---
 
-## Deploying to a VPS (DigitalOcean / Hetzner / Vultr)
+## Data storage
 
-### 1. Get a server
-Any $6/mo VPS with Ubuntu 22.04 works fine.
+The app is PostgreSQL-only. Tables (users, brands, prompt_runs, password_reset_tokens, api_logs, notifications, site_config, daily_costs, webhook_events, audit_log, cron_locks, …) are created and migrated automatically on boot via `config/db.js::initDB`.
 
-### 2. Install Node.js
+- **Sensitive data at rest** — bcrypt for passwords, AES-256-GCM for stored API keys, SHA-256 digests for refresh and password-reset tokens.
+- **Sessions** — JWT access tokens (15 min) and rotating refresh tokens stored as httpOnly, SameSite=strict cookies. `localStorage` holds only non-sensitive UI state.
+
+The legacy file-backed `data/db.json` flow referenced in earlier versions of this README has been removed; ignore any instructions that point there.
+
+---
+
+## Running in production
+
+Recommended stack for single-box deployments:
+
+- Node 20+ via PM2 or systemd
+- Nginx as reverse proxy with SSL (Let's Encrypt)
+- Postgres 14+
+- Set `NODE_ENV=production` and all recommended env vars above
+
+Multi-instance deployments (Railway, Render, Fly) work out of the box: cron jobs run only on worker 1 (`CLUSTER_WORKER_ID=1`), and brand-run locking uses Postgres advisory locks so concurrent workers cannot clobber each other.
+
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
-
-### 3. Upload your files
-```bash
-# From your local machine
-scp -r trackly-saas/ root@YOUR_SERVER_IP:/var/www/livesov
-```
-
-### 4. Install PM2 (keeps server running)
-```bash
-npm install -g pm2
-cd /var/www/livesov
-npm install
-cp .env.example .env
-nano .env   # set JWT_SECRET and PORT=3000
 pm2 start server.js --name livesov
 pm2 save
-pm2 startup
 ```
 
-### 5. Set up Nginx as reverse proxy
-```bash
-sudo apt install nginx
-sudo nano /etc/nginx/sites-available/livesov
-```
+Nginx sample:
 
-Paste this config (replace yourdomain.com):
 ```nginx
 server {
     listen 80;
@@ -72,88 +105,51 @@ server {
 }
 ```
 
-```bash
-sudo ln -s /etc/nginx/sites-available/livesov /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
+Then:
 
-### 6. Add SSL (free with Certbot)
 ```bash
-sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 ```
 
 ---
 
-## Deploying to Railway (easiest, free tier available)
+## Tests
 
-1. Push code to GitHub
-2. Go to railway.app, create new project from GitHub repo
-3. Set environment variables: JWT_SECRET, PORT=3000
-4. Railway auto-deploys on every push
-
----
-
-## Deploying to Render
-
-1. Push to GitHub
-2. New Web Service on render.com
-3. Build command: `npm install`
-4. Start command: `node server.js`
-5. Add env vars: JWT_SECRET
-
----
-
-## Plan Limits (edit server.js to change)
-
-| Plan   | Brands | Price suggestion |
-|--------|--------|-----------------|
-| free   | 1      | $0              |
-| pro    | 5      | $29/mo          |
-| agency | 20     | $99/mo          |
-
-To upgrade a user manually:
 ```bash
-# Hit this endpoint once to make the first registered user an admin
-curl -X POST http://localhost:3000/api/admin/make-first-admin
-
-# Then use the admin token to upgrade users
-curl -X PUT http://localhost:3000/api/admin/users/USER_ID/plan \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"plan":"pro"}'
+npm test   # vitest
 ```
 
----
-
-## Data Storage
-
-Data is stored in `data/db.json`. This is fine for hundreds of users.
-
-For thousands of users, swap to PostgreSQL:
-- Replace `readDB()` / `writeDB()` with `pg` queries
-- Schema is straightforward: `users` and `brands` tables
+Tests live under `./tests/` and cover `lib/helpers` and `lib/plans`. The Next.js tree does not yet have a suite — see its roadmap.
 
 ---
 
-## Each User's API Keys
+## Admin bootstrap
 
-Users enter their own AI platform API keys in the dashboard.
-Keys are stored server-side in `db.json` and are NEVER sent back to the browser.
-All AI queries run server-side through your Node.js server.
+The first admin is promoted via an authenticated call that also requires `ADMIN_SECRET`:
+
+```bash
+curl -X POST https://your-host/api/admin/make-first-admin \
+  -H "Authorization: Bearer <user JWT>" \
+  -H "X-Admin-Key: <ADMIN_SECRET>"
+```
+
+Subsequent admins are promoted from the `/admin` panel.
 
 ---
 
-## File Structure
+## File layout
 
 ```
 trackly-saas/
-├── server.js          # Express server, all API routes, AI query logic
-├── package.json
-├── .env.example       # Copy to .env
-├── data/
-│   └── db.json        # Auto-created on first run
-└── public/
-    └── index.html     # Full SPA frontend
+├── server.js              # Express bootstrap, middleware, cron
+├── cluster.js             # Optional multi-worker launcher
+├── config/
+│   ├── db.js              # Pool, schema, migrations, cleanup
+│   └── constants.js       # Plan / rate-limit / timeout tables
+├── middleware/auth.js     # JWT + cookie auth middleware
+├── lib/                   # AI platforms, parser, email, PDF, TOTP, …
+├── routes/                # auth, brands, admin, analytics, payments, seo
+├── public/                # SPA (index.html), legal pages, assets
+├── trackly-nextjs/        # Parallel Next.js rewrite
+└── tests/                 # vitest suites
 ```

@@ -1,5 +1,6 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 
 // PLAN_MAP: product ID -> plan name (must match webhook handler)
 const PLAN_MAP: Record<string, string> = {};
@@ -17,16 +18,29 @@ if (process.env.DODO_ENTERPRISE_PRODUCT_ID) PLAN_MAP[process.env.DODO_ENTERPRISE
  * It checks all users who have a subscription_id in their settings
  * and verifies their plan matches what Dodo Payments reports.
  * 
- * Trigger via DigitalOcean cron or external cron service:
- * GET /api/cron/reconcile-payments?secret=YOUR_CRON_SECRET
+ * Trigger via DigitalOcean cron or external cron service with
+ * `Authorization: Bearer $CRON_SECRET` header (preferred). A legacy
+ * `?secret=` query param is still accepted for backward compatibility
+ * but should be removed from any crontab because query strings leak
+ * into access logs.
  */
 export async function GET(request: Request) {
   try {
-    // Verify cron secret to prevent unauthorized access
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+    }
+
+    const authHeader = request.headers.get('authorization') || '';
+    const headerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     const { searchParams } = new URL(request.url);
-    const secret = searchParams.get('secret');
-    
-    if (secret !== process.env.CRON_SECRET) {
+    const queryToken = searchParams.get('secret') || '';
+    const candidate = headerToken || queryToken;
+
+    const ok = !!candidate
+      && candidate.length === cronSecret.length
+      && crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(cronSecret));
+    if (!ok) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

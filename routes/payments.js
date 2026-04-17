@@ -592,14 +592,15 @@ router.get('/invoice/:paymentId', auth, async (req, res) => {
       timeout: TIMEOUTS.paymentApi
     };
 
-    const apiReq = https.request(`${baseUrl}/invoices/payments/${paymentId}`, reqOpts, (apiRes) => {
+    const apiReq = https.request(`${baseUrl}/invoices/payments/${encodeURIComponent(paymentId)}`, reqOpts, (apiRes) => {
       if (apiRes.statusCode >= 400) {
         res.status(apiRes.statusCode).json({ error: 'Invoice not found' });
         return;
       }
-      // Forward content type and stream the PDF
+      // Forward content type and trigger a download rather than inline render
+      // so a blank tab doesn't render the raw PDF if the session drops mid-fetch.
       res.setHeader('Content-Type', apiRes.headers['content-type'] || 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="invoice-${paymentId}.pdf"`);
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${paymentId}.pdf"`);
       apiRes.pipe(res);
     });
     apiReq.on('timeout', () => { apiReq.destroy(); res.status(504).json({ error: 'Invoice request timed out' }); });
