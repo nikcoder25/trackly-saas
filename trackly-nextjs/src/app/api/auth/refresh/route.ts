@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { safeConnect, ensureColumns } from '@/lib/db';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       await client.query('BEGIN');
       const lockResult = await client.query(
         'SELECT id, email, role, plan, trial_ends_at FROM users WHERE refresh_token = $1 FOR UPDATE',
-        [refreshToken]
+        [hashToken(refreshToken)]
       );
       if (!lockResult.rows.length) {
         await client.query('ROLLBACK');
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       const newRefreshToken_inner = crypto.randomBytes(40).toString('hex');
       await client.query(
         'UPDATE users SET refresh_token = $1 WHERE id = $2',
-        [newRefreshToken_inner, lockResult.rows[0].id]
+        [hashToken(newRefreshToken_inner), lockResult.rows[0].id]
       );
       await client.query('COMMIT');
       result = { rows: lockResult.rows, newRefreshToken: newRefreshToken_inner };

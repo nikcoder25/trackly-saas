@@ -103,9 +103,19 @@ export async function GET(request: Request) {
     }
 
     // Filter eligible brands
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const eligible = result.rows.filter((row: any) => {
-      const scheduleHours = parseInt(row.data?.schedule, 10) || 24;
+    interface CronBrandRow {
+      id: string;
+      plan?: string;
+      data?: {
+        schedule?: string | number;
+        runs?: Array<{ time?: string | number | Date; date?: string | number | Date }>;
+      };
+    }
+    const eligible = (result.rows as CronBrandRow[]).filter((row) => {
+      const scheduleRaw = row.data?.schedule;
+      const scheduleHours = (scheduleRaw !== undefined && scheduleRaw !== null)
+        ? (parseInt(String(scheduleRaw), 10) || 24)
+        : 24;
       const limits = getPlanLimits(row.plan || 'free');
       if (!limits.scheduledRuns) return false;
       // Use the greater of brand schedule or plan minimum
@@ -117,7 +127,10 @@ export async function GET(request: Request) {
         const runs = row.data?.runs || [];
         if (runs.length > 0) {
           const lastRun = runs[runs.length - 1];
-          lastRunTime = new Date(lastRun.time || lastRun.date).getTime();
+          const stamp = lastRun.time ?? lastRun.date;
+          if (stamp !== undefined && stamp !== null) {
+            lastRunTime = new Date(stamp).getTime();
+          }
         }
       }
 
@@ -137,8 +150,7 @@ export async function GET(request: Request) {
     for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
       const batch = eligible.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        batch.map(async (row: any, batchIdx: number) => {
+        batch.map(async (row, batchIdx: number) => {
           const brandIndex = i + batchIdx;
           // Stagger per-brand launches so we don't burst fetches simultaneously
           if (brandIndex > 0) await sleep(brandIndex * BRAND_STAGGER_MS);

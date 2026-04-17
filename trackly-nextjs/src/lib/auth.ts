@@ -2,7 +2,15 @@
  * Auth utilities for Next.js - JWT verification, cookie handling
  */
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { AUTH } from './constants';
+
+// Hash opaque bearer tokens (refresh, password-reset) before storing them at
+// rest so a DB read-only breach can't be replayed. The plaintext token is
+// still returned to the legitimate caller via cookie/JSON; only the sha256
+// digest lives in Postgres.
+export const hashToken = (t: string): string =>
+  crypto.createHash('sha256').update(String(t)).digest('hex');
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;

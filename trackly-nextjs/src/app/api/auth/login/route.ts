@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, safeConnect, auditLog, ensureColumns } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     // Reset failed login attempts on successful login
     await pool.query(
       `UPDATE users SET refresh_token = $1, settings = settings || '{"failed_login_attempts":0,"last_failed_login":null}'::jsonb WHERE id = $2`,
-      [refreshToken, user.id]
+      [hashToken(refreshToken), user.id]
     );
 
     auditLog(user.id, 'login', 'user', user.id, {}, ip);

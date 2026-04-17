@@ -4,6 +4,7 @@ import { pool } from '@/lib/db';
 import { AUTH } from '@/lib/constants';
 import { sendPasswordResetEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { hashToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
@@ -39,17 +40,20 @@ export async function POST(request: NextRequest) {
       return Response.json({ message: successMsg });
     }
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + AUTH.passwordResetExpiry);
 
+    // Store only the sha256 digest at rest. The plaintext token is emailed
+    // directly and compared via hash on redemption.
     await pool.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
     await pool.query(
       'INSERT INTO password_reset_tokens (token, user_id, email, expires_at) VALUES ($1, $2, $3, $4)',
-      [token, user.id, user.email, expiresAt]
+      [tokenHash, user.id, user.email, expiresAt]
     );
 
     const emailResult = await sendPasswordResetEmail(user.email, token);
     if (!emailResult.sent) {
-      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [token]);
+      await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [tokenHash]);
       return Response.json({ error: 'Unable to send reset email. Please try again later.' }, { status: 500 });
     }
 

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
 import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
     const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [newRefreshToken, user.id]);
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [hashToken(newRefreshToken), user.id]);
 
     auditLog(user.id, 'login', 'user', user.id, { method: 'google' }, ip);
 

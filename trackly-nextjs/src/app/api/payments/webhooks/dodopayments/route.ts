@@ -29,13 +29,27 @@ const DOWNGRADE_EVENTS = new Set([
     'refund.succeeded',
   ]);
 
-// Collect all configured webhook secrets to try (handles env var name mismatches)
+// The canonical env var is DODO_PAYMENTS_WEBHOOK_KEY (matches .env.example
+// and the provider dashboard). DODO_WEBHOOK_SECRET is accepted as a legacy
+// alias; if both are set to different values we log a warning so the
+// misconfiguration is caught before it silently drops webhooks.
+let _loggedSecretConflict = false;
 function getWebhookSecrets(): string[] {
   const secrets: string[] = [];
-  const key = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
-  const secret = process.env.DODO_WEBHOOK_SECRET;
-  if (key) secrets.push(key);
-  if (secret && secret !== key) secrets.push(secret);
+  const canonical = process.env.DODO_PAYMENTS_WEBHOOK_KEY;
+  const legacy = process.env.DODO_WEBHOOK_SECRET;
+  if (canonical) secrets.push(canonical);
+  if (legacy && legacy !== canonical) {
+    secrets.push(legacy);
+    if (canonical && !_loggedSecretConflict) {
+      _loggedSecretConflict = true;
+      console.warn(
+        '[Webhook] Both DODO_PAYMENTS_WEBHOOK_KEY and DODO_WEBHOOK_SECRET are set ' +
+        'with different values. The canonical name is DODO_PAYMENTS_WEBHOOK_KEY; ' +
+        'remove DODO_WEBHOOK_SECRET once you confirm webhooks are flowing.'
+      );
+    }
+  }
   return secrets;
 }
 
@@ -289,11 +303,24 @@ export async function POST(request: Request) {
                                       [JSON.stringify(settingsUpdate), userId]
                                     );
                     } else {
-                                console.warn('[Webhook] Could not determine plan from event:', {
+                                // Fail loudly — silently marking this event as processed
+                                // would leave the user on their old plan forever despite
+                                // their money clearing. Roll back so DodoPayments retries;
+                                // if the env vars really are misconfigured, the retried
+                                // deliveries will queue visibly in the provider dashboard
+                                // and in our webhook_events table once we fix them.
+                                await client.query('ROLLBACK');
+                                console.error('[Webhook] Could not determine plan from event — returning 500 so upstream retries:', {
                                               eventId, eventType, productId,
                                               knownProducts: Object.keys(PLAN_MAP),
                                               metadataPlan: metadata.plan,
                                 });
+                                await auditLog('system', 'webhook_unknown_product', 'payment', eventId, {
+                                              eventType, productId, userId, metadataPlan: metadata.plan,
+                                }, 'dodopayments').catch(() => {});
+                                return Response.json({
+                                              error: 'Could not resolve plan from product_id. Check DODO_*_PRODUCT_ID env vars.',
+                                }, { status: 500 });
                     }
             }
 
@@ -363,7 +390,14 @@ export async function POST(request: Request) {
           }
     } catch (e) {
           const errorMessage = (e as Error).message;
-          console.error('[Webhook] Processing error:', errorMessage, (e as Error).stack);
+          // Stack traces can expose file paths and internal layout; log them
+          // only outside production. Sentry already captures the full trace
+          // via the instrumentation hook regardless.
+          if (process.env.NODE_ENV === 'production') {
+                  console.error('[Webhook] Processing error:', errorMessage);
+          } else {
+                  console.error('[Webhook] Processing error:', errorMessage, (e as Error).stack);
+          }
           // Return 500 for all errors to trigger Dodo's retry mechanism
           return Response.json({ error: 'Webhook processing failed, will retry' }, { status: 500 });
     }

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity, hashToken } from '@/lib/auth';
 import { getPlanLimits, AUTH, TRIAL_INITIAL_UNVERIFIED_MS } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
-    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
+    await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [hashToken(refreshToken), id]);
 
     auditLog(id, 'register', 'user', id, { email: email.toLowerCase() }, ip);
     // Fire-and-forget alert for signup bursts from the same /24 block

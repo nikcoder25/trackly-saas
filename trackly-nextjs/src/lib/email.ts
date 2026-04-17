@@ -203,6 +203,84 @@ export async function sendWelcomeEmail(email: string): Promise<EmailResult> {
   return sendEmail(email, 'Welcome to Livesov!', html, 'hello@livesov.com');
 }
 
+// Scheduled AI-visibility report email — a periodic digest sent by the
+// /api/cron/reports endpoint. Keeps the same shape as the Express
+// implementation so existing tests and templates map 1:1.
+export interface ScheduledReportSummary {
+  totalRuns: number;
+  totalMentions: number;
+  averageSov: number;
+  sovTrend: number;
+  lastRunSov: number;
+  platformStats: Record<string, { total: number; mentioned: number }>;
+  period: { from: string | null; to: string | null };
+}
+
+function escHtml(s: unknown): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export async function sendReportEmail(
+  to: string,
+  brandName: string,
+  report: ScheduledReportSummary,
+): Promise<EmailResult> {
+  const dashboardUrl = APP_URL;
+  const sovTrendIcon = report.sovTrend > 0 ? '&#9650;' : report.sovTrend < 0 ? '&#9660;' : '&#9654;';
+  const sovTrendColor = report.sovTrend > 0 ? '#16a34a' : report.sovTrend < 0 ? '#dc2626' : '#64748b';
+
+  let platformRows = '';
+  for (const [platform, stats] of Object.entries(report.platformStats || {})) {
+    const rate = stats.total ? Math.round((stats.mentioned / stats.total) * 100) : 0;
+    platformRows += `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${escHtml(platform)}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${stats.mentioned}/${stats.total}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${rate}%</td></tr>`;
+  }
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>AI Visibility Report: ${escHtml(brandName)}</h2>
+      <p style="color:#64748b;">Period: ${escHtml(report.period?.from || 'N/A')} to ${escHtml(report.period?.to || 'N/A')}</p>
+
+      <div style="display:flex;gap:16px;margin:20px 0;">
+        <div style="flex:1;background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
+          <div style="font-size:28px;font-weight:700;">${report.lastRunSov}%</div>
+          <div style="color:#64748b;font-size:13px;">Current SOV</div>
+          <div style="color:${sovTrendColor};font-size:14px;">${sovTrendIcon} ${report.sovTrend > 0 ? '+' : ''}${report.sovTrend.toFixed(1)}%</div>
+        </div>
+        <div style="flex:1;background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
+          <div style="font-size:28px;font-weight:700;">${report.totalRuns}</div>
+          <div style="color:#64748b;font-size:13px;">Total Runs</div>
+        </div>
+        <div style="flex:1;background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
+          <div style="font-size:28px;font-weight:700;">${report.totalMentions}</div>
+          <div style="color:#64748b;font-size:13px;">Total Mentions</div>
+        </div>
+      </div>
+
+      ${platformRows ? `
+      <h3 style="margin-top:24px;">Platform Breakdown (Last Run)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead><tr style="background:#f1f5f9;">
+          <th style="padding:8px 12px;text-align:left;">Platform</th>
+          <th style="padding:8px 12px;text-align:center;">Mentions</th>
+          <th style="padding:8px 12px;text-align:center;">Rate</th>
+        </tr></thead>
+        <tbody>${platformRows}</tbody>
+      </table>
+      ` : ''}
+
+      <p style="margin-top:24px;">
+        <a href="${dashboardUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;text-decoration:none;border-radius:6px;">View Dashboard</a>
+      </p>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">You're receiving this because you enabled scheduled reports. Manage settings in your Livesov dashboard.</p>
+    </div>
+  `;
+  return sendEmail(to, `AI Visibility Report: ${escHtml(brandName)} - Livesov`, html);
+}
+
 async function sendContactFormViaZoho(
   subject: string,
   html: string,
