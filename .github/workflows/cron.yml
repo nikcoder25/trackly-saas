@@ -13,64 +13,63 @@ name: Scheduled cron
 
 on:
   schedule:
-      - cron: "0 * * * *"
-          - cron: "0 8 * * 1"
-              - cron: "0 8 1 * *"
-                workflow_dispatch:
-                    inputs:
-                          job:
-                                  description: "Which job to run"
-                                          required: true
-                                                  default: "hourly"
-                                                          type: choice
-                                                                  options:
-                                                                            - hourly
-                                                                                      - weekly
-                                                                                                - monthly
+    - cron: "0 * * * *"
+    - cron: "0 8 * * 1"
+    - cron: "0 8 1 * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Which job to run"
+        required: true
+        default: "hourly"
+        type: choice
+        options:
+          - hourly
+          - weekly
+          - monthly
 
-                                                                                                jobs:
-                                                                                                  hourly:
-                                                                                                      name: Hourly cron
-                                                                                                          if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'hourly')
-                                                                                                              runs-on: ubuntu-latest
-                                                                                                                  timeout-minutes: 10
-                                                                                                                      steps:
-                                                                                                                            - name: Call /api/cron
-                                                                                                                                    env:
-                                                                                                                                              CRON_SECRET: ${{ secrets.CRON_SECRET }}
-                                                                                                                                                      run: |
-                                                                                                                                                                curl --fail-with-body --show-error --silent \
-                                                                                                                                                                            --max-time 540 \
-                                                                                                                                                                                        -H "Authorization: Bearer $CRON_SECRET" \
-                                                                                                                                                                                                    "https://livesov.com/api/cron"
-                                                                                                                                                                                                    
-                                                                                                                                                                                                      weekly:
-                                                                                                                                                                                                          name: Weekly reports cron
-                                                                                                                                                                                                              if: github.event.schedule == '0 8 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.job == 'weekly')
-                                                                                                                                                                                                                  runs-on: ubuntu-latest
-                                                                                                                                                                                                                      timeout-minutes: 10
-                                                                                                                                                                                                                          steps:
-                                                                                                                                                                                                                                - name: Call /api/cron/reports?frequency=weekly
-                                                                                                                                                                                                                                        env:
-                                                                                                                                                                                                                                                  CRON_SECRET: ${{ secrets.CRON_SECRET }}
-                                                                                                                                                                                                                                                          run: |
-                                                                                                                                                                                                                                                                    curl --fail-with-body --show-error --silent \
-                                                                                                                                                                                                                                                                                --max-time 540 \
-                                                                                                                                                                                                                                                                                            -H "Authorization: Bearer $CRON_SECRET" \
-                                                                                                                                                                                                                                                                                                        "https://livesov.com/api/cron/reports?frequency=weekly"
-                                                                                                                                                                                                                                                                                                        
-                                                                                                                                                                                                                                                                                                          monthly:
-                                                                                                                                                                                                                                                                                                              name: Monthly reports cron
-                                                                                                                                                                                                                                                                                                                  if: github.event.schedule == '0 8 1 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'monthly')
-                                                                                                                                                                                                                                                                                                                      runs-on: ubuntu-latest
-                                                                                                                                                                                                                                                                                                                          timeout-minutes: 10
-                                                                                                                                                                                                                                                                                                                              steps:
-                                                                                                                                                                                                                                                                                                                                    - name: Call /api/cron/reports?frequency=monthly
-                                                                                                                                                                                                                                                                                                                                            env:
-                                                                                                                                                                                                                                                                                                                                                      CRON_SECRET: ${{ secrets.CRON_SECRET }}
-                                                                                                                                                                                                                                                                                                                                                              run: |
-                                                                                                                                                                                                                                                                                                                                                                        curl --fail-with-body --show-error --silent \
-                                                                                                                                                                                                                                                                                                                                                                                    --max-time 540 \
-                                                                                                                                                                                                                                                                                                                                                                                                -H "Authorization: Bearer $CRON_SECRET" \
-                                                                                                                                                                                                                                                                                                                                                                                                            "https://livesov.com/api/cron/reports?frequency=monthly"
-                                                                                                                                                                                                                                                                                                                                                                                                            
+jobs:
+  hourly:
+    name: Hourly cron
+    if: github.event.schedule == '0 * * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'hourly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+               --max-time 540 \
+               -H "Authorization: Bearer $CRON_SECRET" \
+               "https://livesov.com/api/cron"
+
+  weekly:
+    name: Weekly reports cron
+    if: github.event.schedule == '0 8 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.job == 'weekly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron/reports?frequency=weekly
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+               --max-time 540 \
+               -H "Authorization: Bearer $CRON_SECRET" \
+               "https://livesov.com/api/cron/reports?frequency=weekly"
+
+  monthly:
+    name: Monthly reports cron
+    if: github.event.schedule == '0 8 1 * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'monthly')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron/reports?frequency=monthly
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+               --max-time 540 \
+               -H "Authorization: Bearer $CRON_SECRET" \
+               "https://livesov.com/api/cron/reports?frequency=monthly"
