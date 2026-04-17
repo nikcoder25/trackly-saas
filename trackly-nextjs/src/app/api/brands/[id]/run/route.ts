@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
-import { getPlanLimits } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, isDataForSEOConfigured, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
@@ -120,9 +120,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const brand = access.brand;
   const ownerId = brand.userId || user.id;
-  // Use brand owner's plan for limits (not team member's plan)
-  const planResult = await pool.query('SELECT u.plan, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
-  const ownerPlan = planResult.rows[0]?.plan || 'free';
+  // Use brand owner's plan for limits (not team member's plan).
+  // Coerce expired trials down to 'free' so limits reflect the real tier.
+  const planResult = await pool.query('SELECT u.plan, u.trial_ends_at, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
+  const ownerPlan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
   const limits = getPlanLimits(ownerPlan);
 
   // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)

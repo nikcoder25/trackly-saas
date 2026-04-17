@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { uid, safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, validatePasswordComplexity } from '@/lib/auth';
-import { getPlanLimits, AUTH } from '@/lib/constants';
+import { getPlanLimits, AUTH, TRIAL_DURATION_MS } from '@/lib/constants';
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -113,13 +113,14 @@ export async function POST(request: NextRequest) {
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
+    const trialEndsAt = new Date(Date.now() + TRIAL_DURATION_MS);
 
     const insertResult = await pool.query(
-      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires, trial_ends_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (email) DO NOTHING
        RETURNING id`,
-      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'free', verifyToken, verifyTokenExpires]
+      [id, email.toLowerCase(), trimmedUsername, userName, hash, 'trial', verifyToken, verifyTokenExpires, trialEndsAt]
     );
     if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try again or use a different email.' }, { status: 400 });
 
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
       console.error('[Register] Failed to send verification email:', emailResult.reason);
     }
 
-    const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'free' });
+    const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial' });
     const refreshToken = crypto.randomBytes(40).toString('hex');
     await pool.query('UPDATE users SET refresh_token = $1 WHERE id = $2', [refreshToken, id]);
 
@@ -139,8 +140,9 @@ export async function POST(request: NextRequest) {
       token: accessToken,
       user: {
         id, email: email.toLowerCase(), username: trimmedUsername, name: userName,
-        plan: 'free', emailVerified: false, createdAt: new Date().toISOString(),
-        hasKeys: [], limits: getPlanLimits('free'),
+        plan: 'trial', trialEndsAt: trialEndsAt.toISOString(),
+        emailVerified: false, createdAt: new Date().toISOString(),
+        hasKeys: [], limits: getPlanLimits('trial'),
       },
     }, cookieHeaders);
   } catch (e) {

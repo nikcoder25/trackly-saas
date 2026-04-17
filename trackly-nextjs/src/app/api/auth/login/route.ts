@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { pool, safeConnect, auditLog } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const isEmail = email.includes('@');
-    const loginCols = 'id, email, username, name, plan, role, password_hash, api_keys, settings, email_verified, created_at, google_id, avatar_url';
+    const loginCols = 'id, email, username, name, plan, trial_ends_at, role, password_hash, api_keys, settings, email_verified, created_at, google_id, avatar_url';
     const result = isEmail
       ? await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(email) = LOWER($1)`, [email])
       : await pool.query(`SELECT ${loginCols} FROM users WHERE LOWER(username) = LOWER($1)`, [email]);
@@ -125,7 +126,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: user.plan || undefined });
+    const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
     const refreshToken = crypto.randomBytes(40).toString('hex');
 
     // Reset failed login attempts on successful login

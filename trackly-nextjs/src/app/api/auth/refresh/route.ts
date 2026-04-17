@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { safeConnect } from '@/lib/db';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import { getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     try {
       await client.query('BEGIN');
       const lockResult = await client.query(
-        'SELECT id, email, role, plan FROM users WHERE refresh_token = $1 FOR UPDATE',
+        'SELECT id, email, role, plan, trial_ends_at FROM users WHERE refresh_token = $1 FOR UPDATE',
         [refreshToken]
       );
       if (!lockResult.rows.length) {
@@ -48,7 +49,8 @@ export async function POST(request: NextRequest) {
     if (!result.rows.length) return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
 
     const user = result.rows[0];
-    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: user.plan || undefined });
+    const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
+    const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
 
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
     return jsonWithCookies({ token: accessToken }, cookieHeaders);

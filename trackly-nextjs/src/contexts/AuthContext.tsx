@@ -9,6 +9,8 @@ interface User {
   username: string | null;
   name: string;
   plan: string;
+  rawPlan?: string;
+  trialEndsAt?: string | null;
   role: string | null;
   createdAt: string;
   emailVerified: boolean;

@@ -56,6 +56,7 @@ function runMigrations(): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
       `);
       globalForDb.dbMigrated = true;
     } catch (e) {

@@ -18,10 +18,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const brand = access.brand;
   const queryCount = brand.queries?.length || 0;
+  // Only estimate cost for the platforms the user has actually selected.
+  // Fall back to all platforms if none saved yet (backwards compatibility).
+  const selected: string[] = Array.isArray(brand.selected_platforms) && brand.selected_platforms.length > 0
+    ? brand.selected_platforms.filter((p: string) => PLATFORMS.includes(p))
+    : PLATFORMS;
   let totalCost = 0;
   const breakdown: Record<string, number> = {};
 
-  for (const platform of PLATFORMS) {
+  for (const platform of selected) {
     const model = getDefaultModel(platform);
     const pricing = MODEL_PRICING[model];
     if (!pricing) continue;
@@ -30,5 +35,5 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     totalCost += cost;
   }
 
-  return Response.json({ queryCount, platforms: PLATFORMS.length, estimatedCost: Math.round(totalCost * 10000) / 10000, breakdown });
+  return Response.json({ queryCount, platforms: selected.length, estimatedCost: Math.round(totalCost * 10000) / 10000, breakdown });
 }

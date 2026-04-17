@@ -1,7 +1,7 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { uid } from '@/lib/helpers';
-import { getPlanLimits } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 // Trim heavy fields from brand data for list responses
@@ -80,8 +80,8 @@ export async function GET(request: Request) {
     });
 
     // Query plan from database (not JWT) so upgrades are reflected immediately
-    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
-    const plan = planResult.rows[0]?.plan || 'free';
+    const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
+    const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
     const brandLimit = limits.brands;
     const overLimit = brands.length > brandLimit;
@@ -109,16 +109,17 @@ export async function POST(request: Request) {
   if (!allowed) return rateLimitResponse(retryAfter);
 
   const body = await request.json();
-  const { name, industry, website, city, goal, competitors, queries, nearbyAreas } = body;
+  const { name, industry, website, city, country, goal, competitors, queries, nearbyAreas, selected_platforms } = body;
 
   if (!name) return Response.json({ error: 'Brand name required' }, { status: 400 });
   if (typeof name !== 'string' || name.length > 100) return Response.json({ error: 'Brand name must be 100 characters or less' }, { status: 400 });
   if (industry && (typeof industry !== 'string' || industry.length > 100)) return Response.json({ error: 'Industry must be 100 characters or less' }, { status: 400 });
   if (website && (typeof website !== 'string' || website.length > 500)) return Response.json({ error: 'Website URL too long' }, { status: 400 });
+  if (country && (typeof country !== 'string' || country.length > 100)) return Response.json({ error: 'Country must be 100 characters or less' }, { status: 400 });
 
   try {
-    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [user.id]);
-    const plan = planResult.rows[0]?.plan || 'free';
+    const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
+    const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
 
     const safeComps = Array.isArray(competitors) ? competitors.filter((c: unknown) => typeof c === 'string').map((c: string) => c.trim()).filter(Boolean).slice(0, limits.competitors) : [];
@@ -160,9 +161,15 @@ export async function POST(request: Request) {
     }
     const safeAliases = [...autoAliases].filter(a => a.length >= 2);
 
+    // Validate and cap selected_platforms to the user's plan limit
+    const safeSelectedPlatforms = Array.isArray(selected_platforms)
+      ? selected_platforms.filter((p: unknown) => typeof p === 'string').slice(0, limits.platforms)
+      : undefined;
+
     const id = uid();
-    const data = {
+    const data: Record<string, unknown> = {
       name, industry: industry || '', website: website || '', city: city || '',
+      country: country || '',
       goal: goal || 70,
       competitors: safeComps,
       nearbyAreas: safeNearby,
@@ -171,6 +178,7 @@ export async function POST(request: Request) {
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
       citations: {}, notes: {}, schedule: 24,
     };
+    if (safeSelectedPlatforms) data.selected_platforms = safeSelectedPlatforms;
 
     // Atomic insert with plan limit check to prevent race conditions
     const insertResult = await pool.query(

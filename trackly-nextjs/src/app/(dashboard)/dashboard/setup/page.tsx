@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { PLATFORM_COLORS, getPlanPlatforms, getPlanLimits } from '@/lib/constants';
+import { PLATFORM_COLORS, getPlanPlatforms, getPlanLimits, COUNTRIES } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
@@ -16,6 +16,7 @@ interface Brand {
   industry: string;
   website: string;
   city: string;
+  country?: string;
   goal: number;
   queries: string[];
   competitors: string[];
@@ -230,6 +231,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [industry, setIndustry] = useState(brand.industry || '');
   const [website, setWebsite] = useState(brand.website || '');
   const [city, setCity] = useState(brand.city || '');
+  const [country, setCountry] = useState(brand.country || '');
   const [goal, setGoal] = useState(brand.goal || 70);
   const [aliases, setAliases] = useState<string[]>(brand.aliases || []);
   const [aliasInput, setAliasInput] = useState('');
@@ -241,11 +243,14 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
   const [compInput, setCompInput] = useState('');
-  // If the user has a saved selection, keep it (filtered against valid platforms).
-  // Otherwise default to the plan's default platforms.
-  const savedPlatforms = brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p));
+  // If the user has a saved selection, keep it (filtered to valid platforms and
+  // trimmed to the plan's cap in case the plan was downgraded). Otherwise
+  // default to the plan's default platforms.
+  const savedPlatforms = brand.selected_platforms
+    ?.filter((p: string) => ALL_PLATFORMS.includes(p))
+    .slice(0, planLimits.platforms);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
-    savedPlatforms && savedPlatforms.length > 0 ? savedPlatforms : planPlatforms
+    savedPlatforms && savedPlatforms.length > 0 ? savedPlatforms : planPlatforms.slice(0, planLimits.platforms)
   );
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
@@ -265,11 +270,13 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
 
   useEffect(() => {
     setName(brand.name); setIndustry(brand.industry || ''); setWebsite(brand.website || '');
-    setCity(brand.city || ''); setGoal(brand.goal || 70);
+    setCity(brand.city || ''); setCountry(brand.country || ''); setGoal(brand.goal || 70);
     setAliases(brand.aliases || []); setQueries(brand.queries || []);
     setCompetitors(brand.competitors || []);
-    const savedForBrand = brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p));
-    setSelectedPlatforms(savedForBrand && savedForBrand.length > 0 ? savedForBrand : planPlatforms);
+    const savedForBrand = brand.selected_platforms
+      ?.filter((p: string) => ALL_PLATFORMS.includes(p))
+      .slice(0, planLimits.platforms);
+    setSelectedPlatforms(savedForBrand && savedForBrand.length > 0 ? savedForBrand : planPlatforms.slice(0, planLimits.platforms));
     setNearbyAreas(brand.nearbyAreas || []);
     setOriginalQueries(brand.queries || []);
     setError(''); setMessage('');
@@ -376,7 +383,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true); setError(''); setMessage('');
     try {
-      const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, queries, competitors, aliases, goal, platforms: selectedPlatforms, selected_platforms: selectedPlatforms, nearbyAreas });
+      const data = await api('PUT', `/api/brands/${brand.id}`, { name, industry, website, city, country, queries, competitors, aliases, goal, selected_platforms: selectedPlatforms, nearbyAreas });
       // Detect newly added queries BEFORE calling onUpdated (which triggers re-renders)
       const newQueries = queries.filter(q => !originalQueries.includes(q));
       onUpdated(data.brand);
@@ -436,6 +443,16 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
 
           {/* City / Location */}
           <SectionField label="City / Location" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
+
+          {/* Country */}
+          <div style={{ marginBottom: 20 }}>
+            <label className="flbl">Country</label>
+            <input list="country-list-edit" value={country} onChange={e => setCountry(e.target.value)}
+              placeholder="Select or type a country" className="finp" style={{ width: '100%', margin: 0 }} />
+            <datalist id="country-list-edit">
+              {COUNTRIES.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
 
@@ -535,23 +552,32 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
           {/* AI Platforms to Track */}
           <div style={{ marginBottom: 20 }}>
             <label className="flbl">AI Platforms to Track</label>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI platforms to query when running keyword tracking.</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>
+              Select which AI platforms to query when running keyword tracking.{' '}
+              <span style={{ fontWeight: 700 }}>{selectedPlatforms.length} / {planLimits.platforms} selected</span>
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {planPlatforms.map(p => (
-                <button key={p} type="button" onClick={() => togglePlatform(p)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
-                    borderRadius: 100, fontSize: 12, fontWeight: 600,
-                    border: `1px solid ${selectedPlatforms.includes(p) ? 'var(--text-secondary)' : 'var(--border)'}`,
-                    background: selectedPlatforms.includes(p) ? 'var(--bg3)' : 'var(--bg2)',
-                    color: selectedPlatforms.includes(p) ? 'var(--text)' : 'var(--muted)',
-                    cursor: 'pointer', transition: 'all .15s',
-                  }}>
-                  <input type="checkbox" checked={selectedPlatforms.includes(p)} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
-                  {p}
-                </button>
-              ))}
+              {ALL_PLATFORMS.map(p => {
+                const isSelected = selectedPlatforms.includes(p);
+                const atCap = !isSelected && selectedPlatforms.length >= planLimits.platforms;
+                return (
+                  <button key={p} type="button" onClick={() => togglePlatform(p)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
+                      borderRadius: 100, fontSize: 12, fontWeight: 600,
+                      border: `1px solid ${isSelected ? 'var(--text-secondary)' : 'var(--border)'}`,
+                      background: isSelected ? 'var(--bg3)' : 'var(--bg2)',
+                      color: isSelected ? 'var(--text)' : 'var(--muted)',
+                      cursor: 'pointer', transition: 'all .15s',
+                      opacity: atCap ? 0.5 : 1,
+                    }}
+                    title={atCap ? `Your plan allows up to ${planLimits.platforms} AI platforms` : undefined}>
+                    <input type="checkbox" checked={isSelected} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
+                    {p}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

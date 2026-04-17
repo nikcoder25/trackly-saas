@@ -3,7 +3,18 @@
  */
 import crypto from 'crypto';
 import { pool } from './db';
-import { getPlanLimits } from './constants';
+import { getPlanLimits, getEffectivePlan } from './constants';
+
+/**
+ * Look up a user's effective plan, respecting trial expiration.
+ * Returns 'free' if the user's trial has expired or they aren't found.
+ */
+export async function getUserEffectivePlan(userId: string): Promise<string> {
+  const result = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [userId]);
+  const row = result.rows[0] as { plan?: string; trial_ends_at?: string | Date } | undefined;
+  if (!row) return 'free';
+  return getEffectivePlan(row.plan, row.trial_ends_at);
+}
 
 export function uid(): string {
   return Date.now().toString(36) + crypto.randomBytes(6).toString('hex');
@@ -76,7 +87,10 @@ export function decryptApiKeys(keys: Record<string, string>): Record<string, str
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function safeUser(u: any) {
-  const plan = u.plan || 'free';
+  // Expired trials are transparently treated as 'free'. The stored plan in the
+  // DB isn't touched here — it's re-evaluated on every read so the countdown
+  // stays accurate until the user upgrades or the trial is cleared elsewhere.
+  const plan = getEffectivePlan(u.plan, u.trial_ends_at);
   const rawKeys = u.api_keys || {};
   const decrypted = decryptApiKeys(rawKeys);
   // Explicitly strip ALL sensitive keys from settings (defense-in-depth)
@@ -95,6 +109,8 @@ export function safeUser(u: any) {
     username: u.username || null,
     name: u.name,
     plan,
+    rawPlan: u.plan || 'free',
+    trialEndsAt: u.trial_ends_at ? new Date(u.trial_ends_at).toISOString() : null,
     role: u.role || null,
     createdAt: u.created_at,
     emailVerified: u.email_verified || false,

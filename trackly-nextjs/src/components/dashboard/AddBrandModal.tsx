@@ -5,6 +5,10 @@ import Link from 'next/link';
 import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { api, getErrorMessage } from '@/lib/fetch-client';
+import { useAuth } from '@/contexts/AuthContext';
+import { COUNTRIES, PLATFORM_COLORS, getPlanLimits, getPlanPlatforms } from '@/lib/constants';
+
+const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 
 interface Brand {
   id: string;
@@ -12,24 +16,33 @@ interface Brand {
   industry: string;
   website: string;
   city: string;
+  country?: string;
   goal: number;
   queries: string[];
   competitors: string[];
   nearbyAreas?: string[];
+  selected_platforms?: string[];
   [key: string]: unknown;
 }
 
 export default function AddBrandModal({ onClose, onCreated }: { onClose: () => void; onCreated: (brand: Brand) => void }) {
+  const { user } = useAuth();
+  const planLimits = getPlanLimits(user?.plan || 'free');
+  const planDefaultPlatforms = getPlanPlatforms(user?.plan || 'free');
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
   const [website, setWebsite] = useState('');
   const [city, setCity] = useState('');
+  const [country, setCountry] = useState('');
   const [nearbyAreas, setNearbyAreas] = useState<string[]>([]);
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [compInput, setCompInput] = useState('');
   const [queries, setQueries] = useState<string[]>([]);
   const [queryInput, setQueryInput] = useState('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
+    planDefaultPlatforms.slice(0, planLimits.platforms)
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -54,6 +67,25 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
 
   const addComp = () => { if (compInput.trim() && !competitors.includes(compInput.trim())) { setCompetitors([...competitors, compInput.trim()]); setCompInput(''); } };
   const addQuery = () => { if (queryInput.trim() && !queries.includes(queryInput.trim())) { setQueries([...queries, queryInput.trim()]); setQueryInput(''); } };
+
+  const togglePlatform = (p: string) => {
+    setSelectedPlatforms(prev => {
+      if (prev.includes(p)) {
+        if (prev.length <= 1) {
+          setError('At least one AI platform must be selected.');
+          return prev;
+        }
+        setError('');
+        return prev.filter(x => x !== p);
+      }
+      if (prev.length >= planLimits.platforms) {
+        setError(`Your plan allows up to ${planLimits.platforms} AI platforms. Upgrade to add more.`);
+        return prev;
+      }
+      setError('');
+      return [...prev, p];
+    });
+  };
 
   const handleSuggestQueries = async () => {
     if (!name) { setError('Set brand name first'); return; }
@@ -96,7 +128,10 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const handleCreate = async () => {
     setSaving(true); setError('');
     try {
-      const data = await api<{ brand: Brand }>('POST', '/api/brands', { name, industry, website, city, nearbyAreas, competitors, queries });
+      const data = await api<{ brand: Brand }>('POST', '/api/brands', {
+        name, industry, website, city, country, nearbyAreas, competitors, queries,
+        selected_platforms: selectedPlatforms,
+      });
       onCreated(data.brand);
     } catch (e) { setError(getErrorMessage(e, 'Failed to create brand')); }
     setSaving(false);
@@ -170,6 +205,43 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
             <SectionField label="Industry *" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, SaaS" />
             <SectionField label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
             <SectionField label="City / Location" value={city} onChange={setCity} placeholder="e.g. Austin TX (optional for non-local)" />
+            <div style={{ marginBottom: 16 }}>
+              <label className="flbl">Country</label>
+              <input list="country-list-add" value={country} onChange={e => setCountry(e.target.value)}
+                placeholder="Select or type a country" className="finp" style={{ width: '100%', margin: 0 }} />
+              <datalist id="country-list-add">
+                {COUNTRIES.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label className="flbl">AI Platforms to Track</label>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>
+                Pick which AI platforms to query.{' '}
+                <span style={{ fontWeight: 700 }}>{selectedPlatforms.length} / {planLimits.platforms} selected</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {ALL_PLATFORMS.map(p => {
+                  const isSelected = selectedPlatforms.includes(p);
+                  const atCap = !isSelected && selectedPlatforms.length >= planLimits.platforms;
+                  return (
+                    <button key={p} type="button" onClick={() => togglePlatform(p)}
+                      title={atCap ? `Your plan allows up to ${planLimits.platforms} AI platforms` : undefined}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                        borderRadius: 100, fontSize: 11, fontWeight: 600,
+                        border: `1px solid ${isSelected ? 'var(--text-secondary)' : 'var(--border)'}`,
+                        background: isSelected ? 'var(--bg3)' : 'var(--bg2)',
+                        color: isSelected ? 'var(--text)' : 'var(--muted)',
+                        cursor: 'pointer', opacity: atCap ? 0.5 : 1,
+                      }}>
+                      <input type="checkbox" checked={isSelected} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {city.trim() && (
               <div style={{ marginBottom: 16 }}>
                 <label className="flbl">Nearby Areas</label>

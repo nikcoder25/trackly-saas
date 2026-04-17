@@ -1,7 +1,7 @@
 import { pool, safeConnect } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
-import { getPlanLimits } from '@/lib/constants';
+import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 
 // GET /api/brands/:id
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -39,8 +39,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Plan limit checks — always check against the brand OWNER's plan and count
     const ownerId = brand.userId || user.id;
-    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
-    const plan = planResult.rows[0]?.plan || 'free';
+    const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [ownerId]);
+    const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
 
     // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
@@ -57,7 +57,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }, { status: 403 });
     }
 
-    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'selected_platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'goal', 'nearbyAreas', 'webhookUrl'];
+    const allowedFields = ['name', 'industry', 'website', 'description', 'queries', 'platforms', 'selected_platforms', 'competitors', 'aliases', 'locations', 'schedule', 'city', 'country', 'goal', 'nearbyAreas', 'webhookUrl'];
     const safeBody: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (body[key] !== undefined) safeBody[key] = body[key];
@@ -68,7 +68,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // String field validation
-    const strLimits: Record<string, number> = { name: 100, industry: 100, website: 500, description: 1000, city: 100, webhookUrl: 500 };
+    const strLimits: Record<string, number> = { name: 100, industry: 100, website: 500, description: 1000, city: 100, country: 100, webhookUrl: 500 };
     for (const [field, maxLen] of Object.entries(strLimits)) {
       if (safeBody[field] && (typeof safeBody[field] !== 'string' || (safeBody[field] as string).length > maxLen)) {
         return Response.json({ error: `${field} must be ${maxLen} characters or less` }, { status: 400 });
