@@ -1,4 +1,4 @@
-import { pool, safeConnect } from '@/lib/db';
+import { pool, safeConnect, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
@@ -39,6 +39,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Plan limit checks — always check against the brand OWNER's plan and count
     const ownerId = brand.userId || user.id;
+    await ensureColumns();
     const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [ownerId]);
     const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
     const limits = getPlanLimits(plan);
