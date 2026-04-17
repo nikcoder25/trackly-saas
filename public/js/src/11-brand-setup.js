@@ -395,29 +395,50 @@ function renderSetup(){
   // Render platform checkboxes
   const cont = el('setup-plat-list');
   cont.innerHTML = '';
-  const savedPlats = b.platforms || PLATS; // default: all platforms
+  // If the user has never saved a selection, start with everything the server can run
+  // so the UI shows the user's actual tracking scope instead of a phantom "all selected".
+  const savedPlats = Array.isArray(b.platforms) ? b.platforms : null;
+  const keyIdFor = { ChatGPT:'openai', Perplexity:'perplexity', Claude:'claude', Gemini:'gemini', Grok:'grok' };
+  const planLimit = (currentUser.limits && currentUser.limits.platforms) || PLATS.length;
+
+  const cbUpdateLimitHint = function(){
+    const checked = cont.querySelectorAll('input[type=checkbox]:checked').length;
+    const hint = el('setup-plat-limit-hint');
+    if (!hint) return;
+    if (checked > planLimit) {
+      hint.textContent = 'Plan allows ' + planLimit + ' platforms — only the first ' + planLimit + ' you selected will be tracked.';
+      hint.style.color = 'var(--amber)';
+    } else {
+      hint.textContent = checked + ' of ' + PLATS.length + ' selected (plan limit: ' + planLimit + ')';
+      hint.style.color = 'var(--muted)';
+    }
+  };
+
   PLATS.forEach(plat => {
     const t = PLAT_THEME[plat]||{};
-    const isActive = keyStatus[plat.toLowerCase().replace(/ /g,'').replace('chatgpt','openai')];
+    const hasKey = !!keyStatus[keyIdFor[plat]];
     const lbl = document.createElement('label');
     lbl.className = 'plat-check';
     lbl.style.color = t.color||'#fff';
-    if (!isActive) lbl.style.opacity = '0.4';
+    if (!hasKey) lbl.style.opacity = '0.4';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = isActive && savedPlats.includes(plat);
-    cb.disabled = !isActive;
+    // Default checked: exactly what was saved. If nothing saved, default to all runnable ones.
+    cb.checked = savedPlats ? savedPlats.includes(plat) : hasKey;
+    cb.disabled = !hasKey;
     cb.dataset.plat = plat;
+    cb.addEventListener('change', cbUpdateLimitHint);
     lbl.appendChild(cb);
     lbl.appendChild(document.createTextNode(' ' + (t.logo||'') + ' ' + plat));
-    if (!isActive) {
+    if (!hasKey) {
       const hint = document.createElement('span');
       hint.style.cssText = 'font-size:8px;color:var(--muted);margin-left:4px;';
-      hint.textContent = '(inactive)';
+      hint.textContent = '(no API key)';
       lbl.appendChild(hint);
     }
     cont.appendChild(lbl);
   });
+  cbUpdateLimitHint();
 
   // Render queries in setup
   renderSetupQueries();
@@ -454,6 +475,7 @@ function renderSetupQueries(){
   (b.queries||[]).forEach((q, i) => {
     const tag = document.createElement('span');
     tag.className = 'query-tag';
+    tag.dataset.queryIndex = i;
     if (_setupSelectMode) {
       tag.classList.add('query-tag-selectable');
       if (_setupSelectedIndices.has(i)) tag.classList.add('query-tag-selected');
@@ -478,6 +500,25 @@ function renderSetupQueries(){
   if (!(b.queries||[]).length) {
     container.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--muted);">No queries yet. Add queries below.</span>';
   }
+
+  // Toggle copy-selected button visibility with mode
+  const copySelBtn = el('setup-copy-selected-btn');
+  if (copySelBtn) copySelBtn.style.display = _setupSelectMode ? '' : 'none';
+}
+
+// Flash an existing query tag so the user can see which one already exists.
+function setupFlashDuplicateQuery(queryText){
+  const b = brand(); if (!b) return;
+  const target = queryText.toLowerCase();
+  const idx = (b.queries||[]).findIndex(q => q.toLowerCase() === target);
+  if (idx === -1) return;
+  const container = el('setup-query-tags');
+  if (!container) return;
+  const tag = container.querySelector('[data-query-index="' + idx + '"]');
+  if (!tag) return;
+  tag.classList.add('query-tag-duplicate-flash');
+  tag.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  setTimeout(function(){ tag.classList.remove('query-tag-duplicate-flash'); }, 1600);
 }
 
 async function setupAddQuery(){
@@ -492,7 +533,11 @@ async function setupAddQuery(){
     return;
   }
   const existing = new Set((b.queries||[]).map(x => x.toLowerCase()));
-  if (existing.has(q.toLowerCase())) { toast('Query already exists', 'err'); return; }
+  if (existing.has(q.toLowerCase())) {
+    toast('"' + q + '" is already tracked', 'err');
+    setupFlashDuplicateQuery(q);
+    return;
+  }
   const queries = [...(b.queries||[]), q];
   try {
     const data = await api('PUT', '/api/brands/'+b.id, { queries });
@@ -535,11 +580,24 @@ function setupToggleBulkAdd(){
 async function setupBulkAddQueries(){
   const b = brand(); if (!b) return;
   const raw = el('setup-bulk-query-input').value;
-  const newQs = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  if (!newQs.length) { toast('No queries entered', 'err'); return; }
+  const rawLines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (!rawLines.length) { toast('No queries entered', 'err'); return; }
+  // Dedupe within the pasted batch (case-insensitive), preserving first occurrence.
+  const seenInBatch = new Set();
+  const newQs = rawLines.filter(q => {
+    const k = q.toLowerCase();
+    if (seenInBatch.has(k)) return false;
+    seenInBatch.add(k);
+    return true;
+  });
   const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+  const duplicatesOfExisting = newQs.filter(q => existing.has(q.toLowerCase()));
   const unique = newQs.filter(q => !existing.has(q.toLowerCase()));
-  if (!unique.length) { toast('All queries already exist', 'err'); return; }
+  const skipped = (rawLines.length - newQs.length) + duplicatesOfExisting.length;
+  if (!unique.length) {
+    toast(skipped + ' duplicate quer' + (skipped===1?'y':'ies') + ' skipped — nothing new to add', 'err');
+    return;
+  }
   const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
   const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
   if (totalPrompts + unique.length > promptLimit) {
@@ -557,8 +615,46 @@ async function setupBulkAddQueries(){
     el('setup-bulk-query-input').value = '';
     el('setup-bulk-query-box').style.display = 'none';
     renderSetupQueries();
-    toast(unique.length + ' quer' + (unique.length===1?'y':'ies') + ' added', 'ok');
+    const addedMsg = unique.length + ' quer' + (unique.length===1?'y':'ies') + ' added';
+    const skipMsg = skipped > 0 ? ' — ' + skipped + ' duplicate' + (skipped===1?'':'s') + ' skipped' : '';
+    toast(addedMsg + skipMsg, 'ok');
   } catch(e) { toast(e.message, 'err'); }
+}
+
+function _setupCopyToClipboard(text, label){
+  if (!text) { toast('Nothing to copy', 'warn'); return; }
+  const done = function(){ toast(label + ' copied to clipboard', 'ok'); };
+  const fail = function(){ toast('Copy failed — your browser blocked clipboard access', 'err'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(fail);
+  } else {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch(_) { fail(); }
+  }
+}
+
+function setupCopyAllQueries(){
+  const b = brand(); if (!b) return;
+  const list = b.queries || [];
+  if (!list.length) { toast('No queries to copy', 'warn'); return; }
+  _setupCopyToClipboard(list.join('\n'), list.length + ' quer' + (list.length===1?'y':'ies'));
+}
+
+function setupCopySelectedQueries(){
+  const b = brand(); if (!b) return;
+  if (!_setupSelectedIndices.size) { toast('No queries selected', 'warn'); return; }
+  const picks = (b.queries||[]).filter((_, idx) => _setupSelectedIndices.has(idx));
+  _setupCopyToClipboard(picks.join('\n'), picks.length + ' selected quer' + (picks.length===1?'y':'ies'));
 }
 
 async function setupClearAllQueries(){
@@ -651,30 +747,42 @@ async function setupAiGenerateQueries(){
   btn.textContent = 'GENERATING...';
   btn.disabled = true;
   try {
-    const data = await api('POST', '/api/ai-generate-queries', {
-      brandName: b.name,
-      industry: b.industry,
-      city: b.city || '',
-      existingQueries: b.queries || []
-    });
-    const suggestions = data.queries || [];
-    if (!suggestions.length) { toast('AI could not generate queries. Try again.', 'warn'); return; }
-    const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
-    let newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
-    if (!newQs.length) { toast('All generated queries already exist!', 'ok'); return; }
     const promptLimit = currentUser.limits ? currentUser.limits.prompts : 5;
     const totalPrompts = brands.reduce((sum, br) => sum + (br.queries||[]).length, 0);
     const remaining = promptLimit - totalPrompts;
     if (remaining <= 0) { toast('Prompt limit reached. Upgrade your plan.', 'err'); return; }
-    if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
-    const pick = confirm('Add ' + newQs.length + ' AI-generated queries?\n\n' + newQs.join('\n'));
-    if (!pick) return;
+
+    // Try up to 2 rounds — the first round may return an empty list if the model
+    // repeats ideas already tracked; a second call with the same existingQueries
+    // (server rotates angles/seed) usually yields fresh ones.
+    let newQs = [];
+    for (let attempt = 0; attempt < 2 && !newQs.length; attempt++) {
+      const data = await api('POST', '/api/ai-generate-queries', {
+        brandName: b.name,
+        industry: b.industry,
+        city: b.city || '',
+        existingQueries: b.queries || []
+      });
+      const suggestions = data.queries || [];
+      const existing = new Set((b.queries||[]).map(q => q.toLowerCase()));
+      newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
+    }
+    if (!newQs.length) {
+      toast('No new queries this round — try AI Generate again for more variety.', 'warn');
+      return;
+    }
+
+    if (newQs.length > remaining) {
+      newQs = newQs.slice(0, remaining);
+      toast('Plan cap reached — adding first ' + remaining + ' of the generated queries.', 'warn');
+    }
+
     const queries = [...(b.queries||[]), ...newQs];
     const result = await api('PUT', '/api/brands/'+b.id, { queries });
     invalidateCache('/api/brands');
     updateBrandInList(result.brand);
     renderSetupQueries();
-    toast(newQs.length + ' AI-generated queries added', 'ok');
+    toast('+ ' + newQs.length + ' AI-generated quer' + (newQs.length===1?'y':'ies') + ' added — click again for more.', 'ok');
   } catch(e) { toast(e.message, 'err'); }
   finally { btn.textContent = origText; btn.disabled = false; }
 }
@@ -683,9 +791,13 @@ async function saveBrandSetup(){
   const b = brand(); if (!b) return;
   const name = el('s-name').value.trim();
   if (!name) { toast('Brand name cannot be empty','err'); return; }
-  // Get selected platforms
+  // Get selected platforms — persist exactly what the user picked (no silent fallback).
   const platChecks = el('setup-plat-list').querySelectorAll('input[type=checkbox]:checked');
   const selectedPlats = [...platChecks].map(cb => cb.dataset.plat);
+  if (!selectedPlats.length) {
+    toast('Select at least one AI platform to track','err');
+    return;
+  }
   try {
     const data = await api('PUT', '/api/brands/'+b.id, {
       name,
@@ -693,7 +805,7 @@ async function saveBrandSetup(){
       website: el('s-website').value.trim(),
       city: el('s-city').value.trim(),
       goal: parseInt(el('s-goal').value)||70,
-      platforms: selectedPlats.length ? selectedPlats : PLATS,
+      platforms: selectedPlats,
       aliases: b.aliases || [],
       nearbyAreas: b.nearbyAreas || []
     });

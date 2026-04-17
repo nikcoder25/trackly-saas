@@ -117,7 +117,7 @@ export default function BillingPage() {
       const b = brand as Record<string, unknown>;
       totalQueries += b?.queries ? (b.queries as string[]).length : 0;
       totalCompetitors += b?.competitors ? (b.competitors as string[]).length : 0;
-      const platCount = (b?.selected_platforms as string[] || []).length;
+      const platCount = (b?.platforms as string[] || b?.selected_platforms as string[] || []).length;
       if (platCount > maxPlatformCount) maxPlatformCount = platCount;
     }
     setQueryCount(totalQueries);

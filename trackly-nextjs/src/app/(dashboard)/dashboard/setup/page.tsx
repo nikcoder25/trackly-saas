@@ -21,7 +21,7 @@ interface Brand {
   competitors: string[];
   aliases?: string[];
   nearbyAreas?: string[];
-  selected_platforms?: string[];
+  platforms?: string[];
   runs?: unknown[];
   [key: string]: unknown;
 }
@@ -240,7 +240,12 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
   const [compInput, setCompInput] = useState('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
+  const platformLimit = (user?.limits as Record<string, number>)?.platforms || ALL_PLATFORMS.length;
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
+    Array.isArray(brand.platforms) && brand.platforms.length
+      ? brand.platforms
+      : planPlatforms
+  );
   const [nearbyAreas, setNearbyAreas] = useState<string[]>(brand.nearbyAreas || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -262,7 +267,11 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setCity(brand.city || ''); setGoal(brand.goal || 70);
     setAliases(brand.aliases || []); setQueries(brand.queries || []);
     setCompetitors(brand.competitors || []);
-    setSelectedPlatforms(brand.selected_platforms?.filter((p: string) => planPlatforms.includes(p)) || planPlatforms);
+    setSelectedPlatforms(
+      Array.isArray(brand.platforms) && brand.platforms.length
+        ? brand.platforms
+        : planPlatforms
+    );
     setNearbyAreas(brand.nearbyAreas || []);
     setOriginalQueries(brand.queries || []);
     setError(''); setMessage('');
@@ -314,15 +323,68 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setAliases([...aliases, ...newAliases]);
   };
 
-  const addQuery = () => { if (queryInput.trim() && !queries.includes(queryInput.trim())) { setQueries([...queries, queryInput.trim()]); setQueryInput(''); } };
+  const [duplicateFlashIdx, setDuplicateFlashIdx] = useState<number | null>(null);
+  const flashDuplicate = (idx: number) => {
+    setDuplicateFlashIdx(idx);
+    setTimeout(() => setDuplicateFlashIdx(null), 1600);
+  };
+
+  const addQuery = () => {
+    const q = queryInput.trim();
+    if (!q) return;
+    const lower = q.toLowerCase();
+    const dupIdx = queries.findIndex(x => x.toLowerCase() === lower);
+    if (dupIdx !== -1) {
+      setError(`"${q}" is already tracked`);
+      flashDuplicate(dupIdx);
+      return;
+    }
+    setError('');
+    setQueries([...queries, q]);
+    setQueryInput('');
+  };
   const addComp = () => { if (compInput.trim() && !competitors.includes(compInput.trim())) { setCompetitors([...competitors, compInput.trim()]); setCompInput(''); } };
 
   const bulkAddQueries = () => {
-    const newQ = bulkText.split('\n').map(q => q.trim()).filter(q => q && !queries.includes(q));
-    setQueries([...queries, ...newQ]); setBulkText(''); setShowBulk(false);
+    const rawLines = bulkText.split('\n').map(q => q.trim()).filter(Boolean);
+    if (!rawLines.length) { setError('No queries entered'); return; }
+    const seenInBatch = new Set<string>();
+    const inBatchDedup = rawLines.filter(q => {
+      const k = q.toLowerCase();
+      if (seenInBatch.has(k)) return false;
+      seenInBatch.add(k); return true;
+    });
+    const existingLower = new Set(queries.map(q => q.toLowerCase()));
+    const newQ = inBatchDedup.filter(q => !existingLower.has(q.toLowerCase()));
+    const skipped = rawLines.length - newQ.length;
+    if (!newQ.length) {
+      setError(`${skipped} duplicate quer${skipped === 1 ? 'y' : 'ies'} skipped — nothing new to add`);
+      return;
+    }
+    setError('');
+    setQueries([...queries, ...newQ]);
+    setBulkText(''); setShowBulk(false);
+    setMessage(`${newQ.length} quer${newQ.length === 1 ? 'y' : 'ies'} added${skipped ? ` — ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}`);
   };
 
-  const deleteSelected = () => { setQueries(queries.filter((_, i) => !selected.has(i))); setSelected(new Set()); setSelectMode(false); };
+  const deleteSelected = () => {
+    const count = selected.size;
+    if (!count) return;
+    if (!confirm(`Delete ${count} selected quer${count === 1 ? 'y' : 'ies'}? This cannot be undone.`)) return;
+    setQueries(queries.filter((_, i) => !selected.has(i)));
+    setSelected(new Set()); setSelectMode(false);
+  };
+
+  const copySelectedQueries = async () => {
+    if (!selected.size) return;
+    const picks = queries.filter((_, i) => selected.has(i));
+    try {
+      await navigator.clipboard.writeText(picks.join('\n'));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+      setMessage(`${picks.length} selected quer${picks.length === 1 ? 'y' : 'ies'} copied`);
+    } catch { setError('Copy failed — clipboard access blocked'); }
+  };
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -333,18 +395,31 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     if (!industry) { setError('Set industry first'); return; }
     setAiGenerating(true); setError('');
     try {
-      const data = await api('POST', '/api/ai-generate-queries', {
-        brandName: name, industry, city, existingQueries: queries,
-      });
-      const suggestions: string[] = data.queries || [];
-      if (!suggestions.length) { setError('AI could not generate queries. Try again.'); setAiGenerating(false); return; }
-      const existing = new Set(queries.map(q => q.toLowerCase()));
-      const newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
-      if (!newQs.length) { setMessage('All generated queries already exist!'); setAiGenerating(false); return; }
-      if (confirm('Add ' + newQs.length + ' AI-generated queries?\n\n' + newQs.join('\n'))) {
-        setQueries([...queries, ...newQs]);
-        setMessage(newQs.length + ' AI-generated queries added');
+      // Two-round retry so repeated clicks keep yielding fresh prompts —
+      // the server rotates angles / variation seed between calls.
+      let newQs: string[] = [];
+      for (let attempt = 0; attempt < 2 && !newQs.length; attempt++) {
+        const data = await api('POST', '/api/ai-generate-queries', {
+          brandName: name, industry, city, existingQueries: queries,
+        });
+        const suggestions: string[] = data.queries || [];
+        const existing = new Set(queries.map(q => q.toLowerCase()));
+        newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
       }
+      if (!newQs.length) {
+        setMessage('No new queries this round — click AI Generate again for more variety.');
+        setAiGenerating(false);
+        return;
+      }
+      const remaining = planLimit - queries.length;
+      if (remaining <= 0) {
+        setError('Prompt limit reached. Upgrade your plan.');
+        setAiGenerating(false);
+        return;
+      }
+      if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
+      setQueries([...queries, ...newQs]);
+      setMessage(`+ ${newQs.length} AI-generated quer${newQs.length === 1 ? 'y' : 'ies'} added — click again for more.`);
     } catch (e) { setError((e as Error).message); }
     setAiGenerating(false);
   };
@@ -432,7 +507,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
               {queries.map((q, i) => (
                 <span key={i}
                   onClick={() => { if (selectMode) { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); } }}
-                  className={`query-tag ${selectMode ? 'query-tag-selectable' : ''} ${selectMode && selected.has(i) ? 'query-tag-selected' : ''}`}
+                  className={`query-tag ${selectMode ? 'query-tag-selectable' : ''} ${selectMode && selected.has(i) ? 'query-tag-selected' : ''} ${duplicateFlashIdx === i ? 'query-tag-duplicate-flash' : ''}`}
                 >
                   {selectMode && <input type="checkbox" checked={selected.has(i)} readOnly className="query-select-cb" />}
                   {q}
@@ -441,6 +516,9 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
                   )}
                 </span>
               ))}
+              {!queries.length && (
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>No queries yet. Add queries below.</span>
+              )}
             </div>
 
             {/* Action buttons row */}
@@ -452,6 +530,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
                 <>
                   <button type="button" onClick={() => setSelected(new Set(queries.map((_, i) => i)))} className="setup-mono-btn">Select All</button>
                   <button type="button" onClick={() => setSelected(new Set())} className="setup-mono-btn">Deselect All</button>
+                  <button type="button" onClick={copySelectedQueries} disabled={selected.size === 0}
+                    style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', opacity: selected.size === 0 ? 0.4 : 1 }}>
+                    COPY SELECTED ({selected.size})
+                  </button>
                   <button type="button" onClick={deleteSelected} disabled={selected.size === 0}
                     style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', opacity: selected.size === 0 ? 0.4 : 1 }}>
                     DELETE SELECTED ({selected.size})
@@ -511,23 +593,33 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
           {/* AI Platforms to Track */}
           <div style={{ marginBottom: 20 }}>
             <label className="flbl">AI Platforms to Track</label>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>Select which AI platforms to query when running keyword tracking.</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>
+              Select which AI platforms to query when running keyword tracking. Only the platforms you pick will be scanned.
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {planPlatforms.map(p => (
-                <button key={p} type="button" onClick={() => togglePlatform(p)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
-                    borderRadius: 100, fontSize: 12, fontWeight: 600,
-                    border: `1px solid ${selectedPlatforms.includes(p) ? 'var(--text-secondary)' : 'var(--border)'}`,
-                    background: selectedPlatforms.includes(p) ? 'var(--bg3)' : 'var(--bg2)',
-                    color: selectedPlatforms.includes(p) ? 'var(--text)' : 'var(--muted)',
-                    cursor: 'pointer', transition: 'all .15s',
-                  }}>
-                  <input type="checkbox" checked={selectedPlatforms.includes(p)} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
-                  {p}
-                </button>
-              ))}
+              {ALL_PLATFORMS.map(p => {
+                const checked = selectedPlatforms.includes(p);
+                return (
+                  <button key={p} type="button" onClick={() => togglePlatform(p)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
+                      borderRadius: 100, fontSize: 12, fontWeight: 600,
+                      border: `1px solid ${checked ? 'var(--text-secondary)' : 'var(--border)'}`,
+                      background: checked ? 'var(--bg3)' : 'var(--bg2)',
+                      color: checked ? 'var(--text)' : 'var(--muted)',
+                      cursor: 'pointer', transition: 'all .15s',
+                    }}>
+                    <input type="checkbox" checked={checked} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: selectedPlatforms.length > platformLimit ? 'var(--amber)' : 'var(--muted)', marginTop: 6 }}>
+              {selectedPlatforms.length > platformLimit
+                ? `Plan allows ${platformLimit} platforms — only the first ${platformLimit} you selected will be tracked.`
+                : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
             </div>
           </div>
 
