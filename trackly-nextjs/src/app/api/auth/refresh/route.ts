@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
-import { safeConnect } from '@/lib/db';
+import { safeConnect, ensureColumns } from '@/lib/db';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
   if (!allowed) return rateLimitResponse(retryAfter);
 
   try {
+    await ensureColumns();
     // Atomic token rotation: SELECT FOR UPDATE prevents race conditions
     // where two concurrent refresh requests could both succeed with the same old token
     const client = await safeConnect();

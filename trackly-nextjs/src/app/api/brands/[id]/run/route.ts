@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { pool, auditLog } from '@/lib/db';
+import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
@@ -122,6 +122,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const brand = access.brand;
   const ownerId = brand.userId || user.id;
   // Use brand owner's plan for limits (not team member's plan)
+  await ensureColumns();
   const planResult = await pool.query('SELECT u.plan, u.trial_ends_at, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
   const ownerPlan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
   const limits = getPlanLimits(ownerPlan);

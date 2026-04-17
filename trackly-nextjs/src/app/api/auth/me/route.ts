@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { pool, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { safeUser } from '@/lib/helpers';
 
@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   if (!authUser) return Response.json({ error: 'No token' }, { status: 401 });
 
   try {
+    await ensureColumns();
     const result = await pool.query(
       'SELECT id, email, username, name, plan, trial_ends_at, role, api_keys, settings, email_verified, created_at, google_id, avatar_url FROM users WHERE id = $1',
       [authUser.id]
