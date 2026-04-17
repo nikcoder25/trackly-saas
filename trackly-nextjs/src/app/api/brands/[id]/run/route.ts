@@ -20,6 +20,10 @@ const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
 };
 const FAIL_THRESHOLD = 5;
 
+// TTL for AI/DB response cache entries. No prior constant existed in this
+// route, so default to 3600s per the backend caching policy.
+const RESPONSE_CACHE_TTL_SECONDS = 3600;
+
 function parseKeys(envVar: string): string[] {
   const keys: string[] = [];
   const raw = (process.env[envVar] || '').trim();

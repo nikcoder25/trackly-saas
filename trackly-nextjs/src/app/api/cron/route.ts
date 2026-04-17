@@ -12,6 +12,12 @@ import { getPlanLimits } from '@/lib/constants';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
+const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+
+// Stagger between brand triggers — each brand waits brand_index * this many
+// milliseconds so scheduled runs don't all hit providers at the same instant.
+const BRAND_STAGGER_MS = 8000;
+
 // Auto-create the cron_locks table on first call (cached in globalThis)
 const g = globalThis as unknown as { _cronLocksReady?: boolean };
 async function ensureCronLocksTable() {
@@ -132,7 +138,10 @@ export async function GET(request: Request) {
       const batch = eligible.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        batch.map(async (row: any) => {
+        batch.map(async (row: any, batchIdx: number) => {
+          const brandIndex = i + batchIdx;
+          // Stagger per-brand launches so we don't burst fetches simultaneously
+          if (brandIndex > 0) await sleep(brandIndex * BRAND_STAGGER_MS);
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout per run trigger
           try {
