@@ -6,6 +6,7 @@ import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
 import Link from 'next/link';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
@@ -16,7 +17,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{id: string; message: string; created_at: string; read: boolean}>>([]);
+  const { notifications, unreadCount } = useNotifications();
   const notifRef = useRef<HTMLDivElement>(null);
   const limitRef = useRef<HTMLDivElement>(null);
 
@@ -32,13 +33,6 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showNotifs, showLimitPrompt]);
-
-  useEffect(() => {
-    fetch('/api/notifications', { credentials: 'include' })
-      .then(r => r.ok ? r.json() : { notifications: [] })
-      .then(d => setNotifications(d.notifications || []))
-      .catch(() => {});
-  }, []);
 
 
   const handleAddBrandClick = () => {
@@ -135,14 +129,14 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
           <button className="notif-bell" aria-label="Notifications" onClick={(e) => { e.stopPropagation(); setShowNotifs(!showNotifs); }}
             style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, cursor: 'pointer', padding: '4px 8px', lineHeight: 1, borderRadius: 'var(--radius-xs)', position: 'relative' }}>
             🔔
-            {notifications.filter(n => !n.read).length > 0 && (
-              <span aria-label={`${notifications.filter(n => !n.read).length} unread notifications`} style={{
+            {unreadCount > 0 && (
+              <span aria-label={`${unreadCount} unread notifications`} style={{
                 position: 'absolute', top: -4, right: -4, background: 'var(--primary)',
                 color: '#fff', fontSize: 9, fontWeight: 700, minWidth: 16, height: 16,
                 borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '0 4px', lineHeight: 1,
               }}>
-                {notifications.filter(n => !n.read).length}
+                {unreadCount}
               </span>
             )}
           </button>
