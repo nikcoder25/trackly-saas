@@ -32,6 +32,62 @@ async function ensureCronLocksTable() {
   g._cronLocksReady = true;
 }
 
+/**
+ * Mark any `active_runs` rows that have been stuck in 'running' for more
+ * than 30 minutes as 'error'. Without this, a scan that crashed before its
+ * terminal status update (OOM, SIGKILL, function timeout) leaves a row in
+ * 'running' forever, which poisons downstream scheduling and /run-lock
+ * logic across every brand, not just the one that crashed.
+ *
+ * Column names vary across deploys: the canonical schema (defined in
+ * /api/brands/[id]/run) uses `completed_at` + `error`, but a legacy
+ * deployment may instead use `finished_at` + `error_message`. We
+ * introspect information_schema and build the UPDATE to match whatever
+ * columns are actually present, so this function never fails just
+ * because a column name differs.
+ */
+async function reconcileStaleActiveRuns(): Promise<{ count: number; brandIds: string[] }> {
+  let columns: Set<string>;
+  try {
+    const colRes = await pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'active_runs'`
+    );
+    columns = new Set((colRes.rows as { column_name: string }[]).map(r => r.column_name));
+  } catch {
+    return { count: 0, brandIds: [] };
+  }
+  if (!columns.has('status') || !columns.has('started_at') || !columns.has('brand_id')) {
+    return { count: 0, brandIds: [] };
+  }
+
+  const sets: string[] = [`status = 'error'`];
+  if (columns.has('completed_at')) sets.push(`completed_at = NOW()`);
+  else if (columns.has('finished_at')) sets.push(`finished_at = NOW()`);
+  const errCol = columns.has('error_message') ? 'error_message'
+    : columns.has('error') ? 'error'
+    : null;
+  if (errCol) {
+    sets.push(`${errCol} = COALESCE(${errCol}, 'reconciled: stale running row (>30min)')`);
+  }
+
+  try {
+    const res = await pool.query(
+      `UPDATE active_runs SET ${sets.join(', ')}
+       WHERE status = 'running' AND started_at < NOW() - INTERVAL '30 minutes'
+       RETURNING brand_id`
+    );
+    const brandIds = Array.from(new Set((res.rows as { brand_id: string }[]).map(r => r.brand_id)));
+    const count = res.rowCount || 0;
+    if (count > 0) {
+      console.log(`[Cron] Reconciled ${count} stale running rows for brands:`, brandIds);
+    }
+    return { count, brandIds };
+  } catch (e) {
+    console.warn('[Cron] reconcileStaleActiveRuns failed:', (e as Error).message);
+    return { count: 0, brandIds: [] };
+  }
+}
+
 export async function GET(request: Request) {
   // Verify cron secret (required)
   const cronSecret = process.env.CRON_SECRET;
@@ -74,6 +130,13 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Reap stale 'running' rows BEFORE computing eligibility. Any row
+    // stuck here would otherwise make its brand look "recently run"
+    // forever, silently suppressing scheduled runs — not just for one
+    // brand, but any customer whose scan has ever crashed mid-flight.
+    const { count: reconciled, brandIds: reconciledBrandIds } =
+      await reconcileStaleActiveRuns();
+
     // Pre-filter: only fetch brands on paid plans that support scheduled runs.
     // This avoids wasting the LIMIT on free-plan brands which are always ineligible.
     const result = await pool.query(`
@@ -85,15 +148,21 @@ export async function GET(request: Request) {
       LIMIT 100
     `);
 
-    // Fetch last run times from active_runs table (more reliable than brand
-    // JSON data which may be stale if a previous run failed to save fully)
+    // Fetch last successful run times from active_runs (more reliable than
+    // brand JSON data which may be stale if a previous run failed to save).
+    // Only 'done' runs count toward scheduling: a 'running' row left behind
+    // by a crashed/timed-out scan never transitions to a terminal state
+    // (there is no stale-state reaper), so including it here would make
+    // MAX(started_at) permanently "recent" and silently block every future
+    // scheduled run for that brand. Dedupe of truly-in-flight scans is
+    // handled by the 10-minute lock in /api/brands/[id]/run.
     const brandIds = result.rows.map((r: { id: string }) => r.id);
     const lastRunMap: Record<string, number> = {};
     if (brandIds.length > 0) {
       const runsResult = await pool.query(
-        `SELECT brand_id, MAX(started_at) AS last_run
+        `SELECT brand_id, MAX(COALESCE(completed_at, started_at)) AS last_run
          FROM active_runs
-         WHERE brand_id = ANY($1) AND status IN ('done', 'running')
+         WHERE brand_id = ANY($1) AND status = 'done'
          GROUP BY brand_id`,
         [brandIds]
       );
@@ -184,10 +253,18 @@ export async function GET(request: Request) {
       }
     }
 
+    const total = result.rows.length;
+    const timestamp = new Date().toISOString();
+    console.log('[Cron] Summary:', JSON.stringify({
+      processed, skipped, reconciled, total,
+      errors_count: errors?.length || 0,
+      timestamp,
+    }));
     return Response.json({
-      processed, skipped, total: result.rows.length,
+      processed, skipped, reconciled, total,
+      reconciledBrandIds: reconciled > 0 ? reconciledBrandIds : undefined,
       errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
-      timestamp: new Date().toISOString(),
+      timestamp,
     });
   } catch (e) {
     console.error('[Cron]', (e as Error).message);
