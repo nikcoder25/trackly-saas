@@ -279,41 +279,42 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // --- Return immediately, execute in background ---
-  // Only enqueue to BullMQ if a worker is actually connected. Without this
-  // check, jobs get silently stranded in Redis (Last-Run clock freezes,
-  // active_runs rows get reaped to 'error') whenever the worker dyno
-  // isn't running. See isQueueAvailable() for the worker-liveness check.
-  const queueHasWorker = await isQueueAvailable();
-  if (queueHasWorker) {
+  // Default policy: run in-process via Next.js after(), which is the
+  // safest path because it doesn't depend on a separate worker dyno
+  // being alive. Enqueue to BullMQ only when QUEUE_MODE=auto|always
+  // explicitly opts in. See src/lib/job-queue.ts for mode semantics.
+  const shouldEnqueue = await isQueueAvailable();
+  const runInProcess = () => {
+    after(async () => {
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
+    });
+  };
+  if (shouldEnqueue) {
     try {
       await enqueueBrandRun({
         brand, brandId: id, userId: user.id, runId, totalExpected,
         activePlatforms, queries, serverKeys, userKeys,
       });
     } catch (e) {
+      // Redis went down between the availability check and the enqueue.
+      // Fall back to in-process so the run still completes this tick.
       logger.warn('run.enqueue_failed_falling_back', {
         brand_id: id,
         run_id: runId,
         error: (e as Error).message,
       });
-      after(async () => {
-        await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
-      });
+      runInProcess();
     }
   } else {
-    // No worker consuming the queue (or Redis not configured). Run
-    // in-process via Next.js after() so scheduled runs still complete.
-    // We log this at INFO because it's an expected fallback in dev and
-    // an alertable symptom in prod (worker dyno dead / not deployed).
-    if (process.env.REDIS_URL) {
-      logger.warn('run.no_worker_in_process_fallback', {
+    // Not alarming under QUEUE_MODE=never (the default); only warn if
+    // the operator opted into auto mode but no consumer is healthy.
+    if (process.env.QUEUE_MODE === 'auto' && process.env.REDIS_URL) {
+      logger.warn('run.queue_unhealthy_inprocess_fallback', {
         brand_id: id,
         run_id: runId,
       });
     }
-    after(async () => {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
-    });
+    runInProcess();
   }
 
   return Response.json({ runId, totalExpected, platforms: activePlatforms, queries });
