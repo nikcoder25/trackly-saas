@@ -1,4 +1,5 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
+import { acquireCronLock } from '@/lib/cron-lock';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -11,15 +12,14 @@ if (process.env.DODO_ENTERPRISE_PRODUCT_ID) PLAN_MAP[process.env.DODO_ENTERPRISE
 
 /**
  * Payment Reconciliation Cron Job
- * 
- * This endpoint should be called periodically (e.g., every 15-30 minutes)
- * to catch any missed webhook events from Dodo Payments.
- * 
- * It checks all users who have a subscription_id in their settings
- * and verifies their plan matches what Dodo Payments reports.
- * 
- * Trigger via DigitalOcean cron or external cron service with
- * `Authorization: Bearer $CRON_SECRET` header (preferred). A legacy
+ *
+ * Called every 15 minutes by .github/workflows/cron.yml to catch any
+ * Dodo Payments webhook events we missed. It walks every user with a
+ * stored subscription_id, asks Dodo for the current status, and repairs
+ * any plan/status drift (downgrades after cancellation, upgrades after
+ * a lost webhook, stale subscription_id cleanup on 404).
+ *
+ * Authorize with `Authorization: Bearer $CRON_SECRET`. A legacy
  * `?secret=` query param is still accepted for backward compatibility
  * but should be removed from any crontab because query strings leak
  * into access logs.
@@ -55,16 +55,26 @@ export async function GET(request: Request) {
       ? 'https://live.dodopayments.com'
       : 'https://test.dodopayments.com';
 
-    const client = await safeConnect();
-    if (!client) {
-      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    // Dedupe concurrent runs. We now run this every 15 minutes from GH
+    // Actions; a slow run must not overlap with the next tick or they
+    // will race on the same users. 10-min stale window is safe because
+    // maxDuration is 5 min and reconciliation work per user is bounded.
+    const lock = await acquireCronLock('reconcile-payments', 10);
+    if (!lock) {
+      return NextResponse.json({ skipped: true, reason: 'Another reconcile run is in progress' });
     }
 
     try {
+      const client = await safeConnect();
+      if (!client) {
+        return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+      }
+
+      try {
       // Get all users who have a subscription_id in their settings
       const usersResult = await client.query(
-        `SELECT id, plan, settings FROM users 
-         WHERE settings->>'subscription_id' IS NOT NULL 
+        `SELECT id, plan, settings FROM users
+         WHERE settings->>'subscription_id' IS NOT NULL
          AND settings->>'subscription_id' != ''`
       );
 
@@ -208,8 +218,11 @@ export async function GET(request: Request) {
       
       return NextResponse.json(summary);
 
+      } finally {
+        client.release();
+      }
     } finally {
-      client.release();
+      await lock.release();
     }
 
   } catch (e) {

@@ -1,10 +1,9 @@
 /**
- * Cron endpoint for scheduled brand runs.
- * Call via: Vercel Cron, external cron service, or curl.
- * Secured by CRON_SECRET environment variable.
- *
- * Example Vercel cron config (vercel.json):
- * { "crons": [{ "path": "/api/cron", "schedule": "0 * * * *" }] }
+ * Cron endpoint for scheduled brand runs. Called every hour by GitHub
+ * Actions (.github/workflows/cron.yml) and also by the in-process
+ * instrumentation trigger in src/instrumentation.ts. Authorized via the
+ * `Authorization: Bearer $CRON_SECRET` header; cron_locks dedupes
+ * concurrent triggers so running both schedulers is safe.
  */
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
