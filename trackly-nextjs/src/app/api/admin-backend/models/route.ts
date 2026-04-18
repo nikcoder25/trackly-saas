@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
     return Response.json({ platforms, currentModels });
   } catch (e) {
-    // Table might not exist yet — create it
+    // Table might not exist yet - create it
     if ((e as Error).message?.includes('site_config')) {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS site_config (

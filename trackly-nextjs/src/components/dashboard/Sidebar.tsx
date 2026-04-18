@@ -64,7 +64,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       <aside className={`sidebar ${open ? 'mobile-open' : ''}`} role="navigation" aria-label="Main navigation" style={{
         display: 'flex', flexDirection: 'column',
       }}>
-        {/* Run Queries Button — admin/owner only */}
+        {/* Run Queries Button - admin/owner only */}
         {isAdmin ? (
         <div style={{ padding: '8px 8px 4px' }}>
           <button
@@ -78,11 +78,11 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               background: selectedBrandLocked ? 'var(--muted)' : live.status === 'done' ? 'var(--green)' : live.status === 'error' ? 'var(--red)' : undefined,
               fontSize: live.status === 'error' && live.errorMsg && live.errorMsg !== 'concurrent' ? '10px' : undefined,
             }}
-            title={selectedBrandLocked ? 'This brand is locked — upgrade your plan to run queries' : live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
+            title={selectedBrandLocked ? 'This brand is locked - upgrade your plan to run queries' : live.errorMsg && live.errorMsg !== 'concurrent' ? live.errorMsg : undefined}
             disabled={isDisabled}
             onClick={() => startRun(false)}
           >
-            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE — Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : live.errorMsg === 'run_limit' ? '❌ Run limit reached' : live.errorMsg === 'plan_limit' ? '🔒 Brand locked' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
+            {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE - Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : live.errorMsg === 'run_limit' ? '❌ Run limit reached' : live.errorMsg === 'plan_limit' ? '🔒 Brand locked' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
           </button>
 
           {/* Upgrade hint for locked brand, run limit, or plan limit */}

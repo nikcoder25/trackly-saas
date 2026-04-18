@@ -5,7 +5,7 @@ import { useRun, type LiveResult } from '@/contexts/RunContext';
 import { PLATFORM_COLORS } from '@/lib/constants';
 
 /**
- * Global live result toasts — shown as fixed bottom-right cards
+ * Global live result toasts - shown as fixed bottom-right cards
  * across ALL dashboard pages when a query run is active.
  * Each new result slides in and auto-dismisses after 4s.
  */

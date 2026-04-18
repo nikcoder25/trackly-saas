@@ -358,13 +358,13 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     const newQ = inBatchDedup.filter(q => !existingLower.has(q.toLowerCase()));
     const skipped = rawLines.length - newQ.length;
     if (!newQ.length) {
-      setError(`${skipped} duplicate quer${skipped === 1 ? 'y' : 'ies'} skipped — nothing new to add`);
+      setError(`${skipped} duplicate quer${skipped === 1 ? 'y' : 'ies'} skipped - nothing new to add`);
       return;
     }
     setError('');
     setQueries([...queries, ...newQ]);
     setBulkText(''); setShowBulk(false);
-    setMessage(`${newQ.length} quer${newQ.length === 1 ? 'y' : 'ies'} added${skipped ? ` — ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}`);
+    setMessage(`${newQ.length} quer${newQ.length === 1 ? 'y' : 'ies'} added${skipped ? ` - ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}`);
   };
 
   const deleteSelected = () => {
@@ -383,7 +383,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
       setMessage(`${picks.length} selected quer${picks.length === 1 ? 'y' : 'ies'} copied`);
-    } catch { setError('Copy failed — clipboard access blocked'); }
+    } catch { setError('Copy failed - clipboard access blocked'); }
   };
 
   const togglePlatform = (p: string) => {
@@ -395,7 +395,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     if (!industry) { setError('Set industry first'); return; }
     setAiGenerating(true); setError('');
     try {
-      // Two-round retry so repeated clicks keep yielding fresh prompts —
+      // Two-round retry so repeated clicks keep yielding fresh prompts -
       // the server rotates angles / variation seed between calls.
       let newQs: string[] = [];
       for (let attempt = 0; attempt < 2 && !newQs.length; attempt++) {
@@ -407,7 +407,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
         newQs = suggestions.filter(q => !existing.has(q.toLowerCase()));
       }
       if (!newQs.length) {
-        setMessage('No new queries this round — click AI Generate again for more variety.');
+        setMessage('No new queries this round - click AI Generate again for more variety.');
         setAiGenerating(false);
         return;
       }
@@ -419,7 +419,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       }
       if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
       setQueries([...queries, ...newQs]);
-      setMessage(`+ ${newQs.length} AI-generated quer${newQs.length === 1 ? 'y' : 'ies'} added — click again for more.`);
+      setMessage(`+ ${newQs.length} AI-generated quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
     } catch (e) { setError((e as Error).message); }
     setAiGenerating(false);
   };
@@ -472,7 +472,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
             <label className="flbl">Alternate Names / Aliases</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
               AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br />
-              Auto-generated from brand name &amp; website — add more if needed.
+              Auto-generated from brand name &amp; website - add more if needed.
             </div>
             <TagList items={aliases} onRemove={i => setAliases(aliases.filter((_, j) => j !== i))} />
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -618,7 +618,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
             </div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: selectedPlatforms.length > platformLimit ? 'var(--amber)' : 'var(--muted)', marginTop: 6 }}>
               {selectedPlatforms.length > platformLimit
-                ? `Plan allows ${platformLimit} platforms — only the first ${platformLimit} you selected will be tracked.`
+                ? `Plan allows ${platformLimit} platforms - only the first ${platformLimit} you selected will be tracked.`
                 : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
             </div>
           </div>

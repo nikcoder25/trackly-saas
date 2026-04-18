@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const user = authResult;
 
   try {
-    // Plan gate — Pro and above only. Use the effective plan so trial users
+    // Plan gate - Pro and above only. Use the effective plan so trial users
     // on a trial-into-Pro arrangement still get the feature during the trial.
     const planRow = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [user.id]);
     const rawPlan = planRow.rows[0]?.plan;
@@ -51,7 +51,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           brandMentioned: r.brand_mentioned,
         }));
       } catch {
-        // Non-fatal — the report renders without the AI Overview block.
+        // Non-fatal - the report renders without the AI Overview block.
       }
     }
 
@@ -59,7 +59,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Drain the PDFKit doc into a Buffer before responding. Next.js route
     // handlers can't pipe the Node stream directly into the Response, so
-    // we materialise first. Typical reports are <1 MB — fine to buffer.
+    // we materialise first. Typical reports are <1 MB - fine to buffer.
     const buffer: Buffer = await new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
       doc.on('data', (c: Buffer) => chunks.push(c));

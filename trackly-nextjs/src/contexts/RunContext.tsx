@@ -127,7 +127,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             totalExpected: data.totalExpected || prev.totalExpected,
             foundCount: data.foundCount || 0,
             errorCount: data.errorCount || 0,
-            statusText: `${data.received || 0}/${data.totalExpected || 0} — ${data.foundCount || 0} found`,
+            statusText: `${data.received || 0}/${data.totalExpected || 0} - ${data.foundCount || 0} found`,
             results: newResults.length > 0 ? [...prev.results, ...newResults] : prev.results,
           }));
 
@@ -259,7 +259,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       const forceParam = force ? '&force=1' : '';
       const autoParam = options?.auto ? '&auto=1' : '';
 
-      // POST to start the run — returns immediately with runId
+      // POST to start the run - returns immediately with runId
       const response = await fetch(`/api/brands/${brandId}/run?x=1${forceParam}${autoParam}`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -270,7 +270,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
         const errData = await response.json().catch(() => ({ error: 'Request failed' }));
         if (response.status === 409) {
           // Shouldn't normally reach here (caught by runningRef check above),
-          // but handle it as a safety net — queue queries if any
+          // but handle it as a safety net - queue queries if any
           runningRef.current = false;
           if (options?.queries && options.queries.length > 0) {
             const existing = pendingQueriesRef.current || [];
@@ -286,7 +286,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
         }
         if (response.status === 403 && errData.planLimit) {
           runningRef.current = false;
-          setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'Brand locked — upgrade plan', errorMsg: 'plan_limit' }));
+          setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'Brand locked - upgrade plan', errorMsg: 'plan_limit' }));
           return;
         }
         throw new Error(errData.error || 'Request failed');

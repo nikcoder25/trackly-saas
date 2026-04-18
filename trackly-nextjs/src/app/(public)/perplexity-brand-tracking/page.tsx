@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
+  title: 'Perplexity Brand Tracking - Monitor AI Search Mentions | Livesov',
   description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
   keywords: 'perplexity brand tracking, perplexity ai monitoring, ai search visibility, perplexity brand mentions',
   alternates: { canonical: '/perplexity-brand-tracking' },
   openGraph: {
-    title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
+    title: 'Perplexity Brand Tracking - Monitor AI Search Mentions | Livesov',
     description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
     url: 'https://livesov.com/perplexity-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Perplexity Brand Tracking - Monitor AI Search Mentions | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Perplexity Brand Tracking — Monitor AI Search Mentions | Livesov',
+    title: 'Perplexity Brand Tracking - Monitor AI Search Mentions | Livesov',
     description: 'Track how Perplexity AI mentions and cites your brand. Monitor share of voice in AI-powered search results and optimize your visibility.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -32,12 +32,12 @@ export default function PerplexityBrandTrackingPage() {
       />
       <SeoContent>
         <h2>Why Perplexity Matters for Your Brand</h2>
-        <p>Perplexity is a leading AI search engine that combines large language models with real-time web search. Unlike traditional chatbots, Perplexity cites its sources — making it uniquely important for brand visibility tracking.</p>
+        <p>Perplexity is a leading AI search engine that combines large language models with real-time web search. Unlike traditional chatbots, Perplexity cites its sources - making it uniquely important for brand visibility tracking.</p>
 
         <h2>What Livesov Tracks in Perplexity</h2>
         <ul>
           <li>Brand mention frequency in Perplexity responses</li>
-          <li>Citation tracking — which of your pages Perplexity references</li>
+          <li>Citation tracking - which of your pages Perplexity references</li>
           <li>Competitor visibility in the same queries</li>
           <li>Recommendation position and sentiment</li>
           <li>Source domain analysis</li>

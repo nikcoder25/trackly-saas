@@ -33,45 +33,45 @@
 
 **Priority: HIGH | Timeline: Immediate | Cost: $0-50/mo**
 
-- [ ] **Enable Redis + BullMQ in production** — The job queue (`src/lib/job-queue.ts`) is built but optional. Activate it to move brand runs off the Next.js event loop and prevent OOM crashes. Start the worker as a separate process: `npx tsx src/lib/run-worker.ts`
-- [ ] **Add connection pool monitoring** — Current pool is configured at max 50 (`src/lib/db.ts:24`). Add logging for pool exhaustion events. At 50 users this is sufficient
-- [ ] **Set up Sentry alerts** — Sentry is integrated but needs alert rules for error spikes, slow transactions (>5s), and failed payment webhooks
-- [ ] **Add E2E tests** — Currently only 16 unit tests (helpers + plans). Add Playwright tests for signup, brand creation, and run execution flows
-- [ ] **Enable response caching aggressively** — The 24-48hr cache (`response_cache` table) drastically reduces API costs. Verify cache hit rates via `api_logs`
-- [ ] **Database backups** — Set up automated daily pg_dump or use managed Postgres (Railway/Supabase built-in backups)
+- [ ] **Enable Redis + BullMQ in production** - The job queue (`src/lib/job-queue.ts`) is built but optional. Activate it to move brand runs off the Next.js event loop and prevent OOM crashes. Start the worker as a separate process: `npx tsx src/lib/run-worker.ts`
+- [ ] **Add connection pool monitoring** - Current pool is configured at max 50 (`src/lib/db.ts:24`). Add logging for pool exhaustion events. At 50 users this is sufficient
+- [ ] **Set up Sentry alerts** - Sentry is integrated but needs alert rules for error spikes, slow transactions (>5s), and failed payment webhooks
+- [ ] **Add E2E tests** - Currently only 16 unit tests (helpers + plans). Add Playwright tests for signup, brand creation, and run execution flows
+- [ ] **Enable response caching aggressively** - The 24-48hr cache (`response_cache` table) drastically reduces API costs. Verify cache hit rates via `api_logs`
+- [ ] **Database backups** - Set up automated daily pg_dump or use managed Postgres (Railway/Supabase built-in backups)
 
 ### Phase 2: Performance Optimization (50-200 Users)
 
 **Priority: HIGH | Timeline: Month 2-3 | Cost: $50-150/mo**
 
-- [ ] **Add read replicas** — Separate read-heavy dashboard queries from write-heavy run execution. Route `/api/brands/[id]/prompt-runs` and analytics endpoints to replica
-- [ ] **Implement query result pagination** — Several API endpoints return full result sets. Add cursor-based pagination to `prompt_runs`, `activity-logs`, `notifications`
-- [ ] **Redis caching layer** — Cache frequently accessed data: plan limits, admin models (`src/lib/site-config.ts` already has 1-min memory cache), user sessions. Move rate limiting from PostgreSQL (`src/lib/rate-limit.ts`) to Redis
-- [ ] **Optimize database queries** — Add composite indexes for common query patterns: `(brand_id, created_at DESC)`, `(user_id, platform, created_at)`
-- [ ] **CDN for static assets** — Vercel handles this automatically, but ensure `Cache-Control` headers are set for public pages. Dashboard pages correctly use `no-store` already
-- [ ] **Reduce ChatGPT API costs** — ChatGPT Search is ~$0.01/call (80% of total API cost). Consider defaulting Starter plan users to cheaper models (GPT-4o-mini at $0.0003/call) and reserving search models for Pro+
+- [ ] **Add read replicas** - Separate read-heavy dashboard queries from write-heavy run execution. Route `/api/brands/[id]/prompt-runs` and analytics endpoints to replica
+- [ ] **Implement query result pagination** - Several API endpoints return full result sets. Add cursor-based pagination to `prompt_runs`, `activity-logs`, `notifications`
+- [ ] **Redis caching layer** - Cache frequently accessed data: plan limits, admin models (`src/lib/site-config.ts` already has 1-min memory cache), user sessions. Move rate limiting from PostgreSQL (`src/lib/rate-limit.ts`) to Redis
+- [ ] **Optimize database queries** - Add composite indexes for common query patterns: `(brand_id, created_at DESC)`, `(user_id, platform, created_at)`
+- [ ] **CDN for static assets** - Vercel handles this automatically, but ensure `Cache-Control` headers are set for public pages. Dashboard pages correctly use `no-store` already
+- [ ] **Reduce ChatGPT API costs** - ChatGPT Search is ~$0.01/call (80% of total API cost). Consider defaulting Starter plan users to cheaper models (GPT-4o-mini at $0.0003/call) and reserving search models for Pro+
 
 ### Phase 3: Scale Architecture (200-1,000 Users)
 
 **Priority: MEDIUM | Timeline: Month 4-8 | Cost: $200-800/mo**
 
-- [ ] **Dedicated worker fleet** — Run 2-4 BullMQ workers on separate instances. The worker (`src/lib/run-worker.ts`) already supports this — just deploy multiple processes pointing to the same Redis
-- [ ] **Database connection pooling (PgBouncer)** — At 200+ concurrent users, 50 direct connections won't suffice. Add PgBouncer in transaction mode between the app and Postgres
-- [ ] **Implement queue prioritization** — Paid users should have priority in the BullMQ queue. Add priority levels: Enterprise (1) > Agency (2) > Pro (3) > Starter (4) > Free (5)
-- [ ] **Horizontal API scaling** — Deploy multiple Next.js instances behind a load balancer. The app is already stateless (JWT auth, DB-backed rate limiting). Session state lives in cookies
-- [ ] **Batch scheduling optimization** — The hourly cron (`vercel.json` cron at `0 * * * *`) processes all scheduled brands sequentially. Partition by priority and run in parallel batches
-- [ ] **Implement webhook retry queue** — DodoPayments webhooks (`/api/payments/webhooks/dodopayments`) need a dead-letter queue for failed processing. Store failed events and retry with exponential backoff
+- [ ] **Dedicated worker fleet** - Run 2-4 BullMQ workers on separate instances. The worker (`src/lib/run-worker.ts`) already supports this - just deploy multiple processes pointing to the same Redis
+- [ ] **Database connection pooling (PgBouncer)** - At 200+ concurrent users, 50 direct connections won't suffice. Add PgBouncer in transaction mode between the app and Postgres
+- [ ] **Implement queue prioritization** - Paid users should have priority in the BullMQ queue. Add priority levels: Enterprise (1) > Agency (2) > Pro (3) > Starter (4) > Free (5)
+- [ ] **Horizontal API scaling** - Deploy multiple Next.js instances behind a load balancer. The app is already stateless (JWT auth, DB-backed rate limiting). Session state lives in cookies
+- [ ] **Batch scheduling optimization** - The hourly cron (`vercel.json` cron at `0 * * * *`) processes all scheduled brands sequentially. Partition by priority and run in parallel batches
+- [ ] **Implement webhook retry queue** - DodoPayments webhooks (`/api/payments/webhooks/dodopayments`) need a dead-letter queue for failed processing. Store failed events and retry with exponential backoff
 
 ### Phase 4: Enterprise Scale (1,000+ Users)
 
 **Priority: LOW | Timeline: Month 9-18 | Cost: $1,000-5,000/mo**
 
-- [ ] **Multi-region deployment** — Deploy to US-East + EU-West. Use geo-routing at the CDN layer. The geo-audit feature already tracks location-based results
-- [ ] **Database sharding strategy** — Shard `prompt_runs` and `response_cache` by `brand_id`. These are the highest-volume tables. Keep `users` and `brands` on a single primary
-- [ ] **Dedicated tenant isolation** — Enterprise customers get isolated worker pools and dedicated database schemas. Prevents noisy-neighbor issues
-- [ ] **API gateway** — Add rate limiting, authentication, and request routing at the edge. Consider Cloudflare Workers or AWS API Gateway
-- [ ] **Event-driven architecture** — Replace direct DB writes with an event bus (Redis Streams or Kafka) for real-time analytics, alerting, and audit logging
-- [ ] **SOC 2 / GDPR compliance** — Audit logging is already in place (`audit_logs` table). Add data retention policies, right-to-delete automation, and encryption at rest for PII fields
+- [ ] **Multi-region deployment** - Deploy to US-East + EU-West. Use geo-routing at the CDN layer. The geo-audit feature already tracks location-based results
+- [ ] **Database sharding strategy** - Shard `prompt_runs` and `response_cache` by `brand_id`. These are the highest-volume tables. Keep `users` and `brands` on a single primary
+- [ ] **Dedicated tenant isolation** - Enterprise customers get isolated worker pools and dedicated database schemas. Prevents noisy-neighbor issues
+- [ ] **API gateway** - Add rate limiting, authentication, and request routing at the edge. Consider Cloudflare Workers or AWS API Gateway
+- [ ] **Event-driven architecture** - Replace direct DB writes with an event bus (Redis Streams or Kafka) for real-time analytics, alerting, and audit logging
+- [ ] **SOC 2 / GDPR compliance** - Audit logging is already in place (`audit_logs` table). Add data retention policies, right-to-delete automation, and encryption at rest for PII fields
 
 ---
 
@@ -149,11 +149,11 @@
 
 ### Optimization Strategies
 
-1. **Cache-first architecture** — The 24-48hr response cache already exists. Ensure cache hit rate is >60% by sharing cache across users with identical queries
-2. **Tiered model access** — Free/Starter use cheaper models (GPT-4o, Gemini Flash). Pro+ get search-enabled models
-3. **Smart scheduling** — Batch scheduled runs during off-peak hours (2-6 AM UTC) when API rate limits are less contested
-4. **Query deduplication** — If 10 users track "best CRM software," query once and share results. Requires a shared query pool
-5. **Circuit breaker tuning** — Already implemented (`src/lib/ai-platforms.ts:19`). Tune threshold from 5 to 3 failures to fail-fast on bad keys
+1. **Cache-first architecture** - The 24-48hr response cache already exists. Ensure cache hit rate is >60% by sharing cache across users with identical queries
+2. **Tiered model access** - Free/Starter use cheaper models (GPT-4o, Gemini Flash). Pro+ get search-enabled models
+3. **Smart scheduling** - Batch scheduled runs during off-peak hours (2-6 AM UTC) when API rate limits are less contested
+4. **Query deduplication** - If 10 users track "best CRM software," query once and share results. Requires a shared query pool
+5. **Circuit breaker tuning** - Already implemented (`src/lib/ai-platforms.ts:19`). Tune threshold from 5 to 3 failures to fail-fast on bad keys
 
 ---
 
@@ -178,7 +178,7 @@
 - [ ] Vulnerability scanning in CI/CD pipeline (npm audit + Snyk)
 
 ### Add Before 1,000 Users
-- [ ] WAF (Web Application Firewall) — Cloudflare or AWS WAF
+- [ ] WAF (Web Application Firewall) - Cloudflare or AWS WAF
 - [ ] DDoS protection at edge layer
 - [ ] Penetration testing (annual)
 - [ ] Bug bounty program
@@ -189,19 +189,19 @@
 ## 7. Feature Scaling Priorities
 
 ### High Impact, Low Effort
-1. **Shared query cache** — Deduplicate identical queries across users. Single DB change + cache key normalization
-2. **Webhook retry queue** — BullMQ dead-letter queue for failed payment/email webhooks
-3. **Dashboard lazy loading** — Split 21 dashboard pages into dynamic imports (already using Next.js App Router)
+1. **Shared query cache** - Deduplicate identical queries across users. Single DB change + cache key normalization
+2. **Webhook retry queue** - BullMQ dead-letter queue for failed payment/email webhooks
+3. **Dashboard lazy loading** - Split 21 dashboard pages into dynamic imports (already using Next.js App Router)
 
 ### High Impact, Medium Effort
-4. **Real-time WebSocket updates** — Replace SSE polling with WebSocket for run progress. Reduces connection overhead at scale
-5. **Multi-brand batch runs** — Agency users with 20 brands need parallel execution. Current sequential approach is too slow
-6. **White-label reports** — PDF export (`pdfkit` already in root `package.json`) with custom branding for agency clients
+4. **Real-time WebSocket updates** - Replace SSE polling with WebSocket for run progress. Reduces connection overhead at scale
+5. **Multi-brand batch runs** - Agency users with 20 brands need parallel execution. Current sequential approach is too slow
+6. **White-label reports** - PDF export (`pdfkit` already in root `package.json`) with custom branding for agency clients
 
 ### High Impact, High Effort
-7. **Public API** — RESTful API with API key auth for Enterprise customers. The internal API routes already exist — add versioning and docs
-8. **Zapier/Make integration** — Webhook triggers when mention count changes, sentiment shifts, or new competitor detected
-9. **Multi-tenant architecture** — Schema-per-tenant isolation for Enterprise accounts
+7. **Public API** - RESTful API with API key auth for Enterprise customers. The internal API routes already exist - add versioning and docs
+8. **Zapier/Make integration** - Webhook triggers when mention count changes, sentiment shifts, or new competitor detected
+9. **Multi-tenant architecture** - Schema-per-tenant isolation for Enterprise accounts
 
 ---
 
@@ -217,9 +217,9 @@
 
 | Users | Add |
 |------:|-----|
-| 50 | Uptime monitoring (Betterstack or Checkly) — ping `/api/health` every 60s |
+| 50 | Uptime monitoring (Betterstack or Checkly) - ping `/api/health` every 60s |
 | 100 | Database query performance dashboard (pg_stat_statements + Grafana) |
-| 200 | APM (Application Performance Monitoring) — Sentry Performance or Datadog |
+| 200 | APM (Application Performance Monitoring) - Sentry Performance or Datadog |
 | 500 | Custom business metrics dashboard: DAU, runs/day, cache hit rate, API cost/user |
 | 1,000 | Distributed tracing across Next.js → Worker → AI APIs → Database |
 

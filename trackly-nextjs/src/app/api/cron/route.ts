@@ -14,7 +14,7 @@ export const maxDuration = 300; // 5 minutes max for cron
 
 const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
 
-// Stagger between brand triggers — each brand waits brand_index * this many
+// Stagger between brand triggers - each brand waits brand_index * this many
 // milliseconds so scheduled runs don't all hit providers at the same instant.
 const BRAND_STAGGER_MS = 8000;
 
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
   try {
     // Reap stale 'running' rows BEFORE computing eligibility. Any row
     // stuck here would otherwise make its brand look "recently run"
-    // forever, silently suppressing scheduled runs — not just for one
+    // forever, silently suppressing scheduled runs - not just for one
     // brand, but any customer whose scan has ever crashed mid-flight.
     const { count: reconciled, brandIds: reconciledBrandIds } =
       await reconcileStaleActiveRuns();
@@ -270,7 +270,7 @@ export async function GET(request: Request) {
     console.error('[Cron]', (e as Error).message);
     return Response.json({ error: 'Cron job failed' }, { status: 500 });
   } finally {
-    // Release lock — only the holder (matching instance_id) can release
+    // Release lock - only the holder (matching instance_id) can release
     await pool.query(
       `UPDATE cron_locks SET locked_at = NULL WHERE name = 'scheduler' AND instance_id = $1`,
       [instanceId]

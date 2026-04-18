@@ -1,8 +1,8 @@
-# Livesov — AI Visibility Tracker
+# Livesov - AI Visibility Tracker
 
 Track how your brand appears in ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews.
 
-> **The application lives in [`./trackly-nextjs/`](./trackly-nextjs/).** The previous Express monolith at the repository root has been removed — all features (auth, brands, analytics, payments, admin, PDF reports, scheduled email digests, SEO pages) now live in the Next.js app. History for the old Express code is preserved in git prior to the consolidation commit.
+> **The application lives in [`./trackly-nextjs/`](./trackly-nextjs/).** The previous Express monolith at the repository root has been removed - all features (auth, brands, analytics, payments, admin, PDF reports, scheduled email digests, SEO pages) now live in the Next.js app. History for the old Express code is preserved in git prior to the consolidation commit.
 
 ---
 
@@ -33,7 +33,7 @@ npm test
 ## Deployment
 
 - **Vercel**: point the project at the repo root and set the project root to `trackly-nextjs/`. `vercel.json` inside that directory wires the hourly `/api/cron` endpoint plus the weekly / monthly `/api/cron/reports` digests.
-- **DigitalOcean / self-hosted**: deploy the `trackly-nextjs/` directory as a standard Next.js app (`npm run build && npm start`). `src/instrumentation.ts` includes a self-triggering cron scheduler that hits `/api/cron` every hour if `APP_URL` and `CRON_SECRET` are set — set those env vars when there is no external cron provider.
+- **DigitalOcean / self-hosted**: deploy the `trackly-nextjs/` directory as a standard Next.js app (`npm run build && npm start`). `src/instrumentation.ts` includes a self-triggering cron scheduler that hits `/api/cron` every hour if `APP_URL` and `CRON_SECRET` are set - set those env vars when there is no external cron provider.
 
 ## Environment variables
 
@@ -57,7 +57,7 @@ Every env var the app reads is documented in [`trackly-nextjs/.env.example`](./t
 ## Tests
 
 ```bash
-# From the repo root — forwards into trackly-nextjs
+# From the repo root - forwards into trackly-nextjs
 npm test
 
 # Or directly:
@@ -70,7 +70,7 @@ The suite covers the token-hashing helper, the webhook HMAC verifier, and the SS
 
 ```
 livesov/
-├── package.json          # Thin wrapper — all scripts forward to trackly-nextjs/
+├── package.json          # Thin wrapper - all scripts forward to trackly-nextjs/
 ├── trackly-nextjs/       # The Next.js application (source of truth)
 │   ├── src/app/          # Routes, pages, and API handlers
 │   ├── src/lib/          # Auth, DB, AI platforms, email, PDF reports, …

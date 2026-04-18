@@ -15,7 +15,7 @@ import { useRun, type LiveResult } from '@/contexts/RunContext';
  *   run without manual refresh.
  * - While a run is active, merges the live results from RunContext into the
  *   returned brand as a synthetic in-progress run so pages display results in
- *   real time — the same data that drives the bottom-right toasts.
+ *   real time - the same data that drives the bottom-right toasts.
  */
 export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) {
   const { selectedBrand, brands, loading: contextLoading, refreshBrands } = useBrands();
@@ -71,7 +71,7 @@ export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) 
 
   // Auto-reload whenever a run completes. RunContext dispatches this event
   // after writing the finished run to brands.data.runs, so every page picks up
-  // the new results automatically — no manual refresh / remount required.
+  // the new results automatically - no manual refresh / remount required.
   useEffect(() => {
     const handler = () => { reloadRef.current(); };
     window.addEventListener('livesov:run-complete', handler);

@@ -143,7 +143,7 @@ export default function MentionsPage() {
   return (
     <div>
       <LockedBrandBanner />
-      {/* Header — exact match */}
+      {/* Header - exact match */}
       <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
         <div>
           <div className="view-title">AI Mentions</div>
@@ -151,12 +151,12 @@ export default function MentionsPage() {
         </div>
         <div style={{ display:'flex',gap:8,alignItems:'center' }}>
           {showLive && (
-            <span title="A run is in progress — showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
+            <span title="A run is in progress - showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
               <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
               LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
             </span>
           )}
-          <select className="brand-select" style={{ width:210,margin:0,fontSize:11 }} value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} disabled={showLive} title={showLive ? 'Live run in progress — showing current run' : undefined}>
+          <select className="brand-select" style={{ width:210,margin:0,fontSize:11 }} value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} disabled={showLive} title={showLive ? 'Live run in progress - showing current run' : undefined}>
             {runs.map((r, i) => {
               const d = new Date(r.time || r.date || 0);
               const label = isNaN(d.getTime()) ? `Run ${i+1}` : `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} · SOV`;
@@ -177,7 +177,7 @@ export default function MentionsPage() {
         </div>
       ) : (
         <>
-          {/* KPI Cards — 4 score cards */}
+          {/* KPI Cards - 4 score cards */}
           <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
             <div className="stat-card" style={{ textAlign:'center' }}>
               <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)' }}>{sovPct}%</div>
@@ -218,7 +218,7 @@ export default function MentionsPage() {
             <input className="brand-select" type="text" placeholder="Filter by keyword..." style={{ width:160,margin:0 }} value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
           </div>
 
-          {/* Results Table — matches legacy exactly */}
+          {/* Results Table - matches legacy exactly */}
           {filtered.length === 0 ? (
             <div className="card" style={{ textAlign:'center',padding:48 }}>
               <div style={{ fontSize:36,opacity:.4,marginBottom:12 }}>🔍</div>
@@ -243,7 +243,7 @@ export default function MentionsPage() {
                     const globalIdx = from + i;
                     const isExpanded = expandedRow === globalIdx;
                     const responseText = r.response || r.raw || r.context || r.snippet || '';
-                    const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : r.mentioned ? 'N/A' : '—';
+                    const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : r.mentioned ? 'N/A' : '-';
                     const sentColor = r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
 
                     return (
@@ -252,7 +252,7 @@ export default function MentionsPage() {
                           <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
                           <td className="td">{r.query}</td>
                           <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
-                          <td className="td">{r.error ? '—' : !r.mentioned ? '—' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '—'}</span>}</td>
+                          <td className="td">{r.error ? '-' : !r.mentioned ? '-' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '-'}</span>}</td>
                           <td className="td">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" style={{ color: 'var(--muted)', cursor: 'help', borderBottom: '1px dotted var(--muted)' }}>N/A</span> : posLabel}</td>
                         </tr>
                         {isExpanded && (
@@ -268,7 +268,7 @@ export default function MentionsPage() {
                                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(responseText)) }} />
                                 )}
                                 <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
-                                  Position: {posLabel} · Sentiment: {r.error ? '—' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '—' : (r.recommended ? 'Yes' : 'No')}
+                                  Position: {posLabel} · Sentiment: {r.error ? '-' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '-' : (r.recommended ? 'Yes' : 'No')}
                                 </div>
                               </div>
                             </td>
@@ -283,7 +283,7 @@ export default function MentionsPage() {
             </div>
           )}
 
-          {/* Pagination — matches legacy exactly */}
+          {/* Pagination - matches legacy exactly */}
           <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',flexWrap:'wrap',gap:8 }}>
             <div style={{ fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)' }}>
               Showing {from+1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length} results

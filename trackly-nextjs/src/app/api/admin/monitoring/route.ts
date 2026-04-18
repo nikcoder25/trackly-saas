@@ -1,5 +1,5 @@
 /**
- * Admin monitoring endpoint — returns system health metrics.
+ * Admin monitoring endpoint - returns system health metrics.
  * GET /api/admin/monitoring
  */
 import { pool } from '@/lib/db';

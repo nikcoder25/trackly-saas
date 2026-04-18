@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 // Pure-function port of isWebhookUrlSafe for unit testing so we don't need
 // to boot the whole route. Kept in sync with the real implementation in
-// src/app/api/brands/[id]/webhook-url/route.ts — if that file changes this
+// src/app/api/brands/[id]/webhook-url/route.ts - if that file changes this
 // helper must be updated as well. The logic mirrors the Express version in
 // routes/brands.js::isWebhookUrlSafe.
 function isPrivateIPv4(hostname: string): boolean {

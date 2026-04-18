@@ -4,7 +4,7 @@ import { useRun } from '@/contexts/RunContext';
 import { usePathname } from 'next/navigation';
 
 /**
- * Global run progress bar — shown across all dashboard pages
+ * Global run progress bar - shown across all dashboard pages
  * when a query run is active or just completed.
  * Skips rendering on the main dashboard page since it has its own progress bar.
  */
@@ -12,7 +12,7 @@ export default function GlobalRunProgress() {
   const { live, elapsed, pct } = useRun();
   const pathname = usePathname();
 
-  // Don't render on the main dashboard page — it has its own inline progress bar
+  // Don't render on the main dashboard page - it has its own inline progress bar
   if (pathname === '/dashboard') return null;
 
   // Only show when running or just completed

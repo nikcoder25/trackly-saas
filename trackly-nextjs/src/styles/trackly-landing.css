@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   LIVESOV — Modern SaaS Landing Page Styles
+   LIVESOV - Modern SaaS Landing Page Styles
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Design Tokens ── */
@@ -591,7 +591,7 @@
   font-weight: 700;
 }
 
-/* Floating cards — glass morphism */
+/* Floating cards - glass morphism */
 .tl-showcase-card {
   display: flex;
   align-items: center;
@@ -1235,7 +1235,7 @@
   margin: 0 auto;
 }
 
-/* Step connectors — animated arrows between steps */
+/* Step connectors - animated arrows between steps */
 .tl-step-connector {
   position: absolute;
   right: -28px;
@@ -1768,10 +1768,10 @@
 }
 
 /* ══════════════════════════════════════
-   DARK MODE — Component Overrides
+   DARK MODE - Component Overrides
    ══════════════════════════════════════ */
 @media (prefers-color-scheme: dark) {
-  /* Showcase — override hardcoded light backgrounds */
+  /* Showcase - override hardcoded light backgrounds */
   .tl-showcase {
     background: linear-gradient(180deg, #1e293b 0%, var(--tl-bg) 40%);
   }
@@ -1786,32 +1786,32 @@
     border-color: var(--tl-border);
   }
 
-  /* Demo — toolbar header distinction from body */
+  /* Demo - toolbar header distinction from body */
   .tl-demo-toolbar {
     background: #151d2e;
   }
 
-  /* Feature cards — visible hover state on dark backgrounds */
+  /* Feature cards - visible hover state on dark backgrounds */
   .tl-feature-card:hover {
     box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
   }
 
-  /* Price cards — featured gradient on dark surface */
+  /* Price cards - featured gradient on dark surface */
   .tl-price-card--featured {
     background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, var(--tl-white) 20%);
   }
 
-  /* Comparison table — header distinction from body */
+  /* Comparison table - header distinction from body */
   .tl-comparison-table thead th {
     background: #151d2e;
   }
 
-  /* Why cards — boost paragraph text contrast */
+  /* Why cards - boost paragraph text contrast */
   .tl-why-card p {
     color: rgba(255, 255, 255, 0.75);
   }
 
-  /* Footer — boost text visibility */
+  /* Footer - boost text visibility */
   .tl-footer {
     color: rgba(255, 255, 255, 0.7);
   }
@@ -1824,12 +1824,12 @@
     color: rgba(255, 255, 255, 0.7);
   }
 
-  /* Comparison disclaimer — boost visibility */
+  /* Comparison disclaimer - boost visibility */
   .tl-comparison-disclaimer {
     opacity: 0.8;
   }
 
-  /* Mobile menu — dark background */
+  /* Mobile menu - dark background */
   .tl-mobile-menu {
     background: var(--tl-bg);
     border-bottom: 1px solid var(--tl-border);
@@ -1847,7 +1847,7 @@
     border-top-color: var(--tl-border);
   }
 
-  /* Checker input — dark surface */
+  /* Checker input - dark surface */
   .tl-checker-input-wrap {
     box-shadow: var(--tl-shadow-lg);
   }

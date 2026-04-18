@@ -39,7 +39,7 @@ export default function SignupPage() {
         return;
       }
       if (existing) {
-        // Script tag exists but not yet loaded — poll for it
+        // Script tag exists but not yet loaded - poll for it
         let tries = 0;
         const poll = setInterval(() => {
           if (window.google?.accounts) { clearInterval(poll); onReady(); }
@@ -135,7 +135,7 @@ export default function SignupPage() {
     setLoading(true);
 
     const result = await register(email, password, name || undefined, {
-      website: honeypot, // honeypot — should be empty
+      website: honeypot, // honeypot - should be empty
       _formLoadedAt: formLoadedAt, // timing check
     });
     if (result.error) {
@@ -161,7 +161,7 @@ export default function SignupPage() {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Honeypot — invisible to real users, bots auto-fill it */}
+        {/* Honeypot - invisible to real users, bots auto-fill it */}
         <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
           <label htmlFor="website">Website</label>
           <input id="website" name="website" type="text" value={honeypot} onChange={e => setHoneypot(e.target.value)} tabIndex={-1} autoComplete="off" />

@@ -11,7 +11,7 @@ export default function ProgressBar() {
 
   useEffect(() => {
     if (pathname !== prevPath.current) {
-      // Route changed — finish the bar
+      // Route changed - finish the bar
       setProgress(100);
       const t = setTimeout(() => {
         setVisible(false);

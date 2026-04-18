@@ -140,7 +140,7 @@ export default function ContactForm() {
           inquiryType,
           message: message.trim(),
           turnstileToken: turnstileToken || undefined,
-          // Honeypot field — real users never see or fill this
+          // Honeypot field - real users never see or fill this
           website: (document.getElementById('contact-website') as HTMLInputElement)?.value || '',
         }),
       });
@@ -240,7 +240,7 @@ export default function ContactForm() {
         </div>
       )}
 
-      {/* Honeypot field — hidden from real users, bots will fill it */}
+      {/* Honeypot field - hidden from real users, bots will fill it */}
       <div aria-hidden="true" tabIndex={-1} style={{ position: 'absolute', left: '-9999px', top: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
         <label htmlFor="contact-website">Website</label>
         <input

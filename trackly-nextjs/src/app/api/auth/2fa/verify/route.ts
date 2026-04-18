@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     auditLog(user.id, '2fa_enabled', 'user', user.id, {}, ip);
-    // Return plaintext codes to user — this is the only time they see them
+    // Return plaintext codes to user - this is the only time they see them
     return Response.json({ enabled: true, backupCodes, message: 'Two-factor authentication enabled. Save your backup codes!' });
   } catch (e) {
     console.error('[2FA Verify]', (e as Error).message);

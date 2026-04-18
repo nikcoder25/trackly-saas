@@ -2,21 +2,21 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+  title: 'Claude Brand Tracking - Monitor Anthropic AI Mentions | Livesov',
   description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
   keywords: 'claude brand tracking, anthropic ai monitoring, claude visibility, claude brand mentions',
   alternates: { canonical: '/claude-brand-tracking' },
   openGraph: {
-    title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+    title: 'Claude Brand Tracking - Monitor Anthropic AI Mentions | Livesov',
     description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
     url: 'https://livesov.com/claude-brand-tracking',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Claude Brand Tracking - Monitor Anthropic AI Mentions | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Claude Brand Tracking — Monitor Anthropic AI Mentions | Livesov',
+    title: 'Claude Brand Tracking - Monitor Anthropic AI Mentions | Livesov',
     description: 'Track how Anthropic\'s Claude mentions your brand. Monitor visibility in Claude\'s responses and optimize your AI presence.',
     images: ['https://livesov.com/og-image.png'],
   },

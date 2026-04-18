@@ -2,20 +2,20 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Use Cases — AI Visibility Tracking | Livesov',
+  title: 'Use Cases - AI Visibility Tracking | Livesov',
   description: 'Discover how SaaS companies, agencies, e-commerce brands, and enterprises use Livesov to track and optimize their AI visibility.',
   alternates: { canonical: '/use-cases' },
   openGraph: {
-    title: 'Use Cases — AI Visibility Tracking | Livesov',
+    title: 'Use Cases - AI Visibility Tracking | Livesov',
     description: 'Discover how SaaS companies, agencies, e-commerce brands, and enterprises use Livesov to track and optimize their AI visibility.',
     url: 'https://livesov.com/use-cases',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Use Cases — AI Visibility Tracking | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Use Cases - AI Visibility Tracking | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Use Cases — AI Visibility Tracking | Livesov',
+    title: 'Use Cases - AI Visibility Tracking | Livesov',
     description: 'Discover how SaaS companies, agencies, e-commerce brands, and enterprises use Livesov to track and optimize their AI visibility.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -43,7 +43,7 @@ export default function UseCasesPage() {
         <p>Protect your brand reputation across AI platforms. Detect hallucinations early, monitor competitor positioning, and get enterprise-grade reporting for stakeholders.</p>
 
         <h2>SEO Professionals</h2>
-        <p>Add AI visibility to your SEO toolkit. Track the new frontier of search — AI-generated answers — alongside traditional search rankings.</p>
+        <p>Add AI visibility to your SEO toolkit. Track the new frontier of search - AI-generated answers - alongside traditional search rankings.</p>
       </SeoContent>
     </SeoLayout>
   );

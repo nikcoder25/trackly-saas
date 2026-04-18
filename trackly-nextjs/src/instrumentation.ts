@@ -4,7 +4,7 @@ export async function register() {
 
     if (process.env.NODE_ENV === "production" && !process.env.CRON_SECRET) {
       console.warn(
-        "[WARN] CRON_SECRET is not set — /api/cron* endpoints will return 500 and scheduled runs will not execute."
+        "[WARN] CRON_SECRET is not set - /api/cron* endpoints will return 500 and scheduled runs will not execute."
       );
     }
 
@@ -22,7 +22,7 @@ export async function register() {
     const anyDodo = Object.values(dodoProductEnvs).some(Boolean);
     if (anyDodo && missingDodo.length) {
       console.warn(
-        `[WARN] DodoPayments is partially configured — missing: ${missingDodo.join(', ')}. ` +
+        `[WARN] DodoPayments is partially configured - missing: ${missingDodo.join(', ')}. ` +
         `Affected plans will fail at checkout and their webhook events will be marked 'unknown_product'.`
       );
     } else if (!anyDodo && process.env.NODE_ENV === "production") {

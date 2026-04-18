@@ -105,7 +105,7 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   const fetchNearbyAreas = async () => {
     if (!city.trim()) { setAreaError('Enter a city first'); return; }
     setFetchingAreas(true); setAreaError('');
-    // Client-side timeout — server caps at ~45s; add headroom for network.
+    // Client-side timeout - server caps at ~45s; add headroom for network.
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 55000);
     try {

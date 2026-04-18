@@ -69,7 +69,7 @@ export default function TrendsPage() {
     return [...set].filter(p => planPlatforms.includes(p));
   }, [history, planPlatforms]);
 
-  // Stats — guard against NaN with || 0
+  // Stats - guard against NaN with || 0
   const latest = history.length > 0 ? history[history.length - 1] : null;
   const prev = history.length > 1 ? history[history.length - 2] : null;
   const sovDelta = latest && prev ? (latest.overall - prev.overall) : null;
@@ -102,7 +102,7 @@ export default function TrendsPage() {
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.5px', margin: 0 }}>SOV Trends</h1>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-          Share of Voice over time — track how AI platforms mention your brand.
+          Share of Voice over time - track how AI platforms mention your brand.
           {history.length > 0 && <span> · {history.length} data points</span>}
         </p>
       </div>
@@ -110,7 +110,7 @@ export default function TrendsPage() {
       {/* ── KPI row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Current SOV', value: latest ? `${latest.overall}%` : '—', color: 'var(--primary)', delta: sovDelta },
+          { label: 'Current SOV', value: latest ? `${latest.overall}%` : '-', color: 'var(--primary)', delta: sovDelta },
           { label: 'Average SOV', value: `${avgSov}%`, color: 'var(--text)', delta: null },
           { label: 'Peak SOV', value: `${peakSov}%`, color: 'var(--green)', delta: null },
           { label: 'Lowest SOV', value: `${lowSov}%`, color: 'var(--amber)', delta: null },
@@ -134,7 +134,7 @@ export default function TrendsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Overall SOV Trend</div>
           {history.length > 0 && (
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{fmtDateFull(history[0].date)} — {fmtDateFull(history[history.length - 1].date)}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{fmtDateFull(history[0].date)} - {fmtDateFull(history[history.length - 1].date)}</span>
           )}
         </div>
         {history.length > 1 ? (

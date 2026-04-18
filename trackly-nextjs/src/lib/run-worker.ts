@@ -114,7 +114,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       const { plat, q } = tasks[idx];
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
-          throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+          throw new Error(`Skipped - ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
         }
         const lastCall = platLastCall[plat] || 0;
         const elapsed = Date.now() - lastCall;
@@ -128,7 +128,7 @@ async function processRun(job: Job<BrandRunJobData>) {
 
         // Circuit breaker check
         if (circuitBreakerCheck(rawKey)) {
-          throw new Error(`Circuit breaker open for API key — too many auth failures`);
+          throw new Error(`Circuit breaker open for API key - too many auth failures`);
         }
 
         platLastCall[plat] = Date.now();
@@ -160,7 +160,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       [brandId, 'running']
     );
     if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
-      console.warn(`[Worker] Run ${runId} superseded by ${activeCheck.rows[0].id} — skipping final save`);
+      console.warn(`[Worker] Run ${runId} superseded by ${activeCheck.rows[0].id} - skipping final save`);
       await pool.query(
         `UPDATE active_runs SET status = 'error', error = 'Superseded by newer run', completed_at = NOW() WHERE id = $1`,
         [runId]
@@ -333,5 +333,5 @@ if (redisUrl) {
 
   console.log('[Worker] BullMQ worker started, listening for brand-runs jobs');
 } else {
-  console.warn('[Worker] REDIS_URL not set — worker not started');
+  console.warn('[Worker] REDIS_URL not set - worker not started');
 }

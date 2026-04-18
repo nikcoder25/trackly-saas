@@ -42,7 +42,7 @@ const icons = {
 };
 
 const features = [
-  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews — all from a single dashboard.', accent: '#6366f1' },
+  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews - all from a single dashboard.', accent: '#6366f1' },
   { icon: icons.chart, title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.', accent: '#8b5cf6' },
   { icon: icons.shield, title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.', accent: '#06b6d4' },
   { icon: icons.target, title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.', accent: '#10b981' },
@@ -63,7 +63,7 @@ const faqs = [
   { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
   { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 6 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), and Google AI Overviews (DataForSEO).' },
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
-  { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers — a completely different discovery channel that\'s growing rapidly.' },
+  { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
   { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 6 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
 ];

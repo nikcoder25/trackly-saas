@@ -2,20 +2,20 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Integrations — AI Platforms We Track | Livesov',
+  title: 'Integrations - AI Platforms We Track | Livesov',
   description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
   alternates: { canonical: '/integrations' },
   openGraph: {
-    title: 'Integrations — AI Platforms We Track | Livesov',
+    title: 'Integrations - AI Platforms We Track | Livesov',
     description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
     url: 'https://livesov.com/integrations',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Integrations — AI Platforms We Track | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Integrations - AI Platforms We Track | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Integrations — AI Platforms We Track | Livesov',
+    title: 'Integrations - AI Platforms We Track | Livesov',
     description: 'Livesov integrates with ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews for comprehensive AI visibility tracking. Webhook alerts and email reports included.',
     images: ['https://livesov.com/og-image.png'],
   },

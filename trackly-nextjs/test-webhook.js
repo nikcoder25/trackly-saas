@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Webhook Test Script — run from DigitalOcean App Platform console
+ * Webhook Test Script - run from DigitalOcean App Platform console
  *
  * Usage:
  *   node test-webhook.js
@@ -79,16 +79,16 @@ fetch(url, {
     console.log('Body:', text);
 
     if (res.status === 200) {
-      console.log('\n✓ SUCCESS — Webhook endpoint is live and signature verification works!');
+      console.log('\n✓ SUCCESS - Webhook endpoint is live and signature verification works!');
     } else if (res.status === 401 && text.includes('Invalid signature')) {
-      console.log('\n✗ SIGNATURE MISMATCH — The secret in env vars does not match what the handler expects.');
+      console.log('\n✗ SIGNATURE MISMATCH - The secret in env vars does not match what the handler expects.');
       console.log('  Check that DODO_PAYMENTS_WEBHOOK_KEY matches the signing key in DodoPayments dashboard.');
     } else if (res.status === 401 && text.includes('Missing signature')) {
-      console.log('\n✗ HEADERS NOT RECEIVED — The signature headers are being stripped.');
+      console.log('\n✗ HEADERS NOT RECEIVED - The signature headers are being stripped.');
     } else if (res.status === 500) {
-      console.log('\n✗ SERVER ERROR — Check runtime logs for [Webhook] error details.');
+      console.log('\n✗ SERVER ERROR - Check runtime logs for [Webhook] error details.');
     } else {
-      console.log('\n? UNEXPECTED — Check runtime logs for details.');
+      console.log('\n? UNEXPECTED - Check runtime logs for details.');
     }
   })
   .catch((err) => {

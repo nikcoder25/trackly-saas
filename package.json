@@ -1,7 +1,7 @@
 {
   "name": "livesov",
   "version": "1.0.0",
-  "description": "Livesov — AI Visibility Tracker (Next.js). The app source lives in ./trackly-nextjs/.",
+  "description": "Livesov - AI Visibility Tracker (Next.js). The app source lives in ./trackly-nextjs/.",
   "private": true,
   "scripts": {
     "dev": "npm --prefix trackly-nextjs run dev",

@@ -163,7 +163,7 @@ export default function AdminAnalyticsPage() {
               const h = Math.max(2, (Number(d.cost) / maxCost) * 80);
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-                  title={`${new Date(d.date).toLocaleDateString()}: ${fmtCost(d.cost)} — In: ${fmtTokens(d.tokens_in)} Out: ${fmtTokens(d.tokens_out)}`}>
+                  title={`${new Date(d.date).toLocaleDateString()}: ${fmtCost(d.cost)} - In: ${fmtTokens(d.tokens_in)} Out: ${fmtTokens(d.tokens_out)}`}>
                   <div style={{ width: '100%', minWidth: 3, maxWidth: 20, height: h, background: '#f59e0b', borderRadius: 2 }} />
                 </div>
               );

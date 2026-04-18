@@ -166,7 +166,7 @@ export default function GeoAuditPage() {
             paddingBottom: 24,
           }}
         >
-          Get your GEO score in seconds — free, no signup required
+          Get your GEO score in seconds - free, no signup required
         </p>
       </section>
 
@@ -412,7 +412,7 @@ export default function GeoAuditPage() {
                   transition: 'background .2s',
                 }}
               >
-                Start Tracking Your AI Visibility — Free
+                Start Tracking Your AI Visibility - Free
               </Link>
             </div>
           </div>

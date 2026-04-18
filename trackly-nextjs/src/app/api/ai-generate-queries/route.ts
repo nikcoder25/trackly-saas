@@ -89,7 +89,7 @@ Requirements:
 - Mix of general queries ("best ${industry} in ${city || 'my area'}") and specific queries ("affordable", "top rated", "most recommended", "near me")
 - Include different question styles: "who is the best...", "recommend a...", "top 5...", "which company..."
 - Include queries with and without location
-- Make them natural — how real people actually ask AI chatbots
+- Make them natural - how real people actually ask AI chatbots
 - Return ONLY a JSON array of strings, nothing else${existingList}
 
 Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${industry} company"]`;

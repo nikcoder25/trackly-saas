@@ -2,20 +2,20 @@ import type { Metadata } from 'next';
 import SeoLayout, { SeoHero, SeoContent, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'How Livesov Works — AI Brand Tracking Methodology',
+  title: 'How Livesov Works - AI Brand Tracking Methodology',
   description: 'Learn how Livesov tracks your brand across AI platforms. Our methodology for measuring AI visibility, share of voice, and brand mentions.',
   alternates: { canonical: '/how-it-works' },
   openGraph: {
-    title: 'How Livesov Works — AI Brand Tracking Methodology',
+    title: 'How Livesov Works - AI Brand Tracking Methodology',
     description: 'Learn how Livesov tracks your brand across AI platforms. Our methodology for measuring AI visibility, share of voice, and brand mentions.',
     url: 'https://livesov.com/how-it-works',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'How Livesov Works — AI Brand Tracking Methodology' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'How Livesov Works - AI Brand Tracking Methodology' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'How Livesov Works — AI Brand Tracking Methodology',
+    title: 'How Livesov Works - AI Brand Tracking Methodology',
     description: 'Learn how Livesov tracks your brand across AI platforms. Our methodology for measuring AI visibility, share of voice, and brand mentions.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -31,7 +31,7 @@ export default function HowItWorksPage() {
       />
       <SeoContent>
         <h2>Step 1: Set Up Your Brand</h2>
-        <p>Enter your brand name, website, and key details. Livesov generates relevant tracking queries based on your industry — the questions real users ask AI platforms about products and services like yours.</p>
+        <p>Enter your brand name, website, and key details. Livesov generates relevant tracking queries based on your industry - the questions real users ask AI platforms about products and services like yours.</p>
 
         <h2>Step 2: Configure Tracking</h2>
         <p>Choose which AI platforms to monitor (ChatGPT, Claude, Gemini, Perplexity, Grok, Google AI Overviews). Add your own custom queries, set competitors to track, and configure your monitoring schedule.</p>

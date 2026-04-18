@@ -154,7 +154,7 @@ For each canonical fact, determine if the AI response:
 2. Mentions the topic but gets it WRONG → mark as "inaccurate" with what was found
 3. Does NOT mention the topic at all → mark as "not_mentioned"
 
-IMPORTANT — Avoid false positives. These are NOT inaccuracies:
+IMPORTANT - Avoid false positives. These are NOT inaccuracies:
 - Minor punctuation differences (periods, commas, hyphens): "C Brooks" vs "C. Brooks" → accurate
 - Case differences: "c brooks paving" vs "C. Brooks Paving" → accurate
 - Truncated but correct values: "480 Old B..." or "A family-owned busi..." → accurate (the start matches)
@@ -163,13 +163,13 @@ IMPORTANT — Avoid false positives. These are NOT inaccuracies:
 - Minor word order changes that preserve meaning → accurate
 - Extra context added but core fact correct: "Founded in 2009 in Austin" when fact is "2009" → accurate
 
-Only flag as "inaccurate" if the information is genuinely WRONG or MISLEADING — the core factual claim must be incorrect.
+Only flag as "inaccurate" if the information is genuinely WRONG or MISLEADING - the core factual claim must be incorrect.
 
 Respond ONLY with valid JSON array. Each item must have:
 - "fact_key": the exact fact key name from the CANONICAL FACTS list above (use the key before the parentheses, e.g. "company_name" not "company_name (company)")
 - "status": "accurate" | "inaccurate" | "not_mentioned"
 - "found": what the AI actually said (empty string if not mentioned or accurate)
-- "severity": "critical" | "high" | "medium" | "low" (only for inaccurate items — critical for completely wrong core facts like wrong company name/wrong founding year, high for wrong numbers/prices, medium for partial errors, low for truly minor differences)
+- "severity": "critical" | "high" | "medium" | "low" (only for inaccurate items - critical for completely wrong core facts like wrong company name/wrong founding year, high for wrong numbers/prices, medium for partial errors, low for truly minor differences)
 - "explanation": brief explanation of the finding
 
 Example response:
@@ -434,14 +434,14 @@ export async function runFactCheck(
       if (!platformStats[platform]) platformStats[platform] = { total: 0, accurate: 0 };
 
       for (const finding of findings) {
-        // Normalize key for lookup — AI may return slightly different casing/spacing
+        // Normalize key for lookup - AI may return slightly different casing/spacing
         const normalizeKey = (k: string) => k.toLowerCase().replace(/[\s-]+/g, '_').trim();
         const normalizedFindingKey = normalizeKey(finding.fact_key);
         const matchedFact = facts.find(f => normalizeKey(f.key) === normalizedFindingKey);
         const cat = matchedFact?.category || 'general';
         if (!categoryStats[cat]) categoryStats[cat] = { total: 0, accurate: 0 };
 
-        if (finding.status === 'not_mentioned') continue; // Skip — no claim to check
+        if (finding.status === 'not_mentioned') continue; // Skip - no claim to check
 
         platformStats[platform].total++;
         categoryStats[cat].total++;
@@ -600,7 +600,7 @@ function buildDiscoverPrompt(brandName: string, websiteText: string, aiResponses
 
 ${context}
 
-Extract facts that can be objectively verified — things like:
+Extract facts that can be objectively verified - things like:
 - Company name, founding year, headquarters, CEO/founder
 - Products, services, pricing, plans
 - Key features, capabilities, technology
@@ -664,7 +664,7 @@ export async function autoDiscoverFacts(
 
       if (!raw || !raw.trim()) {
         console.error('[AutoDiscover] AI returned empty response via', checker.type);
-        // Empty response might be a soft block — try next checker if available
+        // Empty response might be a soft block - try next checker if available
         if (ci < checkers.length - 1) {
           console.warn(`[AutoDiscover] Trying next checker after empty response from ${checker.type}`);
           continue;
@@ -707,10 +707,10 @@ export async function autoDiscoverFacts(
         continue;
       }
 
-      // Final checker or non-transient error — return user-friendly message
+      // Final checker or non-transient error - return user-friendly message
       console.error('[AutoDiscover]', msg);
       if (msg.includes('AbortError') || msg.includes('timed out') || msg.includes('timeout')) {
-        return { facts: [], error: 'AI request timed out. Please try again — this is usually temporary.' };
+        return { facts: [], error: 'AI request timed out. Please try again - this is usually temporary.' };
       }
       if (msg.includes('high demand') || msg.includes('overloaded') || msg.includes('resource exhausted')) {
         return { facts: [], error: 'AI service is experiencing high demand. Please try again in a few moments.' };

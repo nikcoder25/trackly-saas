@@ -24,7 +24,7 @@ export default function ActivityPage() {
       setActivityLogs((actData.logs || []).map((l: Record<string, unknown>) => ({ ...l, timestamp: l.timestamp || l.created_at || '' })));
       setApiLogs(apiData.logs || []);
       setKeyStatus(apiData.keyStatus || []);
-      if (apiData.recentErrors > 0) setErrorBanner(`${apiData.recentErrors} recent run failures — check console for details`);
+      if (apiData.recentErrors > 0) setErrorBanner(`${apiData.recentErrors} recent run failures - check console for details`);
       setLoading(false);
     });
   }, []);
@@ -39,7 +39,7 @@ export default function ActivityPage() {
 
   function formatDate(d: string) {
     const dt = new Date(d);
-    return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
@@ -47,7 +47,7 @@ export default function ActivityPage() {
   return (
     <div>
       <div className="view-title">Activity &amp; Logs</div>
-      <div className="view-sub">Account activity, API call history, and system diagnostics — all in one view.</div>
+      <div className="view-sub">Account activity, API call history, and system diagnostics - all in one view.</div>
 
       {/* Tab Buttons */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid var(--border)' }}>
@@ -126,10 +126,10 @@ export default function ActivityPage() {
                     <tr key={log.id || i} className="trow" style={isRun ? { background: 'rgba(59,130,246,.03)' } : {}}>
                       <td className="td"><span style={{ color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 11 }}>▶ {new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span></td>
                       <td className="td" style={{ fontWeight: isRun ? 700 : 400 }}>{isRun ? `${log.calls} calls · ${log.platforms_used || platforms} platforms` : log.platform}</td>
-                      <td className="td">{log.query || (isRun ? `${log.calls} ok` : '—')}</td>
+                      <td className="td">{log.query || (isRun ? `${log.calls} ok` : '-')}</td>
                       <td className="td"><span style={{ color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{typeof log.status === 'number' ? log.status : (log.status === 'ok' || log.status === 'success' ? okCount : log.status)}</span></td>
-                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{log.duration ? (log.duration >= 60000 ? `${Math.floor(log.duration / 60000)}m ${Math.round((log.duration % 60000) / 1000)}s` : `${Math.round(log.duration / 1000)}s`) : '—'}</td>
-                      <td className="td" style={{ color: 'var(--amber)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{log.cost ? `$${log.cost.toFixed(3)}` : '—'}</td>
+                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{log.duration ? (log.duration >= 60000 ? `${Math.floor(log.duration / 60000)}m ${Math.round((log.duration % 60000) / 1000)}s` : `${Math.round(log.duration / 1000)}s`) : '-'}</td>
+                      <td className="td" style={{ color: 'var(--amber)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{log.cost ? `$${log.cost.toFixed(3)}` : '-'}</td>
                     </tr>
                   );
                 })}
