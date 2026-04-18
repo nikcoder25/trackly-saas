@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
+import { acquireCronLock } from '@/lib/cron-lock';
 import { sendReportEmail, type ScheduledReportSummary } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -34,6 +35,16 @@ export async function GET(request: Request) {
     return Response.json({ error: "frequency must be 'weekly' or 'monthly'" }, { status: 400 });
   }
 
+  // Dedupe concurrent triggers (GH Actions schedule, workflow_dispatch, and
+  // the in-process instrumentation trigger can all fire together). Without
+  // this a manual run kicked off while the scheduled run is mid-flight
+  // would re-send every report. 15-minute stale window is well above
+  // maxDuration and far below the weekly cadence.
+  const lock = await acquireCronLock(`reports:${frequency}`, 15);
+  if (!lock) {
+    return Response.json({ skipped: true, reason: 'Another reports cron is already running' });
+  }
+
   const started = Date.now();
   let usersTargeted = 0;
   let emailsSent = 0;
@@ -50,6 +61,12 @@ export async function GET(request: Request) {
     }
 
     for (const user of users.rows) {
+      // Per-user counters so we only advance `lastSent` when this user's
+      // reports actually went out. A full delivery outage would otherwise
+      // advance the pointer and mask the failure - next week the cron
+      // treats the missed run as done.
+      let userSent = 0;
+      let userFailed = 0;
       const reportSettings = user.settings?.reportSchedule || {};
       const brandFilter: string[] = Array.isArray(reportSettings.brandIds) ? reportSettings.brandIds : [];
 
@@ -103,20 +120,25 @@ export async function GET(request: Request) {
 
         try {
           const result = await sendReportEmail(user.email, data.name || 'Your brand', summary);
-          if (result.sent) emailsSent++;
-          else emailsFailed++;
+          if (result.sent) { emailsSent++; userSent++; }
+          else { emailsFailed++; userFailed++; }
         } catch (e) {
           emailsFailed++;
+          userFailed++;
           console.error('[Cron/reports] sendReportEmail threw:', (e as Error).message, { userId: user.id, brand: data.name });
         }
       }
 
-      // Persist lastSent so dashboards can show "last delivery at …" without
-      // having to scan email logs.
-      await pool.query(
-        `UPDATE users SET settings = jsonb_set(settings, '{reportSchedule,lastSent}', $1::jsonb) WHERE id = $2`,
-        [JSON.stringify(new Date().toISOString()), user.id],
-      );
+      // Persist lastSent only when this user was either fully successful
+      // or had nothing to send. If every delivery attempt failed, leave
+      // the pointer so next tick retries instead of silently advancing.
+      const allFailed = userSent === 0 && userFailed > 0;
+      if (!allFailed) {
+        await pool.query(
+          `UPDATE users SET settings = jsonb_set(settings, '{reportSchedule,lastSent}', $1::jsonb) WHERE id = $2`,
+          [JSON.stringify(new Date().toISOString()), user.id],
+        );
+      }
     }
 
     return Response.json({
@@ -134,5 +156,7 @@ export async function GET(request: Request) {
       console.error('[Cron/reports] Fatal error:', msg, (e as Error).stack);
     }
     return Response.json({ error: 'Report cron failed' }, { status: 500 });
+  } finally {
+    await lock.release();
   }
 }
