@@ -30,13 +30,21 @@ interface ActiveRunRow {
   error: string | null;
   received: number;
   total_expected: number;
+  last_platform_attempted: string | null;
+  last_query_attempted: string | null;
+  last_attempt_at: string | null;
 }
 
 interface EligibleBrandRow {
   id: string;
   user_id: string;
   plan: string;
-  data: { schedule?: string | number; runs?: Array<{ time?: string; date?: string }> } | null;
+  data: {
+    schedule?: string | number;
+    runs?: Array<{ time?: string; date?: string }>;
+    platforms?: string[];
+    queries?: string[];
+  } | null;
 }
 
 export async function GET(request: Request) {
@@ -81,7 +89,9 @@ export async function GET(request: Request) {
   }> = [];
   try {
     const r = await pool.query<ActiveRunRow>(
-      `SELECT id, brand_id, status, started_at, completed_at, error, received, total_expected
+      `SELECT id, brand_id, status, started_at, completed_at, error,
+              received, total_expected,
+              last_platform_attempted, last_query_attempted, last_attempt_at
        FROM active_runs
        ORDER BY started_at DESC
        LIMIT 20`
@@ -159,12 +169,25 @@ export async function GET(request: Request) {
     } else {
       eligible = true;
     }
+    // Per-brand platforms + query count: for fast config diffing when
+    // one brand stalls at a different received= count than its peers.
+    // If brand A stalls at 9 and brand B stalls at 6 under the same
+    // query count, the set diff of `platforms` points directly at the
+    // suspect adapter.
+    const platforms = Array.isArray(row.data?.platforms)
+      ? row.data!.platforms as string[]
+      : null;
+    const queryCount = Array.isArray(row.data?.queries)
+      ? (row.data!.queries as unknown[]).length
+      : null;
     return {
       brand_id: row.id,
       user_id: row.user_id,
       plan: row.plan,
       schedule_hours: scheduleHours,
       effective_schedule_hours: effectiveSchedule,
+      platforms,
+      query_count: queryCount,
       last_run_source: lastRunSource,
       last_done_at: lastDoneIso,
       hours_since_last_run: hoursSince !== null ? Number(hoursSince.toFixed(2)) : null,
