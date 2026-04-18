@@ -45,8 +45,17 @@ export async function register() {
             method: "GET",
             headers: { Authorization: `Bearer ${cronSecret}` },
           });
+          // Log the full response body so skip/reconcile reasons are
+          // visible in runtime logs (e.g. DigitalOcean) without needing
+          // DB access. Cap at 2KB to bound log volume.
+          const raw = await res.text();
+          let body: unknown = raw;
+          try { body = JSON.parse(raw); } catch { /* keep raw text */ }
+          const serialized = typeof body === "string" ? body : JSON.stringify(body);
           console.log(
-            `[Cron Scheduler] Triggered /api/cron — status ${res.status}`
+            "[Instrumentation] Cron response:",
+            res.status,
+            serialized.slice(0, 2048)
           );
         } catch (err) {
           console.error(
