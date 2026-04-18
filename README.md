@@ -32,8 +32,8 @@ npm test
 
 ## Deployment
 
-- **Vercel**: point the project at the repo root and set the project root to `trackly-nextjs/`. `vercel.json` inside that directory wires the hourly `/api/cron` endpoint plus the weekly / monthly `/api/cron/reports` digests.
-- **DigitalOcean / self-hosted**: deploy the `trackly-nextjs/` directory as a standard Next.js app (`npm run build && npm start`). `src/instrumentation.ts` includes a self-triggering cron scheduler that hits `/api/cron` every hour if `APP_URL` and `CRON_SECRET` are set - set those env vars when there is no external cron provider.
+- **DigitalOcean App Platform (current production)**: deploy the `trackly-nextjs/` directory as a standard Next.js app (`npm run build && npm start`). Scheduled jobs are driven by `.github/workflows/cron.yml` (hourly `/api/cron`, every-15-min `/api/cron/reconcile-payments`, weekly + monthly `/api/cron/reports`). `src/instrumentation.ts` also includes an in-process self-trigger that hits `/api/cron` hourly when `APP_URL` and `CRON_SECRET` are set; the `cron_locks` table dedupes against GitHub Actions so both running is safe.
+- **Self-hosted**: same as above; point a cron at the same endpoints with `Authorization: Bearer $CRON_SECRET`.
 
 ## Environment variables
 
@@ -75,7 +75,6 @@ livesov/
 │   ├── src/app/          # Routes, pages, and API handlers
 │   ├── src/lib/          # Auth, DB, AI platforms, email, PDF reports, …
 │   ├── tests/            # Vitest suite
-│   ├── vercel.json       # Cron schedule for Vercel deployments
 │   └── .env.example
 └── README.md
 ```

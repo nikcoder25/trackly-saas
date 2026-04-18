@@ -7,16 +7,11 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 
-// Scheduled weekly / monthly report cron. Ported from the Express
-// sendScheduledReports() helper that ran via node-cron on Monday 8am
-// (weekly) and on the 1st of the month at 8am (monthly). In the Next.js
-// deployment, a scheduler (Vercel Cron, DigitalOcean scheduled task, or
-// our own instrumentation trigger) hits this endpoint with
-// `Authorization: Bearer $CRON_SECRET` and `?frequency=weekly|monthly`.
-//
-//   Example vercel.json entries:
-//     { "path": "/api/cron/reports?frequency=weekly",  "schedule": "0 8 * * 1" }
-//     { "path": "/api/cron/reports?frequency=monthly", "schedule": "0 8 1 * *" }
+// Scheduled weekly / monthly report cron. Hit by GitHub Actions
+// (.github/workflows/cron.yml) on Monday 8:00 UTC and on the 1st of the
+// month at 8:00 UTC, with `Authorization: Bearer $CRON_SECRET` and
+// `?frequency=weekly|monthly`. A cron_locks dedupe guards against
+// workflow_dispatch + scheduled overlaps.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {

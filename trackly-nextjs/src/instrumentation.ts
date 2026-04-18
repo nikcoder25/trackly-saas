@@ -31,8 +31,10 @@ export async function register() {
       );
     }
 
-    // Self-triggering cron scheduler for non-Vercel environments (e.g. DigitalOcean)
-    // where vercel.json crons are ignored.
+    // In-process self-triggering cron scheduler. GitHub Actions
+    // (.github/workflows/cron.yml) is the primary trigger on DigitalOcean;
+    // this is a belt-and-suspenders fallback so scheduled runs still happen
+    // if the workflow is disabled. cron_locks dedupes the two sources.
     const cronSecret = process.env.CRON_SECRET;
     const appUrl = process.env.APP_URL;
     if (cronSecret && appUrl) {
