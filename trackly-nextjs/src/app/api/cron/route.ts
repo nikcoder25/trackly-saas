@@ -33,6 +33,16 @@ const BRAND_STAGGER_MS = 8000;
  * columns are actually present, so this function never fails just
  * because a column name differs.
  */
+// How long a 'running' row may persist before we treat it as stale.
+// Lowered from 30 to 5 minutes because a single timed-out run was
+// blocking the next two cron ticks via the /run lock_check + 409
+// cascade. Override via CRON_RECONCILE_STALE_MINUTES if you need
+// longer for legitimately slow runs.
+const STALE_RUN_MINUTES = (() => {
+  const raw = parseInt(process.env.CRON_RECONCILE_STALE_MINUTES || '', 10);
+  return Number.isFinite(raw) && raw > 0 ? Math.min(60, raw) : 5;
+})();
+
 async function reconcileStaleActiveRuns(): Promise<{ count: number; brandIds: string[] }> {
   let columns: Set<string>;
   try {
@@ -54,19 +64,19 @@ async function reconcileStaleActiveRuns(): Promise<{ count: number; brandIds: st
     : columns.has('error') ? 'error'
     : null;
   if (errCol) {
-    sets.push(`${errCol} = COALESCE(${errCol}, 'reconciled: stale running row (>30min)')`);
+    sets.push(`${errCol} = COALESCE(${errCol}, 'reconciled: stale running row (>${STALE_RUN_MINUTES}min)')`);
   }
 
   try {
     const res = await pool.query(
       `UPDATE active_runs SET ${sets.join(', ')}
-       WHERE status = 'running' AND started_at < NOW() - INTERVAL '30 minutes'
+       WHERE status = 'running' AND started_at < NOW() - INTERVAL '${STALE_RUN_MINUTES} minutes'
        RETURNING brand_id`
     );
     const brandIds = Array.from(new Set((res.rows as { brand_id: string }[]).map(r => r.brand_id)));
     const count = res.rowCount || 0;
     if (count > 0) {
-      logger.info('cron.reconciled_stale_runs', { count, brand_ids: brandIds });
+      logger.info('cron.reconciled_stale_runs', { count, threshold_minutes: STALE_RUN_MINUTES, brand_ids: brandIds });
     }
     return { count, brandIds };
   } catch (e) {
@@ -256,15 +266,19 @@ export async function GET(request: Request) {
 
     const total = result.rows.length;
     const timestamp = new Date().toISOString();
+    // Merge the per-eligibility skip_reasons with stale_reconciled so a
+    // single number tells us how many runs were unjammed by the reconciler
+    // this tick.
+    const skipReasonsWithStale = { ...skipCounts, stale_reconciled: reconciled };
     logger.info('cron.summary', {
       processed, skipped, reconciled, total,
-      skip_reasons: skipCounts,
+      skip_reasons: skipReasonsWithStale,
       errors_count: errors?.length || 0,
       timestamp,
     });
     return Response.json({
       processed, skipped, reconciled, total,
-      skipReasons: skipCounts,
+      skipReasons: skipReasonsWithStale,
       reconciledBrandIds: reconciled > 0 ? reconciledBrandIds : undefined,
       errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
       timestamp,

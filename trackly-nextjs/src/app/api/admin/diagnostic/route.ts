@@ -67,7 +67,18 @@ export async function GET(request: Request) {
     // Table may not exist yet.
   }
 
-  let recentActiveRuns: ActiveRunRow[] = [];
+  // Mirror /api/cron/route.ts STALE_RUN_MINUTES so the dashboard view
+  // matches what the reconciler considers stuck. Override via the same
+  // env var so they stay in sync.
+  const staleMinutes = (() => {
+    const raw = parseInt(process.env.CRON_RECONCILE_STALE_MINUTES || '', 10);
+    return Number.isFinite(raw) && raw > 0 ? Math.min(60, raw) : 5;
+  })();
+
+  let recentActiveRuns: Array<ActiveRunRow & {
+    running_for_seconds: number | null;
+    is_stale: boolean;
+  }> = [];
   try {
     const r = await pool.query<ActiveRunRow>(
       `SELECT id, brand_id, status, started_at, completed_at, error, received, total_expected
@@ -75,7 +86,18 @@ export async function GET(request: Request) {
        ORDER BY started_at DESC
        LIMIT 20`
     );
-    recentActiveRuns = r.rows;
+    const nowMs = Date.now();
+    recentActiveRuns = r.rows.map(row => {
+      // For finished rows, "running_for_seconds" is just the wall-clock
+      // duration of the run; for still-running rows, it's how long it
+      // has been alive RIGHT NOW. is_stale is the actionable flag - the
+      // next cron tick will reap any row where this is true.
+      const startedMs = new Date(row.started_at).getTime();
+      const endMs = row.completed_at ? new Date(row.completed_at).getTime() : nowMs;
+      const elapsedSeconds = Math.max(0, Math.round((endMs - startedMs) / 1000));
+      const isStale = row.status === 'running' && (nowMs - startedMs) > staleMinutes * 60_000;
+      return { ...row, running_for_seconds: elapsedSeconds, is_stale: isStale };
+    });
   } catch {
     // Table may not exist.
   }
@@ -162,9 +184,13 @@ export async function GET(request: Request) {
   return Response.json({
     timestamp: new Date().toISOString(),
     env: envFlags,
+    stale_threshold_minutes: staleMinutes,
     scheduler_lock: schedulerLock,
     recent_active_runs: recentActiveRuns,
-    summary,
+    summary: {
+      ...summary,
+      stale_running_now: recentActiveRuns.filter(r => r.is_stale).length,
+    },
     eligibility,
   });
 }

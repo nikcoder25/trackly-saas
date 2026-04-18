@@ -31,7 +31,25 @@ function tagError(msg: string, flags: Partial<AiError> = {}): AiError {
   return e;
 }
 
-const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+const sleep = (ms: number, signal?: AbortSignal): Promise<void> => {
+  if (!signal) return new Promise(r => setTimeout(r, ms));
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(tagError('Aborted', { isTransient: false }));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+      reject(tagError('Aborted', { isTransient: false }));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+};
 
 // ── Shared narrow types for provider calls ──────────────────────
 // The fields AI code actually reads off a brand record.  Keeps the
@@ -375,26 +393,51 @@ function extractBodyRetryAfter(body: unknown): number | null {
 // limits, retries 5xx as transient, and tags thrown errors for caller routing.
 const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 60000;
 
+// Per-call cap on the total time fetchAI will sleep across all retries.
+// Without this, a 429 with a generous Retry-After (e.g. Gemini suggesting
+// 12s on every retry) could chew through the entire per-task budget on
+// sleeps alone, starving the rest of the fanout. 15s default mirrors the
+// "two short backoffs" intent of MAX_RETRIES=2.
+const MAX_RETRY_SLEEP_MS = Number(process.env.AI_MAX_RETRY_SLEEP_MS) || 15000;
+
 async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string): Promise<AiResponseData> {
   const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES) || 2;
+  // Caller may pass an AbortSignal in options. Combine it with our own
+  // per-attempt timeout signal so EITHER expiring cancels the fetch and
+  // any sleep we're inside.
+  const callerSignal = options.signal as AbortSignal | undefined;
   let lastErr: AiError | undefined;
+  let totalSleptMs = 0;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (callerSignal?.aborted) {
+      throw lastErr || tagError('Aborted by caller before attempt', { isTransient: false });
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const onCallerAbort = () => controller.abort();
+    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
     let resp: Response;
     try {
       resp = await fetch(url, { ...options, signal: controller.signal });
     } catch (e) {
       clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', onCallerAbort);
+      if (callerSignal?.aborted) {
+        throw tagError('Aborted by caller', { isTransient: false });
+      }
       lastErr = tagError((e as Error).message || 'Network error', { isTransient: true });
       if (attempt < MAX_RETRIES) {
         const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
-        await sleep(delay);
+        const cappedDelay = Math.min(delay, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+        if (cappedDelay <= 0) throw lastErr;
+        totalSleptMs += cappedDelay;
+        await sleep(cappedDelay, callerSignal);
         continue;
       }
       throw lastErr;
     }
     clearTimeout(timer);
+    callerSignal?.removeEventListener('abort', onCallerAbort);
 
     if (resp.status === 401 || resp.status === 403) {
       if (apiKey) recordApiKeyFailure(apiKey);
@@ -411,7 +454,16 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       if (attempt < MAX_RETRIES) {
         const backoff = 2000 * Math.pow(2, attempt);
         const jitter = Math.floor(Math.random() * 1000);
-        await sleep((hint || backoff) + jitter);
+        const wantedSleep = (hint || backoff) + jitter;
+        const cappedSleep = Math.min(wantedSleep, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+        if (cappedSleep <= 0) {
+          throw tagError(
+            `Rate limited (${resp.status}) - sleep budget exhausted (${MAX_RETRY_SLEEP_MS}ms cap)`,
+            { isRateLimit: true },
+          );
+        }
+        totalSleptMs += cappedSleep;
+        await sleep(cappedSleep, callerSignal);
         continue;
       }
       throw tagError(`Rate limited (${resp.status}) - retries exhausted`, { isRateLimit: true });
@@ -421,7 +473,10 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       lastErr = tagError(`Server error ${resp.status}`, { isTransient: true });
       if (attempt < MAX_RETRIES) {
         const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
-        await sleep(delay);
+        const cappedDelay = Math.min(delay, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+        if (cappedDelay <= 0) throw lastErr;
+        totalSleptMs += cappedDelay;
+        await sleep(cappedDelay, callerSignal);
         continue;
       }
       throw lastErr;
@@ -504,6 +559,10 @@ export interface QueryOptions {
   jsonMode?: boolean;
   silent?: boolean;
   deepRetryBudgetMs?: number;
+  // Caller-supplied AbortSignal. When it fires, the underlying fetch
+  // is aborted AND any in-flight retry sleeps inside fetchAI throw
+  // immediately, so a per-task deadline genuinely bounds the call.
+  signal?: AbortSignal;
 }
 
 // Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
@@ -522,8 +581,12 @@ interface GeminiPayload {
 
 async function callGemini(model: string, query: string, apiKey: string, sysPrompt: string, maxTok: number, options?: QueryOptions): Promise<QueryResult> {
   const attemptModels = GEMINI_FALLBACK_CHAIN[model] || [model];
+  const signal = options?.signal;
   let lastErr: AiError | undefined;
   for (let m = 0; m < attemptModels.length; m++) {
+    if (signal?.aborted) {
+      throw lastErr || tagError('Gemini: aborted before fallback', { isTransient: false });
+    }
     const geminiModel = attemptModels[m];
     const url = `${API_ENDPOINTS.gemini.base}${geminiModel}:generateContent`;
     const payload: GeminiPayload = {
@@ -537,6 +600,7 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(payload),
+        signal,
       }, AI_REQUEST_TIMEOUT_MS, apiKey);
       if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked: ${d.promptFeedback.blockReason}`);
       const cand = d.candidates?.[0];
@@ -582,6 +646,10 @@ export async function queryAI(
   return coalesce(coalesceKey, async () => {
     const startMs = Date.now();
     const release = await acquirePlatformSlot(platform);
+    // Plumb the caller-supplied signal into every provider fetch so a
+    // per-task AbortController in the runner actually cancels the
+    // in-flight request (and any retry sleeps inside fetchAI).
+    const signal = options?.signal;
     try {
       await rateLimitWait(platform, apiKey);
       let result: QueryResult;
@@ -610,6 +678,7 @@ export async function queryAI(
         const d = await fetchAI(API_ENDPOINTS.openai.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify(payload),
+          signal,
         }, AI_REQUEST_TIMEOUT_MS, apiKey);
         const citations = (d.choices?.[0]?.message?.annotations || [])
           .filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url)
@@ -626,6 +695,7 @@ export async function queryAI(
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
+          signal,
         }, AI_REQUEST_TIMEOUT_MS, apiKey);
         result = {
           text: d.content?.[0]?.text || '',
@@ -640,6 +710,7 @@ export async function queryAI(
         const d = await fetchAI(API_ENDPOINTS.perplexity.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
+          signal,
         }, AI_REQUEST_TIMEOUT_MS, apiKey);
         result = {
           text: d.choices?.[0]?.message?.content || '',
@@ -652,6 +723,7 @@ export async function queryAI(
         const d = await fetchAI(API_ENDPOINTS.grok.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
+          signal,
         }, AI_REQUEST_TIMEOUT_MS, apiKey);
         result = {
           text: d.choices?.[0]?.message?.content || '',
