@@ -283,12 +283,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // safest path because it doesn't depend on a separate worker dyno
   // being alive. Enqueue to BullMQ only when QUEUE_MODE=auto|always
   // explicitly opts in. See src/lib/job-queue.ts for mode semantics.
+  //
+  // ?sync=1 (admin/owner or cron-authenticated callers only): await
+  // executeRunBackground inline and return its result. Used by the
+  // /api/admin/force-run diagnostic tool to prove whether the inline
+  // execution path itself works, independent of after() behavior on
+  // the host. Only callable by trusted principals because it ties up
+  // the HTTP connection for the duration of the scan.
+  const syncMode = url.searchParams.get('sync') === '1';
   const shouldEnqueue = await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
       await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
     });
   };
+  if (syncMode && (isCronCall || callerIsAdminOrOwner)) {
+    try {
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
+      return Response.json({ runId, totalExpected, platforms: activePlatforms, queries, syncCompleted: true });
+    } catch (e) {
+      return Response.json({
+        runId, totalExpected, platforms: activePlatforms, queries,
+        syncCompleted: false, error: (e as Error).message,
+      }, { status: 500 });
+    }
+  }
   if (shouldEnqueue) {
     try {
       await enqueueBrandRun({
