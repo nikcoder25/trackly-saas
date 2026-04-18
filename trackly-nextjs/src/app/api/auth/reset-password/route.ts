@@ -4,6 +4,7 @@ import { pool } from '@/lib/db';
 import { AUTH } from '@/lib/constants';
 import { validatePasswordComplexity, hashToken } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json({ message: 'Password reset successfully. You can now log in.' });
   } catch (e) {
-    console.error('[ResetPassword]', (e as Error).message);
+    logger.error('auth.reset_password_failed', { error: (e as Error).message });
     return Response.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }

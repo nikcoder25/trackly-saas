@@ -7,6 +7,7 @@ import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken }
 import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 const DUMMY_HASH = '$2a$12$000000000000000000000uGiltNn9J1kOXqSqMpNQHCbSZkHm5mZS';
 
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
     const cookieHeaders = createTokenCookieHeaders(accessToken, refreshToken);
     return jsonWithCookies({ token: accessToken, user: safeUser(user) }, cookieHeaders);
   } catch (e) {
-    console.error('[Login]', (e as Error).message);
+    logger.error('auth.login_failed', { error: (e as Error).message });
     return Response.json({ error: 'Login failed' }, { status: 500 });
   }
 }

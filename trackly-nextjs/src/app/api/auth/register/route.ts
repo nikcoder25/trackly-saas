@@ -8,6 +8,7 @@ import { getPlanLimits, AUTH, TRIAL_INITIAL_UNVERIFIED_MS } from '@/lib/constant
 import { sendVerificationEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
+import { logger } from '@/lib/logger';
 
 // ─── Anti-spam helpers ──────────────────────────────────────────
 
@@ -139,7 +140,10 @@ export async function POST(request: NextRequest) {
 
     const emailResult = await sendVerificationEmail(email.toLowerCase(), verifyToken);
     if (!emailResult.sent) {
-      console.error('[Register] Failed to send verification email:', emailResult.reason);
+      logger.error('auth.register.send_verification_failed', {
+        user_id: id,
+        reason: emailResult.reason,
+      });
     }
 
     const accessToken = signAccessToken({ id, email: email.toLowerCase(), role: 'user', plan: 'trial' });
@@ -161,7 +165,7 @@ export async function POST(request: NextRequest) {
       },
     }, cookieHeaders);
   } catch (e) {
-    console.error('[Register]', (e as Error).message);
+    logger.error('auth.register.failed', { error: (e as Error).message });
     return Response.json({ error: 'Registration failed' }, { status: 500 });
   }
 }

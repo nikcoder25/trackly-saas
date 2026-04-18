@@ -4,6 +4,7 @@ import { safeConnect, ensureColumns } from '@/lib/db';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const cookieHeader = request.headers.get('cookie') || '';
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
     return jsonWithCookies({ token: accessToken }, cookieHeaders);
   } catch (e) {
-    console.error('[Refresh]', (e as Error).message);
+    logger.error('auth.refresh_failed', { error: (e as Error).message });
     return Response.json({ error: 'Token refresh failed' }, { status: 500 });
   }
 }

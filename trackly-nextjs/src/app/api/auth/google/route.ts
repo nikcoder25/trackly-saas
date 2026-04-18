@@ -6,6 +6,7 @@ import { uid, safeUser, normaliseEmail } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
 import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
+import { logger } from '@/lib/logger';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
   let base = (nameOrEmail || '').trim().toLowerCase();
@@ -135,7 +136,7 @@ export async function POST(request: NextRequest) {
     const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
     return jsonWithCookies({ token: accessToken, user: safeUser(user) }, cookieHeaders);
   } catch (e) {
-    console.error('[GoogleAuth]', (e as Error).message);
+    logger.error('auth.google_failed', { error: (e as Error).message });
     return Response.json({ error: 'Google authentication failed' }, { status: 400 });
   }
 }
