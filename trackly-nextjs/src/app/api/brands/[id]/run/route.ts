@@ -364,6 +364,45 @@ async function executeRunBackground(
   totalExpected: number, activePlatforms: string[], queries: string[],
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
 ) {
+  try {
+    return await executeRunBackgroundInner(
+      brand, brandId, userId, runId, totalExpected,
+      activePlatforms, queries, serverKeys, userKeys,
+    );
+  } finally {
+    // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
+    // returned without writing a 'done' or 'error' status (early return,
+    // unhandled crash inside the catch block, etc.), the active_runs row
+    // would stay 'running' until the cron reconciler reaped it - and in
+    // the meantime the /run lock_check would 409 every retry. This UPDATE
+    // is a no-op when the inner function did its job, and a safety valve
+    // when it didn't.
+    try {
+      await pool.query(
+        `UPDATE active_runs
+         SET status = 'error',
+             completed_at = NOW(),
+             updated_at = NOW(),
+             error = COALESCE(error, 'handler exited without completion')
+         WHERE id = $1 AND status = 'running'`,
+        [runId]
+      );
+    } catch (e) {
+      logger.error('run.finally_guard_failed', {
+        run_id: runId,
+        brand_id: brandId,
+        error: (e as Error).message,
+      });
+    }
+  }
+}
+
+async function executeRunBackgroundInner(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  brand: any, brandId: string, userId: string, runId: string,
+  totalExpected: number, activePlatforms: string[], queries: string[],
+  serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
+) {
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -453,16 +492,29 @@ async function executeRunBackground(
     });
   }
 
-  // 10 min cap to accommodate the 8-min deep-retry budget in queryAI plus
-  // headroom for slow providers. Transient rate limits can take several
-  // minutes to clear under sustained provider-side load.
-  const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 120000;
+  // Per-platform call budget. Independent of the cron's 120s fetch
+  // timeout to /run; bounds how long any single provider call can hold
+  // up the fanout. Default 60s so a slow Gemini doesn't starve
+  // ChatGPT/Perplexity/Grok in the same task. Override via env if a
+  // legitimately slow provider needs more headroom.
+  const PER_PLATFORM_TIMEOUT_MS =
+    Number(process.env.AI_PER_PLATFORM_TIMEOUT_MS) ||
+    Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) ||
+    60000;
 
   async function runWorker() {
     while (nextIdx < tasks.length) {
       const idx = nextIdx++;
       if (idx >= tasks.length) return;
       const { plat, q } = tasks[idx];
+      // One AbortController per task. Aborting it propagates into the
+      // platform fetch (via fetchAI) AND into any retry sleeps inside
+      // it, so the call can't quietly outlive its budget.
+      const taskController = new AbortController();
+      const timeoutHandle = setTimeout(
+        () => taskController.abort(new Error('platform timeout')),
+        PER_PLATFORM_TIMEOUT_MS,
+      );
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
           throw new Error(`Skipped - ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
@@ -478,7 +530,9 @@ async function executeRunBackground(
         const keyPool: string[] = userKey ? [userKey] : serverKeyList;
         if (!keyPool.length) throw new Error('No API key available for ' + plat);
 
+        const signal = taskController.signal;
         const singleAttempt = async () => {
+          if (signal.aborted) throw new Error('platform timeout');
           const rawKey = pickBestKey(keyPool);
           if (!rawKey) throw new Error('No usable API key for ' + plat);
           if (circuitBreakerCheck(rawKey)) {
@@ -486,7 +540,12 @@ async function executeRunBackground(
           }
           const release = await acquirePlatformSlot(plat);
           try {
-            const r = await queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand);
+            const r = await queryAI(
+              plat, q, rawKey,
+              adminModels[plat] || getDefaultModel(plat),
+              brand,
+              { signal },
+            );
             resetApiKeyFailures(rawKey);
             return r;
           } finally {
@@ -494,17 +553,20 @@ async function executeRunBackground(
           }
         };
 
-        const result = await Promise.race([
-          withDeepRetry(plat, singleAttempt),
-          new Promise<never>((_, rej) => setTimeout(
-            () => rej(new Error(`Worker timeout after ${Math.round(WORKER_TIMEOUT_MS / 60000)} minutes`)),
-            WORKER_TIMEOUT_MS,
-          )),
-        ]);
+        const result = await withDeepRetry(plat, singleAttempt);
         platFailCount[plat] = 0;
         processResult(plat, q, result);
       } catch (err) {
-        processError(plat, q, err as Error);
+        const e = err as Error;
+        // Translate AbortError-shaped failures into the user-facing
+        // "platform timeout" message so processError + the diagnostic
+        // logs are unambiguous.
+        const message = (e.name === 'AbortError' || taskController.signal.aborted)
+          ? 'platform timeout'
+          : e.message;
+        processError(plat, q, new Error(message));
+      } finally {
+        clearTimeout(timeoutHandle);
       }
       // Flush to DB every 3 results
       if (pendingResults.length >= 3) await flushProgress();
