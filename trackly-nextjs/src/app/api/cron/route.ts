@@ -179,18 +179,39 @@ export async function GET(request: Request) {
         runs?: Array<{ time?: string | number | Date; date?: string | number | Date }>;
       };
     }
+    // Structured skip reasons. Each skipped brand emits one log line so
+    // operators can diagnose why a brand didn't run without having to
+    // re-derive the filter state from database snapshots.
+    type SkipReason =
+      | 'plan_no_scheduled_runs'
+      | 'interval_not_elapsed';
+    const skipCounts: Record<SkipReason, number> = {
+      plan_no_scheduled_runs: 0,
+      interval_not_elapsed: 0,
+    };
+    const logSkip = (reason: SkipReason, details: Record<string, unknown>) => {
+      skipCounts[reason]++;
+      console.log('[Cron] Skip:', JSON.stringify({ reason, ...details }));
+    };
+
     const eligible = (result.rows as CronBrandRow[]).filter((row) => {
       const scheduleRaw = row.data?.schedule;
       const scheduleHours = (scheduleRaw !== undefined && scheduleRaw !== null)
         ? (parseInt(String(scheduleRaw), 10) || 24)
         : 24;
-      const limits = getPlanLimits(row.plan || 'free');
-      if (!limits.scheduledRuns) return false;
+      const plan = row.plan || 'free';
+      const limits = getPlanLimits(plan);
+      if (!limits.scheduledRuns) {
+        logSkip('plan_no_scheduled_runs', { brand_id: row.id, plan });
+        return false;
+      }
       // Use the greater of brand schedule or plan minimum
       const effectiveSchedule = Math.max(scheduleHours, limits.minScheduleHours);
 
       // Check last run time: prefer active_runs table, fall back to brand data
       let lastRunTime: number | null = lastRunMap[row.id] || null;
+      let lastRunSource: 'active_runs' | 'brand_data' | null =
+        lastRunTime ? 'active_runs' : null;
       if (!lastRunTime) {
         const runs = row.data?.runs || [];
         if (runs.length > 0) {
@@ -198,13 +219,25 @@ export async function GET(request: Request) {
           const stamp = lastRun.time ?? lastRun.date;
           if (stamp !== undefined && stamp !== null) {
             lastRunTime = new Date(stamp).getTime();
+            lastRunSource = 'brand_data';
           }
         }
       }
 
       if (lastRunTime) {
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
-        if (hoursSince < effectiveSchedule) return false;
+        if (hoursSince < effectiveSchedule) {
+          logSkip('interval_not_elapsed', {
+            brand_id: row.id,
+            plan,
+            schedule_hours: scheduleHours,
+            effective_schedule_hours: effectiveSchedule,
+            hours_since_last_run: Number(hoursSince.toFixed(2)),
+            last_run_source: lastRunSource,
+            last_run_at: new Date(lastRunTime).toISOString(),
+          });
+          return false;
+        }
       }
       return true;
     });
@@ -256,11 +289,13 @@ export async function GET(request: Request) {
     const timestamp = new Date().toISOString();
     console.log('[Cron] Summary:', JSON.stringify({
       processed, skipped, reconciled, total,
+      skip_reasons: skipCounts,
       errors_count: errors?.length || 0,
       timestamp,
     }));
     return Response.json({
       processed, skipped, reconciled, total,
+      skipReasons: skipCounts,
       reconciledBrandIds: reconciled > 0 ? reconciledBrandIds : undefined,
       errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
       timestamp,
