@@ -92,6 +92,14 @@ export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) 
     return { ...(b as object), runs: [...existingRuns, liveRun] } as unknown as typeof baseBrand;
   }, [baseBrand, live.running, live.brandId, live.runId, live.results, live.liveSov]);
 
+  // Auto-refresh when a live run completes so pages pick up the newly-saved run
+  // without requiring a manual refresh.
+  useEffect(() => {
+    const handler = () => { reload(); };
+    window.addEventListener('livesov:run-complete', handler);
+    return () => window.removeEventListener('livesov:run-complete', handler);
+  }, [reload]);
+
   return { brand, brands, loading, error, reload, refreshBrands };
 }
 

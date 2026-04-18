@@ -8,6 +8,7 @@ import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, TableSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useRun } from '@/contexts/RunContext';
 
 interface Mention { query: string; platform: string; mentioned: boolean; recommended?: boolean; sentiment?: string; position?: number; model?: string; date?: string; snippet?: string; response?: string; error?: string; raw?: string; context?: string; listPosition?: number; errorMessage?: string; }
 interface Run { id?: string; date?: string; created_at?: string; time?: string; sov?: number; allResults?: Mention[]; results?: Mention[]; }
@@ -19,6 +20,7 @@ export default function MentionsPage() {
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
+  const { live, pct: runPct } = useRun();
   const [selectedRunId, setSelectedRunId] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
@@ -35,7 +37,15 @@ export default function MentionsPage() {
     return (selectedBrand?.runs || []).find(r => r.id === selectedRunId) || runs[0] || null;
   }, [selectedRunId, runs, selectedBrand]);
 
-  const all: Mention[] = currentRun?.allResults || currentRun?.results || [];
+  // Show live run results in place of the stored "latest" run while a run is
+  // active for this brand. Historical runs (user picked a non-latest run from
+  // the dropdown) always show their stored data.
+  const viewingLatest = !selectedRunId || selectedRunId === (runs[0]?.id || '0');
+  const liveForThisBrand = live.running && live.brandId === selectedBrand?.id;
+  const showLive = liveForThisBrand && viewingLatest && live.results.length > 0;
+  const all: Mention[] = showLive
+    ? (live.results as Mention[])
+    : (currentRun?.allResults || currentRun?.results || []);
 
   const platformCounts = useMemo(() => {
     const pc: Record<string, { t: number; f: number }> = {};
@@ -140,7 +150,13 @@ export default function MentionsPage() {
           <div className="view-sub">Track how AI platforms mention your brand across all queries.</div>
         </div>
         <div style={{ display:'flex',gap:8,alignItems:'center' }}>
-          <select className="brand-select" style={{ width:210,margin:0,fontSize:11 }} value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)}>
+          {showLive && (
+            <span title="A run is in progress — showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
+              <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
+              LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
+            </span>
+          )}
+          <select className="brand-select" style={{ width:210,margin:0,fontSize:11 }} value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} disabled={showLive} title={showLive ? 'Live run in progress — showing current run' : undefined}>
             {runs.map((r, i) => {
               const d = new Date(r.time || r.date || 0);
               const label = isNaN(d.getTime()) ? `Run ${i+1}` : `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} · SOV`;
