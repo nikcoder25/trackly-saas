@@ -47,7 +47,26 @@ CRON_LOCK_ENABLED=true            # set to "false" to force Postgres fallback
 CRON_LOCK_TTL_MS=                 # global override for Redis lock TTL (default: per-call staleAfterMinutes)
 CRON_INTERVAL_MINUTES=60          # in-process trigger cadence (clamped to [1, 1440])
 APP_URL=https://your-host         # required for the in-process trigger to self-hit /api/cron
+
+# Observability (optional - defaults shown)
+NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...   # enables Sentry error + logs ingestion
+SENTRY_LOGS_ENABLED=true          # set to "false" to disable Sentry Logs forwarding
+                                  # (console.* output is never affected - instant kill switch)
 ```
+
+### Observability
+
+Server-side structured logs are forwarded to Sentry Logs via
+`src/lib/logger.ts`. The wrapper dual-writes to `console.*` (so App
+Platform runtime logs stay complete) and to `Sentry.logger.*` (so logs
+are searchable historically in Sentry).
+
+- Enable Sentry Logs ingestion by setting `NEXT_PUBLIC_SENTRY_DSN` -
+  `enableLogs: true` is already configured in the server / edge
+  Sentry configs.
+- Kill switch: set `SENTRY_LOGS_ENABLED=false` to stop forwarding
+  without redeploying. Console output is unaffected.
+- Docs: https://docs.sentry.io/product/explore/logs/getting-started/
 
 ### Cron scheduling
 
