@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     // maxDuration is 5 min and reconciliation work per user is bounded.
     const lock = await acquireCronLock('reconcile-payments', 10);
     if (!lock) {
-      return NextResponse.json({ skipped: true, reason: 'Another reconcile run is in progress' });
+      return NextResponse.json({ skipped: true, reason: 'locked' });
     }
 
     try {

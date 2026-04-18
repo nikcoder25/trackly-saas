@@ -40,7 +40,28 @@ GOOGLE_CLIENT_SECRET=...
 DODO_API_KEY=...
 DODO_WEBHOOK_SECRET=...
 ENCRYPTION_KEY=...
+
+# Cron / scheduler (optional - defaults shown)
+REDIS_URL=redis://...             # enables Redis-backed cron lock + BullMQ queue
+CRON_LOCK_ENABLED=true            # set to "false" to force Postgres fallback
+CRON_LOCK_TTL_MS=                 # global override for Redis lock TTL (default: per-call staleAfterMinutes)
+CRON_INTERVAL_MINUTES=60          # in-process trigger cadence (clamped to [1, 1440])
+APP_URL=https://your-host         # required for the in-process trigger to self-hit /api/cron
 ```
+
+### Cron scheduling
+
+Scheduled brand runs and payment reconciliation are driven by
+[`.github/workflows/cron.yml`](../.github/workflows/cron.yml). The Next.js
+app also starts an in-process trigger in `src/instrumentation.ts` as a
+belt-and-suspenders fallback - both sources are deduped by the
+`acquireCronLock` helper in `src/lib/cron-lock.ts`.
+
+The lock prefers Redis (`SET cron:lock:<name> <token> PX <ttl> NX`) and
+falls back to the `cron_locks` Postgres table when Redis is unreachable or
+`CRON_LOCK_ENABLED=false`. Contended acquires log a structured
+`{msg:"cron.skip", reason:"locked"}` line and return HTTP 200 with
+`{ skipped: true, reason: "locked" }` so overlapping runs never 500.
 
 ### Install & Run
 

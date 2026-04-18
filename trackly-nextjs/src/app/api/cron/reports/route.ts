@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   // maxDuration and far below the weekly cadence.
   const lock = await acquireCronLock(`reports:${frequency}`, 15);
   if (!lock) {
-    return Response.json({ skipped: true, reason: 'Another reports cron is already running' });
+    return Response.json({ skipped: true, reason: 'locked' });
   }
 
   const started = Date.now();
