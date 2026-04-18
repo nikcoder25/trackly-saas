@@ -482,8 +482,19 @@ async function executeRunBackgroundInner(
 
   function processError(plat: string, q: string, err: Error) {
     // Transient errors (429, 503, capacity) don't count toward the
-    // consecutive-failure threshold - the platform isn't broken, just busy.
-    if (!isTransientError(err)) {
+    // consecutive-failure threshold - the platform isn't broken, just
+    // busy. EXCEPT timeouts: a platform that consistently times out IS
+    // broken for this run, and wasting 60s per remaining task hoping
+    // it recovers ends up blowing past the 5-min stale reconciler and
+    // getting the whole run reaped. Count timeouts toward the
+    // threshold so after FAIL_THRESHOLD consecutive ones the platform
+    // is short-circuited for the rest of this run (a successful call
+    // later resets the counter).
+    const msg = err.message || '';
+    const isTimeout = msg.includes('timeout')
+      || msg.includes('sleep budget exhausted')
+      || msg.includes('Aborted');
+    if (!isTransientError(err) || isTimeout) {
       platFailCount[plat] = (platFailCount[plat] || 0) + 1;
     }
     allResults.push({
