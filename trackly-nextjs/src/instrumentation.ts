@@ -39,7 +39,17 @@ export async function register() {
     const appUrl = process.env.APP_URL;
     if (cronSecret && appUrl) {
       const INITIAL_DELAY_MS = 30_000; // 30 seconds
-      const INTERVAL_MS = 60 * 60 * 1000; // 60 minutes
+
+      // Default: 60 minutes (matches the `0 * * * *` GH Actions schedule).
+      // Override via CRON_INTERVAL_MINUTES env (e.g. to tighten to 15 to
+      // match the reconcile cadence, or loosen for low-traffic environments).
+      // Clamped to [1, 1440] so a typo can't wedge the scheduler or spam
+      // the app.
+      const parsed = parseInt(process.env.CRON_INTERVAL_MINUTES || '', 10);
+      const intervalMinutes = Number.isFinite(parsed) && parsed > 0
+        ? Math.min(1440, parsed)
+        : 60;
+      const INTERVAL_MS = intervalMinutes * 60 * 1000;
 
       const triggerCron = async () => {
         try {
