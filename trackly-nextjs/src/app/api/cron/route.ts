@@ -85,15 +85,21 @@ export async function GET(request: Request) {
       LIMIT 100
     `);
 
-    // Fetch last run times from active_runs table (more reliable than brand
-    // JSON data which may be stale if a previous run failed to save fully)
+    // Fetch last successful run times from active_runs (more reliable than
+    // brand JSON data which may be stale if a previous run failed to save).
+    // Only 'done' runs count toward scheduling: a 'running' row left behind
+    // by a crashed/timed-out scan never transitions to a terminal state
+    // (there is no stale-state reaper), so including it here would make
+    // MAX(started_at) permanently "recent" and silently block every future
+    // scheduled run for that brand. Dedupe of truly-in-flight scans is
+    // handled by the 10-minute lock in /api/brands/[id]/run.
     const brandIds = result.rows.map((r: { id: string }) => r.id);
     const lastRunMap: Record<string, number> = {};
     if (brandIds.length > 0) {
       const runsResult = await pool.query(
-        `SELECT brand_id, MAX(started_at) AS last_run
+        `SELECT brand_id, MAX(COALESCE(completed_at, started_at)) AS last_run
          FROM active_runs
-         WHERE brand_id = ANY($1) AND status IN ('done', 'running')
+         WHERE brand_id = ANY($1) AND status = 'done'
          GROUP BY brand_id`,
         [brandIds]
       );
