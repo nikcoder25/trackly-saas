@@ -30,6 +30,14 @@ import { logger } from './logger';
 
 // --- Redis client (lazy, singleton) ---
 
+// Process-lifetime markers used to downgrade boot-race log noise. With
+// `lazyConnect: false` + `enableOfflineQueue: false`, the very first
+// acquire call after process start can race the TCP handshake and see
+// "Stream isn't writeable" before the client reaches the `ready` state.
+const MODULE_START_MS = Date.now();
+const BOOT_WINDOW_MS = 30_000;
+const READY_WAIT_TIMEOUT_MS = 2_000;
+
 let _redisClient: IORedisClient | null = null;
 let _redisClientInitFailed = false;
 
@@ -144,6 +152,21 @@ export async function acquireRedisLock(
 ): Promise<RedisAcquireResult> {
   const client = getRedisClient();
   if (!client) return { status: 'unavailable' };
+  // Boot-race guard: if the client hasn't finished its TCP handshake
+  // yet, wait briefly for `ready` before issuing SET. Preserves the
+  // fail-fast behavior for real outages - we don't flip
+  // `enableOfflineQueue`, so if the client is stuck reconnecting past
+  // the 2s window the SET still throws and Postgres takes over.
+  if (client.status !== 'ready') {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        client.off('ready', onReady);
+        resolve();
+      }, READY_WAIT_TIMEOUT_MS);
+      const onReady = () => { clearTimeout(timer); resolve(); };
+      client.once('ready', onReady);
+    });
+  }
   const key = `cron:lock:${name}`;
   const instanceId = crypto.randomUUID();
   let setResult: string | null;
@@ -155,7 +178,15 @@ export async function acquireRedisLock(
     }).set(key, instanceId, 'PX', ttlMs, 'NX')) ?? null;
   } catch (err) {
     if (process.env.NODE_ENV !== 'test') {
-      console.warn(`[cron-lock] Redis SET failed for ${key}:`, (err as Error).message);
+      const msg = (err as Error).message || '';
+      const uptimeMs = Date.now() - MODULE_START_MS;
+      const bootRace = uptimeMs < BOOT_WINDOW_MS &&
+        (msg.includes("Stream isn't writeable") || msg.includes('ECONNRESET') || msg.includes('Connection is closed'));
+      if (bootRace) {
+        logger.warn('cron-lock.boot_race_set_failed', { key, uptime_ms: uptimeMs, error: msg });
+      } else {
+        logger.error('cron-lock.redis_set_failed', { key, uptime_ms: uptimeMs, error: msg });
+      }
     }
     return { status: 'unavailable' };
   }
