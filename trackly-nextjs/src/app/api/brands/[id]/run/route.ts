@@ -9,6 +9,7 @@ import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
+import { logger } from '@/lib/logger';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -272,21 +273,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // --- Return immediately, execute in background ---
-  if (isQueueAvailable()) {
-    // Production: enqueue to BullMQ job queue (Redis-backed, avoids OOM)
+  // Only enqueue to BullMQ if a worker is actually connected. Without this
+  // check, jobs get silently stranded in Redis (Last-Run clock freezes,
+  // active_runs rows get reaped to 'error') whenever the worker dyno
+  // isn't running. See isQueueAvailable() for the worker-liveness check.
+  const queueHasWorker = await isQueueAvailable();
+  if (queueHasWorker) {
     try {
       await enqueueBrandRun({
         brand, brandId: id, userId: user.id, runId, totalExpected,
         activePlatforms, queries, serverKeys, userKeys,
       });
     } catch (e) {
-      console.warn('[Run] BullMQ enqueue failed, falling back to after():', (e as Error).message);
+      logger.warn('run.enqueue_failed_falling_back', {
+        brand_id: id,
+        run_id: runId,
+        error: (e as Error).message,
+      });
       after(async () => {
         await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
       });
     }
   } else {
-    // Development fallback: use Next.js after() when Redis is not available
+    // No worker consuming the queue (or Redis not configured). Run
+    // in-process via Next.js after() so scheduled runs still complete.
+    // We log this at INFO because it's an expected fallback in dev and
+    // an alertable symptom in prod (worker dyno dead / not deployed).
+    if (process.env.REDIS_URL) {
+      logger.warn('run.no_worker_in_process_fallback', {
+        brand_id: id,
+        run_id: runId,
+      });
+    }
     after(async () => {
       await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
     });
