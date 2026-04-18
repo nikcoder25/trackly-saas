@@ -42,7 +42,7 @@ function findAvailablePlatform(): { platform: string; apiKey: string } | null {
 }
 
 // Per-platform attempt timeout. queryAI has its own internal retry budget that
-// can balloon to 8 minutes on transient errors — this caps each attempt so the
+// can balloon to 8 minutes on transient errors - this caps each attempt so the
 // user isn't stuck on "FETCHING..." forever. Bounded by TOTAL_BUDGET_MS across
 // both primary + fallback platforms.
 const PER_ATTEMPT_TIMEOUT_MS = 20000;

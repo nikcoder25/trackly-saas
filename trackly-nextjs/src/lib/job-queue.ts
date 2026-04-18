@@ -21,7 +21,7 @@ export function getQueue(): Queue {
   if (!queue) {
     const redisUrl = getRedisUrl();
     if (!redisUrl) {
-      throw new Error('REDIS_URL is not set — cannot create job queue');
+      throw new Error('REDIS_URL is not set - cannot create job queue');
     }
     connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
     queue = new Queue('brand-runs', { connection });
@@ -47,6 +47,6 @@ export async function enqueueBrandRun(data: BrandRunJobData): Promise<void> {
   await q.add('run', data, {
     removeOnComplete: 100,
     removeOnFail: 200,
-    attempts: 1, // no retries — runs are tracked in active_runs table
+    attempts: 1, // no retries - runs are tracked in active_runs table
   });
 }

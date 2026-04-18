@@ -51,7 +51,7 @@ export default function ProofPage() {
   const notFoundCount = totalResults - foundCount;
   const uniquePlats = [...new Set(allResults.map(r => r.platform))];
   const foundPct = totalResults > 0 ? Math.round((foundCount / totalResults) * 100) : 0;
-  // During a live run, the stored run.sov refers to the previous run — derive
+  // During a live run, the stored run.sov refers to the previous run - derive
   // SOV from in-progress results instead so the banner stays accurate.
   const sovPct = showLive ? foundPct : (run?.sov || 0);
   const sovColor = sovPct >= 70 ? '#10b981' : sovPct >= 40 ? '#f59e0b' : '#ef4444';
@@ -160,11 +160,11 @@ export default function ProofPage() {
       <div className="proof-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
         <div>
           <div className="view-title">Evidence &amp; Proof</div>
-          <div className="view-sub">Every AI response about your brand — verified and organized.</div>
+          <div className="view-sub">Every AI response about your brand - verified and organized.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {showLive && (
-            <span title="A run is in progress — showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
+            <span title="A run is in progress - showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
               <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
               LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
             </span>
@@ -177,10 +177,10 @@ export default function ProofPage() {
       <div className="proof-toolbar">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Run</label>
-          <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run" disabled={showLive} title={showLive ? 'Live run in progress — showing current run' : undefined}>
+          <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run" disabled={showLive} title={showLive ? 'Live run in progress - showing current run' : undefined}>
             {runs.map((r, i) => {
               const d = new Date(r.time || r.date || 0);
-              const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} — SOV ${r.sov || 0}%`;
+              const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - SOV ${r.sov || 0}%`;
               return <option key={r.id || i} value={r.id || ''}>{label}</option>;
             })}
             {runs.length === 0 && <option value="">No runs yet</option>}
@@ -244,7 +244,7 @@ export default function ProofPage() {
                 <div className="ep-banner-metric-lbl">Sentiment</div>
               </div>
               <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ color: 'var(--green)' }}>{foundPct}%</div><div className="ep-banner-metric-lbl">Hit Rate</div></div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ fontSize: 14 }}>{run.durationMs ? (run.durationMs / 1000).toFixed(1) + 's' : '—'}</div><div className="ep-banner-metric-lbl">Run Time</div></div>
+              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ fontSize: 14 }}>{run.durationMs ? (run.durationMs / 1000).toFixed(1) + 's' : '-'}</div><div className="ep-banner-metric-lbl">Run Time</div></div>
             </div>
           </div>
 
@@ -275,7 +275,7 @@ export default function ProofPage() {
             })}
           </div>
 
-          {/* Insights — Best & Worst Query */}
+          {/* Insights - Best & Worst Query */}
           {Object.keys(qStats).length > 1 && (
             <div className="ep-insights">
               <div className="ep-insight-card">
@@ -297,7 +297,7 @@ export default function ProofPage() {
             </div>
           )}
 
-          {/* Results — Grouped by Query or Flat */}
+          {/* Results - Grouped by Query or Flat */}
           {filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <div style={{ fontSize: 28, opacity: .25, marginBottom: 10 }}>◇</div>
@@ -356,7 +356,7 @@ export default function ProofPage() {
 function ProofRow({ r, highlightBrand, showQuery }: { r: { platform: string; model?: string; query: string; mentioned: boolean; error?: string; errorMessage?: string; response?: string; raw?: string; context?: string; snippet?: string; sentiment?: string; recommended?: boolean; listPosition?: number; position?: number; competitorMentions?: string[] }; highlightBrand: (t: string) => string; showQuery?: boolean }) {
   const txt = r.error ? '' : (r.raw || r.response || r.context || r.snippet || '');
   const excerpt = txt.replace(/[#*_~`]/g, '').replace(/\n/g, ' ').substring(0, 260);
-  const sent = r.error ? '—' : (r.sentiment || 'neutral');
+  const sent = r.error ? '-' : (r.sentiment || 'neutral');
   const sentC = sent === 'positive' ? 'var(--green)' : sent === 'negative' ? 'var(--red)' : 'var(--muted)';
   const pos = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : '';
   const statusLabel = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';

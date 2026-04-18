@@ -74,7 +74,7 @@ function runMigrations(): Promise<void> {
       `);
       globalForDb.dbMigrated = true;
     } catch (e) {
-      // Log but don't crash — columns may already exist, or table may not
+      // Log but don't crash - columns may already exist, or table may not
       // exist yet (Express app creates it). Reset so next call retries.
       console.error('[DB] Migration check failed:', (e as Error).message);
       migratePromise = null;
@@ -87,7 +87,7 @@ function runMigrations(): Promise<void> {
 export { runMigrations as ensureColumns };
 
 /**
- * Safe pool client wrapper — prevents double-release.
+ * Safe pool client wrapper - prevents double-release.
  * Returns a client whose .release() is a no-op after the first call.
  * Use this instead of pool.connect() to eliminate the
  * "Release called on client which has already been released" warning.
@@ -134,7 +134,7 @@ export async function auditLog(
     return true;
   } catch (e) {
     const msg = (e as Error).message;
-    // FK violation on user_id means the user was deleted — not actionable, log quietly
+    // FK violation on user_id means the user was deleted - not actionable, log quietly
     if (msg.includes('foreign key constraint')) {
       console.warn('[AuditLog] Skipped audit log (user no longer exists):', { action, userId });
     } else {

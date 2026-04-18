@@ -25,7 +25,7 @@ export const blogPosts: BlogPost[] = [
     content: `
 ## What is Generative Engine Optimization?
 
-Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence so that AI platforms — like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews — mention and recommend you when users ask relevant questions.
+Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence so that AI platforms - like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews - mention and recommend you when users ask relevant questions.
 
 Think of it as **SEO for the AI era**. Just as traditional SEO helps you rank on Google, GEO helps you appear in AI-generated answers.
 
@@ -35,7 +35,7 @@ The way people search for information is changing dramatically:
 
 - **40% of searches** now involve AI chatbots rather than traditional search engines
 - Users increasingly ask ChatGPT and Perplexity for product recommendations instead of Googling
-- AI platforms don't show 10 blue links — they give **one curated answer**, and if you're not in it, you're invisible
+- AI platforms don't show 10 blue links - they give **one curated answer**, and if you're not in it, you're invisible
 
 ### The Problem with Traditional SEO
 
@@ -89,7 +89,7 @@ GEO isn't a one-time fix. AI models update regularly, and your competitors are a
 
 ## The Bottom Line
 
-GEO is not replacing SEO — it's an **additional layer** of visibility that's growing rapidly. Brands that start optimizing for AI now will have a significant advantage as more users shift to AI-first discovery.
+GEO is not replacing SEO - it's an **additional layer** of visibility that's growing rapidly. Brands that start optimizing for AI now will have a significant advantage as more users shift to AI-first discovery.
 
 The first step? [Check your AI visibility](https://livesov.com/signup) across all 6 platforms. You might be surprised by what you find.
 `,
@@ -165,12 +165,12 @@ Unlike SEO where you can check Google Search Console, AI visibility requires a d
 4. **Track sentiment** (positive, neutral, or negative mentions)
 5. **Monitor trends** over time
 
-Tools like [Livesov](https://livesov.com) automate this process across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews — giving you a unified dashboard to track your AI visibility.
+Tools like [Livesov](https://livesov.com) automate this process across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews - giving you a unified dashboard to track your AI visibility.
 
 ## Action Steps
 
-1. **Audit your current AI visibility** — [start a free trial](https://livesov.com/signup)
-2. **Compare with your SEO rankings** — identify gaps
+1. **Audit your current AI visibility** - [start a free trial](https://livesov.com/signup)
+2. **Compare with your SEO rankings** - identify gaps
 3. **Build brand authority** beyond Google
 4. **Track both SEO and AI visibility** as complementary channels
 
@@ -196,7 +196,7 @@ Every day, millions of users ask AI chatbots questions like:
 - "Recommend a good HVAC company in Austin TX"
 - "What project management tools do you suggest?"
 
-If AI isn't mentioning your brand in these conversations, you're missing a massive — and growing — discovery channel.
+If AI isn't mentioning your brand in these conversations, you're missing a massive - and growing - discovery channel.
 
 ## The 6 AI Platforms You Should Track
 
@@ -224,10 +224,10 @@ AI-generated summaries that appear at the top of Google Search results. As these
 
 Think about what your customers actually ask AI. Create queries like:
 
-- "[Category] in [location]" — *"Best dentist in Chicago"*
-- "Recommend a [product type]" — *"Recommend a project management tool"*
-- "[Your brand] vs [competitor]" — *"Notion vs Monday.com"*
-- "Review of [your brand]" — *"Is Livesov worth it?"*
+- "[Category] in [location]" - *"Best dentist in Chicago"*
+- "Recommend a [product type]" - *"Recommend a project management tool"*
+- "[Your brand] vs [competitor]" - *"Notion vs Monday.com"*
+- "Review of [your brand]" - *"Is Livesov worth it?"*
 
 **Pro tip:** Start with 10-15 queries that match real customer intent.
 
@@ -269,19 +269,19 @@ This tells you exactly where to focus your optimization efforts.
 
 Manual checking doesn't scale. Set up daily automated tracking to:
 
-- **Catch changes quickly** — AI models update frequently
-- **Build trend data** — See if your visibility is improving
-- **Get alerts** — Know immediately when something changes
-- **Generate reports** — Export proof for clients or stakeholders
+- **Catch changes quickly** - AI models update frequently
+- **Build trend data** - See if your visibility is improving
+- **Get alerts** - Know immediately when something changes
+- **Generate reports** - Export proof for clients or stakeholders
 
 ## What to Do With the Data
 
 Once you're tracking, focus on:
 
-1. **Low SOV platforms** — Optimize for platforms where you're missing
-2. **Negative sentiment** — Fix misinformation quickly
-3. **Competitor gaps** — Find queries where competitors appear but you don't
-4. **Proof collection** — Save AI responses as evidence for clients
+1. **Low SOV platforms** - Optimize for platforms where you're missing
+2. **Negative sentiment** - Fix misinformation quickly
+3. **Competitor gaps** - Find queries where competitors appear but you don't
+4. **Proof collection** - Save AI responses as evidence for clients
 
 ## Get Started Today
 
@@ -317,7 +317,7 @@ Share of Voice (SOV) in AI measures **what percentage of AI-generated responses 
 ### The Numbers
 
 - **40% of product research** now starts with an AI chatbot
-- AI platforms give **one answer**, not 10 results — so SOV is winner-takes-most
+- AI platforms give **one answer**, not 10 results - so SOV is winner-takes-most
 - **87% of users** trust AI recommendations as much as friend recommendations
 - Brands with >50% AI SOV see **3x more organic sign-ups** than those below 20%
 
@@ -446,7 +446,7 @@ Unlike SEO where clients can Google "how to do SEO," there's no established play
 With tools like [Livesov](https://livesov.com), you can show before/after metrics: "Your AI SOV went from 15% to 48% in 90 days."
 
 ### 4. Recurring Revenue
-AI visibility requires ongoing monitoring and optimization — not a one-time fix. This means retainer contracts.
+AI visibility requires ongoing monitoring and optimization - not a one-time fix. This means retainer contracts.
 
 ## How to Package AI Visibility Services
 
@@ -510,7 +510,7 @@ Export data in CSV format to build branded reports:
 Run a live query in front of the client:
 1. Open ChatGPT
 2. Ask "Recommend a [their industry] in [their city]"
-3. Show them the result — are they mentioned? Are competitors?
+3. Show them the result - are they mentioned? Are competitors?
 
 This "aha moment" closes deals.
 

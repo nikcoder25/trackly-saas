@@ -91,9 +91,9 @@ export default function PromptDetailsPage() {
   }, [allRuns, selectedQuery, platFilter]);
 
   function formatDate(d: string) {
-    if (!d) return '—';
+    if (!d) return '-';
     const dt = new Date(d);
-    return isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
   function exportCSV() {
@@ -119,7 +119,7 @@ export default function PromptDetailsPage() {
       <div className="pd-header">
         <div className="pd-header-left">
           <div className="view-title">Prompt Details</div>
-          <div className="view-sub">Deep analytics for each tracked query — visibility, sentiment, competitors, and trends per platform.</div>
+          <div className="view-sub">Deep analytics for each tracked query - visibility, sentiment, competitors, and trends per platform.</div>
         </div>
         <div className="pd-header-actions">
           <button className="pbtn pd-btn-outline" onClick={() => window.location.reload()}>↻ Refresh</button>
@@ -162,7 +162,7 @@ export default function PromptDetailsPage() {
           <div className="pd-metric-top"><div className="pd-metric-label">Visibility Rate</div><div className="pd-metric-icon">◉</div></div>
           <div className="pd-metric-val" style={{ color: visRate >= 40 ? 'var(--green)' : visRate > 0 ? 'var(--amber)' : 'var(--red)' }}>{visRate.toFixed(1)}%</div>
           <div className="pd-metric-bar"><div className="pd-metric-bar-fill" style={{ width: `${Math.min(visRate, 100)}%`, background: visRate >= 40 ? 'var(--green)' : visRate > 0 ? 'var(--amber)' : 'var(--red)' }} /></div>
-          <div className="pd-metric-sub">— 0% vs prev period</div>
+          <div className="pd-metric-sub">- 0% vs prev period</div>
         </div>
         <div className="pd-metric-card pd-m-plat">
           <div className="pd-metric-top"><div className="pd-metric-label">Platforms Found</div><div className="pd-metric-icon">■</div></div>
@@ -178,7 +178,7 @@ export default function PromptDetailsPage() {
         </div>
         <div className="pd-metric-card pd-m-rank">
           <div className="pd-metric-top"><div className="pd-metric-label">Avg Position</div><div className="pd-metric-icon">★</div></div>
-          <div className="pd-metric-val" style={{ color: 'var(--purple)' }}>{avgPos ? `#${avgPos.toFixed(1)}` : '—'}</div>
+          <div className="pd-metric-val" style={{ color: 'var(--purple)' }}>{avgPos ? `#${avgPos.toFixed(1)}` : '-'}</div>
           <div className="pd-metric-bar"><div className="pd-metric-bar-fill" style={{ width: `${avgPos ? Math.max(5, 100 - avgPos * 10) : 0}%`, background: 'var(--purple)' }} /></div>
           <div className="pd-metric-sub">{ranked.length} platforms with ranking data</div>
         </div>
@@ -193,7 +193,7 @@ export default function PromptDetailsPage() {
               <div style={{ flex: 1, minWidth: 180 }}>
                 <label className="pd-meta-label">Search Intent</label>
                 <select className="finp" value={intentVal} onChange={e => setIntentVal(e.target.value)} style={{ width: '100%' }}>
-                  <option value="">— Select —</option>
+                  <option value="">- Select -</option>
                   <option value="awareness">Awareness</option>
                   <option value="comparison">Comparison</option>
                   <option value="commercial">Commercial Investigation</option>
@@ -203,7 +203,7 @@ export default function PromptDetailsPage() {
               <div style={{ flex: 1, minWidth: 180 }}>
                 <label className="pd-meta-label">Funnel Stage</label>
                 <select className="finp" value={funnelVal} onChange={e => setFunnelVal(e.target.value)} style={{ width: '100%' }}>
-                  <option value="">— Select —</option>
+                  <option value="">- Select -</option>
                   <option value="tofu">Awareness (TOFU)</option>
                   <option value="mofu">Consideration (MOFU)</option>
                   <option value="bofu">Decision (BOFU)</option>
@@ -219,12 +219,12 @@ export default function PromptDetailsPage() {
         </div>
       </div>
 
-      {/* Charts Row — Visibility Over Time + Competitor Landscape */}
+      {/* Charts Row - Visibility Over Time + Competitor Landscape */}
       <div className="ov-grid-2 pd-charts-row">
         <div className="card pd-chart-card">
           <div className="pd-chart-header">
             <div className="card-title" style={{ marginBottom: 0 }}>Visibility Over Time</div>
-            <div className="pd-trend-badge pd-trend-flat">— Stable</div>
+            <div className="pd-trend-badge pd-trend-flat">- Stable</div>
           </div>
           <div className="pd-chart-wrap">
             {queryResults.length > 0 ? (() => {
@@ -278,7 +278,7 @@ export default function PromptDetailsPage() {
           </thead>
           <tbody>
             {platPerf.map(p => {
-              const sentLabel = p.sentTotal > 0 && p.sentPos > 0 ? 'Positive' : p.sentTotal > 0 ? '—' : '—';
+              const sentLabel = p.sentTotal > 0 && p.sentPos > 0 ? 'Positive' : p.sentTotal > 0 ? '-' : '-';
               const sentColor = sentLabel === 'Positive' ? 'var(--green)' : 'var(--muted)';
               return (
                 <tr key={p.name} className="trow">
@@ -288,10 +288,10 @@ export default function PromptDetailsPage() {
                     <span style={{ color: p.rate >= 40 ? 'var(--green)' : p.rate > 0 ? 'var(--amber)' : 'var(--red)', fontWeight: 700 }}>{p.rate}%</span>
                     <div className="pd-mention-rate-bar"><div className="pd-mention-rate-fill" style={{ width: `${p.rate}%`, background: p.rate >= 40 ? 'var(--green)' : p.rate > 0 ? 'var(--amber)' : 'var(--red)' }} /></div>
                   </td>
-                  <td className="td" style={{ color: 'var(--muted)' }}>{p.posCount > 0 ? `#${(p.posSum / p.posCount).toFixed(1)}` : '—'}</td>
+                  <td className="td" style={{ color: 'var(--muted)' }}>{p.posCount > 0 ? `#${(p.posSum / p.posCount).toFixed(1)}` : '-'}</td>
                   <td className="td"><span className="pd-plat-badge" style={{ color: sentColor, background: sentLabel === 'Positive' ? 'rgba(16,185,129,.08)' : 'var(--bg3)', border: `1px solid ${sentLabel === 'Positive' ? 'rgba(16,185,129,.2)' : 'var(--border)'}` }}>{sentLabel}</span></td>
                   <td className="td">{p.total}</td>
-                  <td className="td">{p.recommended > 0 ? 'Yes' : '—'}</td>
+                  <td className="td">{p.recommended > 0 ? 'Yes' : '-'}</td>
                 </tr>
               );
             })}

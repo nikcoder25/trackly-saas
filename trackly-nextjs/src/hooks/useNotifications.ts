@@ -18,7 +18,7 @@ interface NotificationsResponse {
  * Fetches the current user's notifications once on mount.
  *
  * Uses an AbortController so the request is cancelled if the component
- * unmounts before it resolves — preventing "set state on unmounted
+ * unmounts before it resolves - preventing "set state on unmounted
  * component" warnings and avoiding wasted network work.
  */
 export function useNotifications() {

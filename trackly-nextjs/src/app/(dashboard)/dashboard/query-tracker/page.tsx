@@ -145,14 +145,14 @@ export default function QueryTrackerPage() {
   }
 
   function formatDate(d: string) {
-    if (!d) return '—';
+    if (!d) return '-';
     const dt = new Date(d);
-    if (isNaN(dt.getTime())) return '—';
+    if (isNaN(dt.getTime())) return '-';
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
   function sparklineSvg(data?: number[]) {
-    if (!data || data.length < 2) return <span style={{ color: 'var(--muted)' }}>—</span>;
+    if (!data || data.length < 2) return <span style={{ color: 'var(--muted)' }}>-</span>;
     const max = Math.max(...data, 1);
     const w = 80, h = 24;
     const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(' ');
@@ -235,10 +235,10 @@ export default function QueryTrackerPage() {
               {filtered.map((kw, idx) => {
                 const hasData = kw.totalRuns > 0;
                 const rateColor = !hasData ? 'var(--muted)' : kw.mentionRate >= 40 ? 'var(--green)' : kw.mentionRate > 0 ? 'var(--amber)' : 'var(--muted)';
-                const changeStr = kw.change != null ? (kw.change > 0 ? '+' + kw.change : String(kw.change)) : '—';
+                const changeStr = kw.change != null ? (kw.change > 0 ? '+' + kw.change : String(kw.change)) : '-';
                 const changeColor = kw.change != null && kw.change > 0 ? 'var(--green)' : kw.change != null && kw.change < 0 ? 'var(--red)' : 'var(--muted)';
                 const changeArrow = kw.change != null && kw.change > 0 ? '▲ ' : kw.change != null && kw.change < 0 ? '▼ ' : '';
-                const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '—';
+                const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '-';
                 const isExpanded = expanded === idx;
 
                 return (

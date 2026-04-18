@@ -55,7 +55,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
         <span className="topbar-logo">Live<span>sov</span></span>
 
-        {/* Brand selector — reads from BrandContext */}
+        {/* Brand selector - reads from BrandContext */}
         <div className="topbar-brand-sel">
           <select value={selectedBrand?.id || ''} onChange={e => selectBrandById(e.target.value)} aria-label="Select brand">
             {brands.length === 0 && <option value="">-- Select brand --</option>}

@@ -54,20 +54,20 @@ function scoreContentStructure(html: string, bodyText: string): CategoryResult {
 
   const h2Matches = html.match(/<h2[\s>]/gi) || [];
   if (h2Matches.length >= 2) { score += 15; findings.push(`Has ${h2Matches.length} H2 sections`); }
-  else if (h2Matches.length === 1) { score += 8; findings.push('Has only 1 H2 section — consider adding more'); }
+  else if (h2Matches.length === 1) { score += 8; findings.push('Has only 1 H2 section - consider adding more'); }
   else { findings.push('Missing H2 headings for content structure'); }
 
   if (/<h3[\s>]/i.test(html)) { score += 5; findings.push('Uses H3 sub-headings'); }
 
   if (/<(ul|ol)[\s>]/i.test(html)) { score += 10; findings.push('Uses lists for structured content'); }
-  else { findings.push('No lists found — consider using bullet or numbered lists'); }
+  else { findings.push('No lists found - consider using bullet or numbered lists'); }
 
   if (/<table[\s>]/i.test(html)) { score += 5; findings.push('Has tabular data'); }
 
   const wc = wordCount(bodyText);
   if (wc > 1000) { score += 30; findings.push(`Strong content length (${wc} words)`); }
   else if (wc > 300) { score += 15; findings.push(`Adequate content length (${wc} words)`); }
-  else { findings.push(`Content is thin (${wc} words) — aim for 1000+`); }
+  else { findings.push(`Content is thin (${wc} words) - aim for 1000+`); }
 
   // Average paragraph word length
   const paragraphs = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
@@ -80,7 +80,7 @@ function scoreContentStructure(html: string, bodyText: string): CategoryResult {
   const headings = html.match(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi) || [];
   const hasFaq = headings.some(h => stripTags(h).includes('?'));
   if (hasFaq) { score += 10; findings.push('Has FAQ-style heading sections'); }
-  else { findings.push('Missing FAQ section — adding questions in headings helps AI citation'); }
+  else { findings.push('Missing FAQ section - adding questions in headings helps AI citation'); }
 
   return { score: Math.min(score, 100), label: 'Content Structure', findings };
 }
@@ -101,7 +101,7 @@ function scoreSchemaData(html: string): CategoryResult {
     else { findings.push('Missing Organization schema'); }
 
     if (combined.includes('"faqpage"')) { score += 20; findings.push('Has FAQPage schema'); }
-    else { findings.push('Missing FAQPage schema — highly valuable for AI citation'); }
+    else { findings.push('Missing FAQPage schema - highly valuable for AI citation'); }
 
     if (combined.includes('"product"') || combined.includes('"service"')) { score += 15; findings.push('Has Product/Service schema'); }
     else { findings.push('Missing Product/Service schema'); }
@@ -118,7 +118,7 @@ function scoreSchemaData(html: string): CategoryResult {
     });
     if (otherTypes) { score += 10; findings.push('Has additional schema types'); }
   } else {
-    findings.push('No JSON-LD structured data found — this is critical for AI discoverability');
+    findings.push('No JSON-LD structured data found - this is critical for AI discoverability');
     findings.push('Missing Organization schema');
     findings.push('Missing FAQPage schema');
   }
@@ -135,8 +135,8 @@ function scoreAuthoritySignals(html: string, bodyText: string): CategoryResult {
   // Filter to truly external (different domain would need the page's own domain, so just count absolute http links)
   const externalLinks = allLinks.length;
   if (externalLinks > 3) { score += 25; findings.push(`Has ${externalLinks} external citations`); }
-  else if (externalLinks > 0) { score += 15; findings.push(`Has ${externalLinks} external link(s) — aim for more citations`); }
-  else { findings.push('No external citations found — adding references boosts credibility'); }
+  else if (externalLinks > 0) { score += 15; findings.push(`Has ${externalLinks} external link(s) - aim for more citations`); }
+  else { findings.push('No external citations found - adding references boosts credibility'); }
 
   // Author information
   const hasAuthor = /author/i.test(html) && (
@@ -146,23 +146,23 @@ function scoreAuthoritySignals(html: string, bodyText: string): CategoryResult {
     /byline/i.test(html)
   );
   if (hasAuthor) { score += 15; findings.push('Has author attribution'); }
-  else { findings.push('Missing author information — add an author byline'); }
+  else { findings.push('Missing author information - add an author byline'); }
 
   // Publish / modified date
   const hasDate = /<meta[^>]+property\s*=\s*["']article:(published_time|modified_time)["'][^>]*>/i.test(html) ||
     /<time[^>]*datetime/i.test(html) ||
     /datePublished|dateModified/i.test(html);
   if (hasDate) { score += 10; findings.push('Has publish/modified date'); }
-  else { findings.push('Missing publish date — signals content freshness to AI'); }
+  else { findings.push('Missing publish date - signals content freshness to AI'); }
 
   // Statistics / numbers
   const numberPattern = /\d{1,3}(,\d{3})+|\d+(\.\d+)?%|\$\d/;
   if (numberPattern.test(bodyText)) { score += 10; findings.push('Contains statistics and numerical data'); }
-  else { findings.push('Content lacks statistics — adding data points strengthens authority'); }
+  else { findings.push('Content lacks statistics - adding data points strengthens authority'); }
 
   // Blockquotes
   if (/<blockquote[\s>]/i.test(html) || /<q[\s>]/i.test(html)) { score += 10; findings.push('Uses quotes/blockquotes'); }
-  else { findings.push('No blockquotes — consider adding expert quotes'); }
+  else { findings.push('No blockquotes - consider adding expert quotes'); }
 
   // Authoritative domains
   const authoritativeDomains = /\.gov|\.edu|wikipedia\.org|nature\.com|sciencedirect\.com|pubmed/i;
@@ -212,7 +212,7 @@ function scoreTechnicalSeo(html: string, fetchTimeMs: number, url: string): Cate
   }
 
   if (fetchTimeMs < 3000) { score += 15; findings.push(`Fast page load (${fetchTimeMs}ms)`); }
-  else { findings.push(`Slow page load (${fetchTimeMs}ms) — aim for under 3 seconds`); }
+  else { findings.push(`Slow page load (${fetchTimeMs}ms) - aim for under 3 seconds`); }
 
   // Alt text on images
   const images = html.match(/<img[^>]*>/gi) || [];
@@ -228,7 +228,7 @@ function scoreTechnicalSeo(html: string, fetchTimeMs: number, url: string): Cate
   if (/<link[^>]+hreflang/i.test(html)) { score += 5; findings.push('Has hreflang tags for internationalization'); }
 
   if (url.startsWith('https://')) { score += 10; findings.push('HTTPS enabled'); }
-  else { findings.push('Not using HTTPS — security concern for AI trust'); }
+  else { findings.push('Not using HTTPS - security concern for AI trust'); }
 
   if (/<meta[^>]+name\s*=\s*["']viewport["'][^>]*>/i.test(html)) { score += 10; findings.push('Has mobile viewport meta tag'); }
   else { findings.push('Missing mobile viewport meta tag'); }
@@ -246,7 +246,7 @@ function scoreAiReadability(html: string, bodyText: string): CategoryResult {
   const words = wordCount(bodyText);
   const buzzDensity = words > 0 ? buzzMatches.length / words : 0;
   if (buzzDensity <= 0.03 && buzzMatches.length <= 2) { score += 20; findings.push('Uses clear, factual language'); }
-  else { findings.push(`Too many marketing buzzwords (${buzzMatches.length} found) — use factual tone`); }
+  else { findings.push(`Too many marketing buzzwords (${buzzMatches.length} found) - use factual tone`); }
 
   // Definition-like structures: "X is..." patterns
   const definitionPattern = /\b[A-Z][a-z]+(?:\s+[A-Z]?[a-z]+)*\s+is\s+(?:a|an|the|defined as)\b/;
@@ -256,7 +256,7 @@ function scoreAiReadability(html: string, bodyText: string): CategoryResult {
   // Comparison content
   const comparisonPattern = /\b(vs\.?|versus|compare|compared to|better than|alternative to|difference between)\b/i;
   if (comparisonPattern.test(bodyText)) { score += 15; findings.push('Has comparison content'); }
-  else { findings.push('No comparison content found — "vs" and "compare" patterns help AI'); }
+  else { findings.push('No comparison content found - "vs" and "compare" patterns help AI'); }
 
   // Numbered steps/processes
   const hasSteps = /\b(step\s+\d|first,?\s|second,?\s|third,?\s|\d+\.\s+[A-Z])/m.test(bodyText) || /<ol[\s>]/i.test(html);
@@ -268,13 +268,13 @@ function scoreAiReadability(html: string, bodyText: string): CategoryResult {
   const htmlLength = html.length;
   const ratio = htmlLength > 0 ? textLength / htmlLength : 0;
   if (ratio > 0.3) { score += 15; findings.push(`Good text-to-HTML ratio (${Math.round(ratio * 100)}%)`); }
-  else { findings.push(`Low text-to-HTML ratio (${Math.round(ratio * 100)}%) — reduce boilerplate markup`); }
+  else { findings.push(`Low text-to-HTML ratio (${Math.round(ratio * 100)}%) - reduce boilerplate markup`); }
 
   // Ad/popup indicators
   const adPatterns = /class\s*=\s*["'][^"']*(ad-container|ad-wrapper|popup-overlay|modal-ad|adsense|dfp-ad|ad-slot|banner-ad|interstitial)[^"']*["']/gi;
   const adMatches = html.match(adPatterns) || [];
   if (adMatches.length === 0) { score += 15; findings.push('No excessive ad indicators detected'); }
-  else { findings.push(`Found ${adMatches.length} ad-related elements — reduce ad clutter`); }
+  else { findings.push(`Found ${adMatches.length} ad-related elements - reduce ad clutter`); }
 
   return { score: Math.min(score, 100), label: 'AI Readability', findings };
 }

@@ -92,7 +92,7 @@ export function ChartSkeleton({ h = 280 }: { h?: number }) {
   );
 }
 
-/* Shimmer animation — injected globally once */
+/* Shimmer animation - injected globally once */
 export function SkeletonStyles() {
   return (
     <style>{`

@@ -127,7 +127,7 @@ export async function runSignupAbuseChecks(ctx: SignupContext): Promise<AbuseChe
 }
 
 export async function logSuspiciousSignupPattern(ip: string, email: string): Promise<void> {
-  // /24 block burst check — warn if we've seen >5 signups from this block in the last hour
+  // /24 block burst check - warn if we've seen >5 signups from this block in the last hour
   const block = ipBlockKey(ip);
   try {
     const res = await pool.query(

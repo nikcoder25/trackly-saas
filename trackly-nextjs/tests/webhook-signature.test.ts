@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import crypto from 'crypto';
 
 // Pure re-implementation of the HMAC verification used by the
-// DodoPayments webhook route. Keeps the test hermetic — we don't
+// DodoPayments webhook route. Keeps the test hermetic - we don't
 // import the route (which would boot the whole Next runtime) but the
 // algorithm is intentionally identical.
 function verifySignature(rawBody: string, signature: string, secrets: string[]): boolean {
@@ -15,7 +15,7 @@ function verifySignature(rawBody: string, signature: string, secrets: string[]):
         return true;
       }
     } catch {
-      // Non-hex signature — fall through to string compare
+      // Non-hex signature - fall through to string compare
     }
     if (signature === expected) return true;
   }

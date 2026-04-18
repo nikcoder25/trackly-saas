@@ -266,7 +266,7 @@ export default function PlatformsPage() {
                       <div style={{ height: 5, borderRadius: 99, width: `${Math.min(n.sov, 100)}%`, background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 70%, white))`, transition: 'width 0.5s ease' }} />
                     </div>
 
-                    {/* Stats grid — 2 columns */}
+                    {/* Stats grid - 2 columns */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
                       <div>
                         <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 2 }}>Mentions</div>

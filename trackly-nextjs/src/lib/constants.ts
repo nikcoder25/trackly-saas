@@ -1,5 +1,5 @@
 /**
- * Centralized constants — mirrors the Express app's config/constants.js
+ * Centralized constants - mirrors the Express app's config/constants.js
  */
 
 export const AUTH = {
@@ -44,7 +44,7 @@ export function getPlanLimits(plan: string): PlanLimits {
   return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
 }
 
-// Free trial — 7 days from signup, 30 prompts, all 6 AI platforms.
+// Free trial - 7 days from signup, 30 prompts, all 6 AI platforms.
 export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 // Email signups start with a short provisional trial so a bot can't spin up
 // an account and start burning AI spend before the email is proven.
@@ -63,7 +63,7 @@ export const SIGNUP_IP_BLOCK_HOURLY_LIMIT = parseInt(
 
 /**
  * Returns 'free' if the user's trial has expired, otherwise the plan as-is.
- * The stored plan in the DB isn't mutated here — it's re-evaluated on every
+ * The stored plan in the DB isn't mutated here - it's re-evaluated on every
  * read so the countdown stays accurate until an upgrade or explicit clear.
  */
 export function getEffectivePlan(plan: string | undefined | null, trialEndsAt: string | Date | null | undefined): string {
@@ -125,7 +125,7 @@ export const PLATFORM_COLORS: Record<string, string> = {
   'Google AI Overviews': '#34a853',
 };
 
-// Plan-specific default platforms — mirrors backend PLAN_DEFAULT_PLATFORMS
+// Plan-specific default platforms - mirrors backend PLAN_DEFAULT_PLATFORMS
 export const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
   starter: ['ChatGPT', 'Claude'],
   free: ['Gemini', 'Grok'],

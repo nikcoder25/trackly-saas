@@ -1,5 +1,5 @@
 /**
- * DataForSEO API integration — Google AI Overviews detection
+ * DataForSEO API integration - Google AI Overviews detection
  *
  * Uses the SERP API to check whether Google shows an AI Overview for each
  * of the brand's tracked queries, and whether the brand is mentioned in it.

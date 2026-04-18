@@ -1,10 +1,10 @@
 /**
- * AI platform API integrations — Next.js port.
+ * AI platform API integrations - Next.js port.
  *
  * Hardened against 429s, provider overload, and partial outages:
  *   - Per-key cooldown with exponential growth (avoids hammering throttled keys)
  *   - Per-platform concurrency semaphore + sliding-window RPM limiter
- *   - Wall-clock deep-retry budget (withDeepRetry) — keeps trying transient errors
+ *   - Wall-clock deep-retry budget (withDeepRetry) - keeps trying transient errors
  *   - In-flight coalescing (dedup identical concurrent queries)
  *   - Deferred background retry queue (warms cache for next run after budget exhaust)
  *   - Gemini fallback chain: pro → flash → flash-lite
@@ -255,7 +255,7 @@ function coalesce(key: string, fn: () => Promise<QueryResult>): Promise<QueryRes
 }
 
 // ── Per-platform, per-key minimum spacing ───────────────────────
-// Upper bound on per-key request rate — complements the global semaphore.
+// Upper bound on per-key request rate - complements the global semaphore.
 interface RateLimit { minDelayMs: number; }
 const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
   ChatGPT:    { minDelayMs: 500 },
@@ -414,7 +414,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         await sleep((hint || backoff) + jitter);
         continue;
       }
-      throw tagError(`Rate limited (${resp.status}) — retries exhausted`, { isRateLimit: true });
+      throw tagError(`Rate limited (${resp.status}) - retries exhausted`, { isRateLimit: true });
     }
 
     if (resp.status >= 500) {
@@ -506,7 +506,7 @@ export interface QueryOptions {
   deepRetryBudgetMs?: number;
 }
 
-// Gemini fallback chain — pro → flash → flash-lite. Each tier runs on a
+// Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
 // separate Google capacity pool, so dropping tier often clears "high demand".
 const GEMINI_FALLBACK_CHAIN: Record<string, string[]> = {
   'gemini-2.5-pro':        ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
@@ -556,7 +556,7 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       lastErr = e as AiError;
       const transient = isTransientError(e);
       if (transient && m < attemptModels.length - 1) {
-        console.warn(`[Gemini] ${geminiModel} transient — falling back to ${attemptModels[m + 1]}`);
+        console.warn(`[Gemini] ${geminiModel} transient - falling back to ${attemptModels[m + 1]}`);
         continue;
       }
       throw e;

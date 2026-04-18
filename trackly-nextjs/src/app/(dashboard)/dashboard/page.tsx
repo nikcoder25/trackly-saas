@@ -81,7 +81,7 @@ export default function DashboardPage() {
   const liveTotalM = live.running ? live.foundCount : null;
   const liveTotalQ = live.running ? live.received : null;
 
-  // Client-only live timer — avoids hydration mismatch
+  // Client-only live timer - avoids hydration mismatch
   useEffect(() => {
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 60000);
@@ -93,7 +93,7 @@ export default function DashboardPage() {
   const lastRun = allRuns.length ? allRuns[allRuns.length - 1] : null;
   const prevRun = allRuns.length >= 2 ? allRuns[allRuns.length - 2] : null;
 
-  // Comparison run based on compareMode — ensures week/month find different runs
+  // Comparison run based on compareMode - ensures week/month find different runs
   const compareRun = useMemo((): (typeof allRuns)[number] | null => {
     if (compareMode === 'current' || !lastRun?.date) return null;
     const lastDate = new Date(lastRun.date).getTime();
@@ -123,7 +123,7 @@ export default function DashboardPage() {
   const queries = brand?.queries || [];
   const planLimit = (user?.limits as Record<string, number>)?.queries || 5;
 
-  // Normalize platform data — handles both number format (SOV%) and object format
+  // Normalize platform data - handles both number format (SOV%) and object format
   function normPlatform(pd: unknown): { sov: number; total: number; mentions: number; errors: number } {
     if (typeof pd === 'number') return { sov: pd, total: pd > 0 ? 1 : 0, mentions: pd > 0 ? 1 : 0, errors: 0 };
     if (typeof pd === 'object' && pd !== null) {
@@ -135,7 +135,7 @@ export default function DashboardPage() {
   const circumference = 2 * Math.PI * 52;
   const offset = circumference - (sov / 100) * circumference;
 
-  // Sentiment data — computed from individual allResults items
+  // Sentiment data - computed from individual allResults items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allResultsArr = ((lastRun as Record<string, unknown> | null)?.allResults || []) as Array<Record<string, any>>;
   const posCount = allResultsArr.filter(r => r.sentiment === 'positive').length;
@@ -156,7 +156,7 @@ export default function DashboardPage() {
     return sentTotal > 0 ? Math.round((posCount * 100 + neuCount * 50) / sentTotal) : 0;
   }, [posCount, neuCount, sentTotal]);
 
-  // AI Category Breakdown (Chat AI vs Search AI) — only count active platforms
+  // AI Category Breakdown (Chat AI vs Search AI) - only count active platforms
   const chatNames = ['ChatGPT', 'Claude', 'Grok'];
   const searchNames = ['Perplexity', 'Gemini'];
 
@@ -184,7 +184,7 @@ export default function DashboardPage() {
     return entries.reduce((a, b) => b.sov > a.sov ? b : a);
   }, [platforms]);
 
-  // Location visibility — scan last run's allResults for city/area mentions (client-side)
+  // Location visibility - scan last run's allResults for city/area mentions (client-side)
   const nearbyAreas = (brand as Record<string, unknown>)?.nearbyAreas as string[] | undefined;
   const locationData = useMemo(() => {
     const city = brand?.city;
@@ -227,7 +227,7 @@ export default function DashboardPage() {
       .sort((a, b) => b.rate - a.rate);
   }, [lastRun]);
 
-  // Competitors — use run-level aggregation, or extract from allResults for older runs
+  // Competitors - use run-level aggregation, or extract from allResults for older runs
   const competitorData = useMemo(() => {
     if (lastRun?.competitors && Object.keys(lastRun.competitors).length > 0) return lastRun.competitors;
     const counts: Record<string, number> = {};
@@ -241,7 +241,7 @@ export default function DashboardPage() {
     Object.entries(competitorData).sort((a, b) => b[1] - a[1]).slice(0, 8),
   [competitorData]);
 
-  // Citations — use run-level aggregation, or extract from allResults for older runs
+  // Citations - use run-level aggregation, or extract from allResults for older runs
   const citationData = useMemo(() => {
     if (lastRun?.citations && Object.keys(lastRun.citations).length > 0) return lastRun.citations as Record<string, number>;
     // Fallback: extract from individual results
@@ -311,7 +311,7 @@ export default function DashboardPage() {
     return a;
   }, [sovChange, negCount, sentTotal, platforms]);
 
-  // API Health summary — normalize platform data (handles both number and object formats)
+  // API Health summary - normalize platform data (handles both number and object formats)
   const apiTotalResponses = Object.values(platforms).reduce((s, p) => s + normPlatform(p).total, 0);
   const apiErrors = Object.values(platforms).reduce((s, p) => s + normPlatform(p).errors, 0);
   const apiHealthy = Object.values(platforms).filter(p => { const n = normPlatform(p); return n.total > 0 && n.errors === 0; }).length;
@@ -454,10 +454,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ALERT STRIP — white cards with colored dot matching production screenshot */}
+      {/* ALERT STRIP - white cards with colored dot matching production screenshot */}
       {alerts.length > 0 && <div className="alerts-strip">{alerts.map((a,i) => <div key={i} className={`alert-chip ${a.type}`}><span className="alert-dot" style={{background:a.type==='danger'?'var(--red)':a.type==='warn'?'var(--amber)':'var(--blue)'}}/><div style={{flex:1,minWidth:0}}><div className="alert-text">{a.text}</div><div className="alert-time">{now>0&&lastRun?.date?(()=>{const diff=now-new Date(lastRun.date).getTime();const days=Math.floor(diff/86400000);return days>0?`${days}d ago`:'today';})():''}</div></div></div>)}</div>}
 
-      {/* SOV HERO — shows live values during run */}
+      {/* SOV HERO - shows live values during run */}
       {(() => {
         const displaySOV = liveSOV !== null ? liveSOV : sov;
         const displayM = liveTotalM !== null ? liveTotalM : totalM;
@@ -490,7 +490,7 @@ export default function DashboardPage() {
         );
       })()}
 
-      {/* COMPARE BANNER — shows when vs Last Week or vs Last Month is active */}
+      {/* COMPARE BANNER - shows when vs Last Week or vs Last Month is active */}
       {compareRun && compareMode !== 'current' && (
         <div style={{padding:'10px 16px',marginBottom:14,background:'var(--primary-light)',border:'1px solid var(--primary-border)',borderRadius:'var(--radius-xs)',fontSize:12,fontFamily:'var(--mono)',color:'var(--primary)',display:'flex',alignItems:'center',gap:8}}>
           <span>📊</span>
@@ -507,7 +507,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* API HEALTH — live counter during run */}
+      {/* API HEALTH - live counter during run */}
       {show('health') && (apiTotalResponses > 0 || live.running) && (
         <div className="ov-health">
           <span className="ov-health-dot" style={{ background: live.running ? 'var(--green)' : apiHealthColor }} />
@@ -573,7 +573,7 @@ export default function DashboardPage() {
         <div className="ov-grid-3" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
           <div className="ov-cat-card"><div className="ov-cat-label">💬 Chat AI SOV</div><div className="ov-cat-val" style={{color:chatStats.sov>=40?'var(--green)':chatStats.sov>0?'var(--amber)':'var(--red)'}}>{chatStats.sov}%</div><div className="ov-cat-detail">Mentioned in {chatStats.mentioned} of {chatStats.total} responses</div><div className="ov-cat-sub">{chatStats.active.length > 0 ? chatStats.active.join(' · ') : 'ChatGPT · Claude · Grok'}</div></div>
           <div className="ov-cat-card"><div className="ov-cat-label">🔍 Search AI SOV</div><div className="ov-cat-val" style={{color:searchStats.sov>=40?'var(--green)':searchStats.sov>0?'var(--amber)':'var(--red)'}}>{searchStats.sov}%</div><div className="ov-cat-detail">Mentioned in {searchStats.mentioned} of {searchStats.total} responses</div><div className="ov-cat-sub">{searchStats.active.length > 0 ? searchStats.active.join(' · ') : 'Perplexity · Gemini'}</div></div>
-          <div className="ov-cat-card"><div className="ov-cat-label">🏆 Best Platform</div><div className="ov-cat-val" style={{color:bestPlatform&&bestPlatform.sov>0?'var(--green)':'var(--muted)'}}>{bestPlatform&&bestPlatform.sov>0?bestPlatform.name:'—'}</div><div className="ov-cat-detail">{bestPlatform&&bestPlatform.sov>0?`${bestPlatform.sov}% SOV — strongest visibility`:'No platform data yet'}</div></div>
+          <div className="ov-cat-card"><div className="ov-cat-label">🏆 Best Platform</div><div className="ov-cat-val" style={{color:bestPlatform&&bestPlatform.sov>0?'var(--green)':'var(--muted)'}}>{bestPlatform&&bestPlatform.sov>0?bestPlatform.name:'-'}</div><div className="ov-cat-detail">{bestPlatform&&bestPlatform.sov>0?`${bestPlatform.sov}% SOV - strongest visibility`:'No platform data yet'}</div></div>
         </div>
       </div>}
 
@@ -588,7 +588,7 @@ export default function DashboardPage() {
 
       {/* ACTIONABLE INSIGHTS */}
       {show('insights')&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">Actionable Insights</div><div className="ov-card-sub">{((sovChange!==null&&sovChange<-5?1:0)+(sov>0&&sov<50?1:0)+(sentTotal>0&&negCount>0?1:0)+(sov===0?1:0))} tip{((sovChange!==null&&sovChange<-5?1:0)+(sov>0&&sov<50?1:0)+(sentTotal>0&&negCount>0?1:0)+(sov===0?1:0))!==1?'s':''}</div></div>
-        {sovChange!==null&&sovChange<-5&&<div className="ov-insight"><span className="ov-insight-icon">⚡</span><div className="ov-insight-text"><div className="ov-insight-head">Platform Gap Detected</div><div>Strong on <strong>ChatGPT</strong> but invisible on <strong>Gemini</strong>. Different AI platforms pull from different sources — diversify your online presence.</div></div></div>}
+        {sovChange!==null&&sovChange<-5&&<div className="ov-insight"><span className="ov-insight-icon">⚡</span><div className="ov-insight-text"><div className="ov-insight-head">Platform Gap Detected</div><div>Strong on <strong>ChatGPT</strong> but invisible on <strong>Gemini</strong>. Different AI platforms pull from different sources - diversify your online presence.</div></div></div>}
         {sov>0&&sov<50&&<div className="ov-insight"><span className="ov-insight-icon">📈</span><div className="ov-insight-text"><div className="ov-insight-head">Growing Your AI Presence</div><div>You&apos;re appearing in {sov}% of queries. To boost this, create <strong>FAQ-style content</strong> that directly answers common questions, and ensure your <strong><Link href="/dashboard/setup" style={{color:'var(--primary)',textDecoration:'none'}}>Google Business Profile</Link></strong> is fully optimized.</div></div></div>}
         {sentTotal>0&&negCount>0&&<div className="ov-insight"><span className="ov-insight-icon">⚠️</span><div className="ov-insight-text"><div className="ov-insight-head">Negative Sentiment Detected</div><div>{negCount} AI response{negCount>1?'s':''} show{negCount===1?'s':''} negative sentiment about your brand. Check <Link href="/dashboard/mentions" style={{color:'var(--primary)',textDecoration:'none'}}>All Results</Link> to see what AI is saying and address underlying issues.</div></div></div>}
         {sov===0&&<div className="ov-insight"><span className="ov-insight-icon">⭐</span><div className="ov-insight-text"><div className="ov-insight-head">Getting Started</div><div>Your SOV is 0%. Run queries from <Link href="/dashboard/setup" style={{color:'var(--primary)',textDecoration:'none'}}>Brand Setup</Link> and check <Link href="/dashboard/recommendations" style={{color:'var(--primary)',textDecoration:'none'}}>Recommendations</Link> for optimization tips.</div></div></div>}
@@ -601,7 +601,7 @@ export default function DashboardPage() {
 
       {/* SOV TREND */}
       {show('trend')&&sovTrend.length>1&&<div className="ov-card"><div className="ov-card-head"><div className="ov-card-title">SOV Trend</div><div className="ov-card-sub">Last {sovTrend.length} runs</div></div>
-        <div style={{height:200,background:'var(--bg3)',borderRadius:'var(--radius-xs)',display:'flex',alignItems:'flex-end',gap:4,padding:16}}>{sovTrend.map((r,i)=><div key={i} title={`${r.sov}% — ${r.date?new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'#'+(i+1)}`} style={{flex:1,background:'var(--primary)',borderRadius:'3px 3px 0 0',height:`${Math.max(r.sov,4)}%`,opacity:0.4+(i/Math.max(sovTrend.length-1,1))*0.6,transition:'height .3s ease'}}/>)}</div>
+        <div style={{height:200,background:'var(--bg3)',borderRadius:'var(--radius-xs)',display:'flex',alignItems:'flex-end',gap:4,padding:16}}>{sovTrend.map((r,i)=><div key={i} title={`${r.sov}% - ${r.date?new Date(r.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'#'+(i+1)}`} style={{flex:1,background:'var(--primary)',borderRadius:'3px 3px 0 0',height:`${Math.max(r.sov,4)}%`,opacity:0.4+(i/Math.max(sovTrend.length-1,1))*0.6,transition:'height .3s ease'}}/>)}</div>
         {sovTrend.length>1&&<div style={{display:'flex',justifyContent:'space-between',marginTop:8}}><span style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--muted)'}}>{new Date(sovTrend[0].date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><span style={{fontSize:9,fontFamily:'var(--mono)',color:'var(--muted)'}}>{new Date(sovTrend[sovTrend.length-1].date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>}
       </div>}
 
@@ -634,7 +634,7 @@ export default function DashboardPage() {
         return (
         <div className="ov-card">
           <div className="ov-card-head">
-            <div className="ov-card-title">Last Run — {fmtDate(lr.date)}</div>
+            <div className="ov-card-title">Last Run - {fmtDate(lr.date)}</div>
             <div style={{display:'flex',gap:12,alignItems:'center'}}>
               <span style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--muted)'}}>{lastRunAge}</span>
               <Link href="/dashboard/proof" style={{fontSize:11,fontFamily:'var(--mono)',color:'var(--primary)',textDecoration:'none'}}>View All Results →</Link>

@@ -64,7 +64,7 @@ function verifySignature(rawBody: string, signature: string, secrets: string[]):
         return true;
       }
     } catch {
-      // Signature might not be valid hex — try base64 comparison
+      // Signature might not be valid hex - try base64 comparison
     }
     // Also try direct string comparison for non-hex signatures
     if (signature === expected) return true;
@@ -220,7 +220,7 @@ export async function POST(request: Request) {
               metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
       }));
 
-      // Extract nested data — DodoPayments may nest under .data or .payload
+      // Extract nested data - DodoPayments may nest under .data or .payload
       const eventData = body.data || body.payload || body;
 
       // Use a transaction with SERIALIZABLE isolation to prevent race conditions
@@ -303,14 +303,14 @@ export async function POST(request: Request) {
                                       [JSON.stringify(settingsUpdate), userId]
                                     );
                     } else {
-                                // Fail loudly — silently marking this event as processed
+                                // Fail loudly - silently marking this event as processed
                                 // would leave the user on their old plan forever despite
                                 // their money clearing. Roll back so DodoPayments retries;
                                 // if the env vars really are misconfigured, the retried
                                 // deliveries will queue visibly in the provider dashboard
                                 // and in our webhook_events table once we fix them.
                                 await client.query('ROLLBACK');
-                                console.error('[Webhook] Could not determine plan from event — returning 500 so upstream retries:', {
+                                console.error('[Webhook] Could not determine plan from event - returning 500 so upstream retries:', {
                                               eventId, eventType, productId,
                                               knownProducts: Object.keys(PLAN_MAP),
                                               metadataPlan: metadata.plan,

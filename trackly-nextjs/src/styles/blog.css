@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   BLOG — Listing & Post Styles
+   BLOG - Listing & Post Styles
    ═══════════════════════════════════════════════════════════════ */
 
 /* ── Listing Page ── */
@@ -330,7 +330,7 @@
   box-shadow: 0 8px 32px rgba(0,0,0,0.06);
 }
 
-/* Content body — prose-style typography */
+/* Content body - prose-style typography */
 .blog-post-body {
   max-width: 720px;
   margin: 0 auto;
@@ -467,7 +467,7 @@
   margin: 40px 0;
 }
 
-/* First paragraph after heading — slightly larger */
+/* First paragraph after heading - slightly larger */
 .blog-post-body h2 + p {
   font-size: 17px;
   color: #475569;

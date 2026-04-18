@@ -3,20 +3,20 @@ import { Rocket, ShieldCheck, Cpu, BarChart3, Globe, Zap, FileText } from 'lucid
 import SeoLayout, { SeoHero, Breadcrumbs } from '@/components/seo/SeoLayout';
 
 export const metadata: Metadata = {
-  title: 'Changelog — What\'s New | Livesov',
+  title: 'Changelog - What\'s New | Livesov',
   description: 'Latest updates and improvements to Livesov AI visibility tracker.',
   alternates: { canonical: '/changelog' },
   openGraph: {
-    title: 'Changelog — What\'s New | Livesov',
+    title: 'Changelog - What\'s New | Livesov',
     description: 'Latest updates and improvements to Livesov AI visibility tracker.',
     url: 'https://livesov.com/changelog',
     siteName: 'Livesov',
     type: 'website',
-    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Changelog — What\'s New | Livesov' }],
+    images: [{ url: 'https://livesov.com/og-image.png', width: 1200, height: 630, alt: 'Changelog - What\'s New | Livesov' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Changelog — What\'s New | Livesov',
+    title: 'Changelog - What\'s New | Livesov',
     description: 'Latest updates and improvements to Livesov AI visibility tracker.',
     images: ['https://livesov.com/og-image.png'],
   },
@@ -61,7 +61,7 @@ export default function ChangelogPage() {
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">December 2025</p>
           </div>
           <h3 className="text-lg font-bold text-gray-900 mt-1">GEO Audit Tool</h3>
-          <p className="text-gray-500 text-sm mt-1">Launched the free GEO Audit tool — paste any URL and get an AI-readiness score with actionable recommendations in seconds.</p>
+          <p className="text-gray-500 text-sm mt-1">Launched the free GEO Audit tool - paste any URL and get an AI-readiness score with actionable recommendations in seconds.</p>
         </div>
         <div className="border-l-2 border-gray-200 pl-6">
           <div className="flex items-center gap-2 mb-1">
@@ -77,7 +77,7 @@ export default function ChangelogPage() {
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">October 2025</p>
           </div>
           <h3 className="text-lg font-bold text-gray-900 mt-1">Scheduled Runs & Alerts</h3>
-          <p className="text-gray-500 text-sm mt-1">Set up automated brand tracking on a schedule — daily, every 3 days, or weekly. Get email alerts when your visibility changes significantly.</p>
+          <p className="text-gray-500 text-sm mt-1">Set up automated brand tracking on a schedule - daily, every 3 days, or weekly. Get email alerts when your visibility changes significantly.</p>
         </div>
         <div className="border-l-2 border-gray-200 pl-6">
           <div className="flex items-center gap-2 mb-1">

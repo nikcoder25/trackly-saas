@@ -54,7 +54,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   try {
     const hash = await bcrypt.hash(password, AUTH.bcryptRounds);
     // Also invalidate any active session so the target user must log in
-    // again with the new password — otherwise an attacker who has briefly
+    // again with the new password - otherwise an attacker who has briefly
     // compromised admin access could leave back-door refresh tokens alive.
     const result = await pool.query(
       'UPDATE users SET password_hash = $1, refresh_token = NULL WHERE id = $2 RETURNING email',

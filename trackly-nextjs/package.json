@@ -1,7 +1,7 @@
 {
   "name": "livesov-nextjs",
   "version": "1.0.0",
-  "description": "Livesov — AI Visibility Tracker (Next.js)",
+  "description": "Livesov - AI Visibility Tracker (Next.js)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

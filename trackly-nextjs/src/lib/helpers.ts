@@ -113,7 +113,7 @@ export function decryptApiKeys(keys: Record<string, string>): Record<string, str
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function safeUser(u: any) {
   // Expired trials transparently resolve to 'free'. The DB row isn't mutated
-  // here — it's re-evaluated on every read so the countdown stays accurate.
+  // here - it's re-evaluated on every read so the countdown stays accurate.
   const plan = getEffectivePlan(u.plan, u.trial_ends_at);
   const rawKeys = u.api_keys || {};
   const decrypted = decryptApiKeys(rawKeys);

@@ -24,7 +24,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
     <div id="landing-page">
       <a href="#main-content" className="skip-to-content">Skip to content</a>
 
-      {/* Nav — uses legacy .land-nav classes */}
+      {/* Nav - uses legacy .land-nav classes */}
       <nav className="land-nav">
         <Link href="/" className="land-nav-logo" style={{ textDecoration: 'none' }}>
           Live<span>sov</span>

@@ -6,10 +6,10 @@ Sentry.init({
   // Only initialize if DSN is configured
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Performance monitoring — sample 10% of transactions in production
+  // Performance monitoring - sample 10% of transactions in production
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 
-  // Session Replay — capture 10% of sessions, 100% on error
+  // Session Replay - capture 10% of sessions, 100% on error
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
 

@@ -28,7 +28,7 @@ export async function getAdminModel(platform: string): Promise<string> {
     modelCache = { models, expires: now + CACHE_TTL };
     return models[platform] || getDefaultModel(platform);
   } catch {
-    // Table may not exist yet or DB error — fall back to defaults
+    // Table may not exist yet or DB error - fall back to defaults
     return getDefaultModel(platform);
   }
 }

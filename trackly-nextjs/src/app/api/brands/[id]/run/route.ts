@@ -86,7 +86,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   if (cronSecret && cronHeader && cronSecret.length === cronHeader.length &&
       crypto.timingSafeEqual(Buffer.from(cronSecret), Buffer.from(cronHeader))) {
-    // Internal cron call — resolve brand owner from the brand record
+    // Internal cron call - resolve brand owner from the brand record
     isCronCall = true;
     const { id: brandId } = await params;
     const brandRow = await pool.query('SELECT user_id FROM brands WHERE id = $1', [brandId]);
@@ -158,7 +158,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return (serverKeys[keyName]?.length || userKeys[keyName]) ? true : false;
   });
 
-  // User's saved selection (or an override in the request body) is authoritative —
+  // User's saved selection (or an override in the request body) is authoritative -
   // plan defaults only apply when the user has not chosen anything.
   const requestedPlatforms: string[] | null = Array.isArray(body.platforms)
     ? (body.platforms as string[])
@@ -318,7 +318,7 @@ async function executeRunBackground(
     platFailCount[plat] = 0;
   }
 
-  // Build round-robin task list — cycle through platforms so concurrent
+  // Build round-robin task list - cycle through platforms so concurrent
   // workers hit different platforms rather than hammering the same one
   const tasks: Array<{ plat: string; q: string }> = [];
   for (let qi = 0; qi < queries.length; qi++) {
@@ -373,7 +373,7 @@ async function executeRunBackground(
 
   function processError(plat: string, q: string, err: Error) {
     // Transient errors (429, 503, capacity) don't count toward the
-    // consecutive-failure threshold — the platform isn't broken, just busy.
+    // consecutive-failure threshold - the platform isn't broken, just busy.
     if (!isTransientError(err)) {
       platFailCount[plat] = (platFailCount[plat] || 0) + 1;
     }
@@ -403,7 +403,7 @@ async function executeRunBackground(
       const { plat, q } = tasks[idx];
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
-          throw new Error(`Skipped — ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
+          throw new Error(`Skipped - ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
         }
 
         // Build the per-attempt call: pick a healthy key (skips circuit-broken
@@ -420,7 +420,7 @@ async function executeRunBackground(
           const rawKey = pickBestKey(keyPool);
           if (!rawKey) throw new Error('No usable API key for ' + plat);
           if (circuitBreakerCheck(rawKey)) {
-            throw new Error('Circuit breaker open for API key — too many auth failures');
+            throw new Error('Circuit breaker open for API key - too many auth failures');
           }
           const release = await acquirePlatformSlot(plat);
           try {
@@ -489,14 +489,14 @@ async function executeRunBackground(
       errorCount: totalErrors,
     };
 
-    // Verify this run is still the active one before saving — prevents data
+    // Verify this run is still the active one before saving - prevents data
     // corruption if a newer run took over while this one was executing
     const activeCheck = await pool.query(
       'SELECT id FROM active_runs WHERE brand_id = $1 AND status = $2 ORDER BY started_at DESC LIMIT 1',
       [brandId, 'running']
     );
     if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
-      console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} — skipping final save`);
+      console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} - skipping final save`);
       await pool.query(
         `UPDATE active_runs SET status = 'error', error = 'Superseded by newer run', completed_at = NOW() WHERE id = $1`,
         [runId]
@@ -504,7 +504,7 @@ async function executeRunBackground(
       return;
     }
 
-    // Save to brand data FIRST — must complete before marking active_runs as
+    // Save to brand data FIRST - must complete before marking active_runs as
     // done, because the client polls active_runs status and immediately calls
     // refreshBrands() when it sees "done". If brand data isn't saved yet, the
     // dashboard shows stale "Last Run" data.
@@ -567,7 +567,7 @@ async function executeRunBackground(
 
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
 
-    // NOW mark run as done — client will see this and call refreshBrands(),
+    // NOW mark run as done - client will see this and call refreshBrands(),
     // which will find the already-updated brand data above
     await pool.query(
       `UPDATE active_runs SET status = 'done', final_data = $1, received = $2,

@@ -216,7 +216,7 @@ export default function AdminUsersPage() {
                     {u.email_verified ? <span style={{ color: 'var(--green)', fontSize: 12 }}>Yes</span> : <span style={{ color: 'var(--amber)', fontSize: 12 }}>No</span>}
                   </td>
                   <td style={{ padding: '12px 14px', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                    {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '—'}
+                    {u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '-'}
                   </td>
                   <td style={{ padding: '12px 14px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -259,7 +259,7 @@ export default function AdminUsersPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div><label style={labelStyle}>Email</label><p style={{ fontSize: 13, color: 'var(--text)', wordBreak: 'break-all' }}>{selectedUser.user.email}</p></div>
-                <div><label style={labelStyle}>Name</label><p style={{ fontSize: 13, color: 'var(--text)' }}>{selectedUser.user.name || '—'}</p></div>
+                <div><label style={labelStyle}>Name</label><p style={{ fontSize: 13, color: 'var(--text)' }}>{selectedUser.user.name || '-'}</p></div>
                 <div><label style={labelStyle}>Plan</label><p style={{ fontSize: 13, color: PLAN_COLORS[selectedUser.user.plan], fontWeight: 600, textTransform: 'capitalize' }}>{selectedUser.user.plan}</p></div>
                 <div><label style={labelStyle}>Role</label><p style={{ fontSize: 13, color: 'var(--text)' }}>{selectedUser.user.role || 'user'}</p></div>
                 <div><label style={labelStyle}>Brands</label><p style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'monospace' }}>{selectedUser.user.brand_count}</p></div>

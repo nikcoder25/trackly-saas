@@ -1,11 +1,11 @@
 // @ts-nocheck
 /**
- * PDF Report Generator — White-label AI Visibility Report
+ * PDF Report Generator - White-label AI Visibility Report
  *
  * Ported from the Express monolith (lib/pdf-report.js) with minimal
  * changes. Types are intentionally opt-in: the module exposes a single
  * `generateReport(brand)` entry point that returns a PDFKit document
- * stream. The `@ts-nocheck` at the top is intentional — strict-mode
+ * stream. The `@ts-nocheck` at the top is intentional - strict-mode
  * typing against PDFKit's internal API is low-value for a pure-output
  * module, and deferring it keeps this port reviewable.
  */
@@ -464,12 +464,12 @@ function renderRecommendations(doc, brand, lastRun) {
 
     // Tip 1: Platform gaps
     if (strongPlats.length > 0 && weakPlats.length > 0) {
-      tips.push(`Platform Gap: Strong on ${strongPlats.join(', ')} but weak on ${weakPlats.join(', ')}. Different AI platforms pull from different sources — diversify your online presence and optimize content for each.`);
+      tips.push(`Platform Gap: Strong on ${strongPlats.join(', ')} but weak on ${weakPlats.join(', ')}. Different AI platforms pull from different sources - diversify your online presence and optimize content for each.`);
     }
 
     // Tip 2: Low SOV
     if (sov === 0 && total > 0) {
-      tips.push('Build Foundation: AI platforms haven\'t picked up your brand yet. Focus on structured data, review profiles (Google, Yelp), and authoritative backlinks — these are what AI models reference.');
+      tips.push('Build Foundation: AI platforms haven\'t picked up your brand yet. Focus on structured data, review profiles (Google, Yelp), and authoritative backlinks - these are what AI models reference.');
     } else if (sov > 0 && sov < 30) {
       tips.push(`Grow Visibility: You appear in ${sov}% of queries. Create FAQ-style content that directly answers common questions, and ensure your Google Business Profile is fully optimized.`);
     }
@@ -536,7 +536,7 @@ function generateReport(brand) {
     size: 'A4',
     margin: 40,
     info: {
-      Title: `${brand.name} — AI Visibility Report`,
+      Title: `${brand.name} - AI Visibility Report`,
       Author: BRANDING.companyName,
       Subject: 'AI Visibility Report',
       Creator: BRANDING.companyName,

@@ -104,7 +104,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // If no accuracy check has been run yet, compute a basic rate from issues
     if (accuracyRate === null && facts.length > 0) {
       if (issues.length === 0) {
-        // No issues found — assume facts are accurate
+        // No issues found - assume facts are accurate
         accuracyRate = 100;
       } else {
         // Count unique fact_keys with unfixed issues (not total issues, to avoid double-counting)
@@ -328,7 +328,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         client.release();
       }
     } catch {
-      // table may not exist yet — continue without persisting
+      // table may not exist yet - continue without persisting
     }
 
     // Reload all issues (including fixed ones) with expected values via JOIN
