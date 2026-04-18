@@ -7,6 +7,7 @@
  */
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
+import { acquireCronLock } from '@/lib/cron-lock';
 import { getPlanLimits } from '@/lib/constants';
 
 export const maxDuration = 300; // 5 minutes max for cron
@@ -16,20 +17,6 @@ const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
 // Stagger between brand triggers - each brand waits brand_index * this many
 // milliseconds so scheduled runs don't all hit providers at the same instant.
 const BRAND_STAGGER_MS = 8000;
-
-// Auto-create the cron_locks table on first call (cached in globalThis)
-const g = globalThis as unknown as { _cronLocksReady?: boolean };
-async function ensureCronLocksTable() {
-  if (g._cronLocksReady) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS cron_locks (
-      name TEXT PRIMARY KEY,
-      locked_at TIMESTAMPTZ,
-      instance_id TEXT
-    )
-  `);
-  g._cronLocksReady = true;
-}
 
 /**
  * Mark any `active_runs` rows that have been stuck in 'running' for more
@@ -100,32 +87,13 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  await ensureCronLocksTable();
-
-  // Table-based lock with auto-expiry.  Replaces pg_try_advisory_lock which
-  // was fundamentally broken with connection pooling: advisory locks are
-  // session-scoped, so pool.query() could acquire the lock on connection A
-  // and try to release on connection B, leaving the lock permanently stuck
-  // and silently blocking ALL future cron executions.
-  //
-  // This table-based approach works correctly with any pooling setup:
-  // - Fresh lock (<10 min old) blocks concurrent runs
-  // - Stale lock (>10 min old) is auto-reclaimed
-  // - Released lock (locked_at = NULL) is immediately reacquirable
-  const instanceId = crypto.randomUUID();
-  const lockResult = await pool.query(
-    `INSERT INTO cron_locks (name, locked_at, instance_id)
-     VALUES ('scheduler', NOW(), $1)
-     ON CONFLICT (name) DO UPDATE
-     SET locked_at = NOW(), instance_id = $1
-     WHERE cron_locks.locked_at IS NULL
-        OR cron_locks.locked_at < NOW() - INTERVAL '10 minutes'
-     RETURNING name`,
-    [instanceId]
-  );
-
-  if (lockResult.rows.length === 0) {
-    return Response.json({ skipped: true, reason: 'Another cron job is already running' });
+  // Dedupe overlapping triggers (GH Actions schedule + workflow_dispatch
+  // + in-process instrumentation all hit this endpoint). Redis-backed when
+  // REDIS_URL is set, with a Postgres fallback table so this never 500s
+  // if Redis is briefly unreachable.
+  const lock = await acquireCronLock('scheduler', 10);
+  if (!lock) {
+    return Response.json({ skipped: true, reason: 'locked' });
   }
 
   try {
@@ -269,10 +237,9 @@ export async function GET(request: Request) {
     console.error('[Cron]', (e as Error).message);
     return Response.json({ error: 'Cron job failed' }, { status: 500 });
   } finally {
-    // Release lock - only the holder (matching instance_id) can release
-    await pool.query(
-      `UPDATE cron_locks SET locked_at = NULL WHERE name = 'scheduler' AND instance_id = $1`,
-      [instanceId]
-    ).catch(() => {});
+    // Release lock - compare-and-delete on the Redis path so a stale holder
+    // cannot delete a newer owner's lock. Postgres fallback matches on
+    // instance_id for the same reason.
+    await lock.release();
   }
 }
