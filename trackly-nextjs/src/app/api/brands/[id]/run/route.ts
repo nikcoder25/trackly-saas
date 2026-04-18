@@ -212,21 +212,39 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // If active_runs table doesn't exist yet, skip the check
   }
 
-  // --- Per-user concurrency limit (max 3 simultaneous runs) ---
-  try {
-    const concurrentResult = await pool.query(
-      `SELECT COUNT(*) as active FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
-       WHERE b.user_id = $1 AND ar.status = 'running' AND ar.started_at > NOW() - INTERVAL '15 minutes'`,
-      [ownerId]
-    );
-    const activeRuns = parseInt(concurrentResult.rows[0]?.active, 10) || 0;
-    if (activeRuns >= 3) {
-      return Response.json({
-        error: `Too many concurrent runs (${activeRuns}/3). Please wait for a run to finish before starting another.`,
-      }, { status: 429 });
+  // --- Per-user concurrency limit ---
+  // Cron-triggered runs are exempted: the cron scheduler already stages
+  // brands via BATCH_SIZE + BRAND_STAGGER_MS in /api/cron/route.ts, and
+  // a 3-per-user cap here would 429 legitimate overdue brands for any
+  // account with more than 3 scheduled brands (agencies, owners). For
+  // manual clicks the cap still applies, but scales with plan tier
+  // instead of the old hard-coded 3.
+  const PLAN_CONCURRENCY: Record<string, number> = {
+    free: 1,
+    trial: 3,
+    starter: 3,
+    pro: 10,
+    agency: 20,
+    enterprise: 50,
+    owner: 100,
+  };
+  if (!isCronCall) {
+    const concurrencyCap = PLAN_CONCURRENCY[effectivePlan] ?? PLAN_CONCURRENCY.free;
+    try {
+      const concurrentResult = await pool.query(
+        `SELECT COUNT(*) as active FROM active_runs ar JOIN brands b ON ar.brand_id = b.id
+         WHERE b.user_id = $1 AND ar.status = 'running' AND ar.started_at > NOW() - INTERVAL '15 minutes'`,
+        [ownerId]
+      );
+      const activeRuns = parseInt(concurrentResult.rows[0]?.active, 10) || 0;
+      if (activeRuns >= concurrencyCap) {
+        return Response.json({
+          error: `Too many concurrent runs (${activeRuns}/${concurrencyCap}). Please wait for a run to finish before starting another.`,
+        }, { status: 429 });
+      }
+    } catch {
+      // Skip if table doesn't exist
     }
-  } catch {
-    // Skip if table doesn't exist
   }
 
   // --- Check per-brand query limit ---
