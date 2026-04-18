@@ -21,7 +21,7 @@ const PLATFORM_KEY_MAP: Record<string, string> = {
   Gemini: 'gemini', Grok: 'grok', 'Google AI Overviews': 'dataforseo',
 };
 const FAIL_THRESHOLD = 5;
-const WORKER_TIMEOUT_MS = 300000; // 5 minutes
+const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 120000;
 
 async function processRun(job: Job<BrandRunJobData>) {
   const { brand, brandId, userId, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys } = job.data;

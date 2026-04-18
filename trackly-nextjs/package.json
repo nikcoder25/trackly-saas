@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker": "tsx --tsconfig tsconfig.worker.json src/lib/run-worker.ts",
     "lint": "next lint",
     "test": "vitest run"
   },
@@ -40,6 +41,7 @@
     "react-dom": "^19.2.4",
     "svix": "^1.90.0",
     "tailwindcss": "^4.2.2",
+    "tsx": "^4.19.2",
     "typescript": "^6.0.2"
   },
   "devDependencies": {
