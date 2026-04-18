@@ -85,8 +85,10 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
             {selectedBrandLocked ? '🔒 BRAND LOCKED' : live.running ? '⏳ RUNNING...' : live.status === 'done' ? '✓ DONE - Refreshing...' : live.status === 'error' ? (live.errorMsg === 'concurrent' ? '⚠ Run in progress' : live.errorMsg === 'run_limit' ? '❌ Run limit reached' : live.errorMsg === 'plan_limit' ? '🔒 Brand locked' : '❌ ' + ((live.statusText || 'Run failed').length > 30 ? (live.statusText || 'Run failed').substring(0, 28) + '...' : (live.statusText || 'Run failed'))) : '▶ RUN QUERIES'}
           </button>
 
-          {/* Upgrade hint for locked brand, run limit, or plan limit */}
-          {(selectedBrandLocked || (live.status === 'error' && (live.errorMsg === 'run_limit' || live.errorMsg === 'plan_limit'))) && (
+          {/* Upgrade hint for locked brand, run limit, or plan limit.
+              Hidden for admin/owner callers - they are already on the top tier
+              and limits they hit here come from the brand owner's plan. */}
+          {!isAdmin && (selectedBrandLocked || (live.status === 'error' && (live.errorMsg === 'run_limit' || live.errorMsg === 'plan_limit'))) && (
             <Link href="/dashboard/account" style={{
               display: 'block', marginTop: 4, padding: '5px 8px', background: 'rgba(245,158,11,.08)',
               border: '1px solid rgba(245,158,11,.2)', borderRadius: 4, textAlign: 'center',

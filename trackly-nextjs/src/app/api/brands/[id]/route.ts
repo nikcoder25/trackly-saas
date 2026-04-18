@@ -37,11 +37,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return Response.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    // Plan limit checks - always check against the brand OWNER's plan and count
+    // Plan limit checks - check against the brand OWNER's plan and count.
+    // Admins/owners bypass this so they can manage client brands without being
+    // clamped by the client's tier.
     const ownerId = brand.userId || user.id;
     await ensureColumns();
+    const callerRow = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
+    const callerIsAdminOrOwner = callerRow.rows[0]?.plan === 'owner' || callerRow.rows[0]?.role === 'admin';
     const planResult = await pool.query('SELECT plan, trial_ends_at FROM users WHERE id = $1', [ownerId]);
-    const plan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
+    const ownerPlan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
+    const plan = callerIsAdminOrOwner ? 'owner' : ownerPlan;
     const limits = getPlanLimits(plan);
 
     // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)

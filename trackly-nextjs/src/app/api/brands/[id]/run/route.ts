@@ -84,6 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const cronHeader = request.headers.get('x-cron-secret');
   let user: { id: string; email?: string };
   let isCronCall = false;
+  let callerIsAdminOrOwner = false;
 
   if (cronSecret && cronHeader && cronSecret.length === cronHeader.length &&
       crypto.timingSafeEqual(Buffer.from(cronSecret), Buffer.from(cronHeader))) {
@@ -98,16 +99,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (authResult instanceof Response) return authResult;
     user = authResult;
 
+    // Load caller's plan/role once - used for manual-run gating AND for the
+    // admin/owner limit bypass further down.
+    const roleResult = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
+    const userPlan = roleResult.rows[0]?.plan || 'free';
+    const userRole = roleResult.rows[0]?.role || '';
+    callerIsAdminOrOwner = userPlan === 'owner' || userRole === 'admin';
+
     // Auto-triggered runs (brand creation, new queries) are allowed for all users.
     // Manual "Run Queries" button is admin/owner only.
     const isAutoRun = new URL(request.url).searchParams.get('auto') === '1';
-    if (!isAutoRun) {
-      const roleResult = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
-      const userPlan = roleResult.rows[0]?.plan || 'free';
-      const userRole = roleResult.rows[0]?.role || '';
-      if (userPlan !== 'owner' && userRole !== 'admin') {
-        return Response.json({ error: 'Runs are automated on your plan schedule. Manual runs are not available.' }, { status: 403 });
-      }
+    if (!isAutoRun && !callerIsAdminOrOwner) {
+      return Response.json({ error: 'Runs are automated on your plan schedule. Manual runs are not available.' }, { status: 403 });
     }
   }
 
@@ -122,11 +125,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const brand = access.brand;
   const ownerId = brand.userId || user.id;
-  // Use brand owner's plan for limits (not team member's plan)
+  // Use brand owner's plan for limits (not team member's plan).
+  // Admins/owners bypass this and use the unlimited owner-plan limits so they
+  // can manage client brands without being clamped by the client's tier.
   await ensureColumns();
   const planResult = await pool.query('SELECT u.plan, u.trial_ends_at, u.api_keys FROM users u JOIN brands b ON b.user_id = u.id WHERE b.id = $1', [id]);
   const ownerPlan = getEffectivePlan(planResult.rows[0]?.plan, planResult.rows[0]?.trial_ends_at);
-  const limits = getPlanLimits(ownerPlan);
+  const effectivePlan = callerIsAdminOrOwner ? 'owner' : ownerPlan;
+  const limits = getPlanLimits(effectivePlan);
 
   // Check if this brand is beyond the owner's plan limit (soft-locked after downgrade)
   const countResult = await pool.query(
