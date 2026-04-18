@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
+import { logger } from '@/lib/logger';
 import { sendReportEmail, type ScheduledReportSummary } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -120,7 +121,11 @@ export async function GET(request: Request) {
         } catch (e) {
           emailsFailed++;
           userFailed++;
-          console.error('[Cron/reports] sendReportEmail threw:', (e as Error).message, { userId: user.id, brand: data.name });
+          logger.error('cron.reports.send_email_threw', {
+            error: (e as Error).message,
+            user_id: user.id,
+            brand: data.name,
+          });
         }
       }
 
@@ -136,6 +141,13 @@ export async function GET(request: Request) {
       }
     }
 
+    logger.info('cron.reports.summary', {
+      frequency,
+      users_targeted: usersTargeted,
+      emails_sent: emailsSent,
+      emails_failed: emailsFailed,
+      ms: Date.now() - started,
+    });
     return Response.json({
       frequency,
       usersTargeted,
@@ -145,11 +157,8 @@ export async function GET(request: Request) {
     });
   } catch (e) {
     const msg = (e as Error).message;
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[Cron/reports] Fatal error:', msg);
-    } else {
-      console.error('[Cron/reports] Fatal error:', msg, (e as Error).stack);
-    }
+    const stack = process.env.NODE_ENV === 'production' ? undefined : (e as Error).stack;
+    logger.error('cron.reports.fatal', { frequency, error: msg, stack });
     return Response.json({ error: 'Report cron failed' }, { status: 500 });
   } finally {
     await lock.release();
