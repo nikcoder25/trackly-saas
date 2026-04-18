@@ -46,7 +46,9 @@ function getServerKeys(): Record<string, string[]> {
   };
 }
 
-// Auto-create the active_runs table if it doesn't exist
+// Auto-create the active_runs table if it doesn't exist, and
+// additively add any diagnostic columns introduced later. Additive
+// ALTERs are guarded by IF NOT EXISTS so restart-on-upgrade is safe.
 async function ensureActiveRunsTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS active_runs (
@@ -68,6 +70,12 @@ async function ensureActiveRunsTable() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  // Track which task the worker is currently on. Written just before
+  // each queryAI call; left populated if the worker hangs so ops can
+  // see the suspect platform + query in /api/admin/diagnostic.
+  await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_platform_attempted TEXT`);
+  await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_query_attempted TEXT`);
+  await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ`);
 }
 
 // Ensure table exists on first call (cached in globalThis)
@@ -538,6 +546,15 @@ async function executeRunBackgroundInner(
           if (circuitBreakerCheck(rawKey)) {
             throw new Error('Circuit breaker open for API key - too many auth failures');
           }
+          // Diagnostic breadcrumb: record the exact platform + query we
+          // are about to call BEFORE awaiting queryAI. If the call hangs,
+          // /api/admin/diagnostic shows these fields on the stuck row
+          // and the culprit platform is visible in one glance. Best-
+          // effort - we don't want DB lag to slow the happy path.
+          pool.query(
+            `UPDATE active_runs SET last_platform_attempted = $1, last_query_attempted = $2, last_attempt_at = NOW(), updated_at = NOW() WHERE id = $3`,
+            [plat, q, runId],
+          ).catch(() => { /* best-effort breadcrumb */ });
           const release = await acquirePlatformSlot(plat);
           try {
             const r = await queryAI(

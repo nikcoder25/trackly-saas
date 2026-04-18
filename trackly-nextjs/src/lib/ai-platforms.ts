@@ -412,16 +412,25 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
     if (callerSignal?.aborted) {
       throw lastErr || tagError('Aborted by caller before attempt', { isTransient: false });
     }
+    // One AbortController covers BOTH fetch() AND the response-body
+    // read (resp.json/text). Previously the timer was cleared as soon
+    // as headers arrived, so a provider that sent 200 OK then stalled
+    // the body would hang resp.json() indefinitely - this produced the
+    // received=9 / received=6 deadlock observed in production because
+    // every worker ended up stuck reading a body that never came.
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const onCallerAbort = () => controller.abort();
     callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+    const cleanup = () => {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', onCallerAbort);
+    };
     let resp: Response;
     try {
       resp = await fetch(url, { ...options, signal: controller.signal });
     } catch (e) {
-      clearTimeout(timer);
-      callerSignal?.removeEventListener('abort', onCallerAbort);
+      cleanup();
       if (callerSignal?.aborted) {
         throw tagError('Aborted by caller', { isTransient: false });
       }
@@ -436,55 +445,71 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       }
       throw lastErr;
     }
-    clearTimeout(timer);
-    callerSignal?.removeEventListener('abort', onCallerAbort);
+    // NOTE: timer intentionally NOT cleared here. Body-read awaits
+    // below still need the deadline. Cleared in every exit path.
 
-    if (resp.status === 401 || resp.status === 403) {
-      if (apiKey) recordApiKeyFailure(apiKey);
-      const data = await resp.json().catch(() => ({}));
-      throw new Error(data.error?.message || `Auth error ${resp.status}`);
-    }
+    try {
+      if (resp.status === 401 || resp.status === 403) {
+        if (apiKey) recordApiKeyFailure(apiKey);
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error?.message || `Auth error ${resp.status}`);
+      }
 
-    if (resp.status === 429 || resp.status === 529) {
-      const bodyText = await resp.text().catch(() => '');
-      let body: unknown = bodyText;
-      try { body = JSON.parse(bodyText); } catch { /* keep as text */ }
-      const hint = parseRetryAfterHeader(resp.headers) || extractBodyRetryAfter(body) || 0;
-      if (apiKey) markKeyRateLimited(apiKey, hint);
-      if (attempt < MAX_RETRIES) {
-        const backoff = 2000 * Math.pow(2, attempt);
-        const jitter = Math.floor(Math.random() * 1000);
-        const wantedSleep = (hint || backoff) + jitter;
-        const cappedSleep = Math.min(wantedSleep, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
-        if (cappedSleep <= 0) {
-          throw tagError(
-            `Rate limited (${resp.status}) - sleep budget exhausted (${MAX_RETRY_SLEEP_MS}ms cap)`,
-            { isRateLimit: true },
-          );
+      if (resp.status === 429 || resp.status === 529) {
+        const bodyText = await resp.text().catch(() => '');
+        let body: unknown = bodyText;
+        try { body = JSON.parse(bodyText); } catch { /* keep as text */ }
+        const hint = parseRetryAfterHeader(resp.headers) || extractBodyRetryAfter(body) || 0;
+        if (apiKey) markKeyRateLimited(apiKey, hint);
+        if (attempt < MAX_RETRIES) {
+          const backoff = 2000 * Math.pow(2, attempt);
+          const jitter = Math.floor(Math.random() * 1000);
+          const wantedSleep = (hint || backoff) + jitter;
+          const cappedSleep = Math.min(wantedSleep, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+          if (cappedSleep <= 0) {
+            throw tagError(
+              `Rate limited (${resp.status}) - sleep budget exhausted (${MAX_RETRY_SLEEP_MS}ms cap)`,
+              { isRateLimit: true },
+            );
+          }
+          totalSleptMs += cappedSleep;
+          cleanup();
+          await sleep(cappedSleep, callerSignal);
+          continue;
         }
-        totalSleptMs += cappedSleep;
-        await sleep(cappedSleep, callerSignal);
-        continue;
+        throw tagError(`Rate limited (${resp.status}) - retries exhausted`, { isRateLimit: true });
       }
-      throw tagError(`Rate limited (${resp.status}) - retries exhausted`, { isRateLimit: true });
-    }
 
-    if (resp.status >= 500) {
-      lastErr = tagError(`Server error ${resp.status}`, { isTransient: true });
-      if (attempt < MAX_RETRIES) {
-        const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
-        const cappedDelay = Math.min(delay, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
-        if (cappedDelay <= 0) throw lastErr;
-        totalSleptMs += cappedDelay;
-        await sleep(cappedDelay, callerSignal);
-        continue;
+      if (resp.status >= 500) {
+        lastErr = tagError(`Server error ${resp.status}`, { isTransient: true });
+        if (attempt < MAX_RETRIES) {
+          const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
+          const cappedDelay = Math.min(delay, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+          if (cappedDelay <= 0) throw lastErr;
+          totalSleptMs += cappedDelay;
+          cleanup();
+          await sleep(cappedDelay, callerSignal);
+          continue;
+        }
+        throw lastErr;
       }
-      throw lastErr;
-    }
 
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
-    return data;
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error?.message || `API error ${resp.status}`);
+      return data;
+    } catch (e) {
+      // If the per-attempt timer fired while we were reading the body,
+      // surface that specifically so callers don't see a bare AbortError.
+      if (!callerSignal?.aborted && controller.signal.aborted) {
+        throw tagError(
+          `fetchAI timeout after ${timeoutMs}ms during response read`,
+          { isTransient: true },
+        );
+      }
+      throw e;
+    } finally {
+      cleanup();
+    }
   }
   throw lastErr || new Error('fetchAI: retries exhausted');
 }
