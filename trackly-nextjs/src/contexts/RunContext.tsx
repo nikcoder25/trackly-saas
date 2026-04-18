@@ -281,7 +281,16 @@ export function RunProvider({ children }: { children: ReactNode }) {
         }
         if (response.status === 429) {
           runningRef.current = false;
-          setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'Monthly run limit reached', errorMsg: 'run_limit' }));
+          // planLimit=true is the monthly run cap (persistent, shows upgrade hint).
+          // Other 429s (concurrent-run lock, middleware rate limit) are transient -
+          // auto-clear so they don't look like a plan limit the user needs to upgrade past.
+          const isPlanLimit = errData.planLimit === true;
+          const statusText = errData.error || (isPlanLimit ? 'Monthly run limit reached' : 'Try again in a moment');
+          setLive(prev => ({
+            ...prev, running: false, status: 'error',
+            statusText, errorMsg: isPlanLimit ? 'run_limit' : 'rate_limit',
+          }));
+          if (!isPlanLimit) setTimeout(() => setLive(INITIAL_STATE), 5000);
           return;
         }
         if (response.status === 403 && errData.planLimit) {
