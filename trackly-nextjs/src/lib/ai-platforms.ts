@@ -113,11 +113,11 @@ export function clearKeyCooldown(apiKey: string): void {
 // provider limits so retries and multi-brand bursts don't trip 429s.
 export interface PlatformLimit { maxConcurrent: number; rpm: number; windowMs: number; }
 export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
-  ChatGPT:    { maxConcurrent: 4, rpm: 300, windowMs: 60000 },
-  Claude:     { maxConcurrent: 3, rpm: 80,  windowMs: 60000 },
-  Gemini:     { maxConcurrent: 6, rpm: 400, windowMs: 60000 },
-  Grok:       { maxConcurrent: 3, rpm: 100, windowMs: 60000 },
-  Perplexity: { maxConcurrent: 3, rpm: 80,  windowMs: 60000 },
+  ChatGPT:    { maxConcurrent: Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY)    || 4, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM)    || 300, windowMs: 60000 },
+  Claude:     { maxConcurrent: Number(process.env.AI_LIMITS_CLAUDE_CONCURRENCY)     || 3, rpm: Number(process.env.AI_LIMITS_CLAUDE_RPM)     || 80,  windowMs: 60000 },
+  Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
+  Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
+  Perplexity: { maxConcurrent: Number(process.env.AI_LIMITS_PERPLEXITY_CONCURRENCY) || 3, rpm: Number(process.env.AI_LIMITS_PERPLEXITY_RPM) || 80,  windowMs: 60000 },
 };
 
 interface PlatformState { inFlight: number; waiters: Array<() => void>; timestamps: number[]; }
@@ -212,7 +212,7 @@ export function isTransientError(e: unknown): boolean {
 // ── Deep-retry wall-clock budget ────────────────────────────────
 // Wraps a provider call with "never-give-up" semantics for transient errors,
 // backing off up to 60s between attempts until the wall-clock budget expires.
-const DEEP_RETRY_BUDGET_MS = parseInt(process.env.AI_DEEP_RETRY_BUDGET_MS || '', 10) || (8 * 60 * 1000);
+const DEEP_RETRY_BUDGET_MS = Number(process.env.AI_DEEP_RETRY_BUDGET_MS) || 75000;
 
 export async function withDeepRetry<T>(platform: string, fn: () => Promise<T>, budgetMs?: number): Promise<T> {
   const budget = budgetMs || DEEP_RETRY_BUDGET_MS;
@@ -376,7 +376,7 @@ function extractBodyRetryAfter(body: unknown): number | null {
 const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 60000;
 
 async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string): Promise<AiResponseData> {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES) || 2;
   let lastErr: AiError | undefined;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();

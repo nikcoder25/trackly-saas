@@ -419,7 +419,7 @@ async function executeRunBackground(
   // 10 min cap to accommodate the 8-min deep-retry budget in queryAI plus
   // headroom for slow providers. Transient rate limits can take several
   // minutes to clear under sustained provider-side load.
-  const WORKER_TIMEOUT_MS = 600000;
+  const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 120000;
 
   async function runWorker() {
     while (nextIdx < tasks.length) {
