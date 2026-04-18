@@ -4,6 +4,7 @@ import { verifyRequestAuth } from '@/lib/auth';
 import { sendVerificationEmail } from '@/lib/email';
 import { AUTH } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -27,17 +28,26 @@ export async function POST(request: Request) {
     try {
       emailResult = await sendVerificationEmail(email, verifyToken);
     } catch (emailErr) {
-      console.error('[Resend Verification] sendVerificationEmail threw:', emailErr);
+      logger.error('auth.resend_verification.send_threw', {
+        user_id: user.id,
+        error: (emailErr as Error)?.message || String(emailErr),
+      });
       return Response.json({ error: 'Failed to send verification email. Please try again later.' }, { status: 500 });
     }
     if (!emailResult.sent) {
-      console.error('[Resend Verification] Email failed:', emailResult.reason);
+      logger.error('auth.resend_verification.send_failed', {
+        user_id: user.id,
+        reason: emailResult.reason,
+      });
       return Response.json({ error: 'Failed to send verification email. Please try again later.' }, { status: 500 });
     }
 
     return Response.json({ message: 'Verification email sent.' });
   } catch (e) {
-    console.error('[Resend Verification] Unhandled error:', e);
+    logger.error('auth.resend_verification.unhandled', {
+      user_id: user.id,
+      error: (e as Error)?.message || String(e),
+    });
     return Response.json({ error: 'Failed to resend verification. Please try again later.' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { generateSecret, getOTPAuthURL } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     );
     return Response.json({ secret, otpauthUrl });
   } catch (e) {
-    console.error('[2FA Setup]', (e as Error).message);
+    logger.error('auth.2fa_setup_failed', { error: (e as Error).message });
     return Response.json({ error: 'Failed to set up 2FA' }, { status: 500 });
   }
 }

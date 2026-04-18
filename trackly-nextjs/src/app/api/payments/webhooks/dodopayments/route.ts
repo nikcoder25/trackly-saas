@@ -1,4 +1,5 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
+import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 
 const PLAN_MAP: Record<string, string> = {};
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
       // Webhook signature verification
       const secrets = getWebhookSecrets();
           if (!secrets.length) {
-                  console.error('[Webhook] No webhook secrets configured (checked DODO_PAYMENTS_WEBHOOK_KEY and DODO_WEBHOOK_SECRET)');
+                  logger.error('webhook.dodo.missing_secret');
                   return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
           }
 
@@ -117,8 +118,10 @@ export async function POST(request: Request) {
       }
 
       if (!signature) {
-        console.error('[Webhook] No signature header found. Checked:', signatureHeaders.join(', '));
-        console.error('[Webhook] Available headers:', Object.keys(allHeaders).join(', '));
+        logger.error('webhook.dodo.missing_signature', {
+          checked_headers: signatureHeaders,
+          available_headers: Object.keys(allHeaders),
+        });
         return Response.json({ error: 'Missing signature' }, { status: 401 });
       }
 
@@ -177,24 +180,24 @@ export async function POST(request: Request) {
       }
 
       if (!verified) {
-        // Log detailed diagnostic info for debugging
+        // Log detailed diagnostic info for debugging. Signatures are
+        // truncated to 20 chars so we don't dump full HMACs into Sentry.
         const firstSecret = secrets[0];
         const simpleExpected = crypto.createHmac('sha256', firstSecret).update(rawBody).digest('hex');
-        console.error('[Webhook] Signature verification FAILED');
-        console.error('[Webhook] Received signature:', signature);
-        console.error('[Webhook] Expected (simple HMAC hex):', simpleExpected.substring(0, 20) + '...');
+        let stdExpectedPreview: string | undefined;
         if (webhookId && webhookTimestamp) {
           const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`;
-          let keyBytes: Buffer;
-          if (firstSecret.startsWith('whsec_')) {
-            keyBytes = Buffer.from(firstSecret.slice(6), 'base64');
-          } else {
-            keyBytes = Buffer.from(firstSecret, 'utf8');
-          }
-          const stdExpected = crypto.createHmac('sha256', keyBytes).update(signedContent).digest('base64');
-          console.error('[Webhook] Expected (Standard Webhooks base64):', stdExpected.substring(0, 20) + '...');
+          const keyBytes = firstSecret.startsWith('whsec_')
+            ? Buffer.from(firstSecret.slice(6), 'base64')
+            : Buffer.from(firstSecret, 'utf8');
+          stdExpectedPreview = crypto.createHmac('sha256', keyBytes).update(signedContent).digest('base64').substring(0, 20) + '...';
         }
-        console.error('[Webhook] Number of secrets tried:', secrets.length);
+        logger.error('webhook.dodo.signature_failed', {
+          received_preview: signature.substring(0, 20) + '...',
+          expected_simple_preview: simpleExpected.substring(0, 20) + '...',
+          expected_standard_preview: stdExpectedPreview,
+          secrets_tried: secrets.length,
+        });
         return Response.json({ error: 'Invalid signature' }, { status: 401 });
       }
 
@@ -204,7 +207,7 @@ export async function POST(request: Request) {
       // The event ID comes from the webhook-id header (Standard Webhooks), not the payload
       const eventId = webhookId || body.event_id || body.id;
           if (!eventId) {
-                  console.error('[Webhook] Missing event ID. No webhook-id header and no event_id in payload. Keys:', Object.keys(body).join(', '));
+                  logger.error('webhook.dodo.missing_event_id', { body_keys: Object.keys(body) });
                   return Response.json({ error: 'Missing event_id' }, { status: 400 });
           }
           const eventType = body.type || body.event_type || '';
@@ -248,13 +251,18 @@ export async function POST(request: Request) {
             if (UPGRADE_EVENTS.has(eventType)) {
                       if (!userId || typeof userId !== 'string') {
                                   await client.query('ROLLBACK');
-                                  console.error('[Webhook] Upgrade event missing userId:', { eventId, eventType, metadata, bodyKeys: Object.keys(body) });
+                                  logger.error('webhook.dodo.upgrade_missing_user_id', {
+                                              event_id: eventId,
+                                              event_type: eventType,
+                                              metadata,
+                                              body_keys: Object.keys(body),
+                                  });
                                   return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
                       }
                       const userCheck = await client.query('SELECT id, plan, settings FROM users WHERE id = $1', [userId]);
                       if (!userCheck.rows.length) {
                                   await client.query('ROLLBACK');
-                                  console.error('[Webhook] User not found:', userId);
+                                  logger.error('webhook.dodo.user_not_found', { user_id: userId, event_type: eventType });
                                   return Response.json({ error: 'User not found' }, { status: 400 });
                       }
 
@@ -271,8 +279,10 @@ export async function POST(request: Request) {
                                               const existingCustomerId = currentUser.settings?.dodo_customer_id;
                                               if (existingCustomerId && existingCustomerId !== customerId) {
                                                               await client.query('ROLLBACK');
-                                                              console.error('[Webhook] Customer ID mismatch:', {
-                                                                                userId, existingCustomerId, webhookCustomerId: customerId
+                                                              logger.error('webhook.dodo.customer_id_mismatch', {
+                                                                                user_id: userId,
+                                                                                existing_customer_id: existingCustomerId,
+                                                                                webhook_customer_id: customerId,
                                                               });
                                                               return Response.json({ error: 'User/customer mismatch' }, { status: 400 });
                                               }
@@ -310,10 +320,12 @@ export async function POST(request: Request) {
                                 // deliveries will queue visibly in the provider dashboard
                                 // and in our webhook_events table once we fix them.
                                 await client.query('ROLLBACK');
-                                console.error('[Webhook] Could not determine plan from event - returning 500 so upstream retries:', {
-                                              eventId, eventType, productId,
-                                              knownProducts: Object.keys(PLAN_MAP),
-                                              metadataPlan: metadata.plan,
+                                logger.error('webhook.dodo.unknown_product', {
+                                              event_id: eventId,
+                                              event_type: eventType,
+                                              product_id: productId,
+                                              known_products: Object.keys(PLAN_MAP),
+                                              metadata_plan: metadata.plan,
                                 });
                                 await auditLog('system', 'webhook_unknown_product', 'payment', eventId, {
                                               eventType, productId, userId, metadataPlan: metadata.plan,
@@ -328,13 +340,17 @@ export async function POST(request: Request) {
             if (DOWNGRADE_EVENTS.has(eventType)) {
                       if (!userId || typeof userId !== 'string') {
                                   await client.query('ROLLBACK');
-                                  console.error('[Webhook] Downgrade event missing userId:', { eventId, eventType, metadata });
+                                  logger.error('webhook.dodo.downgrade_missing_user_id', {
+                                              event_id: eventId,
+                                              event_type: eventType,
+                                              metadata,
+                                  });
                                   return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
                       }
                       const userCheck2 = await client.query('SELECT id, plan FROM users WHERE id = $1', [userId]);
                       if (!userCheck2.rows.length) {
                                   await client.query('ROLLBACK');
-                                  console.error('[Webhook] User not found for downgrade:', userId);
+                                  logger.error('webhook.dodo.user_not_found_downgrade', { user_id: userId, event_type: eventType });
                                   return Response.json({ error: 'User not found' }, { status: 400 });
                       }
 
@@ -393,11 +409,8 @@ export async function POST(request: Request) {
           // Stack traces can expose file paths and internal layout; log them
           // only outside production. Sentry already captures the full trace
           // via the instrumentation hook regardless.
-          if (process.env.NODE_ENV === 'production') {
-                  console.error('[Webhook] Processing error:', errorMessage);
-          } else {
-                  console.error('[Webhook] Processing error:', errorMessage, (e as Error).stack);
-          }
+          const stack = process.env.NODE_ENV === 'production' ? undefined : (e as Error).stack;
+          logger.error('webhook.dodo.processing_error', { error: errorMessage, stack });
           // Return 500 for all errors to trigger Dodo's retry mechanism
           return Response.json({ error: 'Webhook processing failed, will retry' }, { status: 500 });
     }

@@ -2,6 +2,7 @@ import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     // Return plaintext codes to user - this is the only time they see them
     return Response.json({ enabled: true, backupCodes, message: 'Two-factor authentication enabled. Save your backup codes!' });
   } catch (e) {
-    console.error('[2FA Verify]', (e as Error).message);
+    logger.error('auth.2fa_verify_failed', { error: (e as Error).message });
     return Response.json({ error: 'Failed to verify 2FA' }, { status: 500 });
   }
 }

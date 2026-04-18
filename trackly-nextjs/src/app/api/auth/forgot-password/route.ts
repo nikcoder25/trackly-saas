@@ -5,6 +5,7 @@ import { AUTH } from '@/lib/constants';
 import { sendPasswordResetEmail } from '@/lib/email';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { hashToken } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json({ message: successMsg });
   } catch (e) {
-    console.error('[ForgotPassword]', (e as Error).message);
+    logger.error('auth.forgot_password_failed', { error: (e as Error).message });
     return Response.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }

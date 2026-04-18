@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import IORedis, { type Redis as IORedisClient } from 'ioredis';
 import { pool } from './db';
+import { logger } from './logger';
 
 /**
  * Shared cron-lock helper. Every scheduled endpoint should call
@@ -124,11 +125,10 @@ function isRedisBackendEnabled(): boolean {
 
 function logSkip(name: string, backend: 'redis' | 'postgres'): void {
   // Structured skip-reason line. Logged once per contended acquire so the
-  // 409/429 pile-up is visible in runtime logs without needing DB access.
+  // 409/429 pile-up is visible in Sentry Logs (and the App Platform
+  // buffer) without needing DB access.
   if (process.env.NODE_ENV === 'test') return;
-  console.log(
-    JSON.stringify({ msg: 'cron.skip', name, reason: 'locked', backend })
-  );
+  logger.info('cron.skip', { name, reason: 'locked', backend });
 }
 
 // --- Redis-backed lock ---

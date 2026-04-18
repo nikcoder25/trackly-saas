@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import { pool } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { getPlanLimits } from '@/lib/constants';
+import { logger } from '@/lib/logger';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
@@ -65,11 +66,11 @@ async function reconcileStaleActiveRuns(): Promise<{ count: number; brandIds: st
     const brandIds = Array.from(new Set((res.rows as { brand_id: string }[]).map(r => r.brand_id)));
     const count = res.rowCount || 0;
     if (count > 0) {
-      console.log(`[Cron] Reconciled ${count} stale running rows for brands:`, brandIds);
+      logger.info('cron.reconciled_stale_runs', { count, brand_ids: brandIds });
     }
     return { count, brandIds };
   } catch (e) {
-    console.warn('[Cron] reconcileStaleActiveRuns failed:', (e as Error).message);
+    logger.warn('cron.reconcile_stale_failed', { error: (e as Error).message });
     return { count: 0, brandIds: [] };
   }
 }
@@ -159,7 +160,7 @@ export async function GET(request: Request) {
     };
     const logSkip = (reason: SkipReason, details: Record<string, unknown>) => {
       skipCounts[reason]++;
-      console.log('[Cron] Skip:', JSON.stringify({ reason, ...details }));
+      logger.info('cron.skip', { reason, ...details });
     };
 
     const eligible = (result.rows as CronBrandRow[]).filter((row) => {
@@ -248,19 +249,19 @@ export async function GET(request: Request) {
         } else {
           const reason = (results[j] as PromiseRejectedResult).reason?.message || 'Unknown error';
           errors.push(`${batch[j].id}: ${reason}`);
-          console.error(`[Cron] Failed brand ${batch[j].id}:`, reason);
+          logger.error('cron.brand_failed', { brand_id: batch[j].id, error: reason });
         }
       }
     }
 
     const total = result.rows.length;
     const timestamp = new Date().toISOString();
-    console.log('[Cron] Summary:', JSON.stringify({
+    logger.info('cron.summary', {
       processed, skipped, reconciled, total,
       skip_reasons: skipCounts,
       errors_count: errors?.length || 0,
       timestamp,
-    }));
+    });
     return Response.json({
       processed, skipped, reconciled, total,
       skipReasons: skipCounts,
@@ -269,7 +270,7 @@ export async function GET(request: Request) {
       timestamp,
     });
   } catch (e) {
-    console.error('[Cron]', (e as Error).message);
+    logger.error('cron.fatal', { error: (e as Error).message });
     return Response.json({ error: 'Cron job failed' }, { status: 500 });
   } finally {
     // Release lock - compare-and-delete on the Redis path so a stale holder

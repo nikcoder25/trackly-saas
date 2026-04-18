@@ -1,5 +1,6 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
+import { logger } from '@/lib/logger';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
 
     const dodoBearerToken = process.env.DODO_PAYMENTS_API_KEY;
     if (!dodoBearerToken) {
-      console.error('[Reconciliation] DODO_PAYMENTS_API_KEY not configured');
+      logger.error('cron.reconcile.missing_api_key');
       return NextResponse.json({ error: 'Dodo API key not configured' }, { status: 500 });
     }
 
@@ -101,7 +102,10 @@ export async function GET(request: Request) {
           if (!response.ok) {
             if (response.status === 404) {
               // Subscription no longer exists at DodoPayments - clean up stale data
-              console.log(`[Reconciliation] Subscription ${subscriptionId} not found (404) for user ${user.id}, cleaning up`);
+              logger.info('cron.reconcile.stale_subscription_404', {
+                subscription_id: subscriptionId,
+                user_id: user.id,
+              });
               await client.query('BEGIN');
               if (user.plan !== 'free') {
                 await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', user.id]);
@@ -113,13 +117,17 @@ export async function GET(request: Request) {
                 [user.id]
               );
               await client.query('COMMIT');
-              console.log(`[Reconciliation] Cleaned up stale subscription for user ${user.id}`);
+              logger.info('cron.reconcile.stale_subscription_cleaned', { user_id: user.id });
               await auditLog('system', 'cron_reconcile_stale_sub', 'user', user.id, {
                 previousPlan: user.plan, subscriptionId, reason: 'subscription_not_found_404',
               }, 'cron').catch(() => {});
               continue;
             }
-            console.warn(`[Reconciliation] Failed to fetch subscription ${subscriptionId} for user ${user.id}: ${response.status}`);
+            logger.warn('cron.reconcile.fetch_failed', {
+              subscription_id: subscriptionId,
+              user_id: user.id,
+              status: response.status,
+            });
             errors++;
             continue;
           }
@@ -137,14 +145,22 @@ export async function GET(request: Request) {
           }
 
           if (!expectedPlan && dodoStatus === 'active') {
-            console.warn(`[Reconciliation] Unknown product ID ${dodoProductId} for user ${user.id}`);
+            logger.warn('cron.reconcile.unknown_product_id', {
+              dodo_product_id: dodoProductId,
+              user_id: user.id,
+            });
             errors++;
             continue;
           }
 
           // Check if the user current plan matches what Dodo says
           if (expectedPlan && user.plan !== expectedPlan) {
-            console.log(`[Reconciliation] Plan mismatch for user ${user.id}: DB has '${user.plan}', Dodo says '${expectedPlan}' (status: ${dodoStatus})`);
+            logger.info('cron.reconcile.plan_mismatch', {
+              user_id: user.id,
+              db_plan: user.plan,
+              dodo_plan: expectedPlan,
+              dodo_status: dodoStatus,
+            });
             
             await client.query('BEGIN');
             await client.query(
@@ -178,8 +194,12 @@ export async function GET(request: Request) {
               to: expectedPlan,
             });
 
-            console.log(`[Reconciliation] Fixed user ${user.id}: ${user.plan} -> ${expectedPlan}`);
-            
+            logger.info('cron.reconcile.plan_fixed', {
+              user_id: user.id,
+              from: user.plan,
+              to: expectedPlan,
+            });
+
             await auditLog('system', 'cron_reconcile_plan', 'user', user.id, {
               previousPlan: user.plan,
               newPlan: expectedPlan,
@@ -196,11 +216,18 @@ export async function GET(request: Request) {
               `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
               [JSON.stringify({ subscription_status: dodoStatus }), user.id]
             );
-            console.log(`[Reconciliation] Updated subscription_status for user ${user.id}: ${currentStatus} -> ${dodoStatus}`);
+            logger.info('cron.reconcile.subscription_status_updated', {
+              user_id: user.id,
+              from: currentStatus,
+              to: dodoStatus,
+            });
           }
 
         } catch (userError) {
-          console.error(`[Reconciliation] Error processing user ${user.id}:`, userError);
+          logger.error('cron.reconcile.user_error', {
+            user_id: user.id,
+            error: (userError as Error)?.message || String(userError),
+          });
           errors++;
           await client.query('ROLLBACK').catch(() => {});
         }
@@ -214,8 +241,13 @@ export async function GET(request: Request) {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('[Reconciliation] Complete:', summary);
-      
+      logger.info('cron.reconcile.complete', {
+        checked,
+        reconciled,
+        errors,
+        details_count: details.length,
+      });
+
       return NextResponse.json(summary);
 
       } finally {
@@ -226,7 +258,7 @@ export async function GET(request: Request) {
     }
 
   } catch (e) {
-    console.error('[Reconciliation] Fatal error:', e);
+    logger.error('cron.reconcile.fatal', { error: (e as Error)?.message || String(e) });
     return NextResponse.json({ error: 'Reconciliation failed' }, { status: 500 });
   }
 }

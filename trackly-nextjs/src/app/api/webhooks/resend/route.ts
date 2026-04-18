@@ -1,4 +1,5 @@
 import { Webhook } from 'svix';
+import { logger } from '@/lib/logger';
 
 const WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 
@@ -27,7 +28,7 @@ interface ResendWebhookPayload {
 
 export async function POST(request: Request) {
   if (!WEBHOOK_SECRET) {
-    console.error('[Resend Webhook] RESEND_WEBHOOK_SECRET is not set');
+    logger.error('webhook.resend.missing_secret');
     return Response.json({ error: 'Webhook secret not configured' }, { status: 500 });
   }
 
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   const svixSignature = request.headers.get('svix-signature');
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    console.error('[Resend Webhook] Missing svix headers');
+    logger.error('webhook.resend.missing_headers');
     return Response.json({ error: 'Missing webhook signature headers' }, { status: 401 });
   }
 
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       'svix-signature': svixSignature,
     }) as ResendWebhookPayload;
   } catch (e) {
-    console.error('[Resend Webhook] Signature verification failed:', (e as Error).message);
+    logger.error('webhook.resend.signature_invalid', { error: (e as Error).message });
     return Response.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
@@ -58,15 +59,15 @@ export async function POST(request: Request) {
 
   switch (type) {
     case 'email.bounced':
-      console.error(`[Resend Webhook] BOUNCED email_id=${data.email_id}`);
+      logger.error('webhook.resend.bounced', { email_id: data.email_id });
       break;
 
     case 'email.complained':
-      console.error(`[Resend Webhook] COMPLAINED email_id=${data.email_id}`);
+      logger.error('webhook.resend.complained', { email_id: data.email_id });
       break;
 
     case 'email.delivery_delayed':
-      console.warn(`[Resend Webhook] DELAYED email_id=${data.email_id}`);
+      logger.warn('webhook.resend.delayed', { email_id: data.email_id });
       break;
 
     default:
