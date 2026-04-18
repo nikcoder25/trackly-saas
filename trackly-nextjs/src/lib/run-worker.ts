@@ -13,6 +13,7 @@ import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { uid } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures } from './ai-platforms';
+import { logger } from './logger';
 import type { BrandRunJobData } from './job-queue';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -57,7 +58,12 @@ async function processRun(job: Job<BrandRunJobData>) {
         [received, foundCount, errorCount, runId, JSON.stringify(pendingResults)]
       );
       pendingResults = [];
-    } catch (e) { console.error('[Worker] DB progress update failed:', (e as Error).message); }
+    } catch (e) {
+      logger.error('worker.progress_update_failed', {
+        run_id: runId,
+        error: (e as Error).message,
+      });
+    }
   }
 
   function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }) {
@@ -160,7 +166,10 @@ async function processRun(job: Job<BrandRunJobData>) {
       [brandId, 'running']
     );
     if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
-      console.warn(`[Worker] Run ${runId} superseded by ${activeCheck.rows[0].id} - skipping final save`);
+      logger.warn('worker.run_superseded', {
+        run_id: runId,
+        superseded_by: activeCheck.rows[0].id,
+      });
       await pool.query(
         `UPDATE active_runs SET status = 'error', error = 'Superseded by newer run', completed_at = NOW() WHERE id = $1`,
         [runId]
@@ -285,7 +294,13 @@ async function processRun(job: Job<BrandRunJobData>) {
         await pool.query(
           `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
         );
-      } catch (e) { console.error('[Worker] Failed to persist prompt_runs batch:', (e as Error).message); }
+      } catch (e) {
+        logger.error('worker.prompt_runs_batch_failed', {
+          run_id: runId,
+          brand_id: brandId,
+          error: (e as Error).message,
+        });
+      }
     }
 
     console.log(`[Worker] Run ${runId} complete: ${totalQ} queries, ${totalM} mentions, ${totalErrors} errors, ${Math.round(durationMs/1000)}s`);
@@ -298,8 +313,17 @@ async function processRun(job: Job<BrandRunJobData>) {
          WHERE id = $5`,
         [(err as Error).message, received, foundCount, errorCount, runId]
       );
-    } catch (e) { console.error('[Worker] Failed to mark run as error:', (e as Error).message); }
-    console.error('[Worker] Run failed:', (err as Error).message);
+    } catch (e) {
+      logger.error('worker.mark_run_error_failed', {
+        run_id: runId,
+        error: (e as Error).message,
+      });
+    }
+    logger.error('worker.run_failed', {
+      run_id: runId,
+      brand_id: brandId,
+      error: (err as Error).message,
+    });
   }
 }
 
@@ -317,7 +341,7 @@ if (redisUrl) {
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`[Worker] Job ${job?.id} failed:`, err.message);
+    logger.error('worker.job_failed', { job_id: job?.id, error: err.message });
   });
 
   // Graceful shutdown
