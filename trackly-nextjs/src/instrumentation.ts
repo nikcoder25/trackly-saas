@@ -53,28 +53,22 @@ export async function register() {
       );
     }
 
-    // In-process self-triggering cron scheduler. GitHub Actions
-    // (.github/workflows/cron.yml) is the primary trigger on DigitalOcean;
-    // this is a belt-and-suspenders fallback so scheduled runs still happen
-    // if the workflow is disabled. cron_locks dedupes the two sources.
+    // In-process self-triggering cron scheduler.
     //
-    // When the app runs on multiple instances, every instance would otherwise
-    // wake up on the same cadence and race on the same lock. That's not
-    // incorrect (only one wins) but it's wasteful and noisy, so:
-    //   - In production we only enable the scheduler when the runtime exposes
-    //     an instance index and we're on instance 0.
-    //   - Any env can opt out via CRON_SELF_TRIGGER=false.
-    //   - Any env can force-enable via CRON_SELF_TRIGGER=true.
+    // Historically this ran whenever CRON_SECRET + APP_URL were set, which
+    // meant every container boot (~30s in) plus every 60 minutes would hit
+    // /api/cron. That competed with the GitHub Actions `0 * * * *` schedule
+    // for the same Redis lock, and because the self-trigger drifts to
+    // off-cycle minutes, the 24h interval gate often evaluated `hoursSince <
+    // effectiveSchedule` by just a few minutes and skipped brands for
+    // another full cycle — compounding into multi-day gaps.
+    //
+    // GitHub Actions is now the single source of truth by default; this
+    // path stays in the tree as an explicit fallback, off unless the
+    // operator opts in with CRON_SELF_TRIGGER=true.
     const cronSecret = process.env.CRON_SECRET;
     const appUrl = process.env.APP_URL;
-    const cronToggle = (process.env.CRON_SELF_TRIGGER || "").toLowerCase();
-    const instanceIndex = process.env.INSTANCE_INDEX ?? process.env.NODE_APP_INSTANCE ?? null;
-    const isLeader = instanceIndex === null || instanceIndex === "0";
-    const selfTriggerEnabled =
-      cronToggle === "true" ||
-      (cronToggle !== "false" &&
-        (process.env.NODE_ENV !== "production" || isLeader));
-    if (cronSecret && appUrl && selfTriggerEnabled) {
+    if (cronSecret && appUrl && process.env.CRON_SELF_TRIGGER === 'true') {
       const INITIAL_DELAY_MS = 30_000; // 30 seconds
 
       // Default: 60 minutes (matches the `0 * * * *` GH Actions schedule).
