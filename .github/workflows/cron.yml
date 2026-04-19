@@ -15,6 +15,7 @@ on:
   schedule:
     - cron: "0 * * * *"
     - cron: "*/15 * * * *"
+    - cron: "30 2 * * *"
     - cron: "0 8 * * 1"
     - cron: "0 8 1 * *"
   workflow_dispatch:
@@ -26,6 +27,7 @@ on:
         type: choice
         options:
           - hourly
+          - daily
           - reconcile
           - weekly
           - monthly
@@ -45,6 +47,27 @@ jobs:
             --max-time 540 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron"
+
+  daily_floor:
+    # Once-per-day safety net. Calls /api/cron?mode=daily_floor which takes
+    # a separate Redis lock and bypasses the per-brand interval gate, so any
+    # brand that drifted past its 24h slot (missed hourly tick, clock drift,
+    # extended lock contention) still runs at least once every 24h. 02:30
+    # UTC is deliberately off-cycle from the `0 * * * *` hourly to avoid
+    # racing the lock at the top of the hour.
+    name: Daily floor cron
+    if: github.event.schedule == '30 2 * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'daily')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Call /api/cron?mode=daily_floor
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 840 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron?mode=daily_floor"
 
   reconcile:
     # Payment reconciliation. Catches Dodo subscription changes that we
