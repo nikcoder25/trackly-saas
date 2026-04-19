@@ -98,13 +98,38 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // `mode=daily_floor` is called once per UTC day by the workflow's daily
+  // schedule. It runs under a separate lock so the hourly tick can't starve
+  // it, and it ignores the per-brand interval gate so any brand that missed
+  // its 24h slot (e.g. off-by-a-few-minutes drift) still runs at least once
+  // per day.
+  const url = new URL(request.url);
+  const isDailyFloor = url.searchParams.get('mode') === 'daily_floor';
+  const mode: 'hourly' | 'daily_floor' = isDailyFloor ? 'daily_floor' : 'hourly';
+
   // Dedupe overlapping triggers (GH Actions schedule + workflow_dispatch
   // + in-process instrumentation all hit this endpoint). Redis-backed when
   // REDIS_URL is set, with a Postgres fallback table so this never 500s
-  // if Redis is briefly unreachable.
-  const lock = await acquireCronLock('scheduler', 10);
+  // if Redis is briefly unreachable. Daily floor uses its own lock name so
+  // the hourly scheduler can't block it.
+  const lockName = isDailyFloor ? 'scheduler_daily' : 'scheduler';
+  const lockTtlMinutes = isDailyFloor ? 15 : 10;
+  const lock = await acquireCronLock(lockName, lockTtlMinutes);
   if (!lock) {
-    return Response.json({ skipped: true, reason: 'locked' });
+    logger.warn('cron.locked_skip', { mode });
+    // Emit a summary line even on the locked path so every invocation
+    // produces exactly one cron.summary log, which makes absence of the
+    // line unambiguously signal a crashed/hung handler.
+    logger.info('cron.summary', {
+      mode,
+      processed: 0,
+      skipped: 0,
+      reconciled: 0,
+      total: 0,
+      reason: 'locked',
+      timestamp: new Date().toISOString(),
+    });
+    return Response.json({ skipped: true, reason: 'locked', mode });
   }
 
   try {
@@ -205,7 +230,17 @@ export async function GET(request: Request) {
 
       if (lastRunTime) {
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
-        if (hoursSince < effectiveSchedule) {
+        // Daily floor ignores the interval gate entirely - it's the
+        // "run at least once per day" safety net.
+        if (isDailyFloor) return true;
+        // 5 minutes of tolerance so a run that completed at 10:01:42
+        // doesn't have to wait until 10:02 the next day to requalify. The
+        // previous exact-inequality check was the main cause of the
+        // compounding multi-day skip: a 59-minute drift on the in-process
+        // self-trigger was enough to push `hoursSince` just below the
+        // threshold every tick.
+        const toleranceHours = 5 / 60;
+        if (hoursSince < effectiveSchedule - toleranceHours) {
           logSkip('interval_not_elapsed', {
             brand_id: row.id,
             plan,
@@ -271,12 +306,14 @@ export async function GET(request: Request) {
     // this tick.
     const skipReasonsWithStale = { ...skipCounts, stale_reconciled: reconciled };
     logger.info('cron.summary', {
+      mode,
       processed, skipped, reconciled, total,
       skip_reasons: skipReasonsWithStale,
       errors_count: errors?.length || 0,
       timestamp,
     });
     return Response.json({
+      mode,
       processed, skipped, reconciled, total,
       skipReasons: skipReasonsWithStale,
       reconciledBrandIds: reconciled > 0 ? reconciledBrandIds : undefined,
@@ -284,7 +321,18 @@ export async function GET(request: Request) {
       timestamp,
     });
   } catch (e) {
-    logger.error('cron.fatal', { error: (e as Error).message });
+    logger.error('cron.fatal', { mode, error: (e as Error).message });
+    // Match the locked path: every invocation emits exactly one summary
+    // line, so absence of cron.summary always means a crashed handler.
+    logger.info('cron.summary', {
+      mode,
+      processed: 0,
+      skipped: 0,
+      reconciled: 0,
+      total: 0,
+      reason: 'fatal',
+      timestamp: new Date().toISOString(),
+    });
     return Response.json({ error: 'Cron job failed' }, { status: 500 });
   } finally {
     // Release lock - compare-and-delete on the Redis path so a stale holder
