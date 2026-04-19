@@ -2,6 +2,28 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
 
+    // Hard-fail in production when critical secrets are missing or obviously
+    // unsafe. We'd rather refuse to boot than silently issue HS256 tokens with
+    // an empty/short/example secret an attacker could brute force.
+    if (process.env.NODE_ENV === "production") {
+      const jwtSecret = process.env.JWT_SECRET || "";
+      const badJwt =
+        !jwtSecret ||
+        jwtSecret.length < 32 ||
+        /^(change.?me|example|placeholder|your.?secret|secret)$/i.test(jwtSecret);
+      if (badJwt) {
+        throw new Error(
+          "[Boot] JWT_SECRET must be set to a random value of at least 32 characters in production."
+        );
+      }
+      const encKey = process.env.ENCRYPTION_KEY || "";
+      if (encKey && !/^[0-9a-fA-F]{64}$/.test(encKey)) {
+        throw new Error(
+          "[Boot] ENCRYPTION_KEY must be a 64-character hex string (32 bytes) when set."
+        );
+      }
+    }
+
     if (process.env.NODE_ENV === "production" && !process.env.CRON_SECRET) {
       console.warn(
         "[WARN] CRON_SECRET is not set - /api/cron* endpoints will return 500 and scheduled runs will not execute."

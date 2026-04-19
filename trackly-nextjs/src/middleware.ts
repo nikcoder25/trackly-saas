@@ -4,6 +4,12 @@ import type { NextRequest } from 'next/server';
 const authPaths = ['/login', '/signup', '/reset-password'];
 
 // ── In-memory rate limiting ──────────────────────────────────────────────────
+//
+// Edge middleware cannot reach Postgres/Redis directly, so we keep a
+// per-instance counter here. For a more authoritative backstop, route handlers
+// still call the Postgres-backed limiter in src/lib/rate-limit.ts. The
+// middleware limit is a first layer - on DigitalOcean App Platform with N
+// instances the effective cap is roughly N * LIMIT.
 
 interface RateLimitEntry {
   count: number;
@@ -28,11 +34,10 @@ function cleanupExpired() {
   }
 }
 
-function checkRateLimit(ip: string, isAuth: boolean): { allowed: boolean; retryAfter: number } {
+function checkRateLimit(key: string, isAuth: boolean): { allowed: boolean; retryAfter: number } {
   cleanupExpired();
 
   const limit = isAuth ? AUTH_LIMIT : GENERAL_LIMIT;
-  const key = `${isAuth ? 'auth' : 'api'}:${ip}`;
   const now = Date.now();
 
   const entry = rateLimitMap.get(key);
@@ -50,36 +55,84 @@ function checkRateLimit(ip: string, isAuth: boolean): { allowed: boolean; retryA
   return { allowed: true, retryAfter: 0 };
 }
 
+// Resolve a client IP from trusted platform headers. DigitalOcean App Platform
+// sets `do-connecting-ip`; other hops may set `cf-connecting-ip` (if we ever
+// put Cloudflare in front). `x-forwarded-for` is client-supplied unless a
+// trusted proxy rewrites it, so we treat it as a last resort.
+function getClientIp(request: NextRequest): string {
+  const doIp = request.headers.get('do-connecting-ip');
+  if (doIp) return doIp.trim();
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp.trim();
+  const xri = request.headers.get('x-real-ip');
+  if (xri) return xri.trim();
+  const xff = request.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0]?.trim() || 'unknown';
+  return 'unknown';
+}
+
+// ── Base64url helpers (Edge-safe) ────────────────────────────────────────────
+
+function base64urlToString(b64url: string): string {
+  let s = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  // Pad to a multiple of 4 - JWT header/payload/signature lengths are often
+  // not multiples of 4 and atob() without padding throws on some inputs.
+  while (s.length % 4) s += '=';
+  return atob(s);
+}
+
+function base64urlToBytes(b64url: string): Uint8Array {
+  const str = base64urlToString(b64url);
+  const buf = new ArrayBuffer(str.length);
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
+  return bytes;
+}
+
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 
-async function verifyTokenSignature(token: string): Promise<Record<string, unknown> | null> {
+interface VerifiedPayload {
+  id?: string;
+  email?: string;
+  role?: string;
+  plan?: string;
+  exp?: number;
+  iat?: number;
+  [key: string]: unknown;
+}
+
+async function verifyTokenSignature(token: string): Promise<VerifiedPayload | null> {
   const secret = process.env.JWT_SECRET;
   if (!secret) return null;
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
+
+    // Enforce the expected algorithm so we never accept a token with a
+    // different alg (e.g. `none` or RS256) that our HMAC check wouldn't
+    // actually validate.
+    let header: { alg?: string; typ?: string };
+    try {
+      header = JSON.parse(base64urlToString(parts[0])) as { alg?: string; typ?: string };
+    } catch {
+      return null;
+    }
+    if (!header || header.alg !== 'HS256') return null;
+
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
-      'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+      'raw', encoder.encode(secret) as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
     );
-    const signature = Uint8Array.from(atob(parts[2].replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const signature = base64urlToBytes(parts[2]);
     const data = encoder.encode(`${parts[0]}.${parts[1]}`);
-    const valid = await crypto.subtle.verify('HMAC', key, signature, data);
+    const valid = await crypto.subtle.verify('HMAC', key, signature as BufferSource, data as BufferSource);
     if (!valid) return null;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+
+    const payload = JSON.parse(base64urlToString(parts[1])) as VerifiedPayload;
     if (payload.exp && payload.exp * 1000 < Date.now()) return null;
     return payload;
   } catch {
     return null;
-  }
-}
-
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.exp ? payload.exp * 1000 < Date.now() : true;
-  } catch {
-    return true;
   }
 }
 
@@ -88,11 +141,16 @@ function isTokenExpired(token: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // API rate limiting
+  // API rate limiting. Key by IP + a short hash of the session cookie when
+  // present so a flood of anonymous requests that all resolve to "unknown"
+  // doesn't share the same bucket across every signed-out visitor.
   if (pathname.startsWith('/api/')) {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = getClientIp(request);
+    const cookieToken = request.cookies.get('livesov_token')?.value;
+    const sessionTag = cookieToken ? cookieToken.slice(-16) : 'anon';
     const isAuth = pathname.startsWith('/api/auth/');
-    const { allowed, retryAfter } = checkRateLimit(ip, isAuth);
+    const key = `${isAuth ? 'auth' : 'api'}:${ip}:${sessionTag}`;
+    const { allowed, retryAfter } = checkRateLimit(key, isAuth);
 
     if (!allowed) {
       return NextResponse.json(
@@ -107,16 +165,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Verify the session cookie once per request. `hasValidToken` is derived
+  // from a real HMAC signature check + alg enforcement + exp check, so a
+  // forged/tampered JWT can never cause the middleware to advertise a
+  // logged-in UX.
   const token = request.cookies.get('livesov_token')?.value;
-  const hasValidToken = token && !isTokenExpired(token);
+  const payload = token ? await verifyTokenSignature(token) : null;
+  const hasValidToken = !!payload;
 
-  // Admin backend: requires valid token + verified JWT signature with admin role
+  // Admin backend: requires a verified signature with role=admin. `plan`
+  // is a billing concept and must not grant admin access.
   if (pathname.startsWith('/admin-backend')) {
     if (!hasValidToken) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    const payload = await verifyTokenSignature(token);
-    if (!payload || (payload.role !== 'admin' && payload.plan !== 'owner')) {
+    if (payload?.role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
     return NextResponse.next();

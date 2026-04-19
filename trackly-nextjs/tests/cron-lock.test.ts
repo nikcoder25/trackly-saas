@@ -30,6 +30,12 @@ function createStubClient(options: { failSet?: boolean; failEval?: boolean } = {
 
   const client = {
     on: () => client,
+    off: () => client,
+    // cron-lock reads `.status` and waits for a 'ready' event when the
+    // client isn't ready yet (boot-race guard). The stub is always ready,
+    // so `once` is a no-op and the module proceeds straight to SET.
+    status: 'ready' as const,
+    once: (_event: string, _cb: () => void) => client,
     set: vi.fn(async (key: string, value: string, pxFlag: string, ttlMs: number, nxFlag: string) => {
       if (options.failSet) throw new Error('boom-set');
       expect(pxFlag).toBe('PX');
