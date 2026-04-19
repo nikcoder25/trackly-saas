@@ -483,18 +483,29 @@ async function executeRunBackgroundInner(
   function processError(plat: string, q: string, err: Error) {
     // Transient errors (429, 503, capacity) don't count toward the
     // consecutive-failure threshold - the platform isn't broken, just
-    // busy. EXCEPT timeouts: a platform that consistently times out IS
-    // broken for this run, and wasting 60s per remaining task hoping
-    // it recovers ends up blowing past the 5-min stale reconciler and
-    // getting the whole run reaped. Count timeouts toward the
-    // threshold so after FAIL_THRESHOLD consecutive ones the platform
-    // is short-circuited for the rest of this run (a successful call
-    // later resets the counter).
+    // busy. EXCEPT:
+    //   - timeouts: a platform that consistently times out IS broken
+    //     for this run, and wasting 60s per remaining task hoping it
+    //     recovers ends up blowing past the 5-min stale reconciler and
+    //     getting the whole run reaped.
+    //   - rate-limit retries-exhausted / breaker-open: the provider has
+    //     told us to back off, so further calls in this run are dead
+    //     weight. Root cause of the Apr 2026 "Last Run frozen" incident:
+    //     Gemini quota saturation cascaded into every brand, but the old
+    //     branch here skipped ALL transient errors so the per-platform
+    //     fuse never blew and every run burned 5 min of budget.
+    // Count both toward the threshold so after FAIL_THRESHOLD
+    // consecutive ones the platform is short-circuited for the rest of
+    // this run. A successful call later resets the counter.
     const msg = err.message || '';
     const isTimeout = msg.includes('timeout')
       || msg.includes('sleep budget exhausted')
       || msg.includes('Aborted');
-    if (!isTransientError(err) || isTimeout) {
+    const aiErr = err as { isRateLimit?: boolean; budgetExhausted?: boolean };
+    const isRateLimitGiveUp = Boolean(aiErr.isRateLimit && aiErr.budgetExhausted)
+      || msg.includes('retries exhausted')
+      || msg.includes('circuit open');
+    if (!isTransientError(err) || isTimeout || isRateLimitGiveUp) {
       platFailCount[plat] = (platFailCount[plat] || 0) + 1;
     }
     allResults.push({
@@ -581,7 +592,11 @@ async function executeRunBackgroundInner(
           }
         };
 
-        const result = await withDeepRetry(plat, singleAttempt);
+        // Plumb the task signal into withDeepRetry so an outer per-platform
+        // timeout (AbortController above) also interrupts retry sleeps -
+        // otherwise a 10-17s sleep could outlive the 60s task deadline and
+        // let 429 retries burn the full per-run budget.
+        const result = await withDeepRetry(plat, singleAttempt, { signal });
         platFailCount[plat] = 0;
         processResult(plat, q, result);
       } catch (err) {

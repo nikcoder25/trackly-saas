@@ -97,6 +97,68 @@ export function resetApiKeyFailures(apiKey: string): void {
   apiKeyFailures.delete(apiKey);
 }
 
+// ── Platform-wide rate-limit circuit breaker ────────────────────
+// When a provider is account-level rate-limited (quota saturated, not a
+// transient per-request throttle), every brand hitting it burns the same
+// dead-end sleep budget. Track 429s across ALL callers in this process;
+// once the count crosses a threshold inside a short window, OPEN the
+// breaker for PLATFORM_CB_COOLDOWN_MS so subsequent callers fail fast
+// with a tagged "platform rate-limit circuit open" error and the per-
+// platform consecutive-failure counter in the run route short-circuits
+// the rest of the run instead of waiting for each query to time out.
+const PLATFORM_CB_THRESHOLD =
+  Number(process.env.AI_PLATFORM_CB_THRESHOLD) || 8;
+const PLATFORM_CB_WINDOW_MS =
+  Number(process.env.AI_PLATFORM_CB_WINDOW_MS) || 60000;
+const PLATFORM_CB_COOLDOWN_MS =
+  Number(process.env.AI_PLATFORM_CB_COOLDOWN_MS) || 5 * 60 * 1000;
+
+interface PlatformBreakerState {
+  failures: number[];
+  openedUntil: number;
+}
+const _platformBreaker = new Map<string, PlatformBreakerState>();
+
+export function platformBreakerOpen(platform: string): boolean {
+  const s = _platformBreaker.get(platform);
+  if (!s) return false;
+  if (s.openedUntil > Date.now()) return true;
+  if (s.openedUntil > 0 && s.openedUntil <= Date.now()) {
+    // Breaker tripped and cooled. Reset state so the next bad response
+    // starts a fresh window.
+    _platformBreaker.delete(platform);
+  }
+  return false;
+}
+
+export function platformBreakerRemainingMs(platform: string): number {
+  const s = _platformBreaker.get(platform);
+  if (!s || s.openedUntil <= 0) return 0;
+  return Math.max(0, s.openedUntil - Date.now());
+}
+
+export function recordPlatformRateLimit(platform: string): boolean {
+  const now = Date.now();
+  const existing = _platformBreaker.get(platform) || { failures: [], openedUntil: 0 };
+  existing.failures = existing.failures.filter(t => now - t < PLATFORM_CB_WINDOW_MS);
+  existing.failures.push(now);
+  let opened = false;
+  if (existing.failures.length >= PLATFORM_CB_THRESHOLD && existing.openedUntil <= now) {
+    existing.openedUntil = now + PLATFORM_CB_COOLDOWN_MS;
+    opened = true;
+    console.warn(
+      `[${platform}] rate-limit circuit OPEN for ${Math.round(PLATFORM_CB_COOLDOWN_MS / 1000)}s ` +
+      `after ${existing.failures.length} 429s in ${Math.round(PLATFORM_CB_WINDOW_MS / 1000)}s`,
+    );
+  }
+  _platformBreaker.set(platform, existing);
+  return opened;
+}
+
+export function resetPlatformBreaker(platform: string): void {
+  _platformBreaker.delete(platform);
+}
+
 // ── Per-key rate-limit cooldowns ────────────────────────────────
 // When a key gets 429'd, park it for a cool-down proportional to consecutive
 // 429 count. pickBestKey skips keys that are in cooldown.
@@ -231,18 +293,56 @@ export function isTransientError(e: unknown): boolean {
 // Wraps a provider call with "never-give-up" semantics for transient errors,
 // backing off up to 60s between attempts until the wall-clock budget expires.
 const DEEP_RETRY_BUDGET_MS = Number(process.env.AI_DEEP_RETRY_BUDGET_MS) || 75000;
+// When a provider returns a rate-limit error (429/529/quota), the remote
+// side is telling us to back off. In-process retries against a saturated
+// account-level quota waste the per-task budget on pointless sleeps. Cap
+// rate-limit deep retries to a small constant - after that, surface the
+// error so the caller's per-platform consecutive-failure counter can
+// short-circuit the platform for the rest of the run.
+const DEEP_RETRY_RATELIMIT_MAX =
+  Number(process.env.AI_DEEP_RETRY_RATELIMIT_MAX ?? 1);
 
-export async function withDeepRetry<T>(platform: string, fn: () => Promise<T>, budgetMs?: number): Promise<T> {
-  const budget = budgetMs || DEEP_RETRY_BUDGET_MS;
+export interface DeepRetryOptions {
+  budgetMs?: number;
+  signal?: AbortSignal;
+}
+
+export async function withDeepRetry<T>(
+  platform: string,
+  fn: () => Promise<T>,
+  budgetMsOrOptions?: number | DeepRetryOptions,
+): Promise<T> {
+  const opts: DeepRetryOptions = typeof budgetMsOrOptions === 'number'
+    ? { budgetMs: budgetMsOrOptions }
+    : (budgetMsOrOptions || {});
+  const budget = opts.budgetMs || DEEP_RETRY_BUDGET_MS;
+  const signal = opts.signal;
   const start = Date.now();
   let attempt = 0;
+  let rateLimitAttempts = 0;
   let lastErr: AiError | undefined;
   for (;;) {
+    if (signal?.aborted) {
+      throw lastErr || tagError('Aborted by caller', { isTransient: false });
+    }
     try {
       return await fn();
     } catch (e) {
       lastErr = e as AiError;
       if (!isTransientError(e)) throw e;
+      if (signal?.aborted) throw lastErr;
+      // Rate-limit-specific backoff cap. Account-level quota exhaustion on
+      // Gemini was the root cause of the "Last Run frozen" incident: the
+      // old unbounded deep-retry eat the entire per-task budget on 11s/17s
+      // sleeps that never cleared the quota. One retry is enough to ride
+      // out a legitimately-transient spike; repeated 429s mean saturation.
+      if (lastErr.isRateLimit) {
+        rateLimitAttempts++;
+        if (rateLimitAttempts > DEEP_RETRY_RATELIMIT_MAX) {
+          lastErr.budgetExhausted = true;
+          throw lastErr;
+        }
+      }
       const elapsed = Date.now() - start;
       const remaining = budget - elapsed;
       if (remaining <= 1500) {
@@ -253,7 +353,10 @@ export async function withDeepRetry<T>(platform: string, fn: () => Promise<T>, b
       const jitter = Math.floor(Math.random() * 3000);
       const delay = Math.min(base + jitter, Math.max(1000, remaining - 500));
       console.warn(`[${platform}] transient (deep retry #${attempt + 1}, ${Math.round(elapsed/1000)}s/${Math.round(budget/1000)}s): ${(lastErr.message || '').slice(0, 120)}. Sleeping ${Math.round(delay/1000)}s.`);
-      await sleep(delay);
+      // Pass the caller signal so an outer abort (per-task timeout in the
+      // run route) interrupts the sleep - otherwise a 10-17s sleep would
+      // outlive the 60s per-platform deadline and burn budget for nothing.
+      await sleep(delay, signal);
       attempt++;
     }
   }
@@ -400,7 +503,7 @@ const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 
 // "two short backoffs" intent of MAX_RETRIES=2.
 const MAX_RETRY_SLEEP_MS = Number(process.env.AI_MAX_RETRY_SLEEP_MS) || 15000;
 
-async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string): Promise<AiResponseData> {
+async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string): Promise<AiResponseData> {
   const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES) || 2;
   // Caller may pass an AbortSignal in options. Combine it with our own
   // per-attempt timeout signal so EITHER expiring cancels the fetch and
@@ -461,6 +564,11 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         try { body = JSON.parse(bodyText); } catch { /* keep as text */ }
         const hint = parseRetryAfterHeader(resp.headers) || extractBodyRetryAfter(body) || 0;
         if (apiKey) markKeyRateLimited(apiKey, hint);
+        // Feed the platform-wide rate-limit circuit breaker. When the
+        // account quota is saturated every key cools at once, so pooling
+        // across keys doesn't help - we need to stop banging on the
+        // provider for a few minutes across all brands.
+        if (platform) recordPlatformRateLimit(platform);
         if (attempt < MAX_RETRIES) {
           const backoff = 2000 * Math.pow(2, attempt);
           const jitter = Math.floor(Math.random() * 1000);
@@ -626,7 +734,7 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(payload),
         signal,
-      }, AI_REQUEST_TIMEOUT_MS, apiKey);
+      }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Gemini');
       if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked: ${d.promptFeedback.blockReason}`);
       const cand = d.candidates?.[0];
       if (!cand) throw tagError('Gemini returned no candidates', { isTransient: true });
@@ -662,6 +770,18 @@ export async function queryAI(
   brand?: BrandContext,
   options?: QueryOptions,
 ): Promise<QueryResult> {
+  // Fast-fail when the platform-wide rate-limit breaker is open so every
+  // remaining task in the cron tick short-circuits instead of queueing
+  // behind the platform semaphore and burning the per-task budget on
+  // sleeps. Tagged isRateLimit so the run route's processError routes it
+  // through the normal "skip after N failures" path.
+  if (platformBreakerOpen(platform)) {
+    const remaining = Math.round(platformBreakerRemainingMs(platform) / 1000);
+    throw tagError(
+      `${platform}: platform rate-limit circuit open (cooling ${remaining}s)`,
+      { isRateLimit: true, budgetExhausted: true },
+    );
+  }
   const useModel = model || getDefaultModel(platform);
   const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
   const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
@@ -704,7 +824,7 @@ export async function queryAI(
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify(payload),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT');
         const citations = (d.choices?.[0]?.message?.annotations || [])
           .filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url)
           .map((a: { url: string }) => a.url);
@@ -721,7 +841,7 @@ export async function queryAI(
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Claude');
         result = {
           text: d.content?.[0]?.text || '',
           model: d.model || useModel,
@@ -736,7 +856,7 @@ export async function queryAI(
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Perplexity');
         result = {
           text: d.choices?.[0]?.message?.content || '',
           model: d.model || useModel,
@@ -749,7 +869,7 @@ export async function queryAI(
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey);
+        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Grok');
         result = {
           text: d.choices?.[0]?.message?.content || '',
           model: d.model || useModel,
