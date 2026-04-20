@@ -240,7 +240,6 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
   const [compInput, setCompInput] = useState('');
-  const platformLimit = (user?.limits as Record<string, number>)?.platforms || ALL_PLATFORMS.length;
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
     Array.isArray(brand.platforms) && brand.platforms.length
       ? brand.platforms
@@ -616,10 +615,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
                 );
               })}
             </div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: selectedPlatforms.length > platformLimit ? 'var(--amber)' : 'var(--muted)', marginTop: 6 }}>
-              {selectedPlatforms.length > platformLimit
-                ? `Plan allows ${platformLimit} platforms - only the first ${platformLimit} you selected will be tracked.`
-                : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginTop: 6 }}>
+              {selectedPlatforms.length} of {ALL_PLATFORMS.length} selected
             </div>
           </div>
 

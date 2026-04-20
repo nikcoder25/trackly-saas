@@ -173,20 +173,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let activePlatforms: string[];
   if (requestedPlatforms && requestedPlatforms.length) {
+    // Honor the user's exact selection — no plan-based truncation.
+    // Users are free to track any subset (1 to all) of supported platforms
+    // regardless of tier; monthly run caps still throttle usage by plan.
     activePlatforms = requestedPlatforms.filter(p => runnablePlatforms.includes(p));
-    if (activePlatforms.length > limits.platforms) {
-      activePlatforms = activePlatforms.slice(0, limits.platforms);
-    }
     if (!activePlatforms.length) {
       return Response.json({ error: 'None of the selected AI platforms have API keys configured.' }, { status: 400 });
     }
   } else {
+    // No explicit selection saved on the brand: fall back to plan defaults
+    // (or every runnable platform if the plan has no defaults configured).
     const planDefaults = PLAN_DEFAULT_PLATFORMS[ownerPlan];
     let defaults = planDefaults
       ? planDefaults.filter(p => runnablePlatforms.includes(p))
       : runnablePlatforms.slice();
     if (!defaults.length) defaults = runnablePlatforms.slice();
-    activePlatforms = defaults.slice(0, limits.platforms);
+    activePlatforms = defaults;
     if (!activePlatforms.length) return Response.json({ error: 'No API keys configured.' }, { status: 400 });
   }
 
