@@ -20,6 +20,42 @@ interface Brand {
 }
 
 export default function AddBrandModal({ onClose, onCreated }: { onClose: () => void; onCreated: (brand: Brand) => void }) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  // Focus management: capture the element that opened the modal, move focus
+  // inside, and restore focus on unmount. Also ESC to close and Tab trap so
+  // keyboard users can't escape the dialog while it's open. (WCAG 2.4.3)
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    // Defer focus so the modal is mounted before we try to steal focus
+    setTimeout(() => closeBtnRef.current?.focus(), 0);
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [onClose]);
+
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -137,10 +173,16 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="add-brand-box">
+      <div
+        ref={modalRef}
+        className="add-brand-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-brand-title"
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div className="add-brand-title" style={{ marginBottom: 0 }}>Add New Brand</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>&times;</button>
+          <div id="add-brand-title" className="add-brand-title" style={{ marginBottom: 0 }}>Add New Brand</div>
+          <button ref={closeBtnRef} onClick={onClose} aria-label="Close dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>&times;</button>
         </div>
 
         {/* Wizard Steps */}

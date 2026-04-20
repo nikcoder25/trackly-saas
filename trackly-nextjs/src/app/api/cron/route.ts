@@ -185,6 +185,43 @@ async function reconcileStaleActiveRuns(): Promise<{ count: number; brandIds: st
   }
 }
 
+/**
+ * Retention pruning for tables that would otherwise grow forever.
+ *
+ * Default retention windows (override per-env via *_RETENTION_DAYS):
+ *   - audit_logs:     180 days  — auth / plan-change trail
+ *   - prompt_runs:    180 days  — historical scan results, backing proof page
+ *   - active_runs:     90 days  — terminal run rows (only 'done' / 'error';
+ *                                 'running' are handled by reconcileStaleActiveRuns)
+ *
+ * Runs only on the daily-floor tick so the hourly scheduler stays fast.
+ */
+async function pruneRetention(): Promise<{ audit: number; prompt: number; active: number }> {
+  const auditDays  = Math.max(30, parseInt(process.env.AUDIT_LOG_RETENTION_DAYS || '180', 10) || 180);
+  const promptDays = Math.max(30, parseInt(process.env.PROMPT_RUN_RETENTION_DAYS || '180', 10) || 180);
+  const activeDays = Math.max(30, parseInt(process.env.ACTIVE_RUN_RETENTION_DAYS || '90',  10) || 90);
+
+  const counts = { audit: 0, prompt: 0, active: 0 };
+  try {
+    const a = await pool.query(`DELETE FROM audit_logs WHERE created_at < NOW() - ($1 || ' days')::interval`, [auditDays]);
+    counts.audit = a.rowCount || 0;
+  } catch (e) { logger.warn('cron.prune_audit_failed', { error: (e as Error).message }); }
+  try {
+    const p = await pool.query(`DELETE FROM prompt_runs WHERE created_at < NOW() - ($1 || ' days')::interval`, [promptDays]);
+    counts.prompt = p.rowCount || 0;
+  } catch (e) { logger.warn('cron.prune_prompt_runs_failed', { error: (e as Error).message }); }
+  try {
+    const r = await pool.query(
+      `DELETE FROM active_runs WHERE status IN ('done','error') AND started_at < NOW() - ($1 || ' days')::interval`,
+      [activeDays],
+    );
+    counts.active = r.rowCount || 0;
+  } catch (e) { logger.warn('cron.prune_active_runs_failed', { error: (e as Error).message }); }
+
+  logger.info('cron.retention_pruned', { ...counts, audit_days: auditDays, prompt_days: promptDays, active_days: activeDays });
+  return counts;
+}
+
 export async function GET(request: Request) {
   // Verify cron secret (required)
   const cronSecret = process.env.CRON_SECRET;
@@ -239,6 +276,12 @@ export async function GET(request: Request) {
     // brand, but any customer whose scan has ever crashed mid-flight.
     const { count: reconciled, brandIds: reconciledBrandIds } =
       await reconcileStaleActiveRuns();
+
+    // Daily-floor tick also prunes retention-limited tables. Kept on the
+    // daily cadence so the hourly scheduler doesn't spend time on DELETEs.
+    if (isDailyFloor) {
+      await pruneRetention();
+    }
 
     // Pre-filter: only fetch brands on paid plans that support scheduled runs.
     // This avoids wasting the LIMIT on free-plan brands which are always ineligible.

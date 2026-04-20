@@ -5,18 +5,62 @@
  */
 
 import nodemailer from 'nodemailer';
+import { pool } from '@/lib/db';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
 const EMAIL_API_URL = process.env.EMAIL_API_URL || 'https://api.resend.com/emails';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
+// Suppression check: skip sends to addresses that hard-bounced or
+// complained. Transactional mail (verification, password reset) still
+// bypasses the list so legitimate recovery flows aren't broken by a
+// temporary bounce. Callers opt in to suppression by passing
+// { marketing: true } or { respectSuppressions: true }.
+async function isSuppressed(email: string): Promise<boolean> {
+  try {
+    const r = await pool.query(
+      `SELECT 1 FROM email_suppressions WHERE email = $1 LIMIT 1`,
+      [email.toLowerCase()],
+    );
+    return r.rowCount ? true : false;
+  } catch {
+    // Table may not exist yet (webhook never fired). Treat as "not suppressed".
+    return false;
+  }
+}
+
 interface EmailResult {
   sent: boolean;
   reason?: string;
 }
 
-async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<EmailResult> {
+interface SendEmailOpts {
+  replyTo?: string;
+  // When true, attach List-Unsubscribe + List-Unsubscribe-Post headers so
+  // Gmail / Outlook render a one-click unsubscribe button. Required for
+  // CAN-SPAM and GDPR compliance on marketing/newsletter/report sends.
+  marketing?: boolean;
+}
+
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  replyToOrOpts?: string | SendEmailOpts,
+): Promise<EmailResult> {
+  const opts: SendEmailOpts = typeof replyToOrOpts === 'string'
+    ? { replyTo: replyToOrOpts }
+    : (replyToOrOpts || {});
+  const replyTo = opts.replyTo;
+
+  // Marketing sends never bypass the suppression list. Transactional sends
+  // (verification, password reset) still go through so account recovery
+  // works even if a prior send hit a transient bounce.
+  if (opts.marketing && await isSuppressed(to)) {
+    return { sent: false, reason: 'suppressed' };
+  }
+
   if (!EMAIL_API_KEY) {
     // Don't log full HTML (may contain tokens) - just log recipient and subject
     console.log(`[Email] DEV MODE - Would send to ${to}: ${subject} (HTML body omitted for security)`);
@@ -29,9 +73,18 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
 
     headers['Authorization'] = `Bearer ${EMAIL_API_KEY}`;
 
+    const unsubscribeMailto = `mailto:unsubscribe@livesov.com?subject=unsubscribe%20${encodeURIComponent(to)}`;
+    const unsubscribeHttp = `${APP_URL}/api/newsletter/unsubscribe?email=${encodeURIComponent(to)}`;
+
     const resendPayload: Record<string, unknown> = { from: EMAIL_FROM, to: [to], subject, html };
     if (replyTo && isResend) {
       resendPayload.reply_to = replyTo;
+    }
+    if (opts.marketing && isResend) {
+      resendPayload.headers = {
+        'List-Unsubscribe': `<${unsubscribeHttp}>, <${unsubscribeMailto}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      };
     }
 
     const body = isResend
@@ -41,6 +94,14 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
           from: { email: EMAIL_FROM.match(/<(.+)>/)?.[1] || EMAIL_FROM },
           subject,
           content: [{ type: 'text/html', value: html }],
+          ...(opts.marketing
+            ? {
+                headers: [
+                  { name: 'List-Unsubscribe', value: `<${unsubscribeHttp}>, <${unsubscribeMailto}>` },
+                  { name: 'List-Unsubscribe-Post', value: 'List-Unsubscribe=One-Click' },
+                ],
+              }
+            : {}),
         });
 
     const resp = await fetch(EMAIL_API_URL, { method: 'POST', headers, body });
@@ -179,6 +240,7 @@ export async function addContactToAudience(email: string): Promise<EmailResult> 
 }
 
 export async function sendWelcomeEmail(email: string): Promise<EmailResult> {
+  const unsubUrl = `${APP_URL}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}`;
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
       <h2 style="color:#4f46e5;">Welcome to Livesov! 🎉</h2>
@@ -197,10 +259,11 @@ export async function sendWelcomeEmail(email: string): Promise<EmailResult> {
       </p>
       <p style="color:#999;font-size:12px;margin-top:24px;">
         You're receiving this because you subscribed to the Livesov newsletter.
+        <a href="${unsubUrl}" style="color:#999;">Unsubscribe</a>.
       </p>
     </div>
   `;
-  return sendEmail(email, 'Welcome to Livesov!', html, 'hello@livesov.com');
+  return sendEmail(email, 'Welcome to Livesov!', html, { replyTo: 'hello@livesov.com', marketing: true });
 }
 
 // Scheduled AI-visibility report email - a periodic digest sent by the
@@ -275,10 +338,10 @@ export async function sendReportEmail(
       <p style="margin-top:24px;">
         <a href="${dashboardUrl}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:white;text-decoration:none;border-radius:6px;">View Dashboard</a>
       </p>
-      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">You're receiving this because you enabled scheduled reports. Manage settings in your Livesov dashboard.</p>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">You're receiving this because you enabled scheduled reports. Manage settings in your Livesov dashboard or <a href="${APP_URL}/api/newsletter/unsubscribe?email=${encodeURIComponent(to)}" style="color:#9ca3af;">unsubscribe</a>.</p>
     </div>
   `;
-  return sendEmail(to, `AI Visibility Report: ${escHtml(brandName)} - Livesov`, html);
+  return sendEmail(to, `AI Visibility Report: ${escHtml(brandName)} - Livesov`, html, { marketing: true });
 }
 
 async function sendContactFormViaZoho(
