@@ -107,19 +107,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (authResult instanceof Response) return authResult;
     user = authResult;
 
-    // Load caller's plan/role once - used for manual-run gating AND for the
-    // admin/owner limit bypass further down.
+    // Load caller's plan/role for the admin/owner limit bypass further down.
     const roleResult = await pool.query('SELECT plan, role FROM users WHERE id = $1', [user.id]);
     const userPlan = roleResult.rows[0]?.plan || 'free';
     const userRole = roleResult.rows[0]?.role || '';
     callerIsAdminOrOwner = userPlan === 'owner' || userRole === 'admin';
-
-    // Auto-triggered runs (brand creation, new queries) are allowed for all users.
-    // Manual "Run Queries" button is admin/owner only.
-    const isAutoRun = new URL(request.url).searchParams.get('auto') === '1';
-    if (!isAutoRun && !callerIsAdminOrOwner) {
-      return Response.json({ error: 'Runs are automated on your plan schedule. Manual runs are not available.' }, { status: 403 });
-    }
   }
 
   const { id } = await params;
