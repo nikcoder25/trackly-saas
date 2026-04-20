@@ -106,20 +106,20 @@ export default function ProofPage() {
     if (!brand || !text) return escHtml(text);
     const escaped = escHtml(brand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return escHtml(text).replace(new RegExp(`(${escaped})`, 'gi'),
-      '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:0 3px;border-radius:3px;font-weight:700;">$1</mark>');
+      '<mark class="md-hl">$1</mark>');
   }
   function renderMarkdown(text: string) {
     if (!text) return '';
     let html = escHtml(text);
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;">$1</code>');
+    html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
     html = html.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
     html = html.replace(/^[-•]\s+(.+)$/gm, '&nbsp;&nbsp;• $1');
-    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">$1</a>');
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="md-link">$1</a>');
     if (brand) {
       const escaped = escHtml(brand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       html = html.replace(new RegExp(`(${escaped})`, 'gi'),
-        '<mark style="color:var(--green);background:rgba(16,185,129,.12);padding:0 3px;border-radius:3px;font-weight:700;">$1</mark>');
+        '<mark class="md-hl">$1</mark>');
     }
     return html;
   }

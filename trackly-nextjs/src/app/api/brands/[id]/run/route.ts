@@ -732,7 +732,14 @@ async function executeRunBackgroundInner(
       queries: [...queries], activePlatforms: [...activePlatforms],
       citations: citationCounts, competitors: competitorCounts,
     });
-    if (brandData.runs.length > 30) brandData.runs = brandData.runs.slice(-30);
+    // Cap inline run history on the brand JSONB. prompt_runs table retains
+    // full per-query detail (pruned by the daily-floor retention cron), so
+    // raising this cap only costs a bit of JSONB size. 90 matches the
+    // sovHistory daily cap below so the proof-page run selector can cover
+    // roughly a quarter of data without DB roundtrips. Override via
+    // BRAND_INLINE_RUNS_CAP if you need longer inline history.
+    const inlineRunsCap = Math.max(30, parseInt(process.env.BRAND_INLINE_RUNS_CAP || '90', 10) || 90);
+    if (brandData.runs.length > inlineRunsCap) brandData.runs = brandData.runs.slice(-inlineRunsCap);
 
     if (!brandData.sovHistory) brandData.sovHistory = [];
     const today = new Date().toISOString().split('T')[0];

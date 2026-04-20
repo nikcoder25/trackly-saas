@@ -88,7 +88,7 @@ export default function MentionsPage() {
     if (!selectedBrand || !text) return escHtml(text);
     const escaped = escHtml(selectedBrand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return escHtml(text).replace(new RegExp(`(${escaped})`, 'gi'),
-      '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
+      '<mark class="md-hl">$1</mark>');
   }
   function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
@@ -98,7 +98,7 @@ export default function MentionsPage() {
     // Bold
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg3);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;">$1</code>');
+    html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
     // Headers (lines starting with #)
     html = html.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
     // Bullet points
@@ -106,12 +106,12 @@ export default function MentionsPage() {
     // Numbered lists
     html = html.replace(/^\d+\.\s+(.+)$/gm, (_, content) => `&nbsp;&nbsp;${_[0]}. ${content}`);
     // Links [text](url)
-    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">$1</a>');
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="md-link">$1</a>');
     // Highlight brand name
     if (selectedBrand) {
       const escaped = escHtml(selectedBrand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       html = html.replace(new RegExp(`(${escaped})`, 'gi'),
-        '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
+        '<mark class="md-hl">$1</mark>');
     }
     return html;
   }

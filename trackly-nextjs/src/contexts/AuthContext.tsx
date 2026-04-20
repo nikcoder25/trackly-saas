@@ -81,6 +81,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser().finally(() => setLoading(false));
   }, [refreshUser]);
 
+  // Keep user plan/limits fresh across upgrades, downgrades, and trial
+  // expiry so the UI stops showing stale quotas after a plan change.
+  // Triggers on tab-focus (cheap, common) and on a 10-minute interval
+  // (fallback for long-lived sessions that never blur).
+  useEffect(() => {
+    let unmounted = false;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !unmounted) refreshUser();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    const interval = setInterval(() => { if (!unmounted) refreshUser(); }, 10 * 60 * 1000);
+    return () => {
+      unmounted = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      clearInterval(interval);
+    };
+  }, [refreshUser]);
+
   const login = async (email: string, password: string, totpCode?: string) => {
     try {
       const data = await api('POST', '/api/auth/login', { email, password, totpCode });
