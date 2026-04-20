@@ -76,6 +76,17 @@ async function ensureActiveRunsTable() {
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_platform_attempted TEXT`);
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_query_attempted TEXT`);
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ`);
+
+  // Partial unique index: only one 'running' row per brand at any time.
+  // Prevents a race between the manual run POST and the scheduled cron
+  // firing for the same brand within the same tick — the app-level CTE
+  // check still runs first, but this constraint is the belt-and-braces
+  // guarantee for true concurrent inserts. 'done' / 'error' rows are
+  // unrestricted so historical runs aren't clamped to one per brand.
+  await pool.query(
+    `CREATE UNIQUE INDEX IF NOT EXISTS active_runs_one_running_per_brand
+     ON active_runs (brand_id) WHERE status = 'running'`
+  );
 }
 
 // Ensure table exists on first call (cached in globalThis)
@@ -282,17 +293,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // --- Atomically check lock and create run record in DB ---
-  // Uses a CTE to avoid race conditions between checking and inserting
-  const lockResult = await pool.query(
-    `WITH lock_check AS (
-      SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'
-    )
-    INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
-    SELECT $2, $1, $3, 'running', $4, $5, $6
-    WHERE NOT EXISTS (SELECT 1 FROM lock_check)
-    RETURNING id`,
-    [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
-  );
+  // CTE check eliminates most races; the partial unique index on
+  // active_runs (brand_id) WHERE status='running' is the final backstop
+  // for the case where two writers land in the exact same millisecond
+  // (manual run + cron). Catch the 23505 unique_violation and return the
+  // same 409 the CTE would have.
+  let lockResult: { rows: unknown[] };
+  try {
+    lockResult = await pool.query(
+      `WITH lock_check AS (
+        SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'
+      )
+      INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
+      SELECT $2, $1, $3, 'running', $4, $5, $6
+      WHERE NOT EXISTS (SELECT 1 FROM lock_check)
+      RETURNING id`,
+      [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
+    );
+  } catch (e) {
+    const err = e as { code?: string; message?: string };
+    if (err.code === '23505') {
+      return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
+    }
+    throw e;
+  }
 
   if (lockResult.rows.length === 0) {
     return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });

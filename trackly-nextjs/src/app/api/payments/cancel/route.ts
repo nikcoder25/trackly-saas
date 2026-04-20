@@ -1,5 +1,6 @@
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
+import { fetchWithTimeout } from '@/lib/server-fetch';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -22,11 +23,11 @@ export async function POST(request: Request) {
       const baseUrl = env === 'live_mode' ? 'https://live.dodopayments.com' : 'https://test.dodopayments.com';
 
       // DodoPayments uses PATCH with status: 'cancelled' (not a /cancel subpath)
-      const resp = await fetch(`${baseUrl}/subscriptions/${subId}`, {
+      const resp = await fetchWithTimeout(`${baseUrl}/subscriptions/${subId}`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'cancelled' }),
-      });
+      }, 15_000);
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');

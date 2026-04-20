@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { pool } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { fetchWithTimeout } from '@/lib/server-fetch';
 
 // One-click unsubscribe endpoint satisfying:
 //   * CAN-SPAM § 5(a)(5) — opt-out mechanism reachable via a single click
@@ -33,11 +34,11 @@ async function unsubscribe(email: string) {
       const audienceId = process.env.RESEND_AUDIENCE_ID;
       const key = process.env.EMAIL_API_KEY;
       if (audienceId && key) {
-        await fetch(`https://api.resend.com/audiences/${audienceId}/contacts/${encodeURIComponent(trimmed)}`, {
+        await fetchWithTimeout(`https://api.resend.com/audiences/${audienceId}/contacts/${encodeURIComponent(trimmed)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
           body: JSON.stringify({ unsubscribed: true }),
-        });
+        }, 10_000);
       }
     } catch (e) {
       logger.warn('newsletter.unsubscribe.audience_update_failed', { error: (e as Error).message });

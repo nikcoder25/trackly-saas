@@ -7,6 +7,7 @@ import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken }
 import { API_ENDPOINTS, AUTH, TRIAL_DURATION_MS, getEffectivePlan } from '@/lib/constants';
 import { runSignupAbuseChecks, logSuspiciousSignupPattern } from '@/lib/anti-abuse';
 import { logger } from '@/lib/logger';
+import { fetchWithTimeout } from '@/lib/server-fetch';
 
 async function generateUsername(nameOrEmail: string): Promise<string> {
   let base = (nameOrEmail || '').trim().toLowerCase();
@@ -47,9 +48,9 @@ export async function POST(request: NextRequest) {
 
     if (access_token) {
       // Validate access token by calling Google's userinfo API server-side
-      const resp = await fetch(API_ENDPOINTS.google.userinfo, {
+      const resp = await fetchWithTimeout(API_ENDPOINTS.google.userinfo, {
         headers: { Authorization: 'Bearer ' + access_token },
-      });
+      }, 10_000);
       if (!resp.ok) return Response.json({ error: 'Invalid access token' }, { status: 400 });
       const userInfo = await resp.json();
       // Verify the token has required fields (scope validation)
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       avatarUrl = userInfo.picture || null;
     } else {
       // Validate ID token via Google's tokeninfo API
-      const resp = await fetch(`${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential!)}`);
+      const resp = await fetchWithTimeout(`${API_ENDPOINTS.google.tokeninfo}?id_token=${encodeURIComponent(credential!)}`, {}, 10_000);
       if (!resp.ok) return Response.json({ error: 'Invalid token' }, { status: 400 });
       const payload = await resp.json();
       // Verify audience matches our client ID (prevents token reuse attacks)

@@ -6,6 +6,7 @@
 
 import nodemailer from 'nodemailer';
 import { pool } from '@/lib/db';
+import { fetchWithTimeout } from '@/lib/server-fetch';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
@@ -104,7 +105,7 @@ async function sendEmail(
             : {}),
         });
 
-    const resp = await fetch(EMAIL_API_URL, { method: 'POST', headers, body });
+    const resp = await fetchWithTimeout(EMAIL_API_URL, { method: 'POST', headers, body }, 15_000);
     if (!resp.ok) {
       const text = await resp.text();
       const reason = `Email API returned ${resp.status}: ${text}`;
@@ -215,14 +216,14 @@ export async function addContactToAudience(email: string): Promise<EmailResult> 
   }
 
   try {
-    const resp = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+    const resp = await fetchWithTimeout(`https://api.resend.com/audiences/${audienceId}/contacts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${EMAIL_API_KEY}`,
       },
       body: JSON.stringify({ email, unsubscribed: false }),
-    });
+    }, 10_000);
 
     if (!resp.ok) {
       const text = await resp.text();
