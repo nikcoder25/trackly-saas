@@ -8,6 +8,7 @@ import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
+import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 
 interface Brand {
@@ -222,6 +223,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { startRun } = useRun();
+  const { toast } = useToast();
   const startRunRef = useRef(startRun);
   useEffect(() => { startRunRef.current = startRun; }, [startRun]);
   const [originalQueries, setOriginalQueries] = useState<string[]>(brand.queries || []);
@@ -430,15 +432,27 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       // Detect newly added queries BEFORE calling onUpdated (which triggers re-renders)
       const newQueries = queries.filter(q => !originalQueries.includes(q));
       onUpdated(data.brand);
+
+      const platCount = selectedPlatforms.length;
+      const qCount = queries.length;
+      const summary = `Saved ${qCount} quer${qCount === 1 ? 'y' : 'ies'} · ${platCount} platform${platCount === 1 ? '' : 's'} (${selectedPlatforms.join(', ') || 'none selected'})`;
+
       if (newQueries.length > 0) {
-        setMessage(`Brand updated! Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'}...`);
+        const runMsg = `${summary}. Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'} now…`;
+        setMessage(`✓ ${runMsg}`);
+        toast(runMsg, 'success');
         setOriginalQueries(queries);
         // Use ref to always get the latest startRun; small delay lets BrandContext settle
         setTimeout(() => startRunRef.current(false, { auto: true, queries: newQueries }), 600);
       } else {
-        setMessage('Brand updated!');
+        setMessage(`✓ Brand saved. ${summary}.`);
+        toast(`Brand saved. ${summary}.`, 'success');
       }
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) {
+      const msg = (e as Error).message;
+      setError(msg);
+      toast(`Save failed: ${msg}`, 'error');
+    }
     setSaving(false);
   };
 
