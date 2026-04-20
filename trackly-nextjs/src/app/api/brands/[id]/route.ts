@@ -131,7 +131,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
     if (safeBody.platforms !== undefined) {
       if (!Array.isArray(safeBody.platforms)) return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
-      const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
+      const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
       const bad = (safeBody.platforms as unknown[]).find(p => typeof p !== 'string' || !ALLOWED_PLATFORMS.includes(p as string));
       if (bad !== undefined) {
         return Response.json({ error: `Invalid platform: ${bad}. Allowed: ${ALLOWED_PLATFORMS.join(', ')}` }, { status: 400 });
