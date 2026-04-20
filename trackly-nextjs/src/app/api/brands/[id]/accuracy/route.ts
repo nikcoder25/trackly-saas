@@ -183,6 +183,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  // PUT runs auto-discover / fact checks that mutate brand_facts and
+  // accuracy_issues. Viewers should be read-only.
+  if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot modify accuracy data' }, { status: 403 });
 
   const body = await request.json();
 

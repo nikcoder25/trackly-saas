@@ -11,6 +11,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  // Viewer collaborators have read-only access to the brand; reprocessing
+  // mutates prompt_runs + brand.data.competitors, so block them with the
+  // same 403 the /run endpoint returns for this role.
+  if (access.role === 'viewer') {
+    return Response.json({ error: 'Viewers cannot reprocess competitors' }, { status: 403 });
+  }
 
   const brand = access.brand;
   const competitors: string[] = brand.competitors || [];

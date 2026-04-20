@@ -10,6 +10,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
   if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
+  // Re-verification issues fresh AI calls and writes accuracy_issues /
+  // brand_facts rows. Viewers are read-only on the brand.
+  if (access.role === 'viewer') return Response.json({ error: 'Viewers cannot re-verify facts' }, { status: 403 });
 
   const { platform, query, factKey } = await request.json();
   if (!platform || !factKey) return Response.json({ error: 'Missing platform or factKey' }, { status: 400 });

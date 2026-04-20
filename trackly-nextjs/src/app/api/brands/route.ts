@@ -110,13 +110,29 @@ export async function POST(request: Request) {
   if (!allowed) return rateLimitResponse(retryAfter);
 
   const body = await request.json();
-  const { name, industry, website, city, country, goal, competitors, queries, nearbyAreas } = body;
+  const { name, industry, website, city, country, goal, competitors, queries, nearbyAreas, platforms } = body;
 
   if (!name) return Response.json({ error: 'Brand name required' }, { status: 400 });
   if (typeof name !== 'string' || name.length > 100) return Response.json({ error: 'Brand name must be 100 characters or less' }, { status: 400 });
   if (industry && (typeof industry !== 'string' || industry.length > 100)) return Response.json({ error: 'Industry must be 100 characters or less' }, { status: 400 });
   if (website && (typeof website !== 'string' || website.length > 500)) return Response.json({ error: 'Website URL too long' }, { status: 400 });
   if (country && (typeof country !== 'string' || country.length > 100)) return Response.json({ error: 'Country must be 100 characters or less' }, { status: 400 });
+
+  // Validate platforms using the same allow-list the PUT endpoint uses so
+  // garbage values can't land in brands.data.platforms and later break the
+  // /run selection logic with an unknown-platform 400.
+  const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
+  let safePlatforms: string[] | undefined;
+  if (platforms !== undefined) {
+    if (!Array.isArray(platforms)) {
+      return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
+    }
+    const bad = (platforms as unknown[]).find(p => typeof p !== 'string' || !ALLOWED_PLATFORMS.includes(p as string));
+    if (bad !== undefined) {
+      return Response.json({ error: `Invalid platform: ${bad}. Allowed: ${ALLOWED_PLATFORMS.join(', ')}` }, { status: 400 });
+    }
+    safePlatforms = [...new Set(platforms as string[])];
+  }
 
   try {
     await ensureColumns();
@@ -164,7 +180,7 @@ export async function POST(request: Request) {
     const safeAliases = [...autoAliases].filter(a => a.length >= 2);
 
     const id = uid();
-    const data = {
+    const data: Record<string, unknown> = {
       name, industry: industry || '', website: website || '', city: city || '', country: country || '',
       goal: goal || 70,
       competitors: safeComps,
@@ -174,6 +190,7 @@ export async function POST(request: Request) {
       runs: [], mentions: [], queryStats: {}, sovHistory: [],
       citations: {}, notes: {}, schedule: 24,
     };
+    if (safePlatforms && safePlatforms.length) data.platforms = safePlatforms;
 
     // Atomic insert with plan limit check to prevent race conditions
     const insertResult = await pool.query(

@@ -21,12 +21,19 @@ export async function requireAdmin(request: Request): Promise<AdminUser | Respon
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 });
 
-  const result = await pool.query('SELECT role, plan FROM users WHERE id = $1', [user.id]);
+  const result = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);
   if (!result.rows.length) {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
-  const { role, plan } = result.rows[0];
-  if (role !== 'admin' && plan !== 'owner') {
+  const { role } = result.rows[0];
+  // Only explicit role='admin' grants access. Previously this also
+  // accepted plan='owner', but that's a billing field that can be set
+  // via subscription webhooks / admin panel edits; treating it as an
+  // access-control signal lets a billing-only change escalate privileges.
+  // The role='admin' → plan='owner' sync still happens in /api/auth/me
+  // for convenience, so legitimate admins remain on the owner plan
+  // without being able to lose admin by changing plan.
+  if (role !== 'admin') {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
