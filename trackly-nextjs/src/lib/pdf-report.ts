@@ -29,7 +29,7 @@ const BRANDING = {
   bgLight: '#f8fafc',
 };
 
-const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
+const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
 
 // ─── HELPERS ────────────────────────────────────────────────────
 

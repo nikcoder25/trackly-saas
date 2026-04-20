@@ -44,11 +44,9 @@ function getWebhookSecrets(): string[] {
     secrets.push(legacy);
     if (canonical && !_loggedSecretConflict) {
       _loggedSecretConflict = true;
-      console.warn(
-        '[Webhook] Both DODO_PAYMENTS_WEBHOOK_KEY and DODO_WEBHOOK_SECRET are set ' +
-        'with different values. The canonical name is DODO_PAYMENTS_WEBHOOK_KEY; ' +
-        'remove DODO_WEBHOOK_SECRET once you confirm webhooks are flowing.'
-      );
+      logger.warn('webhook.dodo.secret_conflict', {
+        note: 'Both DODO_PAYMENTS_WEBHOOK_KEY and DODO_WEBHOOK_SECRET are set with different values. Use DODO_PAYMENTS_WEBHOOK_KEY only.',
+      });
     }
   }
   return secrets;
@@ -87,9 +85,10 @@ export async function POST(request: Request) {
           allHeaders[key] = value;
         }
       });
-      console.log('[Webhook] Incoming request headers:', JSON.stringify(allHeaders));
-      console.log('[Webhook] Raw body length:', rawBody.length);
-      console.log('[Webhook] Raw body preview:', rawBody.substring(0, 200));
+      logger.info('webhook.dodo.incoming', {
+        header_keys: Object.keys(allHeaders),
+        body_length: rawBody.length,
+      });
 
       // Webhook signature verification
       const secrets = getWebhookSecrets();
@@ -125,7 +124,7 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Missing signature' }, { status: 401 });
       }
 
-      console.log('[Webhook] Signature found in header:', matchedHeader, '=', signature.substring(0, 20) + '...');
+      logger.info('webhook.dodo.signature_found', { header: matchedHeader });
 
       // DodoPayments Standard Webhooks format: "v1,<base64-signature>"
       // Try extracting the actual signature if it has a version prefix
@@ -134,7 +133,7 @@ export async function POST(request: Request) {
         const base64Sig = signature.slice(3);
         // Convert base64 signature to hex for comparison
         rawSignature = Buffer.from(base64Sig, 'base64').toString('hex');
-        console.log('[Webhook] Detected v1 prefix, decoded base64 signature to hex');
+        logger.debug('webhook.dodo.v1_prefix_decoded');
       }
 
       // Also handle Standard Webhooks which use webhook-id + webhook-timestamp + body
@@ -145,7 +144,7 @@ export async function POST(request: Request) {
       if (webhookId && webhookTimestamp) {
         // Standard Webhooks format: sign(webhookId.webhookTimestamp.body)
         const signedContent = `${webhookId}.${webhookTimestamp}.${rawBody}`;
-        console.log('[Webhook] Using Standard Webhooks format: webhook-id=%s, webhook-timestamp=%s', webhookId, webhookTimestamp);
+        logger.debug('webhook.dodo.standard_format', { webhook_id: webhookId, webhook_timestamp: webhookTimestamp });
 
         for (const secret of secrets) {
           // Standard Webhooks secrets may be prefixed with "whsec_" and base64-encoded
@@ -163,7 +162,7 @@ export async function POST(request: Request) {
             const sigValue = part.startsWith('v1,') ? part.slice(3) : part;
             if (sigValue === expected) {
               verified = true;
-              console.log('[Webhook] Signature verified using Standard Webhooks format');
+              logger.info('webhook.dodo.verified_standard');
               break;
             }
           }
@@ -175,7 +174,7 @@ export async function POST(request: Request) {
       if (!verified) {
         verified = verifySignature(rawBody, rawSignature, secrets);
         if (verified) {
-          console.log('[Webhook] Signature verified using simple HMAC(body) format');
+          logger.info('webhook.dodo.verified_simple');
         }
       }
 
@@ -212,16 +211,14 @@ export async function POST(request: Request) {
           }
           const eventType = body.type || body.event_type || '';
 
-      // Log the full webhook payload for debugging
-      console.log('[Webhook] Processing event:', JSON.stringify({
-              eventId,
-              eventType,
-              bodyKeys: Object.keys(body),
-              product_id: body.product_id || body.data?.product_id || body.payload?.product_id,
-              subscription_id: body.subscription_id || body.data?.subscription_id || body.payload?.subscription_id,
-              customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id,
-              metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
-      }));
+      logger.info('webhook.dodo.processing', {
+        event_id: eventId,
+        event_type: eventType,
+        body_keys: Object.keys(body),
+        has_product_id: Boolean(body.product_id || body.data?.product_id || body.payload?.product_id),
+        has_subscription_id: Boolean(body.subscription_id || body.data?.subscription_id || body.payload?.subscription_id),
+        has_customer_id: Boolean(body.customer_id || body.data?.customer_id || body.payload?.customer_id),
+      });
 
       // Extract nested data - DodoPayments may nest under .data or .payload
       const eventData = body.data || body.payload || body;
@@ -239,7 +236,7 @@ export async function POST(request: Request) {
                     );
                   if (inserted.rows.length === 0) {
                             await client.query('ROLLBACK');
-                            console.log('[Webhook] Duplicate event skipped:', eventId);
+                            logger.info('webhook.dodo.duplicate_skipped', { event_id: eventId });
                             return Response.json({ received: true, duplicate: true });
                   }
 
@@ -271,7 +268,7 @@ export async function POST(request: Request) {
                       // Also check metadata.plan as fallback (set during checkout)
                     const plan = productId ? PLAN_MAP[productId] : (metadata.plan || null);
 
-                    console.log('[Webhook] Upgrade resolution:', { userId, productId, plan, currentPlan: currentUser.plan, knownProducts: Object.keys(PLAN_MAP) });
+                    logger.info('webhook.dodo.upgrade_resolution', { user_id: userId, product_id: productId, plan, current_plan: currentUser.plan });
 
                     if (plan) {
                                 const customerId = eventData.customer_id || body.customer_id;
@@ -290,7 +287,7 @@ export async function POST(request: Request) {
 
                         const previousPlan = currentUser.plan;
                                 await client.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
-                                console.log('[Webhook] Plan updated:', { userId, from: previousPlan, to: plan, eventType });
+                                logger.info('webhook.dodo.plan_updated', { user_id: userId, from: previousPlan, to: plan, event_type: eventType });
 
                         // Build settings update with all relevant subscription data
                         const settingsUpdate: Record<string, string> = {
@@ -360,7 +357,7 @@ export async function POST(request: Request) {
                                   `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
                                   [userId]
                                 );
-                      console.log('[Webhook] Plan downgraded:', { userId, from: previousPlan, to: 'free', eventType });
+                      logger.info('webhook.dodo.plan_downgraded', { user_id: userId, from: previousPlan, to: 'free', event_type: eventType });
             }
 
             // Handle subscription on hold
@@ -370,7 +367,7 @@ export async function POST(request: Request) {
                                                 `UPDATE users SET settings = settings || '{"subscription_status":"on_hold"}'::jsonb WHERE id = $1`,
                                                 [userId]
                                               );
-                                  console.log('[Webhook] Subscription on hold:', { userId, eventType });
+                                  logger.info('webhook.dodo.subscription_on_hold', { user_id: userId, event_type: eventType });
                       }
             }
 
@@ -381,7 +378,7 @@ export async function POST(request: Request) {
                                                 `UPDATE users SET settings = settings || '{"subscription_status":"paused"}'::jsonb WHERE id = $1`,
                                                 [userId]
                                               );
-                                  console.log('[Webhook] Subscription paused:', { userId, eventType });
+                                  logger.info('webhook.dodo.subscription_paused', { user_id: userId, event_type: eventType });
                       }
             }
 
@@ -396,7 +393,7 @@ export async function POST(request: Request) {
                       }, 'webhook');
             }
 
-            console.log('[Webhook] Successfully processed event:', eventId, eventType);
+            logger.info('webhook.dodo.processed', { event_id: eventId, event_type: eventType });
             return Response.json({ received: true });
           } catch (txErr) {
                   await client.query('ROLLBACK').catch(() => {});

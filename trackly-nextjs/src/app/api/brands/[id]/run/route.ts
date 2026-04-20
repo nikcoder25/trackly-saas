@@ -18,7 +18,7 @@ const PLATFORM_KEY_MAP: Record<string, string> = {
 const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
 const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
   starter: ['ChatGPT', 'Claude'],
-  free:    ['Gemini', 'Grok'],
+  free:    ['ChatGPT', 'Claude'],
 };
 const FAIL_THRESHOLD = 5;
 
