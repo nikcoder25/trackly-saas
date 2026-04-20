@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRun } from '@/contexts/RunContext';
-import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
@@ -26,8 +25,6 @@ export default function CompetitorsPage() {
   const brand = rawBrand as Brand | null;
   const [newComp, setNewComp] = useState('');
   const { startRun, live } = useRun();
-  const { user } = useAuth();
-  const isAdmin = user?.plan === 'owner' || user?.role === 'admin';
   const [reprocessing, setReprocessing] = useState(false);
   const [reprocessMsg, setReprocessMsg] = useState('');
 
@@ -283,9 +280,8 @@ export default function CompetitorsPage() {
           <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
           <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
-            {isAdmin ? 'Run your first query scan to see how competitors appear in AI responses.' : 'Competitor data will appear after your next scheduled query run.'}
+            Run your first query scan to see how competitors appear in AI responses.
           </div>
-          {isAdmin && (
           <button
             className="run-btn"
             onClick={() => startRun(false)}
@@ -294,7 +290,6 @@ export default function CompetitorsPage() {
           >
             {live.running ? 'Running...' : 'Run Queries'}
           </button>
-          )}
           <div style={{ fontSize: 11, color: 'var(--muted)' }}>
             Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
           </div>
