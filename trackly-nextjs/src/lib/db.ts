@@ -81,6 +81,17 @@ function runMigrations(): Promise<void> {
           last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS user_sessions_user_id_idx ON user_sessions(user_id);
+        CREATE INDEX IF NOT EXISTS user_sessions_last_used_idx ON user_sessions(last_used_at);
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'user_sessions_user_id_fkey'
+          ) THEN
+            ALTER TABLE user_sessions
+              ADD CONSTRAINT user_sessions_user_id_fkey
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+          END IF;
+        END $$;
       `);
 
       // Backfill existing single-column refresh tokens into user_sessions so
