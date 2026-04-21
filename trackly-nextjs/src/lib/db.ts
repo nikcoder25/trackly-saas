@@ -4,8 +4,24 @@
  */
 import { Pool } from 'pg';
 
+function loadDatabaseCa(): string | undefined {
+  const raw = process.env.DATABASE_CA_CERT?.trim();
+  if (!raw) return undefined;
+  // Accept raw PEM or base64-encoded PEM (platform env UIs often mangle newlines).
+  return raw.includes('BEGIN CERTIFICATE')
+    ? raw
+    : Buffer.from(raw, 'base64').toString('utf8');
+}
+
+// DigitalOcean's managed PostgreSQL signs its server cert with a private CA
+// that Node's default trust store doesn't know about. Supplying the CA here
+// lets the pg client verify the connection without the global
+// NODE_TLS_REJECT_UNAUTHORIZED=0 workaround.
+const ca = loadDatabaseCa();
+
 const sslConfig = process.env.DATABASE_URL
   ? {
+      ...(ca ? { ca } : {}),
       rejectUnauthorized:
         process.env.NODE_ENV === 'production'
           ? process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
