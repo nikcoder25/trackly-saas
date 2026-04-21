@@ -16,6 +16,7 @@ interface BrandContextType {
   setSelectedBrand: (brand: Brand | null) => void;
   selectBrandById: (id: string) => void;
   loading: boolean;
+  error: string | null;
   refreshBrands: () => Promise<void>;
   // Plan limit info
   plan: string;
@@ -31,6 +32,7 @@ const BrandContext = createContext<BrandContextType>({
   setSelectedBrand: () => {},
   selectBrandById: () => {},
   loading: true,
+  error: null,
   refreshBrands: async () => {},
   plan: 'free',
   brandLimit: 1,
@@ -43,6 +45,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   const [sharedBrands, setSharedBrands] = useState<Brand[]>([]);
   const [selectedBrand, setSelectedBrandState] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [plan, setPlan] = useState('free');
   const [brandLimit, setBrandLimit] = useState(1);
   const [overLimit, setOverLimit] = useState(false);
@@ -56,8 +59,24 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshBrands = useCallback(async () => {
+    // Fetch brands, transparently refreshing the access token on 401.
+    // A bare fetch can return 401 when a session is rotated on another
+    // device or after a cold start; without this retry, the selector would
+    // render blank and look like the user's brands vanished.
+    const fetchBrands = () => fetch('/api/brands', { credentials: 'include' });
     try {
-      const res = await fetch('/api/brands', { credentials: 'include' });
+      let res = await fetchBrands();
+      if (res.status === 401) {
+        const refresh = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+        if (refresh.ok) {
+          res = await fetchBrands();
+        }
+      }
+      if (!res.ok) {
+        setError(res.status === 401 ? 'Your session expired. Please log in again.' : 'Unable to load brands. Please retry.');
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       const b = data.brands || [];
       const sb = data.sharedBrands || [];
@@ -66,6 +85,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setPlan(data.plan || 'free');
       setBrandLimit(data.brandLimit || 1);
       setOverLimit(data.overLimit || false);
+      setError(null);
       setSelectedBrandState((prev) => {
         // Try to restore from localStorage if no previous selection
         const savedId = prev?.id || (() => { try { return localStorage.getItem('livesov_brand'); } catch { return null; } })();
@@ -78,6 +98,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       });
     } catch (e) {
       console.error('[BrandProvider]', (e as Error).message);
+      setError('Network error loading brands.');
     }
     setLoading(false);
   }, []);
@@ -96,7 +117,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   return (
     <BrandContext.Provider value={{
       brands, sharedBrands, selectedBrand, setSelectedBrand, selectBrandById,
-      loading, refreshBrands,
+      loading, error, refreshBrands,
       plan, brandLimit, overLimit, selectedBrandLocked,
     }}>
       {children}

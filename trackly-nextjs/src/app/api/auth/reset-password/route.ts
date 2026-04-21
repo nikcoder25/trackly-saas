@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { pool } from '@/lib/db';
 import { AUTH } from '@/lib/constants';
-import { validatePasswordComplexity, hashToken } from '@/lib/auth';
+import { validatePasswordComplexity, hashToken, revokeAllSessions } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
 
     const entry = result.rows[0];
     const hash = await bcrypt.hash(newPassword, AUTH.bcryptRounds);
-    await pool.query('UPDATE users SET password_hash = $1, refresh_token = NULL WHERE id = $2', [hash, entry.user_id]);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, entry.user_id]);
+    await revokeAllSessions(pool, entry.user_id);
     await pool.query('DELETE FROM password_reset_tokens WHERE token = $1', [tokenHash]);
 
     return Response.json({ message: 'Password reset successfully. You can now log in.' });

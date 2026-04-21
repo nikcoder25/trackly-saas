@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { requireVerifiedAuth } from '@/lib/auth';
+import { requireVerifiedAuth, revokeAllSessions } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { AUTH } from '@/lib/constants';
 
@@ -57,10 +57,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // again with the new password - otherwise an attacker who has briefly
     // compromised admin access could leave back-door refresh tokens alive.
     const result = await pool.query(
-      'UPDATE users SET password_hash = $1, refresh_token = NULL WHERE id = $2 RETURNING email',
+      'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING email',
       [hash, id],
     );
     if (!result.rows.length) return Response.json({ error: 'User not found' }, { status: 404 });
+    await revokeAllSessions(pool, id);
 
     await auditLog(admin.id, 'admin_reset_password', 'user', id, {
       email: result.rows[0].email,

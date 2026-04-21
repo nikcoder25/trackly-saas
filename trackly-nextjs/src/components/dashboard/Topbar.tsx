@@ -10,7 +10,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 
 export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { user, logout } = useAuth();
-  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit } = useBrands();
+  const { brands, selectedBrand, setSelectedBrand, selectBrandById, refreshBrands, plan, brandLimit, overLimit, error: brandsError } = useBrands();
   const { startRun } = useRun();
   const startRunRef = useRef(startRun);
   useEffect(() => { startRunRef.current = startRun; }, [startRun]);
@@ -57,10 +57,21 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
 
         {/* Brand selector - reads from BrandContext */}
         <div className="topbar-brand-sel">
-          <select value={selectedBrand?.id || ''} onChange={e => selectBrandById(e.target.value)} aria-label="Select brand">
-            {brands.length === 0 && <option value="">-- Select brand --</option>}
+          <select value={selectedBrand?.id || ''} onChange={e => selectBrandById(e.target.value)} aria-label="Select brand" disabled={!!brandsError}>
+            {brands.length === 0 && <option value="">{brandsError ? 'Unavailable' : '-- Select brand --'}</option>}
             {brands.map(b => <option key={b.id} value={b.id}>{b.lockedByPlan ? '🔒 ' : ''}{b.name}</option>)}
           </select>
+          {brandsError && (
+            <span role="alert" style={{ marginLeft: 8, fontSize: 11, color: 'var(--danger, #c00)' }}>
+              {brandsError}{' '}
+              <button
+                onClick={() => refreshBrands()}
+                style={{ background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer', fontSize: 'inherit', padding: 0 }}
+              >
+                Retry
+              </button>
+            </span>
+          )}
         </div>
 
         {/* Add Brand button with limit-aware behavior */}

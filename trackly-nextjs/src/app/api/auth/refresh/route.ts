@@ -1,16 +1,19 @@
 import { NextRequest } from 'next/server';
-import crypto from 'crypto';
-import { safeConnect, ensureColumns } from '@/lib/db';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
+import { pool, ensureColumns } from '@/lib/db';
+import {
+  signAccessToken,
+  createTokenCookieHeaders,
+  jsonWithCookies,
+  rotateSession,
+  sessionContextFromRequest,
+  getRefreshTokenFromRequest,
+} from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
-  const cookieHeader = request.headers.get('cookie') || '';
-  const refreshMatch = cookieHeader.match(/livesov_refresh=([^;]+)/);
-  const refreshToken = refreshMatch?.[1];
-
+  const refreshToken = getRefreshTokenFromRequest(request);
   if (!refreshToken) return Response.json({ error: 'Refresh token required' }, { status: 400 });
 
   // Rate limit token refresh to prevent storms (5 per minute per token fingerprint)
@@ -20,41 +23,23 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureColumns();
-    // Atomic token rotation: SELECT FOR UPDATE prevents race conditions
-    // where two concurrent refresh requests could both succeed with the same old token
-    const client = await safeConnect();
-    let result;
-    try {
-      await client.query('BEGIN');
-      const lockResult = await client.query(
-        'SELECT id, email, role, plan, trial_ends_at FROM users WHERE refresh_token = $1 FOR UPDATE',
-        [hashToken(refreshToken)]
-      );
-      if (!lockResult.rows.length) {
-        await client.query('ROLLBACK');
-        return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
-      }
-      const newRefreshToken_inner = crypto.randomBytes(40).toString('hex');
-      await client.query(
-        'UPDATE users SET refresh_token = $1 WHERE id = $2',
-        [hashToken(newRefreshToken_inner), lockResult.rows[0].id]
-      );
-      await client.query('COMMIT');
-      result = { rows: lockResult.rows, newRefreshToken: newRefreshToken_inner };
-    } catch (txErr) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw txErr;
-    } finally {
-      client.release();
-    }
-    const newRefreshToken = result.newRefreshToken;
-    if (!result.rows.length) return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
 
-    const user = result.rows[0];
+    // Rotate the refresh token in place. The UPDATE..RETURNING is atomic, so
+    // two concurrent refreshes with the same token can't both succeed (only
+    // one UPDATE will match the old hash; the other sees zero rows).
+    const rotated = await rotateSession(pool, refreshToken, sessionContextFromRequest(request));
+    if (!rotated) return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
+
+    const userResult = await pool.query(
+      'SELECT id, email, role, plan, trial_ends_at FROM users WHERE id = $1',
+      [rotated.userId]
+    );
+    if (!userResult.rows.length) return Response.json({ error: 'Invalid refresh token' }, { status: 401 });
+    const user = userResult.rows[0];
     const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
     const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
 
-    const cookieHeaders = createTokenCookieHeaders(accessToken, newRefreshToken);
+    const cookieHeaders = createTokenCookieHeaders(accessToken, rotated.refreshToken);
     return jsonWithCookies({ token: accessToken }, cookieHeaders);
   } catch (e) {
     logger.error('auth.refresh_failed', { error: (e as Error).message });

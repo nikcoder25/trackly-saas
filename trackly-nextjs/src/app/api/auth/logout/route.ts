@@ -1,13 +1,18 @@
 import { pool } from '@/lib/db';
-import { verifyRequestAuth, createClearCookieHeaders, jsonWithCookies } from '@/lib/auth';
+import {
+  createClearCookieHeaders,
+  jsonWithCookies,
+  revokeSessionByToken,
+  getRefreshTokenFromRequest,
+} from '@/lib/auth';
 
 export async function POST(request: Request) {
-  const user = verifyRequestAuth(request);
-  if (user) {
+  const refreshToken = getRefreshTokenFromRequest(request);
+  if (refreshToken) {
     try {
-      await pool.query('UPDATE users SET refresh_token = NULL WHERE id = $1', [user.id]);
+      await revokeSessionByToken(pool, refreshToken);
     } catch (e) {
-      console.warn('[Logout] Failed to clear refresh token:', (e as Error).message);
+      console.warn('[Logout] Failed to revoke session:', (e as Error).message);
     }
   }
 
