@@ -140,6 +140,25 @@ function newSessionId(): string {
   return Date.now().toString(36) + crypto.randomBytes(8).toString('hex');
 }
 
+/**
+ * Drop this user's session rows that are past the refresh-token TTL. Called
+ * opportunistically on every login/refresh so the table stays bounded without
+ * a dedicated cron. Scoped to user_id so the delete is cheap.
+ */
+async function pruneExpiredSessionsForUser(pool: PoolLike, userId: string): Promise<void> {
+  const maxAgeSec = Math.floor(AUTH.refreshTokenMaxAge / 1000);
+  try {
+    await pool.query(
+      `DELETE FROM user_sessions
+        WHERE user_id = $1
+          AND last_used_at < NOW() - make_interval(secs => $2)`,
+      [userId, maxAgeSec]
+    );
+  } catch {
+    // Cleanup is best-effort; never fail the auth call because of it.
+  }
+}
+
 export function getRefreshTokenFromRequest(request: Request): string | null {
   const cookieHeader = request.headers.get('cookie') || '';
   const match = cookieHeader.match(/livesov_refresh=([^;]+)/);
@@ -162,6 +181,7 @@ export async function issueSession(
      VALUES ($1, $2, $3, $4, $5)`,
     [newSessionId(), userId, hashToken(refreshToken), ctx.userAgent || null, ctx.ip || null]
   );
+  await pruneExpiredSessionsForUser(pool, userId);
   return refreshToken;
 }
 
@@ -188,7 +208,9 @@ export async function rotateSession(
     [hashToken(newToken), ctx.userAgent || null, ctx.ip || null, oldHash]
   );
   if (!result.rows.length) return null;
-  return { userId: result.rows[0].user_id as string, refreshToken: newToken };
+  const userId = result.rows[0].user_id as string;
+  await pruneExpiredSessionsForUser(pool, userId);
+  return { userId, refreshToken: newToken };
 }
 
 /** Revoke a single session by its current refresh token (logout on one device). */
