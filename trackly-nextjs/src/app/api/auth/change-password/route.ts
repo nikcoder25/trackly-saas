@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { verifyRequestAuth, validatePasswordComplexity } from '@/lib/auth';
+import { verifyRequestAuth, validatePasswordComplexity, revokeAllSessions } from '@/lib/auth';
 import { AUTH } from '@/lib/constants';
 
 export async function POST(request: Request) {
@@ -19,11 +19,10 @@ export async function POST(request: Request) {
     const ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!ok) return Response.json({ error: 'Current password is incorrect' }, { status: 400 });
     const hash = await bcrypt.hash(newPassword, AUTH.bcryptRounds);
-    // Invalidate refresh token to force re-login on all sessions.
-    // If a token_version column exists, incrementing it would also invalidate
-    // existing access tokens. Setting refresh_token = NULL ensures the user
-    // must re-authenticate to obtain new tokens.
-    await pool.query('UPDATE users SET password_hash = $1, refresh_token = NULL WHERE id = $2', [hash, user.id]);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.id]);
+    // Revoke every session for this user so a password change kicks all devices
+    // out - existing access tokens still work until their 15-minute TTL expires.
+    await revokeAllSessions(pool, user.id);
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     auditLog(user.id, 'change_password', 'user', user.id, {}, ip);
     return Response.json({ message: 'Password updated successfully' });

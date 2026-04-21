@@ -113,6 +113,98 @@ export async function requireVerifiedAuth(request: Request, pool: { query: (text
 }
 
 /**
+ * Per-device session support. Each login inserts a row in user_sessions keyed
+ * by the sha256 hash of the refresh token, so multiple devices can hold valid
+ * sessions at the same time instead of overwriting a single column.
+ */
+
+type PoolLike = {
+  query: (text: string, values?: unknown[]) => Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null }>;
+};
+
+export interface SessionContext {
+  userAgent?: string | null;
+  ip?: string | null;
+}
+
+export function sessionContextFromRequest(request: Request): SessionContext {
+  const ua = request.headers.get('user-agent') || '';
+  const xff = request.headers.get('x-forwarded-for') || '';
+  return {
+    userAgent: ua ? ua.slice(0, 500) : null,
+    ip: xff ? xff.split(',')[0].trim() : null,
+  };
+}
+
+function newSessionId(): string {
+  return Date.now().toString(36) + crypto.randomBytes(8).toString('hex');
+}
+
+export function getRefreshTokenFromRequest(request: Request): string | null {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const match = cookieHeader.match(/livesov_refresh=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Create a session row and return the plaintext refresh token to place in the
+ * livesov_refresh cookie. Caller is responsible for issuing the access token
+ * and setting cookies.
+ */
+export async function issueSession(
+  pool: PoolLike,
+  userId: string,
+  ctx: SessionContext = {}
+): Promise<string> {
+  const refreshToken = crypto.randomBytes(40).toString('hex');
+  await pool.query(
+    `INSERT INTO user_sessions (id, user_id, refresh_token_hash, user_agent, ip)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [newSessionId(), userId, hashToken(refreshToken), ctx.userAgent || null, ctx.ip || null]
+  );
+  return refreshToken;
+}
+
+/**
+ * Atomically rotate the refresh token for the session identified by oldToken.
+ * Returns the matched user row plus a freshly issued refresh token, or null if
+ * the token doesn't correspond to an active session.
+ */
+export async function rotateSession(
+  pool: PoolLike & { connect?: () => Promise<unknown> },
+  oldToken: string,
+  ctx: SessionContext = {}
+): Promise<{ userId: string; refreshToken: string } | null> {
+  const oldHash = hashToken(oldToken);
+  const newToken = crypto.randomBytes(40).toString('hex');
+  const result = await pool.query(
+    `UPDATE user_sessions
+        SET refresh_token_hash = $1,
+            last_used_at = NOW(),
+            user_agent = COALESCE($2, user_agent),
+            ip = COALESCE($3, ip)
+      WHERE refresh_token_hash = $4
+      RETURNING user_id`,
+    [hashToken(newToken), ctx.userAgent || null, ctx.ip || null, oldHash]
+  );
+  if (!result.rows.length) return null;
+  return { userId: result.rows[0].user_id as string, refreshToken: newToken };
+}
+
+/** Revoke a single session by its current refresh token (logout on one device). */
+export async function revokeSessionByToken(pool: PoolLike, refreshToken: string): Promise<void> {
+  await pool.query(
+    'DELETE FROM user_sessions WHERE refresh_token_hash = $1',
+    [hashToken(refreshToken)]
+  );
+}
+
+/** Revoke every session for a user (password change, password reset, etc.). */
+export async function revokeAllSessions(pool: PoolLike, userId: string): Promise<void> {
+  await pool.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
+}
+
+/**
  * Validate password complexity.
  * Requires: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character.
  */

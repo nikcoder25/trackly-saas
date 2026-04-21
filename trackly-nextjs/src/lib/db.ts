@@ -87,6 +87,29 @@ function runMigrations(): Promise<void> {
           usage_date DATE PRIMARY KEY,
           prompts_used INT NOT NULL DEFAULT 0
         );
+        CREATE TABLE IF NOT EXISTS user_sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          refresh_token_hash TEXT NOT NULL UNIQUE,
+          user_agent TEXT,
+          ip TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS user_sessions_user_id_idx ON user_sessions(user_id);
+      `);
+
+      // Backfill existing single-column refresh tokens into user_sessions so
+      // currently-logged-in users don't all get kicked out on deploy. Runs
+      // once per token; subsequent process starts are no-ops.
+      await pool.query(`
+        INSERT INTO user_sessions (id, user_id, refresh_token_hash)
+        SELECT md5(random()::text || clock_timestamp()::text || u.id), u.id, u.refresh_token
+        FROM users u
+        WHERE u.refresh_token IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM user_sessions s WHERE s.refresh_token_hash = u.refresh_token
+          );
       `);
       globalForDb.dbMigrated = true;
     } catch (e) {

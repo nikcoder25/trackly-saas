@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import { pool, safeConnect, auditLog, ensureColumns } from '@/lib/db';
 import { safeUser } from '@/lib/helpers';
-import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, hashToken } from '@/lib/auth';
+import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, issueSession, sessionContextFromRequest } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -130,12 +129,12 @@ export async function POST(request: NextRequest) {
 
     const effectivePlan = getEffectivePlan(user.plan, user.trial_ends_at);
     const accessToken = signAccessToken({ id: user.id, email: user.email, role: user.role || undefined, plan: effectivePlan });
-    const refreshToken = crypto.randomBytes(40).toString('hex');
+    const refreshToken = await issueSession(pool, user.id, sessionContextFromRequest(request));
 
     // Reset failed login attempts on successful login
     await pool.query(
-      `UPDATE users SET refresh_token = $1, settings = settings || '{"failed_login_attempts":0,"last_failed_login":null}'::jsonb WHERE id = $2`,
-      [hashToken(refreshToken), user.id]
+      `UPDATE users SET settings = settings || '{"failed_login_attempts":0,"last_failed_login":null}'::jsonb WHERE id = $1`,
+      [user.id]
     );
 
     auditLog(user.id, 'login', 'user', user.id, {}, ip);
