@@ -8,6 +8,7 @@ import SectionField from '@/components/dashboard/SectionField';
 import TagList from '@/components/dashboard/TagList';
 import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
+import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
 
 interface Brand {
@@ -220,6 +221,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 /* ── EDIT BRAND FORM (full feature parity with LiveSOV) ───────────────────── */
 function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
   const { startRun } = useRun();
   const startRunRef = useRef(startRun);
@@ -432,21 +434,36 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       const newQueries = queries.filter(q => !originalQueries.includes(q));
       onUpdated(data.brand);
       if (newQueries.length > 0) {
-        setMessage(`Brand updated! Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'}...`);
+        const msg = `Brand updated! Running ${newQueries.length} new quer${newQueries.length === 1 ? 'y' : 'ies'}...`;
+        setMessage(msg);
+        toast(msg, 'success');
         setOriginalQueries(queries);
         // Use ref to always get the latest startRun; small delay lets BrandContext settle
         setTimeout(() => startRunRef.current(false, { auto: true, queries: newQueries }), 600);
       } else {
         setMessage('Brand updated!');
+        toast('Brand updated successfully', 'success');
       }
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) {
+      const msg = (e as Error).message;
+      setError(msg);
+      toast(msg || 'Failed to save brand', 'error');
+    }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     if (!confirm('Delete this brand? This cannot be undone.')) return;
-    try { await api('DELETE', `/api/brands/${brand.id}`); onDeleted(); }
-    catch (e) { setError((e as Error).message); }
+    try {
+      await api('DELETE', `/api/brands/${brand.id}`);
+      toast('Brand deleted', 'success');
+      onDeleted();
+    }
+    catch (e) {
+      const msg = (e as Error).message;
+      setError(msg);
+      toast(msg || 'Failed to delete brand', 'error');
+    }
   };
 
   return (
