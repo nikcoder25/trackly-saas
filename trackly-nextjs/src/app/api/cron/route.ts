@@ -6,7 +6,7 @@
  * concurrent triggers so running both schedulers is safe.
  */
 import crypto from 'crypto';
-import { pool } from '@/lib/db';
+import { pool, ensureColumns } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { getPlanLimits } from '@/lib/constants';
 import { logger } from '@/lib/logger';
@@ -77,16 +77,29 @@ async function getBrandCrashInfo(brandIds: string[]): Promise<Map<string, BrandC
     // For each brand, count the consecutive 'error' rows in active_runs
     // since the most recent 'done' row (or since inception if never done).
     // Uses a single query with a window to keep cron tick fast.
+    //
+    // brands.crash_backoff_cleared_at, when set, acts as an "amnesty"
+    // marker: any error row with started_at <= that timestamp is ignored
+    // for streak/backoff purposes. This is how a manual user click or an
+    // admin reset unfreezes a brand whose cron has been skipped into
+    // multi-day limbo by a transient provider outage.
     const res = await pool.query(
-      `WITH ranked AS (
+      `WITH reset AS (
+        SELECT id, crash_backoff_cleared_at
+        FROM brands
+        WHERE id = ANY($1)
+      ),
+      ranked AS (
         SELECT
-          brand_id,
-          status,
-          started_at,
-          ROW_NUMBER() OVER (PARTITION BY brand_id ORDER BY started_at DESC) AS rn
-        FROM active_runs
-        WHERE brand_id = ANY($1)
-          AND status IN ('done', 'error')
+          ar.brand_id,
+          ar.status,
+          ar.started_at,
+          ROW_NUMBER() OVER (PARTITION BY ar.brand_id ORDER BY ar.started_at DESC) AS rn
+        FROM active_runs ar
+        LEFT JOIN reset r ON r.id = ar.brand_id
+        WHERE ar.brand_id = ANY($1)
+          AND ar.status IN ('done', 'error')
+          AND (r.crash_backoff_cleared_at IS NULL OR ar.started_at > r.crash_backoff_cleared_at)
       ),
       with_done_marker AS (
         SELECT
@@ -233,6 +246,11 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Ensure the crash_backoff_cleared_at column exists before we query
+    // it below. ensureColumns is cached per-process so this is a no-op
+    // after the first call.
+    await ensureColumns();
+
     // Reap stale 'running' rows BEFORE computing eligibility. Any row
     // stuck here would otherwise make its brand look "recently run"
     // forever, silently suppressing scheduled runs - not just for one

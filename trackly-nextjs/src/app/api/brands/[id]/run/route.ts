@@ -296,6 +296,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
   }
 
+  // Manual (non-cron) triggers stamp brands.crash_backoff_cleared_at so the
+  // cron's consecutive-error streak is reset from this point forward. Without
+  // this, a brand that accumulated >=3 cron errors during a provider outage
+  // stays in the 24h crash_backoff window even after the operator clicks
+  // "Run Query" to retry - cron keeps skipping it while its clock is
+  // repeatedly reset by each new failed manual attempt. Best-effort: a failed
+  // UPDATE here must not block the run itself.
+  if (!isCronCall) {
+    try {
+      await pool.query(
+        'UPDATE brands SET crash_backoff_cleared_at = NOW() WHERE id = $1',
+        [id],
+      );
+    } catch (e) {
+      logger.warn('run.crash_backoff_clear_failed', {
+        brand_id: id,
+        error: (e as Error).message,
+      });
+    }
+  }
+
   // --- Return immediately, execute in background ---
   // Default policy: run in-process via Next.js after(), which is the
   // safest path because it doesn't depend on a separate worker dyno

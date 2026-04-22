@@ -17,9 +17,19 @@
  * Claude session for root-cause analysis, without needing SSH into
  * DigitalOcean, direct DB access, or Sentry log queries.
  */
-import { pool } from '@/lib/db';
+import { pool, ensureColumns } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getPlanLimits } from '@/lib/constants';
+
+// Keep these mirrors in sync with /api/cron/route.ts - the diagnostic
+// view is only useful if it reports the exact thresholds the cron is
+// using to skip brands.
+const CRASH_BACKOFF_THRESHOLD =
+  Number(process.env.CRON_CRASH_BACKOFF_THRESHOLD) || 3;
+const CRASH_BACKOFF_BASE_MINUTES =
+  Number(process.env.CRON_CRASH_BACKOFF_BASE_MINUTES) || 30;
+const CRASH_BACKOFF_MAX_MINUTES =
+  Number(process.env.CRON_CRASH_BACKOFF_MAX_MINUTES) || 24 * 60;
 
 interface ActiveRunRow {
   id: string;
@@ -39,6 +49,7 @@ interface EligibleBrandRow {
   id: string;
   user_id: string;
   plan: string;
+  crash_backoff_cleared_at: string | null;
   data: {
     schedule?: string | number;
     runs?: Array<{ time?: string; date?: string }>;
@@ -50,6 +61,9 @@ interface EligibleBrandRow {
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
   if (admin instanceof Response) return admin;
+
+  // Make sure crash_backoff_cleared_at exists before we select it below.
+  await ensureColumns();
 
   const envFlags = {
     QUEUE_MODE: process.env.QUEUE_MODE || 'never',
@@ -116,7 +130,7 @@ export async function GET(request: Request) {
   // see exactly what the scheduler would see on its next tick.
   const paidPlans = ['starter', 'pro', 'agency', 'enterprise', 'owner'];
   const brandsResult = await pool.query<EligibleBrandRow>(
-    `SELECT b.id, b.user_id, b.data, u.plan
+    `SELECT b.id, b.user_id, b.data, u.plan, b.crash_backoff_cleared_at
      FROM brands b
      JOIN users u ON u.id = b.user_id
      WHERE u.plan = ANY($1::text[])
@@ -136,6 +150,56 @@ export async function GET(request: Request) {
       [brandIds]
     );
     for (const row of r.rows) lastDoneMap[row.brand_id] = row.last_run;
+  }
+
+  // Per-brand crash-backoff state (mirrors the cron's getBrandCrashInfo).
+  // Error rows at or before crash_backoff_cleared_at are excluded so the
+  // diagnostic reflects the effective streak the scheduler will see.
+  interface CrashRow {
+    brand_id: string;
+    consecutive_errors: string | number | null;
+    last_error_at: string | null;
+    last_done_at: string | null;
+  }
+  const crashMap: Record<string, CrashRow> = {};
+  if (brandIds.length) {
+    try {
+      const r = await pool.query<CrashRow>(
+        `WITH reset AS (
+          SELECT id, crash_backoff_cleared_at
+          FROM brands
+          WHERE id = ANY($1)
+        ),
+        ranked AS (
+          SELECT
+            ar.brand_id, ar.status, ar.started_at,
+            ROW_NUMBER() OVER (PARTITION BY ar.brand_id ORDER BY ar.started_at DESC) AS rn
+          FROM active_runs ar
+          LEFT JOIN reset r ON r.id = ar.brand_id
+          WHERE ar.brand_id = ANY($1)
+            AND ar.status IN ('done', 'error')
+            AND (r.crash_backoff_cleared_at IS NULL OR ar.started_at > r.crash_backoff_cleared_at)
+        ),
+        with_done_marker AS (
+          SELECT
+            brand_id, status, started_at, rn,
+            SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END)
+              OVER (PARTITION BY brand_id ORDER BY rn) AS done_seen_after
+          FROM ranked
+        )
+        SELECT
+          brand_id,
+          COUNT(*) FILTER (WHERE status = 'error' AND done_seen_after = 0) AS consecutive_errors,
+          MAX(started_at) FILTER (WHERE status = 'error')::text AS last_error_at,
+          MAX(started_at) FILTER (WHERE status = 'done')::text AS last_done_at
+        FROM with_done_marker
+        GROUP BY brand_id`,
+        [brandIds]
+      );
+      for (const row of r.rows) crashMap[row.brand_id] = row;
+    } catch {
+      // Column may still be missing mid-migration; fall through with empty map.
+    }
   }
 
   const now = Date.now();
@@ -160,12 +224,36 @@ export async function GET(request: Request) {
     const hoursSince = lastDoneIso
       ? (now - new Date(lastDoneIso).getTime()) / 3_600_000
       : null;
+    // Crash-backoff state for this brand, derived from active_runs and
+    // crash_backoff_cleared_at. Matches the formula in cron/route.ts.
+    const crash = crashMap[row.id];
+    const consecutiveErrors = Number(crash?.consecutive_errors || 0);
+    const lastErrorAt = crash?.last_error_at ? new Date(crash.last_error_at) : null;
+    let backoffMinutes = 0;
+    let waitMinutesRemaining = 0;
+    let inBackoff = false;
+    if (consecutiveErrors >= CRASH_BACKOFF_THRESHOLD && lastErrorAt) {
+      const overflow = consecutiveErrors - CRASH_BACKOFF_THRESHOLD;
+      backoffMinutes = Math.min(
+        CRASH_BACKOFF_MAX_MINUTES,
+        CRASH_BACKOFF_BASE_MINUTES * Math.pow(2, Math.max(0, overflow)),
+      );
+      const elapsedMs = now - lastErrorAt.getTime();
+      const waitMs = backoffMinutes * 60_000 - elapsedMs;
+      if (waitMs > 0) {
+        inBackoff = true;
+        waitMinutesRemaining = Math.ceil(waitMs / 60_000);
+      }
+    }
+
     let eligible = false;
     let skipReason: string | null = null;
     if (!limits.scheduledRuns) {
       skipReason = 'plan_no_scheduled_runs';
     } else if (hoursSince !== null && hoursSince < effectiveSchedule) {
       skipReason = 'interval_not_elapsed';
+    } else if (inBackoff) {
+      skipReason = 'crash_backoff';
     } else {
       eligible = true;
     }
@@ -193,6 +281,14 @@ export async function GET(request: Request) {
       hours_since_last_run: hoursSince !== null ? Number(hoursSince.toFixed(2)) : null,
       eligible,
       skip_reason: skipReason,
+      crash_backoff: {
+        consecutive_errors: consecutiveErrors,
+        in_backoff: inBackoff,
+        backoff_minutes: backoffMinutes,
+        wait_minutes_remaining: waitMinutesRemaining,
+        last_error_at: crash?.last_error_at || null,
+        cleared_at: row.crash_backoff_cleared_at,
+      },
     };
   });
 
@@ -201,6 +297,7 @@ export async function GET(request: Request) {
     eligible_now: eligibility.filter(e => e.eligible).length,
     skipped_interval: eligibility.filter(e => e.skip_reason === 'interval_not_elapsed').length,
     skipped_plan: eligibility.filter(e => e.skip_reason === 'plan_no_scheduled_runs').length,
+    skipped_crash_backoff: eligibility.filter(e => e.skip_reason === 'crash_backoff').length,
     never_run: eligibility.filter(e => e.last_run_source === 'none').length,
   };
 

@@ -77,6 +77,7 @@ function runMigrations(): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip TEXT;
         CREATE INDEX IF NOT EXISTS users_email_normalized_idx ON users(email_normalized);
         CREATE INDEX IF NOT EXISTS users_signup_ip_idx ON users(signup_ip);
+        ALTER TABLE brands ADD COLUMN IF NOT EXISTS crash_backoff_cleared_at TIMESTAMPTZ;
         CREATE TABLE IF NOT EXISTS trial_usage (
           user_id TEXT NOT NULL,
           usage_date DATE NOT NULL,
