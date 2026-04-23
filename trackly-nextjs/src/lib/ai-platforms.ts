@@ -21,6 +21,12 @@ export interface AiError extends Error {
   isRateLimit?: boolean;
   isTransient?: boolean;
   budgetExhausted?: boolean;
+  // ChatGPT-specific: server told us to wait longer than our per-call sleep
+  // cap. Caller (queryAI ChatGPT branch) should park the query in the
+  // in-process deferred retry queue with this delay instead of burning
+  // another retry attempt locally.
+  needsDeferral?: boolean;
+  deferralMs?: number;
 }
 function tagError(msg: string, flags: Partial<AiError> = {}): AiError {
   const e = new Error(msg) as AiError;
@@ -189,8 +195,15 @@ export function clearKeyCooldown(apiKey: string): void {
 // queries in this worker process. Values leave headroom under published
 // provider limits so retries and multi-brand bursts don't trip 429s.
 export interface PlatformLimit { maxConcurrent: number; rpm: number; windowMs: number; }
+// ChatGPT default lowered from 4 → 2 because the default model
+// `gpt-4o-mini-search-preview` runs on OpenAI's Search-Preview rate-limit
+// pool, which is far more restrictive than the standard chat model pool.
+// 2 concurrent + 1500ms per-key minDelay keeps us inside that pool at
+// steady state. `AI_CHATGPT_MAX_CONCURRENT` takes precedence over the
+// legacy `AI_LIMITS_CHATGPT_CONCURRENCY` name; both are read for back-
+// compat with existing production env.
 export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
-  ChatGPT:    { maxConcurrent: Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY)    || 4, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM)    || 300, windowMs: 60000 },
+  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 2, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 300, windowMs: 60000 },
   Claude:     { maxConcurrent: Number(process.env.AI_LIMITS_CLAUDE_CONCURRENCY)     || 3, rpm: Number(process.env.AI_LIMITS_CLAUDE_RPM)     || 80,  windowMs: 60000 },
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
@@ -375,8 +388,10 @@ function coalesce(key: string, fn: () => Promise<QueryResult>): Promise<QueryRes
 // ── Per-platform, per-key minimum spacing ───────────────────────
 // Upper bound on per-key request rate - complements the global semaphore.
 interface RateLimit { minDelayMs: number; }
+// ChatGPT default raised from 500ms → 1500ms to pace against Search-Preview
+// pool (see PLATFORM_LIMITS comment). Tune via AI_CHATGPT_MIN_DELAY_MS.
 const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
-  ChatGPT:    { minDelayMs: 500 },
+  ChatGPT:    { minDelayMs: Number(process.env.AI_CHATGPT_MIN_DELAY_MS) || 1500 },
   Claude:     { minDelayMs: 300 },
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
@@ -466,14 +481,55 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
 }
 
 // ── Retry-After header parsing ──────────────────────────────────
-function parseRetryAfterHeader(h: Headers): number | null {
-  const raw = h.get('retry-after') || h.get('x-ratelimit-reset-requests') || h.get('x-ratelimit-reset-tokens');
-  if (!raw) return null;
-  const secs = parseInt(raw, 10);
-  if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, 120000);
-  const when = Date.parse(raw);
+// Parse a single duration header value. Supports:
+//   - Integer seconds ("20")
+//   - HTTP-date ("Wed, 21 Oct 2026 07:28:00 GMT")
+//   - OpenAI compact format ("1s", "500ms", "20m21s", "1.5s") emitted by
+//     x-ratelimit-reset-requests / x-ratelimit-reset-tokens
+// Returns ms, capped at 120s (anything longer goes to deferral path).
+function parseDurationHeader(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Plain integer seconds
+  if (/^\d+$/.test(trimmed)) {
+    const secs = parseInt(trimmed, 10);
+    if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, 120000);
+  }
+  // OpenAI compact: "1s", "500ms", "20m21s", "1.5s", "1h2m3s"
+  const re = /(\d+(?:\.\d+)?)\s*(ms|s|m|h)/gi;
+  let m: RegExpExecArray | null;
+  let total = 0;
+  let matched = false;
+  while ((m = re.exec(trimmed)) !== null) {
+    matched = true;
+    const n = parseFloat(m[1]);
+    const unit = m[2].toLowerCase();
+    if (unit === 'ms') total += n;
+    else if (unit === 's') total += n * 1000;
+    else if (unit === 'm') total += n * 60000;
+    else if (unit === 'h') total += n * 3600000;
+  }
+  if (matched) return Math.min(total, 120000);
+  // HTTP-date
+  const when = Date.parse(trimmed);
   if (Number.isFinite(when)) return Math.max(0, Math.min(when - Date.now(), 120000));
   return null;
+}
+
+// Take the MAX of all present rate-limit reset signals. OpenAI sends
+// `retry-after` AND `x-ratelimit-reset-requests` AND `x-ratelimit-reset-tokens`
+// - the longest wait wins, otherwise we hammer the tighter bucket.
+function parseRetryAfterHeader(h: Headers): number | null {
+  const names = ['retry-after', 'x-ratelimit-reset-requests', 'x-ratelimit-reset-tokens'];
+  let best: number | null = null;
+  for (const name of names) {
+    const raw = h.get(name);
+    if (!raw) continue;
+    const ms = parseDurationHeader(raw);
+    if (ms === null) continue;
+    if (best === null || ms > best) best = ms;
+  }
+  return best;
 }
 function extractBodyRetryAfter(body: unknown): number | null {
   if (!body) return null;
@@ -495,8 +551,28 @@ const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 
 // "two short backoffs" intent of MAX_RETRIES=2.
 const MAX_RETRY_SLEEP_MS = Number(process.env.AI_MAX_RETRY_SLEEP_MS) || 15000;
 
-async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string): Promise<AiResponseData> {
-  const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES) || 2;
+// retryConfig is how the ChatGPT call site overrides retry behaviour WITHOUT
+// touching any other platform's fetchAI call. When undefined, every default
+// matches the pre-existing behaviour byte-for-byte, so Claude/Gemini/Grok/
+// Perplexity keep their old retry semantics.
+export interface FetchAiRetryConfig {
+  maxRetries?: number;       // Overrides AI_MAX_RETRIES (default 2).
+  maxSleepMs?: number;       // Overrides AI_MAX_RETRY_SLEEP_MS (default 15000).
+  // When set, 429s are logged with this prefix + structured context, and
+  // if the server asks us to wait longer than maxSleepMs on a 429 we throw
+  // `{ isRateLimit, needsDeferral, deferralMs }` so the caller can park the
+  // query in the in-process deferred queue rather than burn another attempt.
+  logPrefix?: string;
+  queryId?: string;          // Log correlation only.
+  model?: string;            // Log correlation only.
+}
+
+async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string, retryConfig?: FetchAiRetryConfig): Promise<AiResponseData> {
+  const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 2);
+  const CALL_MAX_RETRY_SLEEP_MS = retryConfig?.maxSleepMs ?? MAX_RETRY_SLEEP_MS;
+  const logPrefix = retryConfig?.logPrefix;
+  const logModel = retryConfig?.model;
+  const logQueryId = retryConfig?.queryId;
   // Caller may pass an AbortSignal in options. Combine it with our own
   // per-attempt timeout signal so EITHER expiring cancels the fetch and
   // any sleep we're inside.
@@ -532,7 +608,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       lastErr = tagError((e as Error).message || 'Network error', { isTransient: true });
       if (attempt < MAX_RETRIES) {
         const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
-        const cappedDelay = Math.min(delay, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+        const cappedDelay = Math.min(delay, Math.max(0, CALL_MAX_RETRY_SLEEP_MS - totalSleptMs));
         if (cappedDelay <= 0) throw lastErr;
         totalSleptMs += cappedDelay;
         await sleep(cappedDelay, callerSignal);
@@ -554,28 +630,87 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         const bodyText = await resp.text().catch(() => '');
         let body: unknown = bodyText;
         try { body = JSON.parse(bodyText); } catch { /* keep as text */ }
-        const hint = parseRetryAfterHeader(resp.headers) || extractBodyRetryAfter(body) || 0;
+        // Take the MAX of every reset/retry signal the server emits -
+        // OpenAI sends retry-after AND x-ratelimit-reset-requests AND
+        // x-ratelimit-reset-tokens; the tightest one should win.
+        const headerHint = parseRetryAfterHeader(resp.headers);
+        const bodyHint = extractBodyRetryAfter(body);
+        const hint = Math.max(headerHint || 0, bodyHint || 0);
         if (apiKey) markKeyRateLimited(apiKey, hint);
         // Feed the platform-wide rate-limit circuit breaker. When the
         // account quota is saturated every key cools at once, so pooling
         // across keys doesn't help - we need to stop banging on the
         // provider for a few minutes across all brands.
         if (platform) recordPlatformRateLimit(platform);
+        // Structured observability for ChatGPT (only emitted when caller
+        // passes logPrefix - non-ChatGPT paths stay quiet as before).
+        if (logPrefix) {
+          console.warn(logPrefix, {
+            event: 'rate_limited',
+            status: resp.status,
+            attempt,
+            maxRetries: MAX_RETRIES,
+            retryAfterMs: hint || null,
+            headerHintMs: headerHint,
+            bodyHintMs: bodyHint,
+            sleptSoFarMs: totalSleptMs,
+            sleepCapMs: CALL_MAX_RETRY_SLEEP_MS,
+            model: logModel,
+            queryId: logQueryId,
+          });
+        }
+        // If the server told us to wait longer than we can sleep on this
+        // call, DON'T burn a retry - surface `needsDeferral` so the caller
+        // can park the query in the in-process deferred retry queue and
+        // let the current run finish. For ChatGPT this keeps the other
+        // 68 queries flowing instead of hanging behind a 30s Retry-After.
+        const remainingBudget = Math.max(0, CALL_MAX_RETRY_SLEEP_MS - totalSleptMs);
+        if (hint > remainingBudget && hint > 0) {
+          if (logPrefix) {
+            console.warn(logPrefix, {
+              event: 'defer_for_reset',
+              status: resp.status,
+              deferralMs: hint,
+              remainingBudgetMs: remainingBudget,
+              model: logModel,
+              queryId: logQueryId,
+            });
+          }
+          throw tagError(
+            `Rate limited (${resp.status}) - deferring ${Math.round(hint / 1000)}s for window reset`,
+            { isRateLimit: true, needsDeferral: true, deferralMs: hint },
+          );
+        }
         if (attempt < MAX_RETRIES) {
-          const backoff = 2000 * Math.pow(2, attempt);
-          const jitter = Math.floor(Math.random() * 1000);
-          const wantedSleep = (hint || backoff) + jitter;
-          const cappedSleep = Math.min(wantedSleep, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
-          if (cappedSleep <= 0) {
+          // Full-jitter exponential backoff (AWS pattern). When the server
+          // gave us a hint, trust it (plus small jitter to decorrelate
+          // parallel callers). When no hint, sleep a random value in
+          // [0, min(capMs, base)] where base = 2^attempt * 1000ms.
+          const base = Math.min(remainingBudget, 1000 * Math.pow(2, attempt + 1));
+          const sleepMs = hint > 0
+            ? Math.min(hint + Math.floor(Math.random() * 500), remainingBudget)
+            : Math.max(500, Math.floor(Math.random() * Math.max(500, base)));
+          if (sleepMs <= 0) {
+            // No remaining budget but no deferral (hint was 0). Surface
+            // retries-exhausted rather than a zero-length sleep loop.
             throw tagError(
-              `Rate limited (${resp.status}) - sleep budget exhausted (${MAX_RETRY_SLEEP_MS}ms cap)`,
+              `Rate limited (${resp.status}) - sleep budget exhausted (${CALL_MAX_RETRY_SLEEP_MS}ms cap)`,
               { isRateLimit: true },
             );
           }
-          totalSleptMs += cappedSleep;
+          totalSleptMs += sleepMs;
           cleanup();
-          await sleep(cappedSleep, callerSignal);
+          await sleep(sleepMs, callerSignal);
           continue;
+        }
+        if (logPrefix) {
+          console.warn(logPrefix, {
+            event: 'final_failure',
+            status: resp.status,
+            attempts: attempt + 1,
+            model: logModel,
+            queryId: logQueryId,
+          });
         }
         throw tagError(`Rate limited (${resp.status}) - retries exhausted`, { isRateLimit: true });
       }
@@ -584,7 +719,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         lastErr = tagError(`Server error ${resp.status}`, { isTransient: true });
         if (attempt < MAX_RETRIES) {
           const delay = 1500 * Math.pow(2, attempt) + Math.random() * 500;
-          const cappedDelay = Math.min(delay, Math.max(0, MAX_RETRY_SLEEP_MS - totalSleptMs));
+          const cappedDelay = Math.min(delay, Math.max(0, CALL_MAX_RETRY_SLEEP_MS - totalSleptMs));
           if (cappedDelay <= 0) throw lastErr;
           totalSleptMs += cappedDelay;
           cleanup();
@@ -633,11 +768,16 @@ const DEFERRED_MAX_ATTEMPTS = 4;
 const DEFERRED_BASE_DELAY_MS = 5 * 60 * 1000;
 const DEFERRED_QUEUE_MAX = 500;
 
-export function enqueueDeferredRetry(item: Omit<DeferredItem, 'scheduledAt' | 'attempts'> & { attempts?: number }): boolean {
+export function enqueueDeferredRetry(item: Omit<DeferredItem, 'scheduledAt' | 'attempts'> & { attempts?: number; delayMs?: number }): boolean {
   if (_deferredQueue.length >= DEFERRED_QUEUE_MAX) return false;
   const attempts = (item.attempts || 0) + 1;
   if (attempts > DEFERRED_MAX_ATTEMPTS) return false;
-  const delay = DEFERRED_BASE_DELAY_MS * Math.pow(2, attempts - 1);
+  // Caller may supply delayMs (e.g. the Retry-After hint from a ChatGPT
+  // 429) to park the query just past the window reset. Clamp at 15min so
+  // a malicious/garbage header can't park a query for hours.
+  const delay = item.delayMs && item.delayMs > 0
+    ? Math.min(item.delayMs + 1000, 15 * 60 * 1000)
+    : DEFERRED_BASE_DELAY_MS * Math.pow(2, attempts - 1);
   _deferredQueue.push({ ...item, attempts, scheduledAt: Date.now() + delay });
   return true;
 }
@@ -688,6 +828,10 @@ export interface QueryOptions {
   // is aborted AND any in-flight retry sleeps inside fetchAI throw
   // immediately, so a per-task deadline genuinely bounds the call.
   signal?: AbortSignal;
+  // Correlation ID threaded through to ChatGPT rate-limit logs so a
+  // specific 429 can be traced to a specific run+query in DO runtime
+  // logs (grep `[chatgpt.ratelimit]`).
+  queryId?: string;
 }
 
 // Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
@@ -754,6 +898,44 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
   throw lastErr || tagError('Gemini: all fallbacks exhausted', { isTransient: true });
 }
 
+// ── ChatGPT smart model routing (feature-flagged, OFF by default) ──
+// OpenAI's Search-Preview models (`*-search-preview`, `*-search-api`) run
+// on a far tighter quota pool than standard gpt-4o/gpt-4o-mini. Not every
+// brand-tracking query actually needs web search - definitional queries
+// ("what is X", "explain Y") can be answered from the model's training
+// data. When CHATGPT_SMART_MODEL_ROUTING=true, route non-search-intent
+// queries to `gpt-4o` (no-search) to spare the preview quota for queries
+// that genuinely need fresh web data.
+//
+// Conservative heuristic: DEFAULT TO SEARCH. We only drop to non-search
+// when (a) the admin-selected model is a search-preview model, (b) the
+// query has a clear definitional/explanatory intent, AND (c) it has NO
+// freshness/location/comparison qualifiers. Mis-routing a query costs us
+// answer quality; under-routing costs us quota - so we err on the side
+// of keeping search.
+const NON_SEARCH_INTENT_RE = /^\s*(what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b/i;
+const FRESHNESS_OR_LOCAL_RE = /\b(best|top|recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+year|20\d{2})\b/i;
+
+export function resolveChatGPTModel(query: string, adminModel: string): string {
+  if (process.env.CHATGPT_SMART_MODEL_ROUTING !== 'true') return adminModel;
+  // Only route AWAY from search-preview models. If admin already picked a
+  // non-search model, leave it alone.
+  if (!adminModel.includes('search')) return adminModel;
+  const q = (query || '').trim();
+  if (!q) return adminModel;
+  if (!NON_SEARCH_INTENT_RE.test(q)) return adminModel;
+  if (FRESHNESS_OR_LOCAL_RE.test(q)) return adminModel;
+  // Safe to route to standard model.
+  const fallback = 'gpt-4o';
+  console.warn('[chatgpt.ratelimit]', {
+    event: 'smart_route',
+    from: adminModel,
+    to: fallback,
+    query: q.slice(0, 120),
+  });
+  return fallback;
+}
+
 export async function queryAI(
   platform: string,
   query: string,
@@ -812,11 +994,23 @@ export async function queryAI(
           payload.web_search_options = {};
           if (brand?.city) payload.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
         }
+        // ChatGPT-specific retry config. Search-Preview model pool is
+        // tight, so we allow more attempts (default 6 vs. 2) and a larger
+        // per-call sleep budget (default 60s vs. 15s) to honour OpenAI's
+        // Retry-After hints. `logPrefix: '[chatgpt.ratelimit]'` emits
+        // structured logs on every 429 so DO runtime logs can confirm
+        // the fix without a deploy.
         const d = await fetchAI(API_ENDPOINTS.openai.chat, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify(payload),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT');
+        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
+          maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 6,
+          maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 60000,
+          logPrefix: '[chatgpt.ratelimit]',
+          queryId: options?.queryId,
+          model: useModel,
+        });
         const citations = (d.choices?.[0]?.message?.annotations || [])
           .filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url)
           .map((a: { url: string }) => a.url);
@@ -887,7 +1081,12 @@ export async function queryAI(
       return result;
     } catch (e) {
       if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
-        enqueueDeferredRetry({ platform, query, apiKey, model: useModel, brand, options });
+        // When fetchAI surfaces `needsDeferral: true` (ChatGPT only, when
+        // Retry-After > per-call sleep cap) we park the query just past
+        // the window reset instead of the generic 5-min backoff.
+        const aiErr = e as AiError;
+        const delayMs = aiErr.needsDeferral && aiErr.deferralMs ? aiErr.deferralMs : undefined;
+        enqueueDeferredRetry({ platform, query, apiKey, model: useModel, brand, options, delayMs });
       }
       throw e;
     } finally {
