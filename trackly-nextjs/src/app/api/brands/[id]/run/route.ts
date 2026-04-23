@@ -540,6 +540,26 @@ async function executeRunBackgroundInner(
         () => taskController.abort(new Error('platform timeout')),
         PER_PLATFORM_TIMEOUT_MS,
       );
+      // Hard outer timeout. The AbortController alone is not sufficient:
+      // acquirePlatformSlot's `while (inFlight >= maxConcurrent)` waiter
+      // queue (ai-platforms.ts) does NOT check the signal, so a leaked
+      // semaphore permit stalls the await indefinitely even though the
+      // timer has fired. The Apr 2026 "Last Run frozen" incident matches
+      // this signature: polling advances to ~15 results, then the next
+      // task hangs on a saturated slot and the whole run never completes.
+      // Promise.race guarantees outer progress regardless of whether the
+      // inner code honors the signal.
+      let hardTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      const hardTimeoutPromise = new Promise<never>((_, rej) => {
+        hardTimeoutHandle = setTimeout(
+          () => rej(new Error('platform timeout')),
+          PER_PLATFORM_TIMEOUT_MS,
+        );
+      });
+      logger.info('run.task_start', {
+        run_id: runId, brand_id: brandId,
+        platform: plat, query_index: idx, query: q,
+      });
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
           throw new Error(`Skipped - ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
@@ -580,12 +600,21 @@ async function executeRunBackgroundInner(
             // is unchanged (flag OFF).
             const baseModel = adminModels[plat] || getDefaultModel(plat);
             const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+            logger.info('run.query_ai_before', {
+              run_id: runId, brand_id: brandId,
+              platform: plat, query_index: idx, model: modelForTask,
+            });
             const r = await queryAI(
               plat, q, rawKey,
               modelForTask,
               brand,
               { signal, queryId: `${runId}:${idx}` },
             );
+            logger.info('run.query_ai_resolved', {
+              run_id: runId, brand_id: brandId,
+              platform: plat, query_index: idx,
+              text_len: r?.text?.length || 0,
+            });
             resetApiKeyFailures(rawKey);
             return r;
           } finally {
@@ -597,7 +626,10 @@ async function executeRunBackgroundInner(
         // timeout (AbortController above) also interrupts retry sleeps -
         // otherwise a 10-17s sleep could outlive the 60s task deadline and
         // let 429 retries burn the full per-run budget.
-        const result = await withDeepRetry(plat, singleAttempt, { signal });
+        const result = await Promise.race([
+          withDeepRetry(plat, singleAttempt, { signal }),
+          hardTimeoutPromise,
+        ]);
         platFailCount[plat] = 0;
         processResult(plat, q, result);
       } catch (err) {
@@ -605,12 +637,24 @@ async function executeRunBackgroundInner(
         // Translate AbortError-shaped failures into the user-facing
         // "platform timeout" message so processError + the diagnostic
         // logs are unambiguous.
-        const message = (e.name === 'AbortError' || taskController.signal.aborted)
-          ? 'platform timeout'
-          : e.message;
+        const isHardTimeout = e.message === 'platform timeout'
+          || e.name === 'AbortError'
+          || taskController.signal.aborted;
+        const message = isHardTimeout ? 'platform timeout' : e.message;
+        // Proactively abort so any in-flight fetch / sleep inside
+        // singleAttempt stops holding resources after we've moved on.
+        if (isHardTimeout && !taskController.signal.aborted) {
+          try { taskController.abort(new Error('platform timeout')); } catch { /* ignore */ }
+        }
+        logger.warn(isHardTimeout ? 'run.task_timeout' : 'run.task_rejected', {
+          run_id: runId, brand_id: brandId,
+          platform: plat, query_index: idx,
+          error: message,
+        });
         processError(plat, q, new Error(message));
       } finally {
         clearTimeout(timeoutHandle);
+        if (hardTimeoutHandle) clearTimeout(hardTimeoutHandle);
       }
       // Flush to DB every 3 results
       if (pendingResults.length >= 3) await flushProgress();

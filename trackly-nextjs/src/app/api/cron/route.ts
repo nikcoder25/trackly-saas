@@ -10,6 +10,7 @@ import { pool } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { getPlanLimits } from '@/lib/constants';
 import { logger } from '@/lib/logger';
+import { reconcileStaleRuns, getStaleRunMinutes } from '@/lib/run-reconciler';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
@@ -34,14 +35,10 @@ const BRAND_STAGGER_MS = 8000;
  * because a column name differs.
  */
 // How long a 'running' row may persist before we treat it as stale.
-// Lowered from 30 to 5 minutes because a single timed-out run was
-// blocking the next two cron ticks via the /run lock_check + 409
-// cascade. Override via CRON_RECONCILE_STALE_MINUTES if you need
-// longer for legitimately slow runs.
-const STALE_RUN_MINUTES = (() => {
-  const raw = parseInt(process.env.CRON_RECONCILE_STALE_MINUTES || '', 10);
-  return Number.isFinite(raw) && raw > 0 ? Math.min(60, raw) : 5;
-})();
+// The shared watchdog in @/lib/run-reconciler reads this via
+// getStaleRunMinutes(); kept as a local alias so the cron summary logs
+// the same threshold value the reconciler used.
+const STALE_RUN_MINUTES = getStaleRunMinutes();
 
 // In-process tracker for cron pile-up detection. When reconciled >= processed
 // for two ticks in a row, the scheduler is picking up brands that crash
@@ -144,45 +141,21 @@ function inCrashBackoff(info: BrandCrashInfo | undefined): { backoff: true; wait
 }
 
 async function reconcileStaleActiveRuns(): Promise<{ count: number; brandIds: string[] }> {
-  let columns: Set<string>;
-  try {
-    const colRes = await pool.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = 'active_runs'`
-    );
-    columns = new Set((colRes.rows as { column_name: string }[]).map(r => r.column_name));
-  } catch {
-    return { count: 0, brandIds: [] };
+  // Delegates to the shared watchdog which, beyond flipping the
+  // active_runs row to 'error', also appends a minimal entry to
+  // brands.data.runs. Appending is the piece the previous cron-only
+  // reconciler was missing: without it, a stuck run left the dashboard
+  // "Last Run" frozen even after the active_runs row was reaped,
+  // because the dashboard reads brands.data.runs[last].time.
+  const { count, brandIds } = await reconcileStaleRuns({
+    reason: `reconciled: stale running row (>${STALE_RUN_MINUTES}min)`,
+  });
+  if (count > 0) {
+    logger.info('cron.reconciled_stale_runs', {
+      count, threshold_minutes: STALE_RUN_MINUTES, brand_ids: brandIds,
+    });
   }
-  if (!columns.has('status') || !columns.has('started_at') || !columns.has('brand_id')) {
-    return { count: 0, brandIds: [] };
-  }
-
-  const sets: string[] = [`status = 'error'`];
-  if (columns.has('completed_at')) sets.push(`completed_at = NOW()`);
-  else if (columns.has('finished_at')) sets.push(`finished_at = NOW()`);
-  const errCol = columns.has('error_message') ? 'error_message'
-    : columns.has('error') ? 'error'
-    : null;
-  if (errCol) {
-    sets.push(`${errCol} = COALESCE(${errCol}, 'reconciled: stale running row (>${STALE_RUN_MINUTES}min)')`);
-  }
-
-  try {
-    const res = await pool.query(
-      `UPDATE active_runs SET ${sets.join(', ')}
-       WHERE status = 'running' AND started_at < NOW() - INTERVAL '${STALE_RUN_MINUTES} minutes'
-       RETURNING brand_id`
-    );
-    const brandIds = Array.from(new Set((res.rows as { brand_id: string }[]).map(r => r.brand_id)));
-    const count = res.rowCount || 0;
-    if (count > 0) {
-      logger.info('cron.reconciled_stale_runs', { count, threshold_minutes: STALE_RUN_MINUTES, brand_ids: brandIds });
-    }
-    return { count, brandIds };
-  } catch (e) {
-    logger.warn('cron.reconcile_stale_failed', { error: (e as Error).message });
-    return { count: 0, brandIds: [] };
-  }
+  return { count, brandIds };
 }
 
 export async function GET(request: Request) {

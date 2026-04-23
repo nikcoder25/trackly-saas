@@ -103,6 +103,14 @@ export function RunProvider({ children }: { children: ReactNode }) {
     const MAX_POLL_ERRORS = 20;
     let pollDelay = 2000;
     let lastResultCount = 0;
+    // Client-side stall watchdog: if the server-reported `received`
+    // counter stops advancing for this long, treat the run as hung and
+    // surface a retryable error state. The server reconciler flips the
+    // active_runs row at 10 min, but 90s is short enough that a human
+    // operator won't assume the UI is frozen before feedback arrives.
+    const NO_PROGRESS_STALL_MS = 90_000;
+    let lastProgressReceived = 0;
+    let lastProgressAt = Date.now();
 
     // Use iterative loop instead of recursive calls to avoid stack overflow on long runs
     const runPollLoop = async () => {
@@ -121,15 +129,40 @@ export function RunProvider({ children }: { children: ReactNode }) {
             pollDelay = Math.min(pollDelay + 500, 5000);
           }
 
+          const serverReceived = data.received || 0;
+          if (serverReceived > lastProgressReceived) {
+            lastProgressReceived = serverReceived;
+            lastProgressAt = Date.now();
+          }
+
           setLive(prev => ({
             ...prev,
-            received: data.received || prev.received,
+            received: serverReceived || prev.received,
             totalExpected: data.totalExpected || prev.totalExpected,
             foundCount: data.foundCount || 0,
             errorCount: data.errorCount || 0,
-            statusText: `${data.received || 0}/${data.totalExpected || 0} - ${data.foundCount || 0} found`,
+            statusText: `${serverReceived}/${data.totalExpected || 0} - ${data.foundCount || 0} found`,
             results: newResults.length > 0 ? [...prev.results, ...newResults] : prev.results,
           }));
+
+          // No-progress stall check: if the run is still 'running' on
+          // the server but the received counter hasn't moved for
+          // NO_PROGRESS_STALL_MS, bail out with a retryable error. We
+          // don't touch the server state here - the run-status endpoint
+          // invokes the watchdog defensively on every poll, so this is
+          // purely a UI escape hatch.
+          if (data.status === 'running'
+              && Date.now() - lastProgressAt > NO_PROGRESS_STALL_MS) {
+            pollRef.current = false;
+            runningRef.current = false;
+            localStorage.removeItem('livesov_active_run');
+            setLive(prev => ({
+              ...prev, running: false, status: 'error',
+              statusText: 'No progress for 90s - run appears stuck. Retry?',
+              errorMsg: 'stalled',
+            }));
+            return;
+          }
 
           if (data.status === 'done' || data.status === 'error') {
             pollRef.current = false;
