@@ -19,6 +19,16 @@ function loadDatabaseCa(): string | undefined {
 // NODE_TLS_REJECT_UNAUTHORIZED=0 workaround.
 const ca = loadDatabaseCa();
 
+// Strip `sslmode` from DATABASE_URL before handing it to pg. pg-connection-string
+// translates `sslmode=require` (and friends) into its own ssl object that
+// REPLACES the explicit `ssl` option below, which would discard our CA. By
+// removing the query param we let our `sslConfig` win.
+const sanitizedDatabaseUrl = process.env.DATABASE_URL
+  ? process.env.DATABASE_URL
+      .replace(/([?&])sslmode=[^&]*(&|$)/g, (_m, pre, post) => (post === '&' ? pre : ''))
+      .replace(/\?$/, '')
+  : undefined;
+
 const sslConfig = process.env.DATABASE_URL
   ? {
       ...(ca ? { ca } : {}),
@@ -35,7 +45,7 @@ const globalForDb = globalThis as unknown as { pool: Pool | undefined; dbMigrate
 export const pool =
   globalForDb.pool ??
   new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: sanitizedDatabaseUrl,
     ssl: sslConfig,
     max: parseInt(process.env.PG_POOL_MAX || '50', 10),
     min: parseInt(process.env.PG_POOL_MIN || '5', 10),
