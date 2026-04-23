@@ -222,13 +222,38 @@ function _getPlatformState(platform: string): PlatformState {
 // Acquire a slot respecting both concurrency and sliding-window RPM.
 // The concurrency slot is claimed BEFORE the RPM sleep so parallel callers
 // cannot bypass the concurrency cap while waiting on the RPM window.
-export async function acquirePlatformSlot(platform: string): Promise<() => void> {
+//
+// Accepts an optional AbortSignal so a per-task timeout can unblock a
+// queued waiter. Without it, a waiter parks a resolver in state.waiters
+// that only release() can wake - so if an upstream holder is slow or the
+// permit genuinely leaks, every caller behind it stalls forever even
+// though its signal has fired. On abort we splice the waiter out of the
+// queue so a later release() doesn't hand its slot to a dead caller.
+export async function acquirePlatformSlot(
+  platform: string,
+  signal?: AbortSignal,
+): Promise<() => void> {
   const limits = PLATFORM_LIMITS[platform];
   if (!limits) return () => {};
   const state = _getPlatformState(platform);
 
   while (state.inFlight >= limits.maxConcurrent) {
-    await new Promise<void>(resolve => state.waiters.push(resolve));
+    if (signal?.aborted) {
+      throw tagError('Aborted while waiting for platform slot', { isTransient: false });
+    }
+    await new Promise<void>((resolve, reject) => {
+      const wake = (): void => {
+        if (signal) signal.removeEventListener('abort', onAbort);
+        resolve();
+      };
+      const onAbort = (): void => {
+        const idx = state.waiters.indexOf(wake);
+        if (idx >= 0) state.waiters.splice(idx, 1);
+        reject(tagError('Aborted while waiting for platform slot', { isTransient: false }));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      state.waiters.push(wake);
+    });
   }
   state.inFlight++;
 
@@ -237,18 +262,24 @@ export async function acquirePlatformSlot(platform: string): Promise<() => void>
     if (released) return;
     released = true;
     state.inFlight--;
+    // Aborted waiters splice themselves out of state.waiters in their
+    // onAbort handler, so shift() always returns a live wake fn (or
+    // undefined when the queue is empty).
     const next = state.waiters.shift();
     if (next) next();
   };
 
   try {
     for (;;) {
+      if (signal?.aborted) {
+        throw tagError('Aborted during RPM wait', { isTransient: false });
+      }
       const now = Date.now();
       state.timestamps = state.timestamps.filter(t => now - t < limits.windowMs);
       if (state.timestamps.length < limits.rpm) break;
       const oldest = state.timestamps[0];
       const waitMs = Math.max(50, limits.windowMs - (now - oldest) + 25);
-      await sleep(waitMs);
+      await sleep(waitMs, signal);
     }
     state.timestamps.push(Date.now());
   } catch (e) {
@@ -964,11 +995,11 @@ export async function queryAI(
 
   return coalesce(coalesceKey, async () => {
     const startMs = Date.now();
-    const release = await acquirePlatformSlot(platform);
     // Plumb the caller-supplied signal into every provider fetch so a
     // per-task AbortController in the runner actually cancels the
     // in-flight request (and any retry sleeps inside fetchAI).
     const signal = options?.signal;
+    const release = await acquirePlatformSlot(platform, signal);
     try {
       await rateLimitWait(platform, apiKey);
       let result: QueryResult;
