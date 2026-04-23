@@ -1,5 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
+import { reconcileStaleRuns } from '@/lib/run-reconciler';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string; runId: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -7,6 +8,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const user = authResult;
 
   const { id, runId } = await params;
+
+  // Defensive watchdog: if the row has been 'running' with no progress
+  // for longer than the stale threshold, finalize it BEFORE returning so
+  // the client sees 'error' on this very poll instead of hanging until
+  // the next hourly cron tick. No-op when the run is healthy or already
+  // terminal (UPDATE WHERE status='running' matches nothing).
+  try {
+    await reconcileStaleRuns({ brandId: id, runId });
+  } catch {
+    // never let watchdog errors break the status endpoint
+  }
 
   // Read from active_runs table (DB-persisted state)
   const result = await pool.query(
