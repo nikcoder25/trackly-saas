@@ -23,8 +23,8 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Livesov \u2014 AI Visibility Tracker | Track Your Brand on ChatGPT, Perplexity, Gemini & More',
-  description: 'Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand. GEO & AEO optimization tool \u2014 get real proof, measure share of voice, and monitor AI visibility with Livesov.',
-  keywords: 'AI visibility tracker, AI brand monitoring, ChatGPT brand tracking, Perplexity tracking, GEO optimization, generative engine optimization, AEO optimization, answer engine optimization, AI mention tracker, share of voice AI, AI rank tracker, AI SEO tool, brand monitoring AI, AI search tracking, AI overview tracking, LLM brand monitoring, AI citation tracker, AI brand visibility',
+  description: 'Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. GEO & AEO optimization tool \u2014 get real proof, measure share of voice, and monitor AI visibility with Livesov.',
+  keywords: 'AI visibility tracker, AI brand monitoring, ChatGPT brand tracking, Perplexity tracking, GEO optimization, generative engine optimization, AEO optimization, answer engine optimization, AI mention tracker, share of voice AI, AI rank tracker, AI SEO tool, brand monitoring AI, AI search tracking, LLM brand monitoring, AI citation tracker, AI brand visibility',
   authors: [{ name: 'Livesov' }],
   robots: 'index, follow, max-image-preview:large, max-snippet:-1',
   metadataBase: new URL('https://livesov.com'),
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
   openGraph: {
     title: 'Livesov \u2014 Track Your Brand Visibility Across AI Platforms',
-    description: 'See how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand. Get real AI responses as proof, measure share of voice, and outrank competitors.',
+    description: 'See how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. Get real AI responses as proof, measure share of voice, and outrank competitors.',
     type: 'website',
     siteName: 'Livesov',
     url: 'https://livesov.com/',
@@ -50,13 +50,13 @@ export const metadata: Metadata = {
       url: 'https://livesov.com/og-image.png',
       width: 1200,
       height: 630,
-      alt: 'Livesov \u2014 AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews',
+      alt: 'Livesov \u2014 AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, and Grok',
     }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Livesov \u2014 AI Visibility Tracker',
-    description: 'Track your brand mentions across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews. Real proof. Real data.',
+    description: 'Track your brand mentions across ChatGPT, Perplexity, Claude, Gemini & Grok. Real proof. Real data.',
     images: ['https://livesov.com/og-image.png'],
   },
 };

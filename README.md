@@ -1,6 +1,6 @@
 # Livesov - AI Visibility Tracker
 
-Track how your brand appears in ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews.
+Track how your brand appears in ChatGPT, Perplexity, Claude, Gemini, and Grok.
 
 > **The application lives in [`./trackly-nextjs/`](./trackly-nextjs/).** The previous Express monolith at the repository root has been removed - all features (auth, brands, analytics, payments, admin, PDF reports, scheduled email digests, SEO pages) now live in the Next.js app. History for the old Express code is preserved in git prior to the consolidation commit.
 
@@ -49,7 +49,6 @@ Every env var the app reads is documented in [`trackly-nextjs/.env.example`](./t
 | `CRON_SECRET` | Bearer token required by `/api/cron*` endpoints. |
 | `DODO_PAYMENTS_*` | DodoPayments API key, webhook secret, and product IDs per plan. |
 | `EMAIL_API_KEY` / `EMAIL_API_URL` | Transactional email (Resend by default, SendGrid-compatible). |
-| `DATAFORSEO_LOGIN` / `DATAFORSEO_PASSWORD` | Google AI Overviews checks. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Sign-In. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry (optional). |
 | `APP_URL` | Public base URL of the deployment. |

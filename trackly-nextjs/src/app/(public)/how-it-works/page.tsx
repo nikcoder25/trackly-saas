@@ -34,7 +34,7 @@ export default function HowItWorksPage() {
         <p>Enter your brand name, website, and key details. Livesov generates relevant tracking queries based on your industry - the questions real users ask AI platforms about products and services like yours.</p>
 
         <h2>Step 2: Configure Tracking</h2>
-        <p>Choose which AI platforms to monitor (ChatGPT, Claude, Gemini, Perplexity, Grok, Google AI Overviews). Add your own custom queries, set competitors to track, and configure your monitoring schedule.</p>
+        <p>Choose which AI platforms to monitor (ChatGPT, Claude, Gemini, Perplexity, Grok). Add your own custom queries, set competitors to track, and configure your monitoring schedule.</p>
 
         <h2>Step 3: Automated Monitoring</h2>
         <p>Livesov automatically queries each AI platform on your schedule. Each query is sent as a real user would ask it, and the full response is captured and analyzed.</p>

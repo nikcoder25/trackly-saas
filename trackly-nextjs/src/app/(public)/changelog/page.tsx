@@ -52,8 +52,8 @@ export default function ChangelogPage() {
             <Cpu className="w-4 h-4 text-gray-400" />
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">January 2026</p>
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mt-1">6-Platform Support</h3>
-          <p className="text-gray-500 text-sm mt-1">Added Grok (xAI) tracking, completing support for all 6 major AI platforms: ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews.</p>
+          <h3 className="text-lg font-bold text-gray-900 mt-1">5-Platform Support</h3>
+          <p className="text-gray-500 text-sm mt-1">Added Grok (xAI) tracking, completing support for all 5 major AI platforms: ChatGPT, Claude, Gemini, Perplexity, and Grok.</p>
         </div>
         <div className="border-l-2 border-gray-200 pl-6">
           <div className="flex items-center gap-2 mb-1">

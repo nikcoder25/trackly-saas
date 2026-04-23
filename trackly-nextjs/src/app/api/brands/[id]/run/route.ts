@@ -4,7 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
-import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, isDataForSEOConfigured, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -13,9 +13,9 @@ import { logger } from '@/lib/logger';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
-  Gemini: 'gemini', Grok: 'grok', 'Google AI Overviews': 'dataforseo',
+  Gemini: 'gemini', Grok: 'grok',
 };
-const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok', 'Google AI Overviews'];
+const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
 const PLAN_DEFAULT_PLATFORMS: Record<string, string[]> = {
   starter: ['ChatGPT', 'Claude'],
   free:    ['Gemini', 'Grok'],
@@ -42,7 +42,6 @@ function getServerKeys(): Record<string, string[]> {
     openai: parseKeys('OPENAI_API_KEY'), perplexity: parseKeys('PERPLEXITY_API_KEY'),
     gemini: parseKeys('GEMINI_API_KEY'), claude: parseKeys('CLAUDE_API_KEY'),
     grok: parseKeys('GROK_API_KEY'),
-    dataforseo: isDataForSEOConfigured() ? ['dataforseo-configured'] : [],
   };
 }
 

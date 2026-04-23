@@ -2,7 +2,6 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getEffectivePlan } from '@/lib/constants';
-import { isConfigured as isDataForSEOConfigured } from '@/lib/dataforseo';
 import { generateReport } from '@/lib/pdf-report';
 
 export const runtime = 'nodejs';
@@ -37,23 +36,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const brand = access.brand as Record<string, unknown> & {
       id: string; name?: string;
     };
-
-    // Enrich with AI Overview results if DataForSEO is configured.
-    if (isDataForSEOConfigured()) {
-      try {
-        const overviewResult = await pool.query(
-          'SELECT query, has_ai_overview, brand_mentioned FROM ai_overview_results WHERE brand_id = $1 ORDER BY checked_at DESC',
-          [brand.id]
-        );
-        (brand as Record<string, unknown>).aiOverviews = overviewResult.rows.map(r => ({
-          query: r.query,
-          hasOverview: r.has_ai_overview,
-          brandMentioned: r.brand_mentioned,
-        }));
-      } catch {
-        // Non-fatal - the report renders without the AI Overview block.
-      }
-    }
 
     const doc = generateReport(brand);
 

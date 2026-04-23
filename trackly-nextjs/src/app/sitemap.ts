@@ -30,7 +30,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/gemini-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/claude-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/grok-brand-tracking`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
-    { url: `${BASE_URL}/google-ai-overviews-tracking`, lastModified: new Date('2026-04-10'), changeFrequency: 'monthly', priority: 0.8 },
 
     // Comparison pages
     { url: `${BASE_URL}/vs/semrush`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.7 },

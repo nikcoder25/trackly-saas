@@ -15,7 +15,7 @@ const en = {
     badge: 'AI Visibility Tracker',
     title: 'Is your brand visible in ',
     titleHighlight: 'AI answers?',
-    description: 'Track how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.',
+    description: 'Track how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.',
     cta: 'Start Tracking',
     ctaDemo: 'See Demo',
   },
@@ -48,7 +48,7 @@ const en = {
     title: 'Everything you need to track AI visibility',
     subtitle: 'Monitor your brand across all major AI platforms in one dashboard.',
     items: [
-      { title: '6 AI Platforms', desc: 'Track mentions on ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews \u2014 all from one place.', icon: '\u25CE' },
+      { title: '5 AI Platforms', desc: 'Track mentions on ChatGPT, Perplexity, Claude, Gemini, and Grok \u2014 all from one place.', icon: '\u25CE' },
       { title: 'Evidence & Proof', desc: 'Get full AI responses saved as proof. Share with clients, export to CSV, and build trust with real evidence.', icon: '\u25C6' },
       { title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors across platforms.', icon: '\u25CB' },
       { title: 'Sentiment Analysis', desc: 'Know whether AI is recommending your brand positively, negatively, or neutrally.', icon: '\u26A1' },
@@ -65,7 +65,7 @@ const en = {
     subtitle: 'Set up in under 2 minutes. Plans start at $9/mo.',
     steps: [
       { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. We generate smart default queries for you.' },
-      { num: '02', title: 'Automatic Tracking', desc: 'We automatically query all 6 AI platforms with your custom questions on a daily schedule. Results appear in your dashboard.' },
+      { num: '02', title: 'Automatic Tracking', desc: 'We automatically query all 5 AI platforms with your custom questions on a daily schedule. Results appear in your dashboard.' },
       { num: '03', title: 'Analyze & Report', desc: 'See exactly what each AI says about your brand. Track trends over time, export proof as CSV, and share reports with clients.' },
     ],
   },
@@ -88,11 +88,11 @@ const en = {
       },
       {
         name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true,
-        features: ['100 tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis', 'Email alerts'],
+        features: ['100 tracked queries', 'Unlimited brands', 'All 5 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis', 'Email alerts'],
       },
       {
         name: 'Agency', price: '$89', sub: 'For agencies & teams',
-        features: ['500 tracked queries', 'Unlimited brands', 'All 6 AI platforms', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'],
+        features: ['500 tracked queries', 'Unlimited brands', 'All 5 AI platforms', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'],
       },
     ],
     comparison: {
@@ -101,7 +101,7 @@ const en = {
       headers: ['Feature', 'Livesov', 'Otterly.ai', 'Peec AI', 'Knowatoa'],
       rows: [
         ['Lowest Plan', '\u2713 $9/mo', '\u2717 Trial only', '\u2717 No', 'Audit only'],
-        ['AI Platforms', '6 platforms', '4 (+add-ons)', '3', '5'],
+        ['AI Platforms', '5 platforms', '4 (+add-ons)', '3', '5'],
         ['Starting Price', '$9/mo', '$29/mo', '$89/mo', '$59/mo'],
         ['Sentiment Analysis', '\u2713 From $29', '\u2717 No', '$199+/mo', '\u2713 Yes'],
         ['Competitor Tracking', '\u2713 From $29', '\u2713 Yes', '\u2713 Yes', '\u2713 Yes'],
@@ -146,9 +146,9 @@ const en = {
     title: 'Frequently Asked Questions',
     subtitle: 'Everything you need to know about AI visibility tracking.',
     items: [
-      { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand when users ask questions. It helps you understand your brand\'s presence in AI-generated answers.' },
+      { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It helps you understand your brand\'s presence in AI-generated answers.' },
       { q: 'How does Livesov track brand mentions in AI?', a: 'Livesov sends your custom queries to real AI platforms via their official APIs and captures the complete, unmodified responses. It then analyzes each response to detect if your brand was mentioned, the sentiment, and whether your brand was recommended.' },
-      { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 6 AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), and Google AI Overviews (DataForSEO).' },
+      { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
       { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users.' },
       { q: 'What is Generative Engine Optimization (GEO)?', a: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers. Unlike traditional SEO, GEO focuses on being mentioned and recommended by AI chatbots.' },
       { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, which you can export as CSV reports. The Evidence & Proof section shows full AI responses with brand name highlighted, model used, and timestamp.' },
@@ -179,7 +179,7 @@ const en = {
 
   // Footer
   footer: {
-    desc: 'AI Visibility Tracker \u2014 Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.',
+    desc: 'AI Visibility Tracker \u2014 Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
     product: 'Product',
     resources: 'Resources',
     legal: 'Legal',
@@ -237,9 +237,9 @@ const en = {
     or: 'or',
     brandPanel: {
       title: 'Track your brand\'s AI visibility',
-      desc: 'See exactly how ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand.',
+      desc: 'See exactly how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand.',
       features: [
-        { title: 'Real-time AI Monitoring', desc: 'Track mentions across 6 AI platforms with live query results' },
+        { title: 'Real-time AI Monitoring', desc: 'Track mentions across 5 AI platforms with live query results' },
         { title: 'Share of Voice Analytics', desc: "Measure your brand's visibility vs competitors in AI responses" },
         { title: 'Evidence & Proof', desc: 'Get actual AI responses as proof of brand mentions' },
         { title: 'Automated Scheduled Runs', desc: 'Set up recurring checks and get notified of changes' },

@@ -26,7 +26,6 @@ const platforms = [
   { name: 'Claude', color: '#d97706', icon: '◈', href: '/claude-brand-tracking' },
   { name: 'Gemini', color: '#4285f4', icon: '✦', href: '/gemini-brand-tracking' },
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', href: '/grok-brand-tracking' },
-  { name: 'Google AI Overviews', color: '#4285f4', icon: '🔍', href: '/google-ai-overviews-tracking' },
 ];
 
 /* ─── SVG Icon components ─── */
@@ -42,7 +41,7 @@ const icons = {
 };
 
 const features = [
-  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews - all from a single dashboard.', accent: '#6366f1' },
+  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok - all from a single dashboard.', accent: '#6366f1' },
   { icon: icons.chart, title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.', accent: '#8b5cf6' },
   { icon: icons.shield, title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.', accent: '#06b6d4' },
   { icon: icons.target, title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.', accent: '#10b981' },
@@ -52,7 +51,7 @@ const features = [
 
 const steps = [
   { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. Smart default queries are generated automatically.' },
-  { num: '02', title: 'Auto-Track Daily', desc: 'Livesov queries all 6 AI platforms on your schedule. Results flow into your real-time dashboard.' },
+  { num: '02', title: 'Auto-Track Daily', desc: 'Livesov queries all 5 AI platforms on your schedule. Results flow into your real-time dashboard.' },
   { num: '03', title: 'Analyze & Report', desc: 'See what each AI says about you. Track trends, export proof, and share data-backed reports.' },
 ];
 
@@ -60,12 +59,12 @@ const pricingPlans = PRICING_PLANS;
 const pricingComparison = PRICING_COMPARISON;
 
 const faqs = [
-  { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
-  { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 6 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), and Google AI Overviews (DataForSEO).' },
+  { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
+  { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 6 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
+  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 5 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
 ];
 
 const testimonials = [
@@ -80,7 +79,6 @@ const demoResults = [
   { name: 'Claude', color: '#d97706', icon: '◈', found: true, text: 'I can share that <mark>CoolAir Pro</mark> has developed a solid reputation in the Austin TX HVAC market for professional service...' },
   { name: 'Gemini', color: '#4285f4', icon: '✦', found: true, text: '<mark>CoolAir Pro</mark> is an HVAC provider in Austin TX with consistent 4+ star ratings. Professional, licensed, transparent...' },
   { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, text: 'For HVAC in Austin TX, I\'d recommend AC Express, Stan\'s Heating, and Green Leaf Air. Solid reviews and competitive pricing...' },
-  { name: 'Google AI Overviews', color: '#4285f4', icon: '🔍', found: true, text: 'According to reviews, <mark>CoolAir Pro</mark> is a top-rated HVAC company in Austin TX known for fast response times, licensed technicians, and upfront pricing...' },
 ];
 
 /* ─── Typing animation hook ─── */
@@ -797,7 +795,6 @@ export default function LivesovHomePage() {
               <Link href="/claude-brand-tracking">Claude Tracking</Link>
               <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
               <Link href="/grok-brand-tracking">Grok Tracking</Link>
-              <Link href="/google-ai-overviews-tracking">AI Overviews Tracking</Link>
             </div>
             <div className="tl-footer-col">
               <h4>{t.footer.legal}</h4>
