@@ -14,7 +14,7 @@ const fr: Translations = {
     badge: "Suivi de Visibilité IA",
     title: 'Votre marque est-elle visible dans les ',
     titleHighlight: "réponses IA ?",
-    description: "Suivez comment ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews mentionnent votre marque. Obtenez des preuves réelles, mesurez la part de voix et optimisez votre stratégie GEO.",
+    description: "Suivez comment ChatGPT, Perplexity, Claude, Gemini et Grok mentionnent votre marque. Obtenez des preuves réelles, mesurez la part de voix et optimisez votre stratégie GEO.",
     cta: 'Commencer le Suivi',
     ctaDemo: 'Voir la Démo',
   },
@@ -41,7 +41,7 @@ const fr: Translations = {
     title: "Tout ce dont vous avez besoin pour suivre la visibilité IA",
     subtitle: "Surveillez votre marque sur toutes les grandes plateformes IA depuis un seul tableau de bord.",
     items: [
-      { title: '6 Plateformes IA', desc: 'Suivez les mentions sur ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews \u2014 tout en un seul endroit.', icon: '\u25CE' },
+      { title: '5 Plateformes IA', desc: 'Suivez les mentions sur ChatGPT, Perplexity, Claude, Gemini et Grok \u2014 tout en un seul endroit.', icon: '\u25CE' },
       { title: 'Évidence et Preuves', desc: 'Obtenez les réponses IA complètes comme preuve. Partagez avec les clients, exportez en CSV.', icon: '\u25C6' },
       { title: 'Part de Voix', desc: 'Mesurez quel pourcentage de réponses IA mentionnent votre marque vs les concurrents.', icon: '\u25CB' },
       { title: "Analyse de Sentiment", desc: "Sachez si l'IA recommande votre marque positivement, négativement ou de manière neutre.", icon: '\u26A1' },
@@ -56,7 +56,7 @@ const fr: Translations = {
     subtitle: "Configuration en moins de 2 minutes. Plans à partir de 9$/mois.",
     steps: [
       { num: '01', title: 'Ajoutez Votre Marque', desc: "Entrez le nom de votre marque, industrie et localisation. Nous générons des requêtes intelligentes par défaut." },
-      { num: '02', title: 'Suivi Automatique', desc: "Nous interrogeons automatiquement les 6 plateformes IA avec vos questions personnalisées quotidiennement." },
+      { num: '02', title: 'Suivi Automatique', desc: "Nous interrogeons automatiquement les 5 plateformes IA avec vos questions personnalisées quotidiennement." },
       { num: '03', title: 'Analysez et Rapportez', desc: "Voyez exactement ce que chaque IA dit de votre marque. Suivez les tendances, exportez les preuves en CSV." },
     ],
   },
@@ -72,8 +72,8 @@ const fr: Translations = {
     perMonth: '/mois',
     plans: [
       { name: 'Starter', price: '9$', sub: 'Parfait pour débuter', features: ['30 requêtes suivies', 'Marques illimitées', '2 plateformes IA', 'Suivi SOV et export', 'Analyse de sentiment'] },
-      { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['100 requêtes suivies', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (8)', 'Analyse de sentiment'] },
-      { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['500 requêtes suivies', 'Marques illimitées', 'Les 6 plateformes IA', 'Suivi concurrents (20)', 'Analyse de sentiment', 'Support prioritaire'] },
+      { name: 'Pro', price: '29$', sub: 'Pour les entreprises en croissance', featured: true, features: ['100 requêtes suivies', 'Marques illimitées', 'Les 5 plateformes IA', 'Suivi concurrents (8)', 'Analyse de sentiment'] },
+      { name: 'Agency', price: '89$', sub: 'Pour les agences et équipes', features: ['500 requêtes suivies', 'Marques illimitées', 'Les 5 plateformes IA', 'Suivi concurrents (20)', 'Analyse de sentiment', 'Support prioritaire'] },
     ],
     comparison: {
       title: 'Comment Livesov se compare',
@@ -81,7 +81,7 @@ const fr: Translations = {
       headers: ['Fonctionnalité', 'Livesov', 'Otterly.ai', 'Peec AI', 'Knowatoa'],
       rows: [
         ['Plan de base', '\u2713 9$/mois', '\u2717 Essai seulement', '\u2717 Non', 'Audit seulement'],
-        ['Plateformes IA', '6 plateformes', '4 (+extras)', '3', '5'],
+        ['Plateformes IA', '5 plateformes', '4 (+extras)', '3', '5'],
         ['Prix de départ', '9$/mois', '29$/mois', '89$/mois', '59$/mois'],
         ['Analyse Sentiment', '\u2713 Dès 29$', '\u2717 Non', '199$+/mois', '\u2713 Oui'],
         ['Suivi Concurrents', '\u2713 Dès 29$', '\u2713 Oui', '\u2713 Oui', '\u2713 Oui'],
@@ -122,7 +122,7 @@ const fr: Translations = {
     items: [
       { q: "Qu'est-ce que le suivi de visibilité IA ?", a: "Le suivi de visibilité IA surveille comment les plateformes IA mentionnent votre marque quand les utilisateurs posent des questions." },
       { q: 'Comment Livesov suit-il les mentions de marque ?', a: "Livesov envoie vos requêtes aux plateformes IA via leurs APIs officielles et capture les réponses complètes." },
-      { q: 'Quelles plateformes IA sont supportées ?', a: "Livesov suit votre marque sur 6 plateformes : ChatGPT, Perplexity AI, Claude, Google Gemini, Grok et Google AI Overviews." },
+      { q: 'Quelles plateformes IA sont supportées ?', a: "Livesov suit votre marque sur 5 plateformes : ChatGPT, Perplexity AI, Claude, Google Gemini et Grok." },
       { q: "Qu'est-ce que la Part de Voix en IA ?", a: "La Part de Voix (SOV) mesure quel pourcentage de réponses IA mentionnent votre marque." },
       { q: "Qu'est-ce que le GEO ?", a: "L'Optimisation de Moteur Génératif (GEO) optimise votre présence pour apparaître dans les réponses IA." },
       { q: 'Puis-je utiliser Livesov pour les rapports clients ?', a: "Oui. Livesov sauvegarde les réponses IA complètes comme preuve, exportables en CSV." },
@@ -147,7 +147,7 @@ const fr: Translations = {
     note: "Plans à partir de 9$/mois. Configuration en moins de 2 minutes.",
   },
   footer: {
-    desc: "AI Visibility Tracker \u2014 Suivez comment les plateformes IA mentionnent votre marque sur ChatGPT, Perplexity, Claude, Gemini, Grok et Google AI Overviews.",
+    desc: "AI Visibility Tracker \u2014 Suivez comment les plateformes IA mentionnent votre marque sur ChatGPT, Perplexity, Claude, Gemini et Grok.",
     product: 'Produit',
     resources: 'Ressources',
     legal: 'Légal',
@@ -205,7 +205,7 @@ const fr: Translations = {
       title: 'Suivez la visibilité IA de votre marque',
       desc: "Voyez exactement comment ChatGPT, Perplexity, Claude, Gemini et d'autres plateformes IA mentionnent votre marque.",
       features: [
-        { title: 'Suivi IA en Temps Réel', desc: 'Suivez les mentions sur 6 plateformes IA en direct' },
+        { title: 'Suivi IA en Temps Réel', desc: 'Suivez les mentions sur 5 plateformes IA en direct' },
         { title: 'Analyse de Part de Voix', desc: 'Mesurez la visibilité de votre marque vs concurrents' },
         { title: 'Évidence et Preuves', desc: 'Obtenez des réponses IA réelles comme preuve' },
         { title: 'Exécutions Planifiées', desc: "Configurez des vérifications récurrentes et soyez notifié" },

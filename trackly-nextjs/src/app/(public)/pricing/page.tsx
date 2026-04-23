@@ -17,7 +17,7 @@ export default function PricingPage() {
       <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
       <section className="py-20 px-6 text-center">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Simple, transparent pricing</h1>
-        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start with a 7-day free trial &mdash; all 6 AI platforms included.</p>
+        <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start with a 7-day free trial &mdash; all 5 AI platforms included.</p>
         <p className="text-sm text-gray-400 mb-12">No credit card required &middot; Cancel anytime &middot; 14-day money-back guarantee</p>
 
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">

@@ -12,9 +12,6 @@
  *   - Tagged errors (isRateLimit/isTransient/budgetExhausted) for caller routing
  */
 import { pool } from './db';
-import { checkAiOverview, isConfigured as isDataForSEOConfigured } from './dataforseo';
-
-export { isDataForSEOConfigured };
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -384,7 +381,6 @@ const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
   Perplexity: { minDelayMs: 300 },
-  'Google AI Overviews': { minDelayMs: 1000 },
 };
 const lastRequestTimePerKey = new Map<string, number>();
 const rateLimitQueues = new Map<string, Promise<void>>();
@@ -439,9 +435,6 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'sonar', label: 'Sonar', default: true },
     { id: 'sonar-pro', label: 'Sonar Pro' },
   ],
-  'Google AI Overviews': [
-    { id: 'google-ai-overviews', label: 'Google AI Overviews (DataForSEO)', default: true },
-  ],
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -457,7 +450,6 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'grok-4': { input: 3.00, output: 15.00 },
   'sonar': { input: 1.00, output: 1.00 },
   'sonar-pro': { input: 3.00, output: 15.00 },
-  'google-ai-overviews': { input: 0, output: 0 },
 };
 
 export function getDefaultModel(platform: string): string {
@@ -877,14 +869,6 @@ export async function queryAI(
           tokensOut: d.usage?.completion_tokens || 0,
           citations: [],
         };
-      } else if (platform === 'Google AI Overviews') {
-        if (!isDataForSEOConfigured()) throw new Error('DataForSEO credentials not configured (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD)');
-        const competitors = Array.isArray(brand?.competitors) ? (brand.competitors as string[]) : [];
-        const aio = await checkAiOverview(query, brand?.name || '', competitors);
-        const text = aio.hasAiOverview
-          ? (aio.content || '(AI Overview present but no text extracted)')
-          : '(No AI Overview shown for this query)';
-        result = { text, model: 'google-ai-overviews', tokensIn: 0, tokensOut: 0, citations: aio.citations.map(c => c.url) };
       } else {
         throw new Error(`Unknown platform: ${platform}`);
       }

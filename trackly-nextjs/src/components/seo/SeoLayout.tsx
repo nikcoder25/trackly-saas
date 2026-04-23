@@ -58,7 +58,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
       {/* CTA */}
       <section className="land-cta-section">
         <h2>Ready to track your AI visibility?</h2>
-        <div className="section-sub">Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.</div>
+        <div className="section-sub">Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.</div>
         <Link href="/signup" className="land-btn land-btn-primary" style={{ padding: '14px 36px', fontSize: 16 }}>
           Get Started
         </Link>
@@ -70,7 +70,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         <div className="land-footer-grid">
           <div className="land-footer-brand">
             <div className="land-footer-logo">Live<span>sov</span></div>
-            <div className="land-footer-desc">AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini, Grok &amp; Google AI Overviews.</div>
+            <div className="land-footer-desc">AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</div>
           </div>
           <div className="land-footer-col">
             <h4>Product</h4>
@@ -98,7 +98,6 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/claude-brand-tracking">Claude Tracking</Link>
             <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
             <Link href="/grok-brand-tracking">Grok Tracking</Link>
-            <Link href="/google-ai-overviews-tracking">AI Overviews Tracking</Link>
           </div>
           <div className="land-footer-col">
             <h4>Legal</h4>

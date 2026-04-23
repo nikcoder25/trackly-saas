@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Livesov - AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews',
+  title: 'Livesov - AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini & Grok',
   description:
-    'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews. Free plan available.',
+    'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini & Grok. Free plan available.',
   keywords: [
     'AI visibility tracking',
     'AI brand monitoring',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Livesov - Is Your Brand Visible in AI Answers?',
     description:
-      'Track how ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews mention your brand. Get real proof, measure share of voice, and optimize your AI visibility.',
+      'Track how ChatGPT, Perplexity, Claude, Gemini & Grok mention your brand. Get real proof, measure share of voice, and optimize your AI visibility.',
     type: 'website',
     url: 'https://livesov.com/',
     siteName: 'Livesov',
@@ -29,14 +29,14 @@ export const metadata: Metadata = {
       url: 'https://livesov.com/og-image.png',
       width: 1200,
       height: 630,
-      alt: 'Livesov - AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews',
+      alt: 'Livesov - AI Visibility Tracker for brands across ChatGPT, Perplexity, Claude, Gemini, and Grok',
     }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Livesov - AI Visibility Tracker',
     description:
-      'Monitor your brand across 6 AI platforms. Track mentions, sentiment & share of voice. Free plan available.',
+      'Monitor your brand across 5 AI platforms. Track mentions, sentiment & share of voice. Free plan available.',
   },
   alternates: {
     canonical: '/',
@@ -51,7 +51,7 @@ const jsonLd = {
       '@type': 'Organization',
       name: 'Livesov',
       url: 'https://livesov.com',
-      description: 'AI Visibility Tracker - Monitor your brand across ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews.',
+      description: 'AI Visibility Tracker - Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok.',
       contactPoint: {
         '@type': 'ContactPoint',
         email: 'hello@livesov.com',
@@ -79,12 +79,12 @@ const jsonLd = {
         {
           '@type': 'Question',
           name: 'What is AI visibility tracking?',
-          acceptedAnswer: { '@type': 'Answer', text: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
+          acceptedAnswer: { '@type': 'Answer', text: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
         },
         {
           '@type': 'Question',
           name: 'Which AI platforms does Livesov support?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Livesov tracks your brand across 6 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, Grok (xAI), and Google AI Overviews (DataForSEO).' },
+          acceptedAnswer: { '@type': 'Answer', text: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
         },
         {
           '@type': 'Question',
@@ -104,7 +104,7 @@ const jsonLd = {
         {
           '@type': 'Question',
           name: 'How much does Livesov cost?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 6 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
+          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 5 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
         },
       ],
     },

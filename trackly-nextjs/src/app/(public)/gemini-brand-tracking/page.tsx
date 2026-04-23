@@ -32,7 +32,7 @@ export default function GeminiBrandTrackingPage() {
       />
       <SeoContent>
         <h2>Why Google Gemini Matters</h2>
-        <p>Google Gemini is integrated into Google Search (AI Overviews), Google Workspace, and Android devices. With billions of users accessing Gemini-powered features daily, your brand&apos;s visibility in Gemini responses is critical.</p>
+        <p>Google Gemini is integrated into Google Search, Google Workspace, and Android devices. With billions of users accessing Gemini-powered features daily, your brand&apos;s visibility in Gemini responses is critical.</p>
 
         <h2>What Livesov Tracks in Gemini</h2>
         <ul>
@@ -43,8 +43,8 @@ export default function GeminiBrandTrackingPage() {
           <li>Response consistency across model versions</li>
         </ul>
 
-        <h2>Gemini and Google Search AI Overviews</h2>
-        <p>As Google integrates Gemini into Search results via AI Overviews, tracking your visibility in Gemini becomes as important as traditional Google SEO. Livesov helps you understand how AI-generated answers feature your brand.</p>
+        <h2>Gemini and Google Search</h2>
+        <p>As Google integrates Gemini into its Search and Workspace experiences, tracking your visibility in Gemini becomes as important as traditional Google SEO. Livesov helps you understand how AI-generated answers feature your brand.</p>
       </SeoContent>
     </SeoLayout>
   );

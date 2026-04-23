@@ -401,36 +401,6 @@ function renderCitationSources(doc, brand, lastRun) {
   doc.moveDown(0.5);
 }
 
-function renderAiOverviews(doc, brand) {
-  if (!brand.aiOverviews || !brand.aiOverviews.length) return;
-  renderSectionTitle(doc, 'Google AI Overviews Status');
-
-  const x = 40;
-  const overviews = brand.aiOverviews;
-  const withOverview = overviews.filter(o => o.hasOverview);
-  const brandMentioned = overviews.filter(o => o.brandMentioned);
-
-  doc.font('Helvetica').fontSize(10).fillColor(BRANDING.textColor);
-  doc.text(`${withOverview.length} of ${overviews.length} queries trigger an AI Overview`, x, doc.y);
-  doc.moveDown(0.2);
-  doc.text(`Brand mentioned in ${brandMentioned.length} AI Overview${brandMentioned.length !== 1 ? 's' : ''}`, x, doc.y);
-  doc.moveDown(0.8);
-
-  overviews.slice(0, 10).forEach(o => {
-    ensurePage(doc, 20);
-    const rowY = doc.y;
-    const icon = o.hasOverview ? (o.brandMentioned ? '\u2713' : '\u2717') : '\u2014';
-    const color = o.hasOverview ? (o.brandMentioned ? BRANDING.greenColor : BRANDING.redColor) : BRANDING.mutedColor;
-
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(color);
-    doc.text(icon, x, rowY, { width: 15 });
-    doc.font('Helvetica').fontSize(9).fillColor(BRANDING.textColor);
-    doc.text(o.query || 'Unknown query', x + 18, rowY, { width: 400 });
-    doc.y = rowY + 16;
-  });
-  doc.moveDown(0.5);
-}
-
 function renderRecommendations(doc, brand, lastRun) {
   renderSectionTitle(doc, 'Recommendations');
 
@@ -556,7 +526,6 @@ function generateReport(brand) {
   renderTopQueries(doc, lastRun);
   renderCompetitorComparison(doc, brand, lastRun);
   renderCitationSources(doc, brand, lastRun);
-  renderAiOverviews(doc, brand);
   renderRecommendations(doc, brand, lastRun);
 
   // Add footer to all pages

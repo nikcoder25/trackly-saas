@@ -394,7 +394,7 @@ export default function GeoAuditPage() {
                   }}
                 >
                   Want to audit <strong>all your pages</strong> and track improvements over time?
-                  Sign up free to monitor your AI visibility across ChatGPT, Perplexity, Claude, Gemini &amp; Google AI Overviews.
+                  Sign up free to monitor your AI visibility across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.
                 </p>
               </div>
 

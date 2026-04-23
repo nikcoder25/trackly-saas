@@ -32,11 +32,11 @@ export default function VsSemrushPage() {
       />
       <SeoContent>
         <h2>The Key Difference</h2>
-        <p>Semrush is a comprehensive traditional SEO suite - it tracks Google rankings, backlinks, keyword difficulty, and paid ads. Livesov is purpose-built for AI visibility - tracking how ChatGPT, Claude, Gemini, Perplexity, Grok, and Google AI Overviews mention and recommend your brand.</p>
+        <p>Semrush is a comprehensive traditional SEO suite - it tracks Google rankings, backlinks, keyword difficulty, and paid ads. Livesov is purpose-built for AI visibility - tracking how ChatGPT, Claude, Gemini, Perplexity, and Grok mention and recommend your brand.</p>
 
         <h2>When to Use Livesov</h2>
         <ul>
-          <li>Track brand mentions across 6 AI platforms simultaneously</li>
+          <li>Track brand mentions across 5 AI platforms simultaneously</li>
           <li>Monitor share of voice in AI-generated recommendations</li>
           <li>Detect AI hallucinations about your brand</li>
           <li>Analyze competitor visibility in AI responses</li>

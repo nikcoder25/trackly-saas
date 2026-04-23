@@ -19,7 +19,7 @@
 | Auth | JWT (15min access + 7d refresh), TOTP 2FA, Google OAuth | Production |
 | Monitoring | Sentry (client + server + edge) | Production |
 | Deployment | Vercel (Next.js) + Railway/Render (Express) | Production |
-| AI Platforms | 6 platforms (ChatGPT, Claude, Gemini, Perplexity, Grok, Google AI Overviews) | Production |
+| AI Platforms | 5 platforms (ChatGPT, Claude, Gemini, Perplexity, Grok) | Production |
 
 **Database:** 25+ tables, 40+ indexes. Key tables: `users`, `brands`, `prompt_runs`, `prompt_run_stats`, `citations`, `competitor_cooccurrence`, `response_cache`, `daily_cost_tracker`.
 
@@ -100,7 +100,6 @@
 | AI API calls | $20/mo | $150/mo | $800/mo |
 | Email (Resend) | $0 (free tier) | $20/mo | $50/mo |
 | Sentry | $0 (free tier) | $26/mo | $80/mo |
-| DataForSEO | $0-50/mo | $50-100/mo | $200-500/mo |
 
 ---
 
@@ -145,7 +144,6 @@
 | Perplexity | sonar | ~$0.0004 | Includes citations |
 | Gemini | gemini-2.5-flash | ~$0.0001 | Cheapest option |
 | Grok | grok-3-mini | ~$0.0002 | Very affordable |
-| Google AI Overviews | DataForSEO SERP | ~$0.01 | Per SERP check |
 
 ### Optimization Strategies
 

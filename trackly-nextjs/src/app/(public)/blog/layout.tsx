@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Blog - AI Visibility Insights & GEO Strategies | Livesov',
-  description: 'Learn about AI visibility tracking, generative engine optimization (GEO), and how to get your brand recommended by ChatGPT, Claude, Gemini, Perplexity, Grok & Google AI Overviews.',
+  description: 'Learn about AI visibility tracking, generative engine optimization (GEO), and how to get your brand recommended by ChatGPT, Claude, Gemini, Perplexity & Grok.',
   alternates: { canonical: '/blog' },
   openGraph: {
     title: 'Blog - AI Visibility Insights & GEO Strategies | Livesov',

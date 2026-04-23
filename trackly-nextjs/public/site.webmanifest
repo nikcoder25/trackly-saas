@@ -1,7 +1,7 @@
 {
   "name": "Livesov - AI Visibility Tracker",
   "short_name": "Livesov",
-  "description": "Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini, Grok & Google AI Overviews mention your brand.",
+  "description": "Track how AI platforms like ChatGPT, Perplexity, Claude, Gemini & Grok mention your brand.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

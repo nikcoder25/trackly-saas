@@ -36,7 +36,7 @@ export default function VsAhrefsPage() {
 
         <h2>Livesov Strengths</h2>
         <ul>
-          <li>Track brand mentions across ChatGPT, Claude, Gemini, Perplexity, Grok, Google AI Overviews</li>
+          <li>Track brand mentions across ChatGPT, Claude, Gemini, Perplexity, Grok</li>
           <li>Monitor AI recommendation rankings</li>
           <li>Detect brand hallucinations in AI responses</li>
           <li>Sentiment analysis of AI-generated brand descriptions</li>

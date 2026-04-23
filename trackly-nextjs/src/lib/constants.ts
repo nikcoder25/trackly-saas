@@ -122,7 +122,6 @@ export const PLATFORM_COLORS: Record<string, string> = {
   Claude: '#d97706',
   Gemini: '#4285f4',
   Grok: '#1d9bf0',
-  'Google AI Overviews': '#34a853',
 };
 
 // Plan-specific default platforms - mirrors backend PLAN_DEFAULT_PLATFORMS

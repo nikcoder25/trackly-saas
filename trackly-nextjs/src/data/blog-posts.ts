@@ -25,7 +25,7 @@ export const blogPosts: BlogPost[] = [
     content: `
 ## What is Generative Engine Optimization?
 
-Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence so that AI platforms - like ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews - mention and recommend you when users ask relevant questions.
+Generative Engine Optimization (GEO) is the practice of optimizing your brand's online presence so that AI platforms - like ChatGPT, Perplexity, Claude, Gemini, and Grok - mention and recommend you when users ask relevant questions.
 
 Think of it as **SEO for the AI era**. Just as traditional SEO helps you rank on Google, GEO helps you appear in AI-generated answers.
 
@@ -165,7 +165,7 @@ Unlike SEO where you can check Google Search Console, AI visibility requires a d
 4. **Track sentiment** (positive, neutral, or negative mentions)
 5. **Monitor trends** over time
 
-Tools like [Livesov](https://livesov.com) automate this process across ChatGPT, Perplexity, Claude, Gemini, Grok, and Google AI Overviews - giving you a unified dashboard to track your AI visibility.
+Tools like [Livesov](https://livesov.com) automate this process across ChatGPT, Perplexity, Claude, Gemini, and Grok - giving you a unified dashboard to track your AI visibility.
 
 ## Action Steps
 
@@ -198,7 +198,7 @@ Every day, millions of users ask AI chatbots questions like:
 
 If AI isn't mentioning your brand in these conversations, you're missing a massive - and growing - discovery channel.
 
-## The 6 AI Platforms You Should Track
+## The 5 AI Platforms You Should Track
 
 ### 1. ChatGPT (OpenAI)
 The most popular AI chatbot with 200M+ weekly users. ChatGPT is where most buying-decision conversations happen.
@@ -210,13 +210,10 @@ An AI-powered search engine that provides sourced answers with citations. Increa
 Known for detailed, nuanced responses. Popular among professionals and enterprises for research and recommendations.
 
 ### 4. Google Gemini
-Google's AI integrated into Search. As Google AI Overviews expand, visibility here becomes critical.
+Google's AI integrated into Search and Workspace. With deep integration across Google's surfaces, visibility here is critical.
 
 ### 5. Grok (xAI)
 Built into X (Twitter), Grok has real-time data and a growing user base. Important for brands with social media presence.
-
-### 6. Google AI Overviews
-AI-generated summaries that appear at the top of Google Search results. As these expand, visibility here is critical for any brand that relies on search traffic.
 
 ## Step-by-Step: Setting Up Brand Tracking
 
@@ -246,8 +243,8 @@ For each query on each platform, record:
 **Share of Voice (SOV)** = (Queries where you're mentioned / Total queries) × 100
 
 Example:
-- You track 20 queries across 6 platforms = 120 total checks
-- Your brand is mentioned in 42 of them
+- You track 20 queries across 5 platforms = 100 total checks
+- Your brand is mentioned in 35 of them
 - Your SOV = 35%
 
 ### Step 4: Analyze by Platform
@@ -261,7 +258,6 @@ Break down your SOV by platform to find gaps:
 | Claude | 8 | 20 | 40% |
 | Gemini | 5 | 20 | 25% |
 | Grok | 0 | 20 | 0% |
-| Google AI Overviews | 7 | 20 | 35% |
 
 This tells you exactly where to focus your optimization efforts.
 
@@ -308,7 +304,7 @@ Share of Voice (SOV) in AI measures **what percentage of AI-generated responses 
 | | Traditional SOV | AI SOV |
 |---|---|---|
 | **Measures** | Ad impressions in market | Brand mentions in AI responses |
-| **Channels** | TV, radio, digital ads | ChatGPT, Perplexity, Claude, Gemini, Grok, Google AI Overviews |
+| **Channels** | TV, radio, digital ads | ChatGPT, Perplexity, Claude, Gemini, Grok |
 | **Control** | You buy visibility | You earn visibility |
 | **Cost** | Pay per impression | Optimize brand presence |
 
@@ -404,13 +400,12 @@ A local HVAC company might have:
 - **40% SOV** on Claude (moderate authority)
 - **20% SOV** on Gemini (low structured data)
 - **0% SOV** on Grok (no social presence)
-- **50% SOV** on Google AI Overviews (strong search presence)
 
 This platform-level breakdown reveals exactly where to focus.
 
 ## Start Tracking Your AI SOV Today
 
-You can't improve what you can't measure. [Start tracking your Share of Voice](https://livesov.com/signup) across all 6 AI platforms and get actionable insights to grow your AI visibility.
+You can't improve what you can't measure. [Start tracking your Share of Voice](https://livesov.com/signup) across all 5 AI platforms and get actionable insights to grow your AI visibility.
 `,
   },
   {
