@@ -4,7 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
-import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -499,17 +499,21 @@ async function executeRunBackgroundInner(
     if (!isTransientError(err) || isTimeout || isRateLimitGiveUp) {
       platFailCount[plat] = (platFailCount[plat] || 0) + 1;
     }
+    // Tag 429-driven failures distinctly so UI/telemetry can separate
+    // "transient rate limit, parked for background retry" from
+    // "genuine error" without string-matching errorMessage.
+    const errorType = aiErr.isRateLimit ? 'rate_limited' : 'error';
     allResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, sentiment: 'neutral', recommended: false,
-      citations: [], error: true, errorMessage: err.message,
+      citations: [], error: true, errorMessage: err.message, errorType,
     });
     totalQ++;
     received++;
     errorCount++;
     pendingResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
-      mentioned: false, error: true, errorMessage: err.message,
+      mentioned: false, error: true, errorMessage: err.message, errorType,
     });
   }
 
@@ -570,11 +574,17 @@ async function executeRunBackgroundInner(
           ).catch(() => { /* best-effort breadcrumb */ });
           const release = await acquirePlatformSlot(plat);
           try {
+            // Resolve the model: for ChatGPT this may downshift from
+            // search-preview to gpt-4o when CHATGPT_SMART_MODEL_ROUTING=true
+            // and the query has clear non-search intent. Default behaviour
+            // is unchanged (flag OFF).
+            const baseModel = adminModels[plat] || getDefaultModel(plat);
+            const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
             const r = await queryAI(
               plat, q, rawKey,
-              adminModels[plat] || getDefaultModel(plat),
+              modelForTask,
               brand,
-              { signal },
+              { signal, queryId: `${runId}:${idx}` },
             );
             resetApiKeyFailures(rawKey);
             return r;

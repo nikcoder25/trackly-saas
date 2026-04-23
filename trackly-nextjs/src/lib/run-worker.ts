@@ -8,7 +8,7 @@
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { pool } from './db';
-import { queryAI, getDefaultModel, estimateCost } from './ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, type AiError } from './ai-platforms';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { uid } from './helpers';
@@ -96,17 +96,21 @@ async function processRun(job: Job<BrandRunJobData>) {
 
   function processError(plat: string, q: string, err: Error) {
     platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+    // Distinguish rate-limit failures (transient, retried via deferred queue)
+    // from generic errors so the UI/telemetry can render them differently.
+    const aiErr = err as AiError;
+    const errorType = aiErr.isRateLimit ? 'rate_limited' : 'error';
     allResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, sentiment: 'neutral', recommended: false,
-      citations: [], error: true, errorMessage: err.message,
+      citations: [], error: true, errorMessage: err.message, errorType,
     });
     totalQ++;
     received++;
     errorCount++;
     pendingResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
-      mentioned: false, error: true, errorMessage: err.message,
+      mentioned: false, error: true, errorMessage: err.message, errorType,
     });
   }
 
@@ -139,9 +143,18 @@ async function processRun(job: Job<BrandRunJobData>) {
 
         platLastCall[plat] = Date.now();
 
+        // Resolve the model: for ChatGPT this may downshift from
+        // search-preview to gpt-4o when CHATGPT_SMART_MODEL_ROUTING=true
+        // and the query has clear non-search intent. Default behaviour
+        // is unchanged (flag OFF).
+        const baseModel = adminModels[plat] || getDefaultModel(plat);
+        const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+        // Correlation ID for ChatGPT rate-limit log grep.
+        const queryId = `${runId}:${idx}`;
+
         // Worker-level timeout: 5 minutes per individual AI call
         const result = await Promise.race([
-          queryAI(plat, q, rawKey, adminModels[plat] || getDefaultModel(plat), brand),
+          queryAI(plat, q, rawKey, modelForTask, brand, { queryId }),
           new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
         ]);
 
