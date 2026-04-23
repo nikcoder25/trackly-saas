@@ -162,6 +162,44 @@ export function resetPlatformBreaker(platform: string): void {
   _platformBreaker.delete(platform);
 }
 
+// ── Platform-wide shared 429 cooldown ──────────────────────────
+// Independent from the circuit breaker above: even before we trip the
+// threshold, a single 429 is a signal to ALL concurrent tasks that the
+// account is under pressure. Without shared state, each task retries on
+// its own decorrelated schedule - that's the stampede that eats the
+// Tier-3 gpt-4o-mini-search-preview pool when AI_CHATGPT_MAX_CONCURRENT
+// is even modestly high. Every acquirePlatformSlot caller awaits this
+// timestamp, so concurrent retries serialise through one shared cool-
+// down instead of N independent ones.
+const _platformCooldownUntil = new Map<string, number>();
+// Minimum cooldown applied when a 429 arrives with NO Retry-After hint
+// (common on OpenAI Search-Preview pool 429s). Random jitter on read
+// avoids a thundering-herd wake when the window clears.
+const PLATFORM_NULL_RETRY_AFTER_MS =
+  Number(process.env.AI_PLATFORM_NULL_RETRY_AFTER_MS) || 5000;
+
+export function markPlatformCooldown(platform: string, ms: number): void {
+  if (ms <= 0) return;
+  const until = Date.now() + ms;
+  const prev = _platformCooldownUntil.get(platform) || 0;
+  if (until > prev) _platformCooldownUntil.set(platform, until);
+}
+
+export function platformCooldownRemaining(platform: string): number {
+  const until = _platformCooldownUntil.get(platform);
+  if (!until) return 0;
+  const remaining = until - Date.now();
+  if (remaining <= 0) { _platformCooldownUntil.delete(platform); return 0; }
+  return remaining;
+}
+
+// ── ChatGPT 429 counter ────────────────────────────────────────
+// Incremented on every ChatGPT 429 so DO runtime logs can be grepped
+// for `chatgpt_429_total=` to measure the fix without adding a metrics
+// backend. Emitted alongside the structured `[chatgpt.ratelimit]` event.
+let _chatgpt429Total = 0;
+export function chatgpt429Total(): number { return _chatgpt429Total; }
+
 // ── Per-key rate-limit cooldowns ────────────────────────────────
 // When a key gets 429'd, park it for a cool-down proportional to consecutive
 // 429 count. pickBestKey skips keys that are in cooldown.
@@ -202,8 +240,11 @@ export interface PlatformLimit { maxConcurrent: number; rpm: number; windowMs: n
 // steady state. `AI_CHATGPT_MAX_CONCURRENT` takes precedence over the
 // legacy `AI_LIMITS_CHATGPT_CONCURRENCY` name; both are read for back-
 // compat with existing production env.
+// ChatGPT platform-wide RPM default is 400 (Tier-3 headroom under the
+// documented 5,000 RPM standard-pool ceiling). Search-preview traffic
+// is additionally sub-gated via `AI_LIMITS_CHATGPT_SEARCH_RPM`.
 export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
-  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 2, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 300, windowMs: 60000 },
+  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 2, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 400, windowMs: 60000 },
   Claude:     { maxConcurrent: Number(process.env.AI_LIMITS_CLAUDE_CONCURRENCY)     || 3, rpm: Number(process.env.AI_LIMITS_CLAUDE_RPM)     || 80,  windowMs: 60000 },
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
@@ -219,10 +260,31 @@ function _getPlatformState(platform: string): PlatformState {
   return s;
 }
 
+// Sub-bucket RPM limits. A sub-bucket is a tighter pool INSIDE a
+// platform's overall RPM - currently used for ChatGPT search-preview
+// models, which run on OpenAI's Search-Preview pool rather than the
+// generous standard chat pool. Tier-3 default of 80 leaves headroom
+// under the documented ~100 RPM ceiling; raise via env.
+interface SubBucketLimit { rpm: number; windowMs: number; }
+const SUB_BUCKET_LIMITS: Record<string, SubBucketLimit> = {
+  'ChatGPT:search': {
+    rpm: Number(process.env.AI_LIMITS_CHATGPT_SEARCH_RPM) || 80,
+    windowMs: 60000,
+  },
+};
+const _subBucketTimestamps: Record<string, number[]> = {};
+
 // Acquire a slot respecting both concurrency and sliding-window RPM.
 // The concurrency slot is claimed BEFORE the RPM sleep so parallel callers
 // cannot bypass the concurrency cap while waiting on the RPM window.
-export async function acquirePlatformSlot(platform: string): Promise<() => void> {
+//
+// `subBucket` (optional) gates additionally on a tighter per-model-family
+// pool (e.g. 'search' for ChatGPT search-preview models). Backwards-
+// compatible: existing single-arg callers keep their old semantics.
+export async function acquirePlatformSlot(
+  platform: string,
+  subBucket?: string,
+): Promise<() => void> {
   const limits = PLATFORM_LIMITS[platform];
   if (!limits) return () => {};
   const state = _getPlatformState(platform);
@@ -242,6 +304,17 @@ export async function acquirePlatformSlot(platform: string): Promise<() => void>
   };
 
   try {
+    // Shared 429 cooldown: any 429 anywhere in this process stalls every
+    // concurrent caller for the same platform. Without this gate, N
+    // concurrent retries after a 429 produce a stampede that eats the
+    // Tier-3 Search-Preview pool. Small jitter on wake decorrelates N
+    // waiters so they don't all hit the provider on the exact same tick.
+    for (;;) {
+      const cool = platformCooldownRemaining(platform);
+      if (cool <= 0) break;
+      await sleep(cool + Math.floor(Math.random() * 250));
+    }
+    // Platform-wide sliding-window RPM.
     for (;;) {
       const now = Date.now();
       state.timestamps = state.timestamps.filter(t => now - t < limits.windowMs);
@@ -251,6 +324,24 @@ export async function acquirePlatformSlot(platform: string): Promise<() => void>
       await sleep(waitMs);
     }
     state.timestamps.push(Date.now());
+    // Sub-bucket sliding-window RPM (e.g. ChatGPT search-preview pool).
+    if (subBucket) {
+      const subKey = `${platform}:${subBucket}`;
+      const subLimits = SUB_BUCKET_LIMITS[subKey];
+      if (subLimits) {
+        for (;;) {
+          const now = Date.now();
+          const stamps = (_subBucketTimestamps[subKey] || [])
+            .filter(t => now - t < subLimits.windowMs);
+          _subBucketTimestamps[subKey] = stamps;
+          if (stamps.length < subLimits.rpm) break;
+          const oldest = stamps[0];
+          const waitMs = Math.max(50, subLimits.windowMs - (now - oldest) + 25);
+          await sleep(waitMs);
+        }
+        (_subBucketTimestamps[subKey] ||= []).push(Date.now());
+      }
+    }
   } catch (e) {
     release();
     throw e;
@@ -642,6 +733,20 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         // across keys doesn't help - we need to stop banging on the
         // provider for a few minutes across all brands.
         if (platform) recordPlatformRateLimit(platform);
+        // Shared platform cooldown: every concurrent caller acquiring a
+        // slot via acquirePlatformSlot will wait at least this long,
+        // which serialises the backoff across the process. When the
+        // server gave us a Retry-After we trust it; when not (null hint,
+        // common on OpenAI Search-Preview pool 429s), fall back to a
+        // jittered default so retries don't stampede.
+        if (platform) {
+          const cooldownMs = hint > 0
+            ? hint + Math.floor(Math.random() * 500)
+            : PLATFORM_NULL_RETRY_AFTER_MS
+              + Math.floor(Math.random() * Math.max(500, PLATFORM_NULL_RETRY_AFTER_MS));
+          markPlatformCooldown(platform, cooldownMs);
+        }
+        if (platform === 'ChatGPT') _chatgpt429Total++;
         // Structured observability for ChatGPT (only emitted when caller
         // passes logPrefix - non-ChatGPT paths stay quiet as before).
         if (logPrefix) {
@@ -655,6 +760,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
             bodyHintMs: bodyHint,
             sleptSoFarMs: totalSleptMs,
             sleepCapMs: CALL_MAX_RETRY_SLEEP_MS,
+            chatgpt_429_total: _chatgpt429Total,
             model: logModel,
             queryId: logQueryId,
           });
@@ -964,7 +1070,14 @@ export async function queryAI(
 
   return coalesce(coalesceKey, async () => {
     const startMs = Date.now();
-    const release = await acquirePlatformSlot(platform);
+    // ChatGPT Search-Preview models hit a tighter pool than standard
+    // gpt-4o. Gate them through the 'search' sub-bucket so concurrent
+    // search-preview tasks don't overrun that pool even when the
+    // platform-wide RPM still has headroom.
+    const subBucket = platform === 'ChatGPT' && useModel.includes('search')
+      ? 'search'
+      : undefined;
+    const release = await acquirePlatformSlot(platform, subBucket);
     // Plumb the caller-supplied signal into every provider fetch so a
     // per-task AbortController in the runner actually cancels the
     // in-flight request (and any retry sleeps inside fetchAI).
