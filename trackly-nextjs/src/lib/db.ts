@@ -77,6 +77,7 @@ function runMigrations(): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token_expires TIMESTAMPTZ;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token_hashed BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS refresh_token TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
@@ -131,6 +132,17 @@ function runMigrations(): Promise<void> {
           AND NOT EXISTS (
             SELECT 1 FROM user_sessions s WHERE s.refresh_token_hash = u.refresh_token
           );
+      `);
+
+      // One-time invalidation of any plaintext verify_tokens left over
+      // from before tokens were stored as sha256 hashes. Affected users
+      // (unverified accounts) need to click "resend verification" to
+      // get a fresh hashed token. Idempotent: rows already migrated
+      // have verify_token_hashed = TRUE and are skipped.
+      await pool.query(`
+        UPDATE users
+           SET verify_token = NULL, verify_token_expires = NULL
+         WHERE verify_token IS NOT NULL AND verify_token_hashed = FALSE
       `);
       globalForDb.dbMigrated = true;
     } catch (e) {
