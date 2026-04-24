@@ -1,5 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
+import { logError, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (e) {
-    console.error('[Admin System]', (e as Error).message);
-    return Response.json({ error: 'Failed to load system info' }, { status: 500 });
+    logError('admin_backend.system.failed', e);
+    return serverError({ message: 'Failed to load system info' });
   }
 }

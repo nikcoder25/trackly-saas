@@ -1,6 +1,8 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { logError, serverError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 
 const PRODUCT_IDS: Record<string, string | undefined> = {
   starter: process.env.DODO_STARTER_PRODUCT_ID,
@@ -64,15 +66,21 @@ export async function POST(request: Request) {
     });
 
     if (!resp.ok) {
+      // Provider response body may echo the checkout payload (customer
+      // email/name, metadata). Log only the status + a short preview so
+      // PII can't leak into Sentry or App Platform logs.
       const text = await resp.text().catch(() => '');
-      console.error('[Checkout] DodoPayments error:', resp.status, text);
-      return Response.json({ error: 'Failed to create checkout. Please try again.' }, { status: 500 });
+      logger.error('payments.checkout.provider_error', {
+        status: resp.status,
+        body_preview: text.slice(0, 200),
+      });
+      return serverError({ message: 'Failed to create checkout. Please try again.' });
     }
 
     const data = await resp.json();
     return Response.json({ url: data.checkout_url, checkoutId: data.session_id });
   } catch (e) {
-    console.error('[Checkout]', (e as Error).message);
-    return Response.json({ error: 'Payment processing failed' }, { status: 500 });
+    logError('payments.checkout.failed', e);
+    return serverError({ message: 'Payment processing failed' });
   }
 }

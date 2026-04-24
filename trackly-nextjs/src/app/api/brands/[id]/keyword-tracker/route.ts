@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
+import { logError, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -111,7 +112,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return Response.json({ keywords });
   } catch (e) {
-    console.error('[KeywordTracker]', (e as Error).message);
-    return Response.json({ error: 'Failed to load keyword data' }, { status: 500 });
+    logError('brands.keyword_tracker_failed', e);
+    return serverError({ message: 'Failed to load keyword data' });
   }
 }

@@ -3,6 +3,7 @@ import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { uid } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logError, serverError } from '@/lib/api-error';
 
 // Trim heavy fields from brand data for list responses
 function trimBrandData(data: Record<string, unknown>) {
@@ -95,8 +96,8 @@ export async function GET(request: Request) {
 
     return Response.json({ brands: brandsWithStatus, sharedBrands, plan, brandLimit, overLimit });
   } catch (e) {
-    console.error('[Brands GET]', (e as Error).message);
-    return Response.json({ error: 'Failed to load brands' }, { status: 500 });
+    logError('brands.list_failed', e);
+    return serverError({ message: 'Failed to load brands' });
   }
 }
 
@@ -189,7 +190,7 @@ export async function POST(request: Request) {
     const brand = { id, userId: user.id, ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     return Response.json({ brand });
   } catch (e) {
-    console.error('[Brand POST]', (e as Error).message);
-    return Response.json({ error: 'Failed to create brand' }, { status: 500 });
+    logError('brands.create_failed', e);
+    return serverError({ message: 'Failed to create brand' });
   }
 }

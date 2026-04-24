@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { sendContactFormEmail } from '@/lib/email';
 import { checkForSpam } from '@/lib/spam-filter';
+import { logError, serverError } from '@/lib/api-error';
 
 const INQUIRY_TYPES = [
   'General Support',
@@ -108,13 +109,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.sent) {
-      console.error('[Contact] Failed to send email:', result.reason);
-      return Response.json({ error: 'Failed to send your message. Please try again.' }, { status: 500 });
+      logError('contact.send_email_failed', new Error(String(result.reason ?? 'unknown')));
+      return serverError({ message: 'Failed to send your message. Please try again.' });
     }
 
     return Response.json({ success: true });
   } catch (e) {
-    console.error('[Contact] Error:', (e as Error).message);
-    return Response.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
+    logError('contact.unhandled', e);
+    return serverError({ message: 'Something went wrong. Please try again.' });
   }
 }

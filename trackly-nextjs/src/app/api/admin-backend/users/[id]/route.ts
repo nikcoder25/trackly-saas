@@ -1,6 +1,7 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
+import { logError, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin(request);
@@ -38,8 +39,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       recentActivity: activity.rows,
     });
   } catch (e) {
-    console.error('[Admin User Detail]', (e as Error).message);
-    return Response.json({ error: 'Failed to load user' }, { status: 500 });
+    logError('admin_backend.users.detail_failed', e);
+    return serverError({ message: 'Failed to load user' });
   }
 }
 
@@ -105,8 +106,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return Response.json({ user: result.rows[0] });
   } catch (e) {
-    console.error('[Admin Update User]', (e as Error).message);
-    return Response.json({ error: 'Failed to update user' }, { status: 500 });
+    logError('admin_backend.users.update_failed', e);
+    return serverError({ message: 'Failed to update user' });
   }
 }
 
@@ -141,7 +142,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return Response.json({ success: true });
   } catch (e) {
-    console.error('[Admin Delete User]', (e as Error).message);
-    return Response.json({ error: 'Failed to delete user' }, { status: 500 });
+    logError('admin_backend.users.delete_failed', e);
+    return serverError({ message: 'Failed to delete user' });
   }
 }

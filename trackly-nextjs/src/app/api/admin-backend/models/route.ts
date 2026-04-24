@@ -1,6 +1,7 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { PLATFORM_MODELS, getDefaultModel } from '@/lib/ai-platforms';
+import { logError, serverError } from '@/lib/api-error';
 
 /**
  * GET - Returns available models per platform + current admin selection
@@ -40,8 +41,8 @@ export async function GET(request: Request) {
       }));
       return Response.json({ platforms, currentModels: {} });
     }
-    console.error('[Admin Models GET]', (e as Error).message);
-    return Response.json({ error: 'Failed to load models' }, { status: 500 });
+    logError('admin_backend.models.get_failed', e);
+    return serverError({ message: 'Failed to load models' });
   }
 }
 
@@ -87,7 +88,7 @@ export async function PUT(request: Request) {
 
     return Response.json({ success: true, models: updatedModels });
   } catch (e) {
-    console.error('[Admin Models PUT]', (e as Error).message);
-    return Response.json({ error: 'Failed to update models' }, { status: 500 });
+    logError('admin_backend.models.put_failed', e);
+    return serverError({ message: 'Failed to update models' });
   }
 }

@@ -1,6 +1,8 @@
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { logError, serverError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -36,8 +38,11 @@ export async function POST(request: Request) {
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
-        console.error('[Cancel] DodoPayments error:', resp.status, text);
-        return Response.json({ error: 'Failed to cancel subscription with payment provider. Please contact support or try again.' }, { status: 500 });
+        logger.error('payments.cancel.provider_error', {
+          status: resp.status,
+          body_preview: text.slice(0, 200),
+        });
+        return serverError({ message: 'Failed to cancel subscription with payment provider. Please contact support or try again.' });
       }
     }
 
@@ -51,7 +56,7 @@ export async function POST(request: Request) {
 
     return Response.json({ success: true, message: 'Subscription cancelled. You are now on the free plan.' });
   } catch (e) {
-    console.error('[Cancel]', (e as Error).message);
-    return Response.json({ error: 'Failed to cancel subscription' }, { status: 500 });
+    logError('payments.cancel.failed', e);
+    return serverError({ message: 'Failed to cancel subscription' });
   }
 }

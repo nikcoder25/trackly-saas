@@ -3,6 +3,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
 import { decryptApiKeys } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logError, serverError } from '@/lib/api-error';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   claude: 'CLAUDE_API_KEY',
@@ -123,7 +124,7 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
 
     return Response.json({ queries, platform });
   } catch (e) {
-    console.error('[AI Generate Queries]', (e as Error).message);
-    return Response.json({ error: 'Failed to generate queries. Please try again.' }, { status: 500 });
+    logError('ai_generate_queries.failed', e);
+    return serverError({ message: 'Failed to generate queries. Please try again.' });
   }
 }

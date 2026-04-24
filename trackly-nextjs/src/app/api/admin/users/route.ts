@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logError, serverError } from '@/lib/api-error';
 
 async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
     const countResult = await pool.query('SELECT COUNT(*)::int AS total FROM users');
     return Response.json({ users: result.rows, total: countResult.rows[0].total });
   } catch (e) {
-    console.error('[Admin Users]', (e as Error).message);
-    return Response.json({ error: 'Failed to load users' }, { status: 500 });
+    logError('admin.users.list_failed', e);
+    return serverError({ message: 'Failed to load users' });
   }
 }

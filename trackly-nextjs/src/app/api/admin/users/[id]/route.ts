@@ -1,6 +1,7 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { logError, serverError } from '@/lib/api-error';
 
 async function requireAdmin(request: Request): Promise<{ id: string; email: string } | Response> {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -73,8 +74,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return Response.json({ user: result.rows[0] });
   } catch (e) {
-    console.error('[Admin Update]', (e as Error).message);
-    return Response.json({ error: 'Failed to update user' }, { status: 500 });
+    logError('admin.users.update_failed', e, { target_user_id: id });
+    return serverError({ message: 'Failed to update user' });
   }
 }
 
@@ -113,7 +114,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return Response.json({ success: true });
   } catch (e) {
-    console.error('[Admin Delete]', (e as Error).message);
-    return Response.json({ error: 'Failed to delete user' }, { status: 500 });
+    logError('admin.users.delete_failed', e, { target_user_id: id });
+    return serverError({ message: 'Failed to delete user' });
   }
 }

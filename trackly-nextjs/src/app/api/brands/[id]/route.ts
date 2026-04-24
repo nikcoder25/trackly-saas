@@ -2,6 +2,7 @@ import { pool, safeConnect, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { logError, serverError } from '@/lib/api-error';
 
 // GET /api/brands/:id
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -14,8 +15,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const access = await getBrandWithAccess(id, user.id);
     if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
     return Response.json({ brand: access.brand });
-  } catch {
-    return Response.json({ error: 'Server error' }, { status: 500 });
+  } catch (e) {
+    logError('brands.get_failed', e, { brand_id: id });
+    return serverError();
   }
 }
 
@@ -179,8 +181,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(dataOnly), id]);
     return Response.json({ brand: updated });
   } catch (e) {
-    console.error('[Brand PUT]', (e as Error).message);
-    return Response.json({ error: 'Failed to update brand' }, { status: 500 });
+    logError('brands.update_failed', e);
+    return serverError({ message: 'Failed to update brand' });
   }
 }
 
@@ -217,7 +219,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
     return Response.json({ success: true });
   } catch (e) {
-    console.error('[Brand DELETE]', (e as Error).message);
-    return Response.json({ error: 'Failed to delete brand' }, { status: 500 });
+    logError('brands.delete_failed', e);
+    return serverError({ message: 'Failed to delete brand' });
   }
 }

@@ -97,19 +97,17 @@ export async function POST(request: Request) {
     try {
           const rawBody = await request.text();
 
-      // Diagnostic: log all incoming headers for debugging
-      const allHeaders: Record<string, string> = {};
-      request.headers.forEach((value, key) => {
-        // Redact auth tokens but keep signature headers
-        if (key.toLowerCase().includes('authorization')) {
-          allHeaders[key] = '[REDACTED]';
-        } else {
-          allHeaders[key] = value;
-        }
+      // Diagnostic: record which headers were sent (names only) and the
+      // raw body length. We never log header values — webhook signatures
+      // are credentials and logging them would let anyone with log access
+      // forge future webhooks. The body preview was also removed: it can
+      // contain customer email/name and subscription IDs.
+      const headerNames: string[] = [];
+      request.headers.forEach((_value, key) => { headerNames.push(key); });
+      logger.debug('webhook.dodo.received', {
+        header_names: headerNames,
+        body_length: rawBody.length,
       });
-      console.log('[Webhook] Incoming request headers:', JSON.stringify(allHeaders));
-      console.log('[Webhook] Raw body length:', rawBody.length);
-      console.log('[Webhook] Raw body preview:', rawBody.substring(0, 200));
 
       // Webhook signature verification
       const secrets = getWebhookSecrets();
@@ -140,12 +138,15 @@ export async function POST(request: Request) {
       if (!signature) {
         logger.error('webhook.dodo.missing_signature', {
           checked_headers: signatureHeaders,
-          available_headers: Object.keys(allHeaders),
+          available_headers: headerNames,
         });
         return Response.json({ error: 'Missing signature' }, { status: 401 });
       }
 
-      console.log('[Webhook] Signature found in header:', matchedHeader, '=', signature.substring(0, 20) + '...');
+      // `matchedHeader` tells us which header variant carried the signature
+      // (helpful when Dodo changes the header name); `signature` itself is
+      // a credential and is deliberately not logged.
+      logger.debug('webhook.dodo.signature_found', { header: matchedHeader });
 
       // DodoPayments Standard Webhooks format: "v1,<base64-signature>"
       // Try extracting the actual signature if it has a version prefix
