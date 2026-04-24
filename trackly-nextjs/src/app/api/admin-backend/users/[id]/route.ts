@@ -1,5 +1,6 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
+import { revokeAllSessions } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -71,9 +72,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       values.push(body.name || null);
     }
 
+    let emailChanged = false;
     if (body.email !== undefined) {
+      const normalized = typeof body.email === 'string' ? body.email.toLowerCase().trim() : '';
+      if (!normalized || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+        return Response.json({ error: 'Invalid email' }, { status: 400 });
+      }
+      const collision = await pool.query(
+        'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id <> $2 LIMIT 1',
+        [normalized, id]
+      );
+      if (collision.rows.length) {
+        return Response.json({ error: 'Email already in use' }, { status: 409 });
+      }
       updates.push(`email = $${idx++}`);
-      values.push(body.email.toLowerCase().trim());
+      values.push(normalized);
+      emailChanged = true;
     }
 
     if (typeof body.email_verified === 'boolean') {
@@ -81,10 +95,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       values.push(body.email_verified);
     }
 
+    let passwordChanged = false;
     if (body.password) {
       const hash = await bcrypt.hash(body.password, 12);
       updates.push(`password_hash = $${idx++}`);
       values.push(hash);
+      passwordChanged = true;
     }
 
     if (!updates.length) {
@@ -100,6 +116,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     if (!result.rows.length) {
       return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Credential-changing edits by an admin must invalidate the target user's
+    // live refresh tokens. Otherwise a stolen admin session can rotate a
+    // victim's email/password and the old refresh cookie on the attacker's
+    // box stays valid.
+    if (emailChanged || passwordChanged) {
+      await revokeAllSessions(pool, id);
     }
 
     auditLog(admin.id, 'admin_update_user', 'user', id, body, ip);
