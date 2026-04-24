@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import SeoLayout from '@/components/seo/SeoLayout';
 import { blogPosts, getPostBySlug, formatDate } from '@/data/blog-posts';
@@ -179,6 +180,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const post = getPostBySlug(slug);
   if (!post) notFound();
 
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -192,7 +195,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <SeoLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" nonce={nonce} dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <article className="blog-post">
         {/* Header */}

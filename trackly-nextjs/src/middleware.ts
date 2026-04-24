@@ -136,10 +136,53 @@ async function verifyTokenSignature(token: string): Promise<VerifiedPayload | nu
   }
 }
 
+// ── CSP nonce ────────────────────────────────────────────────────────────────
+//
+// A per-request nonce lets us drop `'unsafe-inline'` from script-src while
+// still allowing our own inline scripts (Google Analytics init, JSON-LD). The
+// nonce is exposed to server components via the `x-nonce` request header and
+// appears in the response CSP header so the browser trusts only scripts we
+// tagged ourselves.
+
+function generateNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://accounts.google.com https://apis.google.com https://www.googletagmanager.com https://www.google-analytics.com https://browser.sentry-cdn.com https://challenges.cloudflare.com`,
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
+    "img-src 'self' data: https://lh3.googleusercontent.com",
+    "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com",
+    "worker-src 'self' blob:",
+    "frame-src https://accounts.google.com https://challenges.cloudflare.com",
+    "frame-ancestors 'none'",
+  ].join('; ');
+}
+
+function applyCspHeaders(response: NextResponse, nonce: string, csp: string) {
+  response.headers.set('x-nonce', nonce);
+  response.headers.set('Content-Security-Policy', csp);
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const nonce = generateNonce();
+  const csp = buildCsp(nonce);
+
+  // Forward the nonce to server components via a request header so pages can
+  // stamp it onto their own inline scripts (JSON-LD, analytics init, etc.).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
 
   // API rate limiting. Key by IP + a short hash of the session cookie when
   // present so a flood of anonymous requests that all resolve to "unknown"
@@ -153,16 +196,20 @@ export async function middleware(request: NextRequest) {
     const { allowed, retryAfter } = checkRateLimit(key, isAuth);
 
     if (!allowed) {
-      return NextResponse.json(
+      const limited = NextResponse.json(
         { error: 'Too many requests. Please try again later.', retryAfter },
         {
           status: 429,
           headers: { 'Retry-After': String(retryAfter) },
         }
       );
+      applyCspHeaders(limited, nonce, csp);
+      return limited;
     }
 
-    return NextResponse.next();
+    const next = NextResponse.next({ request: { headers: requestHeaders } });
+    applyCspHeaders(next, nonce, csp);
+    return next;
   }
 
   // Verify the session cookie once per request. `hasValidToken` is derived
@@ -177,17 +224,25 @@ export async function middleware(request: NextRequest) {
   // is a billing concept and must not grant admin access.
   if (pathname.startsWith('/admin-backend')) {
     if (!hasValidToken) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      const redirect = NextResponse.redirect(new URL('/login', request.url));
+      applyCspHeaders(redirect, nonce, csp);
+      return redirect;
     }
     if (payload?.role !== 'admin') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
+      applyCspHeaders(redirect, nonce, csp);
+      return redirect;
     }
-    return NextResponse.next();
+    const next = NextResponse.next({ request: { headers: requestHeaders } });
+    applyCspHeaders(next, nonce, csp);
+    return next;
   }
 
   // If user is on auth page but already logged in, redirect to dashboard
   if (authPaths.some((p) => pathname.startsWith(p)) && hasValidToken) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
+    applyCspHeaders(redirect, nonce, csp);
+    return redirect;
   }
 
   // If user is on any dashboard or onboarding page but not logged in, redirect to login
@@ -195,12 +250,23 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     const search = request.nextUrl.search;
     loginUrl.searchParams.set('redirect', pathname + (search || ''));
-    return NextResponse.redirect(loginUrl);
+    const redirect = NextResponse.redirect(loginUrl);
+    applyCspHeaders(redirect, nonce, csp);
+    return redirect;
   }
 
-  return NextResponse.next();
+  const next = NextResponse.next({ request: { headers: requestHeaders } });
+  applyCspHeaders(next, nonce, csp);
+  return next;
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/admin-backend/:path*', '/dashboard/:path*', '/onboarding', '/login', '/signup', '/reset-password'],
+  // Match every route that returns HTML or JSON so CSP applies everywhere,
+  // while excluding static assets where the browser wouldn't evaluate scripts
+  // and the nonce would be meaningless.
+  matcher: [
+    {
+      source: '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|site.webmanifest|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|otf|css|js|map)).*)',
+    },
+  ],
 };
