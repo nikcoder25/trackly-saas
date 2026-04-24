@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { renderInlineMarkdown, sanitizeHtml } from '@/lib/sanitize';
 import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { csvSafe } from '@/lib/csv';
@@ -84,37 +84,7 @@ export default function MentionsPage() {
   const from = page * effectivePerPage;
   const slice = filtered.slice(from, from + effectivePerPage);
 
-  function highlightBrand(text: string): string {
-    if (!selectedBrand || !text) return escHtml(text);
-    const escaped = escHtml(selectedBrand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return escHtml(text).replace(new RegExp(`(${escaped})`, 'gi'),
-      '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
-  }
-  function escHtml(s: string): string { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-
-  function renderMarkdown(text: string): string {
-    if (!text) return '';
-    let html = escHtml(text);
-    // Bold
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg3);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;">$1</code>');
-    // Headers (lines starting with #)
-    html = html.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
-    // Bullet points
-    html = html.replace(/^[-•]\s+(.+)$/gm, '&nbsp;&nbsp;• $1');
-    // Numbered lists
-    html = html.replace(/^\d+\.\s+(.+)$/gm, (_, content) => `&nbsp;&nbsp;${_[0]}. ${content}`);
-    // Links [text](url)
-    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:underline;">$1</a>');
-    // Highlight brand name
-    if (selectedBrand) {
-      const escaped = escHtml(selectedBrand.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      html = html.replace(new RegExp(`(${escaped})`, 'gi'),
-        '<mark style="background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;">$1</mark>');
-    }
-    return html;
-  }
+  const renderMarkdown = (text: string) => renderInlineMarkdown(text, { brand: selectedBrand?.name });
 
   function exportCSV() {
     if (!filtered.length) return;

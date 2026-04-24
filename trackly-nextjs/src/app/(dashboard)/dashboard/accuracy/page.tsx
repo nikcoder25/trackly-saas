@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
-import { safeExternalUrl } from '@/lib/url-safety';
+import { safeExternalUrl } from '@/lib/sanitize';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }

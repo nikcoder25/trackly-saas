@@ -5,6 +5,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import { escapeHtml } from './sanitize';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
@@ -99,11 +100,11 @@ export async function sendContactFormEmail({
 }): Promise<EmailResult> {
   // Every field is attacker-controlled: without escaping, a submission
   // with "<img src=x onerror=...>" would execute in the support mailbox.
-  const nameE = escHtml(name);
-  const emailE = escHtml(email);
-  const subjectE = escHtml(subject);
-  const inquiryE = escHtml(inquiryType);
-  const messageE = escHtml(message);
+  const nameE = escapeHtml(name);
+  const emailE = escapeHtml(email);
+  const subjectE = escapeHtml(subject);
+  const inquiryE = escapeHtml(inquiryType);
+  const messageE = escapeHtml(message);
   // mailto: href needs URL-percent-encoding, not HTML-escaping.
   const mailtoHref = `mailto:${encodeURIComponent(email)}`;
   const html = `
@@ -219,14 +220,6 @@ export interface ScheduledReportSummary {
   period: { from: string | null; to: string | null };
 }
 
-function escHtml(s: unknown): string {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 export async function sendReportEmail(
   to: string,
   brandName: string,
@@ -239,13 +232,13 @@ export async function sendReportEmail(
   let platformRows = '';
   for (const [platform, stats] of Object.entries(report.platformStats || {})) {
     const rate = stats.total ? Math.round((stats.mentioned / stats.total) * 100) : 0;
-    platformRows += `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${escHtml(platform)}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${stats.mentioned}/${stats.total}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${rate}%</td></tr>`;
+    platformRows += `<tr><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;">${escapeHtml(platform)}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${stats.mentioned}/${stats.total}</td><td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">${rate}%</td></tr>`;
   }
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2>AI Visibility Report: ${escHtml(brandName)}</h2>
-      <p style="color:#64748b;">Period: ${escHtml(report.period?.from || 'N/A')} to ${escHtml(report.period?.to || 'N/A')}</p>
+      <h2>AI Visibility Report: ${escapeHtml(brandName)}</h2>
+      <p style="color:#64748b;">Period: ${escapeHtml(report.period?.from || 'N/A')} to ${escapeHtml(report.period?.to || 'N/A')}</p>
 
       <div style="display:flex;gap:16px;margin:20px 0;">
         <div style="flex:1;background:#f8fafc;border-radius:8px;padding:16px;text-align:center;">
@@ -281,7 +274,7 @@ export async function sendReportEmail(
       <p style="color:#9ca3af;font-size:12px;margin-top:16px;">You're receiving this because you enabled scheduled reports. Manage settings in your Livesov dashboard.</p>
     </div>
   `;
-  return sendEmail(to, `AI Visibility Report: ${escHtml(brandName)} - Livesov`, html);
+  return sendEmail(to, `AI Visibility Report: ${escapeHtml(brandName)} - Livesov`, html);
 }
 
 async function sendContactFormViaZoho(

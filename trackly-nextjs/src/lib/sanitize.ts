@@ -1,7 +1,111 @@
 /**
- * HTML sanitization for rendering user/AI content safely.
- * Strips all tags except a safe allowlist to prevent XSS.
+ * HTML, URL, and markdown sanitization helpers.
+ *
+ * Single source of truth for rendering untrusted content safely:
+ *   - escapeHtml: HTML-entity escape for text interpolation
+ *   - safeExternalUrl / safeRedirectPath: reject XSS/open-redirect URLs
+ *   - sanitizeHtml: allowlist-based tag/attribute filter
+ *   - highlightBrand / renderInlineMarkdown: safe markdown subset
+ *
+ * Covered attacker tricks:
+ *   - javascript:, data:, vbscript:, file:, blob: schemes
+ *   - Whitespace/tab/newline/unicode bidi splits inside a scheme
+ *     (e.g. "java\tscript:", " javascript:", " JavaScript:")
+ *   - HTML-entity obfuscation ("&#106;avascript:alert(1)")
+ *   - Protocol-relative URLs ("//evil.com") masquerading as site-relative
+ *   - Backslash-as-slash path traversal ("/\\evil.com"), which Chrome and
+ *     Firefox both normalise to "//evil.com" on navigation
+ *   - Attribute-quote breakout ('<a href=\'x" onerror="alert(1)\'>')
  */
+
+// --- Shared scheme/whitespace primitives ---------------------------------
+
+const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file|blob):/i;
+
+// ASCII + unicode whitespace/control chars the URL parser ignores when
+// resolving the scheme. Stripping these closes splits like "java\tscript:"
+// and " JavaScript:". Ranges cover C0 controls, plain whitespace, NBSP,
+// unicode spaces, bidi overrides, and BOM.
+const STRIPPABLE = new RegExp(
+  '[\\u0000-\\u0020\\u00a0\\u1680\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060\\u3000\\ufeff]',
+  'g',
+);
+
+// Browsers decode HTML entities before URL parsing, so a naive /javascript:/
+// match would miss "&#106;avascript:alert(1)". Decode before scheme-checking.
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&amp;/gi, '&');
+}
+
+function hasDangerousScheme(value: string): boolean {
+  const normalized = decodeEntities(value).replace(STRIPPABLE, '');
+  return DANGEROUS_SCHEMES.test(normalized);
+}
+
+// --- HTML entity escaping ------------------------------------------------
+
+/**
+ * Escape user text for safe embedding in HTML. Tolerant of null/undefined
+ * so it can be dropped into template literals that read from optional
+ * record fields.
+ */
+export function escapeHtml(s: unknown): string {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// --- URL safety ----------------------------------------------------------
+
+/**
+ * Returns `url` if it is safe to use as an `<a href>` or `<img src>`
+ * target, otherwise `fallback` (default "#"). Accepts http(s):, mailto:,
+ * tel:, and same-origin relative URLs.
+ */
+export function safeExternalUrl(url: unknown, fallback: string = '#'): string {
+  if (typeof url !== 'string') return fallback;
+  const stripped = url.replace(STRIPPABLE, '');
+  if (!stripped) return fallback;
+  if (DANGEROUS_SCHEMES.test(stripped)) return fallback;
+  // Reject protocol-relative and backslash-normalised equivalents.
+  if (/^(\/\/|\\\\|\/\\|\\\/)/.test(stripped)) return fallback;
+  if (/^https?:\/\//i.test(stripped)) return url;
+  if (/^(mailto:|tel:)/i.test(stripped)) return url;
+  if (/^[/?#]/.test(stripped)) return url;
+  return fallback;
+}
+
+/**
+ * Returns `redirect` if it is a safe same-origin redirect target, otherwise
+ * `fallback`. Stricter than safeExternalUrl: only accepts paths beginning
+ * with a single `/` and rejects protocol-relative, backslash, and
+ * scheme-bearing inputs.
+ *
+ * Use for login ?redirect=, ?next=, ?returnTo=, ?callbackUrl= params.
+ */
+export function safeRedirectPath(redirect: unknown, fallback: string = '/'): string {
+  if (typeof redirect !== 'string') return fallback;
+  const stripped = redirect.replace(STRIPPABLE, '');
+  if (!stripped) return fallback;
+  if (!stripped.startsWith('/')) return fallback;
+  // Blocks "//evil.com", "/\evil.com", "\\/evil.com", and any
+  // scheme-qualified URL that somehow began with '/'.
+  if (/^\/[/\\]/.test(stripped)) return fallback;
+  if (DANGEROUS_SCHEMES.test(stripped)) return fallback;
+  return redirect;
+}
+
+// --- HTML allowlist sanitizer --------------------------------------------
 
 const ALLOWED_TAGS = new Set(['strong', 'em', 'code', 'mark', 'a', 'br', 'b', 'i', 'u', 'span', 'div', 'p']);
 const ALLOWED_ATTRS: Record<string, Set<string>> = {
@@ -12,37 +116,9 @@ const ALLOWED_ATTRS: Record<string, Set<string>> = {
   div: new Set(['style']),
 };
 
-// Any scheme that can execute script or load arbitrary content. Callers
-// reject an attribute value whose stripped form starts with one of these.
-const DANGEROUS_SCHEMES = /^(javascript|data|vbscript|file|blob):/i;
-
-// HTML entities we must decode before scheme-checking. Raw `&#106;` for
-// the "j" in "javascript:" is inert when read by our regex but is decoded
-// by the browser before URL parsing, so a naïve /javascript:/ match would
-// miss "&#106;avascript:alert(1)".
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);?/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
-    .replace(/&amp;/gi, '&');
-}
-
-// Strip whitespace/control chars the URL parser ignores when resolving a
-// scheme ("java\tscript:" → "javascript:"). Range covers C0 controls,
-// NBSP, unicode spaces, bidi marks and BOM.
-const STRIPPABLE = new RegExp(
-  '[\\u0000-\\u0020\\u00a0\\u1680\\u2000-\\u200f\\u2028\\u2029\\u202a-\\u202f\\u205f\\u2060\\u3000\\ufeff]',
-  'g',
-);
-
-function hasDangerousScheme(value: string): boolean {
-  const normalized = decodeEntities(value).replace(STRIPPABLE, '');
-  return DANGEROUS_SCHEMES.test(normalized);
-}
-
 /**
- * Strip dangerous HTML tags and attributes from a string.
- * Only allows safe formatting tags through.
+ * Strip dangerous HTML tags and attributes from a string. Only allows safe
+ * formatting tags through.
  */
 export function sanitizeHtml(html: string): string {
   // Remove script tags and their content entirely
@@ -80,4 +156,60 @@ export function sanitizeHtml(html: string): string {
     return `<${tagLower}${safeAttrs.length ? ' ' + safeAttrs.join(' ') : ''}>`;
   });
   return clean;
+}
+
+// --- Brand markdown rendering --------------------------------------------
+
+const MARK_STYLE =
+  'background:rgba(16,185,129,.12);color:var(--green);border-radius:3px;padding:1px 4px;font-weight:700;';
+const CODE_STYLE =
+  'background:var(--bg3);padding:1px 4px;border-radius:3px;font-family:var(--mono);font-size:11px;';
+const LINK_STYLE = 'color:var(--primary);text-decoration:underline;';
+
+/**
+ * Escape `text` and wrap case-insensitive occurrences of `brand` in a
+ * `<mark>` tag. Output is safe to pass to sanitizeHtml at the render site.
+ */
+export function highlightBrand(text: string, brand: string | null | undefined): string {
+  const escaped = escapeHtml(text);
+  if (!brand) return escaped;
+  const pattern = escapeRegex(escapeHtml(brand));
+  if (!pattern) return escaped;
+  return escaped.replace(new RegExp(`(${pattern})`, 'gi'), `<mark style="${MARK_STYLE}">$1</mark>`);
+}
+
+/**
+ * Render a minimal safe markdown subset as HTML:
+ *   **bold**, `code`, # headings (h1-h3 → strong), - or • bullets,
+ *   numbered lists, [label](https://...) links.
+ * Input is HTML-escaped first, so callers may pass arbitrary user text.
+ * When `brand` is supplied, brand-name mentions are wrapped in `<mark>`.
+ * The result should still be passed through sanitizeHtml at the render
+ * site (defense in depth).
+ */
+export function renderInlineMarkdown(
+  text: string,
+  opts: { brand?: string | null } = {},
+): string {
+  if (!text) return '';
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/`([^`]+)`/g, `<code style="${CODE_STYLE}">$1</code>`);
+  html = html.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
+  html = html.replace(/^[-•]\s+(.+)$/gm, '&nbsp;&nbsp;• $1');
+  html = html.replace(/^(\d+)\.\s+(.+)$/gm, '&nbsp;&nbsp;$1. $2');
+  html = html.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    `<a href="$2" target="_blank" rel="noopener" style="${LINK_STYLE}">$1</a>`,
+  );
+  if (opts.brand) {
+    const pattern = escapeRegex(escapeHtml(opts.brand));
+    if (pattern) {
+      html = html.replace(
+        new RegExp(`(${pattern})`, 'gi'),
+        `<mark style="${MARK_STYLE}">$1</mark>`,
+      );
+    }
+  }
+  return html;
 }
