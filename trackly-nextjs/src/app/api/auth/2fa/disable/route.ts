@@ -2,10 +2,20 @@ import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  // Disabling 2FA is a high-value target for attackers who've obtained a
+  // session - tight per-user cap (3/day) with an IP backstop for
+  // multi-account attacks.
+  const rl = await checkUserIpRateLimit('twofa_disable', user.id, getClientIp(request), {
+    user: { max: 3, windowMs: 24 * 60 * 60 * 1000 },
+    ip: { max: 20, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { password } = await request.json();
   if (!password) return Response.json({ error: 'Password required to disable 2FA' }, { status: 400 });

@@ -2,10 +2,20 @@ import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth, validatePasswordComplexity, revokeAllSessions } from '@/lib/auth';
 import { AUTH } from '@/lib/constants';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  // Guards against credential-stuffing against the "current password"
+  // check: per-user 5/hr stops a stolen session from brute-forcing the
+  // user's old password, per-IP 20/hr stops a shared attacker host.
+  const rl = await checkUserIpRateLimit('change_password', user.id, getClientIp(request), {
+    user: { max: 5, windowMs: 60 * 60 * 1000 },
+    ip: { max: 20, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { currentPassword, newPassword } = await request.json();
   if (!currentPassword || !newPassword) return Response.json({ error: 'Current and new password required' }, { status: 400 });

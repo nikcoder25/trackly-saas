@@ -23,6 +23,7 @@
 import { pool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getPlanLimits } from '@/lib/constants';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 interface BrandRow {
   id: string;
@@ -47,6 +48,13 @@ interface BrandResult {
 export async function POST(request: Request) {
   const admin = await requireAdmin(request);
   if (admin instanceof Response) return admin;
+
+  // Even admins should be bounded: force-run triggers real AI spend via
+  // /api/brands/:id/run?sync=1 and can hold the connection for minutes.
+  const rl = await checkUserIpRateLimit('admin_force_run', admin.id, getClientIp(request), {
+    user: { max: 10, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {

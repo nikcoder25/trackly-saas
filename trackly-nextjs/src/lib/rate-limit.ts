@@ -102,3 +102,45 @@ export function rateLimitResponse(retryAfter: number): Response {
     { status: 429, headers: { 'Retry-After': String(retryAfter) } }
   );
 }
+
+// Extract the caller IP from a standard Next.js Request. Prefers the first
+// entry of X-Forwarded-For (the client, not intermediate proxies), falling
+// back to X-Real-IP and finally a literal "unknown" bucket so rate-limit
+// keys are never null.
+export function getClientIp(request: Request): string {
+  const xff = request.headers.get('x-forwarded-for');
+  if (xff) {
+    const first = xff.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  const xri = request.headers.get('x-real-ip');
+  if (xri) return xri.trim();
+  return 'unknown';
+}
+
+export interface DualLimitConfig {
+  user?: { max: number; windowMs: number };
+  ip?: { max: number; windowMs: number };
+}
+
+// Combined per-user AND per-IP rate limit check. The user bucket stops a
+// single authenticated account from spamming an endpoint; the IP bucket
+// caps damage if one attacker cycles through many compromised accounts
+// from the same host. `bucket` namespaces the keys so two endpoints using
+// the same (userId, ip) pair don't share counters.
+export async function checkUserIpRateLimit(
+  bucket: string,
+  userId: string | null | undefined,
+  ip: string | null | undefined,
+  limits: DualLimitConfig,
+): Promise<{ allowed: boolean; retryAfter: number }> {
+  if (userId && limits.user) {
+    const r = await rateLimit(`${bucket}:u:${userId}`, limits.user.windowMs, limits.user.max);
+    if (!r.allowed) return r;
+  }
+  if (ip && limits.ip) {
+    const r = await rateLimit(`${bucket}:ip:${ip}`, limits.ip.windowMs, limits.ip.max);
+    if (!r.allowed) return r;
+  }
+  return { allowed: true, retryAfter: 0 };
+}

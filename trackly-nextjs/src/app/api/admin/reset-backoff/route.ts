@@ -27,6 +27,7 @@ import { pool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { logger } from '@/lib/logger';
 import { uid } from '@/lib/helpers';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 // Match the defaults in /api/cron/route.ts so we only count brands that
 // would actually be gated. These are hydrated from env at invocation
@@ -115,6 +116,11 @@ async function insertSentinel(brandId: string): Promise<string> {
 export async function POST(request: Request) {
   const admin = await requireAdmin(request);
   if (admin instanceof Response) return admin;
+
+  const rl = await checkUserIpRateLimit('admin_reset_backoff', admin.id, getClientIp(request), {
+    user: { max: 10, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   let body: { brandId?: string } = {};
   try { body = await request.json(); } catch { /* empty body handled below */ }

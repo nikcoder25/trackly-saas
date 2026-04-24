@@ -2,11 +2,19 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { buildBrandMatcher, detectCompetitors } from '@/lib/parser';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
+
+  // Reprocessing scans every stored prompt_run response and rewrites the
+  // row. Heavy on DB CPU - cap it tightly per user.
+  const rl = await checkUserIpRateLimit('reprocess_competitors', user.id, getClientIp(request), {
+    user: { max: 5, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { id } = await params;
   const access = await getBrandWithAccess(id, user.id);
