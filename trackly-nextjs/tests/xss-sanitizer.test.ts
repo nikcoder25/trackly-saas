@@ -1,0 +1,155 @@
+import { describe, it, expect } from 'vitest';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { safeExternalUrl, safeRedirectPath } from '@/lib/url-safety';
+
+// ─── Sanitizer scheme-split regressions ─────────────────────────────────────
+
+describe('sanitizeHtml rejects dangerous url schemes', () => {
+  it('strips plain javascript: href', () => {
+    const out = sanitizeHtml('<a href="javascript:alert(1)">x</a>');
+    expect(out).not.toMatch(/javascript/i);
+  });
+
+  it('strips tab-split javascript: href', () => {
+    const out = sanitizeHtml('<a href="java\tscript:alert(1)">x</a>');
+    expect(out).not.toMatch(/javascript/i);
+    expect(out).not.toMatch(/alert/);
+  });
+
+  it('strips leading-whitespace scheme "  javascript:..."', () => {
+    const out = sanitizeHtml('<a href="   javascript:alert(1)">x</a>');
+    expect(out).not.toMatch(/alert/);
+  });
+
+  it('strips HTML-entity encoded javascript (&#106;avascript:)', () => {
+    const out = sanitizeHtml('<a href="&#106;avascript:alert(1)">x</a>');
+    expect(out).not.toMatch(/alert/);
+  });
+
+  it('strips vbscript: and data: schemes', () => {
+    expect(sanitizeHtml('<a href="vbscript:msgbox(1)">x</a>')).not.toMatch(/vbscript/i);
+    expect(sanitizeHtml('<a href="data:text/html,<script>1</script>">x</a>')).not.toMatch(/data:/i);
+  });
+
+  it('drops on* event handlers', () => {
+    const out = sanitizeHtml('<a href="https://ex.com" onmouseover="alert(1)">x</a>');
+    expect(out).not.toMatch(/onmouseover/i);
+    expect(out).toMatch(/href="https:\/\/ex\.com"/);
+  });
+
+  it('strips <script> tags entirely', () => {
+    const out = sanitizeHtml('before<script>alert(1)</script>after');
+    expect(out).toBe('beforeafter');
+  });
+
+  it('HTML-escapes attribute values to prevent quote break-out', () => {
+    // Attacker attribute that tries to close the quote and inject onerror.
+    const out = sanitizeHtml('<a href=\'https://x" onerror="alert(1)\'>x</a>');
+    expect(out).not.toMatch(/onerror/i);
+  });
+});
+
+// ─── Open-redirect allowlist ────────────────────────────────────────────────
+
+describe('safeRedirectPath blocks open-redirect vectors', () => {
+  it('accepts simple same-origin paths', () => {
+    expect(safeRedirectPath('/dashboard')).toBe('/dashboard');
+    expect(safeRedirectPath('/dashboard?tab=1')).toBe('/dashboard?tab=1');
+    expect(safeRedirectPath('/dashboard#anchor')).toBe('/dashboard#anchor');
+  });
+
+  it('rejects protocol-relative "//evil.com"', () => {
+    expect(safeRedirectPath('//evil.com')).toBe('/');
+    expect(safeRedirectPath('//evil.com/dashboard')).toBe('/');
+  });
+
+  it('rejects backslash-normalised "/\\evil.com" (Chrome/Firefox bypass)', () => {
+    expect(safeRedirectPath('/\\evil.com')).toBe('/');
+    expect(safeRedirectPath('/\\/evil.com')).toBe('/');
+    expect(safeRedirectPath('\\\\evil.com')).toBe('/');
+  });
+
+  it('rejects absolute and scheme-bearing URLs', () => {
+    expect(safeRedirectPath('https://evil.com/x')).toBe('/');
+    expect(safeRedirectPath('javascript:alert(1)')).toBe('/');
+    expect(safeRedirectPath('data:text/html,x')).toBe('/');
+  });
+
+  it('rejects non-string input', () => {
+    expect(safeRedirectPath(undefined)).toBe('/');
+    expect(safeRedirectPath(null)).toBe('/');
+    expect(safeRedirectPath(42)).toBe('/');
+  });
+
+  it('honours custom fallback', () => {
+    expect(safeRedirectPath('//evil.com', '/login')).toBe('/login');
+    expect(safeRedirectPath('/dashboard', '/login')).toBe('/dashboard');
+  });
+});
+
+describe('safeExternalUrl blocks href/src XSS vectors', () => {
+  it('accepts http(s), mailto, tel, and same-origin paths', () => {
+    expect(safeExternalUrl('https://example.com')).toBe('https://example.com');
+    expect(safeExternalUrl('http://example.com')).toBe('http://example.com');
+    expect(safeExternalUrl('mailto:a@b.com')).toBe('mailto:a@b.com');
+    expect(safeExternalUrl('tel:+15555555555')).toBe('tel:+15555555555');
+    expect(safeExternalUrl('/dashboard')).toBe('/dashboard');
+    expect(safeExternalUrl('?q=x')).toBe('?q=x');
+    expect(safeExternalUrl('#anchor')).toBe('#anchor');
+  });
+
+  it('rejects javascript: in every shape', () => {
+    expect(safeExternalUrl('javascript:alert(1)')).toBe('#');
+    expect(safeExternalUrl('JAVASCRIPT:alert(1)')).toBe('#');
+    expect(safeExternalUrl('  javascript:alert(1)')).toBe('#');
+    expect(safeExternalUrl('java\tscript:alert(1)')).toBe('#');
+  });
+
+  it('rejects data:, vbscript:, file:, blob:', () => {
+    expect(safeExternalUrl('data:text/html,<script>1</script>')).toBe('#');
+    expect(safeExternalUrl('vbscript:msgbox(1)')).toBe('#');
+    expect(safeExternalUrl('file:///etc/passwd')).toBe('#');
+    expect(safeExternalUrl('blob:https://x/123')).toBe('#');
+  });
+
+  it('rejects protocol-relative and backslash forms', () => {
+    expect(safeExternalUrl('//evil.com')).toBe('#');
+    expect(safeExternalUrl('\\\\evil.com')).toBe('#');
+    expect(safeExternalUrl('/\\evil.com')).toBe('#');
+  });
+
+  it('returns custom fallback when unsafe', () => {
+    expect(safeExternalUrl('javascript:alert(1)', '')).toBe('');
+  });
+});
+
+// ─── CSP header smoke test ──────────────────────────────────────────────────
+//
+// Asserts next.config.ts ships a CSP for "/(.*)" that blocks the most
+// dangerous primitives. We read the config as text (rather than
+// importing it) so the test stays hermetic — next.config.ts pulls in
+// @sentry/nextjs which is not a plain-Node module.
+
+describe('CSP smoke test', () => {
+  it('next.config.ts declares a strict Content-Security-Policy', async () => {
+    const { readFileSync } = await import('node:fs');
+    const path = await import('node:path');
+    const source = readFileSync(
+      path.resolve(__dirname, '..', 'next.config.ts'),
+      'utf-8',
+    );
+
+    // Structural checks: the catch-all route exists and has a CSP key.
+    expect(source).toMatch(/source:\s*['"]\/\(\.\*\)['"]/);
+    expect(source).toMatch(/['"]Content-Security-Policy['"]/);
+
+    // Required primitives.
+    expect(source).toMatch(/default-src 'self'/);
+    expect(source).toMatch(/frame-ancestors 'none'/);
+
+    // Hard-bans that must never regress into the policy.
+    expect(source).not.toMatch(/'unsafe-eval'/);
+    // No wildcard source ending a directive (e.g. "script-src *;").
+    expect(source).not.toMatch(/-src\s+\*\s*['"]/);
+  });
+});
