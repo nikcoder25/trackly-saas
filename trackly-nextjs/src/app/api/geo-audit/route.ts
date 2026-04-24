@@ -3,21 +3,9 @@ import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { verifyRequestAuth } from '@/lib/auth';
 import { getPlanLimits } from '@/lib/constants';
 import { pool } from '@/lib/db';
+import { safeFetch, SSRFError } from '@/lib/safe-fetch';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function isPrivateHost(hostname: string): boolean {
-  if (['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(hostname)) return true;
-  const parts = hostname.split('.').map(Number);
-  if (parts.length === 4 && parts.every(n => !isNaN(n))) {
-    if (parts[0] === 10) return true;
-    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
-    if (parts[0] === 192 && parts[1] === 168) return true;
-    if (parts[0] === 169 && parts[1] === 254) return true;
-    if (parts[0] === 127) return true;
-  }
-  return false;
-}
 
 function isValidUrl(str: string): boolean {
   try {
@@ -402,35 +390,22 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Invalid URL. Must be a valid http or https URL.' }, { status: 400 });
     }
 
-    // Block private/internal network addresses (SSRF protection)
-    try {
-      const urlObj = new URL(trimmedUrl);
-      if (isPrivateHost(urlObj.hostname)) {
-        return Response.json({ error: 'URL points to a private/internal network address' }, { status: 400 });
-      }
-    } catch {
-      return Response.json({ error: 'Invalid URL' }, { status: 400 });
-    }
-
-    // Fetch the page
+    // Fetch the page. safeFetch re-validates every redirect hop against the
+    // private/loopback/link-local/metadata blocklist, so a 3xx bounce to an
+    // internal address can't slip past.
     const fetchStart = Date.now();
     let html: string;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10_000);
-      const response = await fetch(trimmedUrl, {
-        signal: controller.signal,
+      const response = await safeFetch(trimmedUrl, {
+        timeoutMs: 10_000,
         headers: {
-                      'User-Agent': 'Mozilla/5.0 (compatible; LivesovBot/1.0; +https://livesov.com)',
-                      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                      'Accept-Language': 'en-US,en;q=0.9',
-                      'Accept-Encoding': 'gzip, deflate, br',
-                      'Connection': 'keep-alive',
-                      'Cache-Control': 'no-cache',
+          'User-Agent': 'Mozilla/5.0 (compatible; LivesovBot/1.0; +https://livesov.com)',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Cache-Control': 'no-cache',
         },
-        redirect: 'follow',
       });
-      clearTimeout(timeout);
 
       if (!response.ok) {
         return Response.json(
@@ -441,6 +416,12 @@ export async function POST(req: NextRequest) {
 
       html = await response.text();
     } catch (err: unknown) {
+      if (err instanceof SSRFError) {
+        const msg = err.code === 'PROTOCOL_BLOCKED'
+          ? 'URL protocol not allowed'
+          : 'URL points to a private/internal network address';
+        return Response.json({ error: msg }, { status: 400 });
+      }
       const message = err instanceof Error && err.name === 'AbortError'
         ? 'URL fetch timed out (10s limit)'
         : 'Failed to fetch URL. Ensure the URL is accessible.';

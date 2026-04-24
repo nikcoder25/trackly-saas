@@ -1,5 +1,6 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
+import { isBlockedIP } from '@/lib/safe-fetch';
 
 export async function GET(request: Request) {
   const user = verifyRequestAuth(request);
@@ -45,11 +46,26 @@ export async function PUT(request: Request) {
     if (body[key] === undefined) continue;
     const val = key === 'webhookUrl' ? String(body[key]).slice(0, 500) : String(body[key]).slice(0, 100);
     if (validValues.length > 0 && !validValues.includes(val)) continue; // reject invalid enum
-    // Validate webhookUrl format
+    // Validate webhookUrl format and reject private/internal destinations.
+    // The actual delivery path must still re-validate at dispatch time via
+    // safeFetch to defeat DNS rebinding; this is a fail-fast UX check.
     if (key === 'webhookUrl' && val) {
       try {
         const parsed = new URL(val);
-        if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+        if (parsed.protocol !== 'https:') continue;
+        const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+        if (!host) continue;
+        if (host === 'localhost' || host.endsWith('.localhost')) continue;
+        if (host.endsWith('.local') || host.endsWith('.internal')) continue;
+        if (host === 'metadata.google.internal') continue;
+        if (/^\d+$/.test(host) || /^0x[0-9a-f]+$/i.test(host)) continue;
+        if (/(^|\.)0\d+/.test(host) || /(^|\.)0x[0-9a-f]+/i.test(host)) continue;
+        // Block literal IPs that land in private/loopback/link-local/etc.
+        // DNS-resolved rebinding is caught by safeFetch at dispatch time.
+        const hostForIp = host.replace(/^\[|\]$/g, '');
+        if (/^[0-9.]+$/.test(hostForIp) || hostForIp.includes(':')) {
+          if (isBlockedIP(hostForIp)) continue;
+        }
       } catch { continue; }
     }
     updates[key] = booleanKeys.includes(key) ? val === 'true' : val;
