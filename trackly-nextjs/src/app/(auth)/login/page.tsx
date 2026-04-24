@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { safeRedirectPath } from '@/lib/url-safety';
 
 declare global {
   interface Window {
@@ -28,8 +29,10 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verified = searchParams.get('verified');
-  const rawRedirect = searchParams.get('redirect') || '/dashboard';
-  const redirect = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/dashboard';
+  // Hardened redirect validation. The previous check allowed "/\evil.com",
+  // which Chrome/Firefox normalise to "//evil.com" on navigation — an
+  // open-redirect that also pairs with "javascript:..." tricks.
+  const redirect = safeRedirectPath(searchParams.get('redirect'), '/dashboard');
   const googleClientIdRef = useRef<string | null>(null);
   const gsiLoadedRef = useRef(false);
 

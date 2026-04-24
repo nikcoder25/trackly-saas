@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
+import { safeExternalUrl } from '@/lib/url-safety';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
@@ -217,13 +218,17 @@ function brandApi(brandId: string, path = '', method = 'GET', body?: unknown) {
 // ── Source URL Link (extracted from IIFE) ──────────────────────
 function SourceUrlLink({ issue }: { issue: Issue }) {
   if (!issue.source_url) return null;
-  const isSearchUrl = issue.source_url.includes('/search?q=') || issue.source_url.includes('/?q=') || issue.source_url.includes('/new?q=') || issue.source_url.includes('/app?q=') || issue.source_url.includes('?text=');
+  // source_url comes from AI-citation output — never trust it as an
+  // <a href>. A `javascript:`/`data:` URL would fire on click.
+  const safeUrl = safeExternalUrl(issue.source_url, '');
+  if (!safeUrl) return null;
+  const isSearchUrl = safeUrl.includes('/search?q=') || safeUrl.includes('/?q=') || safeUrl.includes('/new?q=') || safeUrl.includes('/app?q=') || safeUrl.includes('?text=');
   let hostname = '';
-  try { hostname = new URL(issue.source_url).hostname.replace(/^www\./, ''); } catch { /* */ }
+  try { hostname = new URL(safeUrl).hostname.replace(/^www\./, ''); } catch { /* */ }
   return (
-    <a href={issue.source_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+    <a href={safeUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
       style={{ padding: '1px 5px', background: 'rgba(59,130,246,0.08)', borderRadius: 3, color: 'var(--blue)', textDecoration: 'none', cursor: 'pointer', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}
-      title={issue.source_url}>
+      title={safeUrl}>
       {isSearchUrl ? `Verify on ${issue.platform} ↗` : `${hostname} ↗`}
     </a>
   );
