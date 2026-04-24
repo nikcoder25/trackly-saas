@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
@@ -244,12 +245,12 @@ export default function AccountPage() {
         {/* QR Code + Verify Step */}
         {twoFASetup && (
           <div style={{ marginTop: 12 }}>
-            {/* Manual TOTP setup key (no external QR service) */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Add this key to your authenticator app</div>
-              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>
-                Open your authenticator app (Google Authenticator, Authy, etc.) and add a new account manually using the setup key below:
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Scan this QR code with your authenticator app</div>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: 16, background: '#ffffff', borderRadius: 'var(--radius-xs)', maxWidth: 240, marginTop: 8 }}>
+                <QRCodeSVG value={twoFASetup.otpauthUrl} size={180} level="M" bgColor="#ffffff" fgColor="#000000" includeMargin />
               </div>
+              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted)' }}>Or enter this key manually:</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'inline-block', letterSpacing: 2, userSelect: 'all' as const }}>
                 {twoFASetup.secret}
               </div>
