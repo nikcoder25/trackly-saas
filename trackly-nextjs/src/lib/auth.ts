@@ -42,21 +42,74 @@ export function verifyToken(token: string): JWTPayload | null {
   }
 }
 
-export function createTokenCookieHeaders(accessToken: string, refreshToken: string): Array<string> {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const secure = isProduction ? '; Secure' : '';
+// Cookie names. In production we prefix with `__Host-` so the browser enforces
+// Secure + Path=/ + no Domain attribute (origin-scoped). On plain-HTTP dev
+// (`npm run dev`) browsers reject `__Host-` cookies, so we keep the legacy
+// names there. Read paths (`getTokenFromRequest`, middleware) accept both so
+// an in-flight deploy doesn't invalidate sessions mid-request.
+const PROD = process.env.NODE_ENV === 'production';
+export const COOKIE_NAMES = {
+  access: PROD ? '__Host-livesov_token' : 'livesov_token',
+  refresh: PROD ? '__Host-livesov_refresh' : 'livesov_refresh',
+  csrf: PROD ? '__Host-livesov_csrf' : 'livesov_csrf',
+} as const;
+
+// Legacy cookie names so we can sweep them on logout and accept them on read
+// during the transition window. Safe to remove after one refresh cycle
+// (accessTokenMaxAge + refreshTokenMaxAge).
+const LEGACY_COOKIE_NAMES = {
+  access: 'livesov_token',
+  refresh: 'livesov_refresh',
+} as const;
+
+function baseFlags(maxAgeSec: number): string {
+  // HttpOnly + SameSite=Lax + Path=/ on every session cookie. `Secure` is set
+  // in production so browsers refuse to send the cookie over plain HTTP. We
+  // stop short of SameSite=Strict because the app opens the dashboard from
+  // email-verification and billing-return top-level navigations, which Strict
+  // would strip.
+  const secure = PROD ? '; Secure' : '';
+  return `HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}${secure}`;
+}
+
+/**
+ * Issue a non-HttpOnly CSRF token cookie. Paired with a request header of the
+ * same value this implements the double-submit cookie pattern. The token is
+ * opaque and rotated on every session issue/refresh.
+ */
+export function generateCsrfToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function createTokenCookieHeaders(
+  accessToken: string,
+  refreshToken: string,
+  csrfToken: string = generateCsrfToken(),
+): Array<string> {
+  const accessMax = Math.floor(AUTH.accessTokenMaxAge / 1000);
+  const refreshMax = Math.floor(AUTH.refreshTokenMaxAge / 1000);
+  const secure = PROD ? '; Secure' : '';
   return [
-    `livesov_token=${accessToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(AUTH.accessTokenMaxAge / 1000)}${secure}`,
-    `livesov_refresh=${refreshToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${Math.floor(AUTH.refreshTokenMaxAge / 1000)}${secure}`,
+    `${COOKIE_NAMES.access}=${accessToken}; ${baseFlags(accessMax)}`,
+    `${COOKIE_NAMES.refresh}=${refreshToken}; ${baseFlags(refreshMax)}`,
+    // CSRF cookie is deliberately NOT HttpOnly so first-party JS can mirror
+    // it into the X-CSRF-Token header on state-changing fetches. SameSite=Lax
+    // keeps it from riding along on cross-site navigations.
+    `${COOKIE_NAMES.csrf}=${csrfToken}; SameSite=Lax; Path=/; Max-Age=${refreshMax}${secure}`,
   ];
 }
 
 export function createClearCookieHeaders(): Array<string> {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const secure = isProduction ? '; Secure' : '';
+  const secure = PROD ? '; Secure' : '';
+  const expire = `HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`;
+  // Clear the current-generation cookies and the legacy ones so no stale
+  // session cookie survives a logout after a cookie-name migration.
   return [
-    `livesov_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`,
-    `livesov_refresh=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure}`,
+    `${COOKIE_NAMES.access}=; ${expire}`,
+    `${COOKIE_NAMES.refresh}=; ${expire}`,
+    `${COOKIE_NAMES.csrf}=; SameSite=Lax; Path=/; Max-Age=0${secure}`,
+    `${LEGACY_COOKIE_NAMES.access}=; ${expire}`,
+    `${LEGACY_COOKIE_NAMES.refresh}=; ${expire}`,
   ];
 }
 
@@ -75,15 +128,24 @@ export function jsonWithCookies(data: unknown, cookies: string[], status = 200):
 /**
  * Extract token from request (Authorization header or cookie)
  */
+function readCookieValue(cookieHeader: string, name: string): string | null {
+  // Escape for regex use in case the cookie name ever contains regex metachars
+  // (e.g. the `__Host-` prefix is safe, but future renames could introduce them).
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
 export function getTokenFromRequest(request: Request): string | null {
   const authHeader = request.headers.get('authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
     return authHeader.slice(7).trim();
   }
-  // Parse cookies from Cookie header
   const cookieHeader = request.headers.get('cookie') || '';
-  const match = cookieHeader.match(/livesov_token=([^;]+)/);
-  return match ? match[1] : null;
+  return (
+    readCookieValue(cookieHeader, COOKIE_NAMES.access) ||
+    readCookieValue(cookieHeader, LEGACY_COOKIE_NAMES.access)
+  );
 }
 
 /**
@@ -161,8 +223,15 @@ async function pruneExpiredSessionsForUser(pool: PoolLike, userId: string): Prom
 
 export function getRefreshTokenFromRequest(request: Request): string | null {
   const cookieHeader = request.headers.get('cookie') || '';
-  const match = cookieHeader.match(/livesov_refresh=([^;]+)/);
-  return match ? match[1] : null;
+  return (
+    readCookieValue(cookieHeader, COOKIE_NAMES.refresh) ||
+    readCookieValue(cookieHeader, LEGACY_COOKIE_NAMES.refresh)
+  );
+}
+
+export function getCsrfCookieFromRequest(request: Request): string | null {
+  const cookieHeader = request.headers.get('cookie') || '';
+  return readCookieValue(cookieHeader, COOKIE_NAMES.csrf);
 }
 
 /**

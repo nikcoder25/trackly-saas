@@ -3,6 +3,87 @@ import type { NextRequest } from 'next/server';
 
 const authPaths = ['/login', '/signup', '/reset-password'];
 
+// Cookie names must stay in sync with src/lib/auth.ts. Duplicated here because
+// the Edge runtime can't import from node-targeted modules (crypto, pg) that
+// auth.ts transitively pulls in.
+const PROD = process.env.NODE_ENV === 'production';
+const ACCESS_COOKIE = PROD ? '__Host-livesov_token' : 'livesov_token';
+const LEGACY_ACCESS_COOKIE = 'livesov_token';
+const CSRF_COOKIE = PROD ? '__Host-livesov_csrf' : 'livesov_csrf';
+
+// State-changing methods that need CSRF enforcement.
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// Path prefixes where CSRF enforcement does not apply:
+//  * Webhooks authenticate via HMAC (dodopayments, resend) — they legitimately
+//    come from a third-party origin with no user cookies in play.
+//  * Cron endpoints authenticate via Authorization: Bearer CRON_SECRET — no
+//    cookies are trusted, so cross-site requests can't leverage them anyway.
+//  * Auth login/register/google seed the session, so there's no prior CSRF
+//    cookie to double-submit. We still enforce the Origin/Referer check for
+//    these in `isSameOrigin` below, which catches classic login CSRF.
+const CSRF_EXEMPT_PREFIXES = [
+  '/api/webhooks/',
+  '/api/payments/webhooks/',
+  '/api/cron',
+];
+
+// Bootstrap / anonymous endpoints: no CSRF token yet (user isn't logged in),
+// but we still require Origin to match an allowed origin so an attacker site
+// can't POST on behalf of a victim (login CSRF fixation, contact form abuse).
+const CSRF_BOOTSTRAP_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/google',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/refresh',
+  '/api/contact',
+  '/api/newsletter',
+  '/api/free-check',
+]);
+
+function getAllowedOrigins(request: NextRequest): Set<string> {
+  const origins = new Set<string>();
+  // The request's own origin is always allowed — this covers same-origin
+  // fetches regardless of what's configured in env.
+  origins.add(new URL(request.url).origin);
+  const appUrl = process.env.APP_URL;
+  if (appUrl) {
+    try { origins.add(new URL(appUrl).origin); } catch { /* ignore malformed */ }
+  }
+  const allowed = process.env.ALLOWED_ORIGINS;
+  if (allowed) {
+    for (const raw of allowed.split(',')) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      try { origins.add(new URL(trimmed).origin); } catch { /* ignore malformed */ }
+    }
+  }
+  return origins;
+}
+
+function isSameOrigin(request: NextRequest): boolean {
+  const allowed = getAllowedOrigins(request);
+  const origin = request.headers.get('origin');
+  if (origin) return allowed.has(origin);
+  // Some browsers omit Origin on same-origin requests — fall back to Referer.
+  const referer = request.headers.get('referer');
+  if (referer) {
+    try { return allowed.has(new URL(referer).origin); } catch { return false; }
+  }
+  // No Origin and no Referer on a state-changing request is a red flag. In
+  // production we refuse; in dev we allow so curl/Postman still work.
+  return !PROD;
+}
+
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // ── In-memory rate limiting ──────────────────────────────────────────────────
 //
 // Edge middleware cannot reach Postgres/Redis directly, so we keep a
@@ -189,7 +270,9 @@ export async function middleware(request: NextRequest) {
   // doesn't share the same bucket across every signed-out visitor.
   if (pathname.startsWith('/api/')) {
     const ip = getClientIp(request);
-    const cookieToken = request.cookies.get('livesov_token')?.value;
+    const cookieToken =
+      request.cookies.get(ACCESS_COOKIE)?.value ||
+      request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
     const sessionTag = cookieToken ? cookieToken.slice(-16) : 'anon';
     const isAuth = pathname.startsWith('/api/auth/');
     const key = `${isAuth ? 'auth' : 'api'}:${ip}:${sessionTag}`;
@@ -207,6 +290,45 @@ export async function middleware(request: NextRequest) {
       return limited;
     }
 
+    // CSRF enforcement for state-changing methods. Applied in the edge
+    // middleware so every /api/ route gets it by default — route authors
+    // can't forget to add it. Exempt paths are listed above.
+    if (UNSAFE_METHODS.has(request.method)) {
+      const exempt = CSRF_EXEMPT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+      if (!exempt) {
+        // Step 1: Origin must match. This alone blocks cross-site form POSTs
+        // even in browsers that ignore SameSite (old Safari, embedded webviews).
+        if (!isSameOrigin(request)) {
+          const forbidden = NextResponse.json(
+            { error: 'Cross-origin request blocked' },
+            { status: 403 },
+          );
+          applyCspHeaders(forbidden, nonce, csp);
+          return forbidden;
+        }
+        // Step 2: double-submit CSRF token check for any route that already
+        // has a session. Bootstrap auth routes (no cookie yet) skip this.
+        const isBootstrap = CSRF_BOOTSTRAP_PATHS.has(pathname);
+        if (!isBootstrap) {
+          const csrfCookie = request.cookies.get(CSRF_COOKIE)?.value;
+          const csrfHeader = request.headers.get('x-csrf-token');
+          const hasBearer = (request.headers.get('authorization') || '').startsWith('Bearer ');
+          // Bearer-authenticated requests (server-to-server, automation) are
+          // immune to CSRF because they don't ride on the victim's cookie.
+          if (!hasBearer) {
+            if (!csrfCookie || !csrfHeader || !timingSafeEqualStrings(csrfCookie, csrfHeader)) {
+              const forbidden = NextResponse.json(
+                { error: 'Invalid or missing CSRF token' },
+                { status: 403 },
+              );
+              applyCspHeaders(forbidden, nonce, csp);
+              return forbidden;
+            }
+          }
+        }
+      }
+    }
+
     const next = NextResponse.next({ request: { headers: requestHeaders } });
     applyCspHeaders(next, nonce, csp);
     return next;
@@ -216,7 +338,9 @@ export async function middleware(request: NextRequest) {
   // from a real HMAC signature check + alg enforcement + exp check, so a
   // forged/tampered JWT can never cause the middleware to advertise a
   // logged-in UX.
-  const token = request.cookies.get('livesov_token')?.value;
+  const token =
+    request.cookies.get(ACCESS_COOKIE)?.value ||
+    request.cookies.get(LEGACY_ACCESS_COOKIE)?.value;
   const payload = token ? await verifyTokenSignature(token) : null;
   const hasValidToken = !!payload;
 
