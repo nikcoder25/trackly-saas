@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -6,6 +7,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import ProgressBar from '@/components/ProgressBar';
 import CookieConsent from '@/components/CookieConsent';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
+import { NonceProvider } from '@/components/NonceProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -61,7 +63,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get('x-nonce') ?? '';
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
@@ -69,14 +72,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://accounts.google.com" />
       </head>
       <body style={{ fontFamily: "var(--font)" }} suppressHydrationWarning>
-        <ProgressBar />
-        <LanguageProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </LanguageProvider>
-        <CookieConsent />
-        <GoogleAnalytics />
+        <NonceProvider nonce={nonce}>
+          <ProgressBar />
+          <LanguageProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </LanguageProvider>
+          <CookieConsent />
+          <GoogleAnalytics nonce={nonce} />
+        </NonceProvider>
       </body>
     </html>
   );

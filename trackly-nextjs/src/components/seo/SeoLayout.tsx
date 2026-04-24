@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
+import { useNonce } from '@/components/NonceProvider';
 
 interface SeoLayoutProps {
   children: React.ReactNode;
@@ -149,6 +150,7 @@ export function SeoContent({ children }: { children: React.ReactNode }) {
  * Usage: <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
  */
 export function Breadcrumbs({ items }: { items: Array<{ name: string; url: string }> }) {
+  const nonce = useNonce();
   const breadcrumb = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -163,6 +165,6 @@ export function Breadcrumbs({ items }: { items: Array<{ name: string; url: strin
     ],
   };
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+    <script type="application/ld+json" nonce={nonce || undefined} dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
   );
 }

@@ -125,13 +125,38 @@ describe('safeExternalUrl blocks href/src XSS vectors', () => {
 
 // ─── CSP header smoke test ──────────────────────────────────────────────────
 //
-// Asserts next.config.ts ships a CSP for "/(.*)" that blocks the most
-// dangerous primitives. We read the config as text (rather than
-// importing it) so the test stays hermetic — next.config.ts pulls in
-// @sentry/nextjs which is not a plain-Node module.
+// The CSP moved from next.config.ts into middleware.ts so it can embed a
+// per-request nonce (replacing 'unsafe-inline' in script-src). We assert the
+// middleware source as text rather than importing it so the test stays
+// hermetic — next/server isn't a plain-Node module.
 
 describe('CSP smoke test', () => {
-  it('next.config.ts declares a strict Content-Security-Policy', async () => {
+  it('middleware.ts declares a strict nonce-based Content-Security-Policy', async () => {
+    const { readFileSync } = await import('node:fs');
+    const path = await import('node:path');
+    const source = readFileSync(
+      path.resolve(__dirname, '..', 'src', 'middleware.ts'),
+      'utf-8',
+    );
+
+    // The CSP response header is set on every response.
+    expect(source).toMatch(/['"]Content-Security-Policy['"]/);
+
+    // Required primitives.
+    expect(source).toMatch(/default-src 'self'/);
+    expect(source).toMatch(/frame-ancestors 'none'/);
+
+    // Script-src must use a per-request nonce instead of 'unsafe-inline'.
+    expect(source).toMatch(/script-src[^,;`]*'nonce-\$\{nonce\}'/);
+    expect(source).not.toMatch(/script-src[^,;`]*'unsafe-inline'/);
+
+    // Hard-bans that must never regress into the policy.
+    expect(source).not.toMatch(/'unsafe-eval'/);
+    // No wildcard source ending a directive (e.g. "script-src *;").
+    expect(source).not.toMatch(/-src\s+\*\s*['"]/);
+  });
+
+  it('next.config.ts no longer carries its own CSP header', async () => {
     const { readFileSync } = await import('node:fs');
     const path = await import('node:path');
     const source = readFileSync(
@@ -139,17 +164,10 @@ describe('CSP smoke test', () => {
       'utf-8',
     );
 
-    // Structural checks: the catch-all route exists and has a CSP key.
-    expect(source).toMatch(/source:\s*['"]\/\(\.\*\)['"]/);
-    expect(source).toMatch(/['"]Content-Security-Policy['"]/);
-
-    // Required primitives.
-    expect(source).toMatch(/default-src 'self'/);
-    expect(source).toMatch(/frame-ancestors 'none'/);
-
-    // Hard-bans that must never regress into the policy.
-    expect(source).not.toMatch(/'unsafe-eval'/);
-    // No wildcard source ending a directive (e.g. "script-src *;").
-    expect(source).not.toMatch(/-src\s+\*\s*['"]/);
+    // CSP is now owned by middleware.ts; having it here again as a header
+    // entry would either shadow the nonce-bearing one or let 'unsafe-inline'
+    // sneak back in. A comment that names the string is fine, an actual
+    // `key: 'Content-Security-Policy'` entry is not.
+    expect(source).not.toMatch(/key:\s*['"]Content-Security-Policy['"]/);
   });
 });

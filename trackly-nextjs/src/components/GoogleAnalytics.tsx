@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-M3E0LVFCEB';
 
-export default function GoogleAnalytics() {
+export default function GoogleAnalytics({ nonce }: { nonce?: string }) {
   const [consent, setConsent] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,9 +30,10 @@ export default function GoogleAnalytics() {
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
         strategy="afterInteractive"
+        nonce={nonce}
         onError={() => { /* blocked by ad blocker or network - ignore */ }}
       />
-      <Script id="google-analytics" strategy="afterInteractive">{`
+      <Script id="google-analytics" strategy="afterInteractive" nonce={nonce}>{`
         try {
           window.dataLayer = window.dataLayer || [];
           function gtag(){ try { dataLayer.push(arguments); } catch(e) {} }
