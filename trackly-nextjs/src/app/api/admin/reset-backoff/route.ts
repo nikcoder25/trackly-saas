@@ -2,7 +2,7 @@
  * Reset crash_backoff state for one brand or all paid-plan brands.
  *
  * POST /api/admin/reset-backoff
- * Auth: admin or owner (see @/lib/admin-auth).
+ * Auth: admin role only (see @/lib/admin-auth).
  *
  * Body:
  *   { "brandId": "mnpzo..." }   reset a single brand

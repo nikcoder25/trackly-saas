@@ -28,10 +28,26 @@ Object.entries(PLAN_MAP).forEach(([productId, planName]) => {
     PLAN_TO_PRODUCT[planName] = productId;
 });
 
+// Defense-in-depth: only these values may ever be written to users.plan
+// from a webhook. 'owner' is intentionally excluded - it is an internal
+// admin marker that grants admin-backend access via lib/admin-auth.ts,
+// and must never be settable from webhook-derived data.
+const ALLOWED_WEBHOOK_PLANS = new Set(['starter', 'pro', 'agency', 'enterprise']);
+
 // All event types that indicate an active/upgraded plan
 const UPGRADE_EVENTS = new Set([
     'payment.succeeded',
     'subscription.active',
+    'subscription.renewed',
+    'subscription.updated',
+    'subscription.plan_changed',
+  ]);
+
+// Events that mutate an EXISTING subscription (as opposed to the first
+// activation). On these we require the webhook's subscription_id to
+// match the one we have bound to the user, so a webhook referencing a
+// different subscription can't silently flip another user's plan.
+const SUBSCRIPTION_UPDATE_EVENTS = new Set([
     'subscription.renewed',
     'subscription.updated',
     'subscription.plan_changed',
@@ -272,12 +288,41 @@ export async function POST(request: Request) {
 
                     const currentUser = userCheck.rows[0];
                       const productId = eventData.product_id || body.product_id;
-                      // Also check metadata.plan as fallback (set during checkout)
-                    const plan = productId ? PLAN_MAP[productId] : (metadata.plan || null);
+                      // Resolve plan STRICTLY from product_id. metadata.plan
+                      // is never trusted: it's free-form string data attached
+                      // at checkout time (and potentially mutable via the
+                      // provider's customer portal), and flowing it straight
+                      // into users.plan would let a value like 'owner' escalate
+                      // into the admin-backend (see lib/admin-auth.ts).
+                    const plan = productId ? PLAN_MAP[productId] : null;
 
                     console.log('[Webhook] Upgrade resolution:', { userId, productId, plan, currentPlan: currentUser.plan, knownProducts: Object.keys(PLAN_MAP) });
 
-                    if (plan) {
+                    if (plan && ALLOWED_WEBHOOK_PLANS.has(plan)) {
+                                const subscriptionId = eventData.subscription_id || body.subscription_id;
+                                const existingSubscriptionId = currentUser.settings?.subscription_id;
+
+                                // On events that mutate an existing subscription,
+                                // require the webhook's subscription_id to match
+                                // the one already bound to the user. Blocks
+                                // cross-user plan updates if a webhook references
+                                // someone else's subscription.
+                                if (
+                                  SUBSCRIPTION_UPDATE_EVENTS.has(eventType)
+                                  && existingSubscriptionId
+                                  && subscriptionId
+                                  && existingSubscriptionId !== subscriptionId
+                                ) {
+                                              await client.query('ROLLBACK');
+                                              logger.error('webhook.dodo.subscription_id_mismatch', {
+                                                                user_id: userId,
+                                                                event_type: eventType,
+                                                                existing_subscription_id: existingSubscriptionId,
+                                                                webhook_subscription_id: subscriptionId,
+                                              });
+                                              return Response.json({ error: 'Subscription mismatch' }, { status: 400 });
+                                }
+
                                 const customerId = eventData.customer_id || body.customer_id;
                                 if (customerId) {
                                               const existingCustomerId = currentUser.settings?.dodo_customer_id;
@@ -300,7 +345,6 @@ export async function POST(request: Request) {
                         const settingsUpdate: Record<string, string> = {
                                       subscription_status: 'active',
                         };
-                                const subscriptionId = eventData.subscription_id || body.subscription_id;
                                 if (subscriptionId) {
                                               settingsUpdate.subscription_id = subscriptionId;
                                 }

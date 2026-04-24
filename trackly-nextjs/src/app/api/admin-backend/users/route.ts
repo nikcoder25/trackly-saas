@@ -79,6 +79,15 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
+    // Match the allowlist enforced on PUT so typos or hostile input can't
+    // land an unknown plan value (including 'owner', which confers admin
+    // affordances elsewhere in the app).
+    const validPlans = ['free', 'starter', 'pro', 'agency', 'enterprise', 'owner'];
+    const resolvedPlan = plan || 'free';
+    if (!validPlans.includes(resolvedPlan)) {
+      return Response.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length) {
       return Response.json({ error: 'Email already exists' }, { status: 409 });
@@ -89,7 +98,7 @@ export async function POST(request: Request) {
       `INSERT INTO users (email, password_hash, name, plan, email_verified, settings)
        VALUES ($1, $2, $3, $4, true, '{}'::jsonb)
        RETURNING id, email, name, plan, role, email_verified, created_at`,
-      [email.toLowerCase().trim(), hash, name || null, plan || 'free']
+      [email.toLowerCase().trim(), hash, name || null, resolvedPlan]
     );
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';

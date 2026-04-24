@@ -2,7 +2,7 @@
  * Diagnostic endpoint for the scheduled-run pipeline.
  *
  * GET /api/admin/diagnostic
- * Auth: admin or owner.
+ * Auth: admin role only (see @/lib/admin-auth).
  *
  * Returns a snapshot of every signal needed to understand why a brand
  * did or did not run in the last hour:
