@@ -1,5 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 const PRODUCT_IDS: Record<string, string | undefined> = {
   starter: process.env.DODO_STARTER_PRODUCT_ID,
@@ -16,6 +17,13 @@ export async function POST(request: Request) {
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
+
+  // Each checkout call hits DodoPayments; bound spend + API chatter.
+  const rl = await checkUserIpRateLimit('payments_checkout', user.id, getClientIp(request), {
+    user: { max: 10, windowMs: 60 * 60 * 1000 },
+    ip: { max: 20, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { plan: rawPlan } = await request.json();
   const plan = typeof rawPlan === 'string' ? rawPlan.toLowerCase() : '';

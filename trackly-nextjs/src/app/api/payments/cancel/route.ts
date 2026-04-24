@@ -1,9 +1,15 @@
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  const rl = await checkUserIpRateLimit('payments_cancel', user.id, getClientIp(request), {
+    user: { max: 5, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
     const result = await pool.query('SELECT plan, settings FROM users WHERE id = $1', [user.id]);

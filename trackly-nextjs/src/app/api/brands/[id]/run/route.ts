@@ -11,6 +11,7 @@ import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
 import { logger } from '@/lib/logger';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -115,6 +116,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const userPlan = roleResult.rows[0]?.plan || 'free';
     const userRole = roleResult.rows[0]?.role || '';
     callerIsAdminOrOwner = userPlan === 'owner' || userRole === 'admin';
+
+    // Per-user cap on manual run triggers. Runs burn real AI provider spend,
+    // so a tighter 10/15min ceiling stops an abusive client from blowing
+    // through per-minute budgets even if they stay under the plan's monthly
+    // run quota. Cron-triggered calls skip this (they already stage via
+    // BATCH_SIZE/BRAND_STAGGER_MS).
+    const rl = await checkUserIpRateLimit('brand_run', user.id, getClientIp(request), {
+      user: { max: 10, windowMs: 15 * 60 * 1000 },
+      ip: { max: 30, windowMs: 15 * 60 * 1000 },
+    });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
   }
 
   const { id } = await params;

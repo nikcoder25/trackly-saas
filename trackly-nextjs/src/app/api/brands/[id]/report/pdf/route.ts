@@ -3,6 +3,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getEffectivePlan } from '@/lib/constants';
 import { generateReport } from '@/lib/pdf-report';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const authResult = await requireVerifiedAuth(request, pool);
   if (authResult instanceof Response) return authResult;
   const user = authResult;
+
+  // PDF generation buffers to memory; 20/hr is generous for legitimate
+  // download-and-retry while bounding memory spend under abuse.
+  const rl = await checkUserIpRateLimit('report_pdf', user.id, getClientIp(request), {
+    user: { max: 20, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
     // Plan gate - Pro and above only. Use the effective plan so trial users

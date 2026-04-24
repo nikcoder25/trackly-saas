@@ -1,10 +1,19 @@
 import bcrypt from 'bcryptjs';
 import { pool, safeConnect, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function DELETE(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  // Account deletion is irreversible; throttle hard so a hijacked session
+  // can't repeatedly probe the password + wipe data.
+  const rl = await checkUserIpRateLimit('account_delete', user.id, getClientIp(request), {
+    user: { max: 5, windowMs: 60 * 60 * 1000 },
+    ip: { max: 10, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { password } = await request.json();
   if (!password) return Response.json({ error: 'Password required to delete account' }, { status: 400 });

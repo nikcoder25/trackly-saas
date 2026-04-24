@@ -1,9 +1,18 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
+import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'No token' }, { status: 401 });
+
+  // Rate limit team invites before the "user exists?" probe so attackers
+  // can't use this endpoint to enumerate registered email addresses.
+  const rl = await checkUserIpRateLimit('team_invite', user.id, getClientIp(request), {
+    user: { max: 20, windowMs: 60 * 60 * 1000 },
+    ip: { max: 50, windowMs: 60 * 60 * 1000 },
+  });
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   const { email, role } = await request.json();
   if (!email || typeof email !== 'string') return Response.json({ error: 'Email required' }, { status: 400 });
