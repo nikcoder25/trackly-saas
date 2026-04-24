@@ -2,6 +2,20 @@ import { pool, safeConnect, auditLog } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 
+// Constant-time comparison for HMAC signatures. Attempts the given
+// encoding first and falls back to utf8, so callers can pass hex or
+// base64 without branching.
+function safeEqual(a: string, b: string, encoding: 'hex' | 'base64' = 'base64'): boolean {
+  try {
+    const ab = Buffer.from(a, encoding);
+    const bb = Buffer.from(b, encoding);
+    if (ab.length !== bb.length || ab.length === 0) return false;
+    return crypto.timingSafeEqual(ab, bb);
+  } catch {
+    return false;
+  }
+}
+
 const PLAN_MAP: Record<string, string> = {};
 if (process.env.DODO_STARTER_PRODUCT_ID) PLAN_MAP[process.env.DODO_STARTER_PRODUCT_ID] = 'starter';
 if (process.env.DODO_PRO_PRODUCT_ID) PLAN_MAP[process.env.DODO_PRO_PRODUCT_ID] = 'pro';
@@ -57,18 +71,8 @@ function getWebhookSecrets(): string[] {
 // Verify HMAC-SHA256 signature against one or more secrets
 function verifySignature(rawBody: string, signature: string, secrets: string[]): boolean {
   for (const secret of secrets) {
-    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-    try {
-      const sigBuffer = Buffer.from(signature, 'hex');
-      const expectedBuffer = Buffer.from(expected, 'hex');
-      if (sigBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
-        return true;
-      }
-    } catch {
-      // Signature might not be valid hex - try base64 comparison
-    }
-    // Also try direct string comparison for non-hex signatures
-    if (signature === expected) return true;
+    const expectedHex = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    if (safeEqual(signature, expectedHex, 'hex')) return true;
   }
   return false;
 }
@@ -161,7 +165,7 @@ export async function POST(request: Request) {
           const sigParts = signature.split(' ');
           for (const part of sigParts) {
             const sigValue = part.startsWith('v1,') ? part.slice(3) : part;
-            if (sigValue === expected) {
+            if (safeEqual(sigValue, expected, 'base64')) {
               verified = true;
               console.log('[Webhook] Signature verified using Standard Webhooks format');
               break;

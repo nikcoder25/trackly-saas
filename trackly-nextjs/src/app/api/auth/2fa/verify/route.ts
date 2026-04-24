@@ -1,6 +1,7 @@
 import { pool, auditLog } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { verifyTOTP, generateBackupCodes, hashBackupCode } from '@/lib/totp';
+import { decryptValue } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
@@ -20,7 +21,13 @@ export async function POST(request: Request) {
     const pendingSecret = userResult.rows[0].settings?.totp_secret_pending;
     if (!pendingSecret) return Response.json({ error: 'No pending 2FA setup. Call /2fa/setup first.' }, { status: 400 });
 
-    if (!verifyTOTP(pendingSecret, code)) {
+    // pendingSecret is stored encrypted; decrypt to verify the user-supplied
+    // code, but write the still-encrypted value through to totp_secret so
+    // the secret never lands in the DB in plaintext.
+    const decrypted = decryptValue(pendingSecret);
+    if (!decrypted) return Response.json({ error: '2FA setup expired' }, { status: 400 });
+
+    if (!verifyTOTP(decrypted, code)) {
       return Response.json({ error: 'Invalid code. Check your authenticator app and try again.' }, { status: 400 });
     }
 

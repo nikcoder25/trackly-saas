@@ -99,17 +99,13 @@ export function getQueue(): Queue {
   return queue;
 }
 
+// Job payload is intentionally minimal: provider API keys (server-side
+// env keys + decrypted user keys) MUST NOT be serialized into Redis.
+// The worker re-reads brand state from Postgres and re-derives keys
+// from env / users.api_keys on pickup.
 export interface BrandRunJobData {
   brandId: string;
-  userId: string;
   runId: string;
-  totalExpected: number;
-  activePlatforms: string[];
-  queries: string[];
-  serverKeys: Record<string, string[]>;
-  userKeys: Record<string, string | null>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  brand: any;
 }
 
 export async function enqueueBrandRun(data: BrandRunJobData): Promise<void> {

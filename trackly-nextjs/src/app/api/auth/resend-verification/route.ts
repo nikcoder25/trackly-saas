@@ -21,8 +21,12 @@ export async function POST(request: Request) {
 
     const email = result.rows[0].email;
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
     const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
-    await pool.query('UPDATE users SET verify_token = $1, verify_token_expires = $2 WHERE id = $3', [verifyToken, verifyTokenExpires, user.id]);
+    await pool.query(
+      'UPDATE users SET verify_token = $1, verify_token_expires = $2, verify_token_hashed = TRUE WHERE id = $3',
+      [verifyTokenHash, verifyTokenExpires, user.id]
+    );
 
     let emailResult;
     try {

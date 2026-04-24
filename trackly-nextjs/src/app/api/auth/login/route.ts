@@ -5,6 +5,7 @@ import { safeUser } from '@/lib/helpers';
 import { signAccessToken, createTokenCookieHeaders, jsonWithCookies, issueSession, sessionContextFromRequest } from '@/lib/auth';
 import { getEffectivePlan } from '@/lib/constants';
 import { verifyTOTP, findBackupCodeIndex } from '@/lib/totp';
+import { decryptValue } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
@@ -79,10 +80,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Check 2FA
-    const totpSecret = user.settings?.totp_secret;
-    if (totpSecret) {
+    const storedTotpSecret = user.settings?.totp_secret;
+    if (storedTotpSecret) {
       if (!totpCode) {
         return Response.json({ requires2FA: true, message: 'Enter your 2FA code' }, { status: 202 });
+      }
+      const totpSecret = decryptValue(storedTotpSecret);
+      if (!totpSecret) {
+        // Encryption key changed or ciphertext corrupt. Treat as 2FA failure.
+        return Response.json({ error: 'Invalid 2FA code' }, { status: 400 });
       }
       const backupCodes: string[] = user.settings?.totp_backup_codes || [];
       const isValidTotp = verifyTOTP(totpSecret, totpCode);

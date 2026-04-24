@@ -3,16 +3,19 @@
  * GET /api/admin/monitoring
  */
 import { pool } from '@/lib/db';
+import { requireAdmin } from '@/lib/admin-auth';
+import { logger } from '@/lib/logger';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (admin instanceof Response) return admin;
+
   try {
-    // Active runs count
     const activeRunsResult = await pool.query(
       `SELECT COUNT(*) as count FROM active_runs WHERE status = 'running' AND started_at > NOW() - INTERVAL '30 minutes'`
     );
     const activeRuns = parseInt(activeRunsResult.rows[0]?.count, 10) || 0;
 
-    // Per-platform average response times (last 1 hour)
     const responseTimesResult = await pool.query(
       `SELECT platform,
               ROUND(AVG(response_ms)) as avg_response_ms,
@@ -36,7 +39,6 @@ export async function GET() {
       };
     }
 
-    // DB pool stats (if available from pg pool)
     let dbPoolStats = null;
     try {
       dbPoolStats = {
@@ -53,6 +55,9 @@ export async function GET() {
       dbPool: dbPoolStats,
     });
   } catch (e) {
-    return Response.json({ error: 'Monitoring query failed: ' + (e as Error).message }, { status: 500 });
+    // Do not leak raw DB errors to callers (this endpoint was previously
+    // doing so to unauthenticated ones; keep logs server-side only).
+    logger.error('admin.monitoring_failed', { error: (e as Error).message });
+    return Response.json({ error: 'Monitoring query failed' }, { status: 500 });
   }
 }

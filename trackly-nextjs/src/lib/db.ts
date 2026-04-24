@@ -77,6 +77,7 @@ function runMigrations(): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token_expires TIMESTAMPTZ;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_token_hashed BOOLEAN DEFAULT FALSE;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS refresh_token TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
@@ -132,6 +133,43 @@ function runMigrations(): Promise<void> {
             SELECT 1 FROM user_sessions s WHERE s.refresh_token_hash = u.refresh_token
           );
       `);
+
+      // One-time invalidation of any plaintext verify_tokens left over
+      // from before tokens were stored as sha256 hashes. Affected users
+      // (unverified accounts) need to click "resend verification" to
+      // get a fresh hashed token. Idempotent: rows already migrated
+      // have verify_token_hashed = TRUE and are skipped.
+      await pool.query(`
+        UPDATE users
+           SET verify_token = NULL, verify_token_expires = NULL
+         WHERE verify_token IS NOT NULL AND verify_token_hashed = FALSE
+      `);
+
+      // Migrate plaintext TOTP secrets to encrypted-at-rest. Identify
+      // plaintext by base32 shape: current stored values are raw base32
+      // (A-Z2-7, no colons); encrypted values from encryptValue have the
+      // shape "hex:hex:hex" (three colon-separated hex segments). Runs
+      // once per process; the regex filter returns zero rows on
+      // subsequent calls.
+      try {
+        const { encryptValue } = await import('./helpers');
+        const res = await pool.query(`
+          SELECT id, settings FROM users
+          WHERE settings ? 'totp_secret'
+            AND settings->>'totp_secret' !~ '^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$'
+        `);
+        for (const row of res.rows as Array<{ id: string; settings: Record<string, unknown> }>) {
+          const plaintext = row.settings.totp_secret as string;
+          const encrypted = encryptValue(plaintext);
+          if (!encrypted) continue;
+          await pool.query(
+            `UPDATE users SET settings = settings || jsonb_build_object('totp_secret', $1::text) WHERE id = $2`,
+            [encrypted, row.id]
+          );
+        }
+      } catch (e) {
+        console.error('[DB] TOTP encryption migration failed:', (e as Error).message);
+      }
       globalForDb.dbMigrated = true;
     } catch (e) {
       // Log but don't crash - columns may already exist, or table may not

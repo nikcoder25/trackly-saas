@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { TRIAL_DURATION_MS } from '@/lib/constants';
@@ -16,9 +17,13 @@ export async function GET(request: NextRequest) {
   try {
     await ensureColumns();
 
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const result = await pool.query(
-      'SELECT id, email, plan, trial_ends_at FROM users WHERE verify_token = $1 AND (verify_token_expires IS NULL OR verify_token_expires > NOW())',
-      [token]
+      `SELECT id, email, plan, trial_ends_at FROM users
+       WHERE verify_token = $1
+         AND verify_token_hashed = TRUE
+         AND (verify_token_expires IS NULL OR verify_token_expires > NOW())`,
+      [tokenHash]
     );
     if (!result.rows.length) return Response.json({ error: 'Invalid or expired verification token' }, { status: 400 });
 

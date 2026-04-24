@@ -9,6 +9,7 @@ import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
+import { getServerKeys } from '@/lib/server-keys';
 import { logger } from '@/lib/logger';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -25,25 +26,6 @@ const FAIL_THRESHOLD = 5;
 // TTL for AI/DB response cache entries. No prior constant existed in this
 // route, so default to 3600s per the backend caching policy.
 const RESPONSE_CACHE_TTL_SECONDS = 3600;
-
-function parseKeys(envVar: string): string[] {
-  const keys: string[] = [];
-  const raw = (process.env[envVar] || '').trim();
-  if (raw) raw.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(k => keys.push(k));
-  for (let i = 1; i <= 10; i++) {
-    const numbered = (process.env[envVar + '_' + i] || '').trim();
-    if (numbered) numbered.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(k => keys.push(k));
-  }
-  return [...new Set(keys)];
-}
-
-function getServerKeys(): Record<string, string[]> {
-  return {
-    openai: parseKeys('OPENAI_API_KEY'), perplexity: parseKeys('PERPLEXITY_API_KEY'),
-    gemini: parseKeys('GEMINI_API_KEY'), claude: parseKeys('CLAUDE_API_KEY'),
-    grok: parseKeys('GROK_API_KEY'),
-  };
-}
 
 // Auto-create the active_runs table if it doesn't exist, and
 // additively add any diagnostic columns introduced later. Additive
@@ -75,6 +57,28 @@ async function ensureActiveRunsTable() {
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_platform_attempted TEXT`);
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_query_attempted TEXT`);
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ`);
+
+  // Clean up any pre-existing duplicate 'running' rows before the unique
+  // index is created. Keep the most recent per brand; mark the rest as
+  // error. Idempotent: a second run has nothing to clean up.
+  await pool.query(`
+    UPDATE active_runs
+       SET status = 'error',
+           error = COALESCE(error, 'reconciled: duplicate running row at migration time'),
+           completed_at = NOW()
+     WHERE id IN (
+       SELECT id FROM (
+         SELECT id, ROW_NUMBER() OVER (PARTITION BY brand_id ORDER BY started_at DESC) AS rn
+         FROM active_runs
+         WHERE status = 'running'
+       ) t
+       WHERE rn > 1
+     )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_active_runs_one_running_per_brand
+      ON active_runs (brand_id) WHERE status = 'running'
+  `);
 }
 
 // Ensure table exists on first call (cached in globalThis)
@@ -279,17 +283,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   // --- Atomically check lock and create run record in DB ---
-  // Uses a CTE to avoid race conditions between checking and inserting
-  const lockResult = await pool.query(
-    `WITH lock_check AS (
-      SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'
-    )
-    INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
-    SELECT $2, $1, $3, 'running', $4, $5, $6
-    WHERE NOT EXISTS (SELECT 1 FROM lock_check)
-    RETURNING id`,
-    [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
-  );
+  // The partial unique index on (brand_id) WHERE status='running' is the
+  // real concurrency barrier; the CTE is kept as a fast-path check so a
+  // polite caller gets a 409 without even attempting an INSERT.
+  let lockResult: { rows: Array<{ id: string }> };
+  try {
+    lockResult = await pool.query(
+      `WITH lock_check AS (
+        SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'
+      )
+      INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
+      SELECT $2, $1, $3, 'running', $4, $5, $6
+      WHERE NOT EXISTS (SELECT 1 FROM lock_check)
+      RETURNING id`,
+      [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
+    );
+  } catch (e) {
+    // 23505 = unique_violation. Concurrent request won the race.
+    if ((e as { code?: string }).code === '23505') {
+      return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
+    }
+    throw e;
+  }
 
   if (lockResult.rows.length === 0) {
     return Response.json({ error: 'A run is already in progress for this brand. Please wait for it to finish.' }, { status: 409 });
@@ -327,10 +342,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (shouldEnqueue) {
     try {
-      await enqueueBrandRun({
-        brand, brandId: id, userId: user.id, runId, totalExpected,
-        activePlatforms, queries, serverKeys, userKeys,
-      });
+      await enqueueBrandRun({ brandId: id, runId });
     } catch (e) {
       // Redis went down between the availability check and the enqueue.
       // Fall back to in-process so the run still completes this tick.

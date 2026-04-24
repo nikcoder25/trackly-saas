@@ -11,9 +11,10 @@ import { pool } from './db';
 import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, type AiError } from './ai-platforms';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
-import { uid } from './helpers';
+import { uid, decryptApiKeys } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures } from './ai-platforms';
 import { logger } from './logger';
+import { getServerKeys } from './server-keys';
 import type { BrandRunJobData } from './job-queue';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -24,7 +25,43 @@ const FAIL_THRESHOLD = 5;
 const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 120000;
 
 async function processRun(job: Job<BrandRunJobData>) {
-  const { brand, brandId, userId, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys } = job.data;
+  const { brandId, runId } = job.data;
+
+  // Load run + brand + owner keys from the DB. The enqueue payload
+  // intentionally carries no secrets - Redis is not a secrets store.
+  const runRow = await pool.query(
+    `SELECT id, user_id, total_expected, platforms, queries
+       FROM active_runs WHERE id = $1 LIMIT 1`,
+    [runId]
+  );
+  if (!runRow.rows.length) {
+    logger.error('worker.run_not_found', { run_id: runId });
+    return;
+  }
+  const userId: string = runRow.rows[0].user_id;
+  const totalExpected: number = runRow.rows[0].total_expected || 0;
+  const activePlatforms: string[] = Array.isArray(runRow.rows[0].platforms) ? runRow.rows[0].platforms : [];
+  const queries: string[] = Array.isArray(runRow.rows[0].queries) ? runRow.rows[0].queries : [];
+
+  const brandRow = await pool.query('SELECT id, user_id, data FROM brands WHERE id = $1 LIMIT 1', [brandId]);
+  if (!brandRow.rows.length) {
+    await pool.query(
+      `UPDATE active_runs SET status = 'error', error = 'Brand not found at worker pickup', completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [runId]
+    );
+    return;
+  }
+  const brandData = typeof brandRow.rows[0].data === 'string'
+    ? JSON.parse(brandRow.rows[0].data)
+    : (brandRow.rows[0].data || {});
+  const brand = { id: brandId, userId: brandRow.rows[0].user_id, ...brandData };
+
+  const serverKeys = getServerKeys();
+
+  // Decrypt user keys from the brand owner's record.
+  const ownerRow = await pool.query('SELECT api_keys FROM users WHERE id = $1', [brand.userId]);
+  const userKeys = decryptApiKeys(ownerRow.rows[0]?.api_keys || {});
+
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

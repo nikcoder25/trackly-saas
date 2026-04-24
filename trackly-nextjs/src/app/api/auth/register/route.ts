@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
     const id = uid();
     const userName = name || email.split('@')[0];
     const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
     const verifyTokenExpires = new Date(Date.now() + AUTH.emailVerificationExpiry);
     // Email signups start with a short provisional trial (24h). Verification
     // extends the trial to the full 7 days in the verify-email route.
@@ -130,11 +131,11 @@ export async function POST(request: NextRequest) {
     const emailNorm = normaliseEmail(emailLower);
 
     const insertResult = await pool.query(
-      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires, trial_ends_at, email_normalized, signup_ip)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO users (id, email, username, name, password_hash, plan, verify_token, verify_token_expires, verify_token_hashed, trial_ends_at, email_normalized, signup_ip)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11)
        ON CONFLICT (email) DO NOTHING
        RETURNING id`,
-      [id, emailLower, trimmedUsername, userName, hash, 'trial', verifyToken, verifyTokenExpires, trialEndsAt, emailNorm, ip]
+      [id, emailLower, trimmedUsername, userName, hash, 'trial', verifyTokenHash, verifyTokenExpires, trialEndsAt, emailNorm, ip]
     );
     if (!insertResult.rows.length) return Response.json({ error: 'Unable to create account. Please try again or use a different email.' }, { status: 400 });
 
