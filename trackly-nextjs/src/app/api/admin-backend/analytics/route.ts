@@ -1,5 +1,6 @@
 import { pool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
+import { logError, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -125,7 +126,7 @@ export async function GET(request: Request) {
       period: days,
     });
   } catch (e) {
-    console.error('[Admin Analytics]', (e as Error).message);
-    return Response.json({ error: 'Failed to load analytics' }, { status: 500 });
+    logError('admin_backend.analytics.failed', e);
+    return serverError({ message: 'Failed to load analytics' });
   }
 }

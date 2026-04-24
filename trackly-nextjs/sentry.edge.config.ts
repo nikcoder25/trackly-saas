@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { makeBeforeSend } from "./src/lib/sentry-scrub";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || "",
@@ -10,4 +11,8 @@ Sentry.init({
   enableLogs: true,
   sendDefaultPii: false,
   environment: process.env.NODE_ENV || "development",
+  // Same credential / PII scrub as the server runtime. Must be applied on
+  // the edge config too because middleware and edge routes emit events
+  // via this init.
+  beforeSend: makeBeforeSend(),
 });

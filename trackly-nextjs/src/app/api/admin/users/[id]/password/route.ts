@@ -3,6 +3,7 @@ import { pool, auditLog } from '@/lib/db';
 import { requireVerifiedAuth, revokeAllSessions } from '@/lib/auth';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { AUTH } from '@/lib/constants';
+import { logError, serverError } from '@/lib/api-error';
 
 // Admin-only: force-reset a user's password. Ported from the Express
 // handler at routes/admin.js::PUT /admin/users/:id/password.
@@ -69,12 +70,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return Response.json({ success: true, message: 'Password updated' });
   } catch (e) {
-    const msg = (e as Error).message;
-    if (process.env.NODE_ENV === 'production') {
-      console.error('[Admin force password reset] Failed:', msg);
-    } else {
-      console.error('[Admin force password reset] Failed:', msg, (e as Error).stack);
-    }
-    return Response.json({ error: 'Failed to reset password' }, { status: 500 });
+    logError('admin.users.force_password_reset_failed', e, { target_user_id: id });
+    return serverError({ message: 'Failed to reset password' });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { logError, serverError } from '@/lib/api-error';
 
 const PLATFORMS_CONFIG = [
   { name: 'ChatGPT', envKey: 'OPENAI_API_KEY' },
@@ -59,10 +60,7 @@ export async function POST(req: NextRequest) {
       totalPlatforms: 5,
     });
   } catch (error) {
-    console.error('[FreeCheck]', (error as Error).message);
-    return Response.json(
-      { error: 'Something went wrong. Please try again later.' },
-      { status: 500 }
-    );
+    logError('free_check.failed', error);
+    return serverError({ message: 'Something went wrong. Please try again later.' });
   }
 }

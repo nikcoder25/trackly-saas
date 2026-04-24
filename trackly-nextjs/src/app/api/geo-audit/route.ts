@@ -4,6 +4,7 @@ import { verifyRequestAuth } from '@/lib/auth';
 import { getPlanLimits } from '@/lib/constants';
 import { pool } from '@/lib/db';
 import { safeFetch, SSRFError } from '@/lib/safe-fetch';
+import { logError, serverError } from '@/lib/api-error';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -467,10 +468,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[GeoAudit]', (error as Error).message);
-    return Response.json(
-      { error: 'Something went wrong. Please try again later.' },
-      { status: 500 }
-    );
+    logError('geo_audit.failed', error);
+    return serverError({ message: 'Something went wrong. Please try again later.' });
   }
 }

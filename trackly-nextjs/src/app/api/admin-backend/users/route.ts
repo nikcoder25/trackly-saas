@@ -1,6 +1,7 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
+import { logError, serverError } from '@/lib/api-error';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -64,8 +65,8 @@ export async function GET(request: Request) {
       offset,
     });
   } catch (e) {
-    console.error('[Admin Users]', (e as Error).message);
-    return Response.json({ error: 'Failed to load users' }, { status: 500 });
+    logError('admin_backend.users.list_failed', e);
+    return serverError({ message: 'Failed to load users' });
   }
 }
 
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
 
     return Response.json({ user: result.rows[0] }, { status: 201 });
   } catch (e) {
-    console.error('[Admin Create User]', (e as Error).message);
-    return Response.json({ error: 'Failed to create user' }, { status: 500 });
+    logError('admin_backend.users.create_failed', e);
+    return serverError({ message: 'Failed to create user' });
   }
 }

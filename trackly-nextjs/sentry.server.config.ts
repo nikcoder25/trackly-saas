@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { makeBeforeSend } from "./src/lib/sentry-scrub";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || "",
@@ -20,4 +21,9 @@ Sentry.init({
   sendDefaultPii: false,
 
   environment: process.env.NODE_ENV || "development",
+
+  // Scrub credentials (authorization / cookie / x-csrf-token headers,
+  // password/token/secret/api_key body fields, PII on the user object)
+  // before events leave the process. See src/lib/sentry-scrub.ts.
+  beforeSend: makeBeforeSend(),
 });

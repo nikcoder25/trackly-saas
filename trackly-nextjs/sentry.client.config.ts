@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { makeBeforeSend } from "./src/lib/sentry-scrub";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || "",
@@ -58,9 +59,13 @@ Sentry.init({
     /safari-extension:\/\//i,
   ],
 
-  // Last-chance filter: drop any event whose message references the blocked
-  // third-party hosts, regardless of where the frame appears in the stack.
-  beforeSend(event, hint) {
+  // Two-stage beforeSend:
+  //   1. drop any event whose message references blocked third-party hosts
+  //      (analytics/ads) regardless of stack frame location;
+  //   2. scrub authorization / cookie / x-csrf-token headers and any
+  //      password/token/secret body fields so credentials can't leak to
+  //      Sentry from a client-side error. See src/lib/sentry-scrub.ts.
+  beforeSend: makeBeforeSend((event, hint) => {
     const message =
       (hint?.originalException as Error | undefined)?.message ||
       event.message ||
@@ -75,5 +80,5 @@ Sentry.init({
       return null;
     }
     return event;
-  },
+  }),
 });

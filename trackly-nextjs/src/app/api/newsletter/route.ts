@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { addContactToAudience, sendWelcomeEmail } from '@/lib/email';
+import { logError, serverError } from '@/lib/api-error';
 
 // Ensure the newsletter_subscribers table exists
 async function ensureTable() {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json({ success: true });
   } catch (e) {
-    console.error('[Newsletter] Failed to subscribe:', (e as Error).message);
-    return Response.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
+    logError('newsletter.subscribe_failed', e);
+    return serverError({ message: 'Something went wrong. Please try again.' });
   }
 }
