@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { verifyRequestAuth } from '@/lib/auth';
 import { generateSecret, getOTPAuthURL } from '@/lib/totp';
+import { encryptValue } from '@/lib/helpers';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const otpauthUrl = getOTPAuthURL(secret, u.email);
     await pool.query(
       `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
-      [JSON.stringify({ totp_secret_pending: secret }), user.id]
+      [JSON.stringify({ totp_secret_pending: encryptValue(secret) }), user.id]
     );
     return Response.json({ secret, otpauthUrl });
   } catch (e) {

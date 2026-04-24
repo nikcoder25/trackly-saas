@@ -144,6 +144,32 @@ function runMigrations(): Promise<void> {
            SET verify_token = NULL, verify_token_expires = NULL
          WHERE verify_token IS NOT NULL AND verify_token_hashed = FALSE
       `);
+
+      // Migrate plaintext TOTP secrets to encrypted-at-rest. Identify
+      // plaintext by base32 shape: current stored values are raw base32
+      // (A-Z2-7, no colons); encrypted values from encryptValue have the
+      // shape "hex:hex:hex" (three colon-separated hex segments). Runs
+      // once per process; the regex filter returns zero rows on
+      // subsequent calls.
+      try {
+        const { encryptValue } = await import('./helpers');
+        const res = await pool.query(`
+          SELECT id, settings FROM users
+          WHERE settings ? 'totp_secret'
+            AND settings->>'totp_secret' !~ '^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$'
+        `);
+        for (const row of res.rows as Array<{ id: string; settings: Record<string, unknown> }>) {
+          const plaintext = row.settings.totp_secret as string;
+          const encrypted = encryptValue(plaintext);
+          if (!encrypted) continue;
+          await pool.query(
+            `UPDATE users SET settings = settings || jsonb_build_object('totp_secret', $1::text) WHERE id = $2`,
+            [encrypted, row.id]
+          );
+        }
+      } catch (e) {
+        console.error('[DB] TOTP encryption migration failed:', (e as Error).message);
+      }
       globalForDb.dbMigrated = true;
     } catch (e) {
       // Log but don't crash - columns may already exist, or table may not
