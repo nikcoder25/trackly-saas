@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { pool, auditLog } from '@/lib/db';
-import { verifyRequestAuth } from '@/lib/auth';
+import { verifyRequestAuth, revokeAllSessions } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -35,6 +35,12 @@ export async function POST(request: Request) {
         totp_backup_codes: null,
       }), user.id]
     );
+
+    // Disabling 2FA must invalidate every active refresh token for this user
+    // so an attacker who briefly held the session can't use the downgraded
+    // single-factor posture to log back in later. The user will be forced to
+    // re-authenticate on every device.
+    await revokeAllSessions(pool, user.id);
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     auditLog(user.id, '2fa_disabled', 'user', user.id, {}, ip);
