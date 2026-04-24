@@ -164,8 +164,10 @@ async function finalizeStaleRow(
   if (cols.hasCompletedAt) sets.push(`completed_at = NOW()`);
   else if (cols.hasFinishedAt) sets.push(`finished_at = NOW()`);
   if (cols.hasUpdatedAt) sets.push(`updated_at = NOW()`);
+  const updateParams: unknown[] = [row.id];
   if (cols.errorCol) {
-    sets.push(`${cols.errorCol} = COALESCE(${cols.errorCol}, '${reason.replace(/'/g, "''")}')`);
+    updateParams.push(reason);
+    sets.push(`${cols.errorCol} = COALESCE(${cols.errorCol}, $${updateParams.length})`);
   }
 
   // Only flip rows that are still 'running' so repeated calls no-op.
@@ -173,20 +175,25 @@ async function finalizeStaleRow(
     `UPDATE active_runs SET ${sets.join(', ')}
      WHERE id = $1 AND status = 'running'
      RETURNING id`,
-    [row.id],
+    updateParams,
   );
   if (!updateRes.rowCount) return false;
 
   // Append a minimal run entry so the dashboard "Last Run" clock moves.
-  // We keep this minimal: runId, time, emergencySave:true, crashError,
-  // partial counts. The UI already handles `emergencySave: true` entries
-  // (see run/route.ts catch block).
+  // Must be done in a single transaction: SELECT FOR UPDATE + UPDATE on
+  // separate pool connections releases the lock between them and two
+  // concurrent reconcilers silently clobber each other.
+  const client = await pool.connect();
   try {
-    const brandRes = await pool.query(
+    await client.query('BEGIN');
+    const brandRes = await client.query(
       'SELECT data FROM brands WHERE id = $1 FOR UPDATE',
       [row.brand_id],
     );
-    if (!brandRes.rows.length) return true;
+    if (!brandRes.rows.length) {
+      await client.query('COMMIT');
+      return true;
+    }
     let data: {
       runs?: Array<{ id?: string; [k: string]: unknown }>;
       updatedAt?: string;
@@ -198,7 +205,10 @@ async function finalizeStaleRow(
     if (!Array.isArray(data.runs)) data.runs = [];
 
     // Idempotency: skip if this runId is already recorded.
-    if (data.runs.some(r => r && r.id === row.id)) return true;
+    if (data.runs.some(r => r && r.id === row.id)) {
+      await client.query('COMMIT');
+      return true;
+    }
 
     const resultsArr = Array.isArray(row.results) ? (row.results as Array<Record<string, unknown>>) : [];
     const received = Number(row.received || 0);
@@ -223,23 +233,25 @@ async function finalizeStaleRow(
       watchdogReap: true,
       crashError: reason,
     });
-    // Bound unbounded growth, matching run/route.ts policy.
     if (data.runs.length > 30) data.runs = data.runs.slice(-30);
     data.updatedAt = nowIso;
 
-    await pool.query(
+    await client.query(
       'UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2',
       [JSON.stringify(data), row.brand_id],
     );
+    await client.query('COMMIT');
   } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
     logger.warn('watchdog.brand_append_failed', {
       run_id: row.id,
       brand_id: row.brand_id,
       error: (e as Error).message,
     });
-    // Row is already flipped to 'error' so the lock is released even if
-    // the brand append failed; user will see the status change and can
-    // retry manually.
+    // Row is already flipped to 'error' so the /run lock is released even
+    // if the brand append failed; user will see the status change.
+  } finally {
+    client.release();
   }
   return true;
 }
