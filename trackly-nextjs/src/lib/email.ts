@@ -97,49 +97,52 @@ export async function sendContactFormEmail({
   inquiryType: string;
   message: string;
 }): Promise<EmailResult> {
+  // Every field is attacker-controlled: without escaping, a submission
+  // with "<img src=x onerror=...>" would execute in the support mailbox.
+  const nameE = escHtml(name);
+  const emailE = escHtml(email);
+  const subjectE = escHtml(subject);
+  const inquiryE = escHtml(inquiryType);
+  const messageE = escHtml(message);
+  // mailto: href needs URL-percent-encoding, not HTML-escaping.
+  const mailtoHref = `mailto:${encodeURIComponent(email)}`;
   const html = `
     <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
       <h2 style="color:#4f46e5;margin-bottom:16px;">New Contact Form Submission</h2>
       <table style="width:100%;border-collapse:collapse;">
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;width:140px;">Name</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${name}</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${nameE}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Email</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;"><a href="mailto:${email}" style="color:#4f46e5;">${email}</a></td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;"><a href="${mailtoHref}" style="color:#4f46e5;">${emailE}</a></td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Inquiry Type</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${inquiryType}</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${inquiryE}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">Subject</td>
-          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${subject}</td>
+          <td style="padding:8px 12px;color:#111827;border-bottom:1px solid #e5e7eb;">${subjectE}</td>
         </tr>
       </table>
       <div style="margin-top:16px;padding:16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
         <p style="font-weight:600;color:#374151;margin:0 0 8px 0;">Message</p>
-        <p style="color:#111827;margin:0;white-space:pre-wrap;">${message}</p>
+        <p style="color:#111827;margin:0;white-space:pre-wrap;">${messageE}</p>
       </div>
       <p style="color:#999;font-size:12px;margin-top:16px;">This message was sent via the Livesov contact form. Reply directly to respond to the customer.</p>
     </div>
   `;
+  // Subject line goes into mail headers; strip CR/LF to prevent header
+  // injection and keep it a single line.
+  const safeSubject = `[Contact Form] ${subject} - ${inquiryType}`.replace(/[\r\n]+/g, ' ').slice(0, 200);
   const zohoPassword = process.env.ZOHO_SMTP_PASSWORD;
   if (zohoPassword) {
-    return sendContactFormViaZoho(
-      `[Contact Form] ${subject} - ${inquiryType}`,
-      html,
-      email
-    );
+    return sendContactFormViaZoho(safeSubject, html, email);
   }
 
-  return sendEmail(
-    'hello@livesov.com',
-    `[Contact Form] ${subject} - ${inquiryType}`,
-    html,
-    email
-  );
+  return sendEmail('hello@livesov.com', safeSubject, html, email);
 }
 
 export async function addContactToAudience(email: string): Promise<EmailResult> {
