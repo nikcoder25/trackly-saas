@@ -8,6 +8,7 @@ import ProgressBar from '@/components/ProgressBar';
 import CookieConsent from '@/components/CookieConsent';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
 import { NonceProvider } from '@/components/NonceProvider';
+import CsrfFetchInterceptor from '@/components/CsrfFetchInterceptor';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body style={{ fontFamily: "var(--font)" }} suppressHydrationWarning>
         <NonceProvider nonce={nonce}>
+          <CsrfFetchInterceptor />
           <ProgressBar />
           <LanguageProvider>
             <AuthProvider>

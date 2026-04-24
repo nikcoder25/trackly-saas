@@ -24,6 +24,23 @@ export class ApiError extends Error {
   }
 }
 
+// Mirror the CSRF cookie into the X-CSRF-Token header (double-submit
+// cookie pattern). The cookie is set by the server on login/refresh as a
+// non-HttpOnly, SameSite=Lax cookie so first-party JS can read it here.
+// Tries both the prod-prefixed and legacy names since the browser picks
+// whichever the server set.
+function readCsrfCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const names = ['__Host-livesov_csrf', 'livesov_csrf'];
+  for (const name of names) {
+    const match = document.cookie.match(
+      new RegExp(`(?:^|;\\s*)${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=([^;]+)`),
+    );
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
 export async function api<T = unknown>(
   method: HttpMethod,
   path: string,
@@ -34,6 +51,11 @@ export async function api<T = unknown>(
     'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
+
+  if (method !== 'GET' && !headers['X-CSRF-Token'] && !headers['x-csrf-token']) {
+    const csrf = readCsrfCookie();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
 
   const init: RequestInit = {
     method,
