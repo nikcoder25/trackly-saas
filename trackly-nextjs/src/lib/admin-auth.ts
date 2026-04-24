@@ -21,12 +21,17 @@ export async function requireAdmin(request: Request): Promise<AdminUser | Respon
   const user = verifyRequestAuth(request);
   if (!user) return Response.json({ error: 'Authentication required' }, { status: 401 });
 
-  const result = await pool.query('SELECT role, plan FROM users WHERE id = $1', [user.id]);
+  const result = await pool.query('SELECT role FROM users WHERE id = $1', [user.id]);
   if (!result.rows.length) {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
-  const { role, plan } = result.rows[0];
-  if (role !== 'admin' && plan !== 'owner') {
+  const { role } = result.rows[0];
+  // Admin-backend access is gated strictly on the 'admin' role. plan='owner'
+  // is a billing/limit marker that the admin is auto-promoted to, not an
+  // authorization principal - if it were, any code path that ever wrote
+  // 'owner' into users.plan (e.g. a malformed webhook metadata value) would
+  // silently grant admin-backend access.
+  if (role !== 'admin') {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
 

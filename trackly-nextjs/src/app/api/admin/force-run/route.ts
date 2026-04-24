@@ -2,7 +2,7 @@
  * Force-run diagnostic endpoint.
  *
  * POST /api/admin/force-run
- * Auth: admin or owner.
+ * Auth: admin role only (see @/lib/admin-auth).
  *
  * Body:
  *   { "brandId": "mnpzo..." }         run a single brand
