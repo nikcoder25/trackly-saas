@@ -83,9 +83,18 @@ export interface AssertPublicUrlResult {
   ips: string[];
 }
 
+// Overridable for tests. ESM namespaces aren't spy-able under vitest, so we
+// route the DNS call through a module-local indirection instead.
+export type LookupFn = (hostname: string) => Promise<string[]>;
+const defaultLookup: LookupFn = async (hostname) => {
+  const results = await dns.lookup(hostname, { all: true });
+  return results.map((r) => r.address);
+};
+
 export async function assertPublicUrl(
   urlStr: string,
   allowedProtocols: string[] = DEFAULT_PROTOCOLS,
+  lookup: LookupFn = defaultLookup,
 ): Promise<AssertPublicUrlResult> {
   let parsed: URL;
   try {
@@ -105,8 +114,7 @@ export async function assertPublicUrl(
     ips = [hostname];
   } else {
     try {
-      const results = await dns.lookup(hostname, { all: true });
-      ips = results.map((r) => r.address);
+      ips = await lookup(hostname);
     } catch {
       throw new SSRFError('DNS resolution failed', 'DNS_FAILED');
     }
@@ -128,6 +136,7 @@ export interface SafeFetchOptions {
   maxRedirects?: number;
   maxBytes?: number;
   allowedProtocols?: string[];
+  lookup?: LookupFn;
 }
 
 export async function safeFetch(
@@ -142,6 +151,7 @@ export async function safeFetch(
     maxRedirects = DEFAULT_MAX_REDIRECTS,
     maxBytes = DEFAULT_MAX_BYTES,
     allowedProtocols = DEFAULT_PROTOCOLS,
+    lookup = defaultLookup,
   } = options;
 
   let currentUrl = typeof input === 'string' ? input : input.toString();
@@ -150,7 +160,7 @@ export async function safeFetch(
 
   try {
     for (let hop = 0; hop <= maxRedirects; hop++) {
-      await assertPublicUrl(currentUrl, allowedProtocols);
+      await assertPublicUrl(currentUrl, allowedProtocols, lookup);
       const response = await fetch(currentUrl, {
         method,
         headers,
