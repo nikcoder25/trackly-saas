@@ -23,9 +23,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (body.cooldown_hours !== undefined) { fields.push(`cooldown_hours = $${idx++}`); values.push(body.cooldown_hours); }
 
     if (fields.length === 0) return Response.json({ error: 'No fields to update' }, { status: 400 });
-    values.push(id);
-    await pool.query(`UPDATE alert_rules SET ${fields.join(', ')} WHERE id = $${idx}`, values);
-    const result = await pool.query('SELECT * FROM alert_rules WHERE id = $1', [id]);
+    // Belt-and-suspenders: keep user_id in the UPDATE's WHERE too so a
+    // race between the SELECT ownership check and this UPDATE can't be
+    // exploited to mutate someone else's row.
+    values.push(id, user.id);
+    await pool.query(`UPDATE alert_rules SET ${fields.join(', ')} WHERE id = $${idx} AND user_id = $${idx + 1}`, values);
+    const result = await pool.query('SELECT * FROM alert_rules WHERE id = $1 AND user_id = $2', [id, user.id]);
+    if (!result.rows.length) return Response.json({ error: 'Alert not found' }, { status: 404 });
     return Response.json({ alert: result.rows[0] });
   } catch (e) {
     console.error('[Alert Update]', (e as Error).message);
