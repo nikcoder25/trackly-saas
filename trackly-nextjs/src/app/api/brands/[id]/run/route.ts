@@ -9,6 +9,7 @@ import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
+import { getServerKeys } from '@/lib/server-keys';
 import { logger } from '@/lib/logger';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -25,25 +26,6 @@ const FAIL_THRESHOLD = 5;
 // TTL for AI/DB response cache entries. No prior constant existed in this
 // route, so default to 3600s per the backend caching policy.
 const RESPONSE_CACHE_TTL_SECONDS = 3600;
-
-function parseKeys(envVar: string): string[] {
-  const keys: string[] = [];
-  const raw = (process.env[envVar] || '').trim();
-  if (raw) raw.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(k => keys.push(k));
-  for (let i = 1; i <= 10; i++) {
-    const numbered = (process.env[envVar + '_' + i] || '').trim();
-    if (numbered) numbered.split(',').map(k => k.trim()).filter(k => k.length > 0).forEach(k => keys.push(k));
-  }
-  return [...new Set(keys)];
-}
-
-function getServerKeys(): Record<string, string[]> {
-  return {
-    openai: parseKeys('OPENAI_API_KEY'), perplexity: parseKeys('PERPLEXITY_API_KEY'),
-    gemini: parseKeys('GEMINI_API_KEY'), claude: parseKeys('CLAUDE_API_KEY'),
-    grok: parseKeys('GROK_API_KEY'),
-  };
-}
 
 // Auto-create the active_runs table if it doesn't exist, and
 // additively add any diagnostic columns introduced later. Additive
@@ -360,10 +342,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   if (shouldEnqueue) {
     try {
-      await enqueueBrandRun({
-        brand, brandId: id, userId: user.id, runId, totalExpected,
-        activePlatforms, queries, serverKeys, userKeys,
-      });
+      await enqueueBrandRun({ brandId: id, runId });
     } catch (e) {
       // Redis went down between the availability check and the enqueue.
       // Fall back to in-process so the run still completes this tick.
