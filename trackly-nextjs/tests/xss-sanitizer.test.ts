@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeHtml } from '@/lib/sanitize';
-import { safeExternalUrl, safeRedirectPath } from '@/lib/url-safety';
+import { sanitizeHtml, safeExternalUrl, safeRedirectPath } from '@/lib/sanitize';
 
 // ─── Sanitizer scheme-split regressions ─────────────────────────────────────
 

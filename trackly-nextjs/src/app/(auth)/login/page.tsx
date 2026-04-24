@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { safeRedirectPath } from '@/lib/url-safety';
+import { safeRedirectPath } from '@/lib/sanitize';
 
 declare global {
   interface Window {
