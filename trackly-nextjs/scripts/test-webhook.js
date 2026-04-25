@@ -3,7 +3,7 @@
  * Webhook Test Script - run from DigitalOcean App Platform console
  *
  * Usage:
- *   node test-webhook.js
+ *   node scripts/test-webhook.js
  *
  * Sends a signed Standard Webhooks test event to the local webhook
  * endpoint. Uses a non-existent event type "test.ping" that the

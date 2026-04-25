@@ -49,8 +49,15 @@ export async function getUserEffectivePlan(userId: string): Promise<string> {
 const ALGO = 'aes-256-gcm';
 
 function getEncryptionKey(): string {
-  const key = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
-  if (!key) throw new Error('ENCRYPTION_KEY or JWT_SECRET environment variable is required');
+  // In production we refuse to fall back to JWT_SECRET: reusing a signing
+  // secret as an AEAD key conflates two cryptographic purposes and breaks
+  // key rotation (rotating JWT_SECRET would silently invalidate every
+  // encrypted-at-rest API key). instrumentation.ts also blocks boot when
+  // ENCRYPTION_KEY is missing in production, so this branch is just a
+  // belt-and-braces guard for the runtime.
+  const key = process.env.ENCRYPTION_KEY
+    || (process.env.NODE_ENV !== 'production' ? process.env.JWT_SECRET : undefined);
+  if (!key) throw new Error('ENCRYPTION_KEY environment variable is required');
   return key;
 }
 

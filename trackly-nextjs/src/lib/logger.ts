@@ -80,11 +80,18 @@ function forwardToSentry(level: LogLevel, message: string, attrs?: LogAttrs): vo
 }
 
 function emit(level: LogLevel, message: string, attrs?: LogAttrs): void {
-  const fn = consoleFnFor(level);
-  // Preserve the legacy `[prefix] message: {json}` style many call sites
-  // were using before migration, so App Platform logs stay readable.
-  if (attrs !== undefined) fn(message, attrs);
-  else fn(message);
+  // In production, keep `debug` out of stdout to avoid leaking
+  // potentially-sensitive payloads (customer/subscription IDs, plan
+  // transitions, raw webhook bodies). Sentry breadcrumbs still receive it
+  // through forwardToSentry, where the SDK's beforeSend scrubbing applies.
+  const skipConsole = level === 'debug' && process.env.NODE_ENV === 'production';
+  if (!skipConsole) {
+    const fn = consoleFnFor(level);
+    // Preserve the legacy `[prefix] message: {json}` style many call sites
+    // were using before migration, so App Platform logs stay readable.
+    if (attrs !== undefined) fn(message, attrs);
+    else fn(message);
+  }
   forwardToSentry(level, message, attrs);
 }
 

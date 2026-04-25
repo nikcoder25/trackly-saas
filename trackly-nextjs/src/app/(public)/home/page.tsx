@@ -130,7 +130,7 @@ function DemoSection() {
         <div className="tl-section-header">
           <span className="tl-section-tag">Live Demo</span>
           <h2>See Livesov in Action</h2>
-          <p>Here&apos;s what happens when you track a brand across all 6 AI platforms.</p>
+          <p>Here&apos;s what happens when you track a brand across all 5 AI platforms.</p>
         </div>
 
         <div className="tl-demo-window">
@@ -509,7 +509,7 @@ export default function LivesovHomePage() {
             </a>
           </div>
 
-          <p className="tl-hero-note">7-day free trial &middot; No credit card required &middot; All 6 AI platforms included</p>
+          <p className="tl-hero-note">7-day free trial &middot; No credit card required &middot; All 5 AI platforms included</p>
         </div>
 
         {/* Platform pills floating */}

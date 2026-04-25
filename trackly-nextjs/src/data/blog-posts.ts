@@ -72,7 +72,7 @@ AI models learn from the open web. To improve your AI visibility:
 
 GEO isn't a one-time fix. AI models update regularly, and your competitors are also optimizing. Set up automated tracking to:
 
-- Run queries daily across all 6 AI platforms
+- Run queries daily across all 5 AI platforms
 - Track SOV trends over time
 - Get alerts when your visibility changes
 - Benchmark against competitors
@@ -180,7 +180,7 @@ The brands that win in 2026 will be those that master both traditional SEO **and
   {
     slug: 'how-to-track-brand-across-ai-platforms',
     title: 'How to Track Your Brand Across ChatGPT, Perplexity & More',
-    description: 'A step-by-step guide to monitoring your brand\'s presence across 6 AI platforms and measuring your share of voice.',
+    description: 'A step-by-step guide to monitoring your brand\'s presence across 5 AI platforms and measuring your share of voice.',
     tag: 'Guide',
     date: '2026-03-15',
     readTime: '7 min read',
@@ -447,7 +447,7 @@ AI visibility requires ongoing monitoring and optimization - not a one-time fix.
 
 ### Tier 1: AI Visibility Audit ($500-$2,000)
 **One-time assessment:**
-- Track client's brand across 6 AI platforms
+- Track client's brand across 5 AI platforms
 - Run 20-30 relevant queries
 - Analyze SOV, sentiment, and competitor positioning
 - Deliver a PDF report with recommendations
