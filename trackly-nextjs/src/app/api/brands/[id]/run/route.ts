@@ -619,9 +619,9 @@ async function executeRunBackgroundInner(
           const release = await acquirePlatformSlot(plat);
           try {
             // Resolve the model: for ChatGPT this may downshift from
-            // search-preview to gpt-4o when CHATGPT_SMART_MODEL_ROUTING=true
-            // and the query has clear non-search intent. Default behaviour
-            // is unchanged (flag OFF).
+            // search-preview to gpt-4o when the query has clear non-search
+            // intent. Smart routing is ON by default; set
+            // CHATGPT_SMART_MODEL_ROUTING=false to disable.
             const baseModel = adminModels[plat] || getDefaultModel(plat);
             const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
             logger.info('run.query_ai_before', {
