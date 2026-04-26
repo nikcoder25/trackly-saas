@@ -12,7 +12,7 @@ import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, type AiErr
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { uid, decryptApiKeys } from './helpers';
-import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures } from './ai-platforms';
+import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
 import { logger } from './logger';
 import { getServerKeys } from './server-keys';
 import type { BrandRunJobData } from './job-queue';
@@ -189,15 +189,29 @@ async function processRun(job: Job<BrandRunJobData>) {
         // Correlation ID for ChatGPT rate-limit log grep.
         const queryId = `${runId}:${idx}`;
 
-        // Worker-level timeout: 5 minutes per individual AI call
-        const result = await Promise.race([
-          queryAI(plat, q, rawKey, modelForTask, brand, { queryId }),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Worker timeout after 5 minutes')), WORKER_TIMEOUT_MS)),
-        ]);
-
-        platFailCount[plat] = 0;
-        resetApiKeyFailures(rawKey);
-        processResult(plat, q, result);
+        // Worker-level timeout: per-task budget. The AbortController is
+        // plumbed into both acquirePlatformSlot (so a stuck slot does
+        // not deadlock the queue) and into queryAI/fetchAI (so an
+        // in-flight HTTP call is cancelled when the budget fires).
+        const taskController = new AbortController();
+        const taskTimer = setTimeout(
+          () => taskController.abort(new Error(`${plat} timed out after ${WORKER_TIMEOUT_MS}ms`)),
+          WORKER_TIMEOUT_MS,
+        );
+        let release: (() => void) | null = null;
+        try {
+          release = await acquirePlatformSlot(plat, taskController.signal);
+          const result = await queryAI(
+            plat, q, rawKey, modelForTask, brand,
+            { queryId, signal: taskController.signal },
+          );
+          platFailCount[plat] = 0;
+          resetApiKeyFailures(rawKey);
+          processResult(plat, q, result);
+        } finally {
+          clearTimeout(taskTimer);
+          if (release) release();
+        }
       } catch (err) {
         processError(plat, q, err as Error);
       }

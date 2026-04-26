@@ -18,12 +18,24 @@ function parseKeys(envVar: string): string[] {
   return [...new Set(keys)];
 }
 
+// Merge keys from multiple env-var names. Order is preserved; duplicates
+// are de-deduplicated. Used for providers with more than one accepted
+// secret name (e.g. xAI is named both GROK_API_KEY and XAI_API_KEY in
+// the wild; accepting both removes a silent-drop footgun where a brand
+// has Grok enabled but the operator named the DO secret XAI_API_KEY and
+// the platform was filtered out before any task ran).
+function parseKeysMulti(...envVars: string[]): string[] {
+  const all: string[] = [];
+  for (const v of envVars) all.push(...parseKeys(v));
+  return [...new Set(all)];
+}
+
 export function getServerKeys(): Record<string, string[]> {
   return {
     openai: parseKeys('OPENAI_API_KEY'),
     perplexity: parseKeys('PERPLEXITY_API_KEY'),
     gemini: parseKeys('GEMINI_API_KEY'),
     claude: parseKeys('CLAUDE_API_KEY'),
-    grok: parseKeys('GROK_API_KEY'),
+    grok: parseKeysMulti('GROK_API_KEY', 'XAI_API_KEY'),
   };
 }
