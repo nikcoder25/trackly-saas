@@ -4,7 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
-import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, resolveChatGPTModel } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -623,39 +623,41 @@ async function executeRunBackgroundInner(
             `UPDATE active_runs SET last_platform_attempted = $1, last_query_attempted = $2, last_attempt_at = NOW(), updated_at = NOW() WHERE id = $3`,
             [plat, q, runId],
           ).catch(() => { /* best-effort breadcrumb */ });
-          // NOTE: do NOT acquire a platform slot here. queryAI() does its
-          // own acquirePlatformSlot internally (ai-platforms.ts), and
-          // calling it twice deadlocks at maxConcurrent=1: this wrapper
-          // takes the only slot, then queryAI's inner acquire blocks
-          // forever on the waiter queue. That's exactly the Apr 26 2026
-          // ChatGPT signature - 100% timeouts, all hitting the outer
-          // 180s task budget, with zero [chatgpt.fetch] logs because
-          // execution never reaches fetchAI. The deadlock was latent
-          // until production set AI_CHATGPT_MAX_CONCURRENT=1; default
-          // (2) just serialised ChatGPT through one task at a time.
-          // Resolve the model: for ChatGPT this may downshift from
-          // search-preview to gpt-4o when the query has clear non-search
-          // intent. Smart routing is ON by default; set
-          // CHATGPT_SMART_MODEL_ROUTING=false to disable.
-          const baseModel = adminModels[plat] || getDefaultModel(plat);
-          const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
-          logger.info('run.query_ai_before', {
-            run_id: runId, brand_id: brandId,
-            platform: plat, query_index: idx, model: modelForTask,
-          });
-          const r = await queryAI(
-            plat, q, rawKey,
-            modelForTask,
-            brand,
-            { signal, queryId: `${runId}:${idx}` },
-          );
-          logger.info('run.query_ai_resolved', {
-            run_id: runId, brand_id: brandId,
-            platform: plat, query_index: idx,
-            text_len: r?.text?.length || 0,
-          });
-          resetApiKeyFailures(rawKey);
-          return r;
+          // Slot acquisition is single-sited and caller-owned. queryAI no
+          // longer acquires its own slot internally (the duplicate was
+          // the root cause of the Apr 26 ChatGPT deadlock at
+          // maxConcurrent=1, see PR #405 and follow-up). The acquire is
+          // abort-aware: passing the per-task signal lets the 180s outer
+          // budget reach inside the waiter queue, so a stuck slot can no
+          // longer hang every subsequent acquire indefinitely.
+          const release = await acquirePlatformSlot(plat, signal);
+          try {
+            // Resolve the model: for ChatGPT this may downshift from
+            // search-preview to gpt-4o when the query has clear non-search
+            // intent. Smart routing is ON by default; set
+            // CHATGPT_SMART_MODEL_ROUTING=false to disable.
+            const baseModel = adminModels[plat] || getDefaultModel(plat);
+            const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+            logger.info('run.query_ai_before', {
+              run_id: runId, brand_id: brandId,
+              platform: plat, query_index: idx, model: modelForTask,
+            });
+            const r = await queryAI(
+              plat, q, rawKey,
+              modelForTask,
+              brand,
+              { signal, queryId: `${runId}:${idx}` },
+            );
+            logger.info('run.query_ai_resolved', {
+              run_id: runId, brand_id: brandId,
+              platform: plat, query_index: idx,
+              text_len: r?.text?.length || 0,
+            });
+            resetApiKeyFailures(rawKey);
+            return r;
+          } finally {
+            release();
+          }
         };
 
         // Plumb the task signal into withDeepRetry so an outer per-platform
@@ -674,12 +676,17 @@ async function executeRunBackgroundInner(
         // platform-timeout message so processError + the diagnostic
         // logs are unambiguous. The message embeds platform + elapsed
         // ms, e.g. `ChatGPT timed out after 180000ms`, to match the
-        // run.task_timeout log entries in production.
+        // run.task_timeout log entries in production. When a real
+        // provider error (e.g. "Server error 503") happened to coincide
+        // with the budget firing, we still surface the timeout as the
+        // primary message but keep the inner cause in the structured
+        // log under inner_error for triage.
         const isHardTimeout = /\btimed out after \d+ms$/.test(e.message)
           || e.message === 'platform timeout'
           || e.name === 'AbortError'
           || taskController.signal.aborted;
-        const message = isHardTimeout ? timeoutMessage() : e.message;
+        const innerMessage = e.message;
+        const message = isHardTimeout ? timeoutMessage() : innerMessage;
         // Proactively abort so any in-flight fetch / sleep inside
         // singleAttempt stops holding resources after we've moved on.
         if (isHardTimeout && !taskController.signal.aborted) {
@@ -689,6 +696,7 @@ async function executeRunBackgroundInner(
           run_id: runId, brand_id: brandId,
           platform: plat, query_index: idx,
           error: message,
+          inner_error: isHardTimeout && innerMessage !== message ? innerMessage : undefined,
         });
         processError(plat, q, new Error(message));
       } finally {

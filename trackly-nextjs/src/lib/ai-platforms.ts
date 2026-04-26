@@ -222,13 +222,41 @@ function _getPlatformState(platform: string): PlatformState {
 // Acquire a slot respecting both concurrency and sliding-window RPM.
 // The concurrency slot is claimed BEFORE the RPM sleep so parallel callers
 // cannot bypass the concurrency cap while waiting on the RPM window.
-export async function acquirePlatformSlot(platform: string): Promise<() => void> {
+//
+// The optional `signal` makes the waiter queue abort-aware. Without it,
+// a stuck slot deadlocks every subsequent acquire indefinitely (the
+// caller's outer task budget cannot reach inside the waiter promise).
+// Pass the per-task AbortSignal so a 180s task budget firing actually
+// frees the queue, not just the in-flight fetch. FIFO order is preserved
+// for callers that DO complete - aborts simply remove themselves.
+export async function acquirePlatformSlot(platform: string, signal?: AbortSignal): Promise<() => void> {
   const limits = PLATFORM_LIMITS[platform];
   if (!limits) return () => {};
   const state = _getPlatformState(platform);
 
   while (state.inFlight >= limits.maxConcurrent) {
-    await new Promise<void>(resolve => state.waiters.push(resolve));
+    if (signal?.aborted) {
+      throw tagError(
+        _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
+        { isTransient: false },
+      );
+    }
+    await new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        const idx = state.waiters.indexOf(waiter);
+        if (idx !== -1) state.waiters.splice(idx, 1);
+        reject(tagError(
+        _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
+        { isTransient: false },
+      ));
+      };
+      const waiter = () => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      };
+      state.waiters.push(waiter);
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
   }
   state.inFlight++;
 
@@ -243,12 +271,19 @@ export async function acquirePlatformSlot(platform: string): Promise<() => void>
 
   try {
     for (;;) {
+      if (signal?.aborted) {
+        release();
+        throw tagError(
+        _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
+        { isTransient: false },
+      );
+      }
       const now = Date.now();
       state.timestamps = state.timestamps.filter(t => now - t < limits.windowMs);
       if (state.timestamps.length < limits.rpm) break;
       const oldest = state.timestamps[0];
       const waitMs = Math.max(50, limits.windowMs - (now - oldest) + 25);
-      await sleep(waitMs);
+      await sleep(waitMs, signal);
     }
     state.timestamps.push(Date.now());
   } catch (e) {
@@ -418,6 +453,39 @@ async function rateLimitWait(platform: string, apiKey: string): Promise<void> {
   return gate;
 }
 
+// ── Per-key map memory sweep ────────────────────────────────────
+// `apiKeyFailures`, `_keyCooldown`, `lastRequestTimePerKey` and
+// `rateLimitQueues` are keyed by (a hash of) apiKey strings. Server
+// keys are bounded but per-tenant user-supplied keys come and go as
+// brands are created / deleted / re-keyed, so without periodic
+// eviction these maps grow unbounded across the lifetime of a long-
+// running pod. Sweep every KEY_MAP_SWEEP_INTERVAL_MS and drop entries
+// that have not been touched in KEY_MAP_TTL_MS. Skipped under tests
+// so vitest does not spawn a background timer.
+const KEY_MAP_SWEEP_INTERVAL_MS = Number(process.env.AI_KEY_MAP_SWEEP_INTERVAL_MS) || 5 * 60 * 1000;
+const KEY_MAP_TTL_MS = Number(process.env.AI_KEY_MAP_TTL_MS) || 60 * 60 * 1000;
+function _sweepKeyMaps(): void {
+  const now = Date.now();
+  for (const [k, v] of apiKeyFailures) {
+    if (now - v.lastFailure > KEY_MAP_TTL_MS) apiKeyFailures.delete(k);
+  }
+  for (const [k, v] of _keyCooldown) {
+    if (v.until + KEY_MAP_TTL_MS < now) _keyCooldown.delete(k);
+  }
+  for (const [k, v] of lastRequestTimePerKey) {
+    if (now - v > KEY_MAP_TTL_MS) {
+      lastRequestTimePerKey.delete(k);
+      rateLimitQueues.delete(k);
+    }
+  }
+}
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  const sweepTimer = setInterval(_sweepKeyMaps, KEY_MAP_SWEEP_INTERVAL_MS);
+  // unref so the sweep timer never holds the process open during
+  // shutdown / cron termination.
+  if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
+}
+
 // ── Model catalog & pricing ─────────────────────────────────────
 const API_ENDPOINTS = {
   openai: { chat: 'https://api.openai.com/v1/chat/completions' },
@@ -427,59 +495,100 @@ const API_ENDPOINTS = {
   claude: { messages: 'https://api.anthropic.com/v1/messages' },
 };
 
-// Boot-time TLS/DNS warm-up probe for OpenAI. Fires once on module load
-// for each configured `OPENAI_API_KEY*` env var (incl. base + numbered
-// variants). Hits api.openai.com/v1/models with a 5s timeout and logs
-// status + latency under the [chatgpt.boot] prefix. Lets the operator
-// distinguish a DO NYC1 → api.openai.com routing/peering issue from an
-// OpenAI account-level issue, which is otherwise indistinguishable from
-// a network hang inside fetchAI. Skipped during tests and when no key
-// is configured so vitest / local builds without OpenAI creds don't make
-// outbound calls. Result: a startup signature like
-// `[chatgpt.boot] { keyTail: '...abcd', status: 200, latencyMs: 412 }`
-// or, in the bad case, `{ error: 'fetch failed', latencyMs: 5001 }`.
-function _runOpenAiBootProbe(): void {
+// Boot-time TLS/DNS warm-up probe per provider. Fires once on module
+// load for each configured API key env var. Logs status + latency
+// under a per-platform `[<platform>.boot]` prefix. Lets the operator
+// distinguish DO -> provider routing/peering issues from
+// account-level / quota issues, which are otherwise indistinguishable
+// from a network hang inside fetchAI. Skipped during tests and when
+// no key for that provider is configured.
+//
+// Originally OpenAI-only (PR #404); generalised after the Apr 26 Grok
+// investigation, where ZERO log lines made it impossible to tell
+// whether the silence was a key wiring problem (no GROK_API_KEY env
+// var) or a network problem. Now every enabled provider produces a
+// startup signature, so missing keys are visible as missing rows.
+interface ProviderBootSpec {
+  platform: string;            // log prefix segment (lowercased)
+  envPattern: RegExp;          // env-var name pattern
+  disableEnv: string;          // opt-out env var
+  buildUrl: (key: string) => string;
+  buildHeaders: (key: string) => Record<string, string>;
+}
+const _BOOT_PROBE_SPECS: ProviderBootSpec[] = [
+  { platform: 'chatgpt',    envPattern: /^OPENAI_API_KEY(_\d+)?$/,    disableEnv: 'AI_CHATGPT_BOOT_PROBE',
+    buildUrl: () => 'https://api.openai.com/v1/models',
+    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
+  { platform: 'claude',     envPattern: /^CLAUDE_API_KEY(_\d+)?$/,    disableEnv: 'AI_CLAUDE_BOOT_PROBE',
+    buildUrl: () => 'https://api.anthropic.com/v1/models',
+    buildHeaders: k => ({ 'x-api-key': k, 'anthropic-version': '2023-06-01' }) },
+  { platform: 'perplexity', envPattern: /^PERPLEXITY_API_KEY(_\d+)?$/, disableEnv: 'AI_PERPLEXITY_BOOT_PROBE',
+    // Perplexity has no public /models listing; a HEAD on chat/completions
+    // returns 405 cheaply and still proves the route + TLS handshake.
+    buildUrl: () => 'https://api.perplexity.ai/chat/completions',
+    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
+  { platform: 'grok',       envPattern: /^(GROK_API_KEY|XAI_API_KEY)(_\d+)?$/, disableEnv: 'AI_GROK_BOOT_PROBE',
+    buildUrl: () => 'https://api.x.ai/v1/models',
+    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
+  { platform: 'gemini',     envPattern: /^GEMINI_API_KEY(_\d+)?$/,    disableEnv: 'AI_GEMINI_BOOT_PROBE',
+    // Gemini auth is via query string, not header.
+    buildUrl: k => `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k)}`,
+    buildHeaders: () => ({}) },
+];
+
+function _runProviderBootProbes(): void {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return;
-  if (process.env.AI_CHATGPT_BOOT_PROBE === 'false') return;
-  const keyEntries = Object.entries(process.env)
-    .filter(([k, v]) => /^OPENAI_API_KEY(_\d+)?$/.test(k) && typeof v === 'string' && v.length > 0)
-    .map(([k, v]) => ({ envName: k, key: v as string }));
-  if (keyEntries.length === 0) return;
-  const probeTimeoutMs = Number(process.env.AI_CHATGPT_BOOT_PROBE_TIMEOUT_MS) || 5000;
-  for (const { envName, key } of keyEntries) {
-    void (async () => {
-      const startedAt = Date.now();
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), probeTimeoutMs);
-      try {
-        const resp = await fetch('https://api.openai.com/v1/models', {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${key}` },
-          signal: ctrl.signal,
-        });
-        console.warn('[chatgpt.boot]', {
-          event: 'probe_ok',
-          envName,
-          keyTail: key.slice(-8),
-          status: resp.status,
-          latencyMs: Date.now() - startedAt,
-        });
-      } catch (e) {
-        console.warn('[chatgpt.boot]', {
-          event: 'probe_failed',
-          envName,
-          keyTail: key.slice(-8),
-          latencyMs: Date.now() - startedAt,
-          aborted: ctrl.signal.aborted,
-          error: (e as Error).message,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-    })();
+  const probeTimeoutMs = Number(process.env.AI_BOOT_PROBE_TIMEOUT_MS)
+    || Number(process.env.AI_CHATGPT_BOOT_PROBE_TIMEOUT_MS)
+    || 5000;
+  for (const spec of _BOOT_PROBE_SPECS) {
+    if (process.env[spec.disableEnv] === 'false') continue;
+    const keyEntries = Object.entries(process.env)
+      .filter(([k, v]) => spec.envPattern.test(k) && typeof v === 'string' && v.length > 0)
+      .map(([k, v]) => ({ envName: k, key: v as string }));
+    const logPrefix = `[${spec.platform}.boot]`;
+    if (keyEntries.length === 0) {
+      // Visible "no key" signature so an operator searching for a
+      // missing platform sees something rather than nothing. This is
+      // the exact gap the Grok "Inactive / No Data" symptom exposed.
+      console.warn(logPrefix, { event: 'no_key_configured', envPattern: spec.envPattern.source });
+      continue;
+    }
+    for (const { envName, key } of keyEntries) {
+      void (async () => {
+        const startedAt = Date.now();
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), probeTimeoutMs);
+        try {
+          const resp = await fetch(spec.buildUrl(key), {
+            method: 'GET',
+            headers: spec.buildHeaders(key),
+            signal: ctrl.signal,
+          });
+          console.warn(logPrefix, {
+            event: 'probe_ok',
+            envName,
+            keyTail: key.slice(-8),
+            status: resp.status,
+            latencyMs: Date.now() - startedAt,
+          });
+        } catch (e) {
+          console.warn(logPrefix, {
+            event: 'probe_failed',
+            envName,
+            keyTail: key.slice(-8),
+            latencyMs: Date.now() - startedAt,
+            aborted: ctrl.signal.aborted,
+            error: (e as Error).message,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      })();
+    }
   }
 }
-_runOpenAiBootProbe();
+_runProviderBootProbes();
 
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
   ChatGPT: [
@@ -609,6 +718,15 @@ const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 
 // budget, vs the 1-2 we were getting at 150s.
 const AI_CHATGPT_REQUEST_TIMEOUT_MS = Number(process.env.AI_CHATGPT_REQUEST_TIMEOUT_MS) || 30000;
 
+// Per-platform per-attempt timeouts. Each defaults to AI_REQUEST_TIMEOUT_MS
+// so existing deployments behave the same; ops can tune individual
+// providers without affecting the others. Naming mirrors the ChatGPT
+// var so the operator playbook stays consistent.
+const AI_CLAUDE_REQUEST_TIMEOUT_MS = Number(process.env.AI_CLAUDE_REQUEST_TIMEOUT_MS) || AI_REQUEST_TIMEOUT_MS;
+const AI_PERPLEXITY_REQUEST_TIMEOUT_MS = Number(process.env.AI_PERPLEXITY_REQUEST_TIMEOUT_MS) || AI_REQUEST_TIMEOUT_MS;
+const AI_GROK_REQUEST_TIMEOUT_MS = Number(process.env.AI_GROK_REQUEST_TIMEOUT_MS) || AI_REQUEST_TIMEOUT_MS;
+const AI_GEMINI_REQUEST_TIMEOUT_MS = Number(process.env.AI_GEMINI_REQUEST_TIMEOUT_MS) || AI_REQUEST_TIMEOUT_MS;
+
 // Per-call cap on the total time fetchAI will sleep across all retries.
 // Without this, a 429 with a generous Retry-After (e.g. Gemini suggesting
 // 12s on every retry) could chew through the entire per-task budget on
@@ -632,6 +750,18 @@ export interface FetchAiRetryConfig {
   model?: string;            // Log correlation only.
 }
 
+// Return the AbortSignal's reason string if the caller set one (Node 17+
+// supports `controller.abort(new Error('X timed out after Yms'))`),
+// otherwise fall back to the supplied default. Lets fetchAI / acquire
+// surface the actual platform + elapsed in error messages instead of
+// burying everything as a generic "Aborted by caller".
+function _abortReasonMessage(signal: AbortSignal | undefined, fallback: string): string {
+  const reason = signal?.reason as unknown;
+  if (reason instanceof Error && reason.message) return reason.message;
+  if (typeof reason === 'string' && reason.length > 0) return reason;
+  return fallback;
+}
+
 async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string, retryConfig?: FetchAiRetryConfig): Promise<AiResponseData> {
   const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 2);
   const CALL_MAX_RETRY_SLEEP_MS = retryConfig?.maxSleepMs ?? MAX_RETRY_SLEEP_MS;
@@ -646,7 +776,10 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
   let totalSleptMs = 0;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (callerSignal?.aborted) {
-      throw lastErr || tagError('Aborted by caller before attempt', { isTransient: false });
+      throw lastErr || tagError(
+        _abortReasonMessage(callerSignal, 'Aborted by caller before attempt'),
+        { isTransient: false },
+      );
     }
     // One AbortController covers BOTH fetch() AND the response-body
     // read (resp.json/text). Previously the timer was cleared as soon
@@ -662,19 +795,20 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       clearTimeout(timer);
       callerSignal?.removeEventListener('abort', onCallerAbort);
     };
-    // Network-level diagnostic logs for ChatGPT only. These fire on the
-    // raw fetch lifecycle (start / headers / abort) and are independent
-    // of the [chatgpt.ratelimit] retry-config logs above, which only
-    // trigger on 429/529 responses. When OpenAI hangs at the TCP/TLS
-    // layer no 429 ever arrives, so the existing logs stay silent and
-    // we end up with bare 'platform timeout' errors. Capturing the raw
-    // lifecycle here makes it possible to tell a hang at fetch start
-    // (DNS/TLS/connect) from a hang during the response body read.
-    const isChatGPT = platform === 'ChatGPT';
+    // Network-level diagnostic logs for every platform. These fire on
+    // the raw fetch lifecycle (start / headers / abort) and are
+    // independent of the rate-limit retry-config logs below, which only
+    // trigger on 429/529 responses. When a provider hangs at the
+    // TCP/TLS layer no 429 ever arrives, so without these we get bare
+    // 'platform timeout' errors with nothing to triage on.
+    // Originally ChatGPT-only (PR #404); generalised to every platform
+    // after the Apr 26 Grok investigation showed the same blind spot
+    // applies to xAI / Anthropic / Perplexity / Gemini.
+    const fetchLogPrefix = platform ? `[${platform.toLowerCase()}.fetch]` : '[fetch]';
     const fetchStartedAt = Date.now();
     const keyTail = apiKey ? apiKey.slice(-8) : null;
-    if (isChatGPT) {
-      console.warn('[chatgpt.fetch] start', {
+    if (platform) {
+      console.warn(`${fetchLogPrefix} start`, {
         event: 'start',
         queryId: logQueryId,
         model: logModel,
@@ -687,8 +821,8 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
     let resp: Response;
     try {
       resp = await fetch(url, { ...options, signal: controller.signal });
-      if (isChatGPT) {
-        console.warn('[chatgpt.fetch] headers', {
+      if (platform) {
+        console.warn(`${fetchLogPrefix} headers`, {
           event: 'headers',
           queryId: logQueryId,
           model: logModel,
@@ -699,8 +833,8 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       }
     } catch (e) {
       cleanup();
-      if (isChatGPT) {
-        console.warn('[chatgpt.fetch] abort', {
+      if (platform) {
+        console.warn(`${fetchLogPrefix} abort`, {
           event: 'abort',
           queryId: logQueryId,
           model: logModel,
@@ -712,7 +846,10 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         });
       }
       if (callerSignal?.aborted) {
-        throw tagError('Aborted by caller', { isTransient: false });
+        throw tagError(
+          _abortReasonMessage(callerSignal, 'Aborted by caller'),
+          { isTransient: false },
+        );
       }
       lastErr = tagError((e as Error).message || 'Network error', { isTransient: true });
       if (attempt < MAX_RETRIES) {
@@ -979,7 +1116,7 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(payload),
         signal,
-      }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Gemini');
+      }, AI_GEMINI_REQUEST_TIMEOUT_MS, apiKey, 'Gemini');
       if (d.promptFeedback?.blockReason) throw new Error(`Gemini blocked: ${d.promptFeedback.blockReason}`);
       const cand = d.candidates?.[0];
       if (!cand) throw tagError('Gemini returned no candidates', { isTransient: true });
@@ -1073,7 +1210,13 @@ export async function queryAI(
 
   return coalesce(coalesceKey, async () => {
     const startMs = Date.now();
-    const release = await acquirePlatformSlot(platform);
+    // NOTE: queryAI does NOT acquire a platform slot. Slot lifetime is
+    // owned by the caller (run/route.ts singleAttempt + run-worker.ts
+    // runWorker), which acquires BEFORE entering queryAI and releases
+    // in finally. A duplicate acquire here was the root cause of the
+    // Apr 26 ChatGPT 100% timeout incident at maxConcurrent=1
+    // (see PR #405). Keeping slot acquisition single-sited and
+    // caller-owned makes the deadlock class structurally impossible.
     // Plumb the caller-supplied signal into every provider fetch so a
     // per-task AbortController in the runner actually cancels the
     // in-flight request (and any retry sleeps inside fetchAI).
@@ -1136,7 +1279,7 @@ export async function queryAI(
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, system: sysPrompt, messages: [{ role: 'user', content: query }] }),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Claude');
+        }, AI_CLAUDE_REQUEST_TIMEOUT_MS, apiKey, 'Claude');
         result = {
           text: d.content?.[0]?.text || '',
           model: d.model || useModel,
@@ -1151,7 +1294,7 @@ export async function queryAI(
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, return_citations: true, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Perplexity');
+        }, AI_PERPLEXITY_REQUEST_TIMEOUT_MS, apiKey, 'Perplexity');
         result = {
           text: d.choices?.[0]?.message?.content || '',
           model: d.model || useModel,
@@ -1164,7 +1307,7 @@ export async function queryAI(
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model: useModel, max_tokens: maxTok, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }] }),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'Grok');
+        }, AI_GROK_REQUEST_TIMEOUT_MS, apiKey, 'Grok');
         result = {
           text: d.choices?.[0]?.message?.content || '',
           model: d.model || useModel,
@@ -1198,8 +1341,6 @@ export async function queryAI(
         enqueueDeferredRetry({ platform, query, apiKey, model: useModel, brand, options, delayMs });
       }
       throw e;
-    } finally {
-      release();
     }
   });
 }
