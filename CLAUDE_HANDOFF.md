@@ -42,6 +42,9 @@ The values the operator listed in chat ARE the code defaults, so if you're happy
 | CRON_CRASH_BACKOFF_THRESHOLD | 3 | |
 | CRON_CRASH_BACKOFF_BASE_MINUTES | 30 | |
 | CRON_CRASH_BACKOFF_MAX_MINUTES | 1440 | |
+| AI_REQUEST_TIMEOUT_MS | 150000 | Per-call HTTP timeout for an individual provider request inside `fetchAI`. Raised from 60s to 150s so search-class models (e.g. `gpt-4o-mini-search-preview`) finish before the call is aborted. Lower only if you've also lowered `AI_PER_PLATFORM_TIMEOUT_MS`. |
+| AI_PER_PLATFORM_TIMEOUT_MS | 180000 | Per-task budget enforced by `/api/brands/[id]/run` around the entire provider attempt, including retries. Raised from 60s to 180s to stop healthy ChatGPT search-preview calls from being killed as `platform timeout`. Must be ≥ `AI_REQUEST_TIMEOUT_MS`. |
+| CHATGPT_SMART_MODEL_ROUTING | (on) | Now ON by default. ChatGPT calls with clear non-search intent get routed from the constrained `gpt-4o-mini-search-preview` pool down to `gpt-4o`. Set to `false` to keep every query on the admin-selected search model. Freshness/local/comparison queries continue to use the search model regardless. |
 
 After saving, DigitalOcean will redeploy (~3-5 min). All of these are Plain-text (not secrets), scope: Run and Build Time.
 

@@ -430,8 +430,8 @@ const API_ENDPOINTS = {
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
   ChatGPT: [
     { id: 'gpt-5-search-api', label: 'GPT-5 Search (Latest)', search: true },
-    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true, default: true },
-    { id: 'gpt-4o', label: 'GPT-4o (No search)' },
+    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true },
+    { id: 'gpt-4o', label: 'GPT-4o (No search)', default: true },
   ],
   Claude: [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
@@ -542,7 +542,7 @@ function extractBodyRetryAfter(body: unknown): number | null {
 // ── Upgraded fetchAI ────────────────────────────────────────────
 // Uses fetch (Next.js runtime), honours Retry-After, treats 429/529 as rate
 // limits, retries 5xx as transient, and tags thrown errors for caller routing.
-const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 60000;
+const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 150000;
 
 // Per-call cap on the total time fetchAI will sleep across all retries.
 // Without this, a 429 with a generous Retry-After (e.g. Gemini suggesting
@@ -898,26 +898,26 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
   throw lastErr || tagError('Gemini: all fallbacks exhausted', { isTransient: true });
 }
 
-// ── ChatGPT smart model routing (feature-flagged, OFF by default) ──
+// ── ChatGPT smart model routing (ON by default) ──
 // OpenAI's Search-Preview models (`*-search-preview`, `*-search-api`) run
 // on a far tighter quota pool than standard gpt-4o/gpt-4o-mini. Not every
 // brand-tracking query actually needs web search - definitional queries
 // ("what is X", "explain Y") can be answered from the model's training
-// data. When CHATGPT_SMART_MODEL_ROUTING=true, route non-search-intent
-// queries to `gpt-4o` (no-search) to spare the preview quota for queries
-// that genuinely need fresh web data.
+// data. By default we route non-search-intent queries to `gpt-4o`
+// (no-search) to spare the preview quota for queries that genuinely
+// need fresh web data. Set CHATGPT_SMART_MODEL_ROUTING=false to disable.
 //
-// Conservative heuristic: DEFAULT TO SEARCH. We only drop to non-search
-// when (a) the admin-selected model is a search-preview model, (b) the
-// query has a clear definitional/explanatory intent, AND (c) it has NO
-// freshness/location/comparison qualifiers. Mis-routing a query costs us
-// answer quality; under-routing costs us quota - so we err on the side
-// of keeping search.
+// Conservative heuristic: only drop to non-search when (a) the
+// admin-selected model is a search-preview model, (b) the query has a
+// clear definitional/explanatory intent, AND (c) it has NO freshness/
+// location/comparison qualifiers. Mis-routing a query costs us answer
+// quality; under-routing costs us quota - so we err on the side of
+// keeping search when in doubt.
 const NON_SEARCH_INTENT_RE = /^\s*(what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b/i;
 const FRESHNESS_OR_LOCAL_RE = /\b(best|top|recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+year|20\d{2})\b/i;
 
 export function resolveChatGPTModel(query: string, adminModel: string): string {
-  if (process.env.CHATGPT_SMART_MODEL_ROUTING !== 'true') return adminModel;
+  if (process.env.CHATGPT_SMART_MODEL_ROUTING === 'false') return adminModel;
   // Only route AWAY from search-preview models. If admin already picked a
   // non-search model, leave it alone.
   if (!adminModel.includes('search')) return adminModel;

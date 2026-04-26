@@ -514,6 +514,7 @@ async function executeRunBackgroundInner(
     // this run. A successful call later resets the counter.
     const msg = err.message || '';
     const isTimeout = msg.includes('timeout')
+      || msg.includes('timed out')
       || msg.includes('sleep budget exhausted')
       || msg.includes('Aborted');
     const aiErr = err as { isRateLimit?: boolean; budgetExhausted?: boolean };
@@ -543,13 +544,14 @@ async function executeRunBackgroundInner(
 
   // Per-platform call budget. Independent of the cron's 120s fetch
   // timeout to /run; bounds how long any single provider call can hold
-  // up the fanout. Default 60s so a slow Gemini doesn't starve
-  // ChatGPT/Perplexity/Grok in the same task. Override via env if a
-  // legitimately slow provider needs more headroom.
+  // up the fanout. Default 180s: search-preview-class models routinely
+  // exceed 60s end-to-end (web search + completion), so a tighter cap
+  // produces premature 'platform timeout' failures even on healthy runs.
+  // Override via env if a provider needs different headroom.
   const PER_PLATFORM_TIMEOUT_MS =
     Number(process.env.AI_PER_PLATFORM_TIMEOUT_MS) ||
     Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) ||
-    60000;
+    180000;
 
   async function runWorker() {
     while (nextIdx < tasks.length) {
@@ -558,10 +560,15 @@ async function executeRunBackgroundInner(
       const { plat, q } = tasks[idx];
       // One AbortController per task. Aborting it propagates into the
       // platform fetch (via fetchAI) AND into any retry sleeps inside
-      // it, so the call can't quietly outlive its budget.
+      // it, so the call can't quietly outlive its budget. The error
+      // message embeds the platform name and elapsed ms so log readers
+      // can tell which provider blew the budget without cross-referencing.
+      const taskStartedAt = Date.now();
+      const timeoutMessage = () =>
+        `${plat} timed out after ${Date.now() - taskStartedAt}ms`;
       const taskController = new AbortController();
       const timeoutHandle = setTimeout(
-        () => taskController.abort(new Error('platform timeout')),
+        () => taskController.abort(new Error(timeoutMessage())),
         PER_PLATFORM_TIMEOUT_MS,
       );
       // Hard outer timeout. The AbortController alone is not sufficient:
@@ -576,7 +583,7 @@ async function executeRunBackgroundInner(
       let hardTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
       const hardTimeoutPromise = new Promise<never>((_, rej) => {
         hardTimeoutHandle = setTimeout(
-          () => rej(new Error('platform timeout')),
+          () => rej(new Error(timeoutMessage())),
           PER_PLATFORM_TIMEOUT_MS,
         );
       });
@@ -601,7 +608,7 @@ async function executeRunBackgroundInner(
 
         const signal = taskController.signal;
         const singleAttempt = async () => {
-          if (signal.aborted) throw new Error('platform timeout');
+          if (signal.aborted) throw new Error(timeoutMessage());
           const rawKey = pickBestKey(keyPool);
           if (!rawKey) throw new Error('No usable API key for ' + plat);
           if (circuitBreakerCheck(rawKey)) {
@@ -619,9 +626,9 @@ async function executeRunBackgroundInner(
           const release = await acquirePlatformSlot(plat);
           try {
             // Resolve the model: for ChatGPT this may downshift from
-            // search-preview to gpt-4o when CHATGPT_SMART_MODEL_ROUTING=true
-            // and the query has clear non-search intent. Default behaviour
-            // is unchanged (flag OFF).
+            // search-preview to gpt-4o when the query has clear non-search
+            // intent. Smart routing is ON by default; set
+            // CHATGPT_SMART_MODEL_ROUTING=false to disable.
             const baseModel = adminModels[plat] || getDefaultModel(plat);
             const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
             logger.info('run.query_ai_before', {
@@ -659,16 +666,19 @@ async function executeRunBackgroundInner(
       } catch (err) {
         const e = err as Error;
         // Translate AbortError-shaped failures into the user-facing
-        // "platform timeout" message so processError + the diagnostic
-        // logs are unambiguous.
-        const isHardTimeout = e.message === 'platform timeout'
+        // platform-timeout message so processError + the diagnostic
+        // logs are unambiguous. The message embeds platform + elapsed
+        // ms, e.g. `ChatGPT timed out after 180000ms`, to match the
+        // run.task_timeout log entries in production.
+        const isHardTimeout = /\btimed out after \d+ms$/.test(e.message)
+          || e.message === 'platform timeout'
           || e.name === 'AbortError'
           || taskController.signal.aborted;
-        const message = isHardTimeout ? 'platform timeout' : e.message;
+        const message = isHardTimeout ? timeoutMessage() : e.message;
         // Proactively abort so any in-flight fetch / sleep inside
         // singleAttempt stops holding resources after we've moved on.
         if (isHardTimeout && !taskController.signal.aborted) {
-          try { taskController.abort(new Error('platform timeout')); } catch { /* ignore */ }
+          try { taskController.abort(new Error(message)); } catch { /* ignore */ }
         }
         logger.warn(isHardTimeout ? 'run.task_timeout' : 'run.task_rejected', {
           run_id: runId, brand_id: brandId,
