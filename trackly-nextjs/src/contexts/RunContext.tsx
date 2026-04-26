@@ -93,6 +93,22 @@ export function RunProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { runningRef.current = live.running; }, [live.running]);
 
+  // When the user switches to a different brand, abandon UI tracking of the
+  // previous brand's run so its progress + result toasts don't bleed into the
+  // newly-selected brand's view. The server-side run continues independently.
+  const prevSelectedBrandIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const newBrandId = selectedBrand?.id ?? null;
+    const prevBrandId = prevSelectedBrandIdRef.current;
+    prevSelectedBrandIdRef.current = newBrandId;
+    if (prevBrandId === null || newBrandId === null || prevBrandId === newBrandId) return;
+    pollRef.current = false;
+    runningRef.current = false;
+    if (timerRef.current) clearInterval(timerRef.current);
+    setLive(INITIAL_STATE);
+    setElapsed('');
+  }, [selectedBrand?.id]);
+
   const pct = live.totalExpected > 0 ? Math.round((live.received / live.totalExpected) * 100) : 0;
 
   // ── Poll run status from DB ────────────────────────
