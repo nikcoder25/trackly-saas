@@ -427,6 +427,60 @@ const API_ENDPOINTS = {
   claude: { messages: 'https://api.anthropic.com/v1/messages' },
 };
 
+// Boot-time TLS/DNS warm-up probe for OpenAI. Fires once on module load
+// for each configured `OPENAI_API_KEY*` env var (incl. base + numbered
+// variants). Hits api.openai.com/v1/models with a 5s timeout and logs
+// status + latency under the [chatgpt.boot] prefix. Lets the operator
+// distinguish a DO NYC1 → api.openai.com routing/peering issue from an
+// OpenAI account-level issue, which is otherwise indistinguishable from
+// a network hang inside fetchAI. Skipped during tests and when no key
+// is configured so vitest / local builds without OpenAI creds don't make
+// outbound calls. Result: a startup signature like
+// `[chatgpt.boot] { keyTail: '...abcd', status: 200, latencyMs: 412 }`
+// or, in the bad case, `{ error: 'fetch failed', latencyMs: 5001 }`.
+function _runOpenAiBootProbe(): void {
+  if (process.env.NODE_ENV === 'test' || process.env.VITEST) return;
+  if (process.env.AI_CHATGPT_BOOT_PROBE === 'false') return;
+  const keyEntries = Object.entries(process.env)
+    .filter(([k, v]) => /^OPENAI_API_KEY(_\d+)?$/.test(k) && typeof v === 'string' && v.length > 0)
+    .map(([k, v]) => ({ envName: k, key: v as string }));
+  if (keyEntries.length === 0) return;
+  const probeTimeoutMs = Number(process.env.AI_CHATGPT_BOOT_PROBE_TIMEOUT_MS) || 5000;
+  for (const { envName, key } of keyEntries) {
+    void (async () => {
+      const startedAt = Date.now();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), probeTimeoutMs);
+      try {
+        const resp = await fetch('https://api.openai.com/v1/models', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${key}` },
+          signal: ctrl.signal,
+        });
+        console.warn('[chatgpt.boot]', {
+          event: 'probe_ok',
+          envName,
+          keyTail: key.slice(-8),
+          status: resp.status,
+          latencyMs: Date.now() - startedAt,
+        });
+      } catch (e) {
+        console.warn('[chatgpt.boot]', {
+          event: 'probe_failed',
+          envName,
+          keyTail: key.slice(-8),
+          latencyMs: Date.now() - startedAt,
+          aborted: ctrl.signal.aborted,
+          error: (e as Error).message,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    })();
+  }
+}
+_runOpenAiBootProbe();
+
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
   ChatGPT: [
     { id: 'gpt-5-search-api', label: 'GPT-5 Search (Latest)', search: true },
@@ -544,6 +598,17 @@ function extractBodyRetryAfter(body: unknown): number | null {
 // limits, retries 5xx as transient, and tags thrown errors for caller routing.
 const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 150000;
 
+// ChatGPT-only per-attempt timeout. Diagnostic finding (Apr 26 2026): the
+// generic 150s per-attempt timeout was masking a TCP/TLS-level hang to
+// api.openai.com - the call would sit on `await fetch` for the full
+// 150s, retry once, then the 180s task budget would kill it before we
+// ever observed a 429. Lower this to 30s so a hung connection retries
+// quickly instead of burning the whole task budget on a single dead
+// socket. With the existing ChatGPT retry config (maxRetries=6), a 30s
+// per-attempt cap fits 5-6 reconnect attempts inside the 180s task
+// budget, vs the 1-2 we were getting at 150s.
+const AI_CHATGPT_REQUEST_TIMEOUT_MS = Number(process.env.AI_CHATGPT_REQUEST_TIMEOUT_MS) || 30000;
+
 // Per-call cap on the total time fetchAI will sleep across all retries.
 // Without this, a 429 with a generous Retry-After (e.g. Gemini suggesting
 // 12s on every retry) could chew through the entire per-task budget on
@@ -597,11 +662,55 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
       clearTimeout(timer);
       callerSignal?.removeEventListener('abort', onCallerAbort);
     };
+    // Network-level diagnostic logs for ChatGPT only. These fire on the
+    // raw fetch lifecycle (start / headers / abort) and are independent
+    // of the [chatgpt.ratelimit] retry-config logs above, which only
+    // trigger on 429/529 responses. When OpenAI hangs at the TCP/TLS
+    // layer no 429 ever arrives, so the existing logs stay silent and
+    // we end up with bare 'platform timeout' errors. Capturing the raw
+    // lifecycle here makes it possible to tell a hang at fetch start
+    // (DNS/TLS/connect) from a hang during the response body read.
+    const isChatGPT = platform === 'ChatGPT';
+    const fetchStartedAt = Date.now();
+    const keyTail = apiKey ? apiKey.slice(-8) : null;
+    if (isChatGPT) {
+      console.warn('[chatgpt.fetch] start', {
+        event: 'start',
+        queryId: logQueryId,
+        model: logModel,
+        attempt,
+        keyTail,
+        ts: fetchStartedAt,
+        timeoutMs,
+      });
+    }
     let resp: Response;
     try {
       resp = await fetch(url, { ...options, signal: controller.signal });
+      if (isChatGPT) {
+        console.warn('[chatgpt.fetch] headers', {
+          event: 'headers',
+          queryId: logQueryId,
+          model: logModel,
+          attempt,
+          status: resp.status,
+          elapsedMs: Date.now() - fetchStartedAt,
+        });
+      }
     } catch (e) {
       cleanup();
+      if (isChatGPT) {
+        console.warn('[chatgpt.fetch] abort', {
+          event: 'abort',
+          queryId: logQueryId,
+          model: logModel,
+          attempt,
+          elapsedMs: Date.now() - fetchStartedAt,
+          callerAborted: callerSignal?.aborted ?? false,
+          timerAborted: controller.signal.aborted && !callerSignal?.aborted,
+          message: (e as Error).message,
+        });
+      }
       if (callerSignal?.aborted) {
         throw tagError('Aborted by caller', { isTransient: false });
       }
@@ -1004,7 +1113,7 @@ export async function queryAI(
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify(payload),
           signal,
-        }, AI_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
+        }, AI_CHATGPT_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
           maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 6,
           maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 60000,
           logPrefix: '[chatgpt.ratelimit]',
