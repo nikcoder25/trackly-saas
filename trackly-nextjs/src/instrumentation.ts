@@ -16,18 +16,88 @@ export async function register() {
           "[Boot] JWT_SECRET must be set to a random value of at least 32 characters in production."
         );
       }
+      // ENCRYPTION_KEY must be set explicitly in production. We refuse to fall
+      // back to JWT_SECRET because reusing a signing secret as an AEAD key
+      // conflates two different cryptographic purposes and breaks key
+      // rotation (rotating JWT_SECRET would silently invalidate every
+      // encrypted-at-rest API key).
       const encKey = process.env.ENCRYPTION_KEY || "";
-      if (encKey && !/^[0-9a-fA-F]{64}$/.test(encKey)) {
+      if (!encKey) {
         throw new Error(
-          "[Boot] ENCRYPTION_KEY must be a 64-character hex string (32 bytes) when set."
+          "[Boot] ENCRYPTION_KEY must be set in production (64-char hex). " +
+          "Generate with: openssl rand -hex 32"
         );
       }
-    }
+      if (!/^[0-9a-fA-F]{64}$/.test(encKey)) {
+        throw new Error(
+          "[Boot] ENCRYPTION_KEY must be a 64-character hex string (32 bytes)."
+        );
+      }
 
-    if (process.env.NODE_ENV === "production" && !process.env.CRON_SECRET) {
-      console.warn(
-        "[WARN] CRON_SECRET is not set - /api/cron* endpoints will return 500 and scheduled runs will not execute."
-      );
+      // CRON_SECRET is required: every /api/cron* route 500s without it and
+      // scheduled runs would silently stop. We hard-fail rather than warn.
+      if (!process.env.CRON_SECRET) {
+        throw new Error(
+          "[Boot] CRON_SECRET must be set in production - scheduled runs will not execute without it."
+        );
+      }
+
+      // APP_URL is baked into password-reset and email-verification links and
+      // into og:image / canonical URLs. A localhost or missing value ships
+      // broken emails to real users.
+      const appUrlRaw = (process.env.APP_URL || "").trim();
+      if (!appUrlRaw) {
+        throw new Error(
+          "[Boot] APP_URL must be set to the public HTTPS origin (e.g. https://livesov.com) in production."
+        );
+      }
+      if (!/^https:\/\//i.test(appUrlRaw) || /localhost|127\.0\.0\.1/i.test(appUrlRaw)) {
+        throw new Error(
+          `[Boot] APP_URL must be an HTTPS public origin in production, got: ${appUrlRaw}`
+        );
+      }
+
+      // ALLOWED_ORIGINS gates CSRF/CORS. A localhost-only value in production
+      // means the middleware silently falls back to the request's own origin.
+      const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").trim();
+      if (!allowedOrigins) {
+        throw new Error(
+          "[Boot] ALLOWED_ORIGINS must list the public origin(s) (comma-separated) in production."
+        );
+      }
+      if (/localhost|127\.0\.0\.1/i.test(allowedOrigins) && !/https:\/\//i.test(allowedOrigins)) {
+        throw new Error(
+          "[Boot] ALLOWED_ORIGINS must include the public HTTPS origin in production."
+        );
+      }
+
+      // EMAIL_FROM left as the placeholder domain causes deliverability
+      // failures (SPF/DKIM mismatch) and bounces; refuse to boot in that case.
+      const emailFrom = (process.env.EMAIL_FROM || "").trim();
+      if (emailFrom && /yourdomain\.com/i.test(emailFrom)) {
+        throw new Error(
+          `[Boot] EMAIL_FROM still references the placeholder 'yourdomain.com'. Set it to a real verified sender.`
+        );
+      }
+
+      // Payments: refuse to boot on test_mode or with a placeholder return URL
+      // when DodoPayments is configured at all - silent test_mode in
+      // production means real customers see test sandbox checkouts.
+      const dodoConfigured = !!process.env.DODO_PAYMENTS_API_KEY;
+      if (dodoConfigured) {
+        const dodoEnv = (process.env.DODO_PAYMENTS_ENVIRONMENT || "test_mode").toLowerCase();
+        if (dodoEnv !== "live_mode") {
+          throw new Error(
+            `[Boot] DODO_PAYMENTS_ENVIRONMENT must be 'live_mode' in production, got '${dodoEnv}'.`
+          );
+        }
+        const returnUrl = (process.env.DODO_PAYMENTS_RETURN_URL || "").trim();
+        if (!returnUrl || /yourdomain\.com|localhost/i.test(returnUrl)) {
+          throw new Error(
+            `[Boot] DODO_PAYMENTS_RETURN_URL must be set to the public domain, got: ${returnUrl || "(unset)"}`
+          );
+        }
+      }
     }
 
     // Warn loudly at boot when DodoPayments product IDs are partially

@@ -27,7 +27,7 @@ export default function CookiesPage() {
       <Breadcrumbs items={[{ name: 'Cookie Policy', url: '/cookies' }]} />
       <SeoHero title="Cookie Policy" subtitle="What cookies we use and how to manage them." hideCta />
       <div className="max-w-3xl mx-auto px-6 pb-4">
-        <p className="text-sm text-gray-400 mt-2">Last updated: March 15, 2026</p>
+        <p className="text-sm text-gray-400 mt-2">Last updated: April 25, 2026</p>
       </div>
       <SeoContent>
         <h2>What Cookies We Use</h2>

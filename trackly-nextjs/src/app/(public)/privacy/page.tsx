@@ -27,7 +27,7 @@ export default function PrivacyPage() {
       <Breadcrumbs items={[{ name: 'Privacy Policy', url: '/privacy' }]} />
       <SeoHero title="Privacy Policy" subtitle="How we collect, use, store, and protect your personal data." hideCta />
       <div className="max-w-3xl mx-auto px-6 pb-4">
-        <p className="text-sm text-gray-400 mt-2">Last updated: March 15, 2026</p>
+        <p className="text-sm text-gray-400 mt-2">Last updated: April 25, 2026</p>
       </div>
       <SeoContent>
         <h2>1. Information We Collect</h2>

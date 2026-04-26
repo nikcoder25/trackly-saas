@@ -20,7 +20,7 @@ export default function PricingPage() {
         <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start with a 7-day free trial &mdash; all 5 AI platforms included.</p>
         <p className="text-sm text-gray-400 mb-12">No credit card required &middot; Cancel anytime &middot; 14-day money-back guarantee</p>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
           {monthlyPlans.map((plan) => {
             const isCustom = plan.price === 'Custom';
             const isEnterprise = plan.name === 'Enterprise';

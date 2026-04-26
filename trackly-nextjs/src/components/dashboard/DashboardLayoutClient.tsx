@@ -58,7 +58,7 @@ function TrialBanner() {
       <div style={{ flex: 1 }}>
         <strong>Free trial active</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
-        <span>{label} left &middot; 30 prompts &middot; all 6 AI platforms</span>
+        <span>{label} left &middot; 30 prompts &middot; all 5 AI platforms</span>
       </div>
       <Link href="/dashboard/account" style={{
         fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none',

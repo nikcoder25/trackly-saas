@@ -44,7 +44,7 @@ export function getPlanLimits(plan: string): PlanLimits {
   return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
 }
 
-// Free trial - 7 days from signup, 30 prompts, all 6 AI platforms.
+// Free trial - 7 days from signup, 30 prompts, all 5 AI platforms.
 export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 // Email signups start with a short provisional trial so a bot can't spin up
 // an account and start burning AI spend before the email is proven.
@@ -96,7 +96,7 @@ export interface PricingPlan {
 export const PRICING_PLANS: PricingPlan[] = [
   { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['Unlimited brands', '5 tracked queries', '2 AI platforms (ChatGPT & Claude)', 'Basic dashboard', '3 GEO audits/month'] },
   { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['Unlimited brands', '30 tracked queries', 'ChatGPT & Claude', 'SOV tracking', 'Competitor tracking (3)', 'Sentiment analysis', '20 GEO audits/month'] },
-  { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', 'Unlimited brands', '100 tracked queries', '6 AI platforms', 'Competitor tracking (8)', 'Evidence & proof export', 'Email alerts', '75 GEO audits/month'] },
+  { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', 'Unlimited brands', '100 tracked queries', '5 AI platforms', 'Competitor tracking (8)', 'Evidence & proof export', 'Email alerts', '75 GEO audits/month'] },
   { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['Everything in Pro, plus:', 'Unlimited brands', '500 tracked queries', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '300 GEO audits/month'] },
   { name: 'Enterprise', price: 'Custom', annualPrice: 'Custom', sub: 'For large organizations', cta: 'Contact Us', features: ['Everything in Agency, plus:', 'Unlimited brands', '50,000 tracked queries', 'Competitor tracking (100)', 'API access', 'Dedicated support', '5,000 GEO audits/month', 'Custom integrations'] },
 ];

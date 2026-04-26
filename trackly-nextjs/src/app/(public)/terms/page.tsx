@@ -27,7 +27,7 @@ export default function TermsPage() {
       <Breadcrumbs items={[{ name: 'Terms of Service', url: '/terms' }]} />
       <SeoHero title="Terms of Service" subtitle="Rules and conditions for using the Livesov platform." hideCta />
       <div className="max-w-3xl mx-auto px-6 pb-4">
-        <p className="text-sm text-gray-400 mt-2">Last updated: March 15, 2026</p>
+        <p className="text-sm text-gray-400 mt-2">Last updated: April 25, 2026</p>
       </div>
       <SeoContent>
         <h2>1. Acceptance of Terms</h2>
