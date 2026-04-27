@@ -88,7 +88,7 @@ const en = {
       },
       {
         name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true,
-        features: ['2,500 AI credits/month', '25 tracked queries per brand', 'Unlimited brands', '3 AI platforms', 'Competitor tracking (8)', 'Scheduled runs', 'Sentiment analysis', 'Priority support', 'Unlimited GEO audits'],
+        features: ['2,500 AI credits/month', '75 tracked queries per brand', 'Unlimited brands', '3 AI platforms', 'Competitor tracking (8)', 'Scheduled runs', 'Sentiment analysis', 'Priority support', 'Unlimited GEO audits'],
       },
       {
         name: 'Agency', price: '$89', sub: 'For agencies & teams',

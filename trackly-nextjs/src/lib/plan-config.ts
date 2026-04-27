@@ -37,7 +37,7 @@ export interface PlanCreditConfig {
 
 /**
  * Plan → credit config. Numbers come from the Livesov v2 spec:
- *   - Pro: 2,500 monthly, 50 manual/day, 3 platforms, 25 prompts, economy
+ *   - Pro: 2,500 monthly, 50 manual/day, 3 platforms, 75 prompts, economy
  *   - Agency: 7,000 monthly, 200 manual/day, 6 platforms, 100 prompts,
  *     premium (only tier allowed to hit large/search-preview models)
  *
@@ -83,7 +83,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 50,
     cooldownSeconds: 30,
     maxPlatforms: 3,
-    maxPromptsPerBrand: 25,
+    maxPromptsPerBrand: 75,
     modelTier: 'economy',
     scheduledRuns: true,
     label: 'Pro',

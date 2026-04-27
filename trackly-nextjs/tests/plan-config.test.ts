@@ -15,7 +15,7 @@ describe('PLAN_CREDITS', () => {
       monthlyCredits: 2500,
       manualDailyCap: 50,
       maxPlatforms: 3,
-      maxPromptsPerBrand: 25,
+      maxPromptsPerBrand: 75,
       modelTier: 'economy',
       scheduledRuns: true,
     });

@@ -133,7 +133,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '2,500 AI credits/month',
     features: [
       'Unlimited brands',
-      '25 tracked queries per brand',
+      '75 tracked queries per brand',
       '3 AI platforms',
       'Competitor tracking (8)',
       'Scheduled runs',
