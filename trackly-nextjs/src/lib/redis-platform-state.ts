@@ -90,6 +90,26 @@ function breakerFailuresKey(platform: string): string {
 function breakerOpenKey(platform: string): string {
   return `ai-limiter:breaker:open:${platform}`;
 }
+function coalesceKey(platform: string, hash: string): string {
+  return `ai-limiter:coalesce:${platform}:${hash}`;
+}
+
+const COALESCE_PENDING_MARKER = '__pending__';
+const COALESCE_DEFAULT_TTL_MS = 60_000;
+const COALESCE_DEFAULT_POLL_MS = 100;
+const COALESCE_DEFAULT_BUDGET_MS = 30_000;
+
+/**
+ * True when the AI_DISTRIBUTED_LIMITER feature flag is on AND a Redis
+ * client is available. Used by `ai-platforms.ts` to decide between the
+ * Redis primitives and the in-process Maps. When `AI_REDIS_REQUIRED=true`
+ * but no client is available, returns `false` here so the caller's
+ * dispatch can throw a clearer error from the primitive itself.
+ */
+export function distributedLimiterEnabled(): boolean {
+  if (process.env.AI_DISTRIBUTED_LIMITER !== 'true') return false;
+  return getLimiterRedis() !== null;
+}
 
 // Atomic concurrency + RPM check.
 //   KEYS[1] = leases zset (member=leaseId, score=expiryMs)
@@ -383,6 +403,125 @@ export async function isRateLimited(platform: string): Promise<boolean> {
   }
 }
 
+export interface CoalesceOptions {
+  signal?: AbortSignal;
+  ttlMs?: number;
+  budgetMs?: number;
+  pollMs?: number;
+}
+
+function hashCoalesceKey(rawKey: string): string {
+  return crypto.createHash('sha256').update(rawKey).digest('hex');
+}
+
+/**
+ * In-flight coalesce cache shared across pods. Two callers asking for the
+ * same `(platform, query, model, ...)` tuple see one outbound call: the
+ * SET-NX winner runs `fn`, every loser polls the same key and returns the
+ * winner's result.
+ *
+ * Key layout: `coalesce:{platform}:{sha256(rawKey)}`. SET NX with a 60s
+ * TTL stores a placeholder; the winner overwrites with the JSON-serialised
+ * result on success or DELs the key on error so losers fall back to a
+ * direct call instead of polling forever.
+ *
+ * Fail-open: when no Redis client is available (and `AI_REDIS_REQUIRED`
+ * is not set) we just run `fn` directly. The in-process coalesce path in
+ * `ai-platforms.ts` handles same-pod dedup.
+ */
+export async function coalesceCall<T>(
+  platform: string,
+  rawKey: string,
+  fn: () => Promise<T>,
+  opts: CoalesceOptions = {},
+): Promise<T> {
+  const client = getLimiterRedis();
+  if (!client) {
+    if (isRedisRequired()) {
+      throw new RedisRequiredError('coalesceCall: Redis required but unavailable');
+    }
+    return fn();
+  }
+  const key = coalesceKey(platform, hashCoalesceKey(rawKey));
+  const ttlMs = opts.ttlMs ?? COALESCE_DEFAULT_TTL_MS;
+  const budgetMs = opts.budgetMs ?? COALESCE_DEFAULT_BUDGET_MS;
+  const pollMs = opts.pollMs ?? COALESCE_DEFAULT_POLL_MS;
+  const signal = opts.signal;
+
+  let setResult: string | null;
+  try {
+    setResult = (await (client as RedisLikeClient).set(
+      key,
+      COALESCE_PENDING_MARKER,
+      'PX',
+      ttlMs,
+      'NX',
+    )) ?? null;
+  } catch (err) {
+    if (isRedisRequired()) {
+      throw new RedisRequiredError(
+        `coalesceCall SET NX failed: ${(err as Error).message}`,
+      );
+    }
+    return fn();
+  }
+
+  if (setResult === 'OK') {
+    // Winner. Run fn, write the JSON result so losers can pick it up,
+    // or DEL the key on error so they fall through to a direct call.
+    try {
+      const value = await fn();
+      try {
+        const serialised = JSON.stringify({ ok: true, value });
+        await (client as RedisLikeClient).set(key, serialised, 'PX', ttlMs);
+      } catch (err) {
+        // Best-effort cache write. Non-serialisable values (Date, BigInt)
+        // are degenerate inputs - log once and let the loser run fn() too
+        // rather than serve a corrupt cache entry.
+        if (process.env.NODE_ENV !== 'test') {
+          console.warn('[ai-limiter] coalesce cache write failed:', (err as Error).message);
+        }
+        try { await (client as RedisLikeClient).del(key); } catch { /* best-effort */ }
+      }
+      return value;
+    } catch (err) {
+      try { await (client as RedisLikeClient).del(key); } catch { /* best-effort */ }
+      throw err;
+    }
+  }
+
+  // Loser. Poll for the winner's result.
+  const startedAt = Date.now();
+  for (;;) {
+    if (signal?.aborted) {
+      throw abortError(signal, 'coalesceCall aborted while polling');
+    }
+    let raw: string | null;
+    try {
+      raw = (await (client as RedisLikeClient).get(key)) ?? null;
+    } catch {
+      // Treat as cache miss - fall through to direct fn().
+      break;
+    }
+    if (raw === null) {
+      // Winner errored and DELed the key. Fall back to running fn locally.
+      break;
+    }
+    if (raw !== COALESCE_PENDING_MARKER) {
+      try {
+        const parsed = JSON.parse(raw) as { ok?: boolean; value?: T };
+        if (parsed && parsed.ok === true) return parsed.value as T;
+      } catch {
+        // Garbled value - fall through to direct fn().
+      }
+      break;
+    }
+    if (Date.now() - startedAt >= budgetMs) break;
+    await abortAwareSleep(pollMs, signal);
+  }
+  return fn();
+}
+
 /**
  * Test-only helper. Exposes the script + key prefixes so unit tests can
  * exercise the same code paths the production callers see without
@@ -395,6 +534,9 @@ export const __test__ = {
   rpmKey,
   breakerFailuresKey,
   breakerOpenKey,
+  coalesceKey,
+  hashCoalesceKey,
+  COALESCE_PENDING_MARKER,
   PLATFORM_CB_THRESHOLD,
   PLATFORM_CB_WINDOW_MS,
   PLATFORM_CB_COOLDOWN_MS,

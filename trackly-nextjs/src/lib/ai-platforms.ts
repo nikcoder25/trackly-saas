@@ -12,6 +12,13 @@
  *   - Tagged errors (isRateLimit/isTransient/budgetExhausted) for caller routing
  */
 import { pool } from './db';
+import {
+  acquireSlot as redisAcquireSlot,
+  recordRateLimit as redisRecordRateLimit,
+  isRateLimited as redisIsRateLimited,
+  coalesceCall as redisCoalesceCall,
+  distributedLimiterEnabled,
+} from './redis-platform-state';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -232,6 +239,36 @@ function _getPlatformState(platform: string): PlatformState {
 export async function acquirePlatformSlot(platform: string, signal?: AbortSignal): Promise<() => void> {
   const limits = PLATFORM_LIMITS[platform];
   if (!limits) return () => {};
+
+  // Distributed path (issue #407): when AI_DISTRIBUTED_LIMITER=true and a
+  // Redis client is reachable, share the concurrency + RPM gate across
+  // every pod via the Lua-script primitive in redis-platform-state. The
+  // released flag mirrors the in-process version so a double-release is
+  // a no-op. Aborts and `AI_REDIS_REQUIRED=true` propagate; transient
+  // Redis errors fall through to the in-process gate so an outage
+  // degrades to PR #406 behaviour rather than a full outage.
+  if (distributedLimiterEnabled()) {
+    try {
+      const acquired = await redisAcquireSlot(platform, signal, {
+        maxConcurrent: limits.maxConcurrent,
+        rpm: limits.rpm,
+        windowMs: limits.windowMs,
+      });
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        void acquired.release();
+      };
+    } catch (err) {
+      const e = err as Error;
+      // Always propagate aborts and the fail-closed switch.
+      if (e.name === 'AbortError') throw err;
+      if (process.env.AI_REDIS_REQUIRED === 'true') throw err;
+      // Otherwise fall through to in-process gate below.
+    }
+  }
+
   const state = _getPlatformState(platform);
 
   while (state.inFlight >= limits.maxConcurrent) {
@@ -412,10 +449,22 @@ export async function withDeepRetry<T>(
 // get coalesced into one outbound call. Halves load during cron batches
 // where multiple brands share a city/query.
 const _inFlightCalls = new Map<string, Promise<QueryResult>>();
-function coalesce(key: string, fn: () => Promise<QueryResult>): Promise<QueryResult> {
+function coalesce(
+  key: string,
+  fn: () => Promise<QueryResult>,
+  platform?: string,
+  signal?: AbortSignal,
+): Promise<QueryResult> {
+  // Same-pod dedup first: an identical in-flight call in this process
+  // always coalesces into the same Promise, so callers in the same pod
+  // never need a Redis round-trip. The Redis layer only kicks in when
+  // there is no in-process winner to ride along with.
   const existing = _inFlightCalls.get(key);
   if (existing) return existing;
-  const promise = Promise.resolve().then(fn).finally(() => { _inFlightCalls.delete(key); });
+  const wrapped = distributedLimiterEnabled() && platform
+    ? () => redisCoalesceCall(platform, key, fn, { signal })
+    : fn;
+  const promise = Promise.resolve().then(wrapped).finally(() => { _inFlightCalls.delete(key); });
   _inFlightCalls.set(key, promise);
   return promise;
 }
@@ -887,7 +936,15 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         // account quota is saturated every key cools at once, so pooling
         // across keys doesn't help - we need to stop banging on the
         // provider for a few minutes across all brands.
-        if (platform) recordPlatformRateLimit(platform);
+        if (platform) {
+          recordPlatformRateLimit(platform);
+          // Mirror to Redis breaker so sibling pods see the same
+          // saturation signal. Fire-and-forget: a missed write degrades
+          // to per-pod local-CB behaviour, which is what we had pre-#407.
+          if (distributedLimiterEnabled()) {
+            void redisRecordRateLimit(platform).catch(() => {});
+          }
+        }
         // Structured observability for ChatGPT (only emitted when caller
         // passes logPrefix - non-ChatGPT paths stay quiet as before).
         if (logPrefix) {
@@ -1202,6 +1259,26 @@ export async function queryAI(
       { isRateLimit: true, budgetExhausted: true },
     );
   }
+  // Distributed breaker check: a sibling pod that absorbed the 8th 429
+  // already opened the breaker in Redis. Honour it here so this pod
+  // short-circuits the same way without first having to hit its own
+  // local 429 quota. Best-effort: a Redis hiccup falls through to the
+  // local check above (which has already passed).
+  if (distributedLimiterEnabled()) {
+    try {
+      if (await redisIsRateLimited(platform)) {
+        throw tagError(
+          `${platform}: platform rate-limit circuit open (distributed)`,
+          { isRateLimit: true, budgetExhausted: true },
+        );
+      }
+    } catch (err) {
+      const e = err as AiError;
+      if (e.isRateLimit) throw err;
+      if (process.env.AI_REDIS_REQUIRED === 'true') throw err;
+      // else fall through
+    }
+  }
   const useModel = model || getDefaultModel(platform);
   const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
   const maxTok = options?.maxTokens ?? MAX_OUTPUT_TOKENS;
@@ -1342,5 +1419,5 @@ export async function queryAI(
       }
       throw e;
     }
-  });
+  }, platform, options?.signal);
 }
