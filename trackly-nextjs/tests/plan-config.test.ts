@@ -10,24 +10,49 @@ import {
 } from '../src/lib/plan-config';
 
 describe('PLAN_CREDITS', () => {
-  it('codifies the v2 spec for each tier', () => {
+  it('codifies the v3 spec for each tier', () => {
+    expect(PLAN_CREDITS.free).toMatchObject({
+      monthlyCredits: 150,
+      manualDailyCap: 5,
+      cooldownSeconds: 300,
+      maxPlatforms: 2,
+      maxPromptsPerBrand: 5,
+      modelTier: 'economy',
+      scheduledRuns: true,
+      autoRunFrequency: 'weekly',
+      brandsCap: 1,
+    });
+    expect(PLAN_CREDITS.starter).toMatchObject({
+      monthlyCredits: 750,
+      manualDailyCap: 20,
+      cooldownSeconds: 120,
+      maxPlatforms: 2,
+      maxPromptsPerBrand: 15,
+      modelTier: 'economy',
+      autoRunFrequency: 'every_2_days',
+      brandsCap: 3,
+    });
     expect(PLAN_CREDITS.pro).toMatchObject({
       monthlyCredits: 2500,
       manualDailyCap: 50,
+      cooldownSeconds: 60,
       maxPlatforms: 3,
       maxPromptsPerBrand: 25,
       modelTier: 'economy',
       scheduledRuns: true,
+      autoRunFrequency: 'daily',
+      brandsCap: 9999,
     });
     expect(PLAN_CREDITS.agency).toMatchObject({
-      monthlyCredits: 7000,
-      manualDailyCap: 200,
+      monthlyCredits: 8000,
+      manualDailyCap: 9999,
+      cooldownSeconds: 30,
       maxPlatforms: 6,
       maxPromptsPerBrand: 100,
       modelTier: 'premium',
+      autoRunFrequency: 'daily',
+      brandsCap: 9999,
     });
-    expect(PLAN_CREDITS.free.scheduledRuns).toBe(false);
-    expect(PLAN_CREDITS.free.modelTier).toBe('economy');
   });
 
   it('falls back to free for unknown plans', () => {

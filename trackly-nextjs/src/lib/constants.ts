@@ -17,13 +17,22 @@ export const TOTP_CONFIG = {
   digits: 6,
 };
 
+// PLAN_LIMITS values are kept in lockstep with PLAN_CREDITS in plan-config.ts
+// (see PRICING_V3 spec, 2026-04-27). The fields below are the older parallel
+// config that the API/brand validation paths still read; values in this map
+// MUST match the equivalent field in PLAN_CREDITS or the dashboard's Plan
+// Comparison table will drift from what the backend actually enforces.
+//   queries  ↔ PLAN_CREDITS[plan].maxPromptsPerBrand
+//   platforms ↔ PLAN_CREDITS[plan].maxPlatforms
+//   brands   ↔ PLAN_CREDITS[plan].brandsCap
+//   minScheduleHours ↔ AUTO_RUN_HOURS[PLAN_CREDITS[plan].autoRunFrequency]
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free:       { brands: 9999, runsPerMonth: 3,   queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: false, minScheduleHours: 999, geoAudits: 3 },
-  trial:      { brands: 9999, runsPerMonth: 10,  queries: 30,   competitors: 5,   platforms: 6, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
-  starter:    { brands: 9999, runsPerMonth: 10,  queries: 30,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 72,  geoAudits: 20 },
-  pro:        { brands: 9999, runsPerMonth: 30,  queries: 100,  competitors: 8,   platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
-  agency:     { brands: 9999, runsPerMonth: 150, queries: 500,  competitors: 20,  platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
-  enterprise: { brands: 100, runsPerMonth: 30, queries: 50000, competitors: 100, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 5000 },
+  free:       { brands: 1,    runsPerMonth: 4,   queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 168, geoAudits: 3 },
+  trial:      { brands: 9999, runsPerMonth: 10,  queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
+  starter:    { brands: 3,    runsPerMonth: 15,  queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
+  pro:        { brands: 9999, runsPerMonth: 30,  queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
+  agency:     { brands: 9999, runsPerMonth: 150, queries: 100,  competitors: 20,  platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
+  enterprise: { brands: 9999, runsPerMonth: 30,  queries: 9999, competitors: 100, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 5000 },
   owner:      { brands: 9999, runsPerMonth: 99999, queries: 99999, competitors: 9999, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 99999 },
 };
 

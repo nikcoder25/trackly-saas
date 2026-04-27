@@ -12,6 +12,14 @@
 
 export type ModelTier = 'economy' | 'premium';
 
+/**
+ * How often the auto-runner picks up brands on this plan. Maps to a
+ * minimum scheduling interval — Free is weekly (every 7 days),
+ * Starter every 2 days, Pro/Agency daily. The cron worker reads this
+ * to decide whether a brand is eligible for an automated run.
+ */
+export type AutoRunFrequency = 'weekly' | 'every_2_days' | 'daily';
+
 export interface PlanCreditConfig {
   /** Total credits replenished at the start of each UTC month. */
   monthlyCredits: number;
@@ -27,6 +35,10 @@ export interface PlanCreditConfig {
   modelTier: ModelTier;
   /** Whether automated/scheduled runs are eligible on this plan. */
   scheduledRuns: boolean;
+  /** Cadence of automated runs. Ignored when scheduledRuns is false. */
+  autoRunFrequency: AutoRunFrequency;
+  /** Maximum number of brands a user on this plan can own. */
+  brandsCap: number;
   /** Display name (used by billing UI / emails). */
   label: string;
   /** Public price string (matches `PRICING_PLANS` in constants.ts). */
@@ -36,23 +48,32 @@ export interface PlanCreditConfig {
 }
 
 /**
- * Plan → credit config. Numbers come from the Livesov v2 spec:
- *   - Pro: 2,500 monthly, 50 manual/day, 3 platforms, 25 prompts, economy
- *   - Agency: 7,000 monthly, 200 manual/day, 6 platforms, 100 prompts,
- *     premium (only tier allowed to hit large/search-preview models)
+ * Plan → credit config. Numbers come from the Livesov v3 spec
+ * (see PRICING_V3.md — final pricing table approved 2026-04-27):
  *
- * Trial mirrors Starter with a tighter monthly cap so abusers can't
- * spin up an account and burn the Agency budget on day one.
+ *   - Free:    150 monthly,  5 manual/day,  5 min cooldown,  2 platforms,
+ *              5 prompts/brand,  1 brand,  weekly auto-run, economy
+ *   - Starter: 750 monthly, 20 manual/day,  2 min cooldown,  2 platforms,
+ *              15 prompts/brand, 3 brands, every 2 days,  economy
+ *   - Pro:    2,500 monthly, 50 manual/day, 60 sec cooldown, 3 platforms,
+ *              25 prompts/brand, ∞ brands, daily, economy (default)
+ *   - Agency: 8,000 monthly,  ∞ manual/day, 30 sec cooldown, 6 platforms,
+ *              100 prompts/brand, ∞ brands, daily, premium unlocked
+ *
+ * Trial mirrors Starter limits with a tighter monthly cap so abusers
+ * can't spin up an account and burn the Agency budget on day one.
  */
 export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
   free: {
-    monthlyCredits: 50,
+    monthlyCredits: 150,
     manualDailyCap: 5,
-    cooldownSeconds: 60,
+    cooldownSeconds: 300, // 5 min
     maxPlatforms: 2,
     maxPromptsPerBrand: 5,
     modelTier: 'economy',
-    scheduledRuns: false,
+    scheduledRuns: true,
+    autoRunFrequency: 'weekly',
+    brandsCap: 1,
     label: 'Free',
     price: '$0',
   },
@@ -64,40 +85,48 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     maxPromptsPerBrand: 30,
     modelTier: 'economy',
     scheduledRuns: true,
+    autoRunFrequency: 'daily',
+    brandsCap: 9999,
     label: 'Trial',
     price: '$0',
   },
   starter: {
-    monthlyCredits: 500,
-    manualDailyCap: 25,
-    cooldownSeconds: 30,
+    monthlyCredits: 750,
+    manualDailyCap: 20,
+    cooldownSeconds: 120, // 2 min
     maxPlatforms: 2,
-    maxPromptsPerBrand: 30,
+    maxPromptsPerBrand: 15,
     modelTier: 'economy',
     scheduledRuns: true,
+    autoRunFrequency: 'every_2_days',
+    brandsCap: 3,
     label: 'Starter',
     price: '$9',
   },
   pro: {
     monthlyCredits: 2500,
     manualDailyCap: 50,
-    cooldownSeconds: 30,
+    cooldownSeconds: 60,
     maxPlatforms: 3,
     maxPromptsPerBrand: 25,
     modelTier: 'economy',
     scheduledRuns: true,
+    autoRunFrequency: 'daily',
+    brandsCap: 9999,
     label: 'Pro',
     price: '$29',
     featured: true,
   },
   agency: {
-    monthlyCredits: 7000,
-    manualDailyCap: 200,
-    cooldownSeconds: 15,
+    monthlyCredits: 8000,
+    manualDailyCap: 9999, // Unlimited
+    cooldownSeconds: 30,
     maxPlatforms: 6,
     maxPromptsPerBrand: 100,
     modelTier: 'premium',
     scheduledRuns: true,
+    autoRunFrequency: 'daily',
+    brandsCap: 9999,
     label: 'Agency',
     price: '$89',
   },
@@ -109,6 +138,8 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     maxPromptsPerBrand: 9999,
     modelTier: 'premium',
     scheduledRuns: true,
+    autoRunFrequency: 'daily',
+    brandsCap: 9999,
     label: 'Enterprise',
     price: 'Custom',
   },
@@ -120,9 +151,18 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     maxPromptsPerBrand: 99999,
     modelTier: 'premium',
     scheduledRuns: true,
+    autoRunFrequency: 'daily',
+    brandsCap: 9999,
     label: 'Owner',
     price: '-',
   },
+};
+
+/** How many hours between auto-runs for each frequency tier. */
+export const AUTO_RUN_HOURS: Record<AutoRunFrequency, number> = {
+  weekly: 168,
+  every_2_days: 48,
+  daily: 24,
 };
 
 /** Plans rendered in the billing comparison table, in display order. */
