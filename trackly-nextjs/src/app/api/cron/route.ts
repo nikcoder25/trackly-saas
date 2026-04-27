@@ -263,11 +263,13 @@ export async function GET(request: Request) {
     type SkipReason =
       | 'plan_no_scheduled_runs'
       | 'interval_not_elapsed'
-      | 'crash_backoff';
+      | 'crash_backoff'
+      | 'no_credits';
     const skipCounts: Record<SkipReason, number> = {
       plan_no_scheduled_runs: 0,
       interval_not_elapsed: 0,
       crash_backoff: 0,
+      no_credits: 0,
     };
     const logSkip = (reason: SkipReason, details: Record<string, unknown>) => {
       skipCounts[reason]++;
@@ -390,6 +392,22 @@ export async function GET(request: Request) {
             });
             if (!resp.ok) {
               const body = await resp.text().catch(() => '');
+              // Credit-exhaustion (HTTP 402) and daily-cap (HTTP 429
+              // with credits.* code) are user-action-required, not
+              // cron failures. The /run handler has already emitted a
+              // de-duped notification email, so we just record a
+              // structured skip and don't surface as an error in the
+              // cron summary (which would page ops). The signature
+              // ('credits.' string in the body) is stable across
+              // future fields we may add to the 402 payload.
+              if (body.includes('credits.monthly_exhausted') ||
+                  body.includes('credits.daily_cap_reached') ||
+                  body.includes('credits.plan_disallows_auto')) {
+                throw Object.assign(new Error('credit_blocked'), {
+                  creditBlocked: true,
+                  detail: body.slice(0, 200),
+                });
+              }
               throw new Error(`HTTP ${resp.status}: ${body.slice(0, 200)}`);
             }
           } finally {
@@ -401,7 +419,22 @@ export async function GET(request: Request) {
         if (results[j].status === 'fulfilled') {
           processed++;
         } else {
-          const reason = (results[j] as PromiseRejectedResult).reason?.message || 'Unknown error';
+          const rejection = (results[j] as PromiseRejectedResult).reason as
+            | (Error & { creditBlocked?: boolean; detail?: string })
+            | undefined;
+          const reason = rejection?.message || 'Unknown error';
+          if (rejection?.creditBlocked) {
+            // Skip, don't error: the /run handler already notified
+            // the owner via email and there's no operational fix
+            // until they upgrade or the month rolls over.
+            skipCounts.no_credits++;
+            logger.info('cron.skip', {
+              reason: 'no_credits',
+              brand_id: batch[j].id,
+              detail: rejection.detail,
+            });
+            continue;
+          }
           errors.push(`${batch[j].id}: ${reason}`);
           logger.error('cron.brand_failed', { brand_id: batch[j].id, error: reason });
         }

@@ -277,6 +277,110 @@ export async function sendReportEmail(
   return sendEmail(to, `AI Visibility Report: ${escapeHtml(brandName)} - Livesov`, html);
 }
 
+// ── Livesov v2 credit-system emails ──────────────────────────────
+
+const BILLING_URL = `${APP_URL}/dashboard/billing`;
+
+function fmtResetDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  });
+}
+
+/**
+ * Low-credit warning fired when a user crosses below 20% remaining.
+ * De-duped via `usage_counters.last_low_balance_notify_at` so it
+ * only sends once per UTC month.
+ */
+export async function sendLowCreditsEmail(
+  email: string,
+  ctx: { remaining: number; monthlyCap: number; nextResetAt: string },
+): Promise<EmailResult> {
+  const pct = Math.round((ctx.remaining / Math.max(1, ctx.monthlyCap)) * 100);
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#f59e0b;margin:0 0 12px 0;">Heads up: AI credits running low</h2>
+      <p style="color:#374151;line-height:1.6;">
+        You have <strong>${ctx.remaining.toLocaleString()}</strong> of
+        ${ctx.monthlyCap.toLocaleString()} credits remaining
+        (${pct}%) for this billing period.
+      </p>
+      <p style="color:#374151;line-height:1.6;">
+        Credits reset on <strong>${escapeHtml(fmtResetDate(ctx.nextResetAt))}</strong>.
+        Upgrade now to keep your scheduled scans running through the rest of the month.
+      </p>
+      <a href="${BILLING_URL}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">View Billing</a>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+        You're receiving this because your Livesov account dropped
+        below 20% of its monthly credit allowance. We send this
+        once per month — no further reminders this period.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, 'Your Livesov AI credits are running low', html);
+}
+
+/**
+ * "We skipped your scheduled scan because you're out of credits"
+ * email. Fires the first time a cron tick rejects an auto-run for
+ * monthly_exhausted. De-duped via the same row as the low-balance
+ * email so the user gets at most one of each per month.
+ */
+export async function sendAutoSkipEmail(
+  email: string,
+  ctx: { brandName: string; monthlyCap: number; nextResetAt: string },
+): Promise<EmailResult> {
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#dc2626;margin:0 0 12px 0;">Scheduled scan skipped — out of credits</h2>
+      <p style="color:#374151;line-height:1.6;">
+        We tried to run a scheduled scan for
+        <strong>${escapeHtml(ctx.brandName)}</strong> but your account
+        has used all ${ctx.monthlyCap.toLocaleString()} credits for this
+        billing period.
+      </p>
+      <p style="color:#374151;line-height:1.6;">
+        Your credits will reset automatically on
+        <strong>${escapeHtml(fmtResetDate(ctx.nextResetAt))}</strong>.
+        Until then, your scheduled scans are paused.
+      </p>
+      <a href="${BILLING_URL}" style="display:inline-block;background:#dc2626;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">Upgrade Plan</a>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+        We won't send this notification again this billing period.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, `Scheduled scan skipped — ${ctx.brandName}`, html);
+}
+
+/**
+ * Confirmation that the monthly credit allowance has been topped up.
+ * Sent on the user's first request of the new month after the
+ * counter rolls over.
+ */
+export async function sendMonthlyResetEmail(
+  email: string,
+  ctx: { plan: string; monthlyCap: number; nextResetAt: string },
+): Promise<EmailResult> {
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#10b981;margin:0 0 12px 0;">Your credits are back</h2>
+      <p style="color:#374151;line-height:1.6;">
+        Your <strong>${escapeHtml(ctx.plan)}</strong> plan has been topped up to
+        <strong>${ctx.monthlyCap.toLocaleString()}</strong> AI credits for the
+        new billing period.
+      </p>
+      <p style="color:#374151;line-height:1.6;">
+        The next reset is on <strong>${escapeHtml(fmtResetDate(ctx.nextResetAt))}</strong>.
+      </p>
+      <a href="${APP_URL}/dashboard" style="display:inline-block;background:#10b981;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">Open Dashboard</a>
+    </div>
+  `;
+  return sendEmail(email, 'Your Livesov credits have refreshed', html);
+}
+
 async function sendContactFormViaZoho(
   subject: string,
   html: string,

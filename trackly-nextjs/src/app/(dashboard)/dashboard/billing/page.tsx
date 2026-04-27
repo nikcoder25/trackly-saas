@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLAN_LIMITS, BILLING_PORTAL_URL, PRICING_PLANS } from '@/lib/constants';
+import { PLAN_CREDITS, PLAN_DISPLAY_ORDER } from '@/lib/plan-config';
+import { useCredits } from '@/contexts/CreditsContext';
 import Link from 'next/link';
 import { useBrands } from '@/contexts/BrandContext';
 
@@ -21,17 +23,43 @@ const PLAN_PRICES: Record<string, string> = {
 
 const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
-const PLAN_FEATURES: Record<string, string | undefined>[] = [
-  { feature: 'Price / month',    free: '$0',  starter: '$9',  pro: '$29',  agency: '$89',  owner: '-' },
-  { feature: 'Brands',           free: 'Unlimited',   starter: 'Unlimited',   pro: 'Unlimited',    agency: 'Unlimited',   owner: '∞' },
-  { feature: 'Tracked queries',  free: '5',   starter: '30',  pro: '100',  agency: '500',  owner: '∞' },
-  { feature: 'Competitors',      free: '0',   starter: '3',   pro: '8',    agency: '20',   owner: '∞' },
-  { feature: 'Platforms',        free: '2',   starter: '2',   pro: '6',    agency: '6',    owner: '6' },
-  { feature: 'GEO Audits',       free: '3',   starter: '20',  pro: '75',   agency: '300',  owner: '∞' },
-  { feature: 'Sentiment',        free: '-',   starter: '✓',   pro: '✓',    agency: '✓',    owner: '✓' },
-  { feature: 'API Access',       free: '-',   starter: '-',   pro: '-',    agency: '-',    owner: '✓' },
-  { feature: 'Priority Support', free: '-',   starter: '-',   pro: '✓',    agency: '✓',    owner: '✓' },
-];
+// Plan comparison table is now generated from PLAN_CREDITS so a change
+// to plan-config.ts automatically flows into this UI without keeping
+// two sources of truth in sync.
+function buildPlanFeatures(): Record<string, string | undefined>[] {
+  const tiers = ['free', 'starter', 'pro', 'agency', 'owner'] as const;
+  const fmt = (n: number) => (n >= 99999 ? '∞' : n.toLocaleString());
+  const row = (
+    feature: string,
+    project: (plan: string) => string | undefined,
+  ): Record<string, string | undefined> => {
+    const r: Record<string, string | undefined> = { feature };
+    for (const t of tiers) r[t] = project(t);
+    return r;
+  };
+  return [
+    row('Price / month', (p) => PLAN_CREDITS[p]?.price ?? '-'),
+    row('Monthly AI credits', (p) => fmt(PLAN_CREDITS[p]?.monthlyCredits ?? 0)),
+    row('Manual cap / day', (p) => fmt(PLAN_CREDITS[p]?.manualDailyCap ?? 0)),
+    row('Cooldown', (p) => {
+      const s = PLAN_CREDITS[p]?.cooldownSeconds ?? 0;
+      return s === 0 ? 'None' : `${s}s`;
+    }),
+    row('Brands', () => 'Unlimited'),
+    row('Tracked queries / brand', (p) => fmt(PLAN_CREDITS[p]?.maxPromptsPerBrand ?? 0)),
+    row('Platforms', (p) => String(PLAN_CREDITS[p]?.maxPlatforms ?? 0)),
+    row('Model tier', (p) => PLAN_CREDITS[p]?.modelTier === 'premium' ? 'Premium' : 'Economy'),
+    row('Scheduled runs', (p) => PLAN_CREDITS[p]?.scheduledRuns ? '✓' : '-'),
+    row('Sentiment',        () => '✓'),
+    row('Priority support', (p) => p === 'pro' || p === 'agency' || p === 'owner' ? '✓' : '-'),
+    row('API access',       (p) => p === 'owner' ? '✓' : '-'),
+  ];
+}
+
+const PLAN_FEATURES: Record<string, string | undefined>[] = buildPlanFeatures();
+// Re-export the canonical plan order so any caller iterating over
+// it stays in sync with plan-config.ts.
+void PLAN_DISPLAY_ORDER;
 
 const METER_TOOLTIPS: Record<string, string> = {
   'Brands': 'Active brands: unlimited brands on all plans.',
@@ -75,11 +103,13 @@ function statusColor(s: 'good' | 'warning' | 'danger' | 'unlimited'): string {
 export default function BillingPage() {
   const { user } = useAuth();
   const { brands, selectedBrand, loading: brandsLoading } = useBrands();
+  const { status: creditStatus } = useCredits();
   const [loading, setLoading] = useState(true);
   const [billingHistory, setBillingHistory] = useState<BillingEntry[]>([]);
 
   const currentPlan = user?.plan || 'free';
   const limits = PLAN_LIMITS[currentPlan] || PLAN_LIMITS.free;
+  const creditCfg = PLAN_CREDITS[currentPlan] || PLAN_CREDITS.free;
   const planInfo = PLAN_INFO[currentPlan] || PLAN_INFO.free;
 
   const visiblePlans = currentPlan === 'owner'
@@ -345,6 +375,93 @@ export default function BillingPage() {
           </Link>
         </div>
       </div>
+
+      {/* ── AI Credits hero (Livesov v2 credit system) ── */}
+      {creditStatus && creditCfg.monthlyCredits < 99999 && (
+        <div style={{
+          marginTop: 16, padding: '20px 24px',
+          background: 'linear-gradient(135deg, rgba(99,102,241,.04), rgba(139,92,246,.02))',
+          border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          display: 'grid', gap: 16,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+              AI Credits
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 32, fontWeight: 800, fontFamily: 'var(--mono)', color: creditStatus.remaining === 0 ? '#ef4444' : 'var(--text)' }}>
+                {creditStatus.remaining.toLocaleString()}
+              </span>
+              <span style={{ fontSize: 14, color: 'var(--muted)' }}>
+                / {creditStatus.monthlyCap.toLocaleString()}
+              </span>
+            </div>
+            <div style={{ height: 8, borderRadius: 4, background: 'var(--bg3)', overflow: 'hidden', marginTop: 8 }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                width: `${Math.min(100, (creditStatus.monthlyUsed / Math.max(1, creditStatus.monthlyCap)) * 100)}%`,
+                background: creditStatus.remaining === 0
+                  ? '#ef4444'
+                  : creditStatus.lowBalance
+                    ? '#f59e0b'
+                    : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                transition: 'width .8s cubic-bezier(.4,0,.2,1)',
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+              Resets {new Date(creditStatus.nextResetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+              Manual Today
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 32, fontWeight: 800, fontFamily: 'var(--mono)', color: 'var(--text)' }}>
+                {creditStatus.manualRemainingToday.toLocaleString()}
+              </span>
+              <span style={{ fontSize: 14, color: 'var(--muted)' }}>
+                / {creditStatus.manualDailyCap.toLocaleString()}
+              </span>
+            </div>
+            <div style={{ height: 8, borderRadius: 4, background: 'var(--bg3)', overflow: 'hidden', marginTop: 8 }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                width: `${Math.min(100, ((creditStatus.manualDailyCap - creditStatus.manualRemainingToday) / Math.max(1, creditStatus.manualDailyCap)) * 100)}%`,
+                background: 'linear-gradient(90deg, #06b6d4, #22d3ee)',
+                transition: 'width .8s cubic-bezier(.4,0,.2,1)',
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+              Resets at midnight UTC
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
+              Plan Tier
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
+                {creditCfg.label}
+              </span>
+              <span style={{
+                padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700,
+                fontFamily: 'var(--mono)', textTransform: 'uppercase',
+                background: creditCfg.modelTier === 'premium' ? 'rgba(139,92,246,.1)' : 'rgba(16,185,129,.1)',
+                color: creditCfg.modelTier === 'premium' ? '#8b5cf6' : '#10b981',
+                border: `1px solid ${creditCfg.modelTier === 'premium' ? 'rgba(139,92,246,.25)' : 'rgba(16,185,129,.25)'}`,
+              }}>
+                {creditCfg.modelTier} model
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
+              {creditCfg.maxPlatforms} platforms · {creditCfg.maxPromptsPerBrand} prompts/brand
+              {creditCfg.cooldownSeconds > 0 && <> · {creditCfg.cooldownSeconds}s cooldown</>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Usage This Period ── */}
       <div style={{ marginTop: 16 }}>

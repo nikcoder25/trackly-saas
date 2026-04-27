@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { getPlanCredits } from '@/lib/plan-config';
 import { useAuth } from '@/contexts/AuthContext';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import SectionField from '@/components/dashboard/SectionField';
@@ -41,7 +42,14 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 export default function SetupPage() {
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
-  const planLimit = (user?.limits as Record<string, number>)?.queries || 50;
+  // Livesov v2: pull both the prompt and platform caps from plan-config
+  // so /dashboard/billing's plan table and the setup form gates agree.
+  // Falls back to the legacy `user.limits.queries` only when the v2
+  // config doesn't list the user's plan (shouldn't happen in practice).
+  const v2 = getPlanCredits(user?.plan || 'free');
+  const planLimit = v2.maxPromptsPerBrand
+    || (user?.limits as Record<string, number>)?.queries
+    || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
   const { startRun } = useRun();
   const startRunRef = useRef(startRun);
@@ -242,7 +250,13 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [competitors, setCompetitors] = useState<string[]>(brand.competitors || []);
   const [compInput, setCompInput] = useState('');
-  const platformLimit = (user?.limits as Record<string, number>)?.platforms || ALL_PLATFORMS.length;
+  // Livesov v2 plan caps. The setup page enforces these client-side
+  // (greying disabled platforms, trimming overflow on save) and the
+  // server re-validates in /api/brands/[id] PUT — defence in depth.
+  const v2 = getPlanCredits(user?.plan || 'free');
+  const platformLimit = v2.maxPlatforms
+    || (user?.limits as Record<string, number>)?.platforms
+    || ALL_PLATFORMS.length;
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
     Array.isArray(brand.platforms) && brand.platforms.length
       ? brand.platforms
@@ -341,6 +355,10 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       flashDuplicate(dupIdx);
       return;
     }
+    if (planLimit < 9999 && queries.length >= planLimit) {
+      setError(`Plan allows ${planLimit} prompts per brand. Upgrade for more.`);
+      return;
+    }
     setError('');
     setQueries([...queries, q]);
     setQueryInput('');
@@ -363,10 +381,24 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       setError(`${skipped} duplicate quer${skipped === 1 ? 'y' : 'ies'} skipped - nothing new to add`);
       return;
     }
+    // Cap to plan's per-brand prompt limit. The server-side PUT
+    // re-validates this; clipping here gives the user a clear local
+    // message instead of a 403 after Save.
+    let trimmed = newQ;
+    let trimmedNote = '';
+    if (planLimit < 9999 && queries.length + newQ.length > planLimit) {
+      const room = Math.max(0, planLimit - queries.length);
+      trimmed = newQ.slice(0, room);
+      trimmedNote = ` - ${newQ.length - trimmed.length} clipped at plan cap of ${planLimit}`;
+    }
+    if (!trimmed.length) {
+      setError(`Plan allows ${planLimit} prompts per brand and you're at the limit. Upgrade for more.`);
+      return;
+    }
     setError('');
-    setQueries([...queries, ...newQ]);
+    setQueries([...queries, ...trimmed]);
     setBulkText(''); setShowBulk(false);
-    setMessage(`${newQ.length} quer${newQ.length === 1 ? 'y' : 'ies'} added${skipped ? ` - ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}`);
+    setMessage(`${trimmed.length} quer${trimmed.length === 1 ? 'y' : 'ies'} added${skipped ? ` - ${skipped} duplicate${skipped === 1 ? '' : 's'} skipped` : ''}${trimmedNote}`);
   };
 
   const deleteSelected = () => {

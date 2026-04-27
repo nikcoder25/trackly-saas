@@ -4,11 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
 import { RunProvider, useRun } from '@/contexts/RunContext';
+import { CreditsProvider } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
 import GlobalLiveToasts from '@/components/dashboard/GlobalLiveToasts';
+import LowBalanceBanner from '@/components/dashboard/LowBalanceBanner';
+import CreditMigrationBanner from '@/components/dashboard/CreditMigrationBanner';
 import { ToastProvider } from '@/components/dashboard/Toast';
 import { SkeletonStyles } from '@/components/dashboard/Skeleton';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
@@ -376,6 +379,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
 
   return (
     <BrandProvider>
+    <CreditsProvider>
     <RunProvider>
     <ToastProvider>
     <OnboardingModal />
@@ -387,6 +391,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <main className="main">
           <TrialBanner />
           <EmailVerificationBanner />
+          <CreditMigrationBanner />
+          <LowBalanceBanner />
           <UsageLimitBanner />
           <GlobalRunProgress />
           {children}
@@ -405,6 +411,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     </div>
     </ToastProvider>
     </RunProvider>
+    </CreditsProvider>
     </BrandProvider>
   );
 }
