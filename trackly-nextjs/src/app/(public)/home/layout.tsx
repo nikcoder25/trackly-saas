@@ -105,7 +105,7 @@ const jsonLd = {
         {
           '@type': 'Question',
           name: 'How much does Livesov cost?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 5 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
+          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan with 50 AI credits/month, 5 tracked queries per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 500 credits, 30 queries per brand, and 2 platforms. Pro ($29/mo) adds 2,500 credits, 3 AI platforms, and priority support. Agency ($89/mo) scales to 10,000 credits, 6 AI platforms, premium AI models, and 100 tracked queries per brand. Every plan includes unlimited GEO audits.' },
         },
       ],
     },

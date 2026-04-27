@@ -64,7 +64,7 @@ const faqs = [
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 5 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
+  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 50 AI credits/month, 5 tracked queries per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 500 credits, 30 queries per brand, and 2 platforms. Pro ($29/mo) adds 2,500 credits, 3 AI platforms, and priority support. Agency ($89/mo) scales to 10,000 credits, 6 AI platforms, premium AI models, and 100 tracked queries per brand. Every plan includes unlimited GEO audits.' },
 ];
 
 const testimonials = [
@@ -619,43 +619,35 @@ export default function LivesovHomePage() {
           </div>
 
           <div className="tl-pricing-grid">
-            {pricingPlans.map(plan => {
-              const isCustom = plan.price === 'Custom';
-              return (
-                <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
-                  {plan.featured && <div className="tl-price-badge">Most Popular</div>}
-                  <h3>{plan.name}</h3>
-                  <div className="tl-price-amount">
-                    {plan.price}{!isCustom && <span>/mo</span>}
-                  </div>
-                  <p className="tl-price-sub">{plan.sub}</p>
-                  <ul className="tl-price-features">
-                    {plan.features.map(f => {
-                      const isNegative = f.toLowerCase().startsWith('no ');
-                      return (
-                        <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
-                          {isNegative ? (
-                            <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
-                          ) : (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          )}
-                          {f}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {plan.name === 'Enterprise' ? (
-                    <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                      {plan.cta}
-                    </a>
-                  ) : (
-                    <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                      {plan.cta}
-                    </Link>
-                  )}
+            {pricingPlans.map(plan => (
+              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
+                {plan.featured && <div className="tl-price-badge">Most Popular</div>}
+                <h3>{plan.name}</h3>
+                <div className="tl-price-amount">
+                  {plan.price}<span>/mo</span>
                 </div>
-              );
-            })}
+                <p className="tl-price-headline">{plan.headline}</p>
+                <p className="tl-price-sub">{plan.sub}</p>
+                <ul className="tl-price-features">
+                  {plan.features.map(f => {
+                    const isNegative = f.toLowerCase().startsWith('no ');
+                    return (
+                      <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
+                        {isNegative ? (
+                          <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        )}
+                        {f}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                  {plan.cta}
+                </Link>
+              </div>
+            ))}
           </div>
 
           {/* Comparison Table */}

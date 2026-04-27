@@ -1374,6 +1374,18 @@
   letter-spacing: 0;
 }
 
+.tl-price-headline {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tl-brand);
+  margin: 8px 0 4px;
+  letter-spacing: -0.2px;
+}
+
+.tl-price-card--featured .tl-price-headline {
+  color: #fff;
+}
+
 .tl-price-sub {
   font-size: 14px;
   color: var(--tl-text-3);

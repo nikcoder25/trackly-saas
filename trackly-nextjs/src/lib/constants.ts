@@ -88,17 +88,76 @@ export interface PricingPlan {
   price: string;
   annualPrice: string;
   sub: string;
+  /** Hero metric shown prominently on each card; the AI credits/month figure
+   *  (the dashboard's Plan Comparison treats this as the primary quota). */
+  headline: string;
   features: string[];
   cta: string;
   featured?: boolean;
 }
 
+// Mirrors the dashboard's Plan Comparison table (sourced from PLAN_CREDITS in
+// plan-config.ts and PLAN_LIMITS above). Keep the numbers here in lockstep
+// with that table — the billing UI is the source of truth for what users
+// actually get on each plan. No Enterprise tier on the public site.
 export const PRICING_PLANS: PricingPlan[] = [
-  { name: 'Free', price: '$0', annualPrice: '$0', sub: 'Try it out', cta: 'Start Free', features: ['Unlimited brands', '5 tracked queries', '2 AI platforms (ChatGPT & Claude)', 'Basic dashboard', '3 GEO audits/month'] },
-  { name: 'Starter', price: '$9', annualPrice: '$7', sub: 'Perfect for getting started', cta: 'Get Started', features: ['Unlimited brands', '30 tracked queries', 'ChatGPT & Claude', 'SOV tracking', 'Competitor tracking (3)', 'Sentiment analysis', '20 GEO audits/month'] },
-  { name: 'Pro', price: '$29', annualPrice: '$23', sub: 'For growing businesses', cta: 'Start Pro', featured: true, features: ['Everything in Starter, plus:', 'Unlimited brands', '100 tracked queries', '5 AI platforms', 'Competitor tracking (8)', 'Evidence & proof export', 'Email alerts', '75 GEO audits/month'] },
-  { name: 'Agency', price: '$89', annualPrice: '$71', sub: 'For agencies & teams', cta: 'Start Agency', features: ['Everything in Pro, plus:', 'Unlimited brands', '500 tracked queries', 'Competitor tracking (20)', 'Team collaboration', 'Priority support', '300 GEO audits/month'] },
-  { name: 'Enterprise', price: 'Custom', annualPrice: 'Custom', sub: 'For large organizations', cta: 'Contact Us', features: ['Everything in Agency, plus:', 'Unlimited brands', '50,000 tracked queries', 'Competitor tracking (100)', 'API access', 'Dedicated support', '5,000 GEO audits/month', 'Custom integrations'] },
+  {
+    name: 'Free', price: '$0', annualPrice: '$0',
+    sub: 'Try it out', cta: 'Start Free',
+    headline: '50 AI credits/month',
+    features: [
+      'Unlimited brands',
+      '5 tracked queries per brand',
+      '2 AI platforms',
+      'Sentiment analysis',
+      'Unlimited GEO audits',
+    ],
+  },
+  {
+    name: 'Starter', price: '$9', annualPrice: '$7',
+    sub: 'Perfect for getting started', cta: 'Get Started',
+    headline: '500 AI credits/month',
+    features: [
+      'Unlimited brands',
+      '30 tracked queries per brand',
+      '2 AI platforms (ChatGPT & Claude)',
+      'Competitor tracking (3)',
+      'Scheduled runs',
+      'Sentiment analysis',
+      'Unlimited GEO audits',
+    ],
+  },
+  {
+    name: 'Pro', price: '$29', annualPrice: '$23',
+    sub: 'For growing businesses', cta: 'Start Pro', featured: true,
+    headline: '2,500 AI credits/month',
+    features: [
+      'Unlimited brands',
+      '25 tracked queries per brand',
+      '3 AI platforms',
+      'Competitor tracking (8)',
+      'Scheduled runs',
+      'Sentiment analysis',
+      'Priority support',
+      'Unlimited GEO audits',
+    ],
+  },
+  {
+    name: 'Agency', price: '$89', annualPrice: '$71',
+    sub: 'For agencies & teams', cta: 'Start Agency',
+    headline: '10,000 AI credits/month',
+    features: [
+      'Unlimited brands',
+      '100 tracked queries per brand',
+      '6 AI platforms',
+      'Competitor tracking (20)',
+      'Premium AI models',
+      'Scheduled runs',
+      'Sentiment analysis',
+      'Priority support',
+      'Unlimited GEO audits',
+    ],
+  },
 ];
 
 /* ── Shared comparison table data (homepage + pricing page) ── */
@@ -112,7 +171,7 @@ export const PRICING_COMPARISON = {
     ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
     ['Competitor Tracking', '\u2713 Up to 20+', '\u2717', '\u2717'],
     ['AI Response Monitoring', '\u2713 Automatic', '\u2717', '\u2717'],
-    ['GEO URL Audits', '\u2713 (up to 300/mo)', '\u2717', '\u2717'],
+    ['GEO URL Audits', '\u2713 Unlimited', '\u2717', '\u2717'],
   ],
 };
 

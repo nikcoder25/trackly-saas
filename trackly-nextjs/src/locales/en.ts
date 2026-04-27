@@ -84,15 +84,15 @@ const en = {
     plans: [
       {
         name: 'Starter', price: '$9', sub: 'Perfect for getting started',
-        features: ['30 tracked queries', 'Unlimited brands', '2 AI platforms', 'SOV tracking & export', 'Sentiment analysis'],
+        features: ['500 AI credits/month', '30 tracked queries per brand', 'Unlimited brands', '2 AI platforms (ChatGPT & Claude)', 'Competitor tracking (3)', 'Scheduled runs', 'Sentiment analysis', 'Unlimited GEO audits'],
       },
       {
         name: 'Pro', price: '$29', sub: 'For growing businesses', featured: true,
-        features: ['100 tracked queries', 'Unlimited brands', 'All 5 AI platforms', 'Competitor tracking (8)', 'Sentiment analysis', 'Email alerts'],
+        features: ['2,500 AI credits/month', '25 tracked queries per brand', 'Unlimited brands', '3 AI platforms', 'Competitor tracking (8)', 'Scheduled runs', 'Sentiment analysis', 'Priority support', 'Unlimited GEO audits'],
       },
       {
         name: 'Agency', price: '$89', sub: 'For agencies & teams',
-        features: ['500 tracked queries', 'Unlimited brands', 'All 5 AI platforms', 'Competitor tracking (20)', 'Team collaboration', 'Priority support'],
+        features: ['10,000 AI credits/month', '100 tracked queries per brand', 'Unlimited brands', '6 AI platforms', 'Competitor tracking (20)', 'Premium AI models', 'Scheduled runs', 'Sentiment analysis', 'Priority support', 'Unlimited GEO audits'],
       },
     ],
     comparison: {
@@ -103,10 +103,10 @@ const en = {
         ['Lowest Plan', '\u2713 $9/mo', '\u2717 Trial only', '\u2717 No', 'Audit only'],
         ['AI Platforms', '5 platforms', '4 (+add-ons)', '3', '5'],
         ['Starting Price', '$9/mo', '$29/mo', '$89/mo', '$59/mo'],
-        ['Sentiment Analysis', '\u2713 From $29', '\u2717 No', '$199+/mo', '\u2713 Yes'],
-        ['Competitor Tracking', '\u2713 From $29', '\u2713 Yes', '\u2713 Yes', '\u2713 Yes'],
+        ['Sentiment Analysis', '\u2713 All plans', '\u2717 No', '$199+/mo', '\u2713 Yes'],
+        ['Competitor Tracking', '\u2713 From $9', '\u2713 Yes', '\u2713 Yes', '\u2713 Yes'],
         ['30-prompt plan', '$9/mo', '$189/mo', '$199/mo', 'Custom'],
-        ['150-prompt plan', '$29/mo', '$189/mo', '$399/mo', 'Custom'],
+        ['100-prompt plan', '$89/mo', '$189/mo', '$399/mo', 'Custom'],
       ],
       disclaimer: 'Competitor pricing sourced from public websites as of March 2026. Prices may have changed.',
     },
@@ -152,7 +152,7 @@ const en = {
       { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users.' },
       { q: 'What is Generative Engine Optimization (GEO)?', a: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers. Unlike traditional SEO, GEO focuses on being mentioned and recommended by AI chatbots.' },
       { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, which you can export as CSV reports. The Evidence & Proof section shows full AI responses with brand name highlighted, model used, and timestamp.' },
-      { q: 'How much does Livesov cost?', a: 'Livesov starts at $9/mo with the Starter plan \u2014 1 brand, 2 AI platforms, and 30 prompts/month. Pro ($29/mo) and Agency ($89/mo) plans unlock more brands, platforms, and features.' },
+      { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 50 AI credits/month, 5 tracked queries per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 500 credits, 30 queries per brand, and 2 platforms. Pro ($29/mo) adds 2,500 credits, 3 AI platforms, and priority support. Agency ($89/mo) scales to 10,000 credits, 6 AI platforms, premium AI models, and 100 tracked queries per brand. Every plan includes unlimited GEO audits.' },
       { q: 'How often does Livesov run queries?', a: 'Livesov supports daily automated tracking on all paid plans. You can also run queries manually at any time. Pro and Agency plans include scheduled runs with webhook notifications so you\'re alerted when your AI visibility changes.' },
       { q: 'How is Livesov different from traditional SEO tools?', a: 'Traditional SEO tools track your rankings on Google Search. Livesov tracks your visibility in AI-generated answers \u2014 a completely different channel. As more users shift to AI, tracking AI visibility becomes essential.' },
     ],
