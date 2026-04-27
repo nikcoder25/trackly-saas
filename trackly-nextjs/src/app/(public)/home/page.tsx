@@ -626,7 +626,10 @@ export default function LivesovHomePage() {
                 <div className="tl-price-amount">
                   {plan.price}<span>/mo</span>
                 </div>
-                <p className="tl-price-headline">{plan.headline}</p>
+                <div className="tl-price-includes">
+                  <div className="tl-price-includes-label">Includes</div>
+                  <div className="tl-price-includes-value">{plan.headline}</div>
+                </div>
                 <p className="tl-price-sub">{plan.sub}</p>
                 <ul className="tl-price-features">
                   {plan.features.map(f => {
@@ -646,9 +649,16 @@ export default function LivesovHomePage() {
                 <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
                   {plan.cta}
                 </Link>
+                {plan.name !== 'Free' && (
+                  <p className="tl-price-trial">7-day free trial · No credit card</p>
+                )}
               </div>
             ))}
           </div>
+
+          <p className="tl-pricing-compare-link">
+            Need a side-by-side breakdown? <Link href="/pricing">View the full plan comparison →</Link>
+          </p>
 
           {/* Comparison Table */}
           <div className="tl-comparison">
