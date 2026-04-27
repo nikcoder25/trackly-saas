@@ -16,6 +16,7 @@ import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquireP
 import { setTenantFairness } from './fairness-scheduler';
 import { logger } from './logger';
 import { getServerKeys } from './server-keys';
+import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -178,11 +179,20 @@ async function processRun(job: Job<BrandRunJobData>) {
         }
         const keyName = PLATFORM_KEY_MAP[plat];
         const serverKeyList = serverKeys[keyName] || [];
-        const rawKey = userKeys[keyName] || (serverKeyList.length > 0 ? serverKeyList[Math.floor(Math.random() * serverKeyList.length)] : undefined);
-        if (!rawKey) throw new Error('No API key available for ' + plat);
+        const resolved = await resolveKeysForTenant({
+          tenantId: brand.userId || null,
+          platformKeyName: keyName,
+          legacyUserKeys: userKeys as Record<string, string | null | undefined>,
+          serverKeys: serverKeyList,
+        });
+        if (!resolved) throw new Error('No API key available for ' + plat);
+        const rawKey = resolved.key;
 
-        // Circuit breaker check
-        if (circuitBreakerCheck(rawKey)) {
+        // Circuit breaker check. Only consult the global breaker for
+        // server (env) keys — tenant-supplied keys have their own
+        // (tenant, platform) failure counter so a bad customer key
+        // does not pollute the platform-wide breaker.
+        if (resolved.source === 'server' && circuitBreakerCheck(rawKey)) {
           throw new Error(`Circuit breaker open for API key - too many auth failures`);
         }
 
@@ -218,8 +228,23 @@ async function processRun(job: Job<BrandRunJobData>) {
             { queryId, signal: taskController.signal },
           );
           platFailCount[plat] = 0;
-          resetApiKeyFailures(rawKey);
+          // Only the global server pool feeds the global breaker; the
+          // (tenant, platform) row owns its own success counter so a
+          // hot tenant key cools its own (tenant, platform) state.
+          if (resolved.source === 'server') resetApiKeyFailures(rawKey);
+          if (resolved.source === 'tenant' && brand.userId) {
+            recordTenantKeyResult(brand.userId, keyName, { ok: true })
+              .catch(() => { /* health is best-effort */ });
+          }
           processResult(plat, q, result);
+        } catch (err) {
+          if (resolved.source === 'tenant' && brand.userId) {
+            recordTenantKeyResult(brand.userId, keyName, {
+              ok: false,
+              error: (err as Error).message,
+            }).catch(() => { /* health is best-effort */ });
+          }
+          throw err;
         } finally {
           clearTimeout(taskTimer);
           if (release) release();

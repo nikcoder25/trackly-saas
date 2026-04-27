@@ -1,0 +1,82 @@
+# DigitalOcean App Platform spec for trackly-saas (oyster-app).
+#
+# Source of truth for deployment topology. Apply with:
+#
+#   doctl apps update 6430b14a-cbe5-4476-a4cf-9c4398c15c3e --spec .do/app.yaml
+#
+# See docs/deploy.md for the autoscaling rationale and rollout plan
+# tracking issue #408.
+name: oyster-app
+region: nyc
+
+services:
+  - name: trackly-saas
+    # Node.js Next.js app lives in trackly-nextjs/ under the repo root.
+    source_dir: trackly-nextjs
+    github:
+      repo: nikcoder25/trackly-saas
+      branch: main
+      deploy_on_push: true
+    build_command: npm ci && npm run build
+    run_command: npm start
+    environment_slug: node-js
+    http_port: 3000
+    instance_size_slug: professional-xs
+
+    # --- Autoscaling (issue #408) -----------------------------------------
+    # Pre-#407 the service ran single-pod for correctness (in-process cron
+    # lock + BullMQ worker liveness check). With Redis-backed cron locks
+    # and stateless request handlers, we can scale horizontally.
+    #
+    # Floor at 2 pods so a rolling deploy / single-pod crash never takes
+    # the dashboard offline. Ceiling at 4 pods covers the bank-tier burst
+    # profile (10+ brands running in parallel) without overprovisioning.
+    instance_count: 2
+    autoscaling:
+      min_instance_count: 2
+      max_instance_count: 4
+      metrics:
+        cpu:
+          # Scale out when sustained CPU exceeds 70%. DO averages this
+          # across the pod fleet over a ~5 min window before reacting,
+          # which prevents thrash on short bursts (e.g. a single cron
+          # tick spinning up parallel AI fetches).
+          percent: 70
+
+    # --- Health check ------------------------------------------------------
+    # /api/health probes Postgres + Redis and reports process uptime.
+    # Failure thresholds are deliberately lenient to ride out a Redis
+    # blip without rolling pods (the route returns 503 only when the
+    # check actually fails).
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 20
+      period_seconds: 10
+      timeout_seconds: 3
+      success_threshold: 1
+      failure_threshold: 5
+
+    # --- Request routing ---------------------------------------------------
+    routes:
+      - path: /
+
+    # --- Environment variables ---------------------------------------------
+    # Secrets (DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, AI provider keys,
+    # DODO_PAYMENTS_*, EMAIL_API_KEY, TURNSTILE_SECRET_KEY, CRON_SECRET,
+    # ADMIN_SECRET, REDIS_URL, etc.) are managed in the DO console as
+    # encrypted SECRET-scoped vars and intentionally NOT mirrored here -
+    # this file is committed to git. Only non-secret runtime knobs live
+    # in this spec.
+    envs:
+      - key: NODE_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        scope: RUN_AND_BUILD_TIME
+        value: "1"
+      # Node sees only the in-pod CPU; without this, V8 over-allocates
+      # heap on a sized container and the OOM killer trips before
+      # autoscaling reacts. Keep ~75% of the instance memory ceiling.
+      - key: NODE_OPTIONS
+        scope: RUN_TIME
+        value: "--max-old-space-size=768"
