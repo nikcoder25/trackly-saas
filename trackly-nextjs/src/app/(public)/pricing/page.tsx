@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import SeoLayout, { Breadcrumbs } from '@/components/seo/SeoLayout';
-import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
+import { PLAN_LIMITS, PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
 import { PLAN_CREDITS } from '@/lib/plan-config';
+import type { AutoRunFrequency } from '@/lib/plan-config';
 
 const PUBLIC_TIERS = ['free', 'starter', 'pro', 'agency'] as const;
 type Tier = (typeof PUBLIC_TIERS)[number];
@@ -15,37 +16,112 @@ const TIER_TO_PLAN: Record<Tier, (typeof PRICING_PLANS)[number] | undefined> =
     PUBLIC_TIERS.map((t) => [t, PRICING_PLANS.find((p) => p.name.toLowerCase() === t)]),
   ) as Record<Tier, (typeof PRICING_PLANS)[number] | undefined>;
 
-const fmt = (n: number) => (n >= 99999 ? 'Unlimited' : n.toLocaleString());
-const cooldownLabel = (s: number) => (s === 0 ? 'None' : `${s}s`);
-const tierLabel = (t: Tier) =>
-  PLAN_CREDITS[t].modelTier === 'premium' ? 'Premium' : 'Economy';
+const num = (n: number) => (n >= 9999 ? 'Unlimited' : n.toLocaleString());
+const cooldownLabel = (s: number) => {
+  if (s === 0) return 'None';
+  if (s >= 60 && s % 60 === 0) {
+    const m = s / 60;
+    return m === 1 ? '1 min' : `${m} min`;
+  }
+  return `${s} sec`;
+};
+const autoRunLabel = (f: AutoRunFrequency | undefined) => {
+  if (!f) return '-';
+  if (f === 'weekly') return 'Weekly';
+  if (f === 'every_2_days') return 'Every 2 days';
+  return 'Daily';
+};
+const modelTierLabel = (t: Tier) => {
+  const cfg = PLAN_CREDITS[t];
+  if (cfg.modelTier === 'premium') return 'Premium unlocked';
+  if (t === 'pro') return 'Economy (default)';
+  return 'Economy only';
+};
+const platformsLabel = (t: Tier) => {
+  const n = PLAN_CREDITS[t].maxPlatforms;
+  return n >= 6 ? `${n} (all)` : String(n);
+};
+const manualCapLabel = (t: Tier) => {
+  const n = PLAN_CREDITS[t].manualDailyCap;
+  return n >= 9999 ? 'Unlimited' : `${n} / day`;
+};
+const brandsLabel = (t: Tier) => {
+  const n = PLAN_CREDITS[t].brandsCap;
+  return n >= 9999 ? 'Unlimited' : String(n);
+};
 
 // Mirrors the dashboard's Plan Comparison rows so the public page never
-// drifts from billing/page.tsx — both read from PLAN_CREDITS.
+// drifts from billing/page.tsx — both read from PLAN_CREDITS + PLAN_LIMITS.
+// Row order matches the v3 spec exactly (2026-04-27).
 const COMPARISON_ROWS: Array<{
   feature: string;
   values: Record<Tier, string>;
 }> = [
   {
-    feature: 'Monthly AI credits',
+    feature: 'Tracked prompts',
     values: {
-      free: fmt(PLAN_CREDITS.free.monthlyCredits),
-      starter: fmt(PLAN_CREDITS.starter.monthlyCredits),
-      pro: fmt(PLAN_CREDITS.pro.monthlyCredits),
-      agency: fmt(PLAN_CREDITS.agency.monthlyCredits),
+      free: num(PLAN_CREDITS.free.maxPromptsPerBrand),
+      starter: num(PLAN_CREDITS.starter.maxPromptsPerBrand),
+      pro: num(PLAN_CREDITS.pro.maxPromptsPerBrand),
+      agency: num(PLAN_CREDITS.agency.maxPromptsPerBrand),
     },
   },
   {
-    feature: 'Manual runs / day',
+    feature: 'AI platforms (active)',
     values: {
-      free: fmt(PLAN_CREDITS.free.manualDailyCap),
-      starter: fmt(PLAN_CREDITS.starter.manualDailyCap),
-      pro: fmt(PLAN_CREDITS.pro.manualDailyCap),
-      agency: fmt(PLAN_CREDITS.agency.manualDailyCap),
+      free: platformsLabel('free'),
+      starter: platformsLabel('starter'),
+      pro: platformsLabel('pro'),
+      agency: platformsLabel('agency'),
     },
   },
   {
-    feature: 'Cooldown',
+    feature: 'Brands',
+    values: {
+      free: brandsLabel('free'),
+      starter: brandsLabel('starter'),
+      pro: brandsLabel('pro'),
+      agency: brandsLabel('agency'),
+    },
+  },
+  {
+    feature: 'Competitors tracked',
+    values: {
+      free: String(PLAN_LIMITS.free.competitors),
+      starter: String(PLAN_LIMITS.starter.competitors),
+      pro: String(PLAN_LIMITS.pro.competitors),
+      agency: String(PLAN_LIMITS.agency.competitors),
+    },
+  },
+  {
+    feature: 'Monthly credits',
+    values: {
+      free: num(PLAN_CREDITS.free.monthlyCredits),
+      starter: num(PLAN_CREDITS.starter.monthlyCredits),
+      pro: num(PLAN_CREDITS.pro.monthlyCredits),
+      agency: num(PLAN_CREDITS.agency.monthlyCredits),
+    },
+  },
+  {
+    feature: 'Auto-run frequency',
+    values: {
+      free: autoRunLabel(PLAN_CREDITS.free.autoRunFrequency),
+      starter: autoRunLabel(PLAN_CREDITS.starter.autoRunFrequency),
+      pro: autoRunLabel(PLAN_CREDITS.pro.autoRunFrequency),
+      agency: autoRunLabel(PLAN_CREDITS.agency.autoRunFrequency),
+    },
+  },
+  {
+    feature: 'Manual Run Query cap',
+    values: {
+      free: manualCapLabel('free'),
+      starter: manualCapLabel('starter'),
+      pro: manualCapLabel('pro'),
+      agency: manualCapLabel('agency'),
+    },
+  },
+  {
+    feature: 'Cooldown per prompt',
     values: {
       free: cooldownLabel(PLAN_CREDITS.free.cooldownSeconds),
       starter: cooldownLabel(PLAN_CREDITS.starter.cooldownSeconds),
@@ -53,41 +129,46 @@ const COMPARISON_ROWS: Array<{
       agency: cooldownLabel(PLAN_CREDITS.agency.cooldownSeconds),
     },
   },
-  { feature: 'Brands', values: { free: 'Unlimited', starter: 'Unlimited', pro: 'Unlimited', agency: 'Unlimited' } },
-  {
-    feature: 'Tracked queries / brand',
-    values: {
-      free: fmt(PLAN_CREDITS.free.maxPromptsPerBrand),
-      starter: fmt(PLAN_CREDITS.starter.maxPromptsPerBrand),
-      pro: fmt(PLAN_CREDITS.pro.maxPromptsPerBrand),
-      agency: fmt(PLAN_CREDITS.agency.maxPromptsPerBrand),
-    },
-  },
-  {
-    feature: 'AI platforms',
-    values: {
-      free: String(PLAN_CREDITS.free.maxPlatforms),
-      starter: String(PLAN_CREDITS.starter.maxPlatforms),
-      pro: String(PLAN_CREDITS.pro.maxPlatforms),
-      agency: String(PLAN_CREDITS.agency.maxPlatforms),
-    },
-  },
   {
     feature: 'Model tier',
-    values: { free: tierLabel('free'), starter: tierLabel('starter'), pro: tierLabel('pro'), agency: tierLabel('agency') },
-  },
-  {
-    feature: 'Scheduled runs',
     values: {
-      free: PLAN_CREDITS.free.scheduledRuns ? '✓' : '–',
-      starter: PLAN_CREDITS.starter.scheduledRuns ? '✓' : '–',
-      pro: PLAN_CREDITS.pro.scheduledRuns ? '✓' : '–',
-      agency: PLAN_CREDITS.agency.scheduledRuns ? '✓' : '–',
+      free: modelTierLabel('free'),
+      starter: modelTierLabel('starter'),
+      pro: modelTierLabel('pro'),
+      agency: modelTierLabel('agency'),
     },
   },
-  { feature: 'Sentiment analysis', values: { free: '✓', starter: '✓', pro: '✓', agency: '✓' } },
-  { feature: 'Priority support', values: { free: '–', starter: '–', pro: '✓', agency: '✓' } },
-  { feature: 'GEO audits', values: { free: 'Unlimited', starter: 'Unlimited', pro: 'Unlimited', agency: 'Unlimited' } },
+  {
+    feature: 'GEO Audits / month',
+    values: {
+      free: String(PLAN_LIMITS.free.geoAudits),
+      starter: String(PLAN_LIMITS.starter.geoAudits),
+      pro: String(PLAN_LIMITS.pro.geoAudits),
+      agency: String(PLAN_LIMITS.agency.geoAudits),
+    },
+  },
+  {
+    feature: 'Sentiment analysis',
+    values: {
+      free: PLAN_LIMITS.free.sentiment ? '✓' : '✗',
+      starter: PLAN_LIMITS.starter.sentiment ? '✓' : '✗',
+      pro: PLAN_LIMITS.pro.sentiment ? '✓' : '✗',
+      agency: PLAN_LIMITS.agency.sentiment ? '✓' : '✗',
+    },
+  },
+  {
+    feature: 'API access',
+    values: { free: '✗', starter: '✗', pro: '✗', agency: '✓' },
+  },
+  {
+    feature: 'Priority support',
+    values: {
+      free: PLAN_LIMITS.free.prioritySupport ? '✓' : '✗',
+      starter: PLAN_LIMITS.starter.prioritySupport ? '✓' : '✗',
+      pro: PLAN_LIMITS.pro.prioritySupport ? '✓' : '✗',
+      agency: PLAN_LIMITS.agency.prioritySupport ? '✓' : '✗',
+    },
+  },
 ];
 
 const FAQ = [

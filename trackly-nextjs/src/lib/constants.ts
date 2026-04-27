@@ -108,32 +108,32 @@ export interface PricingPlan {
 // Mirrors the dashboard's Plan Comparison table (sourced from PLAN_CREDITS in
 // plan-config.ts and PLAN_LIMITS above). Keep the numbers here in lockstep
 // with that table — the billing UI is the source of truth for what users
-// actually get on each plan. No Enterprise tier on the public site.
+// actually get on each plan. v3 spec (2026-04-27). No Enterprise tier on
+// the public site.
 export const PRICING_PLANS: PricingPlan[] = [
   {
     name: 'Free', price: '$0', annualPrice: '$0',
     sub: 'Try it out', cta: 'Start Free',
-    headline: '50 AI credits/month',
+    headline: '150 AI credits/month',
     features: [
-      'Unlimited brands',
-      '5 tracked queries per brand',
+      '1 brand',
+      '5 tracked prompts per brand',
       '2 AI platforms',
-      'Sentiment analysis',
-      'Unlimited GEO audits',
+      'Weekly auto-runs',
+      '3 GEO audits/month',
     ],
   },
   {
     name: 'Starter', price: '$9', annualPrice: '$7',
     sub: 'Perfect for getting started', cta: 'Get Started',
-    headline: '500 AI credits/month',
+    headline: '750 AI credits/month',
     features: [
-      'Unlimited brands',
-      '30 tracked queries per brand',
+      '3 brands',
+      '15 tracked prompts per brand',
       '2 AI platforms (ChatGPT & Claude)',
       'Competitor tracking (3)',
-      'Scheduled runs',
-      'Sentiment analysis',
-      'Unlimited GEO audits',
+      'Auto-runs every 2 days',
+      '20 GEO audits/month',
     ],
   },
   {
@@ -142,29 +142,29 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '2,500 AI credits/month',
     features: [
       'Unlimited brands',
-      '25 tracked queries per brand',
+      '25 tracked prompts per brand',
       '3 AI platforms',
       'Competitor tracking (8)',
-      'Scheduled runs',
+      'Daily auto-runs',
       'Sentiment analysis',
-      'Priority support',
-      'Unlimited GEO audits',
+      '75 GEO audits/month',
     ],
   },
   {
     name: 'Agency', price: '$89', annualPrice: '$71',
     sub: 'For agencies & teams', cta: 'Start Agency',
-    headline: '7,000 AI credits/month',
+    headline: '8,000 AI credits/month',
     features: [
       'Unlimited brands',
-      '100 tracked queries per brand',
-      '6 AI platforms',
+      '100 tracked prompts per brand',
+      '6 AI platforms (all)',
       'Competitor tracking (20)',
       'Premium AI models',
-      'Scheduled runs',
+      'Daily auto-runs',
       'Sentiment analysis',
       'Priority support',
-      'Unlimited GEO audits',
+      'API access',
+      '300 GEO audits/month',
     ],
   },
 ];
@@ -180,7 +180,7 @@ export const PRICING_COMPARISON = {
     ['Sentiment Analysis', '\u2713 Built-in', '\u2717', '\u2717'],
     ['Competitor Tracking', '\u2713 Up to 20+', '\u2717', '\u2717'],
     ['AI Response Monitoring', '\u2713 Automatic', '\u2717', '\u2717'],
-    ['GEO URL Audits', '\u2713 Unlimited', '\u2717', '\u2717'],
+    ['GEO URL Audits', '\u2713 Up to 300/mo', '\u2717', '\u2717'],
   ],
 };
 
