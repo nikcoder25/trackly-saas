@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useBrands } from './BrandContext';
+import { useCredits } from './CreditsContext';
 
 // ── Types ────────────────────────────────────────────
 export interface LiveResult {
@@ -72,6 +73,7 @@ function fmtTime(ms: number): string {
 // ── Provider ─────────────────────────────────────────
 export function RunProvider({ children }: { children: ReactNode }) {
   const { selectedBrand, refreshBrands } = useBrands();
+  const { confirmRun, refresh: refreshCredits } = useCredits();
   const [live, setLive] = useState<RunLiveState>(INITIAL_STATE);
   const [elapsed, setElapsed] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -272,6 +274,25 @@ export function RunProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
+    // Pre-flight credit confirmation for manual user-initiated runs.
+    // Auto runs (?auto=1) skip the modal because they're triggered by
+    // setup wizards / suggestions, not a button click. The server
+    // still enforces the cap in either case — this is purely UX so
+    // the user knows the cost before clicking through.
+    if (!options?.auto && selectedBrand) {
+      const platforms = (selectedBrand as { platforms?: string[] })?.platforms?.length ?? 0;
+      const queriesCount = options?.queries
+        ? options.queries.length
+        : ((selectedBrand as { queries?: string[] })?.queries?.length ?? 0);
+      const cost = Math.max(1, queriesCount * Math.max(1, platforms || 5));
+      const proceed = await confirmRun(cost, selectedBrand.name);
+      if (!proceed) {
+        // User cancelled or was blocked by the modal. Reset run state
+        // entirely so a subsequent click of Run Query works again.
+        return;
+      }
+    }
+
     runningRef.current = true;
 
     setLive({
@@ -331,6 +352,20 @@ export function RunProvider({ children }: { children: ReactNode }) {
           setLive(prev => ({ ...prev, running: false, status: 'error', statusText: 'Brand locked - upgrade plan', errorMsg: 'plan_limit' }));
           return;
         }
+        if (response.status === 402 || (typeof errData.code === 'string' && errData.code.startsWith('credits.'))) {
+          // Out of credits / daily cap / cooldown / plan disallows
+          // auto. The handler returns a structured payload; surface it
+          // verbatim and refresh the meter so the dashboard banner
+          // updates immediately.
+          runningRef.current = false;
+          await refreshCredits();
+          setLive(prev => ({
+            ...prev, running: false, status: 'error',
+            statusText: errData.error || 'Out of AI credits',
+            errorMsg: errData.code || 'credits',
+          }));
+          return;
+        }
         throw new Error(errData.error || 'Request failed');
       }
 
@@ -359,7 +394,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
       }));
       setTimeout(() => setLive(INITIAL_STATE), 5000);
     }
-  }, [pollRunStatus, selectedBrand]);
+  }, [pollRunStatus, selectedBrand, confirmRun, refreshCredits]);
 
   // Keep ref in sync so completion callback can use latest startRun
   useEffect(() => { startRunRef.current = startRun; }, [startRun]);

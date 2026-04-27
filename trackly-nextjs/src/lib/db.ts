@@ -109,6 +109,24 @@ function runMigrations(): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS user_sessions_user_id_idx ON user_sessions(user_id);
         CREATE INDEX IF NOT EXISTS user_sessions_last_used_idx ON user_sessions(last_used_at);
+        CREATE TABLE IF NOT EXISTS usage_counters (
+          user_id TEXT PRIMARY KEY,
+          period_month DATE NOT NULL,
+          monthly_used INT NOT NULL DEFAULT 0,
+          daily_date DATE NOT NULL,
+          manual_daily_used INT NOT NULL DEFAULT 0,
+          last_low_balance_notify_at TIMESTAMPTZ,
+          last_reset_notify_at TIMESTAMPTZ,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS prompt_cooldowns (
+          user_id TEXT NOT NULL,
+          prompt_hash TEXT NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          PRIMARY KEY (user_id, prompt_hash)
+        );
+        CREATE INDEX IF NOT EXISTS prompt_cooldowns_expires_idx
+          ON prompt_cooldowns(expires_at);
         DO $$
         BEGIN
           IF NOT EXISTS (

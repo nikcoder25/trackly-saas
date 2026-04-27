@@ -15,6 +15,15 @@ import { resolveKeysForTenant, recordTenantKeyResult } from '@/lib/tenant-keys';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { checkCostCap } from '@/lib/cost-tracker';
+import {
+  reserveCredits,
+  reserveManualWithCooldown,
+  refundCredits,
+  tryClaimLowBalanceNotify,
+  tryClaimMonthlyResetNotify,
+} from '@/lib/credits';
+import { getPlanCredits, isLowBalance, resolveModelForPlan } from '@/lib/plan-config';
+import { sendLowCreditsEmail, sendAutoSkipEmail, sendMonthlyResetEmail } from '@/lib/email';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -311,6 +320,119 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // inside queryAI is the real safety net).
   }
 
+  // --- Livesov v2 credit reservation ---
+  // One LLM call = one credit. Reserve `queries × platforms` up front
+  // so two concurrent clicks can't both pass the check and overspend
+  // the monthly cap. Refunded in the worker's terminal handler if any
+  // sub-tasks didn't actually dispatch (failed acquisition, breaker open).
+  const totalCredits = queries.length * activePlatforms.length;
+  const reserveKind: 'auto' | 'manual' = isCronCall ? 'auto' : 'manual';
+  // Single-prompt manual runs gate on the per-prompt cooldown; bulk
+  // brand runs (the typical Run-All path) skip it because the
+  // monthly/daily caps already throttle bulk usage and a 30s cooldown
+  // would block re-runs of common 25-prompt brands every time.
+  const isSinglePromptManual = reserveKind === 'manual' && queries.length === 1;
+  const reservation = isSinglePromptManual
+    ? await reserveManualWithCooldown(ownerId, ownerPlan, queries[0], totalCredits)
+    : await reserveCredits(ownerId, ownerPlan, totalCredits, reserveKind);
+  if (!reservation.ok) {
+    const status = reservation.code === 'cooldown' ? 429
+      : reservation.code === 'monthly_exhausted' ? 402
+      : reservation.code === 'daily_cap_reached' ? 429
+      : 403;
+    logger.info('run.credits_blocked', {
+      brand_id: id,
+      owner_id: ownerId,
+      plan: ownerPlan,
+      kind: reserveKind,
+      code: reservation.code,
+      total_credits: totalCredits,
+      remaining: reservation.remaining,
+    });
+    // Auto-skip notification: a cron tick that gets blocked by the
+    // monthly cap is the user-facing "we couldn't run your scheduled
+    // scan because you're out of credits" — fire one email per claim
+    // to avoid spamming on every hourly tick.
+    if (isCronCall && reservation.code === 'monthly_exhausted') {
+      try {
+        const claimed = await tryClaimLowBalanceNotify(ownerId);
+        if (claimed) {
+          const u = await pool.query('SELECT email FROM users WHERE id = $1', [ownerId]);
+          const email = u.rows[0]?.email;
+          if (email) {
+            await sendAutoSkipEmail(email, {
+              brandName: brand.name || 'your brand',
+              monthlyCap: reservation.monthlyCap,
+              nextResetAt: reservation.nextResetAt,
+            });
+          }
+        }
+      } catch (e) {
+        logger.warn('run.auto_skip_notify_failed', {
+          owner_id: ownerId, error: (e as Error).message,
+        });
+      }
+    }
+    return Response.json({
+      error: reservation.message,
+      code: `credits.${reservation.code}`,
+      remaining: reservation.remaining,
+      monthlyCap: reservation.monthlyCap,
+      manualRemainingToday: reservation.manualRemainingToday,
+      manualDailyCap: reservation.manualDailyCap,
+      nextResetAt: reservation.nextResetAt,
+      cooldownRemainingSeconds: reservation.cooldownRemainingSeconds,
+      planLimit: reservation.code === 'monthly_exhausted',
+    }, { status });
+  }
+
+  // Monthly-reset confirmation email. Fires on the user's first
+  // successful reservation after the UTC month rolls over, de-duped
+  // via `usage_counters.last_reset_notify_at` so we don't send twice
+  // if two clicks land in the same second.
+  try {
+    const claimed = await tryClaimMonthlyResetNotify(ownerId);
+    if (claimed) {
+      const u = await pool.query('SELECT email FROM users WHERE id = $1', [ownerId]);
+      const email = u.rows[0]?.email;
+      const cfg = getPlanCredits(ownerPlan);
+      if (email) {
+        await sendMonthlyResetEmail(email, {
+          plan: cfg.label,
+          monthlyCap: cfg.monthlyCredits,
+          nextResetAt: reservation.nextResetAt,
+        });
+      }
+    }
+  } catch (e) {
+    logger.warn('run.monthly_reset_notify_failed', {
+      owner_id: ownerId, error: (e as Error).message,
+    });
+  }
+
+  // Low-balance email at the 20% threshold. Fired post-reservation so
+  // the math reflects the credits the caller is about to consume.
+  if (reservation.ok && isLowBalance(reservation.remaining, reservation.monthlyCap)) {
+    try {
+      const claimed = await tryClaimLowBalanceNotify(ownerId);
+      if (claimed) {
+        const u = await pool.query('SELECT email FROM users WHERE id = $1', [ownerId]);
+        const email = u.rows[0]?.email;
+        if (email) {
+          await sendLowCreditsEmail(email, {
+            remaining: reservation.remaining,
+            monthlyCap: reservation.monthlyCap,
+            nextResetAt: reservation.nextResetAt,
+          });
+        }
+      }
+    } catch (e) {
+      logger.warn('run.low_balance_notify_failed', {
+        owner_id: ownerId, error: (e as Error).message,
+      });
+    }
+  }
+
   // --- Check for existing active run (DB-based locking) ---
   await initTable();
 
@@ -379,12 +501,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const shouldEnqueue = await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan);
     });
   };
   if (syncMode && (isCronCall || callerIsAdminOrOwner)) {
     try {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan);
       const resp = Response.json({ runId, totalExpected, platforms: activePlatforms, queries, syncCompleted: true });
       if (requestId) resp.headers.set('x-request-id', requestId);
       return resp;
@@ -435,11 +557,14 @@ async function executeRunBackground(
   totalExpected: number, activePlatforms: string[], queries: string[],
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
   requestId?: string,
+  creditOwnerId?: string,
+  creditKind?: 'manual' | 'auto',
+  ownerPlan?: string,
 ) {
   try {
     return await executeRunBackgroundInner(
       brand, brandId, userId, runId, totalExpected,
-      activePlatforms, queries, serverKeys, userKeys, requestId,
+      activePlatforms, queries, serverKeys, userKeys, requestId, ownerPlan,
     );
   } finally {
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
@@ -468,6 +593,37 @@ async function executeRunBackground(
         errorMessage: (e as Error).message,
       });
     }
+
+    // Refund unused Livesov credits. We reserved `totalExpected`
+    // up-front; the worker increments `received` once per finished
+    // sub-task (regardless of success or per-task error). Any gap is
+    // a sub-task that never dispatched (breaker open, fatal crash,
+    // partial run), so it's safe to return those credits to the
+    // owner. Best-effort: a missed refund self-heals on month
+    // rollover when the counter resets.
+    if (creditOwnerId && creditKind) {
+      try {
+        const r = await pool.query(
+          'SELECT received FROM active_runs WHERE id = $1',
+          [runId],
+        );
+        const received = Number(r.rows[0]?.received || 0);
+        const unused = Math.max(0, totalExpected - received);
+        if (unused > 0) {
+          await refundCredits(creditOwnerId, unused, creditKind);
+          logger.info('run.credits_refunded', {
+            runId, brandId, owner_id: creditOwnerId,
+            kind: creditKind, refunded: unused,
+            received, total_expected: totalExpected,
+          });
+        }
+      } catch (e) {
+        logger.warn('run.credit_refund_failed', {
+          runId, brandId,
+          errorMessage: (e as Error).message,
+        });
+      }
+    }
   }
 }
 
@@ -477,6 +633,7 @@ async function executeRunBackgroundInner(
   totalExpected: number, activePlatforms: string[], queries: string[],
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
   requestId?: string,
+  ownerPlan?: string,
 ) {
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
@@ -733,7 +890,13 @@ async function executeRunBackgroundInner(
             // search-preview to gpt-4o when the query has clear non-search
             // intent. Smart routing is ON by default; set
             // CHATGPT_SMART_MODEL_ROUTING=false to disable.
-            const baseModel = adminModels[plat] || getDefaultModel(plat);
+            // Plan-aware model gating: free/starter/pro are clamped
+            // to the platform's economy model regardless of what the
+            // admin selected; only agency+ may hit premium tiers.
+            // Centralised in plan-config so the same rule applies to
+            // queue-based workers and any future entry points.
+            const adminBase = adminModels[plat] || getDefaultModel(plat);
+            const baseModel = resolveModelForPlan(plat, ownerPlan, adminBase);
             const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
             runLog.info('run.query_ai_before', {
               platform: plat, queryIndex: idx, model: modelForTask,
