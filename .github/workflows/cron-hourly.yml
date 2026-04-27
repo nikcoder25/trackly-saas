@@ -1,0 +1,32 @@
+# Hourly cron for /api/cron (per-brand scheduled runs).
+#
+# Split out from cron.yml so the 0 * * * * tick has its own dedicated
+# workflow run with no schedule collision. When two cron schedules in
+# the same workflow file overlap at the same minute, GitHub fires a
+# single run and only one cron string wins github.event.schedule, which
+# was causing the Hourly cron job to be skipped at the top of every hour.
+#
+# Required repository secrets: CRON_SECRET (matches the env var on
+# DigitalOcean).
+
+name: Hourly cron
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  hourly:
+    name: Hourly cron
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 540 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron"
