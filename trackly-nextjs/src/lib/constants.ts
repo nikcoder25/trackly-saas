@@ -145,7 +145,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   {
     name: 'Agency', price: '$89', annualPrice: '$71',
     sub: 'For agencies & teams', cta: 'Start Agency',
-    headline: '10,000 AI credits/month',
+    headline: '7,000 AI credits/month',
     features: [
       'Unlimited brands',
       '100 tracked queries per brand',

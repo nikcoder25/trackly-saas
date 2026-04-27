@@ -92,7 +92,7 @@ const en = {
       },
       {
         name: 'Agency', price: '$89', sub: 'For agencies & teams',
-        features: ['10,000 AI credits/month', '100 tracked queries per brand', 'Unlimited brands', '6 AI platforms', 'Competitor tracking (20)', 'Premium AI models', 'Scheduled runs', 'Sentiment analysis', 'Priority support', 'Unlimited GEO audits'],
+        features: ['7,000 AI credits/month', '100 tracked queries per brand', 'Unlimited brands', '6 AI platforms', 'Competitor tracking (20)', 'Premium AI models', 'Scheduled runs', 'Sentiment analysis', 'Priority support', 'Unlimited GEO audits'],
       },
     ],
     comparison: {
@@ -152,7 +152,7 @@ const en = {
       { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI platforms are more likely to recommend your brand to users.' },
       { q: 'What is Generative Engine Optimization (GEO)?', a: 'Generative Engine Optimization (GEO) is the practice of optimizing your brand\'s online presence to appear more frequently and positively in AI-generated answers. Unlike traditional SEO, GEO focuses on being mentioned and recommended by AI chatbots.' },
       { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, which you can export as CSV reports. The Evidence & Proof section shows full AI responses with brand name highlighted, model used, and timestamp.' },
-      { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 50 AI credits/month, 5 tracked queries per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 500 credits, 30 queries per brand, and 2 platforms. Pro ($29/mo) adds 2,500 credits, 3 AI platforms, and priority support. Agency ($89/mo) scales to 10,000 credits, 6 AI platforms, premium AI models, and 100 tracked queries per brand. Every plan includes unlimited GEO audits.' },
+      { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 50 AI credits/month, 5 tracked queries per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 500 credits, 30 queries per brand, and 2 platforms. Pro ($29/mo) adds 2,500 credits, 3 AI platforms, and priority support. Agency ($89/mo) scales to 7,000 credits, 6 AI platforms, premium AI models, and 100 tracked queries per brand. Every plan includes unlimited GEO audits.' },
       { q: 'How often does Livesov run queries?', a: 'Livesov supports daily automated tracking on all paid plans. You can also run queries manually at any time. Pro and Agency plans include scheduled runs with webhook notifications so you\'re alerted when your AI visibility changes.' },
       { q: 'How is Livesov different from traditional SEO tools?', a: 'Traditional SEO tools track your rankings on Google Search. Livesov tracks your visibility in AI-generated answers \u2014 a completely different channel. As more users shift to AI, tracking AI visibility becomes essential.' },
     ],
