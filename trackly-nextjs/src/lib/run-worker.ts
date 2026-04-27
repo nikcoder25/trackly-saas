@@ -225,7 +225,12 @@ async function processRun(job: Job<BrandRunJobData>) {
           });
           const result = await queryAI(
             plat, q, rawKey, modelForTask, brand,
-            { queryId, signal: taskController.signal },
+            {
+              queryId,
+              signal: taskController.signal,
+              tenantId: userId,
+              runId,
+            },
           );
           platFailCount[plat] = 0;
           // Only the global server pool feeds the global breaker; the

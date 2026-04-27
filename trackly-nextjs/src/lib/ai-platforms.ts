@@ -26,6 +26,11 @@ import {
   acquirePlatformSlotFair,
   type FairnessError,
 } from './fairness-scheduler';
+import {
+  enforceCostCap,
+  recordCostEvent,
+  CostCapExceededError,
+} from './cost-tracker';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -1198,14 +1203,20 @@ export interface QueryOptions {
   // specific 429 can be traced to a specific run+query in DO runtime
   // logs (grep `[chatgpt.ratelimit]`).
   queryId?: string;
-  // Tenant identifier (typically the brand owner's user_id) used as a
-  // metric label so per-(tenant, platform, outcome) counters and
-  // latency histograms can be aggregated. Optional - falls through to
-  // 'unknown' on the metrics side when absent.
+  // Tenant identifier (typically the brand owner's user_id). Used as
+  // (a) a metric label so per-(tenant, platform, outcome) counters
+  // and latency histograms can be aggregated, (b) the fairness
+  // scheduler partition key so a noisy tenant can't starve siblings,
+  // and (c) the cost-cap / tenant_cost_events ledger key. When set,
+  // queryAI runs the pre-flight cap check before dispatching to the
+  // provider and writes a ledger row on success. Optional - falls
+  // through to 'unknown' on the metrics side when absent and disables
+  // cost tracking + fairness partitioning.
   tenantId?: string;
-  // Optional brand/run identifiers, propagated only into structured
+  // Optional brand/run/request identifiers, propagated into structured
   // logs (NOT into the metrics label set, which would explode
-  // cardinality). Used for log correlation.
+  // cardinality) for log correlation. runId is additionally used as
+  // the foreign key on tenant_cost_events ledger rows.
   brandId?: string;
   runId?: string;
   requestId?: string;
@@ -1339,6 +1350,17 @@ export async function queryAI(
       `${platform}: platform rate-limit circuit open (cooling ${remaining}s)`,
       { isRateLimit: true, budgetExhausted: true },
     );
+  }
+  // Per-tenant cost cap (issue #411). The caller has already acquired
+  // the fairness slot in `acquirePlatformSlot`; running the cap check
+  // here - BEFORE the distributed Redis breaker query and the actual
+  // provider fetch - means a capped tenant throws CostCapExceededError
+  // immediately and the caller's finally{} releases the fairness slot
+  // straight away, so capped traffic can't park slots that healthy
+  // tenants need. CostCapExceededError carries paymentRequired=true;
+  // route handlers (and the run worker) translate that into HTTP 402.
+  if (options?.tenantId) {
+    await enforceCostCap(options.tenantId);
   }
   // Distributed breaker check: a sibling pod that absorbed the 8th 429
   // already opened the breaker in Redis. Honour it here so this pod
@@ -1503,6 +1525,20 @@ export async function queryAI(
         );
       } catch { /* best-effort logging */ }
 
+      // Persist a tenant cost event for the ledger / next pre-flight
+      // check. Best-effort: recordCostEvent swallows DB errors so a
+      // hiccup never fails the in-flight call.
+      if (options?.tenantId) {
+        await recordCostEvent({
+          tenantId: options.tenantId,
+          runId: options.runId,
+          platform,
+          model: result.model,
+          tokensIn: result.tokensIn,
+          tokensOut: result.tokensOut,
+        });
+      }
+
       return result;
     } catch (e) {
       // Tag every failure into the bounded outcome set so per-(tenant,
@@ -1528,6 +1564,10 @@ export async function queryAI(
         isRateLimit: !!err.isRateLimit,
         budgetExhausted: !!err.budgetExhausted,
       });
+      // Cost-cap rejections are user-actionable, not transient - never
+      // park them on the deferred retry queue. The tenant won't pay for
+      // the next minute either; replaying just adds noise.
+      if (e instanceof CostCapExceededError) throw e;
       if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
         // When fetchAI surfaces `needsDeferral: true` (ChatGPT only, when
         // Retry-After > per-call sleep cap) we park the query just past
