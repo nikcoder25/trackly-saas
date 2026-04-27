@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLAN_LIMITS, BILLING_PORTAL_URL, PRICING_PLANS } from '@/lib/constants';
-import { PLAN_CREDITS, PLAN_DISPLAY_ORDER } from '@/lib/plan-config';
+import { PLAN_CREDITS, PLAN_DISPLAY_ORDER, AUTO_RUN_HOURS } from '@/lib/plan-config';
+import type { AutoRunFrequency } from '@/lib/plan-config';
 import { useCredits } from '@/contexts/CreditsContext';
 import Link from 'next/link';
 import { useBrands } from '@/contexts/BrandContext';
@@ -24,12 +25,54 @@ const PLAN_PRICES: Record<string, string> = {
 
 const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
 
-// Plan comparison table is now generated from PLAN_CREDITS so a change
-// to plan-config.ts automatically flows into this UI without keeping
-// two sources of truth in sync.
+// Plan comparison table is generated from PLAN_CREDITS + PLAN_LIMITS so a
+// change to plan-config.ts / constants.ts automatically flows into this UI
+// without keeping two sources of truth in sync. Row order and labels mirror
+// the v3 pricing spec (2026-04-27).
 function buildPlanFeatures(): Record<string, string | undefined>[] {
   const tiers = ['free', 'starter', 'pro', 'agency', 'owner'] as const;
-  const fmt = (n: number) => (n >= 99999 ? '∞' : n.toLocaleString());
+  const num = (n: number) => (n >= 99999 ? '∞' : n.toLocaleString());
+  const cooldownLabel = (s: number) => {
+    if (s === 0) return 'None';
+    if (s >= 60 && s % 60 === 0) {
+      const m = s / 60;
+      return m === 1 ? '1 min' : `${m} min`;
+    }
+    return `${s} sec`;
+  };
+  const autoRunLabel = (f: AutoRunFrequency | undefined) => {
+    if (!f) return '-';
+    if (f === 'weekly') return 'Weekly';
+    if (f === 'every_2_days') return 'Every 2 days';
+    return 'Daily';
+  };
+  const modelTierLabel = (p: string) => {
+    const cfg = PLAN_CREDITS[p];
+    if (!cfg) return '-';
+    if (cfg.modelTier === 'premium') return 'Premium unlocked';
+    if (p === 'pro') return 'Economy (default)';
+    return 'Economy only';
+  };
+  const platformsLabel = (p: string) => {
+    const n = PLAN_CREDITS[p]?.maxPlatforms ?? 0;
+    return n >= 6 ? `${n} (all)` : String(n);
+  };
+  const manualCapLabel = (p: string) => {
+    const n = PLAN_CREDITS[p]?.manualDailyCap ?? 0;
+    return n >= 9999 ? 'Unlimited' : `${n} / day`;
+  };
+  const brandsLabel = (p: string) => {
+    const n = PLAN_CREDITS[p]?.brandsCap ?? 0;
+    return n >= 9999 ? 'Unlimited' : String(n);
+  };
+  const competitorsLabel = (p: string) => num(PLAN_LIMITS[p]?.competitors ?? 0);
+  const geoAuditsLabel = (p: string) => num(PLAN_LIMITS[p]?.geoAudits ?? 0);
+  const sentimentLabel = (p: string) => (PLAN_LIMITS[p]?.sentiment ? '✓' : '✗');
+  const priorityLabel = (p: string) => (PLAN_LIMITS[p]?.prioritySupport ? '✓' : '✗');
+  // API access: explicit per-plan flag rather than hard-coding owner.
+  // Agency unlocks API access in the v3 spec; owner always has it.
+  const apiAccessLabel = (p: string) => (p === 'agency' || p === 'owner' ? '✓' : '✗');
+
   const row = (
     feature: string,
     project: (plan: string) => string | undefined,
@@ -38,22 +81,30 @@ function buildPlanFeatures(): Record<string, string | undefined>[] {
     for (const t of tiers) r[t] = project(t);
     return r;
   };
+
+  // Row order mirrors the v3 spec table — facts first (price, prompts,
+  // platforms, brands, competitors), then quotas (credits, auto-run,
+  // manual cap, cooldown), then qualitative tier markers (model tier,
+  // GEO audits), then boolean features.
+  // (AUTO_RUN_HOURS is referenced here so any caller importing it stays
+  // in sync with the plan-config source of truth.)
+  void AUTO_RUN_HOURS;
+
   return [
-    row('Price / month', (p) => PLAN_CREDITS[p]?.price ?? '-'),
-    row('Monthly AI credits', (p) => fmt(PLAN_CREDITS[p]?.monthlyCredits ?? 0)),
-    row('Manual cap / day', (p) => fmt(PLAN_CREDITS[p]?.manualDailyCap ?? 0)),
-    row('Cooldown', (p) => {
-      const s = PLAN_CREDITS[p]?.cooldownSeconds ?? 0;
-      return s === 0 ? 'None' : `${s}s`;
-    }),
-    row('Brands', () => 'Unlimited'),
-    row('Tracked queries / brand', (p) => fmt(PLAN_CREDITS[p]?.maxPromptsPerBrand ?? 0)),
-    row('Platforms', (p) => String(PLAN_CREDITS[p]?.maxPlatforms ?? 0)),
-    row('Model tier', (p) => PLAN_CREDITS[p]?.modelTier === 'premium' ? 'Premium' : 'Economy'),
-    row('Scheduled runs', (p) => PLAN_CREDITS[p]?.scheduledRuns ? '✓' : '-'),
-    row('Sentiment',        () => '✓'),
-    row('Priority support', (p) => p === 'pro' || p === 'agency' || p === 'owner' ? '✓' : '-'),
-    row('API access',       (p) => p === 'owner' ? '✓' : '-'),
+    row('Price / month',         (p) => PLAN_CREDITS[p]?.price ?? '-'),
+    row('Tracked prompts',       (p) => num(PLAN_CREDITS[p]?.maxPromptsPerBrand ?? 0)),
+    row('AI platforms (active)', platformsLabel),
+    row('Brands',                brandsLabel),
+    row('Competitors tracked',   competitorsLabel),
+    row('Monthly credits',       (p) => num(PLAN_CREDITS[p]?.monthlyCredits ?? 0)),
+    row('Auto-run frequency',    (p) => autoRunLabel(PLAN_CREDITS[p]?.autoRunFrequency)),
+    row('Manual Run Query cap',  manualCapLabel),
+    row('Cooldown per prompt',   (p) => cooldownLabel(PLAN_CREDITS[p]?.cooldownSeconds ?? 0)),
+    row('Model tier',            modelTierLabel),
+    row('GEO Audits / month',    geoAuditsLabel),
+    row('Sentiment analysis',    sentimentLabel),
+    row('API access',            apiAccessLabel),
+    row('Priority support',      priorityLabel),
   ];
 }
 
@@ -63,8 +114,8 @@ const PLAN_FEATURES: Record<string, string | undefined>[] = buildPlanFeatures();
 void PLAN_DISPLAY_ORDER;
 
 const METER_TOOLTIPS: Record<string, string> = {
-  'Brands': 'Active brands: unlimited brands on all plans.',
-  'Queries': 'Tracked queries: the total number of tracked queries across all brands combined.',
+  'Brands': 'Active brands: 1 on Free, 3 on Starter, unlimited on Pro and Agency.',
+  'Queries': 'Tracked prompts: the total number of tracked prompts across all brands combined.',
   'Competitors': 'Competitors: the total number of competitor brands you can track across all brands combined.',
   'Platforms': 'AI platforms tracked: the number of AI platforms (ChatGPT, Gemini, etc.) monitored per run.',
   'GEO Audits': 'GEO audits per month: the number of geographic URL audits you can perform monthly.',
@@ -340,7 +391,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : limits.queries} tracked queries · Unlimited brands
+              {limits.queries >= 9999 ? '∞' : limits.queries} tracked prompts · {creditCfg.brandsCap >= 9999 ? 'Unlimited brands' : `${creditCfg.brandsCap} brand${creditCfg.brandsCap === 1 ? '' : 's'}`}
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '-'}
@@ -489,12 +540,21 @@ export default function BillingPage() {
               What&apos;s included in your next upgrade
             </div>
             <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-              Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
-              <strong>unlimited brands</strong> and{' '}
-              <strong>{nextPlanLimits.queries >= 9999 ? '∞' : nextPlanLimits.queries} tracked queries/mo</strong>
-              {nextPlanPricing.price !== 'Custom'
-                ? <> - just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
-                : <> - <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
+              {(() => {
+                const nextCfg = PLAN_CREDITS[nextPlanKey];
+                const nextBrands = nextCfg?.brandsCap ?? 9999;
+                const brandsCopy = nextBrands >= 9999 ? 'unlimited brands' : `${nextBrands} brand${nextBrands === 1 ? '' : 's'}`;
+                return (
+                  <>
+                    Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
+                    <strong>{brandsCopy}</strong> and{' '}
+                    <strong>{nextPlanLimits.queries >= 9999 ? '∞' : nextPlanLimits.queries} tracked prompts/brand</strong>
+                    {nextPlanPricing.price !== 'Custom'
+                      ? <> - just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
+                      : <> - <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
+                  </>
+                );
+              })()}
             </div>
           </div>
           <button onClick={() => setShowPlanModal(true)} style={{
@@ -624,16 +684,28 @@ export default function BillingPage() {
                   {visiblePlans.map(p => {
                     const val = row[p];
                     const isCheck = val === '✓';
+                    const isCross = val === '✗';
                     const isDash = val === '-';
+                    const isGlyph = isCheck || isCross || isDash;
                     const isCurrent = p === currentPlan;
                     const isRecommended = p === recommendedPlan && p !== currentPlan;
                     return (
                       <td key={p} style={{
                         padding: '11px 8px', textAlign: 'center',
-                        color: isCheck ? 'var(--green)' : isDash ? 'var(--muted)' : isCurrent ? 'var(--primary)' : isRecommended ? '#10b981' : 'var(--text)',
+                        color: isCheck
+                          ? 'var(--green)'
+                          : isCross
+                            ? 'var(--muted)'
+                            : isDash
+                              ? 'var(--muted)'
+                              : isCurrent
+                                ? 'var(--primary)'
+                                : isRecommended
+                                  ? '#10b981'
+                                  : 'var(--text)',
                         fontWeight: isCurrent || isRecommended ? 700 : isCheck ? 600 : 400,
-                        fontFamily: !isCheck && !isDash ? 'var(--mono)' : 'var(--font)',
-                        fontSize: isCheck ? 16 : 13,
+                        fontFamily: !isGlyph ? 'var(--mono)' : 'var(--font)',
+                        fontSize: isCheck || isCross ? 16 : 13,
                         background: isCurrent ? 'rgba(99,102,241,.04)' : isRecommended ? 'rgba(16,185,129,.04)' : 'transparent',
                       }}>
                         {val}
@@ -736,13 +808,17 @@ export default function BillingPage() {
                       {annualBilling ? (p.annualPrice || p.price) : p.price}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)' }}>{p.price !== 'Custom' ? '/mo' : ''}</span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, marginBottom: 12 }}>{p.sub}</div>
-                    {planLimits && (
-                      <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
-                        <div>Unlimited brands</div>
-                        <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} tracked queries/mo</div>
-                        <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
-                      </div>
-                    )}
+                    {planLimits && (() => {
+                      const cfg = PLAN_CREDITS[planKey];
+                      const brandsCap = cfg?.brandsCap ?? 9999;
+                      return (
+                        <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
+                          <div>{brandsCap >= 9999 ? 'Unlimited brands' : `${brandsCap} brand${brandsCap === 1 ? '' : 's'}`}</div>
+                          <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} tracked prompts/brand</div>
+                          <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
+                        </div>
+                      );
+                    })()}
                     {isCurrent ? (
                       <button disabled style={{
                         width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--primary)',
