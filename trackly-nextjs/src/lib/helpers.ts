@@ -153,6 +153,57 @@ export function safeUser(u: any) {
   };
 }
 
+// ── Tenant fairness settings ─────────────────────────────────
+// Resolves a tenant's per-platform fairness knobs (weight + max
+// queue depth) from `users.settings`, with sane defaults. Cached
+// in-process via the fairness scheduler's `setTenantFairness` so
+// hot-path acquires don't hit the DB. Plan-tier defaults give paid
+// plans a higher share of platform slots than free; explicit
+// per-user overrides in `users.settings` win over both.
+export interface TenantFairnessSettings {
+  weight: number;
+  maxQueueDepth: number;
+}
+
+const PLAN_FAIRNESS_WEIGHTS: Record<string, number> = {
+  free: 1,
+  trial: 1,
+  starter: 1,
+  pro: 2,
+  agency: 4,
+  enterprise: 8,
+  owner: 8,
+};
+
+export async function loadTenantFairnessSettings(userId: string): Promise<TenantFairnessSettings> {
+  const defaults: TenantFairnessSettings = {
+    weight: 1,
+    maxQueueDepth: Number(process.env.AI_FAIRNESS_MAX_QUEUE_DEPTH) || 100,
+  };
+  if (!userId) return defaults;
+  try {
+    const result = await pool.query(
+      'SELECT plan, trial_ends_at, settings FROM users WHERE id = $1',
+      [userId],
+    );
+    const row = result.rows[0];
+    if (!row) return defaults;
+    const plan = getEffectivePlan(row.plan, row.trial_ends_at);
+    const planWeight = PLAN_FAIRNESS_WEIGHTS[plan] ?? 1;
+    const settings = row.settings || {};
+    const userWeight = Number(settings.fairness_weight);
+    const userMaxQueue = Number(settings.fairness_max_queue);
+    return {
+      weight: Number.isFinite(userWeight) && userWeight > 0 ? userWeight : planWeight,
+      maxQueueDepth:
+        Number.isFinite(userMaxQueue) && userMaxQueue > 0 ? userMaxQueue : defaults.maxQueueDepth,
+    };
+  } catch {
+    // DB hiccup at run start should not block the run - fall back to defaults.
+    return defaults;
+  }
+}
+
 export async function getBrandWithAccess(brandId: string, userId: string) {
   const ownResult = await pool.query('SELECT * FROM brands WHERE id = $1 AND user_id = $2', [brandId, userId]);
   if (ownResult.rows.length) {

@@ -22,6 +22,10 @@ import {
 import { PROVIDER_SPECS } from './provider-specs';
 import { logger } from './logger';
 import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
+import {
+  acquirePlatformSlotFair,
+  type FairnessError,
+} from './fairness-scheduler';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -224,13 +228,26 @@ export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
   Perplexity: { maxConcurrent: Number(process.env.AI_LIMITS_PERPLEXITY_CONCURRENCY) || 3, rpm: Number(process.env.AI_LIMITS_PERPLEXITY_RPM) || 80,  windowMs: 60000 },
 };
 
-interface PlatformState { inFlight: number; waiters: Array<() => void>; timestamps: number[]; }
-const _platformState: Record<string, PlatformState> = {};
-
-function _getPlatformState(platform: string): PlatformState {
-  let s = _platformState[platform];
-  if (!s) { s = { inFlight: 0, waiters: [], timestamps: [] }; _platformState[platform] = s; }
+// RPM sliding window stays per-platform global (independent of which
+// tenant is calling). The concurrency cap + waiter queue, however, are
+// now owned by the fairness scheduler so one big tenant can't starve
+// the rest. See `fairness-scheduler.ts`.
+interface RpmState { timestamps: number[]; }
+const _rpmState: Record<string, RpmState> = {};
+function _getRpmState(platform: string): RpmState {
+  let s = _rpmState[platform];
+  if (!s) { s = { timestamps: [] }; _rpmState[platform] = s; }
   return s;
+}
+
+// Optional per-call fairness inputs. Callers that don't supply
+// `tenantId` get bucketed into a default tenant - which preserves
+// the pre-fairness FIFO behaviour for code paths that haven't been
+// updated yet (admin-triggered ad-hoc tasks, tests).
+export interface AcquirePlatformSlotOptions {
+  tenantId?: string;
+  weight?: number;
+  maxQueueDepth?: number;
 }
 
 // Acquire a slot respecting both concurrency and sliding-window RPM.
@@ -241,19 +258,68 @@ function _getPlatformState(platform: string): PlatformState {
 // a stuck slot deadlocks every subsequent acquire indefinitely (the
 // caller's outer task budget cannot reach inside the waiter promise).
 // Pass the per-task AbortSignal so a 180s task budget firing actually
-// frees the queue, not just the in-flight fetch. FIFO order is preserved
-// for callers that DO complete - aborts simply remove themselves.
-export async function acquirePlatformSlot(platform: string, signal?: AbortSignal): Promise<() => void> {
+// frees the queue, not just the in-flight fetch.
+//
+// Fairness (issue #410): if `opts.tenantId` is supplied, the scheduler
+// keeps a separate waiter queue per tenant and dequeues across tenants
+// in weighted round-robin order, so one big tenant submitting 30 tasks
+// can't starve a small tenant submitting 1.
+export async function acquirePlatformSlot(
+  platform: string,
+  signal?: AbortSignal,
+  opts?: AcquirePlatformSlotOptions,
+): Promise<() => void> {
   const limits = PLATFORM_LIMITS[platform];
   if (!limits) return () => {};
 
-  // Distributed path (issue #407): when AI_DISTRIBUTED_LIMITER=true and a
-  // Redis client is reachable, share the concurrency + RPM gate across
-  // every pod via the Lua-script primitive in redis-platform-state. The
-  // released flag mirrors the in-process version so a double-release is
-  // a no-op. Aborts and `AI_REDIS_REQUIRED=true` propagate; transient
-  // Redis errors fall through to the in-process gate so an outage
-  // degrades to PR #406 behaviour rather than a full outage.
+  // Per-tenant fairness scheduler (issue #410). Enforces the per-pod
+  // concurrency cap AND the round-robin order across tenants so one
+  // big tenant submitting N tasks can't starve a small tenant. Throws
+  // a tagged FairnessError when (a) the per-tenant queue depth cap is
+  // exceeded (caller should map to HTTP 429), or (b) the supplied
+  // AbortSignal fires while we're queued.
+  let release: () => void;
+  try {
+    release = await acquirePlatformSlotFair({
+      platform,
+      tenantId: opts?.tenantId,
+      weight: opts?.weight,
+      maxQueueDepth: opts?.maxQueueDepth,
+      maxConcurrent: limits.maxConcurrent,
+      signal,
+    });
+  } catch (e) {
+    const fe = e as FairnessError;
+    // Re-tag as an AiError so existing isTransientError /
+    // processError logic in the run route doesn't have to know about
+    // FairnessError. Queue overflow is rate-limit-shaped from the
+    // caller's perspective.
+    if (fe.isQueueOverflow) {
+      throw tagError(fe.message, {
+        isRateLimit: true,
+        isTransient: false,
+        budgetExhausted: true,
+      });
+    }
+    if (signal?.aborted) {
+      throw tagError(
+        _abortReasonMessage(signal, fe.message),
+        { isTransient: false },
+      );
+    }
+    throw tagError(fe.message, { isTransient: false });
+  }
+
+  // Distributed cluster-wide gate (issue #407). When AI_DISTRIBUTED_LIMITER
+  // is on and Redis is reachable, this is a strict outer bound on top of
+  // the per-pod fairness cap above: every pod's fairness scheduler hands
+  // out up to `maxConcurrent` slots locally, but the Redis Lua primitive
+  // limits cluster-wide concurrency + RPM to the same number. Cluster-wide
+  // 429s observed by sibling pods are also surfaced here via the breaker
+  // check in queryAI. Aborts and `AI_REDIS_REQUIRED=true` propagate;
+  // transient Redis errors degrade to fairness-only (we already hold the
+  // local fair slot, so the caller proceeds; we just lose cross-pod
+  // coordination, which is the pre-#407 baseline).
   if (distributedLimiterEnabled()) {
     try {
       const acquired = await redisAcquireSlot(platform, signal, {
@@ -262,74 +328,48 @@ export async function acquirePlatformSlot(platform: string, signal?: AbortSignal
         windowMs: limits.windowMs,
       });
       let released = false;
+      const fairnessRelease = release;
       return () => {
         if (released) return;
         released = true;
         void acquired.release();
+        fairnessRelease();
       };
     } catch (err) {
       const e = err as Error;
-      // Always propagate aborts and the fail-closed switch.
-      if (e.name === 'AbortError') throw err;
-      if (process.env.AI_REDIS_REQUIRED === 'true') throw err;
-      // Otherwise fall through to in-process gate below.
+      if (e.name === 'AbortError') {
+        release();
+        throw err;
+      }
+      if (process.env.AI_REDIS_REQUIRED === 'true') {
+        release();
+        throw err;
+      }
+      // Otherwise fall through to the in-process RPM window below.
     }
   }
 
-  const state = _getPlatformState(platform);
-
-  while (state.inFlight >= limits.maxConcurrent) {
-    if (signal?.aborted) {
-      throw tagError(
-        _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
-        { isTransient: false },
-      );
-    }
-    await new Promise<void>((resolve, reject) => {
-      const onAbort = () => {
-        const idx = state.waiters.indexOf(waiter);
-        if (idx !== -1) state.waiters.splice(idx, 1);
-        reject(tagError(
-        _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
-        { isTransient: false },
-      ));
-      };
-      const waiter = () => {
-        signal?.removeEventListener('abort', onAbort);
-        resolve();
-      };
-      state.waiters.push(waiter);
-      signal?.addEventListener('abort', onAbort, { once: true });
-    });
-  }
-  state.inFlight++;
-
-  let released = false;
-  const release = (): void => {
-    if (released) return;
-    released = true;
-    state.inFlight--;
-    const next = state.waiters.shift();
-    if (next) next();
-  };
-
+  // In-process sliding-window RPM. Used both when the distributed
+  // limiter is disabled AND as the degraded path when Redis is
+  // unreachable but not required.
+  const rpm = _getRpmState(platform);
   try {
     for (;;) {
       if (signal?.aborted) {
         release();
         throw tagError(
-        _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
-        { isTransient: false },
-      );
+          _abortReasonMessage(signal, `acquirePlatformSlot aborted for ${platform}`),
+          { isTransient: false },
+        );
       }
       const now = Date.now();
-      state.timestamps = state.timestamps.filter(t => now - t < limits.windowMs);
-      if (state.timestamps.length < limits.rpm) break;
-      const oldest = state.timestamps[0];
+      rpm.timestamps = rpm.timestamps.filter(t => now - t < limits.windowMs);
+      if (rpm.timestamps.length < limits.rpm) break;
+      const oldest = rpm.timestamps[0];
       const waitMs = Math.max(50, limits.windowMs - (now - oldest) + 25);
       await sleep(waitMs, signal);
     }
-    state.timestamps.push(Date.now());
+    rpm.timestamps.push(Date.now());
   } catch (e) {
     release();
     throw e;
@@ -419,6 +459,12 @@ export async function withDeepRetry<T>(
     } catch (e) {
       lastErr = e as AiError;
       if (!isTransientError(e)) throw e;
+      // If the underlying error has already been declared
+      // budget-exhausted (e.g. fairness queue-overflow throws this
+      // upfront because retrying instantly would just refill the
+      // queue), fail fast - retrying would burn ~10s of sleep before
+      // arriving at the same conclusion.
+      if (lastErr.budgetExhausted) throw lastErr;
       if (signal?.aborted) throw lastErr;
       // Rate-limit-specific backoff cap. Account-level quota exhaustion on
       // Gemini was the root cause of the "Last Run frozen" incident: the
