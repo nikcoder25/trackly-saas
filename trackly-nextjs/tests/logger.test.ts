@@ -124,4 +124,107 @@ describe('logger', () => {
     expect(consoleLog).toHaveBeenCalledWith('worker.booted');
     expect(sentryMocks.info).toHaveBeenCalledWith('worker.booted', undefined);
   });
+
+  describe('child logger', () => {
+    it('merges bindings into every record', async () => {
+      delete process.env.SENTRY_LOGS_ENABLED;
+      const logger = await loadFreshLogger();
+      const child = logger.child({ tenantId: 't_1', requestId: 'r_abc' });
+
+      child.info('ai.call.success', { latencyMs: 123 });
+
+      expect(consoleLog).toHaveBeenCalledWith(
+        'ai.call.success',
+        { tenantId: 't_1', requestId: 'r_abc', latencyMs: 123 },
+      );
+      expect(sentryMocks.info).toHaveBeenCalledWith(
+        'ai.call.success',
+        { tenantId: 't_1', requestId: 'r_abc', latencyMs: 123 },
+      );
+    });
+
+    it('child bindings compose, with later wins on key collision', async () => {
+      delete process.env.SENTRY_LOGS_ENABLED;
+      const logger = await loadFreshLogger();
+      const a = logger.child({ tenantId: 't_1', platform: 'ChatGPT' });
+      const b = a.child({ platform: 'Gemini', runId: 'run_1' });
+
+      b.info('run.task_start');
+
+      expect(consoleLog).toHaveBeenCalledWith(
+        'run.task_start',
+        { tenantId: 't_1', platform: 'Gemini', runId: 'run_1' },
+      );
+    });
+
+    it('per-call attrs override binding values', async () => {
+      delete process.env.SENTRY_LOGS_ENABLED;
+      const logger = await loadFreshLogger();
+      const child = logger.child({ platform: 'Gemini' });
+
+      child.info('ai.call.failure', { platform: 'Claude', outcome: 'timeout' });
+
+      expect(consoleLog).toHaveBeenCalledWith(
+        'ai.call.failure',
+        { platform: 'Claude', outcome: 'timeout' },
+      );
+    });
+  });
+
+  describe('json format mode', () => {
+    const prevFormat = process.env.LOG_FORMAT;
+    afterEach(() => {
+      if (prevFormat === undefined) delete process.env.LOG_FORMAT;
+      else process.env.LOG_FORMAT = prevFormat;
+    });
+
+    it('emits a single JSON line with the required fields', async () => {
+      process.env.LOG_FORMAT = 'json';
+      delete process.env.SENTRY_LOGS_ENABLED;
+      const logger = await loadFreshLogger();
+      const child = logger.child({
+        tenantId: 't_1',
+        brandId: 'b_2',
+        runId: 'r_3',
+        requestId: 'req_4',
+      });
+
+      child.warn('ai.call.failure', {
+        platform: 'Gemini',
+        outcome: 'rate_limited',
+        latencyMs: 4321,
+        errorClass: 'AiError',
+        errorMessage: '429',
+      });
+
+      expect(consoleWarn).toHaveBeenCalledTimes(1);
+      const arg = consoleWarn.mock.calls[0][0] as string;
+      const parsed = JSON.parse(arg);
+      expect(parsed.level).toBe('warn');
+      expect(parsed.msg).toBe('ai.call.failure');
+      expect(parsed.tenantId).toBe('t_1');
+      expect(parsed.brandId).toBe('b_2');
+      expect(parsed.runId).toBe('r_3');
+      expect(parsed.requestId).toBe('req_4');
+      expect(parsed.platform).toBe('Gemini');
+      expect(parsed.outcome).toBe('rate_limited');
+      expect(parsed.latencyMs).toBe(4321);
+      expect(parsed.errorClass).toBe('AiError');
+      expect(parsed.errorMessage).toBe('429');
+      expect(typeof parsed.time).toBe('number');
+    });
+
+    it('still forwards structured attrs to Sentry in JSON mode', async () => {
+      process.env.LOG_FORMAT = 'json';
+      delete process.env.SENTRY_LOGS_ENABLED;
+      const logger = await loadFreshLogger();
+
+      logger.error('run.background_failed', { runId: 'r_x' });
+
+      expect(sentryMocks.error).toHaveBeenCalledWith(
+        'run.background_failed',
+        { runId: 'r_x' },
+      );
+    });
+  });
 });
