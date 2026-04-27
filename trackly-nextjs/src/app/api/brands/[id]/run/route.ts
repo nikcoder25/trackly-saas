@@ -10,6 +10,7 @@ import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetito
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
+import { resolveKeysForTenant, recordTenantKeyResult } from '@/lib/tenant-keys';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
@@ -629,17 +630,33 @@ async function executeRunBackgroundInner(
         // then call the provider. Wrapped in withDeepRetry so transient errors
         // keep retrying until the wall-clock budget expires.
         const keyName = PLATFORM_KEY_MAP[plat];
-        const userKey = userKeys[keyName];
         const serverKeyList = serverKeys[keyName] || [];
-        const keyPool: string[] = userKey ? [userKey] : serverKeyList;
-        if (!keyPool.length) throw new Error('No API key available for ' + plat);
+        // Resolve order: tenant_api_keys (new) → users.api_keys (legacy)
+        // → server env pool. resolveKeysForTenant skips a tenant key
+        // beyond the failure threshold so a bad customer key doesn't
+        // hard-block the run forever — falls through to server keys.
+        const resolved = await resolveKeysForTenant({
+          tenantId: brand.userId || null,
+          platformKeyName: keyName,
+          legacyUserKeys: userKeys as Record<string, string | null | undefined>,
+          serverKeys: serverKeyList,
+        });
+        if (!resolved) throw new Error('No API key available for ' + plat);
+        // Tenant + user sources contribute exactly one key each, so the
+        // pickBestKey randomisation is meaningful only for the env pool.
+        const keyPool: string[] = resolved.source === 'server' ? resolved.pool : [resolved.key];
+        const keySource = resolved.source;
 
         const signal = taskController.signal;
         const singleAttempt = async () => {
           if (signal.aborted) throw new Error(timeoutMessage());
           const rawKey = pickBestKey(keyPool);
           if (!rawKey) throw new Error('No usable API key for ' + plat);
-          if (circuitBreakerCheck(rawKey)) {
+          // Only consult the global breaker for shared server keys;
+          // tenant-supplied keys have an isolated (tenant, platform)
+          // counter so a bad customer key doesn't pollute the global
+          // breaker.
+          if (keySource === 'server' && circuitBreakerCheck(rawKey)) {
             throw new Error('Circuit breaker open for API key - too many auth failures');
           }
           // Diagnostic breadcrumb: record the exact platform + query we
@@ -686,8 +703,22 @@ async function executeRunBackgroundInner(
               platform: plat, queryIndex: idx,
               textLen: r?.text?.length || 0,
             });
-            resetApiKeyFailures(rawKey);
+            // Reset only the global breaker for env keys; tenant keys
+            // own their own (tenant, platform) success counter.
+            if (keySource === 'server') resetApiKeyFailures(rawKey);
+            if (keySource === 'tenant' && brand.userId) {
+              recordTenantKeyResult(brand.userId, keyName, { ok: true })
+                .catch(() => { /* health is best-effort */ });
+            }
             return r;
+          } catch (err) {
+            if (keySource === 'tenant' && brand.userId) {
+              recordTenantKeyResult(brand.userId, keyName, {
+                ok: false,
+                error: (err as Error).message,
+              }).catch(() => { /* health is best-effort */ });
+            }
+            throw err;
           } finally {
             release();
           }
