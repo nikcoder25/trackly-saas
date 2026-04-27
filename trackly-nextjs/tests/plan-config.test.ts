@@ -20,7 +20,7 @@ describe('PLAN_CREDITS', () => {
       scheduledRuns: true,
     });
     expect(PLAN_CREDITS.agency).toMatchObject({
-      monthlyCredits: 10000,
+      monthlyCredits: 7000,
       manualDailyCap: 200,
       maxPlatforms: 6,
       maxPromptsPerBrand: 100,
