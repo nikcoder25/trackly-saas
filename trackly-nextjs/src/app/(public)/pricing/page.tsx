@@ -20,29 +20,28 @@ export default function PricingPage() {
         <p className="text-lg text-gray-500 max-w-xl mx-auto mb-2">Start with a 7-day free trial &mdash; all 5 AI platforms included.</p>
         <p className="text-sm text-gray-400 mb-12">No credit card required &middot; Cancel anytime &middot; 14-day money-back guarantee</p>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {monthlyPlans.map((plan) => {
-            const isCustom = plan.price === 'Custom';
-            const isEnterprise = plan.name === 'Enterprise';
             const isFree = plan.name === 'Free';
-            const showTrialBadge = !isCustom && !isFree;
+            const showTrialBadge = !isFree;
 
             return (
-              <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[var(--brand)] text-white ring-2 ring-[var(--brand)] shadow-lg shadow-[var(--brand)]/20' : isEnterprise ? 'bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200' : 'bg-white border border-gray-200'}`}>
+              <div key={plan.name} className={`rounded-xl p-6 text-left ${plan.highlighted ? 'bg-[var(--brand)] text-white ring-2 ring-[var(--brand)] shadow-lg shadow-[var(--brand)]/20' : 'bg-white border border-gray-200'}`}>
                 <div className="flex items-center gap-2">
                   <h3 className={`text-lg font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
                 </div>
                 <div className="mt-3 mb-1">
                   <span className={`text-3xl font-extrabold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>{plan.price}</span>
-                  {!isCustom && <span className={`text-sm ${plan.highlighted ? 'text-white/70' : 'text-gray-400'}`}>{plan.period}</span>}
+                  <span className={`text-sm ${plan.highlighted ? 'text-white/70' : 'text-gray-400'}`}>{plan.period}</span>
                 </div>
-                {isCustom && <p className="text-xs mb-4 text-indigo-500 font-medium">tailored to your needs</p>}
-                {showTrialBadge && (
+                <p className={`text-base font-bold mt-2 mb-1 ${plan.highlighted ? 'text-white' : 'text-[var(--brand)]'}`}>{plan.headline}</p>
+                {showTrialBadge ? (
                   <p className={`text-xs mb-4 font-semibold ${plan.highlighted ? 'text-white/90' : 'text-green-600'}`}>
                     Start with 7-day free trial
                   </p>
+                ) : (
+                  <div className="mb-4" />
                 )}
-                {isFree && <div className="mb-6" />}
                 <ul className="space-y-2.5 mb-6">
                   {plan.features.map((f) => {
                     const isNegative = f.toLowerCase().startsWith('no ');
@@ -58,15 +57,9 @@ export default function PricingPage() {
                     );
                   })}
                 </ul>
-                {isEnterprise ? (
-                  <a href="/contact" className="block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition bg-indigo-600 text-white hover:bg-indigo-700">
-                    {plan.cta}
-                  </a>
-                ) : (
-                  <Link href={plan.href} className={`block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition ${plan.highlighted ? 'bg-white text-[var(--brand)] hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
-                    {plan.cta}
-                  </Link>
-                )}
+                <Link href={plan.href} className={`block text-center py-2.5 rounded-lg text-sm font-bold no-underline transition ${plan.highlighted ? 'bg-white text-[var(--brand)] hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
+                  {plan.cta}
+                </Link>
               </div>
             );
           })}
