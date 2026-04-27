@@ -17,6 +17,9 @@ import {
   recordCostEvent,
   CostCapExceededError,
 } from './cost-tracker';
+import { PROVIDER_SPECS } from './provider-specs';
+import { logger } from './logger';
+import { recordAiCall, classifyOutcome, type Outcome } from './metrics';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -154,10 +157,14 @@ export function recordPlatformRateLimit(platform: string): boolean {
   if (existing.failures.length >= PLATFORM_CB_THRESHOLD && existing.openedUntil <= now) {
     existing.openedUntil = now + PLATFORM_CB_COOLDOWN_MS;
     opened = true;
-    console.warn(
-      `[${platform}] rate-limit circuit OPEN for ${Math.round(PLATFORM_CB_COOLDOWN_MS / 1000)}s ` +
-      `after ${existing.failures.length} 429s in ${Math.round(PLATFORM_CB_WINDOW_MS / 1000)}s`,
-    );
+    logger.warn(`[${platform}] rate-limit circuit OPEN`, {
+      platform,
+      outcome: 'circuit_open' satisfies Outcome,
+      cooldownMs: PLATFORM_CB_COOLDOWN_MS,
+      windowMs: PLATFORM_CB_WINDOW_MS,
+      failuresInWindow: existing.failures.length,
+      errorClass: 'PlatformBreakerOpened',
+    });
   }
   _platformBreaker.set(platform, existing);
   return opened;
@@ -402,7 +409,16 @@ export async function withDeepRetry<T>(
       const base = Math.min(60000, 10000 * Math.pow(1.5, attempt));
       const jitter = Math.floor(Math.random() * 3000);
       const delay = Math.min(base + jitter, Math.max(1000, remaining - 500));
-      console.warn(`[${platform}] transient (deep retry #${attempt + 1}, ${Math.round(elapsed/1000)}s/${Math.round(budget/1000)}s): ${(lastErr.message || '').slice(0, 120)}. Sleeping ${Math.round(delay/1000)}s.`);
+      logger.warn(`[${platform}] transient deep-retry`, {
+        platform,
+        attempt: attempt + 1,
+        elapsedMs: elapsed,
+        budgetMs: budget,
+        sleepMs: delay,
+        errorClass: lastErr.name || 'AiError',
+        errorMessage: (lastErr.message || '').slice(0, 240),
+        isRateLimit: !!lastErr.isRateLimit,
+      });
       // Pass the caller signal so an outer abort (per-task timeout in the
       // run route) interrupts the sleep - otherwise a 10-17s sleep would
       // outlive the 60s per-platform deadline and burn budget for nothing.
@@ -513,50 +529,31 @@ const API_ENDPOINTS = {
 // whether the silence was a key wiring problem (no GROK_API_KEY env
 // var) or a network problem. Now every enabled provider produces a
 // startup signature, so missing keys are visible as missing rows.
-interface ProviderBootSpec {
-  platform: string;            // log prefix segment (lowercased)
-  envPattern: RegExp;          // env-var name pattern
-  disableEnv: string;          // opt-out env var
-  buildUrl: (key: string) => string;
-  buildHeaders: (key: string) => Record<string, string>;
-}
-const _BOOT_PROBE_SPECS: ProviderBootSpec[] = [
-  { platform: 'chatgpt',    envPattern: /^OPENAI_API_KEY(_\d+)?$/,    disableEnv: 'AI_CHATGPT_BOOT_PROBE',
-    buildUrl: () => 'https://api.openai.com/v1/models',
-    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
-  { platform: 'claude',     envPattern: /^CLAUDE_API_KEY(_\d+)?$/,    disableEnv: 'AI_CLAUDE_BOOT_PROBE',
-    buildUrl: () => 'https://api.anthropic.com/v1/models',
-    buildHeaders: k => ({ 'x-api-key': k, 'anthropic-version': '2023-06-01' }) },
-  { platform: 'perplexity', envPattern: /^PERPLEXITY_API_KEY(_\d+)?$/, disableEnv: 'AI_PERPLEXITY_BOOT_PROBE',
-    // Perplexity has no public /models listing; a HEAD on chat/completions
-    // returns 405 cheaply and still proves the route + TLS handshake.
-    buildUrl: () => 'https://api.perplexity.ai/chat/completions',
-    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
-  { platform: 'grok',       envPattern: /^(GROK_API_KEY|XAI_API_KEY)(_\d+)?$/, disableEnv: 'AI_GROK_BOOT_PROBE',
-    buildUrl: () => 'https://api.x.ai/v1/models',
-    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
-  { platform: 'gemini',     envPattern: /^GEMINI_API_KEY(_\d+)?$/,    disableEnv: 'AI_GEMINI_BOOT_PROBE',
-    // Gemini auth is via query string, not header.
-    buildUrl: k => `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k)}`,
-    buildHeaders: () => ({}) },
-];
+//
+// The list of provider specs lives in `provider-specs.ts` so the
+// per-tenant key validator (#409) can hit the same URL/headers without
+// re-deriving them.
 
 function _runProviderBootProbes(): void {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return;
   const probeTimeoutMs = Number(process.env.AI_BOOT_PROBE_TIMEOUT_MS)
     || Number(process.env.AI_CHATGPT_BOOT_PROBE_TIMEOUT_MS)
     || 5000;
-  for (const spec of _BOOT_PROBE_SPECS) {
+  for (const spec of PROVIDER_SPECS) {
     if (process.env[spec.disableEnv] === 'false') continue;
     const keyEntries = Object.entries(process.env)
       .filter(([k, v]) => spec.envPattern.test(k) && typeof v === 'string' && v.length > 0)
       .map(([k, v]) => ({ envName: k, key: v as string }));
-    const logPrefix = `[${spec.platform}.boot]`;
+    const logPrefix = `[${spec.logTag}.boot]`;
     if (keyEntries.length === 0) {
       // Visible "no key" signature so an operator searching for a
       // missing platform sees something rather than nothing. This is
       // the exact gap the Grok "Inactive / No Data" symptom exposed.
-      console.warn(logPrefix, { event: 'no_key_configured', envPattern: spec.envPattern.source });
+      logger.warn(logPrefix, {
+        event: 'no_key_configured',
+        platform: spec.platform,
+        envPattern: spec.envPattern.source,
+      });
       continue;
     }
     for (const { envName, key } of keyEntries) {
@@ -570,21 +567,24 @@ function _runProviderBootProbes(): void {
             headers: spec.buildHeaders(key),
             signal: ctrl.signal,
           });
-          console.warn(logPrefix, {
+          logger.warn(logPrefix, {
             event: 'probe_ok',
+            platform: spec.platform,
             envName,
             keyTail: key.slice(-8),
             status: resp.status,
             latencyMs: Date.now() - startedAt,
           });
         } catch (e) {
-          console.warn(logPrefix, {
+          logger.warn(logPrefix, {
             event: 'probe_failed',
+            platform: spec.platform,
             envName,
             keyTail: key.slice(-8),
             latencyMs: Date.now() - startedAt,
             aborted: ctrl.signal.aborted,
-            error: (e as Error).message,
+            errorClass: (e as Error).name || 'Error',
+            errorMessage: (e as Error).message,
           });
         } finally {
           clearTimeout(timer);
@@ -813,8 +813,9 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
     const fetchStartedAt = Date.now();
     const keyTail = apiKey ? apiKey.slice(-8) : null;
     if (platform) {
-      console.warn(`${fetchLogPrefix} start`, {
+      logger.warn(`${fetchLogPrefix} start`, {
         event: 'start',
+        platform,
         queryId: logQueryId,
         model: logModel,
         attempt,
@@ -827,27 +828,30 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
     try {
       resp = await fetch(url, { ...options, signal: controller.signal });
       if (platform) {
-        console.warn(`${fetchLogPrefix} headers`, {
+        logger.warn(`${fetchLogPrefix} headers`, {
           event: 'headers',
+          platform,
           queryId: logQueryId,
           model: logModel,
           attempt,
           status: resp.status,
-          elapsedMs: Date.now() - fetchStartedAt,
+          latencyMs: Date.now() - fetchStartedAt,
         });
       }
     } catch (e) {
       cleanup();
       if (platform) {
-        console.warn(`${fetchLogPrefix} abort`, {
+        logger.warn(`${fetchLogPrefix} abort`, {
           event: 'abort',
+          platform,
           queryId: logQueryId,
           model: logModel,
           attempt,
-          elapsedMs: Date.now() - fetchStartedAt,
+          latencyMs: Date.now() - fetchStartedAt,
           callerAborted: callerSignal?.aborted ?? false,
           timerAborted: controller.signal.aborted && !callerSignal?.aborted,
-          message: (e as Error).message,
+          errorClass: (e as Error).name || 'AbortError',
+          errorMessage: (e as Error).message,
         });
       }
       if (callerSignal?.aborted) {
@@ -896,8 +900,10 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         // Structured observability for ChatGPT (only emitted when caller
         // passes logPrefix - non-ChatGPT paths stay quiet as before).
         if (logPrefix) {
-          console.warn(logPrefix, {
+          logger.warn(logPrefix, {
             event: 'rate_limited',
+            platform,
+            outcome: 'rate_limited' satisfies Outcome,
             status: resp.status,
             attempt,
             maxRetries: MAX_RETRIES,
@@ -918,8 +924,10 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
         const remainingBudget = Math.max(0, CALL_MAX_RETRY_SLEEP_MS - totalSleptMs);
         if (hint > remainingBudget && hint > 0) {
           if (logPrefix) {
-            console.warn(logPrefix, {
+            logger.warn(logPrefix, {
               event: 'defer_for_reset',
+              platform,
+              outcome: 'rate_limited' satisfies Outcome,
               status: resp.status,
               deferralMs: hint,
               remainingBudgetMs: remainingBudget,
@@ -955,8 +963,10 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
           continue;
         }
         if (logPrefix) {
-          console.warn(logPrefix, {
+          logger.warn(logPrefix, {
             event: 'final_failure',
+            platform,
+            outcome: 'rate_limited' satisfies Outcome,
             status: resp.status,
             attempts: attempt + 1,
             model: logModel,
@@ -1048,7 +1058,14 @@ async function _drainDeferredQueue(): Promise<void> {
         await queryAI(item.platform, item.query, item.apiKey, item.model, item.brand, { ...item.options, silent: true });
       } catch (e) {
         const ok = enqueueDeferredRetry(item);
-        if (!ok) console.warn(`[Deferred] ${item.platform} gave up after ${item.attempts} attempts: ${((e as Error).message || '').slice(0, 120)}`);
+        if (!ok) {
+          logger.warn(`[deferred.gave_up] ${item.platform}`, {
+            platform: item.platform,
+            attempts: item.attempts,
+            errorClass: (e as Error).name || 'Error',
+            errorMessage: ((e as Error).message || '').slice(0, 240),
+          });
+        }
       }
     }
   } finally {
@@ -1090,6 +1107,17 @@ export interface QueryOptions {
   // (admin tools, ad-hoc scripts) can opt out by leaving them unset.
   tenantId?: string;
   runId?: string;
+  // Tenant identifier (typically the brand owner's user_id) used as a
+  // metric label so per-(tenant, platform, outcome) counters and
+  // latency histograms can be aggregated. Optional - falls through to
+  // 'unknown' on the metrics side when absent.
+  tenantId?: string;
+  // Optional brand/run identifiers, propagated only into structured
+  // logs (NOT into the metrics label set, which would explode
+  // cardinality). Used for log correlation.
+  brandId?: string;
+  runId?: string;
+  requestId?: string;
 }
 
 // Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
@@ -1147,7 +1175,13 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
       lastErr = e as AiError;
       const transient = isTransientError(e);
       if (transient && m < attemptModels.length - 1) {
-        console.warn(`[Gemini] ${geminiModel} transient - falling back to ${attemptModels[m + 1]}`);
+        logger.warn('[gemini.fallback]', {
+          platform: 'Gemini',
+          fromModel: geminiModel,
+          toModel: attemptModels[m + 1],
+          errorClass: (lastErr as Error).name || 'AiError',
+          errorMessage: ((lastErr as Error).message || '').slice(0, 240),
+        });
         continue;
       }
       throw e;
@@ -1185,10 +1219,11 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
   if (FRESHNESS_OR_LOCAL_RE.test(q)) return adminModel;
   // Safe to route to standard model.
   const fallback = 'gpt-4o';
-  console.warn('[chatgpt.ratelimit]', {
+  logger.warn('[chatgpt.ratelimit]', {
     event: 'smart_route',
-    from: adminModel,
-    to: fallback,
+    platform: 'ChatGPT',
+    fromModel: adminModel,
+    toModel: fallback,
     query: q.slice(0, 120),
   });
   return fallback;
@@ -1342,6 +1377,21 @@ export async function queryAI(
       clearKeyCooldown(apiKey);
 
       const responseTimeMs = Date.now() - startMs;
+      const tenantId = options?.tenantId || (brand?.id as string) || 'unknown';
+      recordAiCall({ tenant: tenantId, platform, outcome: 'success' }, responseTimeMs);
+      logger.info('ai.call.success', {
+        platform,
+        outcome: 'success' satisfies Outcome,
+        latencyMs: responseTimeMs,
+        model: result.model,
+        tenantId,
+        brandId: options?.brandId || (brand?.id as string),
+        runId: options?.runId,
+        requestId: options?.requestId,
+        queryId: options?.queryId,
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
+      });
       try {
         await pool.query(
           `INSERT INTO api_logs (platform, query, status, model, response_ms) VALUES ($1, $2, $3, $4, $5)`,
@@ -1369,6 +1419,29 @@ export async function queryAI(
       // park them on the deferred retry queue. The tenant won't pay for
       // the next minute either; replaying just adds noise.
       if (e instanceof CostCapExceededError) throw e;
+      // Tag every failure into the bounded outcome set so per-(tenant,
+      // platform, outcome) aggregation works without callers inventing
+      // their own taxonomy. Latency is recorded even on failure - a
+      // 60s timeout is meaningful signal.
+      const responseTimeMs = Date.now() - startMs;
+      const outcome = classifyOutcome(e);
+      const tenantId = options?.tenantId || (brand?.id as string) || 'unknown';
+      recordAiCall({ tenant: tenantId, platform, outcome }, responseTimeMs);
+      const err = e as AiError;
+      logger.warn('ai.call.failure', {
+        platform,
+        outcome,
+        latencyMs: responseTimeMs,
+        tenantId,
+        brandId: options?.brandId || (brand?.id as string),
+        runId: options?.runId,
+        requestId: options?.requestId,
+        queryId: options?.queryId,
+        errorClass: err.name || 'AiError',
+        errorMessage: (err.message || '').slice(0, 240),
+        isRateLimit: !!err.isRateLimit,
+        budgetExhausted: !!err.budgetExhausted,
+      });
       if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
         // When fetchAI surfaces `needsDeferral: true` (ChatGPT only, when
         // Retry-After > per-call sleep cap) we park the query just past

@@ -10,6 +10,7 @@ import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetito
 import { after } from 'next/server';
 import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
+import { resolveKeysForTenant, recordTenantKeyResult } from '@/lib/tenant-keys';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { checkCostCap } from '@/lib/cost-tracker';
@@ -92,6 +93,10 @@ async function initTable() {
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Pull the request id stamped by the edge middleware. Threaded into the
+  // background worker so /api/metrics, /api/admin/diagnostic, and Sentry
+  // events all reference the same correlation key for this run.
+  const requestId = request.headers.get('x-request-id') || undefined;
   // Allow internal cron calls authenticated via x-cron-secret header
   const cronSecret = process.env.CRON_SECRET;
   const cronHeader = request.headers.get('x-cron-secret');
@@ -373,13 +378,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const shouldEnqueue = await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId);
     });
   };
   if (syncMode && (isCronCall || callerIsAdminOrOwner)) {
     try {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys);
-      return Response.json({ runId, totalExpected, platforms: activePlatforms, queries, syncCompleted: true });
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId);
+      const resp = Response.json({ runId, totalExpected, platforms: activePlatforms, queries, syncCompleted: true });
+      if (requestId) resp.headers.set('x-request-id', requestId);
+      return resp;
     } catch (e) {
       return Response.json({
         runId, totalExpected, platforms: activePlatforms, queries,
@@ -394,9 +401,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       // Redis went down between the availability check and the enqueue.
       // Fall back to in-process so the run still completes this tick.
       logger.warn('run.enqueue_failed_falling_back', {
-        brand_id: id,
-        run_id: runId,
-        error: (e as Error).message,
+        brandId: id,
+        runId,
+        requestId,
+        errorClass: (e as Error).name || 'Error',
+        errorMessage: (e as Error).message,
       });
       runInProcess();
     }
@@ -405,14 +414,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // the operator opted into auto mode but no consumer is healthy.
     if (process.env.QUEUE_MODE === 'auto' && process.env.REDIS_URL) {
       logger.warn('run.queue_unhealthy_inprocess_fallback', {
-        brand_id: id,
-        run_id: runId,
+        brandId: id,
+        runId,
+        requestId,
       });
     }
     runInProcess();
   }
 
-  return Response.json({ runId, totalExpected, platforms: activePlatforms, queries });
+  const resp = Response.json({ runId, totalExpected, platforms: activePlatforms, queries });
+  if (requestId) resp.headers.set('x-request-id', requestId);
+  return resp;
 }
 
 // --- Background execution: writes progress to DB as results come in ---
@@ -421,11 +433,12 @@ async function executeRunBackground(
   brand: any, brandId: string, userId: string, runId: string,
   totalExpected: number, activePlatforms: string[], queries: string[],
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
+  requestId?: string,
 ) {
   try {
     return await executeRunBackgroundInner(
       brand, brandId, userId, runId, totalExpected,
-      activePlatforms, queries, serverKeys, userKeys,
+      activePlatforms, queries, serverKeys, userKeys, requestId,
     );
   } finally {
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
@@ -447,9 +460,11 @@ async function executeRunBackground(
       );
     } catch (e) {
       logger.error('run.finally_guard_failed', {
-        run_id: runId,
-        brand_id: brandId,
-        error: (e as Error).message,
+        runId,
+        brandId,
+        requestId,
+        errorClass: (e as Error).name || 'Error',
+        errorMessage: (e as Error).message,
       });
     }
   }
@@ -460,9 +475,19 @@ async function executeRunBackgroundInner(
   brand: any, brandId: string, userId: string, runId: string,
   totalExpected: number, activePlatforms: string[], queries: string[],
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
+  requestId?: string,
 ) {
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
+  // Child logger that auto-stamps tenantId / brandId / runId / requestId
+  // onto every record. Downstream code uses `runLog.*` instead of the
+  // bare `logger.*` so a single grep on runId reconstructs the run.
+  const runLog = logger.child({
+    tenantId: userId,
+    brandId,
+    runId,
+    requestId,
+  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allResults: any[] = [];
   const platFailCount: Record<string, number> = {};
@@ -498,7 +523,12 @@ async function executeRunBackgroundInner(
         [received, foundCount, errorCount, runId, JSON.stringify(pendingResults)]
       );
       pendingResults = [];
-    } catch (e) { console.error('[Run] DB progress update failed:', (e as Error).message); }
+    } catch (e) {
+      runLog.error('run.db_progress_update_failed', {
+        errorClass: (e as Error).name || 'Error',
+        errorMessage: (e as Error).message,
+      });
+    }
   }
 
   function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }) {
@@ -622,9 +652,8 @@ async function executeRunBackgroundInner(
           PER_PLATFORM_TIMEOUT_MS,
         );
       });
-      logger.info('run.task_start', {
-        run_id: runId, brand_id: brandId,
-        platform: plat, query_index: idx, query: q,
+      runLog.info('run.task_start', {
+        platform: plat, queryIndex: idx, query: q,
       });
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
@@ -636,17 +665,33 @@ async function executeRunBackgroundInner(
         // then call the provider. Wrapped in withDeepRetry so transient errors
         // keep retrying until the wall-clock budget expires.
         const keyName = PLATFORM_KEY_MAP[plat];
-        const userKey = userKeys[keyName];
         const serverKeyList = serverKeys[keyName] || [];
-        const keyPool: string[] = userKey ? [userKey] : serverKeyList;
-        if (!keyPool.length) throw new Error('No API key available for ' + plat);
+        // Resolve order: tenant_api_keys (new) → users.api_keys (legacy)
+        // → server env pool. resolveKeysForTenant skips a tenant key
+        // beyond the failure threshold so a bad customer key doesn't
+        // hard-block the run forever — falls through to server keys.
+        const resolved = await resolveKeysForTenant({
+          tenantId: brand.userId || null,
+          platformKeyName: keyName,
+          legacyUserKeys: userKeys as Record<string, string | null | undefined>,
+          serverKeys: serverKeyList,
+        });
+        if (!resolved) throw new Error('No API key available for ' + plat);
+        // Tenant + user sources contribute exactly one key each, so the
+        // pickBestKey randomisation is meaningful only for the env pool.
+        const keyPool: string[] = resolved.source === 'server' ? resolved.pool : [resolved.key];
+        const keySource = resolved.source;
 
         const signal = taskController.signal;
         const singleAttempt = async () => {
           if (signal.aborted) throw new Error(timeoutMessage());
           const rawKey = pickBestKey(keyPool);
           if (!rawKey) throw new Error('No usable API key for ' + plat);
-          if (circuitBreakerCheck(rawKey)) {
+          // Only consult the global breaker for shared server keys;
+          // tenant-supplied keys have an isolated (tenant, platform)
+          // counter so a bad customer key doesn't pollute the global
+          // breaker.
+          if (keySource === 'server' && circuitBreakerCheck(rawKey)) {
             throw new Error('Circuit breaker open for API key - too many auth failures');
           }
           // Diagnostic breadcrumb: record the exact platform + query we
@@ -673,9 +718,8 @@ async function executeRunBackgroundInner(
             // CHATGPT_SMART_MODEL_ROUTING=false to disable.
             const baseModel = adminModels[plat] || getDefaultModel(plat);
             const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
-            logger.info('run.query_ai_before', {
-              run_id: runId, brand_id: brandId,
-              platform: plat, query_index: idx, model: modelForTask,
+            runLog.info('run.query_ai_before', {
+              platform: plat, queryIndex: idx, model: modelForTask,
             });
             const r = await queryAI(
               plat, q, rawKey,
@@ -685,16 +729,31 @@ async function executeRunBackgroundInner(
                 signal,
                 queryId: `${runId}:${idx}`,
                 tenantId: userId,
+                brandId,
                 runId,
+                requestId,
               },
             );
-            logger.info('run.query_ai_resolved', {
-              run_id: runId, brand_id: brandId,
-              platform: plat, query_index: idx,
-              text_len: r?.text?.length || 0,
+            runLog.info('run.query_ai_resolved', {
+              platform: plat, queryIndex: idx,
+              textLen: r?.text?.length || 0,
             });
-            resetApiKeyFailures(rawKey);
+            // Reset only the global breaker for env keys; tenant keys
+            // own their own (tenant, platform) success counter.
+            if (keySource === 'server') resetApiKeyFailures(rawKey);
+            if (keySource === 'tenant' && brand.userId) {
+              recordTenantKeyResult(brand.userId, keyName, { ok: true })
+                .catch(() => { /* health is best-effort */ });
+            }
             return r;
+          } catch (err) {
+            if (keySource === 'tenant' && brand.userId) {
+              recordTenantKeyResult(brand.userId, keyName, {
+                ok: false,
+                error: (err as Error).message,
+              }).catch(() => { /* health is best-effort */ });
+            }
+            throw err;
           } finally {
             release();
           }
@@ -732,11 +791,12 @@ async function executeRunBackgroundInner(
         if (isHardTimeout && !taskController.signal.aborted) {
           try { taskController.abort(new Error(message)); } catch { /* ignore */ }
         }
-        logger.warn(isHardTimeout ? 'run.task_timeout' : 'run.task_rejected', {
-          run_id: runId, brand_id: brandId,
-          platform: plat, query_index: idx,
-          error: message,
-          inner_error: isHardTimeout && innerMessage !== message ? innerMessage : undefined,
+        runLog.warn(isHardTimeout ? 'run.task_timeout' : 'run.task_rejected', {
+          platform: plat, queryIndex: idx,
+          outcome: isHardTimeout ? 'timeout' : 'server_error',
+          errorClass: e.name || 'Error',
+          errorMessage: message,
+          innerError: isHardTimeout && innerMessage !== message ? innerMessage : undefined,
         });
         processError(plat, q, new Error(message));
       } finally {
@@ -795,7 +855,9 @@ async function executeRunBackgroundInner(
       [brandId, 'running']
     );
     if (activeCheck.rows.length > 0 && activeCheck.rows[0].id !== runId) {
-      console.warn(`[Run] Run ${runId} superseded by ${activeCheck.rows[0].id} - skipping final save`);
+      runLog.warn('run.superseded', {
+        supersededBy: activeCheck.rows[0].id,
+      });
       await pool.query(
         `UPDATE active_runs SET status = 'error', error = 'Superseded by newer run', completed_at = NOW() WHERE id = $1`,
         [runId]
@@ -896,7 +958,12 @@ async function executeRunBackgroundInner(
         await pool.query(
           `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
         );
-      } catch (e) { console.error('[Run] Failed to persist prompt_runs batch:', (e as Error).message); }
+      } catch (e) {
+        runLog.error('run.persist_prompt_runs_failed', {
+          errorClass: (e as Error).name || 'Error',
+          errorMessage: (e as Error).message,
+        });
+      }
     }
 
     auditLog(userId, 'run_queries', 'brand', brandId, { runId, queries: totalQ, mentions: totalM, sov: overallSov }, '');
@@ -910,7 +977,12 @@ async function executeRunBackgroundInner(
          WHERE id = $5`,
         [(err as Error).message, received, foundCount, errorCount, runId]
       );
-    } catch (e) { console.error('[Run] Failed to mark run as error:', (e as Error).message); }
+    } catch (e) {
+      runLog.error('run.mark_error_failed', {
+        errorClass: (e as Error).name || 'Error',
+        errorMessage: (e as Error).message,
+      });
+    }
 
     // Emergency save partial results to brand data
     if (allResults.length > 0) {
@@ -930,8 +1002,16 @@ async function executeRunBackgroundInner(
         });
         brandData.updatedAt = new Date().toISOString();
         await pool.query('UPDATE brands SET data = $1, updated_at = NOW() WHERE id = $2', [JSON.stringify(brandData), brandId]);
-      } catch (e) { console.error('[Run] Emergency save failed:', (e as Error).message); }
+      } catch (e) {
+        runLog.error('run.emergency_save_failed', {
+          errorClass: (e as Error).name || 'Error',
+          errorMessage: (e as Error).message,
+        });
+      }
     }
-    console.error('[Run] Background execution failed:', (err as Error).message);
+    runLog.error('run.background_failed', {
+      errorClass: (err as Error).name || 'Error',
+      errorMessage: (err as Error).message,
+    });
   }
 }
