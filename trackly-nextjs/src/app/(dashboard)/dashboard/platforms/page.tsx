@@ -20,7 +20,16 @@ interface PlatformData {
 
 interface Run {
   date?: string;
+  time?: string;
   platforms?: Record<string, PlatformData>;
+}
+
+function runTimestampMs(run: { time?: string; date?: string } | null | undefined): number | null {
+  if (!run) return null;
+  const t = run.time;
+  if (t) { const ms = new Date(t).getTime(); if (!Number.isNaN(ms)) return ms; }
+  if (run.date) { const ms = new Date(run.date).getTime(); if (!Number.isNaN(ms)) return ms; }
+  return null;
 }
 
 interface Brand {
@@ -89,13 +98,18 @@ export default function PlatformsPage() {
   const { brand: rawBrand, brands, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
 
-  const latestRun = selectedBrand?.runs?.length ? selectedBrand.runs[selectedBrand.runs.length - 1] : null;
+  const sortedRuns = useMemo(
+    () => [...(selectedBrand?.runs || [])].sort((a, b) => (runTimestampMs(a) ?? 0) - (runTimestampMs(b) ?? 0)),
+    [selectedBrand?.runs]
+  );
+  const latestRun = sortedRuns.length ? sortedRuns[sortedRuns.length - 1] : null;
+  const latestRunTs = runTimestampMs(latestRun);
   const platformData = latestRun?.platforms || {};
 
   // Aggregate stats across last 10 runs
   const platformStats = useMemo(() => {
     const stats: Record<string, { totalCalls: number; totalErrors: number; sovHistory: number[] }> = {};
-    const recentRuns = (selectedBrand?.runs || []).slice(-10);
+    const recentRuns = sortedRuns.slice(-10);
     recentRuns.forEach(run => {
       if (!run.platforms) return;
       Object.entries(run.platforms).forEach(([name, pd]) => {
@@ -107,7 +121,7 @@ export default function PlatformsPage() {
       });
     });
     return stats;
-  }, [selectedBrand?.runs]);
+  }, [sortedRuns]);
 
   // Summary counts
   const activePlatforms = Object.keys(platformData).length;
@@ -154,7 +168,10 @@ export default function PlatformsPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.5px', margin: 0 }}>Platform Status</h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
             Real-time health and performance across {totalPlatforms} AI platforms.
-            {latestRun?.date && <span> · Last run {new Date(latestRun.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
+            {latestRunTs !== null && (() => {
+              const dt = new Date(latestRunTs);
+              return <span> · Last run {dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>;
+            })()}
           </p>
         </div>
       </div>
