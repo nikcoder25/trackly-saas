@@ -12,6 +12,7 @@ import { isQueueAvailable, enqueueBrandRun } from '@/lib/job-queue';
 import { getServerKeys } from '@/lib/server-keys';
 import { logger } from '@/lib/logger';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
+import { checkCostCap } from '@/lib/cost-tracker';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -268,6 +269,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       error: `Your ${ownerPlan} plan allows up to ${limits.queries} queries per brand. You have ${queries.length}. Remove some queries or upgrade.`,
       planLimit: true,
     }, { status: 403 });
+  }
+
+  // --- Per-tenant cost cap pre-flight (issue #411) ---
+  // Daily/monthly USD ceiling on LLM spend. Reject the whole run with
+  // 402 PaymentRequired when the brand owner is already at cap; the
+  // ledger that drives this lives in `tenant_cost_events` and resets on
+  // UTC day/month boundaries. queryAI itself runs the same check
+  // per-call, so a mid-run cap crossing also stops further dispatch.
+  try {
+    const capStatus = await checkCostCap(ownerId);
+    if (!capStatus.ok && capStatus.window) {
+      const cap = capStatus.window === 'daily'
+        ? capStatus.caps.dailyUsd
+        : capStatus.caps.monthlyUsd;
+      const spent = capStatus.window === 'daily'
+        ? capStatus.totals.dailyUsd
+        : capStatus.totals.monthlyUsd;
+      return Response.json({
+        error: `Tenant cost cap reached for the current UTC ${capStatus.window}. ` +
+          `Spent $${spent.toFixed(4)} of $${cap.toFixed(2)}. ` +
+          `Window resets ${capStatus.resetAt}.`,
+        code: 'cost_cap.exceeded',
+        window: capStatus.window,
+        capUsd: cap,
+        spentUsd: spent,
+        resetAt: capStatus.resetAt,
+      }, { status: 402 });
+    }
+  } catch (e) {
+    logger.warn('run.cost_cap_check_failed', {
+      brand_id: id, owner_id: ownerId, error: (e as Error).message,
+    });
+    // Fail open on unexpected DB errors here (the per-call enforcement
+    // inside queryAI is the real safety net).
   }
 
   // --- Check for existing active run (DB-based locking) ---
@@ -646,7 +681,12 @@ async function executeRunBackgroundInner(
               plat, q, rawKey,
               modelForTask,
               brand,
-              { signal, queryId: `${runId}:${idx}` },
+              {
+                signal,
+                queryId: `${runId}:${idx}`,
+                tenantId: userId,
+                runId,
+              },
             );
             logger.info('run.query_ai_resolved', {
               run_id: runId, brand_id: brandId,

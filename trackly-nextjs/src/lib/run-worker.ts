@@ -203,7 +203,12 @@ async function processRun(job: Job<BrandRunJobData>) {
           release = await acquirePlatformSlot(plat, taskController.signal);
           const result = await queryAI(
             plat, q, rawKey, modelForTask, brand,
-            { queryId, signal: taskController.signal },
+            {
+              queryId,
+              signal: taskController.signal,
+              tenantId: userId,
+              runId,
+            },
           );
           platFailCount[plat] = 0;
           resetApiKeyFailures(rawKey);

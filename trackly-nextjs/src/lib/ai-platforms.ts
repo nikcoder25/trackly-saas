@@ -12,6 +12,11 @@
  *   - Tagged errors (isRateLimit/isTransient/budgetExhausted) for caller routing
  */
 import { pool } from './db';
+import {
+  enforceCostCap,
+  recordCostEvent,
+  CostCapExceededError,
+} from './cost-tracker';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -1078,6 +1083,13 @@ export interface QueryOptions {
   // specific 429 can be traced to a specific run+query in DO runtime
   // logs (grep `[chatgpt.ratelimit]`).
   queryId?: string;
+  // Tenant (user) and run identifiers for cost-cap enforcement and the
+  // tenant_cost_events ledger. When tenantId is set, queryAI runs the
+  // pre-flight cap check before dispatching to the provider and writes
+  // a ledger row on success. Both are optional so internal callers
+  // (admin tools, ad-hoc scripts) can opt out by leaving them unset.
+  tenantId?: string;
+  runId?: string;
 }
 
 // Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
@@ -1201,6 +1213,13 @@ export async function queryAI(
       `${platform}: platform rate-limit circuit open (cooling ${remaining}s)`,
       { isRateLimit: true, budgetExhausted: true },
     );
+  }
+  // Per-tenant cost cap (issue #411). Run BEFORE the platform slot
+  // semaphore so a capped tenant doesn't queue behind healthy traffic.
+  // CostCapExceededError carries paymentRequired=true; route handlers
+  // (and the run worker) translate that into HTTP 402.
+  if (options?.tenantId) {
+    await enforceCostCap(options.tenantId);
   }
   const useModel = model || getDefaultModel(platform);
   const sysPrompt = options?.systemPrompt ?? SYSTEM_PROMPT;
@@ -1330,8 +1349,26 @@ export async function queryAI(
         );
       } catch { /* best-effort logging */ }
 
+      // Persist a tenant cost event for the ledger / next pre-flight
+      // check. Best-effort: recordCostEvent swallows DB errors so a
+      // hiccup never fails the in-flight call.
+      if (options?.tenantId) {
+        await recordCostEvent({
+          tenantId: options.tenantId,
+          runId: options.runId,
+          platform,
+          model: result.model,
+          tokensIn: result.tokensIn,
+          tokensOut: result.tokensOut,
+        });
+      }
+
       return result;
     } catch (e) {
+      // Cost-cap rejections are user-actionable, not transient - never
+      // park them on the deferred retry queue. The tenant won't pay for
+      // the next minute either; replaying just adds noise.
+      if (e instanceof CostCapExceededError) throw e;
       if (!options?.silent && (isTransientError(e) || (e as AiError).budgetExhausted)) {
         // When fetchAI surfaces `needsDeferral: true` (ChatGPT only, when
         // Retry-After > per-call sleep cap) we park the query just past
