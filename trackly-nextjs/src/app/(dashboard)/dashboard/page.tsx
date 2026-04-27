@@ -16,7 +16,7 @@ interface Brand {
   industry?: string;
   city?: string;
   sov_goal?: number;
-  runs?: Array<{ sov?: number; totalQ?: number; totalM?: number; date?: string; duration?: number;
+  runs?: Array<{ sov?: number; totalQ?: number; totalM?: number; date?: string; time?: string; duration?: number;
     platforms?: Record<string, { sov?: number; mentions?: number; total?: number; errors?: number }>;
     sentiment?: { positive?: number; neutral?: number; negative?: number };
     recommended?: number; durationMs?: number; competitors?: Record<string, number>; citations?: Record<string, number>;
@@ -25,6 +25,14 @@ interface Brand {
   competitors?: string[];
   selected_platforms?: string[];
   [key: string]: unknown;
+}
+
+function runTimestampMs(run: { time?: string; date?: string } | null | undefined): number | null {
+  if (!run) return null;
+  const t = run.time;
+  if (t) { const ms = new Date(t).getTime(); if (!Number.isNaN(ms)) return ms; }
+  if (run.date) { const ms = new Date(run.date).getTime(); if (!Number.isNaN(ms)) return ms; }
+  return null;
 }
 
 export default function DashboardPage() {
@@ -90,32 +98,37 @@ export default function DashboardPage() {
 
   const brand = (contextBrand as Brand) || null;
   const allRuns = brand?.runs || [];
-  const lastRun = allRuns.length ? allRuns[allRuns.length - 1] : null;
-  const prevRun = allRuns.length >= 2 ? allRuns[allRuns.length - 2] : null;
+  const sortedRuns = useMemo(
+    () => [...allRuns].sort((a, b) => (runTimestampMs(a) ?? 0) - (runTimestampMs(b) ?? 0)),
+    [allRuns]
+  );
+  const lastRun = sortedRuns[sortedRuns.length - 1] ?? null;
+  const prevRun = sortedRuns.length >= 2 ? sortedRuns[sortedRuns.length - 2] : null;
 
   // Comparison run based on compareMode - ensures week/month find different runs
-  const compareRun = useMemo((): (typeof allRuns)[number] | null => {
-    if (compareMode === 'current' || !lastRun?.date) return null;
-    const lastDate = new Date(lastRun.date).getTime();
+  const compareRun = useMemo((): (typeof sortedRuns)[number] | null => {
+    const lastDate = runTimestampMs(lastRun);
+    if (compareMode === 'current' || lastDate === null) return null;
     const targetAge = compareMode === 'week' ? 7 * 86400000 : 30 * 86400000;
     const minAge = compareMode === 'week' ? 3 * 86400000 : 14 * 86400000;
     const targetDate = lastDate - targetAge;
     // Filter to only runs older than minAge from latest
-    const candidates = allRuns.filter(run => {
-      if (!run.date || run === lastRun) return false;
-      const age = lastDate - new Date(run.date).getTime();
+    const candidates = sortedRuns.filter(run => {
+      const ts = runTimestampMs(run);
+      if (ts === null || run === lastRun) return false;
+      const age = lastDate - ts;
       return age >= minAge;
     });
     if (candidates.length === 0) return null;
     // Find closest to target date
     let closest = candidates[0];
-    let closestDiff = Math.abs(new Date(closest.date!).getTime() - targetDate);
+    let closestDiff = Math.abs((runTimestampMs(closest) ?? 0) - targetDate);
     candidates.forEach(run => {
-      const diff = Math.abs(new Date(run.date!).getTime() - targetDate);
+      const diff = Math.abs((runTimestampMs(run) ?? 0) - targetDate);
       if (diff < closestDiff) { closestDiff = diff; closest = run; }
     });
     return closest;
-  }, [compareMode, lastRun, allRuns]);
+  }, [compareMode, lastRun, sortedRuns]);
   const sov = lastRun?.sov || 0;
   const totalM = lastRun?.totalM || 0;
   const totalQ = lastRun?.totalQ || 0;
@@ -263,8 +276,8 @@ export default function DashboardPage() {
 
   // SOV Trend (from runs history)
   const sovTrend = useMemo(() =>
-    (brand?.runs || []).slice(-14).map(r => ({ sov: r.sov || 0, date: r.date || '' })),
-  [brand?.runs]);
+    sortedRuns.slice(-14).map(r => ({ sov: r.sov || 0, date: r.date || '' })),
+  [sortedRuns]);
 
   const addQuery = () => {
     if (!newQuery.trim() || !brand) return;
@@ -283,8 +296,9 @@ export default function DashboardPage() {
 
   // Last run age
   const lastRunAge = useMemo(() => {
-    if (!lastRun?.date) return '';
-    const diff = now - new Date(lastRun.date).getTime();
+    const ts = runTimestampMs(lastRun);
+    if (ts === null) return '';
+    const diff = now - ts;
     if (diff < 0) return 'just now';
     const secs = Math.floor(diff / 1000);
     if (secs < 60) return `${secs}s ago`;
@@ -294,7 +308,7 @@ export default function DashboardPage() {
     if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
     const days = Math.floor(hrs / 24);
     return `${days}d ${hrs % 24}h ago`;
-  }, [lastRun?.date, now]);
+  }, [lastRun, now]);
 
   // SOV change from previous run
   const sovChange = prevRun?.sov !== undefined && lastRun?.sov !== undefined ? lastRun.sov - prevRun.sov : null;
@@ -455,7 +469,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ALERT STRIP - white cards with colored dot matching production screenshot */}
-      {alerts.length > 0 && <div className="alerts-strip">{alerts.map((a,i) => <div key={i} className={`alert-chip ${a.type}`}><span className="alert-dot" style={{background:a.type==='danger'?'var(--red)':a.type==='warn'?'var(--amber)':'var(--blue)'}}/><div style={{flex:1,minWidth:0}}><div className="alert-text">{a.text}</div><div className="alert-time">{now>0&&lastRun?.date?(()=>{const diff=now-new Date(lastRun.date).getTime();const days=Math.floor(diff/86400000);return days>0?`${days}d ago`:'today';})():''}</div></div></div>)}</div>}
+      {alerts.length > 0 && <div className="alerts-strip">{alerts.map((a,i) => <div key={i} className={`alert-chip ${a.type}`}><span className="alert-dot" style={{background:a.type==='danger'?'var(--red)':a.type==='warn'?'var(--amber)':'var(--blue)'}}/><div style={{flex:1,minWidth:0}}><div className="alert-text">{a.text}</div><div className="alert-time">{(() => { const ts = runTimestampMs(lastRun); if (!(now > 0) || ts === null) return ''; const diff = now - ts; const days = Math.floor(diff / 86400000); return days > 0 ? `${days}d ago` : 'today'; })()}</div></div></div>)}</div>}
 
       {/* SOV HERO - shows live values during run */}
       {(() => {
