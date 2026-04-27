@@ -12,6 +12,7 @@
  *   - Tagged errors (isRateLimit/isTransient/budgetExhausted) for caller routing
  */
 import { pool } from './db';
+import { PROVIDER_SPECS } from './provider-specs';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -508,45 +509,22 @@ const API_ENDPOINTS = {
 // whether the silence was a key wiring problem (no GROK_API_KEY env
 // var) or a network problem. Now every enabled provider produces a
 // startup signature, so missing keys are visible as missing rows.
-interface ProviderBootSpec {
-  platform: string;            // log prefix segment (lowercased)
-  envPattern: RegExp;          // env-var name pattern
-  disableEnv: string;          // opt-out env var
-  buildUrl: (key: string) => string;
-  buildHeaders: (key: string) => Record<string, string>;
-}
-const _BOOT_PROBE_SPECS: ProviderBootSpec[] = [
-  { platform: 'chatgpt',    envPattern: /^OPENAI_API_KEY(_\d+)?$/,    disableEnv: 'AI_CHATGPT_BOOT_PROBE',
-    buildUrl: () => 'https://api.openai.com/v1/models',
-    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
-  { platform: 'claude',     envPattern: /^CLAUDE_API_KEY(_\d+)?$/,    disableEnv: 'AI_CLAUDE_BOOT_PROBE',
-    buildUrl: () => 'https://api.anthropic.com/v1/models',
-    buildHeaders: k => ({ 'x-api-key': k, 'anthropic-version': '2023-06-01' }) },
-  { platform: 'perplexity', envPattern: /^PERPLEXITY_API_KEY(_\d+)?$/, disableEnv: 'AI_PERPLEXITY_BOOT_PROBE',
-    // Perplexity has no public /models listing; a HEAD on chat/completions
-    // returns 405 cheaply and still proves the route + TLS handshake.
-    buildUrl: () => 'https://api.perplexity.ai/chat/completions',
-    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
-  { platform: 'grok',       envPattern: /^(GROK_API_KEY|XAI_API_KEY)(_\d+)?$/, disableEnv: 'AI_GROK_BOOT_PROBE',
-    buildUrl: () => 'https://api.x.ai/v1/models',
-    buildHeaders: k => ({ Authorization: `Bearer ${k}` }) },
-  { platform: 'gemini',     envPattern: /^GEMINI_API_KEY(_\d+)?$/,    disableEnv: 'AI_GEMINI_BOOT_PROBE',
-    // Gemini auth is via query string, not header.
-    buildUrl: k => `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k)}`,
-    buildHeaders: () => ({}) },
-];
+//
+// The list of provider specs lives in `provider-specs.ts` so the
+// per-tenant key validator (#409) can hit the same URL/headers without
+// re-deriving them.
 
 function _runProviderBootProbes(): void {
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) return;
   const probeTimeoutMs = Number(process.env.AI_BOOT_PROBE_TIMEOUT_MS)
     || Number(process.env.AI_CHATGPT_BOOT_PROBE_TIMEOUT_MS)
     || 5000;
-  for (const spec of _BOOT_PROBE_SPECS) {
+  for (const spec of PROVIDER_SPECS) {
     if (process.env[spec.disableEnv] === 'false') continue;
     const keyEntries = Object.entries(process.env)
       .filter(([k, v]) => spec.envPattern.test(k) && typeof v === 'string' && v.length > 0)
       .map(([k, v]) => ({ envName: k, key: v as string }));
-    const logPrefix = `[${spec.platform}.boot]`;
+    const logPrefix = `[${spec.logTag}.boot]`;
     if (keyEntries.length === 0) {
       // Visible "no key" signature so an operator searching for a
       // missing platform sees something rather than nothing. This is
