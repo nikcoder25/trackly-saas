@@ -10,13 +10,13 @@ import {
 } from '../src/lib/plan-config';
 
 describe('PLAN_CREDITS', () => {
-  it('codifies the v3 spec for each tier', () => {
+  it('codifies the v3 spec for each tier (account-wide tracked prompts)', () => {
     expect(PLAN_CREDITS.free).toMatchObject({
       monthlyCredits: 150,
       manualDailyCap: 5,
       cooldownSeconds: 300,
       maxPlatforms: 2,
-      maxPromptsPerBrand: 5,
+      trackedPromptsPerAccount: 5,
       modelTier: 'economy',
       scheduledRuns: true,
       autoRunFrequency: 'weekly',
@@ -27,7 +27,7 @@ describe('PLAN_CREDITS', () => {
       manualDailyCap: 20,
       cooldownSeconds: 120,
       maxPlatforms: 2,
-      maxPromptsPerBrand: 15,
+      trackedPromptsPerAccount: 15,
       modelTier: 'economy',
       autoRunFrequency: 'every_2_days',
       brandsCap: 3,
@@ -37,7 +37,7 @@ describe('PLAN_CREDITS', () => {
       manualDailyCap: 50,
       cooldownSeconds: 60,
       maxPlatforms: 3,
-      maxPromptsPerBrand: 25,
+      trackedPromptsPerAccount: 25,
       modelTier: 'economy',
       scheduledRuns: true,
       autoRunFrequency: 'daily',
@@ -48,11 +48,20 @@ describe('PLAN_CREDITS', () => {
       manualDailyCap: 9999,
       cooldownSeconds: 30,
       maxPlatforms: 6,
-      maxPromptsPerBrand: 100,
+      trackedPromptsPerAccount: 100,
       modelTier: 'premium',
       autoRunFrequency: 'daily',
       brandsCap: 9999,
     });
+  });
+
+  it('keeps the deprecated maxPromptsPerBrand alias in lockstep with trackedPromptsPerAccount', () => {
+    // Removed in a follow-up release; for now both fields hold the
+    // same number so straggling callers keep compiling.
+    for (const plan of ['free', 'starter', 'pro', 'agency'] as const) {
+      const cfg = PLAN_CREDITS[plan];
+      expect(cfg.maxPromptsPerBrand).toBe(cfg.trackedPromptsPerAccount);
+    }
   });
 
   it('falls back to free for unknown plans', () => {

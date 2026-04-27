@@ -92,7 +92,7 @@ function buildPlanFeatures(): Record<string, string | undefined>[] {
 
   return [
     row('Price / month',         (p) => PLAN_CREDITS[p]?.price ?? '-'),
-    row('Tracked prompts',       (p) => num(PLAN_CREDITS[p]?.maxPromptsPerBrand ?? 0)),
+    row('Tracked prompts (account-wide)', (p) => num(PLAN_CREDITS[p]?.trackedPromptsPerAccount ?? 0)),
     row('AI platforms (active)', platformsLabel),
     row('Brands',                brandsLabel),
     row('Competitors tracked',   competitorsLabel),
@@ -115,7 +115,7 @@ void PLAN_DISPLAY_ORDER;
 
 const METER_TOOLTIPS: Record<string, string> = {
   'Brands': 'Active brands: 1 on Free, 3 on Starter, unlimited on Pro and Agency.',
-  'Queries': 'Tracked prompts: the total number of tracked prompts across all brands combined.',
+  'Tracked prompts': 'Account-wide cap on tracked prompts, summed across every brand you own.',
   'Competitors': 'Competitors: the total number of competitor brands you can track across all brands combined.',
   'Platforms': 'AI platforms tracked: the number of AI platforms (ChatGPT, Gemini, etc.) monitored per run.',
   'GEO Audits': 'GEO audits per month: the number of geographic URL audits you can perform monthly.',
@@ -275,15 +275,16 @@ export default function BillingPage() {
   }, [currentPlan]);
 
   const meters: UsageMeter[] = [
-    { label: 'Brands',            sublabel: 'Active brands',                 used: brandCount,      max: limits.brands,       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
-    { label: 'Queries',           sublabel: 'Total across all brands',       used: queryCount,       max: limits.queries,      icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
-    { label: 'Competitors',       sublabel: 'Total across all brands',      used: competitorCount,  max: limits.competitors,  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
-    { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount,    max: limits.platforms,    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
-    { label: 'GEO Audits',        sublabel: 'This month',                   used: geoAuditCount,    max: limits.geoAudits,    icon: '◉', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
+    { label: 'Brands',            sublabel: 'Active brands',                 used: brandCount,       max: limits.brands,                       icon: '◆', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
+    { label: 'Tracked prompts',   sublabel: 'Account-wide, all brands',      used: queryCount,       max: limits.trackedPromptsPerAccount,     icon: '⚡', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' },
+    { label: 'Competitors',       sublabel: 'Total across all brands',       used: competitorCount,  max: limits.competitors,                  icon: '⊘', color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
+    { label: 'Platforms',         sublabel: 'AI platforms tracked',          used: platformCount,    max: limits.platforms,                    icon: '●', color: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d4, #22d3ee)' },
+    { label: 'GEO Audits',        sublabel: 'This month',                    used: geoAuditCount,    max: limits.geoAudits,                    icon: '◉', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
   ];
 
-  // Use queries meter for hero ring display (most relevant usage indicator)
-  const runsMeter = meters[1]; // Queries meter
+  // Use the tracked-prompts meter for the hero ring (the v3 cap most
+  // users hit first since it's now account-wide rather than per-brand).
+  const runsMeter = meters[1];
   const otherMeters = meters.filter((_, i) => i !== 1);
   const runsStatus = getStatus(runsMeter.used, runsMeter.max);
   const runsIsUnlimited = runsStatus === 'unlimited';
@@ -391,7 +392,7 @@ export default function BillingPage() {
               {planInfo.price}<span style={{ fontSize: 14, fontWeight: 400, opacity: 0.7 }}>{planInfo.period}</span>
             </div>
             <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 4 }}>
-              {limits.queries >= 9999 ? '∞' : limits.queries} tracked prompts · {creditCfg.brandsCap >= 9999 ? 'Unlimited brands' : `${creditCfg.brandsCap} brand${creditCfg.brandsCap === 1 ? '' : 's'}`}
+              {limits.trackedPromptsPerAccount >= 9999 ? '∞' : limits.trackedPromptsPerAccount} tracked prompts (account-wide) · {creditCfg.brandsCap >= 9999 ? 'Unlimited brands' : `${creditCfg.brandsCap} brand${creditCfg.brandsCap === 1 ? '' : 's'}`}
             </div>
             <div style={{ fontSize: 12, opacity: 0.7 }}>
               Member since {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '-'}
@@ -508,7 +509,7 @@ export default function BillingPage() {
               </span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
-              {creditCfg.maxPlatforms} platforms · {creditCfg.maxPromptsPerBrand} prompts/brand
+              {creditCfg.maxPlatforms} platforms · {creditCfg.trackedPromptsPerAccount >= 9999 ? '∞' : creditCfg.trackedPromptsPerAccount} prompts (account-wide)
               {creditCfg.cooldownSeconds > 0 && <> · {creditCfg.cooldownSeconds}s cooldown</>}
             </div>
           </div>
@@ -548,7 +549,7 @@ export default function BillingPage() {
                   <>
                     Upgrade to <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{nextPlanKey}</strong> for{' '}
                     <strong>{brandsCopy}</strong> and{' '}
-                    <strong>{nextPlanLimits.queries >= 9999 ? '∞' : nextPlanLimits.queries} tracked prompts/brand</strong>
+                    <strong>{nextPlanLimits.trackedPromptsPerAccount >= 9999 ? '∞' : nextPlanLimits.trackedPromptsPerAccount} tracked prompts (account-wide)</strong>
                     {nextPlanPricing.price !== 'Custom'
                       ? <> - just <strong style={{ color: 'var(--primary)' }}>{nextPlanPricing.price}/mo</strong></>
                       : <> - <strong style={{ color: 'var(--primary)' }}>contact us for pricing</strong></>}
@@ -814,7 +815,7 @@ export default function BillingPage() {
                       return (
                         <div style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.8, fontFamily: 'var(--mono)', marginBottom: 12 }}>
                           <div>{brandsCap >= 9999 ? 'Unlimited brands' : `${brandsCap} brand${brandsCap === 1 ? '' : 's'}`}</div>
-                          <div>{planLimits.queries >= 9999 ? '∞' : planLimits.queries} tracked prompts/brand</div>
+                          <div>{planLimits.trackedPromptsPerAccount >= 9999 ? '∞' : planLimits.trackedPromptsPerAccount} tracked prompts (account-wide)</div>
                           <div>{planLimits.competitors >= 9999 ? '∞' : planLimits.competitors} competitors</div>
                         </div>
                       );

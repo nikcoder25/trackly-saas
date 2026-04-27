@@ -29,7 +29,19 @@ export interface PlanCreditConfig {
   cooldownSeconds: number;
   /** Max platforms a brand can track on this plan. */
   maxPlatforms: number;
-  /** Max prompts per brand. */
+  /**
+   * Account-wide cap on tracked prompts (sum across every brand the
+   * account owns). Authoritative as of the v3 pricing spec
+   * (2026-04-27).
+   */
+  trackedPromptsPerAccount: number;
+  /**
+   * @deprecated Read `trackedPromptsPerAccount` instead. The v3 spec
+   * moved tracked prompts from per-brand to account-wide. This field
+   * is kept for one deprecation cycle so any straggling caller still
+   * compiles; it holds the same number as `trackedPromptsPerAccount`
+   * and will be removed once the audit confirms no active reads.
+   */
   maxPromptsPerBrand: number;
   /** Which model tier the AI platform call layer is allowed to use. */
   modelTier: ModelTier;
@@ -49,16 +61,18 @@ export interface PlanCreditConfig {
 
 /**
  * Plan → credit config. Numbers come from the Livesov v3 spec
- * (see PRICING_V3.md — final pricing table approved 2026-04-27):
+ * (see PRICING_V3.md — final pricing table approved 2026-04-27).
+ * Tracked-prompt caps are ACCOUNT-WIDE (summed across all brands the
+ * account owns), not per-brand:
  *
  *   - Free:    150 monthly,  5 manual/day,  5 min cooldown,  2 platforms,
- *              5 prompts/brand,  1 brand,  weekly auto-run, economy
+ *              5 prompts (account),  1 brand,  weekly auto-run, economy
  *   - Starter: 750 monthly, 20 manual/day,  2 min cooldown,  2 platforms,
- *              15 prompts/brand, 3 brands, every 2 days,  economy
+ *              15 prompts (account), 3 brands, every 2 days,  economy
  *   - Pro:    2,500 monthly, 50 manual/day, 60 sec cooldown, 3 platforms,
- *              25 prompts/brand, ∞ brands, daily, economy (default)
+ *              25 prompts (account), ∞ brands, daily, economy (default)
  *   - Agency: 8,000 monthly,  ∞ manual/day, 30 sec cooldown, 6 platforms,
- *              100 prompts/brand, ∞ brands, daily, premium unlocked
+ *              100 prompts (account), ∞ brands, daily, premium unlocked
  *
  * Trial mirrors Starter limits with a tighter monthly cap so abusers
  * can't spin up an account and burn the Agency budget on day one.
@@ -69,6 +83,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 5,
     cooldownSeconds: 300, // 5 min
     maxPlatforms: 2,
+    trackedPromptsPerAccount: 5,
     maxPromptsPerBrand: 5,
     modelTier: 'economy',
     scheduledRuns: true,
@@ -82,6 +97,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 10,
     cooldownSeconds: 30,
     maxPlatforms: 5,
+    trackedPromptsPerAccount: 30,
     maxPromptsPerBrand: 30,
     modelTier: 'economy',
     scheduledRuns: true,
@@ -95,6 +111,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 20,
     cooldownSeconds: 120, // 2 min
     maxPlatforms: 2,
+    trackedPromptsPerAccount: 15,
     maxPromptsPerBrand: 15,
     modelTier: 'economy',
     scheduledRuns: true,
@@ -108,6 +125,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 50,
     cooldownSeconds: 60,
     maxPlatforms: 3,
+    trackedPromptsPerAccount: 25,
     maxPromptsPerBrand: 25,
     modelTier: 'economy',
     scheduledRuns: true,
@@ -122,6 +140,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 9999, // Unlimited
     cooldownSeconds: 30,
     maxPlatforms: 6,
+    trackedPromptsPerAccount: 100,
     maxPromptsPerBrand: 100,
     modelTier: 'premium',
     scheduledRuns: true,
@@ -135,6 +154,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 9999,
     cooldownSeconds: 0,
     maxPlatforms: 6,
+    trackedPromptsPerAccount: 9999,
     maxPromptsPerBrand: 9999,
     modelTier: 'premium',
     scheduledRuns: true,
@@ -148,6 +168,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     manualDailyCap: 99999,
     cooldownSeconds: 0,
     maxPlatforms: 6,
+    trackedPromptsPerAccount: 99999,
     maxPromptsPerBrand: 99999,
     modelTier: 'premium',
     scheduledRuns: true,

@@ -2,6 +2,7 @@ import { pool, safeConnect, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { countTrackedPromptsForOwnerExcluding } from '@/lib/prompt-quota';
 import { logError, serverError } from '@/lib/api-error';
 
 // GET /api/brands/:id
@@ -153,9 +154,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       });
     }
 
-    // Per-brand query limit check
-    if (safeBody.queries && (safeBody.queries as string[]).length > limits.queries) {
-      return Response.json({ error: `Your ${plan} plan allows up to ${limits.queries} total queries. Upgrade for more.`, planLimit: true }, { status: 403 });
+    // Account-wide tracked-prompt cap (v3 spec). The cap is the SUM
+    // across every brand the owner has configured, so we add the
+    // proposed query list to the rest-of-account total and reject if
+    // it overflows. Excludes the current brand to avoid double-
+    // counting its existing entries.
+    if (safeBody.queries && limits.trackedPromptsPerAccount < 9999) {
+      const otherBrandsPromptCount = await countTrackedPromptsForOwnerExcluding(ownerId, id);
+      const proposedTotal = otherBrandsPromptCount + (safeBody.queries as string[]).length;
+      if (proposedTotal > limits.trackedPromptsPerAccount) {
+        const remaining = Math.max(0, limits.trackedPromptsPerAccount - otherBrandsPromptCount);
+        return Response.json({
+          error: `Your ${plan} plan allows up to ${limits.trackedPromptsPerAccount} tracked prompts across all brands. Other brands use ${otherBrandsPromptCount}, leaving ${remaining} for this brand. Upgrade for more.`,
+          planLimit: true,
+          trackedPromptsUsed: otherBrandsPromptCount,
+          trackedPromptsLimit: limits.trackedPromptsPerAccount,
+        }, { status: 403 });
+      }
     }
 
     if (safeBody.competitors && (safeBody.competitors as string[]).length > limits.competitors) {
