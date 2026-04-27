@@ -11,6 +11,7 @@ import { acquireCronLock } from '@/lib/cron-lock';
 import { getPlanLimits } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import { reconcileStaleRuns, getStaleRunMinutes } from '@/lib/run-reconciler';
+import { recordDispatchOutcome } from '@/lib/cron-dispatch-alert';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
@@ -371,9 +372,20 @@ export async function GET(request: Request) {
           try {
             const baseUrl = process.env.APP_URL || request.url;
             const runUrl = new URL(`/api/brands/${row.id}/run`, baseUrl);
+            // Send an explicit Origin matching the deployed app so the edge
+            // middleware's same-origin check accepts this internal dispatch
+            // even if the x-cron-secret bypass is later tightened or
+            // removed. Defence in depth — the Apr 2026 outage happened
+            // precisely because Node-side fetch sends no Origin and the
+            // middleware refused the request before any auth ran.
+            const dispatchOrigin = new URL(baseUrl).origin;
             const resp = await fetch(runUrl.toString(), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-cron-secret': cronSecret },
+              headers: {
+                'Content-Type': 'application/json',
+                'x-cron-secret': cronSecret,
+                'Origin': dispatchOrigin,
+              },
               signal: controller.signal,
             });
             if (!resp.ok) {
@@ -408,6 +420,17 @@ export async function GET(request: Request) {
       skip_reasons: skipReasonsWithStale,
       errors_count: errors?.length || 0,
       timestamp,
+    });
+
+    // Silent-outage alert: if we had eligible brands but every dispatch
+    // came back failed, that's the Apr 2026 signature. Streak gates so a
+    // single transient blip doesn't page; two consecutive ticks fires
+    // console.error('cron.dispatch_all_failed') and resets.
+    recordDispatchOutcome({
+      eligible: eligible.length,
+      processed,
+      errors,
+      tick: timestamp,
     });
 
     // Pile-up alert: reconciled>=processed means every brand we tried to

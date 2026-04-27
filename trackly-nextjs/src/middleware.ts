@@ -84,6 +84,21 @@ function timingSafeEqualStrings(a: string, b: string): boolean {
   return diff === 0;
 }
 
+// Server-to-server cron dispatcher (src/app/api/cron/route.ts) POSTs to
+// /api/brands/[id]/run with `x-cron-secret: $CRON_SECRET`. Node-side fetch
+// emits no Origin/Referer header, so the same-origin check below would 403
+// every scheduled run. The shared secret is itself proof the caller is
+// trusted infra, not a victim's browser, so it makes both the Origin check
+// and the double-submit CSRF token check moot — the same reasoning that
+// already exempts `Authorization: Bearer` callers from the token check.
+function hasValidCronSecret(request: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return false;
+  const header = request.headers.get('x-cron-secret');
+  if (!header) return false;
+  return timingSafeEqualStrings(header, cronSecret);
+}
+
 // ── In-memory rate limiting ──────────────────────────────────────────────────
 //
 // Edge middleware cannot reach Postgres/Redis directly, so we keep a
@@ -327,7 +342,9 @@ export async function middleware(request: NextRequest) {
     // middleware so every /api/ route gets it by default — route authors
     // can't forget to add it. Exempt paths are listed above.
     if (UNSAFE_METHODS.has(request.method)) {
-      const exempt = CSRF_EXEMPT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+      const exempt =
+        CSRF_EXEMPT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p)) ||
+        hasValidCronSecret(request);
       if (!exempt) {
         // Step 1: Origin must match. This alone blocks cross-site form POSTs
         // even in browsers that ignore SameSite (old Safari, embedded webviews).
