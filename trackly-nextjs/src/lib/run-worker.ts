@@ -11,8 +11,9 @@ import { pool } from './db';
 import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, type AiError } from './ai-platforms';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
-import { uid, decryptApiKeys } from './helpers';
+import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
 import { circuitBreakerCheck, recordApiKeyFailure, resetApiKeyFailures, acquirePlatformSlot } from './ai-platforms';
+import { setTenantFairness } from './fairness-scheduler';
 import { logger } from './logger';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
@@ -77,6 +78,13 @@ async function processRun(job: Job<BrandRunJobData>) {
     adminModels[plat] = await getAdminModel(plat);
     platFailCount[plat] = 0;
   }
+
+  // Per-tenant fairness settings (issue #410). Loaded once per run
+  // and pinned to the brand owner so team-member triggered runs
+  // count against the owner's share.
+  const fairnessTenantId = brand.userId || userId;
+  const fairnessSettings = await loadTenantFairnessSettings(fairnessTenantId);
+  setTenantFairness(fairnessTenantId, fairnessSettings);
 
   const tasks: Array<{ plat: string; q: string }> = [];
   for (let qi = 0; qi < queries.length; qi++) {
@@ -210,7 +218,11 @@ async function processRun(job: Job<BrandRunJobData>) {
         );
         let release: (() => void) | null = null;
         try {
-          release = await acquirePlatformSlot(plat, taskController.signal);
+          release = await acquirePlatformSlot(plat, taskController.signal, {
+            tenantId: fairnessTenantId,
+            weight: fairnessSettings.weight,
+            maxQueueDepth: fairnessSettings.maxQueueDepth,
+          });
           const result = await queryAI(
             plat, q, rawKey, modelForTask, brand,
             { queryId, signal: taskController.signal },
