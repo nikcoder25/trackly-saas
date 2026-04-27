@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import { pool, auditLog, ensureColumns } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getBrandWithAccess, uid, decryptApiKeys } from '@/lib/helpers';
+import { getBrandWithAccess, uid, decryptApiKeys, loadTenantFairnessSettings } from '@/lib/helpers';
+import { setTenantFairness } from '@/lib/fairness-scheduler';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
@@ -442,6 +443,14 @@ async function executeRunBackgroundInner(
     platFailCount[plat] = 0;
   }
 
+  // Per-tenant fairness settings (issue #410). Loaded once at run
+  // start so hot-path acquirePlatformSlot calls don't hit the DB.
+  // The brand owner is the tenant - team-member runs count against
+  // the owner's share.
+  const fairnessTenantId = brand.userId || userId;
+  const fairnessSettings = await loadTenantFairnessSettings(fairnessTenantId);
+  setTenantFairness(fairnessTenantId, fairnessSettings);
+
   // Build round-robin task list - cycle through platforms so concurrent
   // workers hit different platforms rather than hammering the same one
   const tasks: Array<{ plat: string; q: string }> = [];
@@ -630,7 +639,15 @@ async function executeRunBackgroundInner(
           // abort-aware: passing the per-task signal lets the 180s outer
           // budget reach inside the waiter queue, so a stuck slot can no
           // longer hang every subsequent acquire indefinitely.
-          const release = await acquirePlatformSlot(plat, signal);
+          // Tenant-scoped acquire: each tenant gets a fair share of the
+          // platform slot pool via weighted round-robin (issue #410).
+          // Without `tenantId`, all callers fall into a single FIFO and
+          // a 30-task tenant blocks every other tenant for the duration.
+          const release = await acquirePlatformSlot(plat, signal, {
+            tenantId: fairnessTenantId,
+            weight: fairnessSettings.weight,
+            maxQueueDepth: fairnessSettings.maxQueueDepth,
+          });
           try {
             // Resolve the model: for ChatGPT this may downshift from
             // search-preview to gpt-4o when the query has clear non-search
