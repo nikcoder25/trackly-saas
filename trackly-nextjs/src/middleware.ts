@@ -247,9 +247,37 @@ function buildCsp(nonce: string): string {
   ].join('; ');
 }
 
-function applyCspHeaders(response: NextResponse, nonce: string, csp: string) {
+function applyCspHeaders(response: NextResponse, nonce: string, csp: string, requestId?: string) {
   response.headers.set('x-nonce', nonce);
   response.headers.set('Content-Security-Policy', csp);
+  if (requestId) response.headers.set(REQUEST_ID_HEADER, requestId);
+}
+
+// ── Request-id propagation ───────────────────────────────────────────────────
+//
+// Every request gets a UUID stamped onto `x-request-id` (unless the caller
+// already set one - load balancers and tracing frontends often do). Server
+// components and route handlers read it via the request headers; the
+// structured logger merges it into every record under `requestId` so a
+// single page load can be reconstructed across logs, Sentry events, and
+// downstream provider calls. Echoed back on the response so clients (and
+// our own front-end fetchers) can reference it in support tickets.
+const REQUEST_ID_HEADER = 'x-request-id';
+
+function ensureRequestId(headers: Headers): string {
+  const incoming = headers.get(REQUEST_ID_HEADER);
+  if (incoming && incoming.length > 0 && incoming.length <= 128) return incoming;
+  // crypto.randomUUID() is available in the Edge runtime; fall back to
+  // a hex-encoded random buffer if the runtime ever loses it.
+  try {
+    return crypto.randomUUID();
+  } catch {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    let hex = '';
+    for (const b of bytes) hex += b.toString(16).padStart(2, '0');
+    return hex;
+  }
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
@@ -264,6 +292,11 @@ export async function middleware(request: NextRequest) {
   // stamp it onto their own inline scripts (JSON-LD, analytics init, etc.).
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
+
+  // Stamp / preserve a request id so route handlers and the structured
+  // logger can correlate every record from this request.
+  const requestId = ensureRequestId(requestHeaders);
+  requestHeaders.set(REQUEST_ID_HEADER, requestId);
 
   // API rate limiting. Key by IP + a short hash of the session cookie when
   // present so a flood of anonymous requests that all resolve to "unknown"
@@ -286,7 +319,7 @@ export async function middleware(request: NextRequest) {
           headers: { 'Retry-After': String(retryAfter) },
         }
       );
-      applyCspHeaders(limited, nonce, csp);
+      applyCspHeaders(limited, nonce, csp, requestId);
       return limited;
     }
 
@@ -303,7 +336,7 @@ export async function middleware(request: NextRequest) {
             { error: 'Cross-origin request blocked' },
             { status: 403 },
           );
-          applyCspHeaders(forbidden, nonce, csp);
+          applyCspHeaders(forbidden, nonce, csp, requestId);
           return forbidden;
         }
         // Step 2: double-submit CSRF token check for any route that already
@@ -321,7 +354,7 @@ export async function middleware(request: NextRequest) {
                 { error: 'Invalid or missing CSRF token' },
                 { status: 403 },
               );
-              applyCspHeaders(forbidden, nonce, csp);
+              applyCspHeaders(forbidden, nonce, csp, requestId);
               return forbidden;
             }
           }
@@ -330,7 +363,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const next = NextResponse.next({ request: { headers: requestHeaders } });
-    applyCspHeaders(next, nonce, csp);
+    applyCspHeaders(next, nonce, csp, requestId);
     return next;
   }
 
@@ -349,23 +382,23 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/admin-backend')) {
     if (!hasValidToken) {
       const redirect = NextResponse.redirect(new URL('/login', request.url));
-      applyCspHeaders(redirect, nonce, csp);
+      applyCspHeaders(redirect, nonce, csp, requestId);
       return redirect;
     }
     if (payload?.role !== 'admin') {
       const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
-      applyCspHeaders(redirect, nonce, csp);
+      applyCspHeaders(redirect, nonce, csp, requestId);
       return redirect;
     }
     const next = NextResponse.next({ request: { headers: requestHeaders } });
-    applyCspHeaders(next, nonce, csp);
+    applyCspHeaders(next, nonce, csp, requestId);
     return next;
   }
 
   // If user is on auth page but already logged in, redirect to dashboard
   if (authPaths.some((p) => pathname.startsWith(p)) && hasValidToken) {
     const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
-    applyCspHeaders(redirect, nonce, csp);
+    applyCspHeaders(redirect, nonce, csp, requestId);
     return redirect;
   }
 
@@ -375,12 +408,12 @@ export async function middleware(request: NextRequest) {
     const search = request.nextUrl.search;
     loginUrl.searchParams.set('redirect', pathname + (search || ''));
     const redirect = NextResponse.redirect(loginUrl);
-    applyCspHeaders(redirect, nonce, csp);
+    applyCspHeaders(redirect, nonce, csp, requestId);
     return redirect;
   }
 
   const next = NextResponse.next({ request: { headers: requestHeaders } });
-  applyCspHeaders(next, nonce, csp);
+  applyCspHeaders(next, nonce, csp, requestId);
   return next;
 }
 
