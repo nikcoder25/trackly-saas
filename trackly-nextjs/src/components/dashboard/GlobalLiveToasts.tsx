@@ -35,6 +35,17 @@ export default function GlobalLiveToasts() {
     }
   }, [live.running, live.status]);
 
+  // RunContext resets to INITIAL_STATE (runId=null, brandId=null) on brand
+  // switch, run completion, and error. The local toast queue is independent
+  // of live.results, so we have to wipe it here when the run state clears -
+  // otherwise stale toasts from the previous brand stay on screen.
+  useEffect(() => {
+    if (live.runId === null && live.brandId === null) {
+      setToasts([]);
+      lastCountRef.current = 0;
+    }
+  }, [live.runId, live.brandId]);
+
   if (toasts.length === 0) return null;
 
   const dismissOne = (id: number) => setToasts(prev => prev.filter(t => t.id !== id));
