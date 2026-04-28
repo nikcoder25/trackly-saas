@@ -381,6 +381,48 @@ export async function recordRateLimit(platform: string): Promise<boolean> {
 }
 
 /**
+ * Operator escape hatch: DEL both breaker keys for a platform so the
+ * gate re-opens immediately. Returns the count of keys actually deleted
+ * (0 = breaker wasn't set, 1 or 2 = open and/or failures cleared).
+ *
+ * Behaviour mirrors the rest of the file:
+ *   - Returns `{ available: false }` when no Redis client is available
+ *     (and `AI_REDIS_REQUIRED` is unset). The route handler still does
+ *     the in-process reset, which is the meaningful action for this pod.
+ *   - Throws `RedisRequiredError` on Redis failure when fail-closed is on.
+ *
+ * Intentionally narrow surface: only the two breaker keys, never the
+ * leases zset / rpm zset / coalesce cache. Resetting those would
+ * destabilise in-flight requests across all pods.
+ */
+export async function clearBreaker(
+  platform: string,
+): Promise<{ available: boolean; deleted: number }> {
+  const client = getLimiterRedis();
+  if (!client) {
+    clientUnavailable('clearBreaker');
+    return { available: false, deleted: 0 };
+  }
+  try {
+    // ioredis `del` accepts variadic key args and returns the integer
+    // count of keys actually removed. Both keys may be absent (breaker
+    // wasn't open) — that's a valid 0-result, not an error.
+    const deleted = await (client as RedisLikeClient).del(
+      breakerOpenKey(platform),
+      breakerFailuresKey(platform),
+    );
+    return { available: true, deleted: Number(deleted) || 0 };
+  } catch (err) {
+    if (isRedisRequired()) {
+      throw new RedisRequiredError(
+        `clearBreaker redis DEL failed: ${(err as Error).message}`,
+      );
+    }
+    throw err;
+  }
+}
+
+/**
  * True when the platform-wide rate-limit circuit is open. The breaker key
  * carries its own TTL, so we just probe `EXISTS`.
  */
