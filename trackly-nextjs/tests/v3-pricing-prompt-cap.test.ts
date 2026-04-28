@@ -65,11 +65,14 @@ describe('v3 spec — plan tier numbers', () => {
     expect(PLAN_LIMITS.starter.competitors).toBe(3);
     expect(PLAN_LIMITS.pro.competitors).toBe(8);
     expect(PLAN_LIMITS.agency.competitors).toBe(20);
-    // AI platforms
+    // AI platforms — Trackly supports exactly 5 (ChatGPT, Perplexity,
+    // Claude, Gemini, Grok). Agency caps at 5 (all) post-PR
+    // "chore(pre-launch): platform count copy"; the previous 6 was a
+    // copy/config bug that surfaced as the dashboard "6 / ∞" tile.
     expect(PLAN_CREDITS.free.maxPlatforms).toBe(2);
     expect(PLAN_CREDITS.starter.maxPlatforms).toBe(2);
     expect(PLAN_CREDITS.pro.maxPlatforms).toBe(3);
-    expect(PLAN_CREDITS.agency.maxPlatforms).toBe(6);
+    expect(PLAN_CREDITS.agency.maxPlatforms).toBe(5);
     // Auto-run frequency
     expect(PLAN_CREDITS.free.autoRunFrequency).toBe('weekly');
     expect(PLAN_CREDITS.starter.autoRunFrequency).toBe('every_2_days');

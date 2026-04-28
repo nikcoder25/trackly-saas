@@ -32,9 +32,9 @@ export const PLAN_LIMITS: Record<string, PlanLimits> = {
   trial:      { brands: 9999, runsPerMonth: 10,  trackedPromptsPerAccount: 30,   queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
   starter:    { brands: 3,    runsPerMonth: 15,  trackedPromptsPerAccount: 15,   queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
   pro:        { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 25,   queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
-  agency:     { brands: 9999, runsPerMonth: 150, trackedPromptsPerAccount: 100,  queries: 100,  competitors: 20,  platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
-  enterprise: { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 9999, queries: 9999, competitors: 100, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 5000 },
-  owner:      { brands: 9999, runsPerMonth: 99999, trackedPromptsPerAccount: 99999, queries: 99999, competitors: 9999, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 99999 },
+  agency:     { brands: 9999, runsPerMonth: 150, trackedPromptsPerAccount: 100,  queries: 100,  competitors: 20,  platforms: 5, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
+  enterprise: { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 9999, queries: 9999, competitors: 100, platforms: 5, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 5000 },
+  owner:      { brands: 9999, runsPerMonth: 99999, trackedPromptsPerAccount: 99999, queries: 99999, competitors: 9999, platforms: 5, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 99999 },
 };
 
 export interface PlanLimits {

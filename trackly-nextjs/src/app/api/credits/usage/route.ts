@@ -19,7 +19,7 @@
 
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { getEffectivePlan } from '@/lib/constants';
+import { getEffectivePlan, PLATFORM_COLORS } from '@/lib/constants';
 import {
   currentMonthStart,
   nextMonthStart,
@@ -188,6 +188,13 @@ export async function GET(request: Request): Promise<Response> {
   const numBrands = brandRows.length;
   let configuredPrompts = 0;
   const platformSet = new Set<string>();
+  // Canonical 5-platform allowlist. Trackly supports ChatGPT,
+  // Perplexity, Claude, Gemini, Grok — anything else in
+  // brand.data.platforms is stale data from earlier iterations
+  // (e.g. provider names that got renamed) and must not surface in
+  // the Active Platforms tile or its chip list, otherwise the count
+  // can read 6 even though no 6th provider exists.
+  const SUPPORTED_PLATFORMS = new Set(Object.keys(PLATFORM_COLORS));
   const thirtyDaysAgo = now.getTime() - 30 * dayMs;
   let numActiveBrands = 0;
   let nextScheduledRun: string | null = null;
@@ -196,7 +203,9 @@ export async function GET(request: Request): Promise<Response> {
     const data = b.data || {};
     if (Array.isArray(data.queries)) configuredPrompts += data.queries.length;
     if (Array.isArray(data.platforms)) {
-      for (const p of data.platforms) platformSet.add(p);
+      for (const p of data.platforms) {
+        if (SUPPORTED_PLATFORMS.has(p)) platformSet.add(p);
+      }
     }
     // Active = at least one run in the last 30 days. Using the
     // brand-data runs array so we don't have to round-trip another
