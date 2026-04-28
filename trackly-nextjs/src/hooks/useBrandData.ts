@@ -52,7 +52,15 @@ export function useBrandData({ fullData = false }: { fullData?: boolean } = {}) 
   }, [fullData, brandId, fetchFullBrand]);
 
   const baseBrand = fullData ? (fullBrand as typeof selectedBrand) : selectedBrand;
-  const loading = contextLoading || (fullData && fullLoading);
+  // Hold `loading` true through the one-render gap between BrandContext
+  // resolving and the fetch effect flipping `fullLoading` to true. Without
+  // the `!fullBrand && !error` clause, the page briefly mounts with
+  // `loading=false` AND `fullBrand=null`, which on Mentions surfaces as
+  // a flash of "0% / 0 / 2 / 0%" KPI tiles before the real data lands.
+  // Effects run after commit, so we have to gate on the post-fetch state
+  // synchronously here.
+  const loading = contextLoading
+    || (fullData && (fullLoading || (!!brandId && !fullBrand && !error)));
 
   const reload = useCallback(async () => {
     await refreshBrands();
