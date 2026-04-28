@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PLATFORM_COLORS, getPlanPlatforms, PLAN_LIMITS } from '@/lib/constants';
 import { friendlyCompetitorName as friendlyCompName } from '@/lib/parser';
+import { computeOverviewSov } from '@/lib/run-sov';
 
 interface Brand {
   id: string;
@@ -129,7 +130,13 @@ export default function DashboardPage() {
     });
     return closest;
   }, [compareMode, lastRun, sortedRuns]);
-  const sov = lastRun?.sov || 0;
+  // Defensive Overview SOV: trust lastRun.sov when it's positive,
+  // fall back to recomputing from allResults only when stored is
+  // missing or zero AND allResults exists. This makes Overview
+  // resilient to malformed entries (e.g. pre-PR-C-1 watchdog-reap
+  // entries that hardcoded sov:0); a legitimately-zero run still
+  // renders 0% because the recompute also yields 0.
+  const sov = computeOverviewSov(lastRun);
   const totalM = lastRun?.totalM || 0;
   const totalQ = lastRun?.totalQ || 0;
   const platforms = lastRun?.platforms || {};
