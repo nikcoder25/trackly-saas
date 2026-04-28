@@ -1912,7 +1912,16 @@ input.brand-select{padding:7px 10px;}
 .ov-ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .ov-ring-pct{font-family:var(--mono);font-size:32px;font-weight:800;line-height:1;color:var(--text);}
 .ov-ring-diff{font-family:var(--mono);font-size:11px;font-weight:700;margin-top:2px;}
-.ov-hero-sov-label{font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:8px;}
+.ov-hero-sov-label{font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:8px;display:flex;align-items:center;gap:8px;justify-content:center;}
+.run-status-pill{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid transparent;line-height:1.4;}
+.run-status-pill-ok{color:#0f7a3e;background:rgba(34,197,94,.10);border-color:rgba(34,197,94,.30);}
+.run-status-pill-partial{color:#9a5b00;background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.30);}
+.run-status-pill-failed{color:#a51d1d;background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.30);}
+.honest-zero-card{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;margin-bottom:14px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:var(--radius-xs);box-shadow:var(--app-shadow);}
+.honest-zero-icon{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-family:var(--mono);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}
+.honest-zero-body{flex:1;min-width:0;}
+.honest-zero-title{font-family:var(--font);font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.honest-zero-text{font-family:var(--font);font-size:12px;color:var(--muted);line-height:1.5;}
 .ov-hero-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;flex:1;min-width:0;}
 .ov-hero-stat{text-align:center;padding:12px 0;}
 .ov-hero-stat-val{font-family:var(--mono);font-size:26px;font-weight:800;margin-bottom:4px;}

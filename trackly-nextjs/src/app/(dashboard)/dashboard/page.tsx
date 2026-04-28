@@ -164,6 +164,28 @@ export default function DashboardPage() {
   const sentTotal = posCount + neuCount + negCount;
   const recommendedPct = allResultsArr.length > 0 ? Math.round((allResultsArr.filter(r => r.recommended).length / allResultsArr.length) * 100) : 0;
 
+  // Run-health summary for the hero. A "successful response" is any
+  // result the worker stored without `error:true` — i.e. the AI
+  // platform returned content we could parse. The pill states are:
+  //   ok      — every dispatch came back clean
+  //   partial — at least one success AND at least one error
+  //   failed  — every dispatch errored (no usable data)
+  // Hidden during a live run; the live ring already conveys progress.
+  const runErrorCount = allResultsArr.filter(r => r.error).length;
+  const runSuccessCount = allResultsArr.length - runErrorCount;
+  const runQueriesCount = ((lastRun as Record<string, unknown> | null)?.queries as string[] | undefined)?.length
+    || queries.length;
+  const runPlatformsCount = Object.keys(platforms).length;
+  const runStatus: 'ok' | 'partial' | 'failed' | null =
+    !lastRun || live.running || allResultsArr.length === 0 ? null
+    : runSuccessCount === 0 ? 'failed'
+    : runErrorCount > 0 ? 'partial'
+    : 'ok';
+  // Honest-zero hint: the run completed with usable data, but the
+  // brand was never mentioned. Distinct from failed runs (no data)
+  // and from in-progress runs (numbers still settling).
+  const showHonestZero = !live.running && !!lastRun && sov === 0 && runSuccessCount > 0;
+
   // GEO Score (mentionRate*40 + recommendRate*35)
   const geoScore = useMemo(() => {
     const mRate = totalQ > 0 ? totalM / totalQ : 0;
@@ -498,10 +520,33 @@ export default function DashboardPage() {
               {!live.running&&sovChange!==null&&sovChange!==0&&<span className="ov-ring-diff" style={{color:sovChange>0?'var(--green)':'var(--red)'}} title="Compared to previous run">{sovChange>0?'▲':'▼'}{Math.abs(sovChange)}%</span>}
             </div>
           </div>
-          <div className="ov-hero-sov-label">Share of Voice</div>
+          <div className="ov-hero-sov-label">
+            <span>Share of Voice</span>
+            {runStatus && (
+              <span
+                className={`run-status-pill run-status-pill-${runStatus}`}
+                title={
+                  runStatus === 'ok'
+                    ? `Run completed cleanly. ${runSuccessCount} of ${allResultsArr.length} AI calls returned usable answers.`
+                    : runStatus === 'partial'
+                      ? `${runSuccessCount} of ${allResultsArr.length} AI calls returned usable answers; ${runErrorCount} errored.`
+                      : `All ${allResultsArr.length} AI calls errored — no usable data was returned.`
+                }
+              >
+                {runStatus === 'ok' ? 'Run OK' : runStatus === 'partial' ? 'Partial' : 'Failed'}
+              </span>
+            )}
+          </div>
         </div>
         <div className="ov-hero-stats">
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={live.running?{color:'var(--green)'}:{}}>{displayM} / {displayQ}</div><div className="ov-hero-stat-lbl">Mentions / Total</div></div>
+          <div className="ov-hero-stat">
+            <div className="ov-hero-stat-val" style={live.running?{color:'var(--green)'}:{}}>{displayM} / {displayQ}</div>
+            <div className="ov-hero-stat-lbl">
+              {!live.running && lastRun && allResultsArr.length > 0
+                ? `Mentions across ${runSuccessCount}/${allResultsArr.length} responses`
+                : 'Mentions / Total'}
+            </div>
+          </div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{getPlanPlatforms(user?.plan||'free').filter(p=>normPlatform(platforms[p]).total>0).length} / {getPlanPlatforms(user?.plan||'free').length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:live.running?'var(--green)':lastRunAge.includes('d')?'var(--amber)':''}}>{live.running?elapsed||'0s':lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">{live.running?'Run Duration':'Last Run'}</div></div>
@@ -510,6 +555,28 @@ export default function DashboardPage() {
       </div>
         );
       })()}
+
+      {/* HONEST ZERO HINT — distinguishes "ran cleanly, brand wasn't named"
+          from "pipeline broke". Renders only when SOV is exactly 0 AND we
+          have usable AI responses to back that conclusion. */}
+      {showHonestZero && (
+        <div className="honest-zero-card" role="status">
+          <div className="honest-zero-icon" aria-hidden="true">i</div>
+          <div className="honest-zero-body">
+            <div className="honest-zero-title">
+              0 mentions across {runSuccessCount} AI {runSuccessCount === 1 ? 'response' : 'responses'}
+            </div>
+            <div className="honest-zero-text">
+              Your brand wasn&apos;t named in any of the {runSuccessCount} {runSuccessCount === 1 ? 'answer' : 'answers'} we got
+              from {runPlatformsCount} {runPlatformsCount === 1 ? 'platform' : 'platforms'} for your {runQueriesCount} configured
+              {runQueriesCount === 1 ? ' query' : ' queries'}
+              {runErrorCount > 0 ? ` (${runErrorCount} ${runErrorCount === 1 ? 'call' : 'calls'} errored and were excluded)` : ''}.
+              This is a real measurement, not a system error — common for brands with low LLM visibility.
+              Review your queries and aliases in Brand Setup if you expected mentions.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* COMPARE BANNER - shows when vs Last Week or vs Last Month is active */}
       {compareRun && compareMode !== 'current' && (
