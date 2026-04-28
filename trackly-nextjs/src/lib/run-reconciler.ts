@@ -23,6 +23,8 @@
  */
 import { pool } from './db';
 import { logger } from './logger';
+import { computeSovFromResults } from './run-sov';
+import { aggregateCompetitorCounts } from './parser';
 
 // Staleness threshold. A row is considered stuck if `updated_at`
 // (bumped by flushProgress() on every 3rd result) has not advanced
@@ -235,17 +237,82 @@ async function finalizeStaleRow(
     const foundCount = Number(row.found_count || 0);
     const nowIso = new Date().toISOString();
     const totalExpected = Number(row.total_expected || 0);
+
+    // Truthful partial entry. Pre-PR-C-1 the reaper wrote sov:0
+    // hardcoded and omitted platforms / durationMs / citations /
+    // competitors entirely, which left the Overview dashboard
+    // reading "0% SOV / 0/5 Platforms Active / Run Duration N/A"
+    // even when the partial run contained 15 successful mentions.
+    // Now we derive every dashboard-visible field from the data the
+    // reaper already reads.
+    const trimmedResults = resultsArr.slice(0, 200);
+
+    // Per-platform stats — same shape and formula as run-worker.ts
+    // computes on terminal success. For platforms that hadn't yet
+    // run any queries when the worker died (worker progresses
+    // platform-by-platform), `queries: 0` is honest "no data yet"
+    // rather than the previous `activePlatforms: [...names]` string
+    // array, which the dashboard couldn't read.
+    const configuredPlatforms = Array.isArray(row.platforms) ? (row.platforms as string[]) : [];
+    const platformStats: Record<string, { queries: number; mentions: number; sov: number; errors: number }> = {};
+    for (const plat of configuredPlatforms) {
+      const platResults = trimmedResults.filter(r => (r as { platform?: unknown }).platform === plat);
+      const platTotal = platResults.length;
+      const platMentions = platResults.filter(r => (r as { mentioned?: boolean }).mentioned).length;
+      const platErrors = platResults.filter(r => (r as { error?: boolean }).error).length;
+      platformStats[plat] = {
+        queries: platTotal,
+        mentions: platMentions,
+        sov: platTotal > 0 ? Math.round((platMentions / platTotal) * 100) : 0,
+        errors: platErrors,
+      };
+    }
+
+    // Overall SOV — Mentions-page formula (found / non-error). When
+    // received is 0 (worker died before any result was flushed) the
+    // helper returns 0 by definition.
+    const sov = computeSovFromResults(
+      trimmedResults as Array<{ error?: boolean; mentioned?: boolean }>,
+    );
+
+    // Citations — replicate the run-worker domain-counting walk.
+    const citationCounts: Record<string, number> = {};
+    for (const r of trimmedResults) {
+      const cites = ((r as { citations?: string[] }).citations) || [];
+      for (const url of cites) {
+        try {
+          const domain = new URL(url).hostname.replace(/^www\./, '');
+          citationCounts[domain] = (citationCounts[domain] || 0) + 1;
+        } catch { /* skip invalid URLs */ }
+      }
+    }
+
+    // Competitors — same util the worker uses on success.
+    const competitorCounts = aggregateCompetitorCounts(
+      trimmedResults as Array<{ competitorMentions?: string[] }>,
+    );
+
+    // Run duration — wall-clock from started_at to the reap moment.
+    // Truthful: this is how long the run was alive before it died.
+    let durationMs: number | null = null;
+    const startedAtMs = new Date(row.started_at as string | Date).getTime();
+    if (Number.isFinite(startedAtMs)) durationMs = Date.now() - startedAtMs;
+
     data.runs.push({
       id: row.id,
       date: nowIso.split('T')[0],
       time: nowIso,
-      sov: 0,
+      durationMs,
+      sov,
       totalQ: received,
       totalM: foundCount,
       newMentions: foundCount,
-      activePlatforms: Array.isArray(row.platforms) ? (row.platforms as string[]) : [],
+      platforms: platformStats,
+      activePlatforms: configuredPlatforms,
       queries: Array.isArray(row.queries) ? (row.queries as string[]) : [],
-      allResults: resultsArr.slice(0, 200),
+      allResults: trimmedResults,
+      citations: citationCounts,
+      competitors: competitorCounts,
       errorCount,
       totalExpected,
       emergencySave: true,
