@@ -12,6 +12,7 @@ import { getPlanLimits } from '@/lib/constants';
 import { logger } from '@/lib/logger';
 import { reconcileStaleRuns, getStaleRunMinutes } from '@/lib/run-reconciler';
 import { recordDispatchOutcome } from '@/lib/cron-dispatch-alert';
+import { resolveLastRunTime } from '@/lib/cron-eligibility';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
@@ -292,21 +293,21 @@ export async function GET(request: Request) {
       // Use the greater of brand schedule or plan minimum
       const effectiveSchedule = Math.max(scheduleHours, limits.minScheduleHours);
 
-      // Check last run time: prefer active_runs table, fall back to brand data
-      let lastRunTime: number | null = lastRunMap[row.id] || null;
-      let lastRunSource: 'active_runs' | 'brand_data' | null =
-        lastRunTime ? 'active_runs' : null;
-      if (!lastRunTime) {
-        const runs = row.data?.runs || [];
-        if (runs.length > 0) {
-          const lastRun = runs[runs.length - 1];
-          const stamp = lastRun.time ?? lastRun.date;
-          if (stamp !== undefined && stamp !== null) {
-            lastRunTime = new Date(stamp).getTime();
-            lastRunSource = 'brand_data';
-          }
-        }
-      }
+      // Check last run time: prefer active_runs table, fall back to brand
+      // data BUT skipping watchdog-reap entries. The reaper stamps a
+      // brand.data.runs entry with `time: nowIso` when finalizing a stuck
+      // row; pre-PR-C-2 that timestamp got picked up here as "the brand
+      // just ran", blocking the brand for the full effectiveSchedule
+      // window (typically 24-48h) even though the run actually crashed.
+      // resolveLastRunTime() walks past those reaper entries so the
+      // scheduler either finds an older legitimate success in the JSONB
+      // history or treats the brand as never-run (eligible).
+      const resolvedLastRun = resolveLastRunTime(
+        lastRunMap[row.id] || null,
+        row.data?.runs as Parameters<typeof resolveLastRunTime>[1],
+      );
+      const lastRunTime = resolvedLastRun.lastRunTime;
+      const lastRunSource = resolvedLastRun.lastRunSource;
 
       if (lastRunTime) {
         const hoursSince = (Date.now() - lastRunTime) / (1000 * 60 * 60);
