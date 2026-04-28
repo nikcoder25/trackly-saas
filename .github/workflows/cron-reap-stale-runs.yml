@@ -1,0 +1,36 @@
+# 5-minute cron for /api/cron/reap-stale-runs (stale-run safety net).
+#
+# Independent failure mode from the hourly /api/cron scheduler. If
+# /api/cron is wedged (deploy mid-flight, network blip, DB lock
+# pile-up), this still runs and reaps anything past
+# RUN_WATCHDOG_STALE_MINUTES so dashboard "Last Run" clocks advance
+# and the freeze that motivated PR-A/PR-B can't recur silently.
+#
+# Endpoint takes its own `reap_stale_runs` cron lock so overlapping
+# GH Actions ticks (which can happen on a busy runner schedule) are
+# de-duped server-side and return `{ skipped: true, reason: 'locked' }`.
+#
+# Required repository secrets: CRON_SECRET (matches the env var on
+# DigitalOcean).
+
+name: Reap stale runs
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  reap:
+    name: Reap stale runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/reap-stale-runs
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 240 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/reap-stale-runs"

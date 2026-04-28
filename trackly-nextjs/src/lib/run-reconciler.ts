@@ -75,14 +75,28 @@ interface StaleRow {
 
 interface ReconcileOptions {
   // Scope: if brandId is set, only reconcile rows for that brand.
-  // If runId is set, only reconcile that specific run (and only if
-  // it's actually stale by the threshold). If neither set, reconcile
-  // all stale rows across the system.
+  // If runId is set, only reconcile that specific run. If neither is
+  // set, reconcile all stale rows across the system.
   brandId?: string;
   runId?: string;
   // Reason string written to the active_runs.error column and to
   // brands.runs[...].crashError.
   reason?: string;
+  // Override the staleness window for this single call. Used by the
+  // admin "reap all stale" UI which lets the operator pick a more
+  // conservative threshold (default 30 min) over the env default.
+  // Hard floor at getStaleRunMinutes() — we never reap rows fresher
+  // than the env-default watchdog threshold, even if the caller
+  // passes a smaller number, because that risks killing healthy
+  // runs that haven't yet had a chance to flush progress.
+  minAgeMinutes?: number;
+  // Bypass the staleness gate entirely. ONLY honored when paired
+  // with an explicit `runId`. Combined with `brandId` or scope-wide
+  // calls it is silently ignored — bulk operations always go
+  // through the staleness gate. This shape is enforced server-side
+  // in the admin reap route and re-validated here as defense in
+  // depth so a future caller can't accidentally reap the fleet.
+  force?: boolean;
 }
 
 export interface ReconcileResult {
@@ -108,10 +122,15 @@ async function selectStaleRuns(
     ? 'COALESCE(updated_at, started_at)'
     : 'started_at';
 
-  const where: string[] = [
-    `status = 'running'`,
-    `${progressExpr} < NOW() - INTERVAL '${staleMinutes} minutes'`,
-  ];
+  // Force is only honored when targeting a specific runId. Bulk
+  // calls always go through the staleness gate — see the type
+  // comment for why.
+  const surgicalForce = !!(scope.force && scope.runId);
+
+  const where: string[] = [`status = 'running'`];
+  if (!surgicalForce) {
+    where.push(`${progressExpr} < NOW() - INTERVAL '${staleMinutes} minutes'`);
+  }
   const params: unknown[] = [];
   if (scope.brandId) {
     params.push(scope.brandId);
@@ -259,7 +278,15 @@ async function finalizeStaleRow(
 export async function reconcileStaleRuns(
   opts: ReconcileOptions = {},
 ): Promise<ReconcileResult> {
-  const staleMinutes = getStaleRunMinutes();
+  const envFloor = getStaleRunMinutes();
+  // Operator-supplied minAgeMinutes can RAISE the threshold (be more
+  // conservative) but never lower it past the env default. A more
+  // aggressive bulk reap would risk killing healthy runs whose
+  // workers simply haven't flushed progress in the last N minutes.
+  const requestedAge = (typeof opts.minAgeMinutes === 'number' && Number.isFinite(opts.minAgeMinutes))
+    ? Math.floor(opts.minAgeMinutes)
+    : envFloor;
+  const staleMinutes = Math.max(envFloor, requestedAge);
   const reason = opts.reason
     || `watchdog reaped: no progress for >${staleMinutes}min`;
   const cols = await introspectActiveRunsColumns();
@@ -283,6 +310,11 @@ export async function reconcileStaleRuns(
     logger.info('watchdog.reconciled', {
       count,
       threshold_minutes: staleMinutes,
+      // Audit fields so manual reaps from /api/admin/runs/reap show
+      // up distinct from the autonomous cron reaper. `force` is the
+      // surgical-runId path; tagged here so the operator action is
+      // distinguishable in log queries.
+      forced: !!(opts.force && opts.runId),
       brand_ids: Array.from(brandIds).slice(0, 20),
       run_ids: runIds.slice(0, 20),
       scope: opts,

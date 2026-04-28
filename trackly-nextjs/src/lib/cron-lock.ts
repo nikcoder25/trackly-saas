@@ -242,6 +242,184 @@ export async function acquirePostgresLock(
   };
 }
 
+// --- Operator inspector (admin only) ---
+
+export interface CronLockSnapshot {
+  name: string;
+  source: 'redis' | 'postgres';
+  lockedAt: string | null;
+  ageSeconds: number | null;
+  instanceId: string | null;
+  ttlMs: number | null;       // Redis only — null for Postgres
+}
+
+/**
+ * Return a snapshot of every known cron lock for the operator UI.
+ *
+ * Reads BOTH backends because in production one is the active
+ * holder (Redis when REDIS_URL is set) and the other can be
+ * residual: a stale Postgres row from a Redis-outage period that
+ * never got DELETEd. Surfaces both so the operator sees the full
+ * picture without bouncing between consoles.
+ *
+ * Best-effort. Returns an empty array per backend on error rather
+ * than throwing — the admin endpoint surfaces the error string for
+ * visibility but should not 500 just because Redis is down.
+ */
+export async function listCronLocks(): Promise<{
+  locks: CronLockSnapshot[];
+  redis: { available: boolean; error: string | null };
+  postgres: { error: string | null };
+}> {
+  const out: CronLockSnapshot[] = [];
+  const errors = {
+    redis: { available: false, error: null as string | null },
+    postgres: { error: null as string | null },
+  };
+
+  // Redis: SCAN cron:lock:* (KEYS would block on a busy instance).
+  // For each key, GET the value (instanceId) and PTTL the remaining
+  // TTL. There's no way to recover the original `locked_at` from
+  // Redis alone — we surface the *remaining* TTL instead, which is
+  // the actionable signal for "is this stuck or just slow?".
+  const client = getRedisClient();
+  if (client) {
+    errors.redis.available = true;
+    try {
+      const keys: string[] = [];
+      let cursor = '0';
+      do {
+        const reply = await client.scan(cursor, 'MATCH', 'cron:lock:*', 'COUNT', 100);
+        cursor = reply[0];
+        for (const k of reply[1]) keys.push(k);
+        if (keys.length > 200) break; // safety bound — there are only ~5 named locks
+      } while (cursor !== '0');
+
+      for (const key of keys) {
+        const name = key.replace(/^cron:lock:/, '');
+        const [val, pttl] = await Promise.all([
+          client.get(key),
+          client.pttl(key),
+        ]);
+        out.push({
+          name,
+          source: 'redis',
+          lockedAt: null,           // Redis doesn't know acquire time
+          ageSeconds: null,
+          instanceId: val || null,
+          ttlMs: typeof pttl === 'number' && pttl > 0 ? pttl : null,
+        });
+      }
+    } catch (err) {
+      errors.redis.error = (err as Error).message;
+    }
+  }
+
+  // Postgres: every row in cron_locks, regardless of staleness, so
+  // the operator can see orphaned residue and force-release it.
+  try {
+    await ensureTable();
+    const rows = await pool.query(
+      `SELECT name, locked_at, instance_id,
+              EXTRACT(EPOCH FROM (NOW() - locked_at))::int AS age_seconds
+         FROM cron_locks
+        ORDER BY locked_at DESC NULLS LAST`,
+    );
+    for (const row of rows.rows) {
+      out.push({
+        name: row.name,
+        source: 'postgres',
+        lockedAt: row.locked_at ? new Date(row.locked_at).toISOString() : null,
+        ageSeconds: typeof row.age_seconds === 'number' ? row.age_seconds : null,
+        instanceId: row.instance_id || null,
+        ttlMs: null,
+      });
+    }
+  } catch (err) {
+    errors.postgres.error = (err as Error).message;
+  }
+
+  return { locks: out, ...errors };
+}
+
+// --- Operator force-release (admin only) ---
+
+export interface ForceReleaseResult {
+  redis: { available: boolean; deleted: number; error: string | null };
+  postgres: { deleted: number; priorLockedAt: string | null; priorInstanceId: string | null; error: string | null };
+}
+
+/**
+ * Force-release a cron lock by name. Bypasses the Lua compare-and-
+ * delete that the normal `release()` uses, so this WILL delete a
+ * lock currently held by a live worker on another pod. Intended for
+ * the admin "Cron Locks" UI / `POST /api/admin/locks/[name]/release`
+ * endpoint — never call this from auto-scheduled code paths.
+ *
+ * Risk: if the previous holder is still doing work, releasing the
+ * lock allows the next tick to start a parallel run on the same
+ * scope. The per-brand work (active_runs partial unique index +
+ * /run lock-check INSERT) is still de-duplicated, so the worst case
+ * is two `/api/cron` ticks racing the same scheduling loop, which
+ * the existing `INSERT ... NOT EXISTS` guard handles.
+ *
+ * Both backends are best-effort. We always try BOTH because:
+ *   - Redis may have already TTL-expired (treated as deleted=0)
+ *   - Postgres row may be the only stale residue when Redis is the
+ *     normal backend; orphaned rows there don't get auto-cleaned
+ *     and would still appear in /api/admin/locks
+ *
+ * Returns a per-backend result so the audit log can record exactly
+ * which side actually held the lock.
+ */
+export async function forceReleaseCronLock(name: string): Promise<ForceReleaseResult> {
+  const result: ForceReleaseResult = {
+    redis: { available: false, deleted: 0, error: null },
+    postgres: { deleted: 0, priorLockedAt: null, priorInstanceId: null, error: null },
+  };
+
+  // Redis: plain DEL, not Lua-CAS. Idempotent — DEL of a missing
+  // key returns 0, not an error.
+  const client = getRedisClient();
+  if (client) {
+    result.redis.available = true;
+    try {
+      const key = `cron:lock:${name}`;
+      const deleted = await client.del(key);
+      result.redis.deleted = typeof deleted === 'number' ? deleted : 0;
+    } catch (err) {
+      result.redis.error = (err as Error).message;
+    }
+  }
+
+  // Postgres: capture prior state for the audit log, then DELETE.
+  // Done as two queries inside a single client connection so the
+  // SELECT and DELETE see the same row even under contention with
+  // another acquire attempting an UPSERT on the same name.
+  try {
+    await ensureTable();
+    const prior = await pool.query(
+      `SELECT locked_at, instance_id FROM cron_locks WHERE name = $1`,
+      [name],
+    );
+    if (prior.rows.length) {
+      result.postgres.priorLockedAt = prior.rows[0].locked_at
+        ? new Date(prior.rows[0].locked_at).toISOString()
+        : null;
+      result.postgres.priorInstanceId = prior.rows[0].instance_id || null;
+    }
+    const del = await pool.query(
+      `DELETE FROM cron_locks WHERE name = $1`,
+      [name],
+    );
+    result.postgres.deleted = del.rowCount || 0;
+  } catch (err) {
+    result.postgres.error = (err as Error).message;
+  }
+
+  return result;
+}
+
 // --- Unified entrypoint ---
 
 /**
