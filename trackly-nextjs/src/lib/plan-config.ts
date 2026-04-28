@@ -71,7 +71,7 @@ export interface PlanCreditConfig {
  *              15 prompts (account), 3 brands, every 2 days,  economy
  *   - Pro:    2,500 monthly, 50 manual/day, 60 sec cooldown, 3 platforms,
  *              25 prompts (account), ∞ brands, daily, economy (default)
- *   - Agency: 8,000 monthly,  ∞ manual/day, 30 sec cooldown, 6 platforms,
+ *   - Agency: 8,000 monthly,  ∞ manual/day, 30 sec cooldown, 5 platforms,
  *              100 prompts (account), ∞ brands, daily, premium unlocked
  *
  * Trial mirrors Starter limits with a tighter monthly cap so abusers
@@ -139,7 +139,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     monthlyCredits: 8000,
     manualDailyCap: 9999, // Unlimited
     cooldownSeconds: 30,
-    maxPlatforms: 6,
+    maxPlatforms: 5,
     trackedPromptsPerAccount: 100,
     maxPromptsPerBrand: 100,
     modelTier: 'premium',
@@ -153,7 +153,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     monthlyCredits: 50000,
     manualDailyCap: 9999,
     cooldownSeconds: 0,
-    maxPlatforms: 6,
+    maxPlatforms: 5,
     trackedPromptsPerAccount: 9999,
     maxPromptsPerBrand: 9999,
     modelTier: 'premium',
@@ -167,7 +167,7 @@ export const PLAN_CREDITS: Record<string, PlanCreditConfig> = {
     monthlyCredits: 999999,
     manualDailyCap: 99999,
     cooldownSeconds: 0,
-    maxPlatforms: 6,
+    maxPlatforms: 5,
     trackedPromptsPerAccount: 99999,
     maxPromptsPerBrand: 99999,
     modelTier: 'premium',

@@ -54,8 +54,10 @@ export const PROVIDER_SPECS: ProviderSpec[] = [
   {
     platform: 'Perplexity',
     logTag: 'perplexity',
-    // Perplexity has no public /models listing; a HEAD on chat/completions
+    // Perplexity has no public /models listing; a GET on chat/completions
     // returns 405 cheaply and still proves the route + TLS handshake.
+    // (The probe loop in ai-platforms.ts uses GET for every provider; the
+    // 405 here is the desired signal, not a bug.)
     envPattern: /^PERPLEXITY_API_KEY(_\d+)?$/,
     disableEnv: 'AI_PERPLEXITY_BOOT_PROBE',
     keyName: 'perplexity',

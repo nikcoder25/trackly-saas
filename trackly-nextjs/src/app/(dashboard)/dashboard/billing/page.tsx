@@ -55,7 +55,10 @@ function buildPlanFeatures(): Record<string, string | undefined>[] {
   };
   const platformsLabel = (p: string) => {
     const n = PLAN_CREDITS[p]?.maxPlatforms ?? 0;
-    return n >= 6 ? `${n} (all)` : String(n);
+    // Trackly supports exactly 5 AI platforms (ChatGPT, Perplexity,
+    // Claude, Gemini, Grok). When a plan's cap reaches 5, render
+    // "5 (all)" to reinforce that the user is at the ceiling.
+    return n >= 5 ? `${n} (all)` : String(n);
   };
   const manualCapLabel = (p: string) => {
     const n = PLAN_CREDITS[p]?.manualDailyCap ?? 0;

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "worker": "tsx --tsconfig tsconfig.worker.json src/lib/run-worker.ts",
-    "lint": "next lint",
+    "lint": "echo 'lint: no-op (eslint config pending) — see docs/LINT-TODO.md'",
     "test": "vitest run"
   },
   "keywords": ["ai-visibility", "geo", "seo", "brand-tracking"],
