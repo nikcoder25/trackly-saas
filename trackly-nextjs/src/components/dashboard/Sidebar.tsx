@@ -37,6 +37,7 @@ const navGroups = [
     label: 'Settings',
     items: [
       { href: '/dashboard/setup', label: 'Brand Setup', icon: '◇' },
+      { href: '/dashboard/prompts', label: 'Tracked Prompts', icon: '⚡' },
       { href: '/dashboard/account', label: 'Account & Plan', icon: '◉' },
       { href: '/dashboard/billing', label: 'Billing & Usage', icon: '◆' },
 { href: '/dashboard/alerts', label: 'Alerts', icon: '◈' },
