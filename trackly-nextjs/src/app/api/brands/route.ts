@@ -2,6 +2,7 @@ import { pool, ensureColumns } from '@/lib/db';
 import { verifyRequestAuth, requireVerifiedAuth } from '@/lib/auth';
 import { uid } from '@/lib/helpers';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -135,6 +136,24 @@ export async function POST(request: Request) {
     const safeQueries = Array.isArray(queries) && queries.length > 0
       ? queries.filter((q: unknown) => typeof q === 'string').map((q: string) => q.trim()).filter(Boolean).slice(0, 300)
       : defaultQueries;
+
+    // Account-wide tracked-prompt cap (v3 spec). The new brand's
+    // initial queries are added to the existing total across all the
+    // owner's brands; reject if the sum would exceed the plan cap.
+    // Belt-and-braces server-side check — the setup form clamps too,
+    // but never trust client input.
+    if (limits.trackedPromptsPerAccount < 9999) {
+      const existingPromptCount = await countTrackedPromptsForOwner(user.id);
+      if (existingPromptCount + safeQueries.length > limits.trackedPromptsPerAccount) {
+        const remaining = Math.max(0, limits.trackedPromptsPerAccount - existingPromptCount);
+        return Response.json({
+          error: `Your ${plan} plan allows up to ${limits.trackedPromptsPerAccount} tracked prompts across all brands. You have ${existingPromptCount} configured and ${remaining} slot${remaining === 1 ? '' : 's'} left. Upgrade to add more.`,
+          planLimit: true,
+          trackedPromptsUsed: existingPromptCount,
+          trackedPromptsLimit: limits.trackedPromptsPerAccount,
+        }, { status: 403 });
+      }
+    }
 
     // Auto-generate aliases from brand name & website
     const autoAliases = new Set<string>();

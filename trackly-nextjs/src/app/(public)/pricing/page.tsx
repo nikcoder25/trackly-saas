@@ -58,12 +58,12 @@ const COMPARISON_ROWS: Array<{
   values: Record<Tier, string>;
 }> = [
   {
-    feature: 'Tracked prompts',
+    feature: 'Tracked prompts (account-wide)',
     values: {
-      free: num(PLAN_CREDITS.free.maxPromptsPerBrand),
-      starter: num(PLAN_CREDITS.starter.maxPromptsPerBrand),
-      pro: num(PLAN_CREDITS.pro.maxPromptsPerBrand),
-      agency: num(PLAN_CREDITS.agency.maxPromptsPerBrand),
+      free: num(PLAN_CREDITS.free.trackedPromptsPerAccount),
+      starter: num(PLAN_CREDITS.starter.trackedPromptsPerAccount),
+      pro: num(PLAN_CREDITS.pro.trackedPromptsPerAccount),
+      agency: num(PLAN_CREDITS.agency.trackedPromptsPerAccount),
     },
   },
   {
@@ -182,7 +182,7 @@ const FAQ = [
   },
   {
     q: 'Is there a free trial?',
-    a: 'Yes. Every paid plan starts with a 7-day free trial — no credit card required. You get 200 credits, all 5 AI platforms, and 30 tracked queries to evaluate the product.',
+    a: 'Yes. Every paid plan starts with a 7-day free trial — no credit card required. You get 200 credits, all 5 AI platforms, and 30 tracked prompts (account-wide) to evaluate the product.',
   },
   {
     q: 'Can I cancel anytime?',

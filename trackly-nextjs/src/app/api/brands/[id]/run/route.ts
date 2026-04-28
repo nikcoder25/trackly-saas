@@ -4,6 +4,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid, decryptApiKeys, loadTenantFairnessSettings } from '@/lib/helpers';
 import { setTenantFairness } from '@/lib/fairness-scheduler';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
+import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
 import { getAdminModel } from '@/lib/site-config';
@@ -278,12 +279,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   }
 
-  // --- Check per-brand query limit ---
-  if (queries.length > limits.queries) {
-    return Response.json({
-      error: `Your ${ownerPlan} plan allows up to ${limits.queries} queries per brand. You have ${queries.length}. Remove some queries or upgrade.`,
-      planLimit: true,
-    }, { status: 403 });
+  // --- Account-wide tracked-prompt cap (v3 spec) ---
+  // Defensive check: PUT /api/brands/[id] is the authoritative
+  // gatekeeper, but this guards against runs against any brand whose
+  // configured prompts already drift past the plan cap (e.g. after a
+  // downgrade). Counts the SUM of `data.queries` across every brand
+  // the owner has, not just this brand.
+  if (limits.trackedPromptsPerAccount < 9999) {
+    const accountPromptCount = await countTrackedPromptsForOwner(ownerId);
+    if (accountPromptCount > limits.trackedPromptsPerAccount) {
+      return Response.json({
+        error: `Your ${ownerPlan} plan allows up to ${limits.trackedPromptsPerAccount} tracked prompts across all brands. You have ${accountPromptCount} configured. Remove some prompts or upgrade.`,
+        planLimit: true,
+        trackedPromptsUsed: accountPromptCount,
+        trackedPromptsLimit: limits.trackedPromptsPerAccount,
+      }, { status: 403 });
+    }
   }
 
   // --- Per-tenant cost cap pre-flight (issue #411) ---

@@ -42,12 +42,12 @@ const ALL_PLATFORMS = Object.keys(PLATFORM_COLORS);
 export default function SetupPage() {
   const { user } = useAuth();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
-  // Livesov v2: pull both the prompt and platform caps from plan-config
-  // so /dashboard/billing's plan table and the setup form gates agree.
-  // Falls back to the legacy `user.limits.queries` only when the v2
-  // config doesn't list the user's plan (shouldn't happen in practice).
-  const v2 = getPlanCredits(user?.plan || 'free');
-  const planLimit = v2.maxPromptsPerBrand
+  // Livesov v3: tracked-prompt cap is account-wide (sum across all
+  // brands), not per-brand. The form clamps client-side and the
+  // server re-validates the account total in /api/brands/[id] PUT.
+  const v3 = getPlanCredits(user?.plan || 'free');
+  const accountPromptCap = v3.trackedPromptsPerAccount
+    || v3.maxPromptsPerBrand
     || (user?.limits as Record<string, number>)?.queries
     || 50;
   const { brands: ctxBrands, selectedBrand: ctxSelectedBrand, setSelectedBrand: setCtxSelectedBrand, loading: ctxLoading, refreshBrands } = useBrands();
@@ -103,7 +103,7 @@ export default function SetupPage() {
       )}
 
       {selectedBrand ? (
-        <EditBrandForm brand={selectedBrand} planLimit={planLimit}
+        <EditBrandForm brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
           onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
           onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
       ) : null}
@@ -227,7 +227,7 @@ function CreateBrandWizard({ onCreated }: { onCreated: (brand: Brand) => void })
 }
 
 /* ── EDIT BRAND FORM (full feature parity with LiveSOV) ───────────────────── */
-function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; planLimit?: number }) {
+function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, allBrands = [] }: { brand: Brand; onUpdated: (b: Brand) => void; onDeleted: () => void; accountPromptCap?: number; allBrands?: Brand[] }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const planPlatforms = getPlanPlatforms(user?.plan || 'free');
@@ -345,6 +345,19 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
     setTimeout(() => setDuplicateFlashIdx(null), 1600);
   };
 
+  // Account-wide tracked-prompt accounting (v3 spec). The cap is
+  // shared across every brand the account owns, so the math below
+  // uses `accountSlotsRemaining = cap - other-brands - this-brand`
+  // instead of a static per-brand limit.
+  const otherBrandsPromptCount = allBrands.reduce((sum, b) => {
+    if (b.id === brand.id) return sum;
+    return sum + (Array.isArray(b.queries) ? b.queries.length : 0);
+  }, 0);
+  const isPromptCapUnlimited = accountPromptCap >= 9999;
+  const accountSlotsRemaining = isPromptCapUnlimited
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, accountPromptCap - otherBrandsPromptCount - queries.length);
+
   const addQuery = () => {
     const q = queryInput.trim();
     if (!q) return;
@@ -355,8 +368,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       flashDuplicate(dupIdx);
       return;
     }
-    if (planLimit < 9999 && queries.length >= planLimit) {
-      setError(`Plan allows ${planLimit} prompts per brand. Upgrade for more.`);
+    if (!isPromptCapUnlimited && accountSlotsRemaining <= 0) {
+      setError(`Plan allows ${accountPromptCap} tracked prompts across all brands. ${otherBrandsPromptCount} are used by other brands. Upgrade for more.`);
       return;
     }
     setError('');
@@ -381,18 +394,18 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
       setError(`${skipped} duplicate quer${skipped === 1 ? 'y' : 'ies'} skipped - nothing new to add`);
       return;
     }
-    // Cap to plan's per-brand prompt limit. The server-side PUT
-    // re-validates this; clipping here gives the user a clear local
-    // message instead of a 403 after Save.
+    // Cap to the account-wide tracked-prompt cap, accounting for
+    // queries already configured on OTHER brands. Server-side PUT
+    // re-validates the same total; clipping here gives the user a
+    // clear local message instead of a 403 after Save.
     let trimmed = newQ;
     let trimmedNote = '';
-    if (planLimit < 9999 && queries.length + newQ.length > planLimit) {
-      const room = Math.max(0, planLimit - queries.length);
-      trimmed = newQ.slice(0, room);
-      trimmedNote = ` - ${newQ.length - trimmed.length} clipped at plan cap of ${planLimit}`;
+    if (!isPromptCapUnlimited && newQ.length > accountSlotsRemaining) {
+      trimmed = newQ.slice(0, Math.max(0, accountSlotsRemaining));
+      trimmedNote = ` - ${newQ.length - trimmed.length} clipped at account cap of ${accountPromptCap}`;
     }
     if (!trimmed.length) {
-      setError(`Plan allows ${planLimit} prompts per brand and you're at the limit. Upgrade for more.`);
+      setError(`Plan allows ${accountPromptCap} tracked prompts across all brands and you're at the limit. Upgrade for more.`);
       return;
     }
     setError('');
@@ -445,13 +458,14 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
         setAiGenerating(false);
         return;
       }
-      const remaining = planLimit - queries.length;
-      if (remaining <= 0) {
-        setError('Prompt limit reached. Upgrade your plan.');
+      if (!isPromptCapUnlimited && accountSlotsRemaining <= 0) {
+        setError('Account-wide prompt limit reached. Upgrade your plan.');
         setAiGenerating(false);
         return;
       }
-      if (newQs.length > remaining) newQs = newQs.slice(0, remaining);
+      if (!isPromptCapUnlimited && newQs.length > accountSlotsRemaining) {
+        newQs = newQs.slice(0, accountSlotsRemaining);
+      }
       setQueries([...queries, ...newQs]);
       setMessage(`+ ${newQs.length} AI-generated quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
     } catch (e) { setError((e as Error).message); }
@@ -548,7 +562,17 @@ function EditBrandForm({ brand, onUpdated, onDeleted, planLimit = 250 }: { brand
           <div style={{ marginBottom: 20 }}>
             <label className="flbl">Manage Queries</label>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
-              Add, remove, or bulk-manage the queries tracked for this brand. <span style={{ fontWeight: 700 }}>{queries.length} / {planLimit > 1000 ? '∞' : planLimit} prompts</span>
+              Add, remove, or bulk-manage the queries tracked for this brand.{' '}
+              {isPromptCapUnlimited ? (
+                <span style={{ fontWeight: 700 }}>{queries.length} prompts on this brand · ∞ account-wide</span>
+              ) : (
+                <>
+                  <span style={{ fontWeight: 700 }}>
+                    {queries.length + otherBrandsPromptCount} / {accountPromptCap} prompts account-wide
+                  </span>
+                  <span> · {queries.length} on this brand{otherBrandsPromptCount > 0 ? ` · ${otherBrandsPromptCount} on other brands` : ''}</span>
+                </>
+              )}
             </div>
 
             {/* Query tags */}

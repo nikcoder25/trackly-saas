@@ -201,8 +201,14 @@ function UsageLimitBanner() {
 
   // Compute which limits are hit
   const b = selectedBrand as Record<string, unknown> | null;
-  const queryCount = b?.queries ? (b.queries as string[]).length : 0;
   const competitorCount = b?.competitors ? (b.competitors as string[]).length : 0;
+  // Account-wide tracked prompts (v3 spec): sum across every brand
+  // the user owns, since the cap is no longer per-brand.
+  let accountPromptCount = 0;
+  for (const brand of brands) {
+    const br = brand as Record<string, unknown>;
+    if (Array.isArray(br?.queries)) accountPromptCount += (br.queries as string[]).length;
+  }
 
   interface LimitAlert {
     key: string;
@@ -241,12 +247,15 @@ function UsageLimitBanner() {
     }
   }
 
-  // Query-per-brand limit
-  if (limits.queries < 9999 && queryCount >= limits.queries) {
+  // Account-wide tracked-prompt limit (v3 spec). The cap is shared
+  // across every brand the user owns; we surface remaining slots
+  // rather than a per-brand count so the alert reflects the actual
+  // gating math the server enforces.
+  if (limits.trackedPromptsPerAccount < 9999 && accountPromptCount >= limits.trackedPromptsPerAccount) {
     alerts.push({
-      key: 'queries', icon: '⚡', label: 'Queries', used: queryCount, max: limits.queries,
-      severity: queryCount > limits.queries ? 'danger' : 'warning',
-      message: `This brand has ${queryCount}/${limits.queries} queries. Remove some or upgrade to add more.`,
+      key: 'trackedPrompts', icon: '⚡', label: 'Tracked prompts', used: accountPromptCount, max: limits.trackedPromptsPerAccount,
+      severity: accountPromptCount > limits.trackedPromptsPerAccount ? 'danger' : 'warning',
+      message: `You're using ${accountPromptCount}/${limits.trackedPromptsPerAccount} tracked prompts (account-wide). Remove some or upgrade to add more.`,
     });
   }
 

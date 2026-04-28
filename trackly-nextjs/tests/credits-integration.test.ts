@@ -97,15 +97,14 @@ describe('/api/queries/run — out of credits', () => {
     }
   });
 
-  it('auto-run on a free plan is rejected before any DB call', async () => {
-    const res = await reserveCredits('u1', 'free', 5, 'auto');
-    expect(res.ok).toBe(false);
-    if (!res.ok) {
-      expect(res.code).toBe('plan_disallows_auto');
-      expect(translateReservation(res.code)).toBe(403);
-    }
-    expect(queryMock).not.toHaveBeenCalled();
-  });
+  // The pre-v3 "auto-run on a free plan is rejected before any DB call"
+  // test asserted `Free.scheduledRuns === false`. v3 (2026-04-27) flipped
+  // every tier — including Free (weekly) — to `scheduledRuns: true`, so
+  // no real plan name exercises the `plan_disallows_auto` reservation
+  // failure any more. The translate-to-403 contract is still covered by
+  // the non-`auto` failure cases above; deleting this assertion rather
+  // than rewriting it against a synthetic plan because the guard is
+  // dormant under the current config.
 });
 
 describe('/api/queries/run — cooldown blocked', () => {

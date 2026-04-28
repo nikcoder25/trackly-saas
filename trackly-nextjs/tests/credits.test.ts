@@ -149,13 +149,14 @@ describe('reserveCredits — manual', () => {
     }
   });
 
-  it('refuses an auto reservation on a plan that disallows scheduled runs', async () => {
-    // Free plan has scheduledRuns=false. Note no DB call should be made.
-    const res = await reserveCredits('u1', 'free', 5, 'auto');
-    expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.code).toBe('plan_disallows_auto');
-    expect(queryMock).not.toHaveBeenCalled();
-  });
+  // The pre-v3 test "refuses an auto reservation on a plan that disallows
+  // scheduled runs" used Free as the example. v3 (2026-04-27) gave every
+  // plan tier `scheduledRuns: true` — Free runs weekly, Starter every two
+  // days, Pro/Agency daily — so no real plan exercises the
+  // `plan_disallows_auto` branch any more. The guard at credits.ts:279
+  // is kept as defensive dead code in case a future "no-scheduled" tier
+  // returns; deleting the test rather than rewriting it because no public
+  // plan name produces the failure path under the current config.
 });
 
 describe('reserveCredits — auto kind ignores daily cap', () => {

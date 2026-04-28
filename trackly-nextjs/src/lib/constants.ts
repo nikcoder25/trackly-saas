@@ -22,23 +22,36 @@ export const TOTP_CONFIG = {
 // config that the API/brand validation paths still read; values in this map
 // MUST match the equivalent field in PLAN_CREDITS or the dashboard's Plan
 // Comparison table will drift from what the backend actually enforces.
-//   queries  ↔ PLAN_CREDITS[plan].maxPromptsPerBrand
-//   platforms ↔ PLAN_CREDITS[plan].maxPlatforms
-//   brands   ↔ PLAN_CREDITS[plan].brandsCap
-//   minScheduleHours ↔ AUTO_RUN_HOURS[PLAN_CREDITS[plan].autoRunFrequency]
+//   trackedPromptsPerAccount ↔ PLAN_CREDITS[plan].trackedPromptsPerAccount
+//   queries (deprecated)     ↔ same value (kept readable for one cycle)
+//   platforms                ↔ PLAN_CREDITS[plan].maxPlatforms
+//   brands                   ↔ PLAN_CREDITS[plan].brandsCap
+//   minScheduleHours         ↔ AUTO_RUN_HOURS[PLAN_CREDITS[plan].autoRunFrequency]
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  free:       { brands: 1,    runsPerMonth: 4,   queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 168, geoAudits: 3 },
-  trial:      { brands: 9999, runsPerMonth: 10,  queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
-  starter:    { brands: 3,    runsPerMonth: 15,  queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
-  pro:        { brands: 9999, runsPerMonth: 30,  queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
-  agency:     { brands: 9999, runsPerMonth: 150, queries: 100,  competitors: 20,  platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
-  enterprise: { brands: 9999, runsPerMonth: 30,  queries: 9999, competitors: 100, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 5000 },
-  owner:      { brands: 9999, runsPerMonth: 99999, queries: 99999, competitors: 9999, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 99999 },
+  free:       { brands: 1,    runsPerMonth: 4,   trackedPromptsPerAccount: 5,    queries: 5,    competitors: 0,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 168, geoAudits: 3 },
+  trial:      { brands: 9999, runsPerMonth: 10,  trackedPromptsPerAccount: 30,   queries: 30,   competitors: 5,   platforms: 5, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 20 },
+  starter:    { brands: 3,    runsPerMonth: 15,  trackedPromptsPerAccount: 15,   queries: 15,   competitors: 3,   platforms: 2, prioritySupport: false, sentiment: false, scheduledRuns: true,  minScheduleHours: 48,  geoAudits: 20 },
+  pro:        { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 25,   queries: 25,   competitors: 8,   platforms: 3, prioritySupport: false, sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 75 },
+  agency:     { brands: 9999, runsPerMonth: 150, trackedPromptsPerAccount: 100,  queries: 100,  competitors: 20,  platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 300 },
+  enterprise: { brands: 9999, runsPerMonth: 30,  trackedPromptsPerAccount: 9999, queries: 9999, competitors: 100, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 5000 },
+  owner:      { brands: 9999, runsPerMonth: 99999, trackedPromptsPerAccount: 99999, queries: 99999, competitors: 9999, platforms: 6, prioritySupport: true,  sentiment: true,  scheduledRuns: true,  minScheduleHours: 24,  geoAudits: 99999 },
 };
 
 export interface PlanLimits {
   brands: number;
   runsPerMonth: number;
+  /**
+   * Account-wide cap on tracked prompts (sum of `brand.queries.length`
+   * across every brand the account owns). Authoritative as of v3
+   * (2026-04-27).
+   */
+  trackedPromptsPerAccount: number;
+  /**
+   * @deprecated Read `trackedPromptsPerAccount` instead. Kept for one
+   * deprecation cycle so any caller still using `limits.queries` keeps
+   * compiling; holds the same number as `trackedPromptsPerAccount`.
+   * Remove once the audit confirms no active reads remain.
+   */
   queries: number;
   competitors: number;
   platforms: number;
@@ -117,7 +130,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '150 AI credits/month',
     features: [
       '1 brand',
-      '5 tracked prompts per brand',
+      '5 tracked prompts',
       '2 AI platforms',
       'Weekly auto-runs',
       '3 GEO audits/month',
@@ -129,7 +142,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '750 AI credits/month',
     features: [
       '3 brands',
-      '15 tracked prompts per brand',
+      '15 tracked prompts',
       '2 AI platforms (ChatGPT & Claude)',
       'Competitor tracking (3)',
       'Auto-runs every 2 days',
@@ -142,7 +155,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '2,500 AI credits/month',
     features: [
       'Unlimited brands',
-      '25 tracked prompts per brand',
+      '25 tracked prompts',
       '3 AI platforms',
       'Competitor tracking (8)',
       'Daily auto-runs',
@@ -156,7 +169,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     headline: '8,000 AI credits/month',
     features: [
       'Unlimited brands',
-      '100 tracked prompts per brand',
+      '100 tracked prompts',
       '6 AI platforms (all)',
       'Competitor tracking (20)',
       'Premium AI models',

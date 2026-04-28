@@ -390,7 +390,7 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {[
-                    `${limits.queries >= 9999 ? 'Unlimited' : limits.queries} tracked queries`,
+                    `${limits.trackedPromptsPerAccount >= 9999 ? 'Unlimited' : limits.trackedPromptsPerAccount} tracked prompts (account-wide)`,
                     `${limits.platforms} AI platforms`,
                     `${limits.competitors} competitors`,
                     ...(limits.sentiment ? ['Sentiment analysis'] : []),

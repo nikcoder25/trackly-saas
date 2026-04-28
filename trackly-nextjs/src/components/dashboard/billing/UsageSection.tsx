@@ -186,7 +186,8 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
             </div>
           </div>
 
-          {/* Prompts */}
+          {/* Tracked prompts (account-wide cap, v3 spec). Per-brand
+              breakdown is informational in the sub-line. */}
           <KpiTile
             icon={
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -195,8 +196,8 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
             }
             label="Tracked prompts"
             number={configuredPrompts}
-            cap={isUnlimited ? null : cfg.maxPromptsPerBrand}
-            sub={`${configuredPrompts.toLocaleString()} across ${numBrands} brand${numBrands === 1 ? '' : 's'}`}
+            cap={isUnlimited || cfg.trackedPromptsPerAccount >= 9999 ? null : cfg.trackedPromptsPerAccount}
+            sub={`Account-wide · ${configuredPrompts.toLocaleString()} across ${numBrands} brand${numBrands === 1 ? '' : 's'}`}
             footer={<Link href="/dashboard/setup" style={FOOTER_LINK}>Add prompt →</Link>}
             visual={<Sparkline data={dailyCredits} width={108} height={32} />}
           />
