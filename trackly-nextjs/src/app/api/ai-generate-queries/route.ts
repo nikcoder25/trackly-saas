@@ -2,32 +2,16 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
 import { decryptApiKeys } from '@/lib/helpers';
+import { getServerKeys } from '@/lib/server-keys';
+import { resolveKeysForTenant, PROVIDER_SPECS } from '@/lib/tenant-keys';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 
-const PLATFORM_KEY_MAP: Record<string, string> = {
-  claude: 'CLAUDE_API_KEY',
-  openai: 'OPENAI_API_KEY',
-  gemini: 'GEMINI_API_KEY',
-  perplexity: 'PERPLEXITY_API_KEY',
-  grok: 'GROK_API_KEY',
-};
-
-const USER_KEY_MAP: Record<string, string> = {
-  claude: 'claude',
-  openai: 'openai',
-  gemini: 'gemini',
-  perplexity: 'perplexity',
-  grok: 'grok',
-};
-
-const PLATFORM_DISPLAY: Record<string, string> = {
-  claude: 'Claude',
-  openai: 'ChatGPT',
-  gemini: 'Gemini',
-  perplexity: 'Perplexity',
-  grok: 'Grok',
-};
+// Try platforms in this order so we prefer the cheapest / fastest
+// generator first, then fall back. Names match `ProviderSpec.keyName`.
+const PLATFORM_ORDER: Array<'claude' | 'openai' | 'gemini' | 'grok' | 'perplexity'> = [
+  'claude', 'openai', 'gemini', 'grok', 'perplexity',
+];
 
 export async function POST(request: Request) {
   const authResult = await requireVerifiedAuth(request, pool);
@@ -42,36 +26,34 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Brand name and industry are required' }, { status: 400 });
   }
 
-  // Find an available AI platform (server keys first, then user keys)
-  const platformOrder = ['claude', 'openai', 'gemini', 'grok', 'perplexity'];
+  // Walk the same key-resolution chain the run path uses
+  // (tenant_api_keys → users.api_keys → server env). Without this,
+  // tenants who configured their key via Account Settings (which
+  // writes to `tenant_api_keys`) would see "No AI API keys available"
+  // even though the rest of the platform finds their key fine.
+  let legacyUserKeys: Record<string, string | null | undefined> = {};
+  try {
+    const userResult = await pool.query('SELECT api_keys FROM users WHERE id = $1', [user.id]);
+    legacyUserKeys = decryptApiKeys(userResult.rows[0]?.api_keys || {}) as Record<string, string | null | undefined>;
+  } catch {}
+  const serverKeys = getServerKeys();
+
   let platform: string | null = null;
   let apiKey: string | null = null;
-
-  // Try server keys first
-  for (const p of platformOrder) {
-    const envVar = PLATFORM_KEY_MAP[p];
-    const keys = (process.env[envVar] || '').split(',').map(k => k.trim()).filter(Boolean);
-    if (keys.length > 0) {
-      platform = PLATFORM_DISPLAY[p];
-      apiKey = keys[0];
+  for (const keyName of PLATFORM_ORDER) {
+    const spec = PROVIDER_SPECS.find(s => s.keyName === keyName);
+    if (!spec) continue;
+    const resolved = await resolveKeysForTenant({
+      tenantId: user.id,
+      platformKeyName: keyName,
+      legacyUserKeys,
+      serverKeys: serverKeys[keyName] || [],
+    });
+    if (resolved) {
+      platform = spec.platform;
+      apiKey = resolved.key;
       break;
     }
-  }
-
-  // Fall back to user's own API keys
-  if (!platform || !apiKey) {
-    try {
-      const userResult = await pool.query('SELECT api_keys FROM users WHERE id = $1', [user.id]);
-      const userKeys = decryptApiKeys(userResult.rows[0]?.api_keys || {});
-      for (const p of platformOrder) {
-        const key = userKeys[USER_KEY_MAP[p]];
-        if (key) {
-          platform = PLATFORM_DISPLAY[p];
-          apiKey = key;
-          break;
-        }
-      }
-    } catch {}
   }
 
   if (!platform || !apiKey) {
