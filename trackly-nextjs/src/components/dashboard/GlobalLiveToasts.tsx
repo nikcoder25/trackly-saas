@@ -14,6 +14,7 @@ export default function GlobalLiveToasts() {
   const [toasts, setToasts] = useState<Array<LiveResult & { id: number }>>([]);
   const toastIdRef = useRef(0);
   const lastCountRef = useRef(0);
+  const dismissTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   useEffect(() => {
     if (live.results.length <= lastCountRef.current) return;
@@ -21,11 +22,13 @@ export default function GlobalLiveToasts() {
     lastCountRef.current = live.results.length;
     const newToasts = newResults.map(r => ({ ...r, id: ++toastIdRef.current }));
     setToasts(prev => [...prev, ...newToasts].slice(-6));
-    const ids = newToasts.map(t => t.id);
-    const timer = setTimeout(() => {
-      setToasts(prev => prev.filter(t => !ids.includes(t.id)));
-    }, 3500);
-    return () => clearTimeout(timer);
+    newToasts.forEach(t => {
+      const timer = setTimeout(() => {
+        setToasts(prev => prev.filter(x => x.id !== t.id));
+        dismissTimersRef.current.delete(timer);
+      }, 3500);
+      dismissTimersRef.current.add(timer);
+    });
   }, [live.results.length]);
 
   // Reset counter when run finishes
@@ -34,6 +37,19 @@ export default function GlobalLiveToasts() {
       lastCountRef.current = 0;
     }
   }, [live.running, live.status]);
+
+  // Wipe local toast queue when RunContext resets to INITIAL_STATE (brand
+  // switch, run completion, or error). The toast queue is decoupled from
+  // live.results, so a reset to [] alone won't drain it. Cancel pending
+  // dismiss timers first so they can't fire setState on the wiped queue.
+  useEffect(() => {
+    if (live.runId === null && live.brandId === null) {
+      dismissTimersRef.current.forEach(t => clearTimeout(t));
+      dismissTimersRef.current.clear();
+      setToasts([]);
+      lastCountRef.current = 0;
+    }
+  }, [live.runId, live.brandId]);
 
   if (toasts.length === 0) return null;
 
