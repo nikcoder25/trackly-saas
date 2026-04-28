@@ -7,6 +7,7 @@ import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
+import { reconcileStaleRuns } from '@/lib/run-reconciler';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -92,6 +93,14 @@ async function ensureActiveRunsTable() {
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_runs_one_running_per_brand
       ON active_runs (brand_id) WHERE status = 'running'
+  `);
+  // Partial index for the watchdog scan and the new /api/runs/active
+  // endpoint. `WHERE status='running'` keeps the index tiny (typically
+  // < N_brands rows) so both queries become index-only scans on a
+  // table that grows unbounded over time.
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_active_runs_running_updated_at
+      ON active_runs (updated_at) WHERE status = 'running'
   `);
 }
 
@@ -446,6 +455,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   // --- Check for existing active run (DB-based locking) ---
   await initTable();
+
+  // Reap any stale 'running' row for this brand BEFORE attempting to
+  // acquire the per-brand lock. The partial unique index on
+  // (brand_id) WHERE status='running' otherwise rejects the next
+  // legitimate trigger with HTTP 409 even when the prior run is
+  // wedged past the watchdog threshold but still hasn't been touched
+  // by the hourly cron tick. Scoped to this brand id so we don't
+  // sweep the fleet on every manual click. Cheap when there's
+  // nothing to reap (single indexed query).
+  try {
+    await reconcileStaleRuns({
+      brandId: id,
+      reason: 'reconciled at /run entry: stale running row blocked new trigger',
+    });
+  } catch {
+    // Reconciler swallows its own errors; this catch is defense in
+    // depth so a watchdog hiccup never blocks a legitimate run.
+  }
 
   // Force: mark any existing runs as error
   if (forceRun) {

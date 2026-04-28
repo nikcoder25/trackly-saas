@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { renderInlineMarkdown, sanitizeHtml } from '@/lib/sanitize';
 import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, TableSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface Mention { query: string; platform: string; mentioned: boolean; recommended?: boolean; sentiment?: string; position?: number; model?: string; date?: string; snippet?: string; response?: string; error?: string; raw?: string; context?: string; listPosition?: number; errorMessage?: string; }
 interface Run { id?: string; date?: string; created_at?: string; time?: string; sov?: number; allResults?: Mention[]; results?: Mention[]; }
@@ -21,6 +22,23 @@ export default function MentionsPage() {
   const { brand: rawBrand, loading } = useBrandData({ fullData: true });
   const selectedBrand = rawBrand as Brand | null;
   const { live, pct: runPct } = useRun();
+  const { toast } = useToast();
+  // Fire a one-shot toast when a 409 ("concurrent") run lands while the
+  // user is on this page. RunContext surfaces 409 as
+  // status='error' + errorMsg='concurrent'; without this hook the user
+  // would see the LIVE badge disappear with no explanation. Keyed off
+  // statusText so successive 409s each get their own toast, but
+  // re-renders while the same error is active don't duplicate.
+  const lastConcurrentMsgRef = useRef<string | null>(null);
+  useEffect(() => {
+    const isConcurrent = live.status === 'error' && live.errorMsg === 'concurrent';
+    if (isConcurrent && live.statusText && live.statusText !== lastConcurrentMsgRef.current) {
+      lastConcurrentMsgRef.current = live.statusText;
+      toast(live.statusText, 'error');
+    } else if (!isConcurrent) {
+      lastConcurrentMsgRef.current = null;
+    }
+  }, [live.status, live.errorMsg, live.statusText, toast]);
   const [selectedRunId, setSelectedRunId] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');

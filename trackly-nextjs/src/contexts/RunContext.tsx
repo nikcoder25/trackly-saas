@@ -323,14 +323,29 @@ export function RunProvider({ children }: { children: ReactNode }) {
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: 'Request failed' }));
         if (response.status === 409) {
-          // Shouldn't normally reach here (caught by runningRef check above),
-          // but handle it as a safety net - queue queries if any
+          // Reachable when the client lost track of an in-progress run
+          // (page refresh, closed tab, server restart) and the
+          // server-side partial unique index still has a 'running' row.
+          // Previously this branch silently reset to 'idle', leaving the
+          // user confused about why nothing happened. Surface it as a
+          // proper error state so:
+          //   - Sidebar can render the FORCE RUN button (it already
+          //     keys off errorMsg === 'concurrent')
+          //   - Pages like /dashboard/mentions can show a toast pointing
+          //     the user at force-run / wait
           runningRef.current = false;
           if (options?.queries && options.queries.length > 0) {
             const existing = pendingQueriesRef.current || [];
             pendingQueriesRef.current = [...new Set([...existing, ...options.queries])];
           }
-          setLive(prev => ({ ...prev, running: false, status: 'idle', statusText: '', errorMsg: null }));
+          const concurrentMsg = errData.error || 'A run is already in progress for this brand. Wait for it to finish or use Force Run.';
+          setLive(prev => ({
+            ...prev,
+            running: false,
+            status: 'error',
+            statusText: concurrentMsg,
+            errorMsg: 'concurrent',
+          }));
           return;
         }
         if (response.status === 429) {
