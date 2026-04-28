@@ -280,6 +280,11 @@ function UsageLimitBanner() {
   // Build a concise summary of what hit the limit, e.g. "Brands 1/1, Runs 50/50"
   const limitSummary = alerts.map(a => `${a.label} ${a.used}/${a.max >= 9999 ? '∞' : a.max}`).join(', ');
 
+  // Surface a "Manage prompts" CTA when the tracked-prompt cap is the
+  // alert that's firing — that page lets the user trim prompts back
+  // into limit instead of forcing a plan upgrade.
+  const promptsAlert = alerts.find(a => a.key === 'trackedPrompts');
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', marginBottom: 8,
@@ -295,6 +300,16 @@ function UsageLimitBanner() {
         <span style={{ margin: '0 4px', opacity: 0.4 }}>-</span>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 500 }}>{limitSummary}</span>
       </span>
+      {promptsAlert && (
+        <Link href="/dashboard/prompts" style={{
+          fontSize: 10, fontWeight: 700, color: accentColor, textDecoration: 'none',
+          whiteSpace: 'nowrap', flexShrink: 0,
+          padding: '3px 8px', borderRadius: 4,
+          border: `1px solid ${accentColor}`,
+        }}>
+          Manage prompts
+        </Link>
+      )}
       <Link href="/dashboard/billing" style={{
         fontSize: 10, color: 'var(--muted)', textDecoration: 'underline', whiteSpace: 'nowrap', flexShrink: 0,
       }}>
