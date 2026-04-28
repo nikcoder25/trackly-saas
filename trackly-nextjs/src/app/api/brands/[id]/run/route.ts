@@ -193,8 +193,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let body: { queries?: string[]; platforms?: string[] } = {};
   try { body = await request.json(); } catch { /* no body or invalid JSON is fine */ }
   const allQueries: string[] = brand.queries || [];
+  // Mirror the case-insensitive dedup applied by PUT /api/brands/[id]
+  // (route.ts:147-155). The PUT keeps only the first occurrence of any
+  // lowercase+trim variant, so a client that passes "Best Plumbing" after
+  // the brand stores "best plumbing" must still match — and downstream
+  // parsers should see the single canonical brand-stored casing.
+  const allQueriesByLower = new Map<string, string>(
+    allQueries.map((q) => [q.toLowerCase().trim(), q])
+  );
   const queries: string[] = (body.queries && Array.isArray(body.queries) && body.queries.length > 0)
-    ? body.queries.filter((q: string) => allQueries.includes(q))  // only allow queries that exist on the brand
+    ? body.queries.flatMap((q: string) => {
+        const canonical = allQueriesByLower.get(q.toLowerCase().trim());
+        return canonical ? [canonical] : [];
+      })
     : allQueries;
   if (!queries.length) return Response.json({ error: 'No queries configured. Add queries in Brand Setup.' }, { status: 400 });
 
