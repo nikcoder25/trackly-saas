@@ -59,11 +59,18 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  // Sync from BrandContext
+  // Sync from BrandContext. Adopt the context's selection whenever it points
+  // at a different brand id (e.g. user switched in the Topbar dropdown). When
+  // the id matches, keep the local copy so optimistic edits from
+  // onUpdated/onDeleted aren't clobbered by a stale context value.
   useEffect(() => {
     if (ctxLoading) return;
     setBrands(ctxBrands as Brand[]);
-    if (!selectedBrand && ctxSelectedBrand) setSelectedBrand(ctxSelectedBrand as Brand);
+    setSelectedBrand((prev) => {
+      if (!ctxSelectedBrand) return null;
+      if (!prev || prev.id !== ctxSelectedBrand.id) return ctxSelectedBrand as Brand;
+      return prev;
+    });
     setLoading(false);
   }, [ctxLoading, ctxBrands, ctxSelectedBrand]);
 
