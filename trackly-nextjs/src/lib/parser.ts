@@ -269,11 +269,41 @@ export function buildBrandMatcher(brand: BrandInput): BrandMatcher {
     }
   }
 
+  // List-position regexes. The original pattern only matched the bare
+  // `1. **BrandName**` shape. Gemini in particular tends to emit
+  // `**1. BrandName**` (bold around the whole label), `**1.** BrandName`,
+  // `(1) BrandName`, and similar variants — every one of which slid past
+  // the old regex and surfaced as Position N/A on the Mentions page.
+  // Two patterns now run in order; the first match wins (parseResponse
+  // breaks on first hit), so the more specific markdown variant comes
+  // before the parenthesised/hash one.
+  //
+  // Both patterns require: line-start, optional whitespace, then a marker
+  // group (number with surrounding emphasis), then optional emphasis +
+  // optional spaces, then the brand name on the SAME LINE — that
+  // last-line-anchor is what keeps false-positive risk near zero.
   const positionRes: RegExp[] = [];
   const allNames = [name, ...(brand.aliases || [])].filter(Boolean);
+  // Optional bold/italic emphasis: `**`, `__`, or `*`.
+  const EMPH = '(?:\\*\\*|__|\\*)?';
   for (const bn of allNames) {
     const bnEsc = bn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    positionRes.push(new RegExp('(?:^|\\n)\\s*(\\d{1,2})[.)\\-]\\s*\\*{0,2}' + bnEsc, 'im'));
+    // Pattern 1: `1.`, `2)`, `3-`, with optional emphasis before the digit,
+    // after the punctuation, and immediately before the brand name. Covers
+    // `1. Brand`, `**1. Brand**`, `**1.** Brand`, `1. **Brand**`, etc.
+    positionRes.push(new RegExp(
+      '(?:^|\\n)\\s*' + EMPH + '\\s*(\\d{1,2})[.)\\-]\\s*' + EMPH + '\\s*' + EMPH + '\\s*' + bnEsc,
+      'im',
+    ));
+    // Pattern 2: `(1)`, `[1]`, `#1:`, `#4 Brand` and bold variants
+    // (`**(6)**`, `**(1) Brand**`, etc.). Emphasis can sit either side
+    // of the marker group, and the closing bracket/colon is optional.
+    // When it's omitted at least one whitespace separates the digit
+    // from the brand, so the brand-on-same-line invariant still holds.
+    positionRes.push(new RegExp(
+      '(?:^|\\n)\\s*' + EMPH + '\\s*[(\\[#]\\s*(\\d{1,2})\\s*[)\\]:.\\-]?' + EMPH + '\\s+' + EMPH + '\\s*' + EMPH + '\\s*' + bnEsc,
+      'im',
+    ));
   }
 
   const allLocations: string[] = [];
