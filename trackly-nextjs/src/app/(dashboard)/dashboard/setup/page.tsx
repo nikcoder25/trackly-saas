@@ -31,7 +31,15 @@ interface Brand {
 async function api(method: string, path: string, body?: unknown) {
   const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include' };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(path, opts);
+  // Transparently refresh the 15-minute access token on 401 and retry once.
+  // Without this, SAVE CHANGES (and the other state-changing actions on this
+  // page) surface "Authentication required" as soon as the token expires
+  // while the user is sitting on the form. Mirrors BrandContext.refreshBrands.
+  let res = await fetch(path, opts);
+  if (res.status === 401) {
+    const refresh = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+    if (refresh.ok) res = await fetch(path, opts);
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
