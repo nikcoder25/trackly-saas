@@ -381,6 +381,35 @@ export async function sendMonthlyResetEmail(
   return sendEmail(email, 'Your Livesov credits have refreshed', html);
 }
 
+/**
+ * "Your free trial has ended" email. Sent once by the
+ * /api/cron/trial-ended-emails job after a user's trial expires
+ * (rawPlan='trial', trial_ends_at < now). Idempotency lives in the
+ * caller via the users.trial_end_email_sent_at column — this function
+ * is stateless so the email body can be regenerated/resent in dev
+ * without consulting the DB.
+ */
+export async function sendTrialEndedEmail(email: string): Promise<EmailResult> {
+  const upgradeUrl = `${APP_URL}/dashboard/account`;
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#f59e0b;margin:0 0 12px 0;">Your free trial has ended</h2>
+      <p style="color:#374151;line-height:1.6;">
+        Your 7-day free trial has ended. You're now on the Free plan
+        with reduced limits. Upgrade to restore
+        <strong>5 AI platforms</strong>, <strong>30 tracked prompts</strong>,
+        and <strong>200 credits per month</strong>.
+      </p>
+      <a href="${upgradeUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">Upgrade →</a>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+        You're receiving this because your Trackly trial just ended.
+        We send this once per trial — no further reminders.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, 'Your Trackly free trial has ended', html);
+}
+
 async function sendContactFormViaZoho(
   subject: string,
   html: string,

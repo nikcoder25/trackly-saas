@@ -19,6 +19,7 @@ name: Scheduled cron
 on:
   schedule:
     - cron: "*/15 * * * *"
+    - cron: "15 2 * * *"
     - cron: "30 2 * * *"
     - cron: "0 8 * * 1"
     - cron: "0 8 1 * *"
@@ -32,6 +33,7 @@ on:
         options:
           - daily
           - reconcile
+          - trial_ended_emails
           - weekly
           - monthly
 
@@ -74,6 +76,26 @@ jobs:
             --max-time 540 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://livesov.com/api/cron/reconcile-payments"
+
+  trial_ended_emails:
+    # Once-per-day transactional email to users whose trial just expired.
+    # Idempotent at the row level (users.trial_end_email_sent_at) and
+    # cluster level (acquireCronLock 'trial_ended_emails'). 02:15 UTC is
+    # 15 minutes before /api/cron?mode=daily_floor (02:30) so the two
+    # daily jobs don't race on the same scheduler lock.
+    name: Trial-ended emails cron
+    if: github.event.schedule == '15 2 * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'trial_ended_emails')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/cron/trial-ended-emails
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 540 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/trial-ended-emails"
 
   weekly:
     name: Weekly reports cron
