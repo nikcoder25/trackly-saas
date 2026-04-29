@@ -91,6 +91,22 @@ export function fmtDate(iso: string | null | undefined): string {
 }
 
 /**
+ * UTC-aware date label. Used for `lastRun.atDate` and the
+ * `dailyUsageLast14Days` bucket labels so the two never disagree
+ * across the UTC midnight boundary in non-UTC viewers (#453).
+ *
+ * Accepts either a YYYY-MM-DD bucket string or a full ISO timestamp.
+ */
+export function fmtDateUtc(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'UTC',
+  });
+}
+
+/**
  * "in 3 days" / "in 2h" / "today" — used by the auto-run card. Negative
  * values become "overdue".
  */

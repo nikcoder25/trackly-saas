@@ -4,6 +4,7 @@ import {
   buildForecastCopy,
   creditTileState,
   fmtDate,
+  fmtDateUtc,
   fmtRelative,
   forecastState,
 } from '../src/components/dashboard/billing/usage-state';
@@ -147,5 +148,20 @@ describe('fmtDate / fmtRelative', () => {
     expect(fmtRelative(new Date(now.getTime() + 3 * 86_400_000).toISOString(), now)).toBe('in 3d');
     expect(fmtRelative(new Date(now.getTime() + 5 * 3_600_000).toISOString(), now)).toBe('in 5h');
     expect(fmtRelative(new Date(now.getTime() - 2 * 86_400_000).toISOString(), now)).toBe('overdue 2d');
+  });
+});
+
+describe('fmtDateUtc — UTC-stable date label (#453)', () => {
+  it('renders the same calendar day for an ISO timestamp and its UTC bucket key', () => {
+    // 2026-04-28T23:30:00Z would render as Apr 29 in any tz east of
+    // UTC and Apr 28 in any tz west of it under fmtDate. fmtDateUtc
+    // forces UTC so it always matches the YYYY-MM-DD bucket.
+    const iso = '2026-04-28T23:30:00.000Z';
+    const bucket = '2026-04-28';
+    expect(fmtDateUtc(iso)).toBe(fmtDateUtc(bucket));
+  });
+  it('returns em-dash for invalid input', () => {
+    expect(fmtDateUtc(null)).toBe('—');
+    expect(fmtDateUtc('garbage')).toBe('—');
   });
 });
