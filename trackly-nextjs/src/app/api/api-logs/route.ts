@@ -18,6 +18,9 @@
  *               Defaults to "now".
  *   platform    Repeat or comma-separated. Case-insensitive. Omit for
  *               "all platforms".
+ *   brandId     Restrict to cost events whose run belongs to this brand.
+ *               Resolved via the run_id → active_runs.brand_id join. Omit
+ *               (or pass empty) to include all brands the tenant owns.
  *   limit       Page size, 1..200. Default 200 — the activity page
  *               renders all rows for the window, no client paging today.
  *
@@ -93,6 +96,7 @@ export async function GET(request: Request): Promise<Response> {
       .map((v) => v.trim())
       .filter((v) => v.length > 0),
   ));
+  const brandId = (url.searchParams.get('brandId') || '').trim();
   const limit = clampLimit(url.searchParams.get('limit'));
 
   try {
@@ -107,6 +111,17 @@ export async function GET(request: Request): Promise<Response> {
   if (platforms.length) {
     params.push(platforms.map((p) => p.toLowerCase()));
     where.push(`LOWER(platform) = ANY($${params.length}::text[])`);
+  }
+  if (brandId) {
+    // Resolve "events for this brand" via the run_id join. Events with a
+    // null run_id are excluded when a brand filter is active because they
+    // can't be attributed to a brand. The IN (subquery) form lets Postgres
+    // use the active_runs primary key without a planner-visible JOIN, so
+    // the existing tenant_cost_events_run_idx is still preferred.
+    params.push(brandId);
+    where.push(
+      `run_id IN (SELECT id FROM active_runs WHERE brand_id = $${params.length})`,
+    );
   }
 
   const pageParams = [...params, limit];

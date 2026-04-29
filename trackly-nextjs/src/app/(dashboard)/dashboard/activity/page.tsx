@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useBrands } from '@/contexts/BrandContext';
 
 interface ActivityLog { id?: string; action: string; timestamp: string; created_at?: string; ip?: string; details?: string; }
 interface ApiLog {
@@ -23,6 +24,8 @@ interface KeyStatus { platform: string; count: number; }
 const ACTION_ICONS: Record<string, string> = { login: '🔑', register: '📝', create_brand: '🏷', run_queries: '▶', update_brand: '⚙', delete_brand: '🗑', change_password: '🔒' };
 
 export default function ActivityPage() {
+  const { selectedBrand } = useBrands();
+  const brandId = selectedBrand?.id;
   const [tab, setTab] = useState<'activity' | 'api-logs' | 'key-status'>('activity');
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [apiLogs, setApiLogs] = useState<ApiLog[]>([]);
@@ -30,18 +33,29 @@ export default function ActivityPage() {
   const [keyStatus, setKeyStatus] = useState<KeyStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Re-runs whenever the user picks a different brand from the Topbar so
+  // the API Call Logs reflect the currently-selected brand. Account
+  // Activity stays user-scoped (login / register / etc.) — those rows
+  // aren't tied to a single brand.
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const apiLogsUrl = brandId
+      ? `/api/api-logs?brandId=${encodeURIComponent(brandId)}`
+      : '/api/api-logs';
     Promise.all([
       fetch('/api/activity-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [] })),
-      fetch('/api/api-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [], totals: { count: 0, ok: 0, errors: 0, tokens: 0 } })),
+      fetch(apiLogsUrl, { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [], totals: { count: 0, ok: 0, errors: 0, tokens: 0 } })),
     ]).then(([actData, apiData]) => {
+      if (cancelled) return;
       setActivityLogs((actData.logs || []).map((l: Record<string, unknown>) => ({ ...l, timestamp: l.timestamp || l.created_at || '' })));
       setApiLogs(apiData.logs || []);
       setApiTotals(apiData.totals || { count: 0, ok: 0, errors: 0, tokens: 0 });
       setKeyStatus(apiData.keyStatus || []);
       setLoading(false);
     });
-  }, []);
+    return () => { cancelled = true; };
+  }, [brandId]);
 
   const platforms = new Set(apiLogs.map(l => l.platform)).size;
 

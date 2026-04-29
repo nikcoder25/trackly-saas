@@ -213,6 +213,46 @@ describe('GET /api/api-logs', () => {
     expect(body.logs[0].runId).toBe('run_x');
   });
 
+  it('forwards brandId as a run_id IN (SELECT ... FROM active_runs WHERE brand_id = $N) clause', async () => {
+    // Without this filter the API Call Logs tab would render rows from
+    // every brand the tenant owns, so switching brands in the Topbar
+    // would not change the visible logs (the bug we're fixing).
+    let sawClause = '';
+    let sawBrandParam: unknown = null;
+    queryMock.mockImplementation(async (sql, params) => {
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('SELECT id, run_id')) {
+        sawClause = sql;
+        const arr = params as unknown[];
+        sawBrandParam = arr[arr.length - 2]; // last is `limit`, brand sits before it
+        return { rows: [] };
+      }
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('COUNT(*)')) {
+        return { rows: [{ count: 0, tokens: 0 }] };
+      }
+      return { rows: [] };
+    });
+    await GET(fakeRequest('?brandId=brand_42'));
+    expect(sawClause).toMatch(/run_id IN \(SELECT id FROM active_runs WHERE brand_id = \$\d+\)/);
+    expect(sawBrandParam).toBe('brand_42');
+  });
+
+  it('does NOT add the brand filter when brandId is omitted (logs are tenant-wide)', async () => {
+    let sawClause = '';
+    queryMock.mockImplementation(async (sql) => {
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('SELECT id, run_id')) {
+        sawClause = sql;
+        return { rows: [] };
+      }
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('COUNT(*)')) {
+        return { rows: [{ count: 0, tokens: 0 }] };
+      }
+      return { rows: [] };
+    });
+    await GET(fakeRequest());
+    expect(sawClause).not.toMatch(/active_runs/);
+    expect(sawClause).not.toMatch(/brand_id/);
+  });
+
   it('returns an empty-state response (logs:[], totals.count:0) when window has no events', async () => {
     queryMock.mockImplementation(async (sql) => {
       if (sql.includes('FROM tenant_cost_events') && sql.includes('SELECT id, run_id')) return { rows: [] };
