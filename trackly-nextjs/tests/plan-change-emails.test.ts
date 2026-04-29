@@ -14,6 +14,19 @@ describe('comparePlans', () => {
     expect(comparePlans('free', 'enterprise')).toBe('upgrade');
   });
 
+  it('classifies trial → paid as upgrade (the post-signup conversion path)', () => {
+    // Newly registered users land on plan='trial' (see
+    // api/auth/register/route.ts). When their first DodoPayments
+    // checkout completes, payment.succeeded / subscription.active
+    // flow through the upgrade branch with previousPlan='trial',
+    // and comparePlans must classify that as an upgrade so the
+    // confirmation email actually fires.
+    expect(comparePlans('trial', 'starter')).toBe('upgrade');
+    expect(comparePlans('trial', 'pro')).toBe('upgrade');
+    expect(comparePlans('trial', 'agency')).toBe('upgrade');
+    expect(comparePlans('trial', 'enterprise')).toBe('upgrade');
+  });
+
   it('classifies paid → higher paid as upgrade', () => {
     expect(comparePlans('starter', 'pro')).toBe('upgrade');
     expect(comparePlans('pro', 'agency')).toBe('upgrade');
@@ -103,5 +116,22 @@ describe('plan change email templates', () => {
       newPlan: 'pro',
     });
     expect(result.sent).toBe(true);
+  });
+
+  it('sends upgrade email when trial converts to paid plan', async () => {
+    // Mirrors the DodoPayments webhook's behaviour for the post-signup
+    // conversion: a trial user paying for Pro should get the upgrade
+    // template (not downgrade, not cancellation). The webhook's
+    // `comparePlans(previousPlan, plan)` decision is exercised
+    // separately above; this test asserts the chosen template
+    // renders correctly end-to-end with the trial→pro inputs.
+    const result = await sendPlanUpgradeEmail('trialuser@example.com', {
+      previousPlan: 'trial',
+      newPlan: 'pro',
+    });
+    expect(result.sent).toBe(true);
+    const logged = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('trialuser@example.com');
+    expect(logged).toContain('Pro plan');
   });
 });
