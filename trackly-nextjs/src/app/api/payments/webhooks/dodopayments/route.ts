@@ -1,5 +1,11 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  sendPlanUpgradeEmail,
+  sendPlanDowngradeEmail,
+  sendPlanCancellationEmail,
+} from '@/lib/email';
+import { comparePlans } from '@/lib/plan-config';
 import crypto from 'crypto';
 
 // Constant-time comparison for HMAC signatures. Attempts the given
@@ -250,6 +256,14 @@ export async function POST(request: Request) {
       // Extract nested data - DodoPayments may nest under .data or .payload
       const eventData = body.data || body.payload || body;
 
+      // Plan-change confirmation email to dispatch after the DB
+      // transaction commits. We don't send mid-transaction because a
+      // Resend outage would either burn webhook retries (if we threw)
+      // or send a false confirmation (if we then rolled back).
+      let pendingPlanEmail:
+        | { kind: 'upgrade' | 'downgrade' | 'cancellation'; email: string; from: string; to: string }
+        | null = null;
+
       // Use a transaction with SERIALIZABLE isolation to prevent race conditions
       // on duplicate webhook events and ensure atomic plan updates
       const client = await safeConnect();
@@ -283,7 +297,7 @@ export async function POST(request: Request) {
                                   });
                                   return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
                       }
-                      const userCheck = await client.query('SELECT id, plan, settings FROM users WHERE id = $1', [userId]);
+                      const userCheck = await client.query('SELECT id, email, plan, settings FROM users WHERE id = $1', [userId]);
                       if (!userCheck.rows.length) {
                                   await client.query('ROLLBACK');
                                   logger.error('webhook.dodo.user_not_found', { user_id: userId, event_type: eventType });
@@ -345,6 +359,28 @@ export async function POST(request: Request) {
                                 await client.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
                                 logger.info('webhook.dodo.plan_updated', { userId, from: previousPlan, to: plan, eventType });
 
+                        // Queue an upgrade/downgrade confirmation email when the
+                        // plan actually moved. Renewals (same → same) don't
+                        // surface to the user as a plan change, so suppress.
+                        if (currentUser.email && previousPlan !== plan) {
+                                  const direction = comparePlans(previousPlan, plan);
+                                  if (direction === 'upgrade') {
+                                              pendingPlanEmail = {
+                                                          kind: 'upgrade',
+                                                          email: currentUser.email,
+                                                          from: previousPlan,
+                                                          to: plan,
+                                              };
+                                  } else if (direction === 'downgrade') {
+                                              pendingPlanEmail = {
+                                                          kind: 'downgrade',
+                                                          email: currentUser.email,
+                                                          from: previousPlan,
+                                                          to: plan,
+                                              };
+                                  }
+                        }
+
                         // Build settings update with all relevant subscription data
                         const settingsUpdate: Record<string, string> = {
                                       subscription_status: 'active',
@@ -399,7 +435,7 @@ export async function POST(request: Request) {
                                   });
                                   return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
                       }
-                      const userCheck2 = await client.query('SELECT id, plan FROM users WHERE id = $1', [userId]);
+                      const userCheck2 = await client.query('SELECT id, email, plan FROM users WHERE id = $1', [userId]);
                       if (!userCheck2.rows.length) {
                                   await client.query('ROLLBACK');
                                   logger.error('webhook.dodo.user_not_found_downgrade', { user_id: userId, event_type: eventType });
@@ -407,12 +443,26 @@ export async function POST(request: Request) {
                       }
 
                     const previousPlan = userCheck2.rows[0].plan;
+                      const previousEmail = userCheck2.rows[0].email;
                       await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
                       await client.query(
                                   `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
                                   [userId]
                                 );
                       logger.info('webhook.dodo.plan_downgraded', { userId, from: previousPlan, to: 'free', eventType });
+
+                      // Queue a cancellation email if the user was actually on a
+                      // paid plan. No need to email someone who was already free
+                      // (e.g. a webhook fires after a chargeback on a long-since
+                      // cancelled subscription).
+                      if (previousEmail && previousPlan && previousPlan !== 'free') {
+                                pendingPlanEmail = {
+                                            kind: 'cancellation',
+                                            email: previousEmail,
+                                            from: previousPlan,
+                                            to: 'free',
+                                };
+                      }
             }
 
             // Handle subscription on hold
@@ -446,6 +496,34 @@ export async function POST(request: Request) {
                                   product_id: eventData.product_id || body.product_id,
                                   subscription_id: eventData.subscription_id || body.subscription_id,
                       }, 'webhook');
+            }
+
+            // Plan-change confirmation email (Resend). Fire-and-forget: a
+            // delivery failure should not retry the webhook — Dodo would
+            // re-invoke this handler, the duplicate guard would skip the
+            // DB work, and we'd never re-send the email anyway.
+            if (pendingPlanEmail) {
+                      const planEmail = pendingPlanEmail;
+                      const send = planEmail.kind === 'upgrade'
+                                ? sendPlanUpgradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to })
+                                : planEmail.kind === 'downgrade'
+                                  ? sendPlanDowngradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to })
+                                  : sendPlanCancellationEmail(planEmail.email, { previousPlan: planEmail.from });
+                      send
+                                .then((res) => {
+                                            if (!res.sent) {
+                                                        logger.warn('webhook.dodo.plan_email_failed', {
+                                                                    userId, kind: planEmail.kind, reason: res.reason,
+                                                        });
+                                            } else {
+                                                        logger.debug('webhook.dodo.plan_email_sent', { userId, kind: planEmail.kind });
+                                            }
+                                })
+                                .catch((err) => {
+                                            logger.error('webhook.dodo.plan_email_error', {
+                                                        userId, kind: planEmail.kind, error: (err as Error).message,
+                                            });
+                                });
             }
 
             logger.debug('webhook.dodo.processed', { eventId, eventType });

@@ -6,6 +6,7 @@
 
 import nodemailer from 'nodemailer';
 import { escapeHtml } from './sanitize';
+import { getPlanCredits } from './plan-config';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
@@ -379,6 +380,145 @@ export async function sendMonthlyResetEmail(
     </div>
   `;
   return sendEmail(email, 'Your Livesov credits have refreshed', html);
+}
+
+// ── Plan upgrade / downgrade / cancellation confirmations ──────────
+//
+// Fired from the DodoPayments webhook (and the user-initiated
+// /api/payments/cancel route) right after the users.plan column has
+// been updated. Resend handles delivery via the same sendEmail helper
+// used by every other transactional message in this file. These are
+// best-effort: callers fire-and-forget so a Resend outage never causes
+// a webhook to 500 and trigger Dodo's retry storm.
+
+export interface PlanChangeContext {
+  /** Plan the account was on before this transition (e.g. 'starter'). */
+  previousPlan: string;
+  /** Plan the account is on now (e.g. 'pro'). */
+  newPlan: string;
+}
+
+function planFeatureBullets(plan: string): string {
+  const cfg = getPlanCredits(plan);
+  const manualCap = cfg.manualDailyCap >= 9999 ? 'Unlimited' : cfg.manualDailyCap.toLocaleString();
+  const promptCap = cfg.trackedPromptsPerAccount >= 9999
+    ? 'Unlimited'
+    : cfg.trackedPromptsPerAccount.toLocaleString();
+  return `
+    <ul style="margin:0;padding-left:20px;color:#374151;line-height:1.7;">
+      <li><strong>${cfg.monthlyCredits.toLocaleString()}</strong> AI credits per month</li>
+      <li>Up to <strong>${cfg.maxPlatforms}</strong> AI platforms tracked per brand</li>
+      <li><strong>${promptCap}</strong> tracked prompts across your account</li>
+      <li><strong>${manualCap}</strong> manual runs per day</li>
+      <li><strong>${cfg.modelTier === 'premium' ? 'Premium' : 'Economy'}</strong> model tier</li>
+    </ul>
+  `;
+}
+
+/**
+ * Confirmation that a paid upgrade (free→pro, starter→agency, etc.)
+ * has taken effect. Sent from the DodoPayments webhook after the
+ * users.plan UPDATE commits.
+ */
+export async function sendPlanUpgradeEmail(
+  email: string,
+  ctx: PlanChangeContext,
+): Promise<EmailResult> {
+  const fromCfg = getPlanCredits(ctx.previousPlan);
+  const toCfg = getPlanCredits(ctx.newPlan);
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+      <h2 style="color:#10b981;margin:0 0 12px 0;">You're on ${escapeHtml(toCfg.label)} now &#127881;</h2>
+      <p style="color:#374151;line-height:1.6;">
+        Thanks for upgrading from <strong>${escapeHtml(fromCfg.label)}</strong> to
+        <strong>${escapeHtml(toCfg.label)}</strong>. Your new plan is active immediately and
+        the additional credits are already available in your account.
+      </p>
+      <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 8px 0;color:#065f46;font-weight:600;">What's now unlocked</p>
+        ${planFeatureBullets(ctx.newPlan)}
+      </div>
+      <a href="${BILLING_URL}" style="display:inline-block;background:#10b981;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">View Billing</a>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+        Your next renewal is billed at <strong>${escapeHtml(toCfg.price)}</strong>. Manage or cancel
+        anytime from the billing page. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, `You're on the ${toCfg.label} plan — Livesov`, html);
+}
+
+/**
+ * Confirmation that a paid plan changed to a lower-ranked paid plan
+ * (e.g. agency → starter via the customer portal). NOT used for full
+ * cancellations down to free — see `sendPlanCancellationEmail`.
+ */
+export async function sendPlanDowngradeEmail(
+  email: string,
+  ctx: PlanChangeContext,
+): Promise<EmailResult> {
+  const fromCfg = getPlanCredits(ctx.previousPlan);
+  const toCfg = getPlanCredits(ctx.newPlan);
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+      <h2 style="color:#4f46e5;margin:0 0 12px 0;">Your plan has changed</h2>
+      <p style="color:#374151;line-height:1.6;">
+        We've moved your account from <strong>${escapeHtml(fromCfg.label)}</strong> to
+        <strong>${escapeHtml(toCfg.label)}</strong>. The change is effective immediately and
+        your next invoice will be billed at <strong>${escapeHtml(toCfg.price)}</strong>.
+      </p>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 8px 0;color:#374151;font-weight:600;">Your ${escapeHtml(toCfg.label)} plan now includes</p>
+        ${planFeatureBullets(ctx.newPlan)}
+      </div>
+      <p style="color:#374151;line-height:1.6;">
+        Need more capacity again? You can switch back any time from the billing page —
+        your existing brands, prompts, and history all stay put.
+      </p>
+      <a href="${BILLING_URL}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">Manage Plan</a>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+        If you didn't make this change, reply to this email and we'll roll it back.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, `Your Livesov plan changed to ${toCfg.label}`, html);
+}
+
+/**
+ * Confirmation that a paid subscription was cancelled and the account
+ * has dropped to the Free plan. Sent both from the user-initiated
+ * /api/payments/cancel route and from the DodoPayments webhook on
+ * subscription.cancelled / subscription.expired / refund.succeeded.
+ */
+export async function sendPlanCancellationEmail(
+  email: string,
+  ctx: { previousPlan: string },
+): Promise<EmailResult> {
+  const fromCfg = getPlanCredits(ctx.previousPlan);
+  const freeCfg = getPlanCredits('free');
+  const html = `
+    <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
+      <h2 style="color:#dc2626;margin:0 0 12px 0;">Your subscription was cancelled</h2>
+      <p style="color:#374151;line-height:1.6;">
+        We've cancelled your <strong>${escapeHtml(fromCfg.label)}</strong> subscription and
+        moved your account to the <strong>${escapeHtml(freeCfg.label)}</strong> plan. You won't
+        be billed again.
+      </p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+        <p style="margin:0 0 8px 0;color:#991b1b;font-weight:600;">What you keep on Free</p>
+        ${planFeatureBullets('free')}
+      </div>
+      <p style="color:#374151;line-height:1.6;">
+        Your brands, prompts, and run history are preserved — re-subscribe any time from
+        the billing page to restore your previous capacity.
+      </p>
+      <a href="${BILLING_URL}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">View Billing</a>
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px;">
+        If you didn't request this cancellation, please reply to this email so we can investigate.
+      </p>
+    </div>
+  `;
+  return sendEmail(email, 'Your Livesov subscription was cancelled', html);
 }
 
 async function sendContactFormViaZoho(
