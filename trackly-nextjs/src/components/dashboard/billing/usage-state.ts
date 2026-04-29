@@ -75,7 +75,10 @@ export function forecastState(input: ForecastInput): ForecastState {
     const daysToZero = input.remaining / input.avgDailyCredits;
     if (daysToZero < input.daysRemainingInMonth) return 'at_risk';
   }
-  if (input.projectedMonthEnd > input.monthlyCap) return 'at_risk';
+  // Classify against the unrounded projection so accounts sitting on the
+  // cap boundary don't flip state from a 0.5-credit rounding swing (#456).
+  const projectedRaw = input.monthlyUsed + input.avgDailyCredits * input.daysRemainingInMonth;
+  if (projectedRaw > input.monthlyCap) return 'at_risk';
   return 'healthy';
 }
 

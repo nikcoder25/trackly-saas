@@ -106,6 +106,57 @@ describe('forecastState — at-risk classification', () => {
     });
     expect(s).toBe('healthy');
   });
+
+  // #456 — classification must use the unrounded raw projection so a
+  // 0.5-credit swing in Math.round() can't flip state at the boundary.
+  describe('cap-boundary classification uses unrounded projection (#456)', () => {
+    it('just-under cap: rounded projection equals cap but raw is below → healthy', () => {
+      // raw = 2000 + 4.9 * 100 = 2490 (below cap), rounded = 2490 too —
+      // pick numbers where rounding lifts the projection onto the cap
+      // while the raw value is strictly below it.
+      // raw = 2499.6, Math.round(raw) = 2500 = cap.
+      const s = forecastState({
+        monthlyUsed: 2000, monthlyCap: 2500,
+        avgDailyCredits: 4.999, projectedMonthEnd: 2500,
+        daysRemainingInMonth: 100, remaining: 500,
+      });
+      expect(s).toBe('healthy');
+    });
+
+    it('just-over cap: rounded projection equals cap but raw exceeds it → at_risk', () => {
+      // raw = 2000 + 5.001 * 100 = 2500.1 (over cap), Math.round = 2500.
+      // The pre-fix `projectedMonthEnd > monthlyCap` check (2500 > 2500)
+      // returned false and mis-classified as healthy.
+      const s = forecastState({
+        monthlyUsed: 2000, monthlyCap: 2500,
+        avgDailyCredits: 5.001, projectedMonthEnd: 2500,
+        daysRemainingInMonth: 100, remaining: 500,
+      });
+      expect(s).toBe('at_risk');
+    });
+
+    it('exactly-at cap: raw projection equals cap → healthy (not over)', () => {
+      // raw = 2000 + 5 * 100 = 2500 = cap. Both branches must NOT fire:
+      // remaining (500) / avgDaily (5) = 100 days, not < 100, and
+      // projectedRaw is not > cap. Classification: healthy.
+      const s = forecastState({
+        monthlyUsed: 2000, monthlyCap: 2500,
+        avgDailyCredits: 5, projectedMonthEnd: 2500,
+        daysRemainingInMonth: 100, remaining: 500,
+      });
+      expect(s).toBe('healthy');
+    });
+
+    it('well below cap: no regression — still healthy', () => {
+      // raw = 100 + 5 * 20 = 200, cap 2500. Far from any boundary.
+      const s = forecastState({
+        monthlyUsed: 100, monthlyCap: 2500,
+        avgDailyCredits: 5, projectedMonthEnd: 200,
+        daysRemainingInMonth: 20, remaining: 2400,
+      });
+      expect(s).toBe('healthy');
+    });
+  });
 });
 
 describe('buildForecastCopy — message shape', () => {
