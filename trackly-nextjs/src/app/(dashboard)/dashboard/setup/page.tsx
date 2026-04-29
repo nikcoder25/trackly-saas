@@ -282,6 +282,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
   const copyAllQueries = async () => {
@@ -450,6 +451,42 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
 
   const togglePlatform = (p: string) => {
     setSelectedPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+  };
+
+  const handleSuggestQueries = async () => {
+    if (!name) { setError('Set brand name first'); return; }
+    if (!industry) { setError('Set industry first'); return; }
+    setSuggesting(true); setError('');
+    try {
+      let newQs: string[] = [];
+      for (let attempt = 0; attempt < 2 && !newQs.length; attempt++) {
+        const data = await api('POST', '/api/ai-generate-queries', {
+          brandName: name, industry, city, existingQueries: queries, mode: 'suggest',
+        });
+        const suggestions: string[] = data.queries || [];
+        const existing = new Set(queries.map(q => q.toLowerCase()));
+        const needle = name.toLowerCase();
+        newQs = suggestions
+          .filter(q => q.toLowerCase().includes(needle))
+          .filter(q => !existing.has(q.toLowerCase()));
+      }
+      if (!newQs.length) {
+        setMessage('No new brand-focused queries this round - click Suggest again for more variety.');
+        setSuggesting(false);
+        return;
+      }
+      if (!isPromptCapUnlimited && accountSlotsRemaining <= 0) {
+        setError('Account-wide prompt limit reached. Upgrade your plan.');
+        setSuggesting(false);
+        return;
+      }
+      if (!isPromptCapUnlimited && newQs.length > accountSlotsRemaining) {
+        newQs = newQs.slice(0, accountSlotsRemaining);
+      }
+      setQueries([...queries, ...newQs]);
+      setMessage(`+ ${newQs.length} brand-focused quer${newQs.length === 1 ? 'y' : 'ies'} added - click again for more.`);
+    } catch (e) { setError((e as Error).message); }
+    setSuggesting(false);
   };
 
   const handleAiGenerate = async () => {
@@ -652,6 +689,9 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
             {/* Bulk add & AI Generate buttons */}
             <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
               <button type="button" onClick={() => setShowBulk(!showBulk)} className="setup-mono-btn">BULK ADD</button>
+              <button type="button" onClick={handleSuggestQueries} disabled={suggesting} className="setup-mono-btn" style={{ background: 'var(--success-light)', color: 'var(--green)', borderColor: 'var(--green)', opacity: suggesting ? 0.5 : 1 }}>
+                {suggesting ? 'SUGGESTING...' : 'SUGGEST'}
+              </button>
               <button type="button" onClick={handleAiGenerate} disabled={aiGenerating} className="setup-mono-btn" style={{ opacity: aiGenerating ? 0.5 : 1 }}>
                 {aiGenerating ? 'GENERATING...' : 'AI GENERATE'}
               </button>
