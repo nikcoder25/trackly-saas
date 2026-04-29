@@ -32,6 +32,14 @@ export interface DailyUsagePoint {
 
 export interface LastRunSummary {
   at: string;
+  /**
+   * UTC-day bucket of `at`, formatted YYYY-MM-DD. This is the same key
+   * `dailyUsageLast14Days[i].date` uses, so the dashboard can highlight
+   * the matching bar without re-deriving the bucket on the client (which
+   * would do it in the browser's local timezone and drift across the
+   * UTC midnight boundary — see #453).
+   */
+  atDate: string;
   credits: number;
   platforms: string[];
 }
@@ -170,8 +178,14 @@ export async function GET(request: Request): Promise<Response> {
     else if (typeof r.platforms === 'string') {
       try { platforms = JSON.parse(r.platforms) || []; } catch { platforms = []; }
     }
+    const atIso = r.completed_at || r.started_at;
+    // Bucket on the same UTC calendar day the daily-series SQL groups
+    // by (`date_trunc('day', created_at AT TIME ZONE 'UTC')`). Using
+    // toISOString().slice(0, 10) on a Date is the JS equivalent.
+    const atDate = new Date(atIso).toISOString().slice(0, 10);
     lastRun = {
-      at: r.completed_at || r.started_at,
+      at: atIso,
+      atDate,
       credits: Number(r.received) || 0,
       platforms,
     };

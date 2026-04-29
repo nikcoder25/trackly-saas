@@ -9,6 +9,7 @@ import {
   bannerKind,
   buildForecastCopy,
   fmtDate,
+  fmtDateUtc,
   fmtRelative,
 } from './usage-state';
 import type { UsageBreakdown } from '@/app/api/credits/usage/route';
@@ -347,7 +348,7 @@ function AutoTrackingPill({
 }: {
   paused: boolean; plan: string; scheduled: boolean;
   nextRun: string | null;
-  lastRun: { at: string; credits: number; platforms: string[] } | null;
+  lastRun: { at: string; atDate: string; credits: number; platforms: string[] } | null;
   nextResetAt: string; remaining: number;
 }) {
   if (paused) {
@@ -396,7 +397,7 @@ function AutoTrackingPill({
         {nextRun && <> · Next run <strong>{fmtRelative(nextRun)}</strong> ({fmtDate(nextRun)})</>}
         {lastRun && (
           <>
-            {' '}· Last run {fmtDate(lastRun.at)} consumed{' '}
+            {' '}· Last run {fmtDateUtc(lastRun.atDate)} consumed{' '}
             <strong style={{ fontFamily: 'var(--mono)' }}>{lastRun.credits.toLocaleString()}</strong>{' '}
             credit{lastRun.credits === 1 ? '' : 's'} across {lastRun.platforms.length} platform{lastRun.platforms.length === 1 ? '' : 's'}.
           </>

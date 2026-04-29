@@ -16,7 +16,10 @@ export interface CreditStatus {
   label: string;
   remaining: number;
   monthlyCap: number;
+  /** Committed spend (ledger-backed) — see lib/credits.ts. */
   monthlyUsed: number;
+  /** In-flight reservations not yet dispatched. */
+  reservedCredits: number;
   manualRemainingToday: number;
   manualDailyCap: number;
   cooldownSeconds: number;
