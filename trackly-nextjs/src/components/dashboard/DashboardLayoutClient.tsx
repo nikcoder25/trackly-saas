@@ -70,6 +70,59 @@ function TrialBanner() {
   );
 }
 
+function TrialEndedBanner() {
+  const { user } = useAuth();
+  const [dismissed, setDismissed] = useState(false);
+
+  const trialEndsAtISO = user?.trialEndsAt || null;
+  const storageKey = trialEndsAtISO ? `livesov_trial_ended_seen_v1:${trialEndsAtISO}` : null;
+
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      if (window.localStorage.getItem(storageKey) === '1') setDismissed(true);
+    } catch {
+      // localStorage unavailable - banner will simply re-show next mount
+    }
+  }, [storageKey]);
+
+  if (!user || user.rawPlan !== 'trial' || !trialEndsAtISO) return null;
+  // Use rawPlan (DB plan, exposed by safeUser) not plan (effective): once the trial expires, effective plan flips to 'free' while rawPlan stays 'trial' — that's exactly the post-trial state we want to detect.
+  const endMs = new Date(trialEndsAtISO).getTime();
+  if (isNaN(endMs) || endMs > Date.now()) return null;
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    if (storageKey) {
+      try { window.localStorage.setItem(storageKey, '1'); } catch { /* ignore */ }
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', marginBottom: 10,
+      background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)',
+      borderRadius: 'var(--radius-xs)', fontSize: 12, color: 'var(--text)',
+    }}>
+      <span style={{ fontSize: 14, color: '#f59e0b' }}>⏱</span>
+      <div style={{ flex: 1 }}>
+        <strong>Your free trial has ended.</strong>
+        <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
+        <span>You&apos;re now on the Free plan with reduced limits. Upgrade to restore 5 AI platforms, 30 tracked prompts, and 200 credits per month.</span>
+      </div>
+      <Link href="/dashboard/account" style={{
+        fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--primary)',
+        padding: '5px 10px', borderRadius: 4, textDecoration: 'none', whiteSpace: 'nowrap',
+      }}>Upgrade →</Link>
+      <button onClick={handleDismiss} style={{
+        background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer',
+        fontSize: 14, padding: 0, lineHeight: 1, opacity: 0.5,
+      }} aria-label="Dismiss">×</button>
+    </div>
+  );
+}
+
 function EmailVerificationBanner() {
   const { user, refreshUser } = useAuth();
   const [sending, setSending] = useState(false);
@@ -414,6 +467,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main">
           <TrialBanner />
+          <TrialEndedBanner />
           <EmailVerificationBanner />
           <CreditMigrationBanner />
           <LowBalanceBanner />
