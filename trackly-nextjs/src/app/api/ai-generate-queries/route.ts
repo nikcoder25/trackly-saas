@@ -21,10 +21,11 @@ export async function POST(request: Request) {
   const rl = await rateLimit('aigen:' + user.id, 15 * 60 * 1000, 10);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
-  const { brandName, industry, city, existingQueries } = await request.json();
+  const { brandName, industry, city, existingQueries, mode } = await request.json();
   if (!brandName || !industry) {
     return Response.json({ error: 'Brand name and industry are required' }, { status: 400 });
   }
+  const isSuggestMode = mode === 'suggest';
 
   // Walk the same key-resolution chain the run path uses
   // (tenant_api_keys → users.api_keys → server env). Without this,
@@ -64,7 +65,23 @@ export async function POST(request: Request) {
     ? `\n\nAlready tracked queries (do NOT repeat these):\n${existingQueries.join('\n')}`
     : '';
 
-  const prompt = `Generate 10-15 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
+  const prompt = isSuggestMode
+    ? `Generate 10-15 BRAND-FOCUSED search queries about "${brandName}" - a ${industry} brand${city ? ' based in or serving ' + city : ''}.
+
+These queries are designed to MAXIMIZE the brand's visibility score by directly probing what AI chatbots (ChatGPT, Claude, Perplexity) say about "${brandName}" specifically.
+
+CRITICAL REQUIREMENT:
+- EVERY SINGLE QUERY MUST CONTAIN THE EXACT BRAND NAME "${brandName}". No exceptions.
+- Do NOT generate generic category-level queries (e.g. "best ${industry}" or "top ${industry} companies") - those are for a separate flow.
+
+Requirements:
+- Vary the intent: reviews, pricing, comparisons, reputation, services offered, alternatives, "is ${brandName} good", "is ${brandName} worth it", "what is ${brandName}", "${brandName} vs <competitor>", "${brandName} customer experience"
+- Mix question styles: "what is...", "is ... good", "... reviews", "... pricing", "tell me about ...", "how does ... compare"
+- Make them natural - how real people actually ask AI chatbots about a specific brand
+- Return ONLY a JSON array of strings, nothing else${existingList}
+
+Example format: ["what is ${brandName}", "is ${brandName} good", "${brandName} reviews", "${brandName} vs competitors", "${brandName} pricing"]`
+    : `Generate 10-15 search queries that a person would type into an AI chatbot (like ChatGPT, Claude, Perplexity) when looking for "${industry}" services${city ? ' in or near ' + city : ''}.
 
 These queries will be used to track whether the brand "${brandName}" appears in AI responses.
 
@@ -98,6 +115,11 @@ Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${indust
         .slice(0, 15);
     } catch {
       return Response.json({ error: 'AI returned malformed JSON. Please try again.' }, { status: 500 });
+    }
+
+    if (isSuggestMode) {
+      const needle = brandName.toLowerCase();
+      queries = queries.filter(q => q.toLowerCase().includes(needle));
     }
 
     if (!queries.length) {

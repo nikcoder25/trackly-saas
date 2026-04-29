@@ -67,8 +67,7 @@ export default function AddBrandModal({ onClose, onCreated }: { onClose: () => v
       else { setQueryMsg('All suggestions already added'); }
     } catch {
       const ind = industry || 'services';
-      const c = city || '';
-      const fallback = [`best ${ind} in ${c || 'my area'}`, `top rated ${ind} near me`, `${name} reviews`, `recommended ${ind} companies`, `${ind} cost ${c}`, `${name} ${ind} quality`, `hire ${ind} in ${c}`, `${ind} services ${c}`, `why choose ${name}`, `${name} testimonials`].filter(s => !queries.includes(s));
+      const fallback = [`what is ${name}`, `${name} reviews`, `is ${name} good`, `${name} ${ind} quality`, `${name} pricing`, `${name} vs competitors`, `why choose ${name}`, `${name} testimonials`, `is ${name} worth it`, `${name} customer experience`].filter(s => !queries.includes(s));
       if (fallback.length) { setQueries([...queries, ...fallback]); setQueryMsg(`Added ${fallback.length} suggested queries`); }
       else { setQueryMsg('All suggestions already added'); }
     }
