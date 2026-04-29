@@ -195,6 +195,48 @@ export const PLAN_DISPLAY_ORDER = [
   'enterprise',
 ] as const;
 
+/**
+ * Numeric rank used to decide whether a plan transition is an upgrade or
+ * a downgrade (e.g. for the post-checkout confirmation email). `trial`
+ * lives at rank 0 alongside `free` so the first paid checkout still
+ * registers as an upgrade. `owner` is internal and never user-facing,
+ * but we map it high so admin/owner flips never get classified as a
+ * downgrade by accident.
+ */
+const PLAN_RANK: Record<string, number> = {
+  free: 0,
+  trial: 0,
+  starter: 1,
+  pro: 2,
+  agency: 3,
+  enterprise: 4,
+  owner: 99,
+};
+
+export function getPlanRank(plan: string | null | undefined): number {
+  if (!plan) return 0;
+  return PLAN_RANK[plan] ?? 0;
+}
+
+export type PlanChangeKind = 'upgrade' | 'downgrade' | 'same';
+
+/**
+ * Compare two plans by rank. Returns 'same' if the plans rank equally
+ * (e.g. free ↔ trial), 'upgrade' if `to` is higher, 'downgrade' if
+ * lower. Used to pick the correct confirmation-email template after a
+ * webhook plan change.
+ */
+export function comparePlans(
+  from: string | null | undefined,
+  to: string | null | undefined,
+): PlanChangeKind {
+  const a = getPlanRank(from);
+  const b = getPlanRank(to);
+  if (b > a) return 'upgrade';
+  if (b < a) return 'downgrade';
+  return 'same';
+}
+
 export function getPlanCredits(plan: string | undefined | null): PlanCreditConfig {
   if (!plan) return PLAN_CREDITS.free;
   return PLAN_CREDITS[plan] || PLAN_CREDITS.free;

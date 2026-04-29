@@ -3,6 +3,7 @@ import { verifyRequestAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
+import { sendPlanCancellationEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   const user = verifyRequestAuth(request);
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   try {
-    const result = await pool.query('SELECT plan, settings FROM users WHERE id = $1', [user.id]);
+    const result = await pool.query('SELECT email, plan, settings FROM users WHERE id = $1', [user.id]);
     const row = result.rows[0];
     if (!row) return Response.json({ error: 'User not found' }, { status: 404 });
     if (row.plan === 'free') return Response.json({ error: 'You are already on the free plan.' }, { status: 400 });
@@ -53,6 +54,22 @@ export async function POST(request: Request) {
     );
 
     auditLog(user.id, 'subscription_cancelled', 'user', user.id, { previousPlan: row.plan }, '');
+
+    // Cancellation confirmation (Resend). Fire-and-forget — a delivery
+    // failure should not roll back a successful cancellation, and we
+    // already audit-logged the event so support can resend manually if
+    // a customer reports never receiving it.
+    if (row.email) {
+      sendPlanCancellationEmail(row.email, { previousPlan: row.plan })
+        .then((res) => {
+          if (!res.sent) {
+            logger.warn('payments.cancel.email_failed', { userId: user.id, reason: res.reason });
+          }
+        })
+        .catch((err) => {
+          logger.error('payments.cancel.email_error', { userId: user.id, error: (err as Error).message });
+        });
+    }
 
     return Response.json({ success: true, message: 'Subscription cancelled. You are now on the free plan.' });
   } catch (e) {
