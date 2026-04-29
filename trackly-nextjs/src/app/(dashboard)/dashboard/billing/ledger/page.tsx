@@ -90,7 +90,12 @@ export default function CreditLedgerPage() {
   const monthStart = useMemo(() => currentMonthStartUtc(), []);
   const [from, setFrom] = useState<string>(toDateInput(monthStart));
   const [to, setTo] = useState<string>(toDateInput(new Date()));
-  const [platform, setPlatform] = useState<string>('');
+  // Multi-select platform filter. Empty set = "all platforms" — same as
+  // omitting the param. Initial value comes from /api/credits/usage's
+  // `activePlatforms` once it loads, so the picker only offers platforms
+  // the tenant has actually enabled.
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(new Set());
+  const [enabledPlatforms, setEnabledPlatforms] = useState<string[]>(PLATFORMS);
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [totals, setTotals] = useState<LedgerResponse['totals']>({ credits: 0, usdCost: 0, count: 0 });
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -104,7 +109,7 @@ export default function CreditLedgerPage() {
     const toDate = fromDateInput(to, true);
     if (!Number.isNaN(fromDate.getTime())) params.set('from', fromDate.toISOString());
     if (!Number.isNaN(toDate.getTime())) params.set('to', toDate.toISOString());
-    if (platform) params.set('platform', platform);
+    for (const p of selectedPlatforms) params.append('platform', p);
     params.set('limit', '50');
     if (cursor) params.set('cursor', cursor);
 
@@ -113,7 +118,23 @@ export default function CreditLedgerPage() {
     });
     if (!res.ok) throw new Error(`Ledger request failed (${res.status})`);
     return (await res.json()) as LedgerResponse;
-  }, [from, to, platform]);
+  }, [from, to, selectedPlatforms]);
+
+  // Hydrate the platform picker with the tenant's actually-enabled
+  // platforms. Falls back to the canonical 5 if the call fails — better
+  // to over-offer than to lock the picker to nothing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/credits/usage', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { activePlatforms?: string[] } | null) => {
+        if (cancelled) return;
+        const list = Array.isArray(d?.activePlatforms) ? d!.activePlatforms : [];
+        if (list.length) setEnabledPlatforms(list);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Filter changes reset paging and refetch from the top.
   useEffect(() => {
@@ -149,7 +170,16 @@ export default function CreditLedgerPage() {
   function resetToCurrentPeriod() {
     setFrom(toDateInput(monthStart));
     setTo(toDateInput(new Date()));
-    setPlatform('');
+    setSelectedPlatforms(new Set());
+  }
+
+  function togglePlatform(p: string) {
+    setSelectedPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
   }
 
   return (
@@ -201,22 +231,35 @@ export default function CreditLedgerPage() {
             }}
           />
         </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-          Platform
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
-            style={{
-              padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)',
-              background: 'var(--bg)', color: 'var(--text)', fontSize: 13, minWidth: 140,
-            }}
-          >
-            <option value="">All platforms</option>
-            {PLATFORMS.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+          Platforms
+          <div role="group" aria-label="Filter by platform" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {enabledPlatforms.map((p) => {
+              const active = selectedPlatforms.has(p);
+              const dot = PLATFORM_COLORS[p] || 'var(--muted)';
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePlatform(p)}
+                  aria-pressed={active}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 10px', borderRadius: 100,
+                    border: '1px solid var(--border)',
+                    background: active ? 'var(--primary)' : 'var(--bg)',
+                    color: active ? '#fff' : 'var(--text)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    textTransform: 'none', letterSpacing: 0,
+                  }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: active ? '#fff' : dot }} />
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <button
           onClick={resetToCurrentPeriod}
           style={{

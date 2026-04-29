@@ -134,7 +134,7 @@ describe('GET /api/credits/ledger', () => {
     expect(sawFrom).toBe(expectedFrom);
   });
 
-  it('forwards the platform filter to SQL with case-insensitive matching', async () => {
+  it('forwards a single platform filter to SQL with case-insensitive ANY()', async () => {
     let sawClause = '';
     let sawParams: unknown[] = [];
     queryMock.mockImplementation(async (sql, params) => {
@@ -150,8 +150,37 @@ describe('GET /api/credits/ledger', () => {
     });
 
     await GET(fakeRequest('?platform=Perplexity'));
-    expect(sawClause).toMatch(/LOWER\(platform\) = LOWER\(\$\d+\)/);
-    expect(sawParams).toContain('Perplexity');
+    expect(sawClause).toMatch(/LOWER\(platform\) = ANY\(\$\d+::text\[\]\)/);
+    expect(sawParams.find((p) => Array.isArray(p))).toEqual(['perplexity']);
+  });
+
+  it('accepts multi-select platform filters as repeated params and as comma-list', async () => {
+    let sawArrayParam: string[] | null = null;
+    queryMock.mockImplementation(async (sql, params) => {
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('SELECT id, run_id')) {
+        const arr = (params as unknown[]).find((p) => Array.isArray(p)) as string[] | undefined;
+        if (arr) sawArrayParam = arr;
+        return { rows: [] };
+      }
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('COUNT(*)')) {
+        return { rows: [{ count: 0, usd_cost: '0' }] };
+      }
+      return { rows: [] };
+    });
+
+    // Repeated `?platform=` form (what the multi-select UI emits).
+    await GET(fakeRequest('?platform=ChatGPT&platform=Claude'));
+    expect(sawArrayParam).toEqual(['chatgpt', 'claude']);
+
+    // Comma-separated form — same SQL shape, normalized + deduped.
+    sawArrayParam = null;
+    await GET(fakeRequest('?platform=ChatGPT,Claude,ChatGPT'));
+    expect(sawArrayParam).toEqual(['chatgpt', 'claude']);
+
+    // Echoed back on the response so the UI can render the active set.
+    const resp = await GET(fakeRequest('?platform=ChatGPT&platform=Claude'));
+    const body = await resp.json();
+    expect(body.window.platforms).toEqual(['ChatGPT', 'Claude']);
   });
 
   it('returns nextCursor when more rows are available and decodes back to the boundary', async () => {
@@ -285,6 +314,119 @@ describe('GET /api/credits/ledger', () => {
     // monthlyUsed in the same window.
     const sum = body.rows.reduce((acc: number, r: { credits: number }) => acc + r.credits, 0);
     expect(sum).toBe(body.totals.credits);
+  });
+
+  it('integration contract with #454: sum of credits across all pages equals monthlyUsed', async () => {
+    // The acceptance criterion on #455: for the default window (current
+    // billing period), summing the visible `credits` column across every
+    // page must equal `monthlyUsed` from /api/credits/status. Both sides
+    // are COUNT(*) over the same UTC-month window in tenant_cost_events
+    // — this test exercises the wire-level contract by paging the
+    // ledger to exhaustion against a fixed dataset and comparing.
+    const monthlyUsed = 127; // what /api/credits/status would return
+    const PAGE_SIZE = 50;
+    const base = new Date('2026-04-29T18:00:00.000Z');
+    // Build all 127 events in newest-first order; each has credits=1 by
+    // contract.
+    const allEvents: PageRow[] = Array.from({ length: monthlyUsed }).map((_, i) => ({
+      id: 1_000_000 - i,
+      run_id: 'run_a',
+      platform: 'ChatGPT',
+      model: 'gpt-4o-mini',
+      tokens_in: 1, tokens_out: 1,
+      usd_cost: '0',
+      // Spread events 1 minute apart so the keyset cursor tiebreaker
+      // never has to disambiguate by id.
+      created_at: new Date(base.getTime() - i * 60_000).toISOString(),
+    }));
+
+    queryMock.mockImplementation(async (sql, params) => {
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('SELECT id, run_id')) {
+        const p = params as unknown[];
+        // limit is the last param.
+        const limit = Number(p[p.length - 1]);
+        // cursor (when present) is the last two params before the limit.
+        let cursorTime: string | null = null;
+        let cursorId: string | null = null;
+        // The SQL only includes the keyset clause when a cursor was passed.
+        if (sql.includes('(created_at, id) <')) {
+          cursorTime = String(p[p.length - 3]);
+          cursorId = String(p[p.length - 2]);
+        }
+        let pool = allEvents;
+        if (cursorTime && cursorId) {
+          pool = allEvents.filter((r) => {
+            if (r.created_at < cursorTime!) return true;
+            if (r.created_at > cursorTime!) return false;
+            return Number(r.id) < Number(cursorId);
+          });
+        }
+        return { rows: pool.slice(0, limit) };
+      }
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('COUNT(*)')) {
+        return { rows: [{ count: monthlyUsed, usd_cost: '0' }] };
+      }
+      if (sql.includes('FROM active_runs')) {
+        return { rows: [{ id: 'run_a', brand_id: 'b1', queries: ['q'] }] };
+      }
+      if (sql.includes('FROM brands')) {
+        return { rows: [{ id: 'b1', name: 'Acme' }] };
+      }
+      return { rows: [] };
+    });
+
+    let cursor: string | null = null;
+    let visibleCreditSum = 0;
+    let pageCount = 0;
+    const seenIds = new Set<string>();
+    do {
+      const qs = new URLSearchParams();
+      qs.set('limit', String(PAGE_SIZE));
+      if (cursor) qs.set('cursor', cursor);
+      const resp = await GET(fakeRequest(`?${qs.toString()}`));
+      expect(resp.status).toBe(200);
+      const body = await resp.json();
+      pageCount++;
+      // Every row contributes its `credits` field — defends against a
+      // future regression that returns `null`/string/skips the field.
+      for (const r of body.rows as Array<{ id: string; credits: number }>) {
+        expect(typeof r.credits).toBe('number');
+        expect(seenIds.has(r.id)).toBe(false); // no duplicates across pages
+        seenIds.add(r.id);
+        visibleCreditSum += r.credits;
+      }
+      cursor = body.nextCursor;
+      // Defensive: don't loop forever if pagination breaks.
+      expect(pageCount).toBeLessThanOrEqual(10);
+    } while (cursor);
+
+    // ── The acceptance criterion ───────────────────────────────
+    expect(visibleCreditSum).toBe(monthlyUsed);
+    // And the per-window totals echo the same number, so the headline
+    // tile in the page header matches the running sum.
+    expect(seenIds.size).toBe(monthlyUsed);
+    // 127 rows / 50 per page → 3 pages (50 + 50 + 27).
+    expect(pageCount).toBe(3);
+  });
+
+  it('returns 50 rows per page by default (newest-first)', async () => {
+    let sawLimit: number | null = null;
+    queryMock.mockImplementation(async (sql, params) => {
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('SELECT id, run_id')) {
+        const arr = params as unknown[];
+        sawLimit = Number(arr[arr.length - 1]);
+        // Confirm newest-first ordering is in the SQL.
+        expect(sql).toMatch(/ORDER BY created_at DESC, id DESC/);
+        return { rows: [] };
+      }
+      if (sql.includes('FROM tenant_cost_events') && sql.includes('COUNT(*)')) {
+        return { rows: [{ count: 0, usd_cost: '0' }] };
+      }
+      return { rows: [] };
+    });
+    await GET(fakeRequest());
+    // Default is 50; the route over-fetches by 1 to detect "more".
+    expect(sawLimit).toBe(51);
   });
 
   it('joins active_runs to attach prompts + brand metadata to each row', async () => {

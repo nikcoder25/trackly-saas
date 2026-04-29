@@ -15,9 +15,13 @@
  *               `monthlyUsed` counts).
  *   to          ISO timestamp - exclusive upper bound on created_at.
  *               Defaults to "now".
- *   platform    Filter to a single platform (case-insensitive match on
- *               the `platform` column). Omit for "all platforms".
- *   limit       Page size, 1..200. Default 50.
+ *   platform    Filter to one or more platforms. Repeat the param for
+ *               multi-select (`?platform=ChatGPT&platform=Claude`) or
+ *               pass a comma-separated list. Case-insensitive match on
+ *               the `platform` column. Omit for "all platforms".
+ *   limit       Page size, 1..200. Default 50 — chosen to match the
+ *               page-size #455 calls for; callers paging via cursor can
+ *               override but the UI does not.
  *   cursor      Opaque keyset cursor returned in the previous response's
  *               `nextCursor`. Page-stable under concurrent inserts since
  *               we order by (created_at DESC, id DESC).
@@ -80,7 +84,7 @@ export interface LedgerRow {
 export interface LedgerResponse {
   rows: LedgerRow[];
   totals: { credits: number; usdCost: number; count: number };
-  window: { from: string; to: string; platform: string | null };
+  window: { from: string; to: string; platforms: string[] };
   nextCursor: string | null;
 }
 
@@ -137,10 +141,15 @@ export async function GET(request: Request): Promise<Response> {
   // the billing-page tile. Callers can override via ?from=&to=.
   const fromDate = parseDate(url.searchParams.get('from'), currentMonthStart(now));
   const toDate = parseDate(url.searchParams.get('to'), now);
-  const platformParam = url.searchParams.get('platform');
-  const platform = platformParam && platformParam.trim().length
-    ? platformParam.trim()
-    : null;
+  // Multi-platform filter. Accept either repeated `?platform=` params
+  // or a single comma-separated list — pickers serialize either way.
+  const platformsRaw = url.searchParams.getAll('platform');
+  const platforms = Array.from(new Set(
+    platformsRaw
+      .flatMap((v) => v.split(','))
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0),
+  ));
   const limit = clampLimit(url.searchParams.get('limit'));
   const cursorRaw = url.searchParams.get('cursor');
   const cursor = cursorRaw ? decodeCursor(cursorRaw) : null;
@@ -161,9 +170,11 @@ export async function GET(request: Request): Promise<Response> {
   // window.
   const where: string[] = ['tenant_id = $1', 'created_at >= $2', 'created_at < $3'];
   const params: unknown[] = [user.id, fromDate.toISOString(), toDate.toISOString()];
-  if (platform) {
-    params.push(platform);
-    where.push(`LOWER(platform) = LOWER($${params.length})`);
+  if (platforms.length) {
+    // Lowercase both sides so the picker doesn't have to know the exact
+    // canonicalization recordCostEvent stamped on the row.
+    params.push(platforms.map((p) => p.toLowerCase()));
+    where.push(`LOWER(platform) = ANY($${params.length}::text[])`);
   }
 
   // Page query: keyset pagination over (created_at DESC, id DESC).
@@ -312,7 +323,7 @@ export async function GET(request: Request): Promise<Response> {
     window: {
       from: fromDate.toISOString(),
       to: toDate.toISOString(),
-      platform,
+      platforms,
     },
     nextCursor,
   };
