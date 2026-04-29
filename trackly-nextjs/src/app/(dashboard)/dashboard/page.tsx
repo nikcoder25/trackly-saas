@@ -550,7 +550,7 @@ export default function DashboardPage() {
             <div className="ov-hero-stat-val" style={live.running?{color:'var(--green)'}:{}}>{displayM} / {displayQ}</div>
             <div className="ov-hero-stat-lbl">
               {!live.running && lastRun && allResultsArr.length > 0
-                ? `Mentions across ${runSuccessCount}/${allResultsArr.length} responses`
+                ? `Mentioned in ${displayM} of ${allResultsArr.length} responses`
                 : 'Mentions / Total'}
             </div>
           </div>
