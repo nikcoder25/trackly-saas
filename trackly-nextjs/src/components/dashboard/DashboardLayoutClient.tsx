@@ -87,6 +87,7 @@ function TrialEndedBanner() {
   }, [storageKey]);
 
   if (!user || user.rawPlan !== 'trial' || !trialEndsAtISO) return null;
+  // Use rawPlan (DB plan, exposed by safeUser) not plan (effective): once the trial expires, effective plan flips to 'free' while rawPlan stays 'trial' — that's exactly the post-trial state we want to detect.
   const endMs = new Date(trialEndsAtISO).getTime();
   if (isNaN(endMs) || endMs > Date.now()) return null;
   if (dismissed) return null;
@@ -108,7 +109,7 @@ function TrialEndedBanner() {
       <div style={{ flex: 1 }}>
         <strong>Your free trial has ended.</strong>
         <span style={{ margin: '0 6px', opacity: 0.5 }}>-</span>
-        <span>You&apos;re now on the Free plan. Upgrade to keep tracking on all platforms.</span>
+        <span>You&apos;re now on the Free plan with reduced limits. Upgrade to restore 5 AI platforms, 30 tracked prompts, and 200 credits per month.</span>
       </div>
       <Link href="/dashboard/account" style={{
         fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--primary)',
