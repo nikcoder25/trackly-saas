@@ -3,7 +3,21 @@
 import { useState, useEffect } from 'react';
 
 interface ActivityLog { id?: string; action: string; timestamp: string; created_at?: string; ip?: string; details?: string; }
-interface ApiLog { id?: string; timestamp: string; platform: string; model?: string; query?: string; status: string; tokens?: number; cost?: number; duration?: number; run_id?: string; calls?: number; platforms_used?: string; }
+interface ApiLog {
+  id: string;
+  timestamp: string;
+  platform: string;
+  model: string;
+  status: 'ok';
+  tokens: number;
+  runId: string | null;
+  query: string | null;
+}
+interface ApiLogsResponse {
+  logs: ApiLog[];
+  totals: { count: number; ok: number; errors: number; tokens: number };
+  window: { from: string; to: string; platforms: string[] };
+}
 interface KeyStatus { platform: string; count: number; }
 
 const ACTION_ICONS: Record<string, string> = { login: '🔑', register: '📝', create_brand: '🏷', run_queries: '▶', update_brand: '⚙', delete_brand: '🗑', change_password: '🔒' };
@@ -12,29 +26,23 @@ export default function ActivityPage() {
   const [tab, setTab] = useState<'activity' | 'api-logs' | 'key-status'>('activity');
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [apiLogs, setApiLogs] = useState<ApiLog[]>([]);
+  const [apiTotals, setApiTotals] = useState<ApiLogsResponse['totals']>({ count: 0, ok: 0, errors: 0, tokens: 0 });
   const [keyStatus, setKeyStatus] = useState<KeyStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorBanner, setErrorBanner] = useState('');
 
   useEffect(() => {
     Promise.all([
       fetch('/api/activity-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [] })),
-      fetch('/api/api-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [], errors: 0 })),
+      fetch('/api/api-logs', { credentials: 'include' }).then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); }).catch(() => ({ logs: [], totals: { count: 0, ok: 0, errors: 0, tokens: 0 } })),
     ]).then(([actData, apiData]) => {
       setActivityLogs((actData.logs || []).map((l: Record<string, unknown>) => ({ ...l, timestamp: l.timestamp || l.created_at || '' })));
       setApiLogs(apiData.logs || []);
+      setApiTotals(apiData.totals || { count: 0, ok: 0, errors: 0, tokens: 0 });
       setKeyStatus(apiData.keyStatus || []);
-      if (apiData.recentErrors > 0) setErrorBanner(`${apiData.recentErrors} recent run failures - check console for details`);
       setLoading(false);
     });
   }, []);
 
-  // API log stats
-  const okCount = apiLogs.filter(l => l.status === 'ok' || l.status === 'success').length;
-  const errCount = apiLogs.filter(l => l.status === 'error').length;
-  const totalCost = apiLogs.reduce((s, l) => s + (l.cost || 0), 0);
-  const totalTokens = apiLogs.reduce((s, l) => s + (l.tokens || 0), 0);
-  const avgMs = apiLogs.length > 0 ? Math.round(apiLogs.reduce((s, l) => s + (l.duration || 0), 0) / apiLogs.length) : 0;
   const platforms = new Set(apiLogs.map(l => l.platform)).size;
 
   function formatDate(d: string) {
@@ -91,17 +99,9 @@ export default function ActivityPage() {
       {/* Tab: API Call Logs */}
       {tab === 'api-logs' && (
         <div>
-          {/* Error banner */}
-          {errorBanner && (
-            <div style={{ background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 'var(--radius-xs)', padding: '12px 16px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: 'var(--amber)' }}><strong style={{ color: 'var(--red)' }}>{errorBanner.split(' ')[0]}</strong> {errorBanner.split(' ').slice(1).join(' ')}</span>
-              <button onClick={() => setErrorBanner('')} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, padding: '4px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>DISMISS</button>
-            </div>
-          )}
-
-          {/* Stats summary */}
+          {/* Stats summary - dollar cost intentionally omitted (#459 scope 2). */}
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, fontFamily: 'var(--mono)' }}>
-            Last 24h: <span style={{ color: 'var(--green)', fontWeight: 700 }}>{okCount} ok</span> · {errCount} errors · {platforms} platforms · avg {avgMs}ms · <span style={{ color: 'var(--amber)' }}>${totalCost.toFixed(4)}</span> cost · {totalTokens} tokens
+            Window: <span style={{ color: 'var(--green)', fontWeight: 700 }}>{apiTotals.ok} ok</span> · {apiTotals.errors} errors · {platforms} platforms · {apiTotals.tokens.toLocaleString()} tokens
           </div>
 
           {/* API logs table */}
@@ -111,34 +111,31 @@ export default function ActivityPage() {
                 <tr style={{ background: 'var(--bg3)' }}>
                   <th className="th">Time</th>
                   <th className="th">Platform</th>
+                  <th className="th">Model</th>
                   <th className="th">Query</th>
+                  <th className="th">Tokens</th>
                   <th className="th">Status</th>
-                  <th className="th">Duration</th>
-                  <th className="th">Cost</th>
                 </tr>
               </thead>
               <tbody>
                 {apiLogs.length === 0 ? (
                   <tr><td colSpan={6} className="td" style={{ textAlign: 'center', padding: 24, color: 'var(--muted)' }}>No API calls logged yet.</td></tr>
-                ) : apiLogs.map((log, i) => {
-                  const isRun = log.calls && log.calls > 1;
-                  return (
-                    <tr key={log.id || i} className="trow" style={isRun ? { background: 'rgba(59,130,246,.03)' } : {}}>
-                      <td className="td"><span style={{ color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 11 }}>▶ {new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span></td>
-                      <td className="td" style={{ fontWeight: isRun ? 700 : 400 }}>{isRun ? `${log.calls} calls · ${log.platforms_used || platforms} platforms` : log.platform}</td>
-                      <td className="td">{log.query || (isRun ? `${log.calls} ok` : '-')}</td>
-                      <td className="td"><span style={{ color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{typeof log.status === 'number' ? log.status : (log.status === 'ok' || log.status === 'success' ? okCount : log.status)}</span></td>
-                      <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{log.duration ? (log.duration >= 60000 ? `${Math.floor(log.duration / 60000)}m ${Math.round((log.duration % 60000) / 1000)}s` : `${Math.round(log.duration / 1000)}s`) : '-'}</td>
-                      <td className="td" style={{ color: 'var(--amber)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{log.cost ? `$${log.cost.toFixed(3)}` : '-'}</td>
-                    </tr>
-                  );
-                })}
+                ) : apiLogs.map((log) => (
+                  <tr key={log.id} className="trow">
+                    <td className="td"><span style={{ color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 11 }}>▶ {new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span></td>
+                    <td className="td">{log.platform}</td>
+                    <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>{log.model || '-'}</td>
+                    <td className="td">{log.query || '-'}</td>
+                    <td className="td" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{log.tokens.toLocaleString()}</td>
+                    <td className="td"><span style={{ color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--mono)', fontSize: 11 }}>{log.status}</span></td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
           <div style={{ textAlign: 'center', padding: 12, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
-            Showing {apiLogs.length} of {apiLogs.length} API calls
+            Showing {apiLogs.length} of {apiTotals.count} API calls
           </div>
         </div>
       )}

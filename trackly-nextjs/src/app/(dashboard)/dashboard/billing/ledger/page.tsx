@@ -278,11 +278,6 @@ export default function CreditLedgerPage() {
           <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'var(--mono)', color: 'var(--text)' }}>
             {totals.credits.toLocaleString()}
           </div>
-          {totals.usdCost > 0 && (
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>
-              ~${totals.usdCost.toFixed(4)} provider cost
-            </div>
-          )}
         </div>
       </div>
 
