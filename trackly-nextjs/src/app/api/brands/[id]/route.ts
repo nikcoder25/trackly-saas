@@ -135,12 +135,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (safeBody.platforms !== undefined) {
       if (!Array.isArray(safeBody.platforms)) return Response.json({ error: 'Platforms must be an array' }, { status: 400 });
       const ALLOWED_PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
-      const bad = (safeBody.platforms as unknown[]).find(p => typeof p !== 'string' || !ALLOWED_PLATFORMS.includes(p as string));
-      if (bad !== undefined) {
-        return Response.json({ error: `Invalid platform: ${bad}. Allowed: ${ALLOWED_PLATFORMS.join(', ')}` }, { status: 400 });
-      }
-      // Dedupe while preserving user order so selection priority is kept for plan-cap truncation.
-      safeBody.platforms = [...new Set(safeBody.platforms as string[])];
+      // Silently drop legacy/unknown platform values (e.g. "Google AI Overview"
+      // from a previous product version) so old brand rows can still be saved.
+      // Dedupe while preserving order so selection priority is kept for
+      // plan-cap truncation.
+      const cleaned = (safeBody.platforms as unknown[]).filter(
+        (p): p is string => typeof p === 'string' && ALLOWED_PLATFORMS.includes(p)
+      );
+      safeBody.platforms = [...new Set(cleaned)];
     }
 
     // Deduplicate queries
