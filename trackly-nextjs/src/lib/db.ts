@@ -127,6 +127,28 @@ function runMigrations(): Promise<void> {
         );
         CREATE INDEX IF NOT EXISTS prompt_cooldowns_expires_idx
           ON prompt_cooldowns(expires_at);
+        CREATE TABLE IF NOT EXISTS email_outbox (
+          id UUID PRIMARY KEY,
+          to_email TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          body_html TEXT NOT NULL,
+          body_text TEXT,
+          reply_to TEXT,
+          template_key TEXT NOT NULL,
+          payload_json JSONB NOT NULL DEFAULT '{}',
+          status TEXT NOT NULL DEFAULT 'pending',
+          attempts INT NOT NULL DEFAULT 0,
+          max_attempts INT NOT NULL DEFAULT 5,
+          next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          last_error TEXT,
+          idempotency_key TEXT UNIQUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          sent_at TIMESTAMPTZ
+        );
+        CREATE INDEX IF NOT EXISTS email_outbox_pickup_idx
+          ON email_outbox (status, next_attempt_at)
+          WHERE status IN ('pending', 'failed');
         DO $$
         BEGIN
           IF NOT EXISTS (

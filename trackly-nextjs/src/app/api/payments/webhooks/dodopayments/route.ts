@@ -739,17 +739,20 @@ export async function POST(request: Request) {
                       }, 'webhook');
             }
 
-            // Plan-change confirmation email (Resend). Fire-and-forget: a
-            // delivery failure should not retry the webhook — Dodo would
-            // re-invoke this handler, the duplicate guard would skip the
-            // DB work, and we'd never re-send the email anyway.
+            // Plan-change confirmation email — enqueued to the durable
+            // outbox (audit item D) instead of dispatched in-process.
+            // Idempotency key is `plan_email:${userId}:${eventId}`: Dodo's
+            // webhook event_id uniquely identifies this delivery attempt,
+            // and the outbox's UNIQUE index prevents a duplicate enqueue
+            // if Dodo retries the webhook after we've already enqueued.
             if (pendingPlanEmail) {
                       const planEmail = pendingPlanEmail;
+                      const idempotencyKey = `plan_email:${userId}:${eventId}`;
                       const send = planEmail.kind === 'upgrade'
-                                ? sendPlanUpgradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to })
+                                ? sendPlanUpgradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to }, idempotencyKey)
                                 : planEmail.kind === 'downgrade'
-                                  ? sendPlanDowngradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to })
-                                  : sendPlanCancellationEmail(planEmail.email, { previousPlan: planEmail.from });
+                                  ? sendPlanDowngradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to }, idempotencyKey)
+                                  : sendPlanCancellationEmail(planEmail.email, { previousPlan: planEmail.from }, idempotencyKey);
                       send
                                 .then((res) => {
                                             if (!res.sent) {

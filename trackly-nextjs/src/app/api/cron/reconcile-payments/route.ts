@@ -159,7 +159,12 @@ export async function GET(request: Request) {
               // roll back the cleanup — audit row above gives support a
               // paper trail to resend manually.
               if (didDowngrade && user.email) {
-                sendPlanCancellationEmail(user.email, { previousPlan: user.plan })
+                // Idempotency key keyed on the observed Dodo state so a
+                // late `subscription.cancelled` webhook for the same
+                // subscription collides on the outbox UNIQUE index and
+                // is a no-op (audit item D dedup contract).
+                const idempotencyKey = `plan_email:${user.id}:${subscriptionId}:not_found:free`;
+                sendPlanCancellationEmail(user.email, { previousPlan: user.plan }, idempotencyKey)
                   .then((res) => {
                     if (!res.sent) {
                       logger.warn('cron.reconcile.email_failed', {
@@ -291,8 +296,14 @@ export async function GET(request: Request) {
             // successful plan fix. Audit row above is the support trail.
             if (user.email) {
               const previousPlan = user.plan;
+              // Idempotency key keyed on the observed Dodo state
+              // (subscription_id + status + expected plan). The webhook
+              // computes the same key shape from its own observation so
+              // cron-and-webhook-saw-the-same-event collisions dedup at
+              // the outbox UNIQUE index (audit item D contract).
+              const idempotencyKey = `plan_email:${user.id}:${subscriptionId}:${dodoStatus}:${expectedPlan}`;
               if (expectedPlan === 'free') {
-                sendPlanCancellationEmail(user.email, { previousPlan })
+                sendPlanCancellationEmail(user.email, { previousPlan }, idempotencyKey)
                   .then((res) => {
                     if (!res.sent) {
                       logger.warn('cron.reconcile.email_failed', {
@@ -308,7 +319,7 @@ export async function GET(request: Request) {
               } else {
                 const direction = comparePlans(previousPlan, expectedPlan);
                 if (direction === 'upgrade') {
-                  sendPlanUpgradeEmail(user.email, { previousPlan, newPlan: expectedPlan })
+                  sendPlanUpgradeEmail(user.email, { previousPlan, newPlan: expectedPlan }, idempotencyKey)
                     .then((res) => {
                       if (!res.sent) {
                         logger.warn('cron.reconcile.email_failed', {
@@ -322,7 +333,7 @@ export async function GET(request: Request) {
                       });
                     });
                 } else if (direction === 'downgrade') {
-                  sendPlanDowngradeEmail(user.email, { previousPlan, newPlan: expectedPlan })
+                  sendPlanDowngradeEmail(user.email, { previousPlan, newPlan: expectedPlan }, idempotencyKey)
                     .then((res) => {
                       if (!res.sent) {
                         logger.warn('cron.reconcile.email_failed', {
