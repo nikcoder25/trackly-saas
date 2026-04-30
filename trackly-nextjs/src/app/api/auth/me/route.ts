@@ -15,11 +15,21 @@ export async function GET(request: Request) {
     const user = result.rows[0];
     if (!user) return Response.json({ error: 'User not found' }, { status: 404 });
 
-    // Single admin enforcement: admin role is only set via direct DB access
-    // (config/db.js auto-promotes the designated admin email on first run).
-    // No API endpoint can assign admin role. Admin automatically gets owner plan.
-    if (user.role === 'admin' && user.plan !== 'owner') {
-      await pool.query('UPDATE users SET plan = $1 WHERE id = $2', ['owner', user.id]);
+    // Admins always see plan='owner' in the API response so the unmetered
+    // UI surfaces (UsageSection, billing page, etc.) keep working without
+    // changes. This is a *response-shape* spoof only — we deliberately do
+    // NOT write 'owner' back to users.plan, because:
+    //   - users.plan is the authoritative billing state. It's written by
+    //     the Dodo webhook handler, /api/payments/cancel, the reconcile
+    //     cron, and admin-backend manual edits. If we wrote 'owner' here
+    //     on every /me call, all four of those paths would be silently
+    //     reverted on the admin's next dashboard load (e.g. an admin who
+    //     also holds a real subscription, or an admin testing the cancel
+    //     flow as a dogfood pass, would see their cancellation undone).
+    //   - lib/admin-auth.ts gates admin-backend access strictly on the
+    //     'admin' role, not on plan='owner', so spoofing the response
+    //     plan does not cross any auth boundary.
+    if (user.role === 'admin') {
       user.plan = 'owner';
     }
 
