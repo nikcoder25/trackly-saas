@@ -2,6 +2,12 @@ import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess, uid } from '@/lib/helpers';
 import { getPlanLimits } from '@/lib/constants';
+import { logger } from '@/lib/logger';
+
+const VALID_STATUSES = ['open', 'in_progress', 'done', 'ignored'] as const;
+const VALID_SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
+type RecStatus = typeof VALID_STATUSES[number];
+type RecSeverity = typeof VALID_SEVERITIES[number];
 
 // Recommendation thresholds (mirrors Express config/constants.js)
 const THRESHOLDS = {
@@ -20,28 +26,51 @@ const THRESHOLDS = {
 };
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const authResult = await requireVerifiedAuth(request, pool);
-  if (authResult instanceof Response) return authResult;
-  const user = authResult;
-  const { id } = await params;
-  const access = await getBrandWithAccess(id, user.id);
-  if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
-
-  // Check plan allows sentiment/recommendations
-  const ownerId = access.brand.userId || user.id;
-  const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
-  const plan = planResult.rows[0]?.plan || 'free';
-  const limits = getPlanLimits(plan);
-  if (!limits.sentiment) {
-    return Response.json({ error: 'Recommendations are available on Starter plans and above. Upgrade to access.', planLimit: true }, { status: 403 });
-  }
-
+  let brandId: string | undefined;
   try {
-    const url = new URL(request.url);
-    const status = url.searchParams.get('status');
-    const severity = url.searchParams.get('severity');
+    const authResult = await requireVerifiedAuth(request, pool);
+    if (authResult instanceof Response) return authResult;
+    const user = authResult;
+    const { id } = await params;
+    brandId = id;
+    const access = await getBrandWithAccess(id, user.id);
+    if (!access) return Response.json({ error: 'Brand not found' }, { status: 404 });
 
-    let query = `SELECT id, brand_id, prompt, type, title, description, severity, category, status, playbook_id, payload, created_at
+    const ownerId = access.brand.userId || user.id;
+    const planResult = await pool.query('SELECT plan FROM users WHERE id = $1', [ownerId]);
+    const plan = planResult.rows[0]?.plan || 'free';
+    const limits = getPlanLimits(plan);
+    if (!limits.sentiment) {
+      return Response.json({ error: 'Recommendations are available on Starter plans and above. Upgrade to access.', planLimit: true }, { status: 403 });
+    }
+
+    // Treat absent OR empty-string filter values as "no filter".
+    // The page always builds the URL with a trailing '?' so empty
+    // strings arrive on every load that has no filters set.
+    const url = new URL(request.url);
+    const rawStatus = url.searchParams.get('status')?.trim() || null;
+    const rawSeverity = url.searchParams.get('severity')?.trim() || null;
+
+    if (rawStatus && !(VALID_STATUSES as readonly string[]).includes(rawStatus)) {
+      return Response.json(
+        { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 },
+      );
+    }
+    if (rawSeverity && !(VALID_SEVERITIES as readonly string[]).includes(rawSeverity)) {
+      return Response.json(
+        { error: `Invalid severity. Must be one of: ${VALID_SEVERITIES.join(', ')}` },
+        { status: 400 },
+      );
+    }
+    const status = rawStatus as RecStatus | null;
+    const severity = rawSeverity as RecSeverity | null;
+
+    // `category` was previously listed here but the legacy schema does
+    // not declare it and no INSERT in this codebase ever populates it.
+    // Selecting it threw `column "category" does not exist`, which the
+    // old bare catch swallowed into a 500.
+    let query = `SELECT id, brand_id, prompt, type, title, description, severity, status, playbook_id, payload, created_at
                  FROM recommendations WHERE brand_id = $1`;
     const values: unknown[] = [id];
     let idx = 2;
@@ -63,7 +92,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const result = await pool.query(query, values);
     return Response.json({ recommendations: result.rows });
-  } catch {
+  } catch (err) {
+    // Backstop: log the real error so future schema drifts (or any
+    // other unexpected throw) are visible in Sentry/server logs
+    // instead of silently surfacing as a generic 500.
+    logger.error('GET /api/brands/[id]/recommendations failed', {
+      brandId,
+      err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
+    });
     return Response.json({ error: 'Failed to load recommendations' }, { status: 500 });
   }
 }
@@ -96,7 +132,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       generated: newRecs.length,
       recommendations: newRecs,
     });
-  } catch {
+  } catch (err) {
+    logger.error('POST /api/brands/[id]/recommendations failed', {
+      brandId: id,
+      err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
+    });
     return Response.json({ error: 'Failed to generate recommendations' }, { status: 500 });
   }
 }
@@ -123,7 +163,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     );
     if (!result.rows.length) return Response.json({ error: 'Recommendation not found' }, { status: 404 });
     return Response.json({ success: true, recommendation: result.rows[0] });
-  } catch {
+  } catch (err) {
+    logger.error('PUT /api/brands/[id]/recommendations failed', {
+      brandId,
+      recId,
+      err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
+    });
     return Response.json({ error: 'Failed to update recommendation' }, { status: 500 });
   }
 }
