@@ -1,19 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
+import { logger } from '@/lib/logger';
+import { loadRecsWithRetry, defaultRefresh, type RecommendationRow } from './load-recs';
 
-interface Recommendation {
-  id: string;
-  title: string;
-  description?: string;
-  severity: string;
-  status: string;
-  category?: string;
-  platform?: string;
-  playbook_id?: string;
-}
+type Recommendation = RecommendationRow;
 
 interface Brand { id: string; name: string; }
 
@@ -28,6 +22,7 @@ export default function RecommendationsPage() {
   const [autoGenTriggered, setAutoGenTriggered] = useState(false);
   const [recsLoaded, setRecsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const loadRecs = useCallback(async () => {
     if (!selectedBrand) return;
@@ -40,22 +35,27 @@ export default function RecommendationsPage() {
     if (filterSeverity) search.set('severity', filterSeverity);
     const qs = search.toString();
     const url = `/api/brands/${selectedBrand.id}/recommendations${qs ? `?${qs}` : ''}`;
-    try {
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) {
-        let serverMsg = '';
-        try { serverMsg = (await res.json())?.error || ''; } catch { /* non-JSON body */ }
-        throw new Error(serverMsg || `Request failed (${res.status})`);
-      }
-      const data = await res.json();
-      setAllRecs(data.recommendations || []);
+
+    const outcome = await loadRecsWithRetry(url, {
+      fetch: (u, init) => fetch(u, init),
+      refresh: defaultRefresh,
+      logger,
+    });
+
+    if (outcome.kind === 'ok') {
+      setAllRecs(outcome.recommendations);
       setLoadError(null);
-      setRecsLoaded(true);
-    } catch (err) {
+      setSessionExpired(false);
+    } else if (outcome.kind === 'session-expired') {
       setAllRecs([]);
-      setLoadError(err instanceof Error ? err.message : 'Failed to load recommendations.');
-      setRecsLoaded(true);
+      setLoadError(null);
+      setSessionExpired(true);
+    } else {
+      setAllRecs([]);
+      setSessionExpired(false);
+      setLoadError(outcome.message);
     }
+    setRecsLoaded(true);
   }, [selectedBrand, filterStatus, filterSeverity]);
 
   useEffect(() => { loadRecs(); }, [loadRecs]);
@@ -116,14 +116,14 @@ export default function RecommendationsPage() {
     // Don't auto-generate after a load failure — the user should see the
     // error and decide whether to retry, not have the page silently start
     // running an unrelated POST.
-    if (loadError) return;
+    if (loadError || sessionExpired) return;
     if (allRecs.length === 0 && brands.length > 0) {
       setAutoGenTriggered(true);
       // Silent: this is an automatic background trigger on first load,
       // not a user-initiated action, so it should not toast.
       generate({ silent: true });
     }
-  }, [selectedBrand?.id, loading, allRecs.length, brands.length, recsLoaded, loadError]);
+  }, [selectedBrand?.id, loading, allRecs.length, brands.length, recsLoaded, loadError, sessionExpired]);
 
   const updateStatus = async (id: string, status: string) => {
     if (!selectedBrand) return;
@@ -220,10 +220,22 @@ export default function RecommendationsPage() {
         </select>
       </div>
 
-      {/* Error state takes precedence over empty state — falling through
-          to "No Recommendations Yet" on a 500 was the bug that masked
-          the production failure. */}
-      {loadError ? (
+      {/* Error / session-expired states take precedence over the empty
+          state — falling through to "No Recommendations Yet" on a 500
+          was the bug that masked the production failure (see PR #472),
+          and a 401 deserves a different CTA from a 500 because Try-again
+          would just 401 again. */}
+      {sessionExpired ? (
+        <div className="card" role="alert" style={{ padding:32,textAlign:'center',borderLeft:'3px solid var(--amber)' }}>
+          <div style={{ fontSize:28,marginBottom:8,color:'var(--amber)' }}>&#128274;</div>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Session expired</div>
+          <div style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>Please sign in to continue.</div>
+          <Link href="/login" className="pbtn"
+            style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,textDecoration:'none',display:'inline-block' }}>
+            Sign in
+          </Link>
+        </div>
+      ) : loadError ? (
         <div className="card" role="alert" style={{ padding:32,textAlign:'center',borderLeft:'3px solid var(--red)' }}>
           <div style={{ fontSize:28,marginBottom:8,color:'var(--red)' }}>&#9888;</div>
           <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Couldn&apos;t load recommendations</div>
