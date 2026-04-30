@@ -203,7 +203,8 @@ export default function AccountPage() {
             <div className="section-title" style={{ margin: 0 }}>Billing History</div>
             <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--primary)', textDecoration: 'none', letterSpacing: '.5px' }}>MANAGE BILLING →</a>
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12, minWidth: 600 }}>
             <thead><tr style={{ borderBottom: '2px solid var(--border)' }}><th className="th">Date</th><th className="th">Plan</th><th className="th">Amount</th><th className="th">Status</th></tr></thead>
             <tbody>
               {billingHistory.map((b, i) => (
@@ -216,6 +217,7 @@ export default function AccountPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

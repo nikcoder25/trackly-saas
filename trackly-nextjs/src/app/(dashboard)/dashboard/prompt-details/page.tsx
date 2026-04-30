@@ -264,7 +264,8 @@ export default function PromptDetailsPage() {
           <div className="card-title" style={{ marginBottom: 0 }}>Per-Platform Performance</div>
           <span style={{ fontSize: 11, color: 'var(--muted)' }}>{platPerf.length} platforms</span>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 14 }}>
+        <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 14, minWidth: 720 }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--border)' }}>
               <th className="th">Platform</th>
@@ -298,6 +299,7 @@ export default function PromptDetailsPage() {
             {platPerf.length === 0 && <tr><td colSpan={7} className="td" style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>No platform data</td></tr>}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Recent Query Runs */}
@@ -309,7 +311,8 @@ export default function PromptDetailsPage() {
         {recentRuns.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>No recent runs.</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 14 }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 14, minWidth: 720 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
                 <th className="th">Platform</th>
@@ -338,6 +341,7 @@ export default function PromptDetailsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
