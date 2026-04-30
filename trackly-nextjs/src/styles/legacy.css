@@ -2513,6 +2513,26 @@ input.brand-select{padding:7px 10px;}
   .plan-comparison-wrap.is-scrolled::after{opacity:0;}
 }
 
+/* ── GENERIC TABLE SCROLL FADE HINT ────── */
+/* Same affordance as .plan-comparison-wrap, but reusable on any */
+/* horizontally-scrolling table. Wrap an overflow-x:auto child in */
+/* <div class="scroll-fade-wrap [is-scrolled]"> and toggle the class */
+/* from an onScroll handler. */
+.scroll-fade-wrap{position:relative;}
+@media (max-width:768px){
+  .scroll-fade-wrap::after{
+    content:'';
+    position:absolute;
+    top:0;bottom:0;right:0;
+    width:48px;
+    pointer-events:none;
+    background:linear-gradient(to right, transparent, var(--bg, #fff));
+    opacity:1;
+    transition:opacity .2s ease;
+  }
+  .scroll-fade-wrap.is-scrolled::after{opacity:0;}
+}
+
 /* ── MENTIONS PAGE HEADER ────── */
 @media (max-width:768px){
   .mentions-page-header{flex-direction:column;align-items:stretch !important;gap:10px;}
