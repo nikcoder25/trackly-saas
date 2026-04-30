@@ -357,7 +357,7 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
 .land-footer-social a{color:var(--text-muted);font-size:16px;font-weight:700;text-decoration:none;transition:color .15s;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;border:1px solid var(--card-border);}
 .land-footer-social a:hover{color:var(--primary);border-color:var(--primary-border);}
 
-@media(max-width:768px){
+@media(max-width:1023px){
   .land-nav{padding:14px 20px;flex-wrap:wrap;}
   .land-hamburger{display:flex;}
   .land-nav-links{
@@ -370,6 +370,8 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
   .land-nav-right{order:2;margin-left:auto;gap:8px;}
   .land-nav-right .land-btn{padding:8px 14px;font-size:12px;}
   .land-nav-right .land-btn-ghost{padding:8px 12px;font-size:12px;}
+}
+@media(max-width:768px){
   .land-hero{padding:48px 20px 40px;}
   .land-hero h1{font-size:32px;letter-spacing:-1px;}
   .land-hero p{font-size:16px;}
@@ -378,7 +380,7 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
   .land-demo-body{grid-template-columns:1fr;}
   .land-features{grid-template-columns:1fr;}
   .land-how{grid-template-columns:1fr;gap:16px;}
-  .land-pricing{grid-template-columns:repeat(2,1fr);}
+  .land-pricing{grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));}
   .land-platforms{gap:8px;}
   .land-plat-chip{padding:8px 14px;font-size:12px;}
   .land-testimonials{grid-template-columns:1fr;}
@@ -386,9 +388,6 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
   .land-footer-bottom{flex-direction:column;gap:12px;padding:20px;}
   .land-section{padding:56px 20px;}
   .land-social-proof-stats{gap:24px;}
-}
-@media(max-width:600px){
-  .land-pricing{grid-template-columns:1fr;}
 }
 
 /* ── AUTH PAGES (Split-panel layout) ────── */
@@ -1380,12 +1379,6 @@ select.finput{appearance:none;}
   .add-brand-btn{padding:5px 10px;font-size:10px;}
   .topbar-right{gap:8px;}
   .user-badge{display:none;}
-  .sidebar{
-    display:none;position:fixed;top:56px;left:0;right:0;bottom:0;
-    z-index:999;background:var(--bg2);border-right:none;
-    overflow-y:auto;padding-bottom:20px;
-    box-shadow:0 8px 24px rgba(0,0,0,.12);
-  }
   .sidebar.mobile-open{display:block !important;}
   .mobile-overlay{display:none;position:fixed;top:56px;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:998;}
   .mobile-overlay.active{display:block;}
