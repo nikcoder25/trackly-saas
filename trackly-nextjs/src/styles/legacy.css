@@ -97,6 +97,14 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
 .land-btn-primary{background:var(--primary);color:var(--text-inverse);box-shadow:0 1px 2px rgba(99,102,241,.3);}
 .land-btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.3);}
 
+/* Sticky .land-nav wraps on mobile, so its height ranges roughly from
+   ~64px (single row) to ~120px (wrapped with open menu). clamp() keeps
+   anchor targets clear of the bar without hard-coding a breakpoint. */
+#landing-page :is(section, h1, h2, h3, h4)[id],
+#landing-page :target{
+  scroll-margin-top:clamp(72px, 14vw, 120px);
+}
+
 /* Hero */
 .land-hero{
   display:flex;flex-direction:column;align-items:center;text-align:center;
