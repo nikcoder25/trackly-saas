@@ -401,8 +401,52 @@ export default function DashboardPage() {
 
       {/* ═══ PAYMENT SUCCESS BANNER ═══ */}
       {showPaymentSuccess && (() => {
-        const planName = (user?.plan || 'pro').charAt(0).toUpperCase() + (user?.plan || 'pro').slice(1);
-        const limits = PLAN_LIMITS[(user?.plan || 'pro') as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.pro;
+        // Compare current plan against the pre-checkout plan threaded
+        // through the checkout return_url. If the webhook hasn't applied
+        // the upgrade yet (currentPlan === fromPlan), show a holding
+        // state instead of the wrong "Welcome to {oldPlan}!" message.
+        // Bug 1 frontend guard for the mnpwyu6r8730ddlda847 timeline:
+        // payment.succeeded fired but unknown_product 500ed and
+        // subscription.active was post-cancel-blocked — user landed
+        // on the dashboard while still on free, and the banner cheerfully
+        // welcomed them to "Free".
+        const fromPlan = searchParams.get('from') || null;
+        const currentPlan = user?.plan || null;
+        const upgradeApplied = !!currentPlan && (!fromPlan || currentPlan !== fromPlan);
+        if (!upgradeApplied) {
+          return (
+            <div style={{
+              marginBottom: 16, padding: '20px 24px', borderRadius: 'var(--radius)',
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              color: '#fff', position: 'relative', overflow: 'hidden',
+              boxShadow: '0 4px 24px rgba(99,102,241,.3)',
+              animation: 'fadeInUp .4s ease',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,.3)',
+                    borderTopColor: '#fff',
+                    animation: 'spin 1s linear infinite',
+                  }} />
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700 }}>Payment received, upgrade processing…</div>
+                    <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>
+                      Your new plan will activate within a minute. You can stay on this page — it&apos;ll refresh automatically.
+                    </div>
+                  </div>
+                </div>
+                <button onClick={dismissPaymentBanner} style={{
+                  background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', cursor: 'pointer',
+                  padding: '6px 10px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                }}>Dismiss</button>
+              </div>
+            </div>
+          );
+        }
+        const planName = currentPlan!.charAt(0).toUpperCase() + currentPlan!.slice(1);
+        const limits = PLAN_LIMITS[currentPlan as keyof typeof PLAN_LIMITS] || PLAN_LIMITS.pro;
         return (
           <div style={{
             marginBottom: 16, padding: '24px 28px', borderRadius: 'var(--radius)',

@@ -158,6 +158,10 @@ function makeFakeClient(rows: { user?: Record<string, unknown> } = {}): {
     if (/SELECT id, email, plan FROM users/.test(sql) && rows.user) {
       return Promise.resolve({ rows: [rows.user] });
     }
+    // Per-subscription stale-event skip (Bug 1a) reads only `settings`.
+    if (/SELECT settings FROM users WHERE id = \$1/.test(sql) && rows.user) {
+      return Promise.resolve({ rows: [{ settings: rows.user.settings }] });
+    }
     // BEGIN / UPDATE / COMMIT / ROLLBACK / fallback selects.
     return Promise.resolve({ rows: [] });
   });
@@ -237,6 +241,12 @@ describe('dodopayments webhook — cancel-revert regression', () => {
     // Post-cancel state: cancel route already wiped subscription_id and
     // marked status='cancelled'. A late retry of subscription.updated with
     // status='active' must NOT resurrect the agency plan.
+    // Post-fix the post-cancel guard is subscription-SCOPED, not
+    // user-scoped: a late `subscription.updated` for a sub_id that was
+    // previously cancelled in subscription_events still gets blocked.
+    // Pre-fix this test pinned the user-scoped guard, which incorrectly
+    // also blocked legitimate activations on a different sub_id (the
+    // real Bug 1 from PR fix/dodo-webhook-event-ordering).
     const fake = makeFakeClient({
       user: {
         id: 'user_A',
@@ -244,7 +254,9 @@ describe('dodopayments webhook — cancel-revert regression', () => {
         plan: 'free',
         settings: {
           subscription_status: 'cancelled',
-          // intentionally NO subscription_id / dodo_customer_id / dodo_product_id
+          subscription_events: {
+            sub_old: { status: 'cancelled', last_event_at: '2026-04-30T10:00:00.000Z' },
+          },
         },
       },
     });
@@ -257,6 +269,9 @@ describe('dodopayments webhook — cancel-revert regression', () => {
         customer_id: 'cus_old',
         product_id: 'prod_agency',
         status: 'active',
+        // Newer than prior so the stale-event skip doesn't fire and
+        // we land in the per-subscription post-cancel guard instead.
+        timestamp: '2026-04-30T11:00:00.000Z',
       },
       metadata: { userId: 'user_A' },
     });

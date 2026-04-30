@@ -120,6 +120,70 @@ function pickCartProductId(source: unknown): string | null {
   return pickString(cart[0], 'product_id');
 }
 
+// Parse the event timestamp Dodo attached to this webhook delivery. Used
+// to order events PER-subscription-id and skip stale arrivals (e.g. a
+// retried cancellation that arrives AFTER a fresh subscription.active
+// for a different sub_id). Falls back to null when missing — caller
+// treats null as "process this event without an ordering check".
+function parseEventTimestamp(body: unknown, eventData: unknown): Date | null {
+  const candidates: unknown[] = [];
+  if (body && typeof body === 'object') {
+    candidates.push((body as Record<string, unknown>).timestamp);
+  }
+  if (eventData && typeof eventData === 'object') {
+    candidates.push((eventData as Record<string, unknown>).timestamp);
+    candidates.push((eventData as Record<string, unknown>).created_at);
+  }
+  for (const c of candidates) {
+    if (typeof c === 'string' || typeof c === 'number') {
+      const d = new Date(c);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+}
+
+interface SubscriptionEventState {
+  status: string;
+  last_event_at: string;
+}
+
+// Read this user's per-subscription event state. Populated as we
+// process each event so we can (a) order events by their Dodo
+// timestamp per subscription_id and (b) scope the post-cancel guard
+// to the specific cancelled subscription instead of user-wide.
+//
+// settings.subscription_events is an additive map; settings.subscription_status
+// is preserved for backwards compat with admin-backend / billing UI /
+// reconcile-cron readers.
+function getSubscriptionEvents(settings: unknown): Record<string, SubscriptionEventState> {
+  if (!settings || typeof settings !== 'object') return {};
+  const map = (settings as Record<string, unknown>).subscription_events;
+  if (!map || typeof map !== 'object') return {};
+  return map as Record<string, SubscriptionEventState>;
+}
+
+// Returns true if we've already processed a NEWER event for the same
+// subscription_id. The caller should skip the current event entirely
+// (no DB mutation, no email) when this returns true.
+function isStaleSubscriptionEvent(
+  events: Record<string, SubscriptionEventState>,
+  subscriptionId: string | null | undefined,
+  eventTimestamp: Date | null,
+): boolean {
+  if (!subscriptionId || !eventTimestamp) return false;
+  const prior = events[subscriptionId];
+  if (!prior) return false;
+  const priorAt = new Date(prior.last_event_at);
+  if (Number.isNaN(priorAt.getTime())) return false;
+  // Strictly less-than-or-equal: a same-millisecond duplicate from a
+  // Dodo retry hits the webhook_events idempotency check (same
+  // event_id) at line 459 and returns earlier, so the only events that
+  // reach here with `eventTimestamp <= priorAt` are genuinely
+  // out-of-order arrivals.
+  return eventTimestamp.getTime() <= priorAt.getTime();
+}
+
 // Cancel a stale Dodo subscription that's been orphaned by a plan
 // upgrade. Mirrors the same PATCH /subscriptions/{id} status='cancelled'
 // call used by /api/payments/cancel.
@@ -424,6 +488,24 @@ export async function POST(request: Request) {
         effectiveEventType = 'subscription.active';
       }
 
+      // Per-subscription event ordering. Dodo doesn't guarantee
+      // delivery order; a retried cancellation can arrive AFTER a
+      // fresh subscription.active for a *different* subscription_id
+      // for the same user. We track per-subscription_id last-seen
+      // event timestamp in users.settings.subscription_events and
+      // reject events older than what we've already processed.
+      // Globally null when Dodo's payload omits a timestamp — we
+      // process the event (no ordering check) and log a warning so
+      // ops can spot the issue if it ever happens at volume.
+      const eventTimestamp = parseEventTimestamp(body, eventData);
+      if (!eventTimestamp) {
+        logger.warn('webhook.dodo.missing_event_timestamp', { eventId, eventType });
+      }
+      const incomingSubscriptionId: string | null =
+        (typeof eventData.subscription_id === 'string' && eventData.subscription_id)
+          || (typeof body.subscription_id === 'string' && body.subscription_id)
+          || null;
+
       // Debug-only: full payload context. Suppressed in production stdout
       // (logger.debug skips console output when NODE_ENV=production) so
       // customer/subscription IDs aren't tee'd to App Platform logs; still
@@ -445,7 +527,7 @@ export async function POST(request: Request) {
       // Resend outage would either burn webhook retries (if we threw)
       // or send a false confirmation (if we then rolled back).
       let pendingPlanEmail:
-        | { kind: 'upgrade' | 'downgrade' | 'cancellation'; email: string; from: string; to: string }
+        | { kind: 'upgrade' | 'downgrade' | 'cancellation'; email: string; from: string; to: string; subscriptionId?: string | null }
         | null = null;
 
       // Use a transaction with SERIALIZABLE isolation to prevent race conditions
@@ -469,6 +551,37 @@ export async function POST(request: Request) {
             const metadata = body.metadata || body.data?.metadata || body.payload?.metadata || {};
                   const userId = metadata.userId || metadata.user_id;
 
+            // Per-subscription stale-event skip (Bug 1a). Reject events
+            // whose Dodo timestamp is older than the most recent event
+            // we've already processed for the same subscription_id.
+            // Catches out-of-order delivery on retries — e.g. a late
+            // `subscription.cancelled` arriving after a fresh
+            // `subscription.active` for the same sub. Only applies when
+            // we have BOTH a subscription_id and a parsable timestamp;
+            // events that miss either fall through to normal handling.
+            if (incomingSubscriptionId && eventTimestamp && userId && typeof userId === 'string') {
+              const userPrior = await client.query<{ settings: unknown }>(
+                'SELECT settings FROM users WHERE id = $1',
+                [userId],
+              );
+              if (userPrior.rows.length) {
+                const priorEvents = getSubscriptionEvents(userPrior.rows[0].settings);
+                if (isStaleSubscriptionEvent(priorEvents, incomingSubscriptionId, eventTimestamp)) {
+                  await client.query('ROLLBACK');
+                  logger.info('webhook.dodo.stale_event_skipped', {
+                    userId,
+                    eventId,
+                    eventType,
+                    effectiveEventType,
+                    subscription_id: incomingSubscriptionId,
+                    event_timestamp: eventTimestamp.toISOString(),
+                    prior_event_at: priorEvents[incomingSubscriptionId].last_event_at,
+                  });
+                  return Response.json({ received: true, skipped: 'stale' });
+                }
+              }
+            }
+
             // Handle plan upgrade events
             if (UPGRADE_EVENTS.has(effectiveEventType)) {
                       if (!userId || typeof userId !== 'string') {
@@ -490,17 +603,27 @@ export async function POST(request: Request) {
 
                     const currentUser = userCheck.rows[0];
 
-                      // Defense-in-depth: a user who has just been cancelled
-                      // (settings.subscription_status === 'cancelled' AND no
-                      // bound subscription_id) cannot be re-upgraded by a
-                      // late 'subscription.*' webhook retry. The only way
-                      // back into a paid plan is a fresh 'payment.succeeded'
-                      // event for a brand-new subscription. This is the
-                      // backstop for the cancel-revert bug if the dispatch
-                      // remap above ever misses an inactive status spelling.
+                      // Defense-in-depth, scoped per subscription_id:
+                      // a late 'subscription.*' retry for an already-
+                      // cancelled subscription cannot resurrect that
+                      // SAME subscription. But a NEW subscription_id
+                      // for the same user (re-subscribe after cancel,
+                      // or upgrade-and-old-sub-cancellation race) is
+                      // legitimate and must pass through.
+                      //
+                      // Pre-fix this guard was user-scoped — any
+                      // settings.subscription_status='cancelled' value
+                      // blocked every non-payment.succeeded event for
+                      // the user, including activations on a fresh
+                      // subscription_id. That dropped legitimate Pro
+                      // upgrades (see the userId mnpwyu6r8730ddlda847
+                      // log timeline from Apr 30 15:08).
+                      const userEvents = getSubscriptionEvents(currentUser.settings);
+                      const sameSubAlreadyCancelled =
+                        !!incomingSubscriptionId
+                        && userEvents[incomingSubscriptionId]?.status === 'cancelled';
                       if (
-                        currentUser.settings?.subscription_status === 'cancelled'
-                        && !currentUser.settings?.subscription_id
+                        sameSubAlreadyCancelled
                         && effectiveEventType !== 'payment.succeeded'
                       ) {
                                 await client.query('ROLLBACK');
@@ -509,20 +632,51 @@ export async function POST(request: Request) {
                                             eventType,
                                             effectiveEventType,
                                             payload_status: payloadStatus,
+                                            subscription_id: incomingSubscriptionId,
                                 });
                                 return Response.json({ received: true, ignored: 'post_cancel' });
                       }
 
                       const productId = resolveProductId(eventData, body);
-                      // Resolve plan STRICTLY from product_id. metadata.plan
-                      // is never trusted: it's free-form string data attached
-                      // at checkout time (and potentially mutable via the
-                      // provider's customer portal), and flowing it straight
-                      // into users.plan would let a value like 'owner' escalate
-                      // into the admin-backend (see lib/admin-auth.ts).
-                    const plan = productId ? PLAN_MAP[productId] : null;
+                      // Plan resolution is product-id-first. metadata.plan
+                      // is checkout-supplied free-form data and was rejected
+                      // outright in #474 to prevent plan_hijack escalation
+                      // into 'owner'. We've since seen real Dodo deliveries
+                      // (userId mnpwyu6r8730ddlda847, Apr 30 15:08) where
+                      // payment.succeeded arrives with product_id=null even
+                      // though metadata.plan is set — successful payments
+                      // were silently dropped as unknown_product.
+                      //
+                      // Compromise: when product_id resolution fails, fall
+                      // back to metadata.plan ONLY if it's in
+                      // ALLOWED_WEBHOOK_PLANS (which excludes 'owner').
+                      // Every fallback emits a warn-level log + audit row so
+                      // the cross-tier escalation surface (e.g. attacker
+                      // setting metadata.plan='enterprise' while paying for
+                      // 'starter') is observable.
+                    let plan: string | null = productId ? PLAN_MAP[productId] : null;
+                    let planSource: 'product_id' | 'metadata_fallback' = 'product_id';
+                    if (!plan
+                      && typeof metadata.plan === 'string'
+                      && ALLOWED_WEBHOOK_PLANS.has(metadata.plan)
+                    ) {
+                      plan = metadata.plan;
+                      planSource = 'metadata_fallback';
+                      logger.warn('webhook.dodo.metadata_plan_fallback', {
+                        userId,
+                        eventId,
+                        eventType,
+                        effectiveEventType,
+                        productId,
+                        fallback_plan: plan,
+                        payload_status: payloadStatus,
+                      });
+                      await auditLog('system', 'webhook_metadata_plan_fallback', 'payment', eventId, {
+                        eventType, effectiveEventType, productId, userId, fallback_plan: plan,
+                      }, 'dodopayments').catch(() => {});
+                    }
 
-                    logger.debug('webhook.dodo.upgrade_resolution', { userId, productId, plan, currentPlan: currentUser.plan, knownProducts: Object.keys(PLAN_MAP) });
+                    logger.debug('webhook.dodo.upgrade_resolution', { userId, productId, plan, planSource, currentPlan: currentUser.plan, knownProducts: Object.keys(PLAN_MAP) });
 
                     if (plan && ALLOWED_WEBHOOK_PLANS.has(plan)) {
                                 const subscriptionId = eventData.subscription_id || body.subscription_id;
@@ -622,8 +776,15 @@ export async function POST(request: Request) {
                                   }
                         }
 
-                        // Build settings update with all relevant subscription data
-                        const settingsUpdate: Record<string, string> = {
+                        // Build settings update with all relevant subscription data.
+                        // settings.subscription_events tracks per-subscription_id
+                        // status + timestamp so the post-cancel guard above can
+                        // be subscription-scoped instead of user-scoped (Bug 1b).
+                        // We compute the merged map in JS because Postgres JSONB
+                        // `||` is shallow merge — writing
+                        // {subscription_events: {sub_X: ...}} would replace the
+                        // entire map and clobber other subscriptions' state.
+                        const settingsUpdate: Record<string, unknown> = {
                                       subscription_status: 'active',
                         };
                                 if (subscriptionId) {
@@ -635,6 +796,16 @@ export async function POST(request: Request) {
                                 // Store the product ID for reconciliation purposes
                         if (productId) {
                                       settingsUpdate.dodo_product_id = productId;
+                        }
+                        if (subscriptionId) {
+                          const priorEvents = getSubscriptionEvents(currentUser.settings);
+                          settingsUpdate.subscription_events = {
+                            ...priorEvents,
+                            [subscriptionId]: {
+                              status: 'active',
+                              last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                            },
+                          };
                         }
 
                         await client.query(
@@ -676,7 +847,10 @@ export async function POST(request: Request) {
                                   });
                                   return Response.json({ error: 'Invalid webhook metadata' }, { status: 400 });
                       }
-                      const userCheck2 = await client.query('SELECT id, email, plan FROM users WHERE id = $1', [userId]);
+                      // Include `settings` in the SELECT so we can merge the
+                      // subscription_events map without clobbering other
+                      // subscription_ids' state (Bug 1b).
+                      const userCheck2 = await client.query('SELECT id, email, plan, settings FROM users WHERE id = $1', [userId]);
                       if (!userCheck2.rows.length) {
                                   await client.query('ROLLBACK');
                                   logger.error('webhook.dodo.user_not_found_downgrade', { user_id: userId, event_type: eventType });
@@ -685,23 +859,54 @@ export async function POST(request: Request) {
 
                     const previousPlan = userCheck2.rows[0].plan;
                       const previousEmail = userCheck2.rows[0].email;
+                      const previousSettings = userCheck2.rows[0].settings;
                       await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
+
+                      // Strip user-bound subscription IDs (existing behaviour
+                      // preserved for backwards compat with admin/billing
+                      // readers) AND merge in the per-subscription event
+                      // state for the specific cancelled subscription_id.
+                      // Subscription_events is computed in JS because Postgres
+                      // JSONB `||` is shallow merge — naive
+                      // {subscription_events: {sub_X: ...}} would overwrite
+                      // the entire map.
+                      const downgradeMerge: Record<string, unknown> = {
+                        subscription_status: 'cancelled',
+                      };
+                      if (incomingSubscriptionId) {
+                        const priorEvents = getSubscriptionEvents(previousSettings);
+                        downgradeMerge.subscription_events = {
+                          ...priorEvents,
+                          [incomingSubscriptionId]: {
+                            status: 'cancelled',
+                            last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                          },
+                        };
+                      }
                       await client.query(
-                                  `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
-                                  [userId]
+                                  `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || $1::jsonb WHERE id = $2`,
+                                  [JSON.stringify(downgradeMerge), userId]
                                 );
                       logger.info('webhook.dodo.plan_downgraded', { userId, from: previousPlan, to: 'free', eventType, effectiveEventType, payloadStatus });
 
-                      // Queue a cancellation email if the user was actually on a
-                      // paid plan. No need to email someone who was already free
-                      // (e.g. a webhook fires after a chargeback on a long-since
-                      // cancelled subscription).
-                      if (previousEmail && previousPlan && previousPlan !== 'free') {
+                      // Bug 2: always queue the cancellation email for a
+                      // genuine cancellation event, even when previousPlan
+                      // is already 'free' (e.g. the cancel route ran
+                      // synchronously first and updated DB plan='free' a
+                      // few seconds before this webhook arrived).
+                      // Pre-fix the `previousPlan !== 'free'` guard
+                      // suppressed exactly this scenario, which is why
+                      // seo@thecontractorkingdom.com received no email.
+                      // Cancel route now intentionally does NOT send its
+                      // own email (Q3 — webhook owns it), so this is the
+                      // sole owner of the cancellation message.
+                      if (previousEmail) {
                                 pendingPlanEmail = {
                                             kind: 'cancellation',
                                             email: previousEmail,
-                                            from: previousPlan,
+                                            from: previousPlan || 'free',
                                             to: 'free',
+                                            subscriptionId: incomingSubscriptionId,
                                 };
                       }
             }
@@ -741,13 +946,26 @@ export async function POST(request: Request) {
 
             // Plan-change confirmation email — enqueued to the durable
             // outbox (audit item D) instead of dispatched in-process.
-            // Idempotency key is `plan_email:${userId}:${eventId}`: Dodo's
-            // webhook event_id uniquely identifies this delivery attempt,
-            // and the outbox's UNIQUE index prevents a duplicate enqueue
-            // if Dodo retries the webhook after we've already enqueued.
+            //
+            // Idempotency keys:
+            //   - upgrade / downgrade kinds   -> plan_email:userId:eventId
+            //     (per-webhook-event scope; webhook_events idempotency
+            //     above prevents the same event_id from re-emitting).
+            //   - cancellation kind           -> plan_cancellation:userId:subscriptionId
+            //     (per-subscription scope; collides with the cancel
+            //     route's pre-fix key shape AND dedups the case where
+            //     Dodo emits both `subscription.updated`+status=cancelled
+            //     AND a separate `subscription.cancelled` for the same
+            //     logical cancellation — different event_ids but the
+            //     same subscription_id, so user gets exactly one email).
+            //     Falls back to a UUID when subscription_id is missing.
             if (pendingPlanEmail) {
                       const planEmail = pendingPlanEmail;
-                      const idempotencyKey = `plan_email:${userId}:${eventId}`;
+                      const idempotencyKey = planEmail.kind === 'cancellation'
+                        ? (planEmail.subscriptionId
+                            ? `plan_cancellation:${userId}:${planEmail.subscriptionId}`
+                            : `plan_cancellation:${userId}:${crypto.randomUUID()}`)
+                        : `plan_email:${userId}:${eventId}`;
                       const send = planEmail.kind === 'upgrade'
                                 ? sendPlanUpgradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to }, idempotencyKey)
                                 : planEmail.kind === 'downgrade'
