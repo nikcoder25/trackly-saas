@@ -85,6 +85,19 @@ const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
     'paused',
   ]);
 
+// Postgres SERIALIZABLE retry policy. Webhooks for the same user
+// frequently land in close succession (signup -> upgrade -> activate
+// fires three writes within a ~5s window per the userId
+// mnpwyu6r8730ddlda847 timeline). Concurrent writes against the same
+// users row inside our SERIALIZABLE transaction can fail with
+// SQLSTATE 40001 (`could not serialize access due to concurrent
+// update`); pre-fix the failed transaction was silently rolled back
+// and the event lost. Retrying the entire transactional block is the
+// canonical handling for 40001.
+const MAX_TX_ATTEMPTS = 3;
+const TX_RETRY_BACKOFF_MS = [50, 100, 200]; // index = (attempt - 1).
+const SERIALIZATION_FAILURE_PG_CODE = '40001';
+
 // Resolve the product_id from a Dodo webhook body. Subscription events
 // (subscription.active / .renewed / .updated / .plan_changed / .cancelled)
 // expose product_id at the top level of `data` — this is the canonical
@@ -146,6 +159,13 @@ function parseEventTimestamp(body: unknown, eventData: unknown): Date | null {
 interface SubscriptionEventState {
   status: string;
   last_event_at: string;
+  // Tie-break key for the rare case where two events for the same
+  // subscription_id share an identical Dodo timestamp. event_ids are
+  // opaque strings; lexicographic comparison gives a deterministic
+  // total order. Optional only because rows written before this field
+  // existed don't have it (they fall through to timestamp-only ordering
+  // in isStaleSubscriptionEvent).
+  last_event_id?: string;
 }
 
 // Read this user's per-subscription event state. Populated as we
@@ -166,22 +186,38 @@ function getSubscriptionEvents(settings: unknown): Record<string, SubscriptionEv
 // Returns true if we've already processed a NEWER event for the same
 // subscription_id. The caller should skip the current event entirely
 // (no DB mutation, no email) when this returns true.
+//
+// Ordering:
+//   1. event_timestamp < prior.last_event_at  -> stale (skip).
+//   2. event_timestamp > prior.last_event_at  -> fresh (process).
+//   3. event_timestamp == prior.last_event_at -> tie-break by event_id
+//      (lexicographic). The current event is stale iff its event_id
+//      is <= the recorded last_event_id. The same-event-id case is
+//      already filtered by the webhook_events idempotency INSERT
+//      earlier; the only rows that reach this comparison are different
+//      events sharing a millisecond — real, e.g. the userId
+//      mnpwyu6r8730ddlda847 logs from the new bug report had two
+//      different events stamped at 2026-04-30T16:15:34.008Z.
 function isStaleSubscriptionEvent(
   events: Record<string, SubscriptionEventState>,
   subscriptionId: string | null | undefined,
   eventTimestamp: Date | null,
+  eventId: string | null | undefined,
 ): boolean {
   if (!subscriptionId || !eventTimestamp) return false;
   const prior = events[subscriptionId];
   if (!prior) return false;
   const priorAt = new Date(prior.last_event_at);
   if (Number.isNaN(priorAt.getTime())) return false;
-  // Strictly less-than-or-equal: a same-millisecond duplicate from a
-  // Dodo retry hits the webhook_events idempotency check (same
-  // event_id) at line 459 and returns earlier, so the only events that
-  // reach here with `eventTimestamp <= priorAt` are genuinely
-  // out-of-order arrivals.
-  return eventTimestamp.getTime() <= priorAt.getTime();
+  if (eventTimestamp.getTime() < priorAt.getTime()) return true;
+  if (eventTimestamp.getTime() > priorAt.getTime()) return false;
+  // Same-millisecond tie-break.
+  if (!prior.last_event_id || !eventId) {
+    // Missing tie-break info on either side. Fall back to the prior
+    // (pre-tie-break) behaviour: same timestamp -> treat as stale.
+    return true;
+  }
+  return eventId <= prior.last_event_id;
 }
 
 // Cancel a stale Dodo subscription that's been orphaned by a plan
@@ -530,11 +566,34 @@ export async function POST(request: Request) {
         | { kind: 'upgrade' | 'downgrade' | 'cancellation'; email: string; from: string; to: string; subscriptionId?: string | null }
         | null = null;
 
-      // Use a transaction with SERIALIZABLE isolation to prevent race conditions
-      // on duplicate webhook events and ensure atomic plan updates
+      // SERIALIZABLE transaction wrapped in a retry loop. Concurrent
+      // webhooks for the same user can collide on the SERIALIZABLE
+      // isolation level and fail with SQLSTATE 40001; we retry up to
+      // MAX_TX_ATTEMPTS with the configured backoff. Each attempt gets
+      // a fresh client connection — pg_advisory_xact_lock releases on
+      // ROLLBACK, so the retry re-acquires cleanly. Non-40001 errors
+      // throw immediately and propagate to the outer catch.
+      for (let attempt = 1; attempt <= MAX_TX_ATTEMPTS; attempt++) {
       const client = await safeConnect();
+      let shouldRetryAfterRollback = false;
           try {
                   await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+
+                  // Per-subscription advisory lock. Serializes processing
+                  // for a single subscription_id across concurrent webhook
+                  // deliveries — the database-side guarantee behind the
+                  // stale-event-skip + per-subscription state writes.
+                  // Without this, two webhooks for the same sub can both
+                  // pass the in-tx stale check (each reads the prior
+                  // state before the other commits) and both proceed,
+                  // re-introducing the race that the stale-skip alone
+                  // can't prevent. Lock releases at COMMIT/ROLLBACK.
+                  if (incomingSubscriptionId) {
+                    await client.query(
+                      'SELECT pg_advisory_xact_lock(hashtext($1)::bigint)',
+                      [incomingSubscriptionId],
+                    );
+                  }
 
             // Idempotency: atomically mark as processed
             const inserted = await client.query(
@@ -566,7 +625,7 @@ export async function POST(request: Request) {
               );
               if (userPrior.rows.length) {
                 const priorEvents = getSubscriptionEvents(userPrior.rows[0].settings);
-                if (isStaleSubscriptionEvent(priorEvents, incomingSubscriptionId, eventTimestamp)) {
+                if (isStaleSubscriptionEvent(priorEvents, incomingSubscriptionId, eventTimestamp, eventId)) {
                   await client.query('ROLLBACK');
                   logger.info('webhook.dodo.stale_event_skipped', {
                     userId,
@@ -804,6 +863,7 @@ export async function POST(request: Request) {
                             [subscriptionId]: {
                               status: 'active',
                               last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                              last_event_id: eventId,
                             },
                           };
                         }
@@ -860,6 +920,70 @@ export async function POST(request: Request) {
                     const previousPlan = userCheck2.rows[0].plan;
                       const previousEmail = userCheck2.rows[0].email;
                       const previousSettings = userCheck2.rows[0].settings;
+
+                      // Filter cancellation events by active subscription.
+                      // Dodo emits `subscription.cancelled` for the OLD
+                      // subscription when a user changes plans (the old
+                      // sub is replaced, not the new one). Without this
+                      // filter the handler unconditionally applies any
+                      // cancellation to the user's current plan,
+                      // knocking a freshly-upgraded user back to free.
+                      // Real Pro→Agency reproduction: cancellation for
+                      // the now-superseded Pro sub
+                      // sub_0NdpihUI8fnMDYR0pFDHI arrived AFTER the
+                      // Agency activation for sub_0NdpjSV2ntpOQN8CNyYTg
+                      // and clobbered plan='free'.
+                      //
+                      // Strict policy: only apply the cancellation if
+                      // the payload's subscription_id matches the user's
+                      // currently-bound `settings.subscription_id`. Any
+                      // mismatch (or no bound subscription_id) -> skip
+                      // the plan/email side-effects, but still record
+                      // the cancellation in `subscription_events` so
+                      // future events for that sub_id are ordered
+                      // correctly.
+                      const activeSubscriptionId = previousSettings && typeof previousSettings === 'object'
+                        ? (previousSettings as Record<string, unknown>).subscription_id
+                        : null;
+                      const cancellationMatchesActive =
+                        !!incomingSubscriptionId
+                        && typeof activeSubscriptionId === 'string'
+                        && activeSubscriptionId === incomingSubscriptionId;
+
+                      if (!cancellationMatchesActive) {
+                        // Record the cancellation in subscription_events
+                        // for ordering, but DO NOT mutate plan or strip
+                        // settings. The user's active sub stays bound.
+                        if (incomingSubscriptionId) {
+                          const priorEvents = getSubscriptionEvents(previousSettings);
+                          const supersededMerge = {
+                            subscription_events: {
+                              ...priorEvents,
+                              [incomingSubscriptionId]: {
+                                status: 'cancelled',
+                                last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                                last_event_id: eventId,
+                              },
+                            },
+                          };
+                          await client.query(
+                            `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
+                            [JSON.stringify(supersededMerge), userId],
+                          );
+                        }
+                        await client.query('COMMIT');
+                        logger.info('webhook.dodo.cancel_skipped_superseded_sub', {
+                          userId,
+                          eventId,
+                          eventType,
+                          effectiveEventType,
+                          payload_subscription_id: incomingSubscriptionId,
+                          active_subscription_id: typeof activeSubscriptionId === 'string' ? activeSubscriptionId : null,
+                          previousPlan,
+                        });
+                        return Response.json({ received: true, skipped: 'superseded_sub' });
+                      }
+
                       await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', userId]);
 
                       // Strip user-bound subscription IDs (existing behaviour
@@ -880,6 +1004,7 @@ export async function POST(request: Request) {
                           [incomingSubscriptionId]: {
                             status: 'cancelled',
                             last_event_at: (eventTimestamp ?? new Date()).toISOString(),
+                            last_event_id: eventId,
                           },
                         };
                       }
@@ -992,10 +1117,35 @@ export async function POST(request: Request) {
             return Response.json({ received: true });
           } catch (txErr) {
                   await client.query('ROLLBACK').catch(() => {});
-                  throw txErr;
+                  const code = (txErr as { code?: string })?.code;
+                  if (code === SERIALIZATION_FAILURE_PG_CODE && attempt < MAX_TX_ATTEMPTS) {
+                    shouldRetryAfterRollback = true;
+                    logger.info('webhook.dodo.serialization_retry', {
+                      eventId,
+                      eventType,
+                      attempt,
+                      error: (txErr as Error).message,
+                    });
+                  } else {
+                    throw txErr;
+                  }
           } finally {
                   client.release();
           }
+          // If the catch flagged a 40001-class failure with attempts
+          // remaining, sleep the backoff and let the for loop iterate.
+          // Any other code path either returned a Response inside the
+          // try (success / early-return paths) or threw out of catch.
+          if (shouldRetryAfterRollback) {
+            await new Promise((r) => setTimeout(r, TX_RETRY_BACKOFF_MS[attempt - 1]));
+            continue;
+          }
+      }
+      // The for loop only exits through `return` (success path) or a
+      // thrown error (catch re-throw). Reaching this line means we
+      // exhausted MAX_TX_ATTEMPTS retries without a successful commit.
+      logger.error('webhook.dodo.serialization_retries_exhausted', { eventId, eventType });
+      return Response.json({ error: 'Webhook processing failed after retries' }, { status: 500 });
     } catch (e) {
           const errorMessage = (e as Error).message;
           // Stack traces can expose file paths and internal layout; log them
