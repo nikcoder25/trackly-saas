@@ -183,6 +183,60 @@ export async function register() {
         setInterval(triggerCron, INTERVAL_MS);
       }, INITIAL_DELAY_MS);
     }
+
+    // ─── Email outbox in-process drain scheduler ────────────────────────
+    //
+    // PR #481 introduced the durable email_outbox table + a worker route
+    // at /api/cron/process-email-outbox. The intended trigger was a
+    // GitHub Actions `*/2 * * * *` schedule curling that route. In
+    // production the */2 schedule was throttled by GH Actions (which
+    // documents a soft minimum of ~5 minutes for cron schedules) badly
+    // enough that the worker NEVER ran — confirmed by the absence of
+    // any email.outbox.* worker logs in DigitalOcean while
+    // [email.outbox.enqueued] was still firing on every plan upgrade.
+    //
+    // Fix: run the drain in-process inside the web pod every 30s. The
+    // existing Redis-backed cron lock (`acquireCronLock`) guarantees
+    // only one pod actually drains per tick, so this is safe under
+    // horizontal autoscaling. The HTTP route + GH Actions workflow
+    // remain as a backup external-trigger path.
+    //
+    // Skipped in DEV (no EMAIL_API_KEY -> enqueueEmail short-circuits to
+    // a console log without inserting, so the outbox is always empty).
+    // Skipped under tests (NODE_ENV=test, vitest sets NEXT_RUNTIME but
+    // not NODE_ENV). Skipped if OUTBOX_INPROCESS_WORKER=disabled is set
+    // explicitly (operator escape hatch if we want to run drain only
+    // out-of-process via a future DO worker component).
+    const outboxWorkerDisabled = process.env.OUTBOX_INPROCESS_WORKER === 'disabled';
+    const isTest = process.env.NODE_ENV === 'test';
+    if (!outboxWorkerDisabled && !isTest && process.env.EMAIL_API_KEY) {
+      const OUTBOX_INITIAL_DELAY_MS = 10_000;
+      const OUTBOX_TICK_INTERVAL_MS = 30_000;
+
+      const tickOutbox = async () => {
+        try {
+          const { drainOutbox } = await import('./lib/email-outbox-drain');
+          await drainOutbox();
+        } catch (err) {
+          // drainOutbox already logs email.outbox.fatal at the
+          // per-tick level via the route's outer catch when it's
+          // called via HTTP, but the in-process call path needs its
+          // own catch so a single bad tick can't crash the pod.
+          console.error(
+            '[OutboxWorker] tick failed:',
+            (err as Error)?.message || String(err),
+          );
+        }
+      };
+
+      console.log(
+        `[OutboxWorker] starting in-process scheduler (interval=${OUTBOX_TICK_INTERVAL_MS}ms, initial delay=${OUTBOX_INITIAL_DELAY_MS}ms)`,
+      );
+      setTimeout(() => {
+        tickOutbox();
+        setInterval(tickOutbox, OUTBOX_TICK_INTERVAL_MS);
+      }, OUTBOX_INITIAL_DELAY_MS);
+    }
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {
