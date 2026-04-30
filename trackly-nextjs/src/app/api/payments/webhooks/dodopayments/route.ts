@@ -85,6 +85,41 @@ const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
     'paused',
   ]);
 
+// Resolve the product_id from a Dodo webhook body. Subscription events
+// (subscription.active / .renewed / .updated / .plan_changed / .cancelled)
+// expose product_id at the top level of `data` — this is the canonical
+// shape and matches what `cron/reconcile-payments` reads from
+// GET /subscriptions/{id}. Payment events (payment.succeeded for
+// subscription or one-time charges) instead echo the original checkout's
+// product_cart, nesting the product under data.product_cart[0].product_id
+// — that's what /api/payments/checkout sends. Without the cart fallback
+// here, payment.succeeded falls through to the unknown_product 500
+// rollback and Dodo retries the same event in a loop.
+//
+// Order matters: top-level wins over cart so a future event that carries
+// both stays deterministic (and consistent with the legacy/canonical
+// behaviour from before this fix).
+function resolveProductId(eventData: unknown, body: unknown): string | null {
+  const direct = pickString(eventData, 'product_id') ?? pickString(body, 'product_id');
+  if (direct) return direct;
+  const cartFromData = pickCartProductId(eventData);
+  if (cartFromData) return cartFromData;
+  return pickCartProductId(body);
+}
+
+function pickString(source: unknown, key: string): string | null {
+  if (!source || typeof source !== 'object') return null;
+  const v = (source as Record<string, unknown>)[key];
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+function pickCartProductId(source: unknown): string | null {
+  if (!source || typeof source !== 'object') return null;
+  const cart = (source as Record<string, unknown>).product_cart;
+  if (!Array.isArray(cart) || cart.length === 0) return null;
+  return pickString(cart[0], 'product_id');
+}
+
 // Cancel a stale Dodo subscription that's been orphaned by a plan
 // upgrade. Mirrors the same PATCH /subscriptions/{id} status='cancelled'
 // call used by /api/payments/cancel.
@@ -399,7 +434,7 @@ export async function POST(request: Request) {
               effectiveEventType,
               payloadStatus,
               bodyKeys: Object.keys(body),
-              product_id: body.product_id || body.data?.product_id || body.payload?.product_id,
+              product_id: resolveProductId(eventData, body),
               subscription_id: body.subscription_id || body.data?.subscription_id || body.payload?.subscription_id,
               customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id,
               metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
@@ -478,7 +513,7 @@ export async function POST(request: Request) {
                                 return Response.json({ received: true, ignored: 'post_cancel' });
                       }
 
-                      const productId = eventData.product_id || body.product_id;
+                      const productId = resolveProductId(eventData, body);
                       // Resolve plan STRICTLY from product_id. metadata.plan
                       // is never trusted: it's free-form string data attached
                       // at checkout time (and potentially mutable via the
@@ -699,7 +734,7 @@ export async function POST(request: Request) {
             if (userId) {
                       auditLog('system', 'webhook_plan_change', 'user', userId, {
                                   eventId, eventType,
-                                  product_id: eventData.product_id || body.product_id,
+                                  product_id: resolveProductId(eventData, body),
                                   subscription_id: eventData.subscription_id || body.subscription_id,
                       }, 'webhook');
             }
