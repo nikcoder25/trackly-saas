@@ -44,10 +44,19 @@ describe('comparePlans', () => {
     expect(comparePlans('agency', 'free')).toBe('downgrade');
   });
 
-  it('classifies same-rank transitions as same (renewals, free↔trial)', () => {
+  it('classifies same-rank transitions as same (renewals)', () => {
     expect(comparePlans('starter', 'starter')).toBe('same');
-    expect(comparePlans('free', 'trial')).toBe('same');
-    expect(comparePlans('trial', 'free')).toBe('same');
+    expect(comparePlans('free', 'free')).toBe('same');
+    expect(comparePlans('trial', 'trial')).toBe('same');
+  });
+
+  it('ranks trial above free so the trial→free transition is a downgrade', () => {
+    // Pre-fix, trial and free both lived at rank 0 and the transition
+    // resolved to 'same', silently suppressing any downgrade email a
+    // future trial-expiry path would want to send. trial now sits
+    // strictly between free and starter.
+    expect(comparePlans('free', 'trial')).toBe('upgrade');
+    expect(comparePlans('trial', 'free')).toBe('downgrade');
   });
 
   it('treats unknown plans as rank 0', () => {
