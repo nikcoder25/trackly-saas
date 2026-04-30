@@ -2491,6 +2491,20 @@ input.brand-select{padding:7px 10px;}
   .recs-page-header__cta{width:100%;}
 }
 
+/* ── RECOMMENDATIONS STAT GRID ────── */
+/* Explicit 2-up at <=640px (so the four cards land in a 2x2 instead
+   of trying to squeeze four cards into a 351px-wide content area)
+   and 4-up at >=768px. The previous repeat(auto-fit,minmax(140px,1fr))
+   inline grid was doing the right thing on its own only when the
+   parent was correctly width-constrained — the header overflow bug
+   it was paired with made the parent wider than the viewport, which
+   in turn let the grid go 4-up at 375px. Pinning the breakpoints
+   makes the grid resilient to that regression. */
+.recs-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;}
+@media (max-width:767px){
+  .recs-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+}
+
 /* ── SKELETON LOADING ────── */
 .skeleton-wrap{padding:16px;}
 .skeleton-line{height:14px;margin-bottom:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.5s ease-in-out infinite;}

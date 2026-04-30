@@ -187,8 +187,10 @@ export default function RecommendationsPage() {
         </button>
       </div>
 
-      {/* KPI Cards - 4 score-cards matching screenshot */}
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
+      {/* KPI Cards — see .recs-stat-grid in legacy.css. 2-up <=767px,
+          4-up >=768px. Cards stretch to fill their grid cell, no
+          fixed widths. */}
+      <div className="recs-stat-grid">
         <div className="score-card">
           <div className="score-val" style={{ fontSize:24 }}>{allRecs.length}</div>
           <div className="score-label">Total</div>
