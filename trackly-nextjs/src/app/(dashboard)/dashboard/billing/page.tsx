@@ -182,6 +182,7 @@ export default function BillingPage() {
   const [dailyAvg, setDailyAvg] = useState(0);
   const [projectedDaysLeft, setProjectedDaysLeft] = useState<number | null>(null);
   const [annualBilling, setAnnualBilling] = useState(false);
+  const [planTableScrolled, setPlanTableScrolled] = useState(false);
   const [apiCosts, setApiCosts] = useState<Record<string, number>>({});
   const [mounted, setMounted] = useState(false);
 
@@ -639,7 +640,15 @@ export default function BillingPage() {
             </span>
           </div>
         </div>
-        <div style={{ overflowX: 'auto', marginTop: 16 }}>
+        <div className={`plan-comparison-wrap${planTableScrolled ? ' is-scrolled' : ''}`} style={{ marginTop: 16 }}>
+        <div
+          className="plan-comparison-scroll"
+          style={{ overflowX: 'auto' }}
+          onScroll={(e) => {
+            const next = (e.currentTarget.scrollLeft || 0) > 0;
+            if (next !== planTableScrolled) setPlanTableScrolled(next);
+          }}
+        >
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
             <colgroup>
               <col style={{ width: '28%' }} />
@@ -720,6 +729,7 @@ export default function BillingPage() {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
         <div style={{ textAlign: 'center', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
           <button onClick={() => setShowPlanModal(true)} style={{

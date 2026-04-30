@@ -97,6 +97,14 @@ a:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radiu
 .land-btn-primary{background:var(--primary);color:var(--text-inverse);box-shadow:0 1px 2px rgba(99,102,241,.3);}
 .land-btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.3);}
 
+/* Sticky .land-nav wraps on mobile, so its height ranges roughly from
+   ~64px (single row) to ~120px (wrapped with open menu). clamp() keeps
+   anchor targets clear of the bar without hard-coding a breakpoint. */
+#landing-page :is(section, h1, h2, h3, h4)[id],
+#landing-page :target{
+  scroll-margin-top:clamp(72px, 14vw, 120px);
+}
+
 /* Hero */
 .land-hero{
   display:flex;flex-direction:column;align-items:center;text-align:center;
@@ -2481,6 +2489,37 @@ input.brand-select{padding:7px 10px;}
 .skeleton-line{height:14px;margin-bottom:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.5s ease-in-out infinite;}
 @keyframes skeleton-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .tab-hidden .skeleton-line{animation:none;}
+
+/* ── ACTIVITY ROW (Account Activity tab) ────── */
+.activity-row{display:flex;align-items:center;gap:14px;}
+@media (max-width:768px){
+  .activity-row{flex-direction:column;align-items:flex-start;gap:6px;}
+  .activity-row__ip{padding-left:34px;}
+}
+
+/* ── BILLING PLAN COMPARISON SCROLL HINT ────── */
+.plan-comparison-wrap{position:relative;}
+@media (max-width:768px){
+  .plan-comparison-wrap::after{
+    content:'';
+    position:absolute;
+    top:0;bottom:0;right:0;
+    width:48px;
+    pointer-events:none;
+    background:linear-gradient(to right, transparent, var(--bg, #fff));
+    opacity:1;
+    transition:opacity .2s ease;
+  }
+  .plan-comparison-wrap.is-scrolled::after{opacity:0;}
+}
+
+/* ── MENTIONS PAGE HEADER ────── */
+@media (max-width:768px){
+  .mentions-page-header{flex-direction:column;align-items:stretch !important;gap:10px;}
+  .mentions-page-header__controls{flex-wrap:wrap;justify-content:flex-start;}
+  .mentions-page-header__controls .brand-select{flex:1 1 160px;width:auto !important;}
+  .mentions-page-header__controls .pbtn{flex:0 0 auto;}
+}
 
 /* ── REDUCED MOTION ────── */
 @media (prefers-reduced-motion: reduce) {

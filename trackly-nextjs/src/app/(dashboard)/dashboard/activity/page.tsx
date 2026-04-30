@@ -96,13 +96,13 @@ export default function ActivityPage() {
           ) : (
             <div>
               {activityLogs.map((log, i) => (
-                <div key={log.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: i < activityLogs.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <span style={{ fontSize: 20 }}>{ACTION_ICONS[log.action] || '📋'}</span>
-                  <div style={{ flex: 1 }}>
+                <div key={log.id || i} className="activity-row" style={{ padding: '14px 0', borderBottom: i < activityLogs.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <span className="activity-row__icon" style={{ fontSize: 20 }}>{ACTION_ICONS[log.action] || '📋'}</span>
+                  <div className="activity-row__main" style={{ flex: 1 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{log.action.charAt(0).toUpperCase() + log.action.slice(1).replace(/_/g, ' ')}</span>
                     <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--mono)', marginLeft: 12 }}>{formatDate(log.timestamp)}</span>
                   </div>
-                  {log.ip && <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>IP: {log.ip}</span>}
+                  {log.ip && <span className="activity-row__ip" style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>IP: {log.ip}</span>}
                 </div>
               ))}
             </div>

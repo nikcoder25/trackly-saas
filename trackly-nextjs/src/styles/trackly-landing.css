@@ -63,6 +63,14 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* .tl-nav is position:fixed with .tl-nav-inner height:72px on every
+   breakpoint, so anchored sections (#features, #how-it-works, etc.) and
+   their headings need scroll-margin-top to clear the bar. */
+.trackly-landing :is(section, h1, h2, h3, h4)[id],
+.trackly-landing :target{
+  scroll-margin-top:clamp(80px, 14vw, 96px);
+}
+
 /* ══════════════════════════════════════
    NAVIGATION
    ══════════════════════════════════════ */
