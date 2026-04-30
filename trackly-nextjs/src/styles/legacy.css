@@ -2474,6 +2474,23 @@ input.brand-select{padding:7px 10px;}
   .kt-period-tab{padding:6px 14px;font-size:11px;}
 }
 
+/* ── RECOMMENDATIONS PAGE HEADER ────── */
+/* The title block needs min-width:0 so its description text can wrap
+   instead of forcing the parent flex container wider than the
+   viewport — that was the underlying cause of the entire page
+   appearing to overflow horizontally on a 375px screen. Below 640px
+   the Generate button stacks below the title and goes full-width,
+   mirroring the pattern PR #469/#470 used for the Mentions header. */
+.recs-page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:4px;}
+.recs-page-header__title{flex:1 1 0;min-width:0;}
+.recs-page-header__title .view-title,
+.recs-page-header__title .view-sub{overflow-wrap:anywhere;word-break:break-word;}
+.recs-page-header__cta{flex-shrink:0;min-height:44px;}
+@media (max-width:640px){
+  .recs-page-header{flex-direction:column;align-items:stretch;gap:10px;}
+  .recs-page-header__cta{width:100%;}
+}
+
 /* ── SKELETON LOADING ────── */
 .skeleton-wrap{padding:16px;}
 .skeleton-line{height:14px;margin-bottom:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.5s ease-in-out infinite;}

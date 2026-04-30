@@ -171,14 +171,18 @@ export default function RecommendationsPage() {
 
   return (
     <div>
-      {/* Header - matches screenshot */}
-      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
-        <div>
+      {/* Header — see .recs-page-header in legacy.css for the
+          mobile-stacking rules (PR #469/#470 mentions-page-header
+          pattern). The title block must be min-width:0 so its
+          description wraps instead of forcing the page wider than
+          the viewport. */}
+      <div className="recs-page-header">
+        <div className="recs-page-header__title">
           <div className="view-title">Recommendations</div>
           <div className="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
         </div>
-        <button className="pbtn" onClick={() => generate()} disabled={generating}
-          style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,flexShrink:0,opacity:generating?0.6:1 }}>
+        <button className="pbtn recs-page-header__cta" onClick={() => generate()} disabled={generating}
+          style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,opacity:generating?0.6:1 }}>
           {generating ? 'Analyzing...' : 'Generate'}
         </button>
       </div>
