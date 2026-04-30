@@ -92,7 +92,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
               </span>
             )}
           </button>
-          <style>{`@media(min-width:768px){.add-brand-btn{display:inline-block!important;}}`}</style>
+          <style>{`@media(min-width:1024px){.add-brand-btn{display:inline-block!important;}}`}</style>
 
           {/* Upgrade prompt dropdown */}
           {showLimitPrompt && (
@@ -190,7 +190,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
         <button onClick={logout} className="logout-btn" style={{ display: 'none' }}>
           LOGOUT
         </button>
-        <style>{`@media(min-width:768px){.logout-btn{display:inline!important;}}`}</style>
+        <style>{`@media(min-width:1024px){.logout-btn{display:inline!important;}}`}</style>
       </div>
     </header>
     {showAddBrand && (

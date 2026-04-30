@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import '@/styles/globals.css';
@@ -88,3 +88,5 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
+export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
