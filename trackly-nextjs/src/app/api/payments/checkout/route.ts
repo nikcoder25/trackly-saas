@@ -49,7 +49,14 @@ export async function POST(request: Request) {
     const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
     const baseUrl = env === 'live_mode' ? 'https://live.dodopayments.com' : 'https://test.dodopayments.com';
     const appBase = (process.env.DODO_PAYMENTS_RETURN_URL || process.env.APP_URL || '').replace(/\/+$/, '');
-    const returnUrl = appBase + '/dashboard?payment=success';
+    // Pass the user's pre-checkout plan back via the return URL so the
+    // dashboard's success banner can detect when the upgrade hasn't
+    // applied yet (Dodo webhook still in flight) and render
+    // "Payment received, upgrade processing…" instead of the wrong
+    // "Welcome to {currentPlan}!" message that Bug 1 in the
+    // mnpwyu6r8730ddlda847 timeline was producing.
+    const fromPlanParam = encodeURIComponent(u.plan || 'free');
+    const returnUrl = `${appBase}/dashboard?payment=success&from=${fromPlanParam}`;
 
     const resp = await fetch(`${baseUrl}/checkouts`, {
       method: 'POST',

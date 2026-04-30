@@ -3,8 +3,6 @@ import { verifyRequestAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
-import { sendPlanCancellationEmail } from '@/lib/email';
-import crypto from 'crypto';
 
 // Dodo statuses that mean "already cancelled / not found at provider".
 // We treat all three as cancellation-success when we PATCH /subscriptions/{id}
@@ -179,31 +177,19 @@ export async function POST(request: Request) {
     client.release();
   }
 
-  // Post-commit: audit + cancellation email. Fire-and-forget; a Resend
-  // outage must not roll back a successful cancellation.
+  // Post-commit: audit only. The cancellation confirmation email is
+  // owned by the DodoPayments webhook handler — when our PATCH to
+  // /subscriptions/{id} succeeds, Dodo fires subscription.cancelled
+  // (or subscription.updated with status='cancelled') back to us, and
+  // the webhook's downgrade branch enqueues the email with idempotency
+  // key plan_cancellation:userId:subscriptionId. Single owner = no
+  // double-sends. The trade-off: if Dodo's webhook delivery is dropped
+  // and never replayed, the user gets no email. This is rare and the
+  // audit row below is the support trail.
   auditLog(user.id, 'subscription_cancelled', 'user', user.id, {
     previousPlan: postCommit.previousPlan,
+    previousSubscriptionId: postCommit.previousSubscriptionId,
   }, '').catch(() => {});
-
-  if (postCommit.email) {
-    // Idempotency key keyed off the cancelled subscription so a webhook
-    // arriving for the same cancellation (subscription.cancelled
-    // emitted by Dodo's PATCH) collides on the outbox UNIQUE index and
-    // is a no-op. Falls back to a per-cancel UUID when the user had no
-    // bound subscription_id (rare; trial cancellations etc.).
-    const idempotencyKey = postCommit.previousSubscriptionId
-      ? `plan_cancellation:${user.id}:${postCommit.previousSubscriptionId}`
-      : `plan_cancellation:${user.id}:${crypto.randomUUID()}`;
-    sendPlanCancellationEmail(postCommit.email, { previousPlan: postCommit.previousPlan }, idempotencyKey)
-      .then((res) => {
-        if (!res.sent) {
-          logger.warn('payments.cancel.email_failed', { userId: user.id, reason: res.reason });
-        }
-      })
-      .catch((err) => {
-        logger.error('payments.cancel.email_error', { userId: user.id, error: (err as Error).message });
-      });
-  }
 
   return Response.json({
     success: true,
