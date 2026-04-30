@@ -197,19 +197,28 @@ export const PLAN_DISPLAY_ORDER = [
 
 /**
  * Numeric rank used to decide whether a plan transition is an upgrade or
- * a downgrade (e.g. for the post-checkout confirmation email). `trial`
- * lives at rank 0 alongside `free` so the first paid checkout still
- * registers as an upgrade. `owner` is internal and never user-facing,
- * but we map it high so admin/owner flips never get classified as a
- * downgrade by accident.
+ * a downgrade (e.g. for the post-checkout confirmation email).
+ *
+ * `trial` sits ABOVE `free` and below every paid tier. The previous
+ * model collapsed `trial` and `free` to the same rank so the first paid
+ * checkout from either state would still classify as an upgrade — but
+ * that also made the trial → free transition register as `'same'`,
+ * which silently suppresses any downgrade email a future trial-expiry
+ * code path would want to send. With `trial = 1`, `free = 0`, the
+ * first paid checkout (`trial → starter` etc.) is still strictly an
+ * upgrade (1 < 2/3/4/5) and `trial → free` is now correctly classified
+ * as a downgrade (1 → 0).
+ *
+ * `owner` is internal and never user-facing, but we map it high so
+ * admin/owner flips never get classified as a downgrade by accident.
  */
 const PLAN_RANK: Record<string, number> = {
   free: 0,
-  trial: 0,
-  starter: 1,
-  pro: 2,
-  agency: 3,
-  enterprise: 4,
+  trial: 1,
+  starter: 2,
+  pro: 3,
+  agency: 4,
+  enterprise: 5,
   owner: 99,
 };
 

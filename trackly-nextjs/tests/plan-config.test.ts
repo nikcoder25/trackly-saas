@@ -7,6 +7,8 @@ import {
   resolveModelForPlan,
   isLowBalance,
   LOW_BALANCE_THRESHOLD,
+  comparePlans,
+  getPlanRank,
 } from '../src/lib/plan-config';
 
 describe('PLAN_CREDITS', () => {
@@ -105,6 +107,79 @@ describe('resolveModelForPlan', () => {
   it('falls back to platform premium when nothing requested on agency', () => {
     expect(resolveModelForPlan('ChatGPT', 'agency'))
       .toBe(PREMIUM_MODEL_BY_PLATFORM.ChatGPT);
+  });
+});
+
+describe('comparePlans / PLAN_RANK', () => {
+  // Pre-fix, trial and free both lived at rank 0 so a trial -> free
+  // transition resolved to 'same' and silently suppressed any downgrade
+  // email a future trial-expiry path would want to send. Trial now sits
+  // strictly above free and below every paid tier.
+
+  it('(a) ranks trial higher than free: comparePlans(trial -> free) is a downgrade', () => {
+    expect(getPlanRank('trial')).toBeGreaterThan(getPlanRank('free'));
+    expect(comparePlans('trial', 'free')).toBe('downgrade');
+  });
+
+  it('(b) ranks free lower than trial: comparePlans(free -> trial) is an upgrade', () => {
+    expect(getPlanRank('free')).toBeLessThan(getPlanRank('trial'));
+    expect(comparePlans('free', 'trial')).toBe('upgrade');
+  });
+
+  it('(c) preserves every existing paid-tier comparison', () => {
+    // free -> paid still upgrades.
+    expect(comparePlans('free', 'starter')).toBe('upgrade');
+    expect(comparePlans('free', 'pro')).toBe('upgrade');
+    expect(comparePlans('free', 'agency')).toBe('upgrade');
+    expect(comparePlans('free', 'enterprise')).toBe('upgrade');
+
+    // The crucial pre-fix invariant: the first paid checkout from
+    // trial still classifies as an upgrade. We didn't break this.
+    expect(comparePlans('trial', 'starter')).toBe('upgrade');
+    expect(comparePlans('trial', 'pro')).toBe('upgrade');
+    expect(comparePlans('trial', 'agency')).toBe('upgrade');
+    expect(comparePlans('trial', 'enterprise')).toBe('upgrade');
+
+    // Adjacent paid-tier moves.
+    expect(comparePlans('starter', 'pro')).toBe('upgrade');
+    expect(comparePlans('pro', 'agency')).toBe('upgrade');
+    expect(comparePlans('agency', 'enterprise')).toBe('upgrade');
+
+    // Downgrades.
+    expect(comparePlans('agency', 'free')).toBe('downgrade');
+    expect(comparePlans('agency', 'starter')).toBe('downgrade');
+    expect(comparePlans('pro', 'free')).toBe('downgrade');
+    expect(comparePlans('enterprise', 'agency')).toBe('downgrade');
+
+    // Same plan.
+    expect(comparePlans('free', 'free')).toBe('same');
+    expect(comparePlans('pro', 'pro')).toBe('same');
+    expect(comparePlans('agency', 'agency')).toBe('same');
+
+    // Owner is mapped high so admin/owner flips never accidentally
+    // classify as a downgrade.
+    expect(comparePlans('free', 'owner')).toBe('upgrade');
+    expect(comparePlans('agency', 'owner')).toBe('upgrade');
+  });
+
+  it('(d) at the (would-be) trial-expiry decision point, comparePlans returns "downgrade"', () => {
+    // Pins the contract for any future code path that flips a trial
+    // user to free (cron, /auth/me hook, webhook, etc.) and decides
+    // whether to dispatch a downgrade-style email by routing through
+    // `comparePlans(previousPlan, newPlan)`. Today this path doesn't
+    // exist yet (audit items C/D track adding it); this test ensures
+    // that when it lands, the rank model already classifies the
+    // transition correctly without any further plan-config change.
+    const previousPlan = 'trial';
+    const newPlan = 'free';
+    const direction = comparePlans(previousPlan, newPlan);
+    expect(direction).toBe('downgrade');
+  });
+
+  it('treats null/undefined "from" as free for safe defaulting', () => {
+    expect(comparePlans(null, 'starter')).toBe('upgrade');
+    expect(comparePlans(undefined, 'starter')).toBe('upgrade');
+    expect(comparePlans(null, 'free')).toBe('same');
   });
 });
 
