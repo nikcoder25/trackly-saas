@@ -132,12 +132,12 @@ export default function MentionsPage() {
     <div>
       <LockedBrandBanner />
       {/* Header - exact match */}
-      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
-        <div>
+      <div className="mentions-page-header" style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
+        <div className="mentions-page-header__title">
           <div className="view-title">AI Mentions</div>
           <div className="view-sub">Track how AI platforms mention your brand across all queries.</div>
         </div>
-        <div style={{ display:'flex',gap:8,alignItems:'center' }}>
+        <div className="mentions-page-header__controls" style={{ display:'flex',gap:8,alignItems:'center' }}>
           {showLive && (
             <span title="A run is in progress - showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
               <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
