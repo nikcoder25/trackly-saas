@@ -85,6 +85,96 @@ const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
     'paused',
   ]);
 
+// Cancel a stale Dodo subscription that's been orphaned by a plan
+// upgrade. Mirrors the same PATCH /subscriptions/{id} status='cancelled'
+// call used by /api/payments/cancel.
+//
+// Soft-fail policy:
+//   - 2xx                     -> info log, audit row.
+//   - 404 / 409 / 410         -> already cancelled or not found at Dodo.
+//                                Treated as success: info log, no audit row.
+//   - other 4xx / 5xx / throw -> warn log + audit row, but the webhook
+//                                handler continues activating the new
+//                                plan. The orphan is recorded for support
+//                                follow-up rather than blocking the
+//                                user's just-paid-for upgrade.
+//
+// `auditLog` and `logger` come from the outer module scope; we avoid
+// importing them here so the helper stays a closure-free file-scope fn.
+async function cancelOldDodoSubscription(opts: {
+  userId: string;
+  oldSubscriptionId: string;
+  newSubscriptionId: string;
+}): Promise<void> {
+  const apiKey = process.env.DODO_PAYMENTS_API_KEY;
+  if (!apiKey) {
+    logger.warn('webhook.dodo.old_sub_cancel_skipped_no_api_key', {
+      userId: opts.userId,
+      old_subscription_id: opts.oldSubscriptionId,
+    });
+    return;
+  }
+
+  const env = process.env.DODO_PAYMENTS_ENVIRONMENT || 'test_mode';
+  const baseUrl = env === 'live_mode'
+    ? 'https://live.dodopayments.com'
+    : 'https://test.dodopayments.com';
+
+  let status = 0;
+  let bodyPreview = '';
+  try {
+    const resp = await fetch(`${baseUrl}/subscriptions/${opts.oldSubscriptionId}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'cancelled' }),
+    });
+    status = resp.status;
+    if (resp.ok) {
+      logger.info('webhook.dodo.old_sub_cancelled', {
+        userId: opts.userId,
+        old_subscription_id: opts.oldSubscriptionId,
+        new_subscription_id: opts.newSubscriptionId,
+      });
+      auditLog('system', 'old_subscription_cancelled', 'user', opts.userId, {
+        oldSubscriptionId: opts.oldSubscriptionId,
+        newSubscriptionId: opts.newSubscriptionId,
+        reason: 'plan_upgrade',
+      }, 'webhook').catch(() => {});
+      return;
+    }
+
+    if (status === 404 || status === 409 || status === 410) {
+      logger.info('webhook.dodo.old_sub_already_gone', {
+        userId: opts.userId,
+        old_subscription_id: opts.oldSubscriptionId,
+        new_subscription_id: opts.newSubscriptionId,
+        status,
+      });
+      return;
+    }
+
+    bodyPreview = (await resp.text().catch(() => '')).slice(0, 200);
+  } catch (e) {
+    bodyPreview = (e as Error).message;
+  }
+
+  // Soft-fail: continue activating the new plan; record the orphan so
+  // support can chase it manually.
+  logger.warn('webhook.dodo.old_sub_cancel_failed', {
+    userId: opts.userId,
+    old_subscription_id: opts.oldSubscriptionId,
+    new_subscription_id: opts.newSubscriptionId,
+    status,
+    body_preview: bodyPreview,
+  });
+  auditLog('system', 'orphan_subscription_cancel_failed', 'user', opts.userId, {
+    oldSubscriptionId: opts.oldSubscriptionId,
+    newSubscriptionId: opts.newSubscriptionId,
+    status,
+    bodyPreview,
+  }, 'webhook').catch(() => {});
+}
+
 // The canonical env var is DODO_PAYMENTS_WEBHOOK_KEY (matches .env.example
 // and the provider dashboard). DODO_WEBHOOK_SECRET is accepted as a legacy
 // alias; if both are set to different values we log a warning so the
@@ -436,6 +526,39 @@ export async function POST(request: Request) {
                                                               });
                                                               return Response.json({ error: 'User/customer mismatch' }, { status: 400 });
                                               }
+                                }
+
+                                // Plan upgrade from one paid plan to another: a different
+                                // subscription_id arrived for an activation-style event.
+                                // Dodo created a brand-new subscription via /checkouts and
+                                // we never told Dodo about the old one, so it would
+                                // continue to bill monthly until support intervened —
+                                // the audit's double-billing finding (#475 follow-up A).
+                                //
+                                // Cancel the old subscription with Dodo before we
+                                // overwrite the binding below. Gated on activation events
+                                // only (subscription.active / payment.succeeded). The
+                                // renewal/plan_changed paths still 400 on subscription_id
+                                // mismatch via SUBSCRIPTION_UPDATE_EVENTS above — we don't
+                                // broaden cancel-old-sub to those because a renewal of a
+                                // *different* subscription remains genuinely suspicious.
+                                //
+                                // Soft-fail on 5xx / network errors: continue activating
+                                // the new plan and emit an audit row. Hard-failing here
+                                // would mean the user paid but doesn't see their plan
+                                // until Dodo's API recovers and the webhook is replayed,
+                                // which is worse UX than a tracked orphan.
+                                if (
+                                  existingSubscriptionId
+                                  && subscriptionId
+                                  && existingSubscriptionId !== subscriptionId
+                                  && !SUBSCRIPTION_UPDATE_EVENTS.has(effectiveEventType)
+                                ) {
+                                              await cancelOldDodoSubscription({
+                                                              userId,
+                                                              oldSubscriptionId: existingSubscriptionId,
+                                                              newSubscriptionId: subscriptionId,
+                                              });
                                 }
 
                         const previousPlan = currentUser.plan;
