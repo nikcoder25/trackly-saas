@@ -2497,6 +2497,22 @@ input.brand-select{padding:7px 10px;}
   .activity-row__ip{padding-left:34px;}
 }
 
+/* ── BILLING PLAN COMPARISON SCROLL HINT ────── */
+.plan-comparison-wrap{position:relative;}
+@media (max-width:768px){
+  .plan-comparison-wrap::after{
+    content:'';
+    position:absolute;
+    top:0;bottom:0;right:0;
+    width:48px;
+    pointer-events:none;
+    background:linear-gradient(to right, transparent, var(--bg, #fff));
+    opacity:1;
+    transition:opacity .2s ease;
+  }
+  .plan-comparison-wrap.is-scrolled::after{opacity:0;}
+}
+
 /* ── MENTIONS PAGE HEADER ────── */
 @media (max-width:768px){
   .mentions-page-header{flex-direction:column;align-items:stretch !important;gap:10px;}
