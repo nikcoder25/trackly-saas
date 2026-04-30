@@ -640,7 +640,7 @@ export default function BillingPage() {
           </div>
         </div>
         <div style={{ overflowX: 'auto', marginTop: 16 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 720 }}>
             <colgroup>
               <col style={{ width: '28%' }} />
               {visiblePlans.map(p => (

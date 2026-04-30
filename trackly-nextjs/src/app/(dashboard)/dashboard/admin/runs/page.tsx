@@ -224,14 +224,15 @@ export default function AdminRunsPage() {
         <span style={{ fontSize: 10, color: 'var(--muted)' }}>(min ≥ {staleThreshold})</span>
       </div>
 
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 24 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'visible', marginBottom: 24 }}>
         {runs.length === 0 && !loading && (
           <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
             No active runs.
           </div>
         )}
         {runs.length > 0 && (
-          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', minWidth: 720 }}>
             <thead style={{ background: 'var(--bg3, rgba(0,0,0,.04))' }}>
               <tr>
                 <th style={th}>Brand</th>
@@ -279,6 +280,7 @@ export default function AdminRunsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -292,14 +294,15 @@ export default function AdminRunsPage() {
         )}
       </h2>
 
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'visible' }}>
         {locks.length === 0 && !loading && (
           <div style={{ padding: 18, textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
             No locks held.
           </div>
         )}
         {locks.length > 0 && (
-          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', minWidth: 720 }}>
             <thead style={{ background: 'var(--bg3, rgba(0,0,0,.04))' }}>
               <tr>
                 <th style={th}>Name</th>
@@ -337,6 +340,7 @@ export default function AdminRunsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

@@ -119,8 +119,9 @@ export default function ActivityPage() {
           </div>
 
           {/* API logs table */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <div className="card" style={{ padding: 0, overflow: 'visible' }}>
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 720 }}>
               <thead>
                 <tr style={{ background: 'var(--bg3)' }}>
                   <th className="th">Time</th>
@@ -146,6 +147,7 @@ export default function ActivityPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           <div style={{ textAlign: 'center', padding: 12, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
