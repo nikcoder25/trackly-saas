@@ -1,6 +1,12 @@
 import { pool, safeConnect, auditLog } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { logger } from '@/lib/logger';
+import {
+  sendPlanUpgradeEmail,
+  sendPlanDowngradeEmail,
+  sendPlanCancellationEmail,
+} from '@/lib/email';
+import { comparePlans } from '@/lib/plan-config';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -72,9 +78,12 @@ export async function GET(request: Request) {
       }
 
       try {
-      // Get all users who have a subscription_id in their settings
+      // Get all users who have a subscription_id in their settings.
+      // `email` is selected so we can dispatch plan-change confirmation
+      // emails (parity with the webhook handler) when this cron repairs
+      // a missed webhook.
       const usersResult = await client.query(
-        `SELECT id, plan, settings FROM users
+        `SELECT id, email, plan, settings FROM users
          WHERE settings->>'subscription_id' IS NOT NULL
          AND settings->>'subscription_id' != ''`
       );
@@ -106,11 +115,35 @@ export async function GET(request: Request) {
                 subscription_id: subscriptionId,
                 user_id: user.id,
               });
+              // Conditional UPDATE on plan (`AND plan = $2`) so a webhook
+              // that beat us to the punch in the narrow window between
+              // SELECT and UPDATE doesn't cause a double cancellation
+              // email — RETURNING is empty if someone else already
+              // wrote 'free' for this user. Webhook's `previousPlan !==
+              // 'free'` guard handles the inverse race.
+              let didDowngrade = false;
               await client.query('BEGIN');
               if (user.plan !== 'free') {
-                await client.query('UPDATE users SET plan = $1 WHERE id = $2', ['free', user.id]);
-                details.push({ userId: user.id, action: 'stale_subscription_cleanup', from: user.plan, to: 'free' });
-                reconciled++;
+                const updated = await client.query(
+                  `UPDATE users SET plan = $1 WHERE id = $2 AND plan = $3 RETURNING id`,
+                  ['free', user.id, user.plan],
+                );
+                if (updated.rows.length > 0) {
+                  didDowngrade = true;
+                  details.push({ userId: user.id, action: 'stale_subscription_cleanup', from: user.plan, to: 'free' });
+                  reconciled++;
+                } else {
+                  // Webhook (or another writer) flipped this user to a
+                  // different plan between our SELECT and our UPDATE.
+                  // Skip the email — whoever won the race owns the
+                  // notification. No audit row: this is a no-op, not a
+                  // state transition.
+                  logger.info('cron.reconcile.plan_already_synced', {
+                    user_id: user.id,
+                    site: 'stale_subscription_404',
+                    observed_plan: user.plan,
+                  });
+                }
               }
               await client.query(
                 `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"not_found"}'::jsonb WHERE id = $1`,
@@ -121,6 +154,25 @@ export async function GET(request: Request) {
               await auditLog('system', 'cron_reconcile_stale_sub', 'user', user.id, {
                 previousPlan: user.plan, subscriptionId, reason: 'subscription_not_found_404',
               }, 'cron').catch(() => {});
+              // Fire-and-forget cancellation email (matches webhook
+              // DOWNGRADE_EVENTS branch parity). Resend outage must not
+              // roll back the cleanup — audit row above gives support a
+              // paper trail to resend manually.
+              if (didDowngrade && user.email) {
+                sendPlanCancellationEmail(user.email, { previousPlan: user.plan })
+                  .then((res) => {
+                    if (!res.sent) {
+                      logger.warn('cron.reconcile.email_failed', {
+                        user_id: user.id, kind: 'cancellation', site: 'stale_subscription_404', reason: res.reason,
+                      });
+                    }
+                  })
+                  .catch((err) => {
+                    logger.error('cron.reconcile.email_error', {
+                      user_id: user.id, kind: 'cancellation', site: 'stale_subscription_404', error: (err as Error).message,
+                    });
+                  });
+              }
               continue;
             }
             logger.warn('cron.reconcile.fetch_failed', {
@@ -161,17 +213,32 @@ export async function GET(request: Request) {
               dodo_plan: expectedPlan,
               dodo_status: dodoStatus,
             });
-            
+
+            // Conditional UPDATE on plan (`AND plan = $3`) — same race
+            // protection as the 404 path. If a webhook flipped this
+            // user between our SELECT and UPDATE, RETURNING is empty
+            // and we skip the email so we don't double-send.
             await client.query('BEGIN');
-            await client.query(
-              'UPDATE users SET plan = $1 WHERE id = $2',
-              [expectedPlan, user.id]
+            const updatedRows = await client.query(
+              'UPDATE users SET plan = $1 WHERE id = $2 AND plan = $3 RETURNING id',
+              [expectedPlan, user.id, user.plan]
             );
+
+            if (updatedRows.rows.length === 0) {
+              await client.query('ROLLBACK');
+              logger.info('cron.reconcile.plan_already_synced', {
+                user_id: user.id,
+                site: 'plan_mismatch',
+                observed_plan: user.plan,
+                expected_plan: expectedPlan,
+              });
+              continue;
+            }
 
             const settingsUpdate: Record<string, string> = {
               subscription_status: dodoStatus,
             };
-            
+
             if (dodoProductId) {
               settingsUpdate.dodo_product_id = dodoProductId;
             }
@@ -207,6 +274,71 @@ export async function GET(request: Request) {
               dodoStatus,
               dodoProductId,
             }, 'cron').catch(() => {});
+
+            // Dispatch the same plan-change confirmation email the
+            // webhook would have sent. Two paths:
+            //
+            //   - expectedPlan === 'free' (Dodo status flipped to
+            //     non-active): cancellation. Mirrors webhook
+            //     DOWNGRADE_EVENTS branch (sendPlanCancellationEmail
+            //     regardless of `comparePlans` direction).
+            //
+            //   - expectedPlan is a paid tier: route through
+            //     `comparePlans` exactly like webhook upgrade branch
+            //     (line 606-622). 'same' (renewal) -> no email.
+            //
+            // Fire-and-forget: a Resend outage must not roll back a
+            // successful plan fix. Audit row above is the support trail.
+            if (user.email) {
+              const previousPlan = user.plan;
+              if (expectedPlan === 'free') {
+                sendPlanCancellationEmail(user.email, { previousPlan })
+                  .then((res) => {
+                    if (!res.sent) {
+                      logger.warn('cron.reconcile.email_failed', {
+                        user_id: user.id, kind: 'cancellation', site: 'plan_mismatch', reason: res.reason,
+                      });
+                    }
+                  })
+                  .catch((err) => {
+                    logger.error('cron.reconcile.email_error', {
+                      user_id: user.id, kind: 'cancellation', site: 'plan_mismatch', error: (err as Error).message,
+                    });
+                  });
+              } else {
+                const direction = comparePlans(previousPlan, expectedPlan);
+                if (direction === 'upgrade') {
+                  sendPlanUpgradeEmail(user.email, { previousPlan, newPlan: expectedPlan })
+                    .then((res) => {
+                      if (!res.sent) {
+                        logger.warn('cron.reconcile.email_failed', {
+                          user_id: user.id, kind: 'upgrade', site: 'plan_mismatch', reason: res.reason,
+                        });
+                      }
+                    })
+                    .catch((err) => {
+                      logger.error('cron.reconcile.email_error', {
+                        user_id: user.id, kind: 'upgrade', site: 'plan_mismatch', error: (err as Error).message,
+                      });
+                    });
+                } else if (direction === 'downgrade') {
+                  sendPlanDowngradeEmail(user.email, { previousPlan, newPlan: expectedPlan })
+                    .then((res) => {
+                      if (!res.sent) {
+                        logger.warn('cron.reconcile.email_failed', {
+                          user_id: user.id, kind: 'downgrade', site: 'plan_mismatch', reason: res.reason,
+                        });
+                      }
+                    })
+                    .catch((err) => {
+                      logger.error('cron.reconcile.email_error', {
+                        user_id: user.id, kind: 'downgrade', site: 'plan_mismatch', error: (err as Error).message,
+                      });
+                    });
+                }
+                // 'same' direction: no email (renewal-shaped no-op).
+              }
+            }
           }
 
           // Also check if subscription_status in settings matches Dodo status
