@@ -2505,6 +2505,48 @@ input.brand-select{padding:7px 10px;}
   .recs-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 }
 
+/* ── RECOMMENDATIONS FILTER ROW ────── */
+/* Two filter selects side-by-side at >=640px. At <=480px (the 375px
+   bucket) they stack full-width so neither clips and both stay
+   tap-friendly. */
+.recs-filter-row{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap;}
+.recs-filter-row > *{min-height:44px;}
+@media (max-width:480px){
+  .recs-filter-row{flex-direction:column;align-items:stretch;gap:8px;}
+  .recs-filter-row > *{width:100% !important;}
+}
+
+/* ── RECOMMENDATIONS STATE CARDS (error / empty / session-expired) ────── */
+/* The body text on these cards comes from the server's error message
+   which can be long. Without an explicit overflow-wrap the message
+   was clipping at the right edge on a 375px viewport. */
+.recs-state-card{padding:32px 20px;text-align:center;max-width:100%;}
+.recs-state-card__msg{overflow-wrap:anywhere;word-break:break-word;}
+.recs-state-card__cta{min-height:44px;}
+@media (max-width:480px){
+  .recs-state-card{padding:24px 14px;}
+  .recs-state-card__cta{width:100%;}
+}
+
+/* ── RECOMMENDATIONS LIST ITEM CARD ────── */
+/* At <=480px the severity badge stacks below the title (instead of
+   sitting on the right and forcing a wider row), and the action row
+   (Mark Done + status select) stacks one-per-row with full-width
+   tap targets. */
+.recs-rec-card{padding:16px 20px;margin-bottom:0;}
+.recs-rec-card__row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.recs-rec-card__main{flex:1;min-width:0;}
+.recs-rec-card__title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;overflow-wrap:anywhere;}
+.recs-rec-card__desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px;overflow-wrap:anywhere;}
+.recs-rec-card__actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.recs-rec-card__actions > *{min-height:44px;}
+.recs-rec-card__badge{font-family:var(--mono);font-size:9px;font-weight:700;padding:4px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0;align-self:flex-start;}
+@media (max-width:480px){
+  .recs-rec-card{padding:14px 16px;}
+  .recs-rec-card__row{flex-direction:column;gap:8px;}
+  .recs-rec-card__actions > *{width:100%;justify-content:center;}
+}
+
 /* ── SKELETON LOADING ────── */
 .skeleton-wrap{padding:16px;}
 .skeleton-line{height:14px;margin-bottom:12px;border-radius:var(--radius-xs);background:linear-gradient(90deg,var(--bg3) 25%,var(--bg2) 50%,var(--bg3) 75%);background-size:200% 100%;animation:skeleton-shimmer 1.5s ease-in-out infinite;}

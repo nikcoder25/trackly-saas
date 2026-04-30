@@ -209,8 +209,9 @@ export default function RecommendationsPage() {
         </div>
       </div>
 
-      {/* Filters - matching screenshot */}
-      <div style={{ display:'flex',gap:8,marginBottom:14,alignItems:'center' }}>
+      {/* Filters — see .recs-filter-row in legacy.css. Side-by-side
+          >=640px, stacked full-width <=480px. */}
+      <div className="recs-filter-row">
         <select className="finp" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ width:140,margin:0 }}>
           <option value="">All Status</option>
           <option value="open">Open</option>
@@ -232,38 +233,38 @@ export default function RecommendationsPage() {
           and a 401 deserves a different CTA from a 500 because Try-again
           would just 401 again. */}
       {sessionExpired ? (
-        <div className="card" role="alert" style={{ padding:32,textAlign:'center',borderLeft:'3px solid var(--amber)' }}>
+        <div className="card recs-state-card" role="alert" style={{ borderLeft:'3px solid var(--amber)' }}>
           <div style={{ fontSize:28,marginBottom:8,color:'var(--amber)' }}>&#128274;</div>
           <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Session expired</div>
-          <div style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>Please sign in to continue.</div>
-          <Link href="/login" className="pbtn"
+          <div className="recs-state-card__msg" style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>Please sign in to continue.</div>
+          <Link href="/login" className="pbtn recs-state-card__cta"
             style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,textDecoration:'none',display:'inline-block' }}>
             Sign in
           </Link>
         </div>
       ) : loadError ? (
-        <div className="card" role="alert" style={{ padding:32,textAlign:'center',borderLeft:'3px solid var(--red)' }}>
+        <div className="card recs-state-card" role="alert" style={{ borderLeft:'3px solid var(--red)' }}>
           <div style={{ fontSize:28,marginBottom:8,color:'var(--red)' }}>&#9888;</div>
           <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Couldn&apos;t load recommendations</div>
-          <div style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>{loadError}</div>
-          <button onClick={loadRecs} className="pbtn"
+          <div className="recs-state-card__msg" style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>{loadError}</div>
+          <button onClick={loadRecs} className="pbtn recs-state-card__cta"
             style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700 }}>
             Try again
           </button>
         </div>
       ) : recs.length === 0 ? (
-        <div className="card" style={{ padding:32,textAlign:'center',color:'var(--muted)' }}>
+        <div className="card recs-state-card" style={{ color:'var(--muted)' }}>
           {allRecs.some(r => r.status === 'done' || r.status === 'ignored') ? (
             <>
               <div style={{ fontSize:28,marginBottom:8 }}>&#10003;</div>
               <div style={{ fontWeight:700,fontSize:14,marginBottom:4 }}>All Caught Up!</div>
-              <div style={{ fontSize:12 }}>{done} recommendation{done!==1?'s':''} completed. Use the status filter to review.</div>
+              <div className="recs-state-card__msg" style={{ fontSize:12 }}>{done} recommendation{done!==1?'s':''} completed. Use the status filter to review.</div>
             </>
           ) : (
             <>
               <div style={{ fontSize:28,marginBottom:8 }}>&#9733;</div>
               <div style={{ fontWeight:700,fontSize:14,marginBottom:4 }}>No Recommendations Yet</div>
-              <div style={{ fontSize:12 }}>Run your first query scan to get AI recommendations.</div>
+              <div className="recs-state-card__msg" style={{ fontSize:12 }}>Run your first query scan to get AI recommendations.</div>
             </>
           )}
         </div>
@@ -278,18 +279,18 @@ export default function RecommendationsPage() {
             const bgColor = color==='var(--red)' ? 'rgba(239,68,68,.08)' : color==='var(--amber)' ? 'rgba(245,158,11,.08)' : color==='var(--green)' ? 'rgba(16,185,129,.08)' : 'rgba(59,130,246,.08)';
 
             return (
-              <div key={r.id||idx} className="card" style={{ padding:'16px 20px',borderLeft:`3px solid ${color}`,opacity:dimmed?0.5:1,marginBottom:0 }}>
-                <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12 }}>
-                  <div style={{ flex:1,minWidth:0 }}>
-                    <div style={{ fontSize:14,fontWeight:700,color:'var(--text)',marginBottom:4,textDecoration:isDone?'line-through':'none' }}>{r.title}</div>
-                    <div style={{ fontSize:12,color:'var(--muted)',lineHeight:1.6,marginBottom:10 }}>{r.description||''}</div>
-                    <div style={{ display:'flex',gap:6,alignItems:'center',flexWrap:'wrap' }}>
+              <div key={r.id||idx} className="card recs-rec-card" style={{ borderLeft:`3px solid ${color}`,opacity:dimmed?0.5:1 }}>
+                <div className="recs-rec-card__row">
+                  <div className="recs-rec-card__main">
+                    <div className="recs-rec-card__title" style={{ textDecoration:isDone?'line-through':'none' }}>{r.title}</div>
+                    <div className="recs-rec-card__desc">{r.description||''}</div>
+                    <div className="recs-rec-card__actions">
                       {!isDone && (
-                        <button onClick={()=>updateStatus(r.id,'done')} style={{ fontFamily:'var(--mono)',fontSize:9,background:'none',border:'1px solid var(--green)',color:'var(--green)',padding:'4px 10px',cursor:'pointer',borderRadius:100 }}>
+                        <button onClick={()=>updateStatus(r.id,'done')} style={{ fontFamily:'var(--mono)',fontSize:11,background:'none',border:'1px solid var(--green)',color:'var(--green)',padding:'10px 14px',cursor:'pointer',borderRadius:100 }}>
                           &#10003; Mark Done
                         </button>
                       )}
-                      <select className="finp" value={r.status} onChange={e=>updateStatus(r.id,e.target.value)} style={{ width:110,margin:0,fontSize:10,padding:'3px 6px' }}>
+                      <select className="finp" value={r.status} onChange={e=>updateStatus(r.id,e.target.value)} style={{ width:140,margin:0,fontSize:12 }}>
                         <option value="open">Open</option>
                         <option value="in_progress">In Progress</option>
                         <option value="done">Done</option>
@@ -297,7 +298,7 @@ export default function RecommendationsPage() {
                       </select>
                     </div>
                   </div>
-                  <span style={{ fontFamily:'var(--mono)',fontSize:9,fontWeight:700,padding:'4px 10px',borderRadius:100,color,background:bgColor,whiteSpace:'nowrap',flexShrink:0 }}>
+                  <span className="recs-rec-card__badge" style={{ color,background:bgColor }}>
                     {label}
                   </span>
                 </div>
