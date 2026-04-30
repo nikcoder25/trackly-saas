@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface Recommendation {
   id: string;
@@ -18,6 +19,7 @@ interface Brand { id: string; name: string; }
 
 export default function RecommendationsPage() {
   const { brand: selectedBrand, brands, loading } = useBrandData();
+  const { toast } = useToast();
   const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
   const [generating, setGenerating] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
@@ -66,7 +68,7 @@ export default function RecommendationsPage() {
     return () => window.removeEventListener('livesov:run-complete', handler);
   }, [loadRecs]);
 
-  const generate = async () => {
+  const generate = async (opts: { silent?: boolean } = {}) => {
     if (!selectedBrand || generating) return;
     setGenerating(true);
     try {
@@ -75,9 +77,37 @@ export default function RecommendationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate' }),
       });
-      if (!res.ok) throw new Error('Generation failed');
+      if (!res.ok) {
+        let msg = 'Generation failed';
+        try { msg = (await res.json())?.error || msg; } catch { /* non-JSON body */ }
+        throw new Error(msg);
+      }
+      const data = await res.json().catch(() => ({} as { generated?: number }));
+      // Always refresh the list after a successful POST so the new
+      // recommendations show up without a page reload.
       await loadRecs();
-    } catch { /* loadRecs will show current state */ } finally { setGenerating(false); }
+      if (!opts.silent) {
+        const n = typeof data?.generated === 'number' ? data.generated : 0;
+        toast(
+          n > 0
+            ? `Generated ${n} recommendation${n === 1 ? '' : 's'}`
+            : 'No new recommendations — your data is up to date',
+          'success',
+        );
+      }
+    } catch (err) {
+      if (!opts.silent) {
+        toast(
+          err instanceof Error && err.message ? err.message : "Couldn't generate, try again",
+          'error',
+        );
+      }
+      // Best-effort refresh so the UI reflects whatever state the
+      // server is now in (the POST may have partially completed).
+      await loadRecs();
+    } finally {
+      setGenerating(false);
+    }
   };
 
   // Auto-generate recommendations on page load if data exists but recommendations are empty
@@ -89,7 +119,9 @@ export default function RecommendationsPage() {
     if (loadError) return;
     if (allRecs.length === 0 && brands.length > 0) {
       setAutoGenTriggered(true);
-      generate();
+      // Silent: this is an automatic background trigger on first load,
+      // not a user-initiated action, so it should not toast.
+      generate({ silent: true });
     }
   }, [selectedBrand?.id, loading, allRecs.length, brands.length, recsLoaded, loadError]);
 
@@ -145,7 +177,7 @@ export default function RecommendationsPage() {
           <div className="view-title">Recommendations</div>
           <div className="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
         </div>
-        <button className="pbtn" onClick={generate} disabled={generating}
+        <button className="pbtn" onClick={() => generate()} disabled={generating}
           style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,flexShrink:0,opacity:generating?0.6:1 }}>
           {generating ? 'Analyzing...' : 'Generate'}
         </button>
