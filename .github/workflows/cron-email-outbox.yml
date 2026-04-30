@@ -1,0 +1,43 @@
+# Email outbox worker cron.
+#
+# Runs every ~2 minutes from GitHub Actions to drain the email_outbox
+# table — pending and failed-with-backoff-elapsed rows are picked up
+# and dispatched to the email provider (Resend/SendGrid). See audit
+# item D for the full design.
+#
+# Lives in its own workflow file (instead of being a step in cron.yml)
+# because GitHub Actions schedule-collisions when two cron strings in
+# the same workflow fire at the same minute. */2 collides with */15
+# every 30 minutes; isolating in a separate workflow avoids that.
+#
+# Real-world cadence: GH Actions documents a soft minimum of ~5 minutes
+# for cron schedules, and frequently doesn't fire */2 schedules on time
+# (skews to 2-5 minutes, occasionally drops ticks under runner load).
+# That's acceptable for plan-change emails — users tolerate a few
+# minutes of delivery latency, and the DB-backed outbox guarantees the
+# email is never lost.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   CRON_SECRET - same value as the CRON_SECRET env var on DigitalOcean
+
+name: Email outbox cron
+
+on:
+  schedule:
+    - cron: "*/2 * * * *"
+  workflow_dispatch:
+
+jobs:
+  process_email_outbox:
+    name: Process email outbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/process-email-outbox
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 240 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/process-email-outbox"

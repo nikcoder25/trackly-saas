@@ -194,7 +194,15 @@ describe('reconcile-payments cron — email parity with webhook', () => {
 
       // Cancellation email fired exactly once with the previous plan.
       expect(sendCancellation).toHaveBeenCalledTimes(1);
-      expect(sendCancellation).toHaveBeenCalledWith('a@test.com', { previousPlan: 'agency' });
+      expect(sendCancellation).toHaveBeenCalledWith(
+        'a@test.com',
+        { previousPlan: 'agency' },
+        // Idempotency key shape: plan_email:userId:subscriptionId:not_found:free
+        // — keyed off the observed Dodo state (404) so a late
+        // subscription.cancelled webhook for the same row dedups via
+        // the outbox UNIQUE index.
+        expect.stringMatching(/^plan_email:user_A:sub_X:not_found:free$/),
+      );
       expect(sendUpgrade).not.toHaveBeenCalled();
       expect(sendDowngrade).not.toHaveBeenCalled();
 
@@ -262,7 +270,12 @@ describe('reconcile-payments cron — email parity with webhook', () => {
       expect(res.status).toBe(200);
 
       expect(sendUpgrade).toHaveBeenCalledTimes(1);
-      expect(sendUpgrade).toHaveBeenCalledWith('a@test.com', { previousPlan: 'free', newPlan: 'pro' });
+      expect(sendUpgrade).toHaveBeenCalledWith(
+        'a@test.com',
+        { previousPlan: 'free', newPlan: 'pro' },
+        // plan_email:userId:subscriptionId:dodoStatus:expectedPlan
+        expect.stringMatching(/^plan_email:user_A:sub_X:active:pro$/),
+      );
       expect(sendDowngrade).not.toHaveBeenCalled();
       expect(sendCancellation).not.toHaveBeenCalled();
     } finally {
@@ -295,7 +308,11 @@ describe('reconcile-payments cron — email parity with webhook', () => {
       expect(res.status).toBe(200);
 
       expect(sendDowngrade).toHaveBeenCalledTimes(1);
-      expect(sendDowngrade).toHaveBeenCalledWith('a@test.com', { previousPlan: 'agency', newPlan: 'pro' });
+      expect(sendDowngrade).toHaveBeenCalledWith(
+        'a@test.com',
+        { previousPlan: 'agency', newPlan: 'pro' },
+        expect.stringMatching(/^plan_email:user_A:sub_X:active:pro$/),
+      );
       expect(sendUpgrade).not.toHaveBeenCalled();
       // Crucial: paid->paid downgrade must NOT use cancellation. That
       // message is reserved for transitions to free.
@@ -330,7 +347,11 @@ describe('reconcile-payments cron — email parity with webhook', () => {
       expect(res.status).toBe(200);
 
       expect(sendCancellation).toHaveBeenCalledTimes(1);
-      expect(sendCancellation).toHaveBeenCalledWith('a@test.com', { previousPlan: 'agency' });
+      expect(sendCancellation).toHaveBeenCalledWith(
+        'a@test.com',
+        { previousPlan: 'agency' },
+        expect.stringMatching(/^plan_email:user_A:sub_X:cancelled:free$/),
+      );
       expect(sendUpgrade).not.toHaveBeenCalled();
       expect(sendDowngrade).not.toHaveBeenCalled();
     } finally {

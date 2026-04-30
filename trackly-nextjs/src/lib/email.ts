@@ -1,35 +1,161 @@
 /**
- * Email service - sends verification and password reset emails
- * Supports Resend (default) and SendGrid
- * Contact form emails use Zoho Mail SMTP (via nodemailer) when configured
+ * Email service.
+ *
+ * Architecture (audit item D — durable email delivery):
+ *
+ *   - Public senders (sendPlanUpgradeEmail, sendVerificationEmail, etc.)
+ *     no longer call the Resend HTTP API directly. They build the
+ *     subject/html and hand the message to enqueueEmail(), which
+ *     INSERTs a row into the email_outbox Postgres table and returns
+ *     immediately with { sent: true }. The "sent" semantics shifts from
+ *     "delivered to Resend" to "accepted for delivery"; the outbox is
+ *     the new source of truth.
+ *
+ *   - The /api/cron/process-email-outbox cron worker picks up pending
+ *     and failed rows on an every-2-minute schedule, calls
+ *     deliverEmailViaProvider() (which is the actual Resend/SendGrid
+ *     POST), and updates the row to sent / failed / dead based on the
+ *     outcome category. Retries with exponential backoff and a stuck-
+ *     sending reaper handle Resend outages, network blips, server
+ *     restarts mid-call, and rate limits.
+ *
+ * Two paths are intentionally NOT in the outbox:
+ *
+ *   - sendContactFormEmail uses Zoho SMTP via nodemailer (or falls back
+ *     to Resend) and is awaited by an interactive caller that already
+ *     surfaces failures to the user. Lower-priority for durability;
+ *     scoped out of this PR.
+ *
+ *   - addContactToAudience hits the Resend Audiences API, not the
+ *     /emails endpoint — different shape and not technically an email
+ *     send.
  */
 
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 import { escapeHtml } from './sanitize';
 import { getPlanCredits } from './plan-config';
+import { pool } from './db';
 
 const EMAIL_API_KEY = process.env.EMAIL_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Livesov <noreply@livesov.com>';
 const EMAIL_API_URL = process.env.EMAIL_API_URL || 'https://api.resend.com/emails';
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 
-interface EmailResult {
+export interface EmailResult {
   sent: boolean;
   reason?: string;
 }
 
-async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<EmailResult> {
+/**
+ * Outcome of a single Resend/SendGrid POST. Used by the outbox worker
+ * to decide whether a failed delivery should be retried, marked dead,
+ * or counted as success.
+ *
+ *   - 'sent'      : 2xx response.
+ *   - 'retryable' : 429 / 5xx / network throw — try again on the next
+ *                   cron tick after the configured backoff.
+ *   - 'permanent' : any other 4xx (invalid recipient, malformed
+ *                   payload, bad API key, etc.) — never retried, row
+ *                   marked dead immediately.
+ */
+export type DeliveryOutcome =
+  | { kind: 'sent' }
+  | { kind: 'retryable'; status: number; reason: string }
+  | { kind: 'permanent'; status: number; reason: string };
+
+export interface EnqueueEmailInput {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  replyTo?: string;
+  templateKey: string;
+  payload?: Record<string, unknown>;
+  idempotencyKey?: string;
+}
+
+/**
+ * Insert an email into the durable outbox. Returns synchronously after
+ * the INSERT commits. The cron worker will pick it up and dispatch to
+ * the email provider asynchronously.
+ *
+ * The DEV-mode (EMAIL_API_KEY unset) path bypasses the outbox entirely
+ * and logs a placeholder so local development doesn't accumulate stale
+ * pending rows that will never be sent.
+ *
+ * Idempotency: if `idempotencyKey` is provided and a row with the same
+ * key already exists, the INSERT is a no-op (ON CONFLICT DO NOTHING).
+ * This prevents duplicate sends when two code paths observe the same
+ * underlying event — e.g. the webhook and the reconcile cron both
+ * detecting a plan_cancellation in the same tick.
+ */
+export async function enqueueEmail(input: EnqueueEmailInput): Promise<EmailResult> {
   if (!EMAIL_API_KEY) {
-    // Don't log full HTML (may contain tokens) - just log recipient and subject
-    console.log(`[Email] DEV MODE - Would send to ${to}: ${subject} (HTML body omitted for security)`);
+    console.log(
+      `[Email] DEV MODE - would enqueue ${input.templateKey} to ${input.to} `
+      + `subject="${input.subject}" (outbox bypassed; HTML omitted)`,
+    );
     return { sent: true };
+  }
+  try {
+    const id = crypto.randomUUID();
+    await pool.query(
+      `INSERT INTO email_outbox
+         (id, to_email, subject, body_html, body_text, reply_to,
+          template_key, payload_json, idempotency_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+       ON CONFLICT (idempotency_key) DO NOTHING`,
+      [
+        id, input.to, input.subject, input.html, input.text ?? null, input.replyTo ?? null,
+        input.templateKey, JSON.stringify(input.payload ?? {}), input.idempotencyKey ?? null,
+      ],
+    );
+    // Stable structured-log key — see audit item D's observability spec.
+    // Don't log the HTML body or recipient PII at info level: this fires
+    // on every email enqueue and would flood prod logs with sensitive data.
+    console.log(
+      `[email.outbox.enqueued] template=${input.templateKey} `
+      + `idempotency_key=${input.idempotencyKey ?? '<none>'}`,
+    );
+    return { sent: true };
+  } catch (e) {
+    const reason = (e as Error).message;
+    console.error(`[email.outbox.enqueue_failed] template=${input.templateKey} reason=${reason}`);
+    return { sent: false, reason };
+  }
+}
+
+/**
+ * Issue the actual Resend/SendGrid POST. Used by the outbox cron
+ * worker; not exported to feature code, which goes through enqueueEmail
+ * instead.
+ *
+ * Categorisation rules:
+ *   - 2xx                       -> { kind: 'sent' }
+ *   - 429 / 5xx / network throw -> { kind: 'retryable', ... }
+ *   - any other 4xx             -> { kind: 'permanent', ... }
+ */
+export async function deliverEmailViaProvider(
+  to: string,
+  subject: string,
+  html: string,
+  replyTo?: string | null,
+): Promise<DeliveryOutcome> {
+  if (!EMAIL_API_KEY) {
+    // Outbox shouldn't have rows in DEV-mode (enqueueEmail short-circuits
+    // before INSERT), but if a leftover pending row is processed in DEV
+    // we treat it as sent so the worker doesn't retry forever.
+    console.log(`[Email] DEV MODE - would deliver to ${to} subject="${subject}" (HTML omitted)`);
+    return { kind: 'sent' };
   }
 
   try {
     const isResend = EMAIL_API_URL.includes('resend.com');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-
-    headers['Authorization'] = `Bearer ${EMAIL_API_KEY}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${EMAIL_API_KEY}`,
+    };
 
     const resendPayload: Record<string, unknown> = { from: EMAIL_FROM, to: [to], subject, html };
     if (replyTo && isResend) {
@@ -46,18 +172,34 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
         });
 
     const resp = await fetch(EMAIL_API_URL, { method: 'POST', headers, body });
-    if (!resp.ok) {
-      const text = await resp.text();
-      const reason = `Email API returned ${resp.status}: ${text}`;
-      console.error(`[Email] Send failed to=${to} subject="${subject}" reason=${reason}`);
-      return { sent: false, reason };
+    if (resp.ok) return { kind: 'sent' };
+
+    const text = await resp.text().catch(() => '');
+    const reason = `Email API returned ${resp.status}: ${text.slice(0, 200)}`;
+    // 429 (rate limit) and 5xx are retryable. All other 4xx (auth,
+    // invalid recipient, malformed payload, bounced address) are
+    // permanent — retrying won't help and would burn provider quota.
+    if (resp.status === 429 || resp.status >= 500) {
+      return { kind: 'retryable', status: resp.status, reason };
     }
-    return { sent: true };
+    return { kind: 'permanent', status: resp.status, reason };
   } catch (e) {
-    const reason = (e as Error).message;
-    console.error(`[Email] Send error to=${to} subject="${subject}" error=${reason}`);
-    return { sent: false, reason };
+    // Network errors, DNS failures, fetch timeout — all retryable.
+    return { kind: 'retryable', status: 0, reason: (e as Error).message };
   }
+}
+
+/**
+ * Legacy in-process sender used only by the contact-form path (kept
+ * out of the outbox per scope). Wraps deliverEmailViaProvider and
+ * collapses the outcome back into the original EmailResult shape so
+ * the contact form's awaited callers continue to work unchanged.
+ */
+async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<EmailResult> {
+  const outcome = await deliverEmailViaProvider(to, subject, html, replyTo);
+  if (outcome.kind === 'sent') return { sent: true };
+  console.error(`[Email] Direct send failed to=${to} subject="${subject}" reason=${outcome.reason}`);
+  return { sent: false, reason: outcome.reason };
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<EmailResult> {
@@ -70,7 +212,16 @@ export async function sendVerificationEmail(email: string, token: string): Promi
       <p style="color:#999;font-size:12px;">If you didn't create an account, you can ignore this email.</p>
     </div>
   `;
-  return sendEmail(email, 'Verify your email - Livesov', html);
+  // No idempotency key: each verification request is a fresh logical
+  // event (new token, new email row). The verify-token unique index
+  // already guarantees you can't reuse a token across two emails.
+  return enqueueEmail({
+    to: email,
+    subject: 'Verify your email - Livesov',
+    html,
+    templateKey: 'verification',
+    idempotencyKey: `verification:${crypto.randomUUID()}`,
+  });
 }
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<EmailResult> {
@@ -83,7 +234,13 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
       <p style="color:#999;font-size:12px;">If you didn't request a password reset, you can ignore this email.</p>
     </div>
   `;
-  return sendEmail(email, 'Reset your password - Livesov', html);
+  return enqueueEmail({
+    to: email,
+    subject: 'Reset your password - Livesov',
+    html,
+    templateKey: 'password_reset',
+    idempotencyKey: `password_reset:${crypto.randomUUID()}`,
+  });
 }
 
 export async function sendContactFormEmail({
@@ -205,7 +362,14 @@ export async function sendWelcomeEmail(email: string): Promise<EmailResult> {
       </p>
     </div>
   `;
-  return sendEmail(email, 'Welcome to Livesov!', html, 'hello@livesov.com');
+  return enqueueEmail({
+    to: email,
+    subject: 'Welcome to Livesov!',
+    html,
+    replyTo: 'hello@livesov.com',
+    templateKey: 'welcome',
+    idempotencyKey: `welcome:${crypto.randomUUID()}`,
+  });
 }
 
 // Scheduled AI-visibility report email - a periodic digest sent by the
@@ -275,7 +439,14 @@ export async function sendReportEmail(
       <p style="color:#9ca3af;font-size:12px;margin-top:16px;">You're receiving this because you enabled scheduled reports. Manage settings in your Livesov dashboard.</p>
     </div>
   `;
-  return sendEmail(to, `AI Visibility Report: ${escapeHtml(brandName)} - Livesov`, html);
+  return enqueueEmail({
+    to,
+    subject: `AI Visibility Report: ${escapeHtml(brandName)} - Livesov`,
+    html,
+    templateKey: 'scheduled_report',
+    payload: { brandName, period: report.period },
+    idempotencyKey: `scheduled_report:${crypto.randomUUID()}`,
+  });
 }
 
 // ── Livesov v2 credit-system emails ──────────────────────────────
@@ -320,7 +491,14 @@ export async function sendLowCreditsEmail(
       </p>
     </div>
   `;
-  return sendEmail(email, 'Your Livesov AI credits are running low', html);
+  return enqueueEmail({
+    to: email,
+    subject: 'Your Livesov AI credits are running low',
+    html,
+    templateKey: 'low_credits',
+    payload: { remaining: ctx.remaining, monthlyCap: ctx.monthlyCap },
+    idempotencyKey: `low_credits:${crypto.randomUUID()}`,
+  });
 }
 
 /**
@@ -353,7 +531,14 @@ export async function sendAutoSkipEmail(
       </p>
     </div>
   `;
-  return sendEmail(email, `Scheduled scan skipped — ${ctx.brandName}`, html);
+  return enqueueEmail({
+    to: email,
+    subject: `Scheduled scan skipped — ${ctx.brandName}`,
+    html,
+    templateKey: 'auto_skip',
+    payload: { brandName: ctx.brandName },
+    idempotencyKey: `auto_skip:${crypto.randomUUID()}`,
+  });
 }
 
 /**
@@ -379,7 +564,14 @@ export async function sendMonthlyResetEmail(
       <a href="${APP_URL}/dashboard" style="display:inline-block;background:#10b981;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;margin:16px 0;font-weight:600;">Open Dashboard</a>
     </div>
   `;
-  return sendEmail(email, 'Your Livesov credits have refreshed', html);
+  return enqueueEmail({
+    to: email,
+    subject: 'Your Livesov credits have refreshed',
+    html,
+    templateKey: 'monthly_reset',
+    payload: { plan: ctx.plan, monthlyCap: ctx.monthlyCap },
+    idempotencyKey: `monthly_reset:${crypto.randomUUID()}`,
+  });
 }
 
 // ── Plan upgrade / downgrade / cancellation confirmations ──────────
@@ -423,6 +615,7 @@ function planFeatureBullets(plan: string): string {
 export async function sendPlanUpgradeEmail(
   email: string,
   ctx: PlanChangeContext,
+  idempotencyKey?: string,
 ): Promise<EmailResult> {
   const fromCfg = getPlanCredits(ctx.previousPlan);
   const toCfg = getPlanCredits(ctx.newPlan);
@@ -445,7 +638,14 @@ export async function sendPlanUpgradeEmail(
       </p>
     </div>
   `;
-  return sendEmail(email, `You're on the ${toCfg.label} plan — Livesov`, html);
+  return enqueueEmail({
+    to: email,
+    subject: `You're on the ${toCfg.label} plan — Livesov`,
+    html,
+    templateKey: 'plan_upgrade',
+    payload: { from: ctx.previousPlan, to: ctx.newPlan },
+    idempotencyKey,
+  });
 }
 
 /**
@@ -456,6 +656,7 @@ export async function sendPlanUpgradeEmail(
 export async function sendPlanDowngradeEmail(
   email: string,
   ctx: PlanChangeContext,
+  idempotencyKey?: string,
 ): Promise<EmailResult> {
   const fromCfg = getPlanCredits(ctx.previousPlan);
   const toCfg = getPlanCredits(ctx.newPlan);
@@ -481,7 +682,14 @@ export async function sendPlanDowngradeEmail(
       </p>
     </div>
   `;
-  return sendEmail(email, `Your Livesov plan changed to ${toCfg.label}`, html);
+  return enqueueEmail({
+    to: email,
+    subject: `Your Livesov plan changed to ${toCfg.label}`,
+    html,
+    templateKey: 'plan_downgrade',
+    payload: { from: ctx.previousPlan, to: ctx.newPlan },
+    idempotencyKey,
+  });
 }
 
 /**
@@ -493,6 +701,7 @@ export async function sendPlanDowngradeEmail(
 export async function sendPlanCancellationEmail(
   email: string,
   ctx: { previousPlan: string },
+  idempotencyKey?: string,
 ): Promise<EmailResult> {
   const fromCfg = getPlanCredits(ctx.previousPlan);
   const freeCfg = getPlanCredits('free');
@@ -518,7 +727,14 @@ export async function sendPlanCancellationEmail(
       </p>
     </div>
   `;
-  return sendEmail(email, 'Your Livesov subscription was cancelled', html);
+  return enqueueEmail({
+    to: email,
+    subject: 'Your Livesov subscription was cancelled',
+    html,
+    templateKey: 'plan_cancellation',
+    payload: { from: ctx.previousPlan },
+    idempotencyKey,
+  });
 }
 
 async function sendContactFormViaZoho(
