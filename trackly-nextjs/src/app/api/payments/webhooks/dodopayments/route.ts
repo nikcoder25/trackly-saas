@@ -40,12 +40,15 @@ Object.entries(PLAN_MAP).forEach(([productId, planName]) => {
 // and must never be settable from webhook-derived data.
 const ALLOWED_WEBHOOK_PLANS = new Set(['starter', 'pro', 'agency', 'enterprise']);
 
-// All event types that indicate an active/upgraded plan
+// All event types that indicate an active/upgraded plan.
+// 'subscription.updated' is intentionally NOT here: Dodo emits it for
+// every status change (including cancellations), so it's normalised at
+// dispatch time via `effectiveEventType` below — see the remap that
+// resolves status → 'subscription.cancelled' or 'subscription.active'.
 const UPGRADE_EVENTS = new Set([
     'payment.succeeded',
     'subscription.active',
     'subscription.renewed',
-    'subscription.updated',
     'subscription.plan_changed',
   ]);
 
@@ -53,9 +56,9 @@ const UPGRADE_EVENTS = new Set([
 // activation). On these we require the webhook's subscription_id to
 // match the one we have bound to the user, so a webhook referencing a
 // different subscription can't silently flip another user's plan.
+// 'subscription.updated' is excluded here for the same reason as above.
 const SUBSCRIPTION_UPDATE_EVENTS = new Set([
     'subscription.renewed',
-    'subscription.updated',
     'subscription.plan_changed',
   ]);
 
@@ -64,6 +67,22 @@ const DOWNGRADE_EVENTS = new Set([
     'subscription.cancelled',
     'subscription.expired',
     'refund.succeeded',
+  ]);
+
+// Subscription-level statuses that mean the subscription is NOT active.
+// When a 'subscription.updated' / 'subscription.plan_changed' /
+// 'subscription.renewed' event carries one of these in its payload, we
+// remap the eventType to 'subscription.cancelled' so the downgrade
+// branch handles it. Includes both spellings ('cancelled'/'canceled')
+// because Dodo's docs and live payloads have used both at different
+// times.
+const INACTIVE_SUBSCRIPTION_STATUSES = new Set([
+    'cancelled',
+    'canceled',
+    'expired',
+    'failed',
+    'on_hold',
+    'paused',
   ]);
 
 // The canonical env var is DODO_PAYMENTS_WEBHOOK_KEY (matches .env.example
@@ -239,6 +258,47 @@ export async function POST(request: Request) {
           }
           const eventType = body.type || body.event_type || '';
 
+      // Extract nested data - DodoPayments may nest under .data or .payload
+      const eventData = body.data || body.payload || body;
+
+      // Dodo's 'subscription.updated' fires for every status change,
+      // including cancellations. Read the embedded status (checking
+      // every field name Dodo has used across versions) and remap the
+      // eventType so the dispatch logic below sees a single,
+      // unambiguous semantic event:
+      //
+      //   - 'subscription.updated'/'plan_changed'/'renewed' + inactive
+      //     status -> 'subscription.cancelled' (handled by DOWNGRADE_EVENTS)
+      //   - 'subscription.updated' otherwise -> 'subscription.active'
+      //     (handled by UPGRADE_EVENTS)
+      //   - everything else -> unchanged
+      //
+      // Without this, a cancellation-triggered 'subscription.updated'
+      // would be treated as an upgrade event (because we still need to
+      // honour active 'plan_changed' / 'renewed' notifications) and the
+      // webhook would resurrect the cancelled plan a few seconds after
+      // the user's explicit cancel.
+      const rawStatus = eventData.status ?? eventData.subscription_status ?? body.status;
+      const payloadStatus = typeof rawStatus === 'string' ? rawStatus : null;
+
+      let effectiveEventType = eventType;
+      if (
+        (eventType === 'subscription.updated'
+          || eventType === 'subscription.plan_changed'
+          || eventType === 'subscription.renewed')
+        && payloadStatus
+        && INACTIVE_SUBSCRIPTION_STATUSES.has(payloadStatus)
+      ) {
+        effectiveEventType = 'subscription.cancelled';
+        logger.info('webhook.dodo.event_remapped', {
+          from: eventType,
+          to: 'subscription.cancelled',
+          payload_status: payloadStatus,
+        });
+      } else if (eventType === 'subscription.updated') {
+        effectiveEventType = 'subscription.active';
+      }
+
       // Debug-only: full payload context. Suppressed in production stdout
       // (logger.debug skips console output when NODE_ENV=production) so
       // customer/subscription IDs aren't tee'd to App Platform logs; still
@@ -246,15 +306,14 @@ export async function POST(request: Request) {
       logger.debug('webhook.dodo.processing', {
               eventId,
               eventType,
+              effectiveEventType,
+              payloadStatus,
               bodyKeys: Object.keys(body),
               product_id: body.product_id || body.data?.product_id || body.payload?.product_id,
               subscription_id: body.subscription_id || body.data?.subscription_id || body.payload?.subscription_id,
               customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id,
               metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
       });
-
-      // Extract nested data - DodoPayments may nest under .data or .payload
-      const eventData = body.data || body.payload || body;
 
       // Plan-change confirmation email to dispatch after the DB
       // transaction commits. We don't send mid-transaction because a
@@ -286,7 +345,7 @@ export async function POST(request: Request) {
                   const userId = metadata.userId || metadata.user_id;
 
             // Handle plan upgrade events
-            if (UPGRADE_EVENTS.has(eventType)) {
+            if (UPGRADE_EVENTS.has(effectiveEventType)) {
                       if (!userId || typeof userId !== 'string') {
                                   await client.query('ROLLBACK');
                                   logger.error('webhook.dodo.upgrade_missing_user_id', {
@@ -305,6 +364,30 @@ export async function POST(request: Request) {
                       }
 
                     const currentUser = userCheck.rows[0];
+
+                      // Defense-in-depth: a user who has just been cancelled
+                      // (settings.subscription_status === 'cancelled' AND no
+                      // bound subscription_id) cannot be re-upgraded by a
+                      // late 'subscription.*' webhook retry. The only way
+                      // back into a paid plan is a fresh 'payment.succeeded'
+                      // event for a brand-new subscription. This is the
+                      // backstop for the cancel-revert bug if the dispatch
+                      // remap above ever misses an inactive status spelling.
+                      if (
+                        currentUser.settings?.subscription_status === 'cancelled'
+                        && !currentUser.settings?.subscription_id
+                        && effectiveEventType !== 'payment.succeeded'
+                      ) {
+                                await client.query('ROLLBACK');
+                                logger.warn('webhook.dodo.ignored_post_cancel_event', {
+                                            userId,
+                                            eventType,
+                                            effectiveEventType,
+                                            payload_status: payloadStatus,
+                                });
+                                return Response.json({ received: true, ignored: 'post_cancel' });
+                      }
+
                       const productId = eventData.product_id || body.product_id;
                       // Resolve plan STRICTLY from product_id. metadata.plan
                       // is never trusted: it's free-form string data attached
@@ -326,7 +409,7 @@ export async function POST(request: Request) {
                                 // cross-user plan updates if a webhook references
                                 // someone else's subscription.
                                 if (
-                                  SUBSCRIPTION_UPDATE_EVENTS.has(eventType)
+                                  SUBSCRIPTION_UPDATE_EVENTS.has(effectiveEventType)
                                   && existingSubscriptionId
                                   && subscriptionId
                                   && existingSubscriptionId !== subscriptionId
@@ -357,7 +440,7 @@ export async function POST(request: Request) {
 
                         const previousPlan = currentUser.plan;
                                 await client.query('UPDATE users SET plan = $1 WHERE id = $2', [plan, userId]);
-                                logger.info('webhook.dodo.plan_updated', { userId, from: previousPlan, to: plan, eventType });
+                                logger.info('webhook.dodo.plan_updated', { userId, from: previousPlan, to: plan, eventType, effectiveEventType, payloadStatus });
 
                         // Queue an upgrade/downgrade confirmation email when the
                         // plan actually moved. Renewals (same → same) don't
@@ -425,7 +508,7 @@ export async function POST(request: Request) {
             }
 
             // Handle downgrade events
-            if (DOWNGRADE_EVENTS.has(eventType)) {
+            if (DOWNGRADE_EVENTS.has(effectiveEventType)) {
                       if (!userId || typeof userId !== 'string') {
                                   await client.query('ROLLBACK');
                                   logger.error('webhook.dodo.downgrade_missing_user_id', {
@@ -449,7 +532,7 @@ export async function POST(request: Request) {
                                   `UPDATE users SET settings = settings - 'subscription_id' - 'dodo_customer_id' - 'dodo_product_id' || '{"subscription_status":"cancelled"}'::jsonb WHERE id = $1`,
                                   [userId]
                                 );
-                      logger.info('webhook.dodo.plan_downgraded', { userId, from: previousPlan, to: 'free', eventType });
+                      logger.info('webhook.dodo.plan_downgraded', { userId, from: previousPlan, to: 'free', eventType, effectiveEventType, payloadStatus });
 
                       // Queue a cancellation email if the user was actually on a
                       // paid plan. No need to email someone who was already free
@@ -466,7 +549,7 @@ export async function POST(request: Request) {
             }
 
             // Handle subscription on hold
-            if (eventType === 'subscription.on_hold') {
+            if (effectiveEventType === 'subscription.on_hold') {
                       if (userId && typeof userId === 'string') {
                                   await client.query(
                                                 `UPDATE users SET settings = settings || '{"subscription_status":"on_hold"}'::jsonb WHERE id = $1`,
@@ -477,7 +560,7 @@ export async function POST(request: Request) {
             }
 
             // Handle subscription.paused
-            if (eventType === 'subscription.paused') {
+            if (effectiveEventType === 'subscription.paused') {
                       if (userId && typeof userId === 'string') {
                                   await client.query(
                                                 `UPDATE users SET settings = settings || '{"subscription_status":"paused"}'::jsonb WHERE id = $1`,
