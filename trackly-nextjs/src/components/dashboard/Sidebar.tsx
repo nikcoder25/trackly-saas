@@ -23,6 +23,7 @@ const navGroups = [
       { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
       { href: '/dashboard/citations', label: 'Citations', icon: '◇' },
+      { href: '/dashboard/results', label: 'Results', icon: '☰' },
       { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '◈' },
       { href: '/dashboard/recommendations', label: 'Recommendations', icon: '◆' },
     ],
@@ -31,6 +32,7 @@ const navGroups = [
     label: 'Tools',
     items: [
       { href: '/dashboard/geo-audit', label: 'GEO Audit', icon: '◉' },
+      { href: '/dashboard/geo-audits', label: 'Regional Audits', icon: '🌍' },
     ],
   },
   {
@@ -113,7 +115,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <div className="nav-group">{group.label}</div>
               {group.items.map((item) => {
                 if ('adminOnly' in item && item.adminOnly && user?.role !== 'admin') return null;
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
+                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href + '/'));
                 return (
                   <Link key={item.href} href={item.href} prefetch={false} onClick={onClose}
                     className={`nav-item ${isActive ? 'active' : ''} ${'adminOnly' in item && item.adminOnly ? 'admin-link' : ''}`}
