@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useToast } from '@/components/dashboard/Toast';
 
 interface Recommendation {
   id: string;
@@ -18,6 +19,7 @@ interface Brand { id: string; name: string; }
 
 export default function RecommendationsPage() {
   const { brand: selectedBrand, brands, loading } = useBrandData();
+  const { toast } = useToast();
   const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
   const [generating, setGenerating] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
@@ -25,22 +27,38 @@ export default function RecommendationsPage() {
 
   const [autoGenTriggered, setAutoGenTriggered] = useState(false);
   const [recsLoaded, setRecsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadRecs = async () => {
+  const loadRecs = useCallback(async () => {
     if (!selectedBrand) return;
+    // Build the URL with URLSearchParams so the trailing '?' is only
+    // present when at least one filter is set. The previous string-
+    // concat builder always emitted '?' even with zero filters, which
+    // is what surfaced as the puzzling trailing-'?' GET in production.
+    const search = new URLSearchParams();
+    if (filterStatus) search.set('status', filterStatus);
+    if (filterSeverity) search.set('severity', filterSeverity);
+    const qs = search.toString();
+    const url = `/api/brands/${selectedBrand.id}/recommendations${qs ? `?${qs}` : ''}`;
     try {
-      let url = `/api/brands/${selectedBrand.id}/recommendations?`;
-      if (filterStatus) url += `status=${filterStatus}&`;
-      if (filterSeverity) url += `severity=${filterSeverity}&`;
       const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load');
+      if (!res.ok) {
+        let serverMsg = '';
+        try { serverMsg = (await res.json())?.error || ''; } catch { /* non-JSON body */ }
+        throw new Error(serverMsg || `Request failed (${res.status})`);
+      }
       const data = await res.json();
       setAllRecs(data.recommendations || []);
+      setLoadError(null);
       setRecsLoaded(true);
-    } catch { setAllRecs([]); setRecsLoaded(true); }
-  };
+    } catch (err) {
+      setAllRecs([]);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load recommendations.');
+      setRecsLoaded(true);
+    }
+  }, [selectedBrand, filterStatus, filterSeverity]);
 
-  useEffect(() => { loadRecs(); }, [selectedBrand?.id, filterStatus, filterSeverity]);
+  useEffect(() => { loadRecs(); }, [loadRecs]);
 
   // Reload recommendations when a run completes so new suggestions (derived
   // from fresh run data) appear without requiring a manual refresh.
@@ -48,9 +66,9 @@ export default function RecommendationsPage() {
     const handler = () => loadRecs();
     window.addEventListener('livesov:run-complete', handler);
     return () => window.removeEventListener('livesov:run-complete', handler);
-  }, [selectedBrand?.id, filterStatus, filterSeverity]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadRecs]);
 
-  const generate = async () => {
+  const generate = async (opts: { silent?: boolean } = {}) => {
     if (!selectedBrand || generating) return;
     setGenerating(true);
     try {
@@ -59,19 +77,53 @@ export default function RecommendationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate' }),
       });
-      if (!res.ok) throw new Error('Generation failed');
+      if (!res.ok) {
+        let msg = 'Generation failed';
+        try { msg = (await res.json())?.error || msg; } catch { /* non-JSON body */ }
+        throw new Error(msg);
+      }
+      const data = await res.json().catch(() => ({} as { generated?: number }));
+      // Always refresh the list after a successful POST so the new
+      // recommendations show up without a page reload.
       await loadRecs();
-    } catch { /* loadRecs will show current state */ } finally { setGenerating(false); }
+      if (!opts.silent) {
+        const n = typeof data?.generated === 'number' ? data.generated : 0;
+        toast(
+          n > 0
+            ? `Generated ${n} recommendation${n === 1 ? '' : 's'}`
+            : 'No new recommendations — your data is up to date',
+          'success',
+        );
+      }
+    } catch (err) {
+      if (!opts.silent) {
+        toast(
+          err instanceof Error && err.message ? err.message : "Couldn't generate, try again",
+          'error',
+        );
+      }
+      // Best-effort refresh so the UI reflects whatever state the
+      // server is now in (the POST may have partially completed).
+      await loadRecs();
+    } finally {
+      setGenerating(false);
+    }
   };
 
   // Auto-generate recommendations on page load if data exists but recommendations are empty
   useEffect(() => {
     if (!selectedBrand || loading || generating || autoGenTriggered || !recsLoaded) return;
+    // Don't auto-generate after a load failure — the user should see the
+    // error and decide whether to retry, not have the page silently start
+    // running an unrelated POST.
+    if (loadError) return;
     if (allRecs.length === 0 && brands.length > 0) {
       setAutoGenTriggered(true);
-      generate();
+      // Silent: this is an automatic background trigger on first load,
+      // not a user-initiated action, so it should not toast.
+      generate({ silent: true });
     }
-  }, [selectedBrand?.id, loading, allRecs.length, brands.length, recsLoaded]);
+  }, [selectedBrand?.id, loading, allRecs.length, brands.length, recsLoaded, loadError]);
 
   const updateStatus = async (id: string, status: string) => {
     if (!selectedBrand) return;
@@ -125,7 +177,7 @@ export default function RecommendationsPage() {
           <div className="view-title">Recommendations</div>
           <div className="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
         </div>
-        <button className="pbtn" onClick={generate} disabled={generating}
+        <button className="pbtn" onClick={() => generate()} disabled={generating}
           style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,flexShrink:0,opacity:generating?0.6:1 }}>
           {generating ? 'Analyzing...' : 'Generate'}
         </button>
@@ -168,8 +220,20 @@ export default function RecommendationsPage() {
         </select>
       </div>
 
-      {/* Recommendations List - matches legacy renderRecommendations() exactly */}
-      {recs.length === 0 ? (
+      {/* Error state takes precedence over empty state — falling through
+          to "No Recommendations Yet" on a 500 was the bug that masked
+          the production failure. */}
+      {loadError ? (
+        <div className="card" role="alert" style={{ padding:32,textAlign:'center',borderLeft:'3px solid var(--red)' }}>
+          <div style={{ fontSize:28,marginBottom:8,color:'var(--red)' }}>&#9888;</div>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Couldn&apos;t load recommendations</div>
+          <div style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>{loadError}</div>
+          <button onClick={loadRecs} className="pbtn"
+            style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700 }}>
+            Try again
+          </button>
+        </div>
+      ) : recs.length === 0 ? (
         <div className="card" style={{ padding:32,textAlign:'center',color:'var(--muted)' }}>
           {allRecs.some(r => r.status === 'done' || r.status === 'ignored') ? (
             <>
