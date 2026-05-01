@@ -122,9 +122,21 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
         FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE
     )
   `);
-  // Backfill column for installations that ran an earlier ensure cycle
-  // before `prompts` was added — idempotent ALTER, no-op on fresh DBs.
+  // Backfill columns for installations that ran an earlier ensure cycle
+  // before they were added — idempotent ALTERs, no-op on fresh DBs.
   await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS prompts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[]`);
+  await pool.query(`ALTER TABLE geo_audits ADD COLUMN IF NOT EXISTS mention_rate NUMERIC`);
+  // Backfill mention_rate for terminal historical rows (done / failed /
+  // cancelled). Idempotent: rows that already have a value are skipped
+  // via the `IS NULL` predicate. Computed as mentions_count / NULLIF(received, 0)
+  // so a zero-received row backfills to NULL rather than dividing by zero.
+  await pool.query(`
+    UPDATE geo_audits
+       SET mention_rate = mentions_count::numeric / received
+     WHERE mention_rate IS NULL
+       AND received > 0
+       AND status IN ('done','failed','cancelled')
+  `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_geo_audits_user_created
       ON geo_audits (user_id, created_at DESC)
@@ -227,15 +239,25 @@ async function finalizeAudit(
     [auditId],
   );
   const row = (tally.rows[0] as { received: string; mentions: string } | undefined) ?? { received: '0', mentions: '0' };
+  const received = Number(row.received) || 0;
+  const mentions = Number(row.mentions) || 0;
+  // Persist mention_rate alongside the canonical counters so the
+  // Regional Audits list (and the per-region 4-week trend sparkline)
+  // can render without recomputing from geo_audit_results on every
+  // page load. Stored as a fraction in [0, 1]; null when no calls
+  // succeeded so the UI can render an empty-state instead of a
+  // misleading 0.0%.
+  const mentionRate = received > 0 ? mentions / received : null;
   await pool.query(
     `UPDATE geo_audits
         SET status = $2,
             received = $3,
             mentions_count = $4,
-            error = $5,
+            mention_rate = $5,
+            error = $6,
             completed_at = NOW()
       WHERE id = $1`,
-    [auditId, outcome, Number(row.received) || 0, Number(row.mentions) || 0, errorMsg],
+    [auditId, outcome, received, mentions, mentionRate, errorMsg],
   );
 }
 

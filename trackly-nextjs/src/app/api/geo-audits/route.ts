@@ -34,9 +34,20 @@ export interface GeoAuditListItem {
   id: string;
   brandId: string;
   regions: string[];
+  /**
+   * Configured prompts on this audit. Returned so the Audits list page
+   * can search by prompt text without an N+1 detail fetch per row.
+   */
+  prompts: string[];
   promptsCount: number;
   status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
   mentionsCount: number;
+  /**
+   * Persisted mention rate as a fraction in [0, 1]. null while
+   * still queued/running, or when no calls succeeded. The 4-week
+   * sparkline reads this directly per region.
+   */
+  mentionRate: number | null;
   totalExpected: number;
   received: number;
   error: string | null;
@@ -54,8 +65,9 @@ export async function GET(request: Request): Promise<Response> {
     await ensureGeoAuditsSchema();
 
     const res = await pool.query(
-      `SELECT id, brand_id, regions, prompts_count, status, mentions_count,
-              total_expected, received, error, created_at, started_at, completed_at
+      `SELECT id, brand_id, regions, prompts, prompts_count, status, mentions_count,
+              mention_rate, total_expected, received, error,
+              created_at, started_at, completed_at
          FROM geo_audits
         WHERE user_id = $1
         ORDER BY created_at DESC
@@ -64,18 +76,26 @@ export async function GET(request: Request): Promise<Response> {
     );
 
     const audits: GeoAuditListItem[] = (res.rows as Array<{
-      id: string; brand_id: string; regions: string[]; prompts_count: number;
+      id: string; brand_id: string; regions: string[];
+      prompts: string[] | null; prompts_count: number;
       status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-      mentions_count: number; total_expected: number; received: number;
+      mentions_count: number;
+      mention_rate: string | number | null;
+      total_expected: number; received: number;
       error: string | null;
       created_at: Date | string; started_at: Date | string | null; completed_at: Date | string | null;
     }>).map((r) => ({
       id: r.id,
       brandId: r.brand_id,
       regions: r.regions,
+      prompts: Array.isArray(r.prompts) ? r.prompts : [],
       promptsCount: r.prompts_count,
       status: r.status,
       mentionsCount: r.mentions_count,
+      // mention_rate comes back as a numeric string from pg by default;
+      // coerce to a number, preserve null so the sparkline can show
+      // "no data yet" instead of a misleading 0.
+      mentionRate: r.mention_rate == null ? null : Number(r.mention_rate),
       totalExpected: r.total_expected,
       received: r.received,
       error: r.error,

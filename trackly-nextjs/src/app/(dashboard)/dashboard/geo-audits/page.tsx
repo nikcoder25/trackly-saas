@@ -7,6 +7,15 @@ import AuditCreditConfirmModal, {
   AUDIT_PER_UNIT_COST,
   AUDIT_PLATFORMS_COUNT,
 } from '@/components/dashboard/geo-audits/AuditCreditConfirmModal';
+import AuditFilterPills, {
+  type DateWindow,
+  type StatusFilter,
+} from '@/components/dashboard/geo-audits/AuditFilterPills';
+import AuditsListTable, {
+  type AuditTableRow,
+  type DerivedStatus,
+} from '@/components/dashboard/geo-audits/AuditsListTable';
+import CompareStubModal from '@/components/dashboard/geo-audits/CompareStubModal';
 
 const MAX_REGIONS_PER_AUDIT = 5;
 const POLL_INTERVAL_MS = 5_000;
@@ -17,9 +26,13 @@ interface GeoAuditRow {
   id: string;
   brandId: string;
   regions: string[];
+  prompts: string[];
   promptsCount: number;
   status: GeoAuditStatus;
   mentionsCount: number;
+  /** Persisted on completion by the worker; null while queued/running
+   *  or when no calls succeeded. Drives the 4-week trend sparkline. */
+  mentionRate: number | null;
   totalExpected: number;
   received: number;
   error: string | null;
@@ -310,14 +323,78 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
   );
 }
 
+
+type ApiStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+
+function deriveStatus(row: GeoAuditRow): DerivedStatus {
+  if (row.status === 'done' && row.totalExpected > 0 && row.received < row.totalExpected) {
+    return 'partial';
+  }
+  return row.status;
+}
+
+function withinDateWindow(iso: string, win: DateWindow): boolean {
+  if (win === 'all') return true;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return false;
+  const days = win === '7d' ? 7 : win === '30d' ? 30 : 90;
+  return Date.now() - t <= days * 86_400_000;
+}
+
+function matchStatus(d: DerivedStatus, f: StatusFilter): boolean {
+  if (f === 'all') return true;
+  return d === f;
+}
+
+function matchSearch(row: GeoAuditRow, search: string): boolean {
+  if (!search.trim()) return true;
+  const q = search.trim().toLowerCase();
+  if (row.regions.some((r) => r.toLowerCase().includes(q))) return true;
+  if (row.prompts.some((p) => p.toLowerCase().includes(q))) return true;
+  return false;
+}
+
+/** Build per-row 4-week trend values: up to the 4 most recent
+ *  mention_rates from THIS user's audits in the SAME (single-region)
+ *  audit, oldest → newest. Multi-region audits use the row's own
+ *  mention_rate as a single point (no per-region breakdown stored). */
+function buildTrendMap(audits: GeoAuditRow[]): Record<string, number[]> {
+  // Group rates by region key. Only consider rows with a non-null
+  // mention_rate (i.e., terminal completed runs). NO mock data —
+  // an empty array means "no trend data yet" for that region.
+  const byRegion = new Map<string, Array<{ at: number; rate: number }>>();
+  for (const a of audits) {
+    if (a.mentionRate == null) continue;
+    if (a.regions.length !== 1) continue; // multi-region rows don't aggregate cleanly
+    const key = a.regions[0];
+    const t = new Date(a.createdAt).getTime();
+    if (!Number.isFinite(t)) continue;
+    const arr = byRegion.get(key) ?? [];
+    arr.push({ at: t, rate: a.mentionRate });
+    byRegion.set(key, arr);
+  }
+  // Sort newest → oldest, take first 4, reverse to oldest → newest.
+  const out: Record<string, number[]> = {};
+  for (const [key, arr] of byRegion) {
+    arr.sort((x, y) => y.at - x.at);
+    out[key] = arr.slice(0, 4).reverse().map((p) => p.rate);
+  }
+  return out;
+}
+
 export default function GeoAuditsPage() {
   const { selectedBrand } = useBrands();
   const [audits, setAudits] = useState<GeoAuditRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [tableScrolled, setTableScrolled] = useState(false);
-  const [resultsCache, setResultsCache] = useState<Record<string, GeoAuditResultRow[] | 'loading' | 'error'>>({});
+
+  // Filter / search / selection state
+  const [region, setRegion] = useState<string>('');
+  const [dateWindow, setDateWindow] = useState<DateWindow>('30d');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [compareIds, setCompareIds] = useState<[string, string] | null>(null);
 
   // Tracked prompts come from the currently-selected brand. Brand
   // shape carries `queries` as a string array on the client (same
@@ -331,8 +408,7 @@ export default function GeoAuditsPage() {
   const brandId: string | null = selectedBrand?.id ?? null;
   const brandName: string | null = (selectedBrand?.name as string | undefined) ?? null;
 
-  // Polling state — start a 5s interval while any audit is in
-  // queued/running; clear it when all audits land in a terminal state.
+  // Polling lifecycle — same as the existing page (preserved).
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlight = useRef(false);
 
@@ -356,7 +432,6 @@ export default function GeoAuditsPage() {
     }
   }
 
-  // Initial fetch + polling lifecycle
   useEffect(() => {
     fetchAudits();
     return () => {
@@ -378,51 +453,133 @@ export default function GeoAuditsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audits]);
 
-  async function loadResultsFor(id: string) {
-    if (resultsCache[id] && resultsCache[id] !== 'error') return;
-    setResultsCache((prev) => ({ ...prev, [id]: 'loading' }));
-    try {
-      const res = await fetch(`/api/geo-audits/${encodeURIComponent(id)}`, { credentials: 'include' });
-      if (!res.ok) {
-        setResultsCache((prev) => ({ ...prev, [id]: 'error' }));
-        return;
-      }
-      const data = await res.json();
-      const rows = Array.isArray(data?.results) ? (data.results as GeoAuditResultRow[]) : [];
-      setResultsCache((prev) => ({ ...prev, [id]: rows }));
-    } catch {
-      setResultsCache((prev) => ({ ...prev, [id]: 'error' }));
-    }
+  // Derived view-model
+  const allAudits = audits ?? [];
+  const regionOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of allAudits) for (const r of a.regions) set.add(r);
+    return Array.from(set).sort();
+  }, [allAudits]);
+
+  const trendMap = useMemo(() => buildTrendMap(allAudits), [allAudits]);
+
+  const filtered = useMemo(() => {
+    return allAudits.filter((a) => {
+      if (region && !a.regions.includes(region)) return false;
+      if (!withinDateWindow(a.createdAt, dateWindow)) return false;
+      if (!matchStatus(deriveStatus(a), status)) return false;
+      if (!matchSearch(a, search)) return false;
+      return true;
+    });
+  }, [allAudits, region, dateWindow, status, search]);
+
+  const tableRows: AuditTableRow[] = filtered.map((a) => ({
+    id: a.id,
+    regions: a.regions,
+    createdAt: a.createdAt,
+    promptsCount: a.promptsCount,
+    totalExpected: a.totalExpected,
+    received: a.received,
+    mentionsCount: a.mentionsCount,
+    status: deriveStatus(a),
+    trendValues: a.regions.length === 1
+      ? (trendMap[a.regions[0]] ?? [])
+      : (a.mentionRate != null ? [a.mentionRate] : []),
+  }));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
 
-  function handleExpand(id: string) {
-    const next = expandedId === id ? null : id;
-    setExpandedId(next);
-    if (next) loadResultsFor(next);
+  const selectedCount = selectedIds.size;
+  const canCompare = selectedCount === 2;
+  const compareTooltip =
+    selectedCount === 0 ? 'Select 2 audits to compare'
+    : selectedCount === 1 ? 'Select 1 more audit to compare'
+    : selectedCount > 2 ? `Compare allows exactly 2 audits (${selectedCount} selected)`
+    : '';
+
+  function openCompare() {
+    if (!canCompare) return;
+    const [a, b] = Array.from(selectedIds);
+    setCompareIds([a, b]);
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4, gap: 12, flexWrap: 'wrap' }}>
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          marginBottom: 16, gap: 12, flexWrap: 'wrap',
+        }}
+      >
         <div>
-          <div className="view-title">Regional Audits</div>
-          <div className="view-sub">Run your tracked prompts through AI models from different regions.</div>
+          <div className="view-title">Regional audits</div>
+          <div className="view-sub" style={{ fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }}>
+            {audits === null
+              ? 'Loading…'
+              : <><strong style={{ color: 'var(--text)' }}>{allAudits.length}</strong> {allAudits.length === 1 ? 'audit' : 'audits'} · <strong style={{ color: 'var(--text)' }}>{selectedCount}</strong> selected</>}
+          </div>
         </div>
-        <button onClick={() => setModalOpen(true)}
-          disabled={!brandId || trackedPrompts.length === 0}
-          title={!brandId ? 'Select a brand first' : (trackedPrompts.length === 0 ? 'Add tracked prompts to your brand first' : '')}
-          style={{
-            minHeight: 44, padding: '8px 18px',
-            background: !brandId || trackedPrompts.length === 0 ? 'var(--bg3)' : 'var(--primary)',
-            color: !brandId || trackedPrompts.length === 0 ? 'var(--muted)' : '#fff',
-            border: 'none', borderRadius: 'var(--radius-xs)', fontSize: 12, fontWeight: 700,
-            cursor: !brandId || trackedPrompts.length === 0 ? 'not-allowed' : 'pointer',
-            whiteSpace: 'nowrap',
-          }}>
-          + Run new audit
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={openCompare}
+            disabled={!canCompare}
+            title={compareTooltip || undefined}
+            aria-disabled={!canCompare}
+            style={{
+              minHeight: 40, padding: '8px 14px',
+              background: canCompare ? 'var(--bg)' : 'var(--bg3)',
+              color: canCompare ? 'var(--text)' : 'var(--muted)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-xs)',
+              fontSize: 12, fontWeight: 600,
+              cursor: canCompare ? 'pointer' : 'not-allowed',
+              fontFamily: 'var(--font)',
+            }}
+          >
+            Compare {selectedCount === 2 ? '2' : selectedCount} selected
+          </button>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            disabled={!brandId || trackedPrompts.length === 0}
+            title={!brandId ? 'Select a brand first' : (trackedPrompts.length === 0 ? 'Add tracked prompts to your brand first' : '')}
+            style={{
+              minHeight: 40, padding: '8px 16px',
+              background: !brandId || trackedPrompts.length === 0 ? 'var(--bg3)' : 'var(--primary)',
+              color: !brandId || trackedPrompts.length === 0 ? 'var(--muted)' : '#fff',
+              border: 'none', borderRadius: 'var(--radius-xs)',
+              fontSize: 12, fontWeight: 700,
+              cursor: !brandId || trackedPrompts.length === 0 ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            + New audit
+          </button>
+        </div>
       </div>
 
+      {/* ── Filter pills + search ──────────────────────────────── */}
+      <AuditFilterPills
+        regionOptions={regionOptions}
+        region={region}
+        onRegionChange={setRegion}
+        dateWindow={dateWindow}
+        onDateWindowChange={setDateWindow}
+        status={status}
+        onStatusChange={setStatus}
+        search={search}
+        onSearchChange={setSearch}
+      />
+
+      {/* ── Table / list / empty / error states ────────────────── */}
       {audits === null && !error ? (
         <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--muted)', fontSize: 13 }}>
           Loading regional audits…
@@ -433,141 +590,48 @@ export default function GeoAuditsPage() {
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>{error}</div>
           <button onClick={fetchAudits} className="pbtn" style={{ minHeight: 36 }}>Retry</button>
         </div>
-      ) : (audits ?? []).length === 0 ? (
+      ) : allAudits.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-          <div style={{ fontSize: 36, opacity: .4, marginBottom: 12 }}>🌍</div>
+          <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>🌍</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No regional audits yet</div>
           <p style={{ color: 'var(--muted)', fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
             Run your tracked prompts from a chosen country or region to compare how your brand shows up across markets.
           </p>
-          <button onClick={() => setModalOpen(true)}
+          <button
+            onClick={() => setModalOpen(true)}
             disabled={!brandId || trackedPrompts.length === 0}
             style={{
               display: 'inline-block',
               background: !brandId || trackedPrompts.length === 0 ? 'var(--bg3)' : 'var(--primary)',
               color: !brandId || trackedPrompts.length === 0 ? 'var(--muted)' : '#fff',
-              padding: '8px 20px', borderRadius: 'var(--radius-xs)', fontSize: 12, fontWeight: 700,
-              border: 'none', cursor: !brandId || trackedPrompts.length === 0 ? 'not-allowed' : 'pointer',
-            }}>
+              padding: '8px 20px', borderRadius: 'var(--radius-xs)',
+              fontSize: 12, fontWeight: 700, border: 'none',
+              cursor: !brandId || trackedPrompts.length === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
             Run your first regional audit
           </button>
         </div>
-      ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className={`scroll-fade-wrap${tableScrolled ? ' is-scrolled' : ''}`}>
-            <div
-              style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
-              onScroll={(e) => {
-                const next = (e.currentTarget.scrollLeft || 0) > 0;
-                if (next !== tableScrolled) setTableScrolled(next);
-              }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 640 }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg3)' }}>
-                    <th className="th" style={{ width: '20%' }}>Date</th>
-                    <th className="th">Region</th>
-                    <th className="th" style={{ width: '14%' }}>Prompts</th>
-                    <th className="th" style={{ width: '14%' }}>Mentions</th>
-                    <th className="th" style={{ width: '14%' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(audits ?? []).map((a) => {
-                    const isExpanded = expandedId === a.id;
-                    const cache = resultsCache[a.id];
-                    return (
-                      <React.Fragment key={a.id}>
-                        <tr className="trow" role="button" tabIndex={0}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => handleExpand(a.id)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleExpand(a.id);
-                            }
-                          }}>
-                          <td className="td" style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{formatDate(a.createdAt)}</td>
-                          <td className="td">{a.regions.join(' · ')}</td>
-                          <td className="td" style={{ fontFamily: 'var(--mono)' }}>{a.promptsCount}</td>
-                          <td className="td" style={{ fontFamily: 'var(--mono)', color: a.mentionsCount > 0 ? 'var(--green)' : 'var(--muted)' }}>
-                            {a.status === 'done' ? a.mentionsCount : '-'}
-                          </td>
-                          <td className="td"><StatusPill status={a.status} /></td>
-                        </tr>
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={5} style={{ padding: 0 }}>
-                              <div style={{ padding: 16, background: 'var(--bg)', borderTop: '1px solid var(--bg3)', fontSize: 12, color: 'var(--text)', lineHeight: 1.7 }}>
-                                <div><strong>Audit ID:</strong> <span style={{ fontFamily: 'var(--mono)' }}>{a.id}</span></div>
-                                <div><strong>Regions:</strong> {a.regions.join(', ')}</div>
-                                <div><strong>Calls completed:</strong> {a.received} / {a.totalExpected}</div>
-                                <div>
-                                  <strong>Mention rate:</strong>{' '}
-                                  {a.status === 'done' && a.received > 0
-                                    ? `${Math.round((a.mentionsCount / a.received) * 100)}% (${a.mentionsCount}/${a.received})`
-                                    : '-'}
-                                </div>
-                                {a.error && (
-                                  <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(239,68,68,.05)', border: '1px solid rgba(239,68,68,.15)', borderRadius: 'var(--radius-xs)', color: 'var(--red)' }}>
-                                    {a.error}
-                                  </div>
-                                )}
-                                {a.status === 'done' && (
-                                  <div style={{ marginTop: 12 }}>
-                                    <strong style={{ display: 'block', marginBottom: 6 }}>Per-call results</strong>
-                                    {cache === 'loading' || !cache ? (
-                                      <div style={{ color: 'var(--muted)', fontSize: 11 }}>Loading…</div>
-                                    ) : cache === 'error' ? (
-                                      <div style={{ color: 'var(--red)', fontSize: 11 }}>Failed to load results.</div>
-                                    ) : cache.length === 0 ? (
-                                      <div style={{ color: 'var(--muted)', fontSize: 11 }}>No results recorded.</div>
-                                    ) : (
-                                      <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', marginTop: 4 }}>
-                                          <thead>
-                                            <tr style={{ color: 'var(--muted)' }}>
-                                              <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: 600 }}>Region</th>
-                                              <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: 600 }}>Platform</th>
-                                              <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: 600 }}>Prompt</th>
-                                              <th style={{ textAlign: 'center', padding: '4px 6px', fontWeight: 600 }}>Mentioned</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {cache.slice(0, 50).map((r) => (
-                                              <tr key={r.id} style={{ borderTop: '1px solid var(--bg3)' }}>
-                                                <td style={{ padding: '4px 6px' }}>{r.region}</td>
-                                                <td style={{ padding: '4px 6px', fontFamily: 'var(--mono)' }}>{r.platform}</td>
-                                                <td style={{ padding: '4px 6px', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.promptText}>{r.promptText}</td>
-                                                <td style={{ padding: '4px 6px', textAlign: 'center', color: r.error ? 'var(--red)' : r.mentioned ? 'var(--green)' : 'var(--muted)' }}>
-                                                  {r.error ? 'ERR' : r.mentioned ? '✓' : '✗'}
-                                                </td>
-                                              </tr>
-                                            ))}
-                                          </tbody>
-                                        </table>
-                                        {cache.length > 50 && (
-                                          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
-                                            Showing first 50 of {cache.length} results.
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      ) : tableRows.length === 0 ? (
+        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 13 }}>
+          <div style={{ marginBottom: 8 }}>No audits match your current filters.</div>
+          <button
+            onClick={() => { setRegion(''); setDateWindow('30d'); setStatus('all'); setSearch(''); }}
+            className="pbtn"
+            style={{ minHeight: 36 }}
+          >
+            Clear filters
+          </button>
         </div>
+      ) : (
+        <AuditsListTable
+          rows={tableRows}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+        />
       )}
 
+      {/* ── New Audit modal (existing flow, preserved) ─────────── */}
       {modalOpen && (
         <NewAuditModal
           brandId={brandId}
@@ -575,6 +639,14 @@ export default function GeoAuditsPage() {
           trackedPrompts={trackedPrompts}
           onClose={() => setModalOpen(false)}
           onCreated={fetchAudits}
+        />
+      )}
+
+      {/* ── Compare stub ──────────────────────────────────────── */}
+      {compareIds && (
+        <CompareStubModal
+          ids={compareIds}
+          onClose={() => setCompareIds(null)}
         />
       )}
     </div>
