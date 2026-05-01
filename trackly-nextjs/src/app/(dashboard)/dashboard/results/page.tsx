@@ -3,7 +3,38 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PLATFORM_COLORS } from '@/lib/constants';
-import { listResults, getResultModels, getResultPrompts, type ResultRow } from '@/lib/mock/results';
+import { useBrandData } from '@/hooks/useBrandData';
+import { TableSkeleton } from '@/components/dashboard/Skeleton';
+
+interface Mention {
+  query: string;
+  platform: string;
+  mentioned: boolean;
+  model?: string;
+  response?: string;
+  raw?: string;
+  context?: string;
+  snippet?: string;
+}
+interface Run {
+  id?: string;
+  date?: string;
+  created_at?: string;
+  time?: string;
+  allResults?: Mention[];
+  results?: Mention[];
+}
+interface Brand { id: string; name: string; runs?: Run[]; }
+
+interface ResultRow {
+  id: string;
+  timestamp: string;
+  prompt: string;
+  // Platform/model identifier — matches PLATFORM_COLORS keys.
+  model: string;
+  mentioned: boolean;
+  response: string;
+}
 
 type MentionedFilter = 'all' | 'yes' | 'no';
 
@@ -89,13 +120,39 @@ function dateOnly(iso: string): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+function flattenRuns(brand: Brand | null): ResultRow[] {
+  if (!brand?.runs?.length) return [];
+  const rows: ResultRow[] = [];
+  for (const run of brand.runs) {
+    const ts = run.time || run.created_at || run.date || '';
+    const list = run.allResults || run.results || [];
+    list.forEach((r, i) => {
+      // Use platform as the model identifier so PLATFORM_COLORS lights up,
+      // mirroring how the Mentions page colors that column.
+      const platform = r.platform || r.model || 'Unknown';
+      const response = r.response || r.raw || r.context || r.snippet || '';
+      rows.push({
+        id: `${run.id ?? 'run'}-${i}`,
+        timestamp: ts,
+        prompt: r.query || '',
+        model: platform,
+        mentioned: !!r.mentioned,
+        response,
+      });
+    });
+  }
+  return rows;
+}
+
 export default function ResultsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { brand: rawBrand, loading } = useBrandData({ fullData: true });
+  const brand = rawBrand as Brand | null;
 
-  const allRows = useMemo(() => listResults(), []);
-  const allModels = useMemo(() => getResultModels(), []);
-  const allPrompts = useMemo(() => getResultPrompts(), []);
+  const allRows = useMemo(() => flattenRuns(brand), [brand]);
+  const allModels = useMemo(() => Array.from(new Set(allRows.map(r => r.model))).sort(), [allRows]);
+  const allPrompts = useMemo(() => Array.from(new Set(allRows.map(r => r.prompt).filter(Boolean))).sort(), [allRows]);
 
   // Filters live in the URL querystring so links are shareable.
   const from = searchParams.get('from') || '';
@@ -140,6 +197,18 @@ export default function ResultsPage() {
   const slice = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
   const hasFilters = !!(from || to || model !== 'all' || prompt !== 'all' || mentioned !== 'all');
+
+  if (loading) {
+    return (
+      <div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ height: 22, width: 140, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
+          <div style={{ height: 13, width: 300, borderRadius: 4, background: 'var(--bg3)' }} />
+        </div>
+        <TableSkeleton rows={6} cols={5} />
+      </div>
+    );
+  }
 
   return (
     <div>
