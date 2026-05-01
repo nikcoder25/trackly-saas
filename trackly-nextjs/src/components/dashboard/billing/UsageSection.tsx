@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCredits } from '@/contexts/CreditsContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { getPlanCredits } from '@/lib/plan-config';
+import { PLAN_LIMITS, PLATFORM_COLORS, PRICING_PLANS } from '@/lib/constants';
 import {
   bannerKind,
   buildForecastCopy,
@@ -14,57 +15,55 @@ import {
 } from './usage-state';
 import type { UsageBreakdown } from '@/app/api/credits/usage/route';
 import Sparkline from './usage/Sparkline';
-import PlatformChips from './usage/PlatformChips';
-import AvatarStack from './usage/AvatarStack';
 
 interface UsageSectionProps {
   numBrandsFromPage: number;
   resetDateLabel?: string;
 }
 
-/* ──────────────────────────────────────────────────────────────
- *  Modern SaaS redesign of the "Usage This Period" section.
- *
- *  Visual language: Linear / Stripe / Vercel — single flat panel
- *  with hairline dividers, generous whitespace, monospace numerals
- *  for tabular alignment, subtle status indicators, and minimal
- *  chrome. Hooks into the *exact same data* as the previous version
- *  (CreditsContext, BrandContext, /api/credits/usage) and preserves
- *  all behaviour: View ledger, Add prompt, Manage links, at-risk
- *  warning logic, daily auto-tracking status, projection logic,
- *  Agency plan name (via `status.label`), banners, and copy.
- *
- *  Sub-components (defined below): HeaderStrip, CreditsHero,
- *  ProjectionStrip, MetricCard, PlatformBreakdown, AutoTrackingStrip,
- *  GeoAuditsStrip, UsageBanner, PlanBadge, StatusDot.
- * ──────────────────────────────────────────────────────────── */
+const SURFACE = '#ffffff';
+const SURFACE_BORDER = '#ececec';
+const SURFACE_RADIUS = 14;
 
-// Small style helpers reused across sub-components.
-const MONO: React.CSSProperties = {
-  fontFamily: 'var(--mono)',
-  fontVariantNumeric: 'tabular-nums',
-};
-const EYEBROW: React.CSSProperties = {
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: 0.6,
-  textTransform: 'uppercase',
-  color: 'var(--muted)',
-};
-const ACTION_LINK: React.CSSProperties = {
-  fontSize: 12,
-  color: 'var(--text)',
-  fontWeight: 600,
-  textDecoration: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 4,
-};
+const TEXT_PRIMARY = '#161614';
+const TEXT_BODY = '#3a3a3a';
+const TEXT_SECONDARY = '#6b6b6b';
+const TEXT_MUTED = '#9a9a9a';
+
+const PROGRESS_TRACK = '#e7e7e2';
+const PROGRESS_FILL_DEFAULT = '#3b6ed4';
+const PROGRESS_FILL_WARN = '#7c4a1f';
+const PROGRESS_FILL_DANGER = '#b94a3a';
+const PROGRESS_FILL_GRAY = '#bdbdb8';
+
+const PILL_OK_BG = '#dde9d4';
+const PILL_OK_FG = '#264a2a';
+const PILL_RISK_BG = '#f7e0c2';
+const PILL_RISK_FG = '#6e3f17';
+
+const STRIP_OK_BG = '#e2ecd8';
+const STRIP_OK_FG = '#264a2a';
+const STRIP_OK_DOT = '#3a6a3a';
+const STRIP_PAUSED_BG = '#f5e3c4';
+const STRIP_PAUSED_FG = '#6e3f17';
+const STRIP_PAUSED_DOT = '#a06b1f';
+
+const BANNER_INFO_BG = '#dee5f0';
+const BANNER_INFO_FG = '#1f3a8a';
+const BANNER_DANGER_BG = '#f6dcd6';
+const BANNER_DANGER_FG = '#7a1f1f';
+const BANNER_WARN_BG = '#f7e0c2';
+const BANNER_WARN_FG = '#6e3f17';
+
+const UPGRADE_BTN_BG = '#e1e3f4';
+const UPGRADE_BTN_FG = '#3f3dbb';
+const UPGRADE_BTN_BORDER = '#cbcdf0';
 
 export default function UsageSection({ numBrandsFromPage, resetDateLabel }: UsageSectionProps) {
   const { status } = useCredits();
   const { brands } = useBrands();
   const [usage, setUsage] = useState<UsageBreakdown | null>(null);
+  const [platformTotals, setPlatformTotals] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,22 +74,48 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
     return () => { cancelled = true; };
   }, []);
 
+  // Aggregate per-platform credit usage from the credit ledger over the
+  // last 30 days. The ledger endpoint already exists (no backend change);
+  // we just sum `rows[].credits` keyed by `platform` to power the
+  // "Prompts by AI platform" chart.
+  useEffect(() => {
+    let cancelled = false;
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const url = `/api/credits/ledger?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=200`;
+    fetch(url, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const totals: Record<string, number> = {};
+        for (const row of (d.rows || []) as { platform: string; credits: number }[]) {
+          if (!row.platform) continue;
+          totals[row.platform] = (totals[row.platform] || 0) + (row.credits || 1);
+        }
+        setPlatformTotals(totals);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   if (!status) {
     return (
-      <section
+      <div
         aria-busy="true"
         style={{
-          marginTop: 16, height: 360, borderRadius: 'var(--radius)',
-          background: 'var(--bg2)', border: '1px solid var(--border)',
+          marginTop: 16,
+          background: SURFACE,
+          border: `1px solid ${SURFACE_BORDER}`,
+          borderRadius: SURFACE_RADIUS,
+          height: 320,
         }}
       />
     );
   }
 
   const cfg = getPlanCredits(status.plan);
+  const limits = PLAN_LIMITS[status.plan] || PLAN_LIMITS.free;
   const isUnlimited = status.monthlyCap >= 99999 || status.plan === 'owner';
-
-  // Banner state (exhausted / low / manual_cap / null).
   const banner = bannerKind({
     remaining: status.remaining,
     monthlyCap: status.monthlyCap,
@@ -99,129 +124,167 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
     plan: status.plan,
   });
 
-  // Forecast (drives the at-risk warning + projection text).
   const dailyCredits = (usage?.dailyUsageLast14Days ?? []).map((p) => p.credits);
   const avgDaily = usage?.avgDailyCredits ?? 0;
   const projectedMonthEnd = usage?.projectedMonthEnd ?? status.monthlyUsed;
+  const daysIntoMonth = usage?.daysIntoMonth ?? 0;
   const daysRemaining = usage?.daysRemainingInMonth ?? 0;
   const forecastCopy = buildForecastCopy(
     {
-      monthlyUsed: status.monthlyUsed, monthlyCap: status.monthlyCap,
-      avgDailyCredits: avgDaily, projectedMonthEnd,
-      daysRemainingInMonth: daysRemaining, remaining: status.remaining,
+      monthlyUsed: status.monthlyUsed,
+      monthlyCap: status.monthlyCap,
+      avgDailyCredits: avgDaily,
+      projectedMonthEnd,
+      daysRemainingInMonth: daysRemaining,
+      remaining: status.remaining,
     },
     status.nextResetAt,
   );
 
   const numBrands = usage?.numBrands ?? numBrandsFromPage;
-  const numActiveBrands = usage?.numActiveBrands ?? 0;
   const configuredPrompts = usage?.configuredPrompts ?? 0;
-  const activePlatforms = usage?.activePlatforms ?? [];
   const lastRun = usage?.lastRun ?? null;
   const nextRun = usage?.nextScheduledRun ?? null;
   const autoRunPaused = !cfg.scheduledRuns || status.remaining <= 0;
-  const brandList = (brands ?? []).map((b) => ({
-    id: (b as { id?: string }).id ?? '',
-    name: (b as { name?: string }).name ?? 'Brand',
-  }));
+  const geoAuditsThisMonth = usage?.geoAuditsThisMonth ?? 0;
+  const geoAuditsCap = limits?.geoAudits ?? 0;
+
+  // Competitors aren't returned by /api/credits/usage; we derive the
+  // total from the brand context (each brand carries its competitors
+  // array on the client) so we don't add a new API contract.
+  let competitorCount = 0;
+  for (const b of brands ?? []) {
+    const arr = (b as { competitors?: unknown[] }).competitors;
+    if (Array.isArray(arr)) competitorCount += arr.length;
+  }
+  const competitorsCap = limits?.competitors ?? 0;
+
+  // Period start/end derived from the existing payload — no new API.
+  const periodEnd = new Date(status.nextResetAt);
+  const periodStartMs = Number.isFinite(periodEnd.getTime())
+    ? periodEnd.getTime() - (daysIntoMonth + daysRemaining) * 86_400_000
+    : Date.now() - 30 * 86_400_000;
+  const periodStart = new Date(periodStartMs);
+  const fmtRange = (d: Date) =>
+    Number.isFinite(d.getTime())
+      ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : '—';
+
+  // Plan recommendation for the bottom CTA. We surface the most-saturated
+  // metric and pair it with the next plan that lifts that cap.
+  const PLAN_ORDER = ['free', 'starter', 'pro', 'agency', 'enterprise'] as const;
+  const currentIdx = PLAN_ORDER.indexOf(status.plan as typeof PLAN_ORDER[number]);
+  const nextPlanKey = currentIdx >= 0 && currentIdx < PLAN_ORDER.length - 1
+    ? PLAN_ORDER[currentIdx + 1]
+    : null;
+  const nextPlanCfg = nextPlanKey ? getPlanCredits(nextPlanKey) : null;
+  const nextPlanLimits = nextPlanKey ? PLAN_LIMITS[nextPlanKey] : null;
+  const nextPlanPricing = nextPlanKey
+    ? PRICING_PLANS.find((p) => p.name.toLowerCase() === nextPlanKey)
+    : null;
+
+  type CardSpec = {
+    label: string;
+    used: number;
+    cap: number;
+    unlimited: boolean;
+  };
+  const cards: CardSpec[] = [
+    {
+      label: 'Prompts tracked',
+      used: configuredPrompts,
+      cap: cfg.trackedPromptsPerAccount,
+      unlimited: cfg.trackedPromptsPerAccount >= 9999,
+    },
+    {
+      label: 'Brands monitored',
+      used: numBrands,
+      cap: cfg.brandsCap,
+      unlimited: cfg.brandsCap >= 9999,
+    },
+    {
+      label: 'Competitors',
+      used: competitorCount,
+      cap: competitorsCap,
+      unlimited: competitorsCap >= 9999,
+    },
+    {
+      label: 'GEO Audits',
+      used: geoAuditsThisMonth,
+      cap: geoAuditsCap,
+      unlimited: geoAuditsCap >= 9999,
+    },
+  ];
+
+  const tightestCard = cards
+    .filter((c) => !c.unlimited && c.cap > 0)
+    .sort((a, b) => b.used / b.cap - a.used / a.cap)[0];
+
+  // Platform totals for the breakdown chart. Sorted high → low so the
+  // stacked bar reads largest segment first.
+  const totalsObj = platformTotals ?? {};
+  const breakdownTotal = Object.values(totalsObj).reduce((a, b) => a + b, 0);
+  const platformList = Object.entries(totalsObj)
+    .filter(([, c]) => c > 0)
+    .sort(([, a], [, b]) => b - a)
+    .map(([name, count]) => ({
+      name,
+      count,
+      pct: breakdownTotal > 0 ? (count / breakdownTotal) * 100 : 0,
+      color: PLATFORM_COLORS[name] ?? '#9a9a9a',
+    }));
 
   return (
-    <section style={{ marginTop: 16 }}>
-      {/* ════════════════════════════════════════════════════════
-          Primary panel — single surface, sectioned by hairlines.
-          ════════════════════════════════════════════════════════ */}
-      <div style={{
-        background: 'var(--bg2)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        overflow: 'hidden',
-        boxShadow: 'var(--app-shadow)',
-      }}>
-        <HeaderStrip
-          planLabel={status.label}
-          unlimited={isUnlimited}
-          nextResetAt={status.nextResetAt}
+    <section className="usage-redesign" style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ── Header strip ─────────────────────────────────────── */}
+      <HeaderStrip
+        planTitle={`${status.label} plan`}
+        periodLabel={`${fmtRange(periodStart)} to ${fmtRange(periodEnd)}`}
+        daysRemaining={daysRemaining}
+        manualRemaining={status.manualRemainingToday}
+        manualCap={status.manualDailyCap}
+        isUnlimited={isUnlimited}
+        modelTier={cfg.modelTier}
+      />
+
+      {/* ── Forecast card (hidden for unlimited plans) ────────── */}
+      {!isUnlimited && (
+        <ForecastCard
+          state={forecastCopy.state}
+          text={forecastCopy.text}
+          spark={dailyCredits}
         />
+      )}
 
-        <CreditsHero
-          monthlyUsed={status.monthlyUsed}
-          monthlyCap={status.monthlyCap}
-          remaining={status.remaining}
-          manualUsedToday={status.manualDailyCap - status.manualRemainingToday}
-          manualDailyCap={status.manualDailyCap}
-          unlimited={isUnlimited}
-          planLabel={status.label}
-          dailyCredits={dailyCredits}
-          avgDaily={avgDaily}
-        />
+      {/* ── Auto-tracking strip ──────────────────────────────── */}
+      <AutoTrackingStrip
+        paused={autoRunPaused}
+        plan={status.label}
+        scheduled={cfg.scheduledRuns}
+        nextRun={nextRun}
+        lastRun={lastRun}
+        nextResetAt={status.nextResetAt}
+        remaining={status.remaining}
+      />
 
-        {!isUnlimited && (
-          <ProjectionStrip
-            state={forecastCopy.state}
-            text={forecastCopy.text}
-          />
-        )}
-
-        <div className="usage-stats-band" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          borderTop: '1px solid var(--border)',
-        }}>
-          <MetricCard
-            label="Tracked prompts"
-            number={configuredPrompts}
-            cap={isUnlimited || cfg.trackedPromptsPerAccount >= 9999 ? null : cfg.trackedPromptsPerAccount}
-            sub={`Account-wide · across ${numBrands} brand${numBrands === 1 ? '' : 's'}`}
-            action={<Link href="/dashboard/setup" style={ACTION_LINK} className="usage-action-link">Add prompt →</Link>}
-            withRightBorder
-          />
-          <MetricCard
-            label="Active platforms"
-            number={activePlatforms.length}
-            cap={isUnlimited ? null : cfg.maxPlatforms}
-            sub={null}
-            visual={<PlatformBreakdown platforms={activePlatforms} />}
-            action={<Link href="/dashboard/setup" style={ACTION_LINK} className="usage-action-link">Manage links →</Link>}
-            withRightBorder
-          />
-          <MetricCard
-            label="Brands"
-            number={numBrands}
-            cap={null}
-            capLabel="∞"
-            sub={`${numActiveBrands} active`}
-            visual={brandList.length > 0
-              ? <AvatarStack brands={brandList} maxVisible={4} size={26} />
-              : null}
-            action={<Link href="/dashboard/setup" style={ACTION_LINK} className="usage-action-link">Manage →</Link>}
-          />
-        </div>
-      </div>
-
-      {/* Status row: auto-tracking + GEO audits side-by-side. */}
-      <div className="usage-status-row" style={{
-        marginTop: 12,
+      {/* ── 4 metric cards ───────────────────────────────────── */}
+      <div className="usage-cards-row" style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 12,
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gap: 14,
       }}>
-        <AutoTrackingStrip
-          paused={autoRunPaused}
-          plan={status.label}
-          scheduled={cfg.scheduledRuns}
-          nextRun={nextRun}
-          lastRun={lastRun}
-          nextResetAt={status.nextResetAt}
-          remaining={status.remaining}
-        />
-        <GeoAuditsStrip
-          used={usage?.geoAuditsThisMonth ?? 0}
-          cap={isUnlimited ? null : null}
-          resetAt={usage?.geoAuditsResetAt ?? status.nextResetAt}
-          resetDateLabel={resetDateLabel}
-        />
+        {cards.map((c) => <MetricCard key={c.label} {...c} />)}
       </div>
 
+      {/* ── Platform breakdown ───────────────────────────────── */}
+      <PlatformBreakdownCard
+        capLabel={isUnlimited ? '∞' : status.monthlyCap.toLocaleString()}
+        usedLabel={status.monthlyUsed.toLocaleString()}
+        platforms={platformList}
+        loading={platformTotals === null}
+      />
+
+      {/* ── Banner (exhausted / low / manual cap) ────────────── */}
       {banner && (
         <UsageBanner
           kind={banner}
@@ -229,289 +292,202 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
           remaining={status.remaining}
           nextResetAt={status.nextResetAt}
           nextDailyResetAt={status.nextDailyResetAt}
+          tightestCardLabel={tightestCard?.label}
+          nextPlanKey={nextPlanKey}
+          nextPlanBrands={nextPlanCfg?.brandsCap}
+          nextPlanPrompts={nextPlanLimits?.trackedPromptsPerAccount}
+          nextPlanPrice={nextPlanPricing?.price}
+        />
+      )}
+
+      {/* Soft upgrade nudge — only when the tightest cap crosses 70%
+          saturation and no harder banner is firing. Same blue CTA
+          look as the screenshot's "Running low on brand slots" row. */}
+      {!banner && tightestCard && (tightestCard.used / tightestCard.cap) >= 0.7 && nextPlanKey && (
+        <SoftUpgradeBanner
+          tightLabel={tightestCard.label}
+          nextPlanKey={nextPlanKey}
+          nextPlanBrands={nextPlanCfg?.brandsCap}
+          nextPlanPrompts={nextPlanLimits?.trackedPromptsPerAccount}
+          nextPlanPrice={nextPlanPricing?.price}
         />
       )}
 
       <style>{`
-        .usage-action-link { transition: color 150ms ease; }
-        .usage-action-link:hover { color: var(--primary) !important; }
-        @keyframes usagePulse {
+        @media (max-width: 980px) {
+          .usage-cards-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+        }
+        @media (max-width: 560px) {
+          .usage-cards-row { grid-template-columns: 1fr !important; }
+        }
+        @keyframes usageDotPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.4; transform: scale(2.2); }
+          50% { opacity: 0.5; transform: scale(1.4); }
         }
-        @keyframes usageShift {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 200% 50%; }
-        }
-        @media (max-width: 880px) {
-          .usage-hero-row { grid-template-columns: 1fr !important; align-items: flex-start !important; }
-          .usage-hero-spark { align-items: flex-start !important; }
-          .usage-stats-band { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
-          .usage-stat-cell:nth-child(2) { border-right: none !important; }
-          .usage-stat-cell:nth-child(3) {
-            grid-column: 1 / -1;
-            border-top: 1px solid var(--border) !important;
-            border-right: none !important;
-          }
-          .usage-status-row { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 640px) {
-          .usage-header-strip { padding: 14px 16px !important; }
-          .usage-hero-block { padding: 18px 16px !important; }
-          .usage-hero-num { font-size: 36px !important; }
-          .usage-stats-band { grid-template-columns: 1fr !important; }
-          .usage-stat-cell {
-            border-right: none !important;
-            border-top: 1px solid var(--border) !important;
-          }
-          .usage-stat-cell:first-child { border-top: none !important; }
-          .usage-stat-cell:nth-child(3) { grid-column: auto; }
+        @media (prefers-reduced-motion: reduce) {
+          .usage-redesign * { animation: none !important; transition: none !important; }
         }
       `}</style>
     </section>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  HeaderStrip — eyebrow, plan badge, reset date, ledger button.
- * ════════════════════════════════════════════════════════════ */
+// ────────────────────────────────────────────────────────────────────
+// Header
+// ────────────────────────────────────────────────────────────────────
+
 function HeaderStrip({
-  planLabel, unlimited, nextResetAt,
-}: { planLabel: string; unlimited: boolean; nextResetAt: string }) {
-  return (
-    <div className="usage-header-strip" style={{
-      padding: '16px 22px',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 12, flexWrap: 'wrap',
-      borderBottom: '1px solid var(--border)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={EYEBROW}>Usage this period</span>
-        <PlanBadge label={planLabel} unlimited={unlimited} />
-        <span style={{ fontSize: 12, color: 'var(--muted)', ...MONO }}>
-          Resets {fmtDate(nextResetAt)}
-        </span>
-      </div>
-      <Link
-        href="/dashboard/billing/ledger"
-        style={{
-          ...ACTION_LINK,
-          padding: '7px 12px',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border)',
-          background: 'var(--bg2)',
-        }}
-        className="usage-action-link"
-      >
-        View ledger
-        <Arrow />
-      </Link>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  CreditsHero — primary credits stat, progress bar, sparkline,
- *  manual-today line.
- * ════════════════════════════════════════════════════════════ */
-function CreditsHero({
-  monthlyUsed, monthlyCap, remaining, manualUsedToday, manualDailyCap,
-  unlimited, planLabel, dailyCredits, avgDaily,
+  planTitle, periodLabel, daysRemaining, manualRemaining, manualCap, isUnlimited, modelTier,
 }: {
-  monthlyUsed: number; monthlyCap: number; remaining: number;
-  manualUsedToday: number; manualDailyCap: number;
-  unlimited: boolean; planLabel: string;
-  dailyCredits: number[]; avgDaily: number;
+  planTitle: string; periodLabel: string; daysRemaining: number;
+  manualRemaining: number; manualCap: number;
+  isUnlimited: boolean; modelTier: string;
 }) {
-  const usedPct = unlimited
-    ? 0
-    : monthlyCap > 0 ? Math.min(100, (monthlyUsed / monthlyCap) * 100) : 0;
-  const usageColor = unlimited
-    ? 'var(--primary)'
-    : usedPct > 85 ? 'var(--red)' : usedPct >= 60 ? 'var(--amber)' : 'var(--text)';
-  const sparkColor = unlimited
-    ? '#6366f1'
-    : usedPct > 85 ? '#ef4444' : usedPct >= 60 ? '#f59e0b' : '#6366f1';
-
   return (
-    <div className="usage-hero-block" style={{ padding: '22px' }}>
-      <div className="usage-hero-row" style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) auto',
-        gap: 24, alignItems: 'flex-end',
-      }}>
-        <div>
-          <div style={{ ...EYEBROW, marginBottom: 8 }}>Credits used</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span className="usage-hero-num" style={{
-              ...MONO, fontSize: 44, fontWeight: 700, lineHeight: 1,
-              letterSpacing: -1, color: usageColor,
-            }}>
-              {monthlyUsed.toLocaleString()}
-            </span>
-            <span style={{ ...MONO, fontSize: 18, fontWeight: 400, color: 'var(--muted)' }}>
-              / {unlimited ? '∞' : monthlyCap.toLocaleString()}
-            </span>
-            {!unlimited && (
-              <span style={{
-                ...MONO, marginLeft: 4,
-                fontSize: 11, fontWeight: 600,
-                color: 'var(--muted)',
-                padding: '3px 8px',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-xs)',
-              }}>
-                {Math.round(usedPct)}%
-              </span>
-            )}
-          </div>
-
-          {/* Hairline progress bar */}
-          <div style={{
-            marginTop: 14, height: 4, borderRadius: 'var(--radius-full)',
-            background: 'var(--bg3)', overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%',
-              width: unlimited ? '100%' : `${usedPct}%`,
-              background: unlimited
-                ? 'linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1)'
-                : usedPct > 85
-                  ? 'var(--red)'
-                  : usedPct >= 60
-                    ? 'var(--amber)'
-                    : 'var(--text)',
-              backgroundSize: unlimited ? '200% 100%' : undefined,
-              animation: unlimited ? 'usageShift 8s linear infinite' : undefined,
-              borderRadius: 'var(--radius-full)',
-              transition: 'width 1s cubic-bezier(.16,1,.3,1)',
-            }} />
-          </div>
-
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>
-            {unlimited ? (
-              <>No monthly cap on the {planLabel} plan.</>
-            ) : (
-              <>
-                <span style={MONO}>{remaining.toLocaleString()}</span> credits remaining
-                <span style={{ color: 'var(--muted)', opacity: 0.5, margin: '0 6px' }}>·</span>
-                Manual today <span style={MONO}>{manualUsedToday.toLocaleString()}</span>
-                <span style={{ color: 'var(--muted)', opacity: 0.5 }}> / </span>
-                <span style={MONO}>{manualDailyCap.toLocaleString()}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Sparkline cluster — last 14 days */}
-        <div className="usage-hero-spark" style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
+    <header style={{
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+      gap: 16, flexWrap: 'wrap',
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 13, color: TEXT_SECONDARY, fontWeight: 400,
+          marginBottom: 4, letterSpacing: 0.1,
         }}>
-          <span style={{ ...EYEBROW, fontSize: 10 }}>Last 14 days</span>
-          <Sparkline
-            data={dailyCredits}
-            width={172}
-            height={44}
-            color={sparkColor}
-          />
-          <span style={{ fontSize: 11, color: 'var(--muted)', ...MONO }}>
-            avg {avgDaily.toLocaleString()}/day
+          Usage this period
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        }}>
+          <h2 style={{
+            fontSize: 28, fontWeight: 700, color: TEXT_PRIMARY,
+            margin: 0, letterSpacing: -0.4, lineHeight: 1.2,
+          }}>
+            {planTitle}
+          </h2>
+          {isUnlimited && (
+            <span style={{
+              padding: '3px 10px', borderRadius: 999, fontSize: 10,
+              fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
+              background: 'linear-gradient(135deg, #6366f1, #7c3aed)', color: '#fff',
+            }}>
+              Unlimited
+            </span>
+          )}
+          {modelTier === 'premium' && (
+            <span style={{
+              padding: '3px 9px', borderRadius: 6, fontSize: 10,
+              fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase',
+              background: '#f0eef9', color: '#5a4fcf', fontFamily: 'var(--mono)',
+            }}>
+              Premium model
+            </span>
+          )}
+        </div>
+        <div style={{
+          fontSize: 13, color: TEXT_SECONDARY, marginTop: 6, lineHeight: 1.55,
+        }}>
+          <span>{periodLabel}</span>
+          <span style={{ color: TEXT_MUTED, margin: '0 8px' }}>·</span>
+          <span>
+            <strong style={{ color: TEXT_BODY, fontWeight: 600 }}>{daysRemaining}</strong> days left
           </span>
+          {!isUnlimited && manualCap > 0 && (
+            <>
+              <span style={{ color: TEXT_MUTED, margin: '0 8px' }}>·</span>
+              <span>
+                <strong style={{ color: TEXT_BODY, fontWeight: 600 }}>
+                  {manualRemaining.toLocaleString()}
+                </strong>{' '}
+                manual run{manualRemaining === 1 ? '' : 's'} left today
+              </span>
+            </>
+          )}
         </div>
       </div>
-    </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+        <Link href="/dashboard/billing/ledger" style={{
+          ...secondaryBtnStyle,
+          color: TEXT_SECONDARY,
+          fontWeight: 500,
+        }}>
+          View ledger
+        </Link>
+        <a href="#plan-comparison" style={secondaryBtnStyle}>
+          Manage plan
+        </a>
+        <a href="#plan-comparison" style={upgradeBtnStyle}>
+          Upgrade
+        </a>
+      </div>
+    </header>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  ProjectionStrip — On track / At risk inline forecast.
- * ════════════════════════════════════════════════════════════ */
-function ProjectionStrip({
-  state, text,
-}: { state: 'healthy' | 'at_risk'; text: string }) {
-  const atRisk = state === 'at_risk';
+const secondaryBtnStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  padding: '8px 14px', borderRadius: 10,
+  background: SURFACE, border: `1px solid ${SURFACE_BORDER}`,
+  color: TEXT_PRIMARY, fontSize: 13, fontWeight: 600,
+  textDecoration: 'none', whiteSpace: 'nowrap',
+  transition: 'border-color 150ms ease, background 150ms ease',
+};
+
+const upgradeBtnStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  padding: '8px 16px', borderRadius: 10,
+  background: UPGRADE_BTN_BG, border: `1px solid ${UPGRADE_BTN_BORDER}`,
+  color: UPGRADE_BTN_FG, fontSize: 13, fontWeight: 600,
+  textDecoration: 'none', whiteSpace: 'nowrap',
+  transition: 'background 150ms ease',
+};
+
+// ────────────────────────────────────────────────────────────────────
+// Forecast card
+// ────────────────────────────────────────────────────────────────────
+
+function ForecastCard({
+  state, text, spark,
+}: { state: 'healthy' | 'at_risk'; text: string; spark: number[] }) {
+  const isAtRisk = state === 'at_risk';
   return (
     <div style={{
-      margin: '0 22px 22px',
-      padding: '10px 14px',
-      borderRadius: 'var(--radius-sm)',
-      border: `1px solid ${atRisk ? 'rgba(239,68,68,.25)' : 'var(--border)'}`,
-      background: atRisk ? 'rgba(239,68,68,.04)' : 'var(--bg3)',
-      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+      background: SURFACE, border: `1px solid ${SURFACE_BORDER}`,
+      borderRadius: SURFACE_RADIUS, padding: '16px 20px',
+      display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
     }}>
-      <StatusDot color={atRisk ? 'var(--red)' : 'var(--green)'} />
       <span style={{
-        fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
-        textTransform: 'uppercase',
-        color: atRisk ? 'var(--red)' : 'var(--green)',
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '5px 12px', borderRadius: 999,
+        background: isAtRisk ? PILL_RISK_BG : PILL_OK_BG,
+        color: isAtRisk ? PILL_RISK_FG : PILL_OK_FG,
+        fontSize: 11, fontWeight: 700, letterSpacing: 0.6,
+        textTransform: 'uppercase', whiteSpace: 'nowrap',
       }}>
-        {atRisk ? 'At risk' : 'On track'}
+        <span aria-hidden="true">{isAtRisk ? '⚠' : '✓'}</span>
+        {isAtRisk ? 'At risk' : 'On track'}
       </span>
-      <span style={{ flex: 1, minWidth: 240, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+      <div style={{
+        flex: 1, minWidth: 220,
+        fontSize: 14, color: TEXT_BODY, lineHeight: 1.55,
+      }}>
         {text}
-      </span>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  MetricCard — one cell of the 3-up stats band.
- * ════════════════════════════════════════════════════════════ */
-function MetricCard({
-  label, number, cap, capLabel, sub, visual, action, withRightBorder,
-}: {
-  label: string;
-  number: number;
-  cap: number | null;
-  capLabel?: string;
-  sub: string | null;
-  visual?: React.ReactNode;
-  action?: React.ReactNode;
-  withRightBorder?: boolean;
-}) {
-  return (
-    <div className="usage-stat-cell" style={{
-      padding: '20px 22px',
-      borderRight: withRightBorder ? '1px solid var(--border)' : 'none',
-      display: 'flex', flexDirection: 'column', gap: 10, minHeight: 144,
-    }}>
-      <div style={EYEBROW}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{
-          ...MONO, fontSize: 26, fontWeight: 700, lineHeight: 1,
-          letterSpacing: -0.5, color: 'var(--text)',
-        }}>
-          {number.toLocaleString()}
-        </span>
-        <span style={{ ...MONO, fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>
-          / {cap === null ? (capLabel ?? '∞') : cap.toLocaleString()}
-        </span>
       </div>
-      {visual && (
-        <div style={{ minHeight: 28, display: 'flex', alignItems: 'center' }}>
-          {visual}
-        </div>
-      )}
-      {sub && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{sub}</div>}
-      <div style={{ flex: 1 }} />
-      {action && <div>{action}</div>}
+      <div style={{ flexShrink: 0 }}>
+        <Sparkline
+          data={spark.length ? spark : [0]}
+          width={120}
+          height={32}
+          color={isAtRisk ? '#c0822d' : '#6b5dd6'}
+        />
+      </div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  PlatformBreakdown — chips of active platforms with a fallback.
- * ════════════════════════════════════════════════════════════ */
-function PlatformBreakdown({ platforms }: { platforms: string[] }) {
-  if (platforms.length === 0) {
-    return <span style={{ fontSize: 12, color: 'var(--muted)' }}>No platforms enabled yet.</span>;
-  }
-  return <PlatformChips platforms={platforms} maxVisible={5} />;
-}
+// ────────────────────────────────────────────────────────────────────
+// Auto-tracking strip
+// ────────────────────────────────────────────────────────────────────
 
-/* ══════════════════════════════════════════════════════════════
- *  AutoTrackingStrip — green pulse when active, amber when paused.
- * ════════════════════════════════════════════════════════════ */
 function AutoTrackingStrip({
   paused, plan, scheduled, nextRun, lastRun, nextResetAt, remaining,
 }: {
@@ -520,263 +496,366 @@ function AutoTrackingStrip({
   lastRun: { at: string; atDate: string; credits: number; platforms: string[] } | null;
   nextResetAt: string; remaining: number;
 }) {
-  const cardBase: React.CSSProperties = {
-    padding: '14px 18px',
-    borderRadius: 'var(--radius)',
-    background: 'var(--bg2)',
-    border: '1px solid var(--border)',
-    display: 'flex', flexDirection: 'column', gap: 8,
-    minHeight: 88,
-    boxShadow: 'var(--app-shadow)',
-  };
-
   if (paused) {
     return (
       <div style={{
-        ...cardBase,
-        background: 'rgba(245,158,11,.04)',
-        border: '1px solid rgba(245,158,11,.25)',
+        background: STRIP_PAUSED_BG, borderRadius: SURFACE_RADIUS,
+        padding: '14px 20px',
+        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 13,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span aria-hidden="true" style={{
-            width: 8, height: 8, borderRadius: '50%', background: 'var(--amber)',
-          }} />
-          <span style={{ ...EYEBROW, color: 'var(--amber)' }}>
-            Auto-tracking paused
-          </span>
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>
+        <span aria-hidden="true" style={{
+          width: 10, height: 10, borderRadius: '50%', background: STRIP_PAUSED_DOT,
+          flexShrink: 0,
+        }} />
+        <span style={{ color: STRIP_PAUSED_FG, fontWeight: 700 }}>
+          Auto-tracking paused
+        </span>
+        <span style={{ color: STRIP_PAUSED_DOT, opacity: 0.6 }}>·</span>
+        <span style={{ color: STRIP_PAUSED_FG, lineHeight: 1.55, flex: 1, minWidth: 220 }}>
           {!scheduled
-            ? <>The {plan} plan doesn&apos;t include scheduled runs.</>
+            ? `${plan} plan doesn't include scheduled runs.`
             : remaining <= 0
-              ? <>Credits exhausted. Resumes <strong>{fmtDate(nextResetAt)}</strong>, or upgrade now.</>
-              : <>Awaiting next scheduled run.</>}
-        </div>
-        <div>
-          <Link href="/dashboard/billing" style={{
-            fontSize: 12, fontWeight: 700,
-            color: 'var(--amber)', textDecoration: 'none',
-          }} className="usage-action-link">
-            Upgrade plan →
-          </Link>
-        </div>
+              ? <>Credits exhausted — resumes <strong>{fmtDate(nextResetAt)}</strong>.</>
+              : 'Currently inactive.'}
+        </span>
+        <a href="#plan-comparison" style={{
+          color: STRIP_PAUSED_FG, fontSize: 12, fontWeight: 600,
+          textDecoration: 'underline', textUnderlineOffset: 3, whiteSpace: 'nowrap',
+        }}>
+          Upgrade plan
+        </a>
       </div>
     );
   }
-
-  return (
-    <div style={cardBase}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <StatusDot color="var(--green)" pulsing />
-        <span style={{ ...EYEBROW, color: 'var(--green)' }}>
-          Daily auto-tracking active
-        </span>
-      </div>
-      <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>
-        {nextRun && (
-          <>
-            Next run <strong style={MONO}>{fmtRelative(nextRun)}</strong>
-            <span style={{ color: 'var(--muted)', opacity: 0.6 }}> · </span>
-            <span style={MONO}>{fmtDate(nextRun)}</span>
-          </>
-        )}
-        {lastRun && (
-          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>
-            Last run <span style={MONO}>{fmtDateUtc(lastRun.atDate)}</span>
-            <span style={{ opacity: 0.6 }}> · </span>
-            <span style={MONO}>{lastRun.credits.toLocaleString()}</span> credit{lastRun.credits === 1 ? '' : 's'} across {lastRun.platforms.length} platform{lastRun.platforms.length === 1 ? '' : 's'}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
- *  GeoAuditsStrip — count + thin bar + reset + run-audit CTA.
- * ════════════════════════════════════════════════════════════ */
-function GeoAuditsStrip({
-  used, cap, resetAt, resetDateLabel,
-}: {
-  used: number; cap: number | null; resetAt: string | null; resetDateLabel?: string;
-}) {
-  const pct = cap && cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
   return (
     <div style={{
-      padding: '14px 18px',
-      borderRadius: 'var(--radius)',
-      background: 'var(--bg2)',
-      border: '1px solid var(--border)',
-      display: 'grid',
-      gridTemplateColumns: '1fr auto',
-      alignItems: 'center', gap: 16,
-      minHeight: 88,
-      boxShadow: 'var(--app-shadow)',
+      background: STRIP_OK_BG, borderRadius: SURFACE_RADIUS,
+      padding: '14px 20px',
+      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 13,
     }}>
-      <div>
-        <div style={EYEBROW}>GEO Audits</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-          <span style={{
-            ...MONO, fontSize: 22, fontWeight: 700, lineHeight: 1,
-            letterSpacing: -0.5, color: 'var(--text)',
-          }}>
-            {used.toLocaleString()}
-          </span>
-          <span style={{ ...MONO, fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>
-            / {cap === null ? '∞' : cap.toLocaleString()} this month
-          </span>
-        </div>
-        {cap !== null && (
-          <div style={{
-            height: 3, borderRadius: 'var(--radius-full)', background: 'var(--bg3)',
-            overflow: 'hidden', marginTop: 10,
-          }}>
-            <div style={{
-              height: '100%', borderRadius: 'var(--radius-full)', width: `${pct}%`,
-              background: 'var(--green)',
-              transition: 'width .8s cubic-bezier(.16,1,.3,1)',
-            }} />
-          </div>
+      <span aria-hidden="true" style={{
+        position: 'relative', display: 'inline-flex',
+        width: 10, height: 10, flexShrink: 0,
+      }}>
+        <span style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: STRIP_OK_DOT, animation: 'usageDotPulse 1.8s ease-in-out infinite',
+        }} />
+        <span style={{
+          position: 'relative', width: 10, height: 10,
+          borderRadius: '50%', background: STRIP_OK_DOT,
+        }} />
+      </span>
+      <span style={{ color: STRIP_OK_FG, fontWeight: 700 }}>
+        Daily auto-tracking active
+      </span>
+      {(nextRun || lastRun) && (
+        <span style={{ color: STRIP_OK_DOT, opacity: 0.5 }}>·</span>
+      )}
+      <span style={{ color: STRIP_OK_FG, lineHeight: 1.55, flex: 1, minWidth: 220 }}>
+        {nextRun && (
+          <>Next run <strong>{fmtRelative(nextRun)}</strong> ({fmtDate(nextRun)})</>
         )}
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, ...MONO }}>
-          Resets {fmtDate(resetAt ?? null)}{resetDateLabel ? ` · ${resetDateLabel}` : ''}
-        </div>
-      </div>
-      <Link href="/dashboard/geo-audit" style={{
-        padding: '8px 12px', borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border)', color: 'var(--text)',
-        textDecoration: 'none', fontSize: 12, fontWeight: 600,
-        background: 'var(--bg2)', whiteSpace: 'nowrap',
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-      }} className="usage-action-link">
-        Run audit
-        <Arrow />
-      </Link>
+        {nextRun && lastRun && (
+          <span style={{ color: STRIP_OK_DOT, opacity: 0.5 }}> · </span>
+        )}
+        {lastRun && (
+          <>
+            Last run {fmtDateUtc(lastRun.atDate)} consumed{' '}
+            <strong>{lastRun.credits.toLocaleString()}</strong> credit{lastRun.credits === 1 ? '' : 's'}{' '}
+            across {lastRun.platforms.length} platform{lastRun.platforms.length === 1 ? '' : 's'}.
+          </>
+        )}
+      </span>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  UsageBanner — exhausted / low / manual_cap.
- * ════════════════════════════════════════════════════════════ */
+// ────────────────────────────────────────────────────────────────────
+// Metric card
+// ────────────────────────────────────────────────────────────────────
+
+function MetricCard({
+  label, used, cap, unlimited,
+}: {
+  label: string; used: number; cap: number; unlimited: boolean;
+}) {
+  const pct = unlimited
+    ? 0
+    : cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+  const fill = unlimited
+    ? PROGRESS_FILL_GRAY
+    : pct >= 100 ? PROGRESS_FILL_DANGER
+    : pct >= 80 ? PROGRESS_FILL_WARN
+    : PROGRESS_FILL_DEFAULT;
+  const usedDisplay = used.toLocaleString();
+  const capDisplay = unlimited ? 'unlimited' : cap.toLocaleString();
+  const subline = unlimited ? 'No limit' : `${Math.round(pct)}% used`;
+
+  return (
+    <div style={{
+      background: SURFACE, border: `1px solid ${SURFACE_BORDER}`,
+      borderRadius: SURFACE_RADIUS, padding: '18px 20px',
+      display: 'flex', flexDirection: 'column', gap: 10, minHeight: 132,
+    }}>
+      <div style={{
+        fontSize: 13, color: TEXT_SECONDARY, fontWeight: 500,
+        letterSpacing: 0.1,
+      }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{
+          fontSize: 30, fontWeight: 700, color: TEXT_PRIMARY,
+          lineHeight: 1, letterSpacing: -0.6,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {usedDisplay}
+        </span>
+        <span style={{
+          fontSize: 15, color: TEXT_SECONDARY, fontWeight: 400,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          / {capDisplay}
+        </span>
+      </div>
+      <div style={{ marginTop: 'auto' }}>
+        <div style={{
+          height: 4, borderRadius: 999, background: PROGRESS_TRACK, overflow: 'hidden',
+        }}>
+          <div style={{
+            height: '100%', width: unlimited ? '40%' : `${pct}%`,
+            background: fill, borderRadius: 999,
+            transition: 'width 1s cubic-bezier(.16,1,.3,1)',
+            opacity: unlimited ? 0.45 : 1,
+          }} />
+        </div>
+        <div style={{
+          fontSize: 12, color: TEXT_MUTED, marginTop: 8,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {subline}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Platform breakdown card
+// ────────────────────────────────────────────────────────────────────
+
+interface PlatformItem {
+  name: string;
+  count: number;
+  pct: number;
+  color: string;
+}
+
+function PlatformBreakdownCard({
+  capLabel, usedLabel, platforms, loading,
+}: {
+  capLabel: string; usedLabel: string; platforms: PlatformItem[]; loading: boolean;
+}) {
+  const hasData = platforms.length > 0;
+  return (
+    <div style={{
+      background: SURFACE, border: `1px solid ${SURFACE_BORDER}`,
+      borderRadius: SURFACE_RADIUS, padding: '20px 22px',
+      display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap',
+      }}>
+        <div>
+          <div style={{
+            fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 4,
+          }}>
+            Prompts by AI platform
+          </div>
+          <div style={{ fontSize: 12, color: TEXT_SECONDARY }}>
+            {usedLabel} of {capLabel} used this period
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: TEXT_MUTED }}>Last 30 days</div>
+      </div>
+
+      {/* Stacked bar */}
+      <div style={{
+        height: 8, borderRadius: 999, background: PROGRESS_TRACK, overflow: 'hidden',
+        display: 'flex',
+      }}>
+        {hasData
+          ? platforms.map((p, i) => (
+              <div
+                key={p.name}
+                style={{
+                  width: `${p.pct}%`,
+                  background: p.color,
+                  marginRight: i === platforms.length - 1 ? 0 : 1,
+                  transition: 'width 1s cubic-bezier(.16,1,.3,1)',
+                }}
+                title={`${p.name}: ${p.count.toLocaleString()} (${p.pct.toFixed(1)}%)`}
+              />
+            ))
+          : null}
+      </div>
+
+      {/* Legend */}
+      {hasData ? (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+          rowGap: 12, columnGap: 16,
+        }}>
+          {platforms.map((p) => (
+            <div key={p.name} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span aria-hidden="true" style={{
+                  width: 8, height: 8, borderRadius: '50%', background: p.color,
+                }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY }}>
+                  {p.name}
+                </span>
+              </div>
+              <div style={{
+                fontSize: 12, color: TEXT_SECONDARY, paddingLeft: 16,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {p.count.toLocaleString()} <span style={{ color: TEXT_MUTED }}>· {p.pct.toFixed(0)}%</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: TEXT_MUTED, paddingTop: 4 }}>
+          {loading ? 'Loading platform breakdown…' : 'No platform activity in the last 30 days.'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Banner (exhausted / low / manual cap) + soft upgrade
+// ────────────────────────────────────────────────────────────────────
+
 function UsageBanner({
   kind, monthlyCap, remaining, nextResetAt, nextDailyResetAt,
+  tightestCardLabel, nextPlanKey, nextPlanBrands, nextPlanPrompts, nextPlanPrice,
 }: {
   kind: 'exhausted' | 'low' | 'manual_cap';
   monthlyCap: number; remaining: number;
   nextResetAt: string; nextDailyResetAt: string;
+  tightestCardLabel?: string;
+  nextPlanKey: string | null;
+  nextPlanBrands?: number;
+  nextPlanPrompts?: number;
+  nextPlanPrice?: string;
 }) {
-  const wrap: React.CSSProperties = {
-    marginTop: 12, padding: '12px 16px', borderRadius: 'var(--radius)',
-    display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap',
-  };
-  const eyebrowMini: React.CSSProperties = {
-    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
-  };
-
   if (kind === 'exhausted') {
     return (
-      <div style={{ ...wrap,
-        background: 'rgba(239,68,68,.04)', border: '1px solid rgba(239,68,68,.25)',
+      <div style={{
+        background: BANNER_DANGER_BG, borderRadius: SURFACE_RADIUS,
+        padding: '14px 20px',
+        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
       }}>
-        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)' }} />
-        <span style={{ ...eyebrowMini, color: 'var(--red)' }}>Out of credits</span>
-        <span style={{ flex: 1, color: 'var(--text)', minWidth: 200 }}>
-          Auto-tracking paused. Resumes <strong style={MONO}>{fmtDate(nextResetAt)}</strong>.
-        </span>
-        <Link href="/dashboard/billing" style={{
-          padding: '7px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--red)',
-          color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 700,
-        }}>Upgrade plan</Link>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: BANNER_DANGER_FG, marginBottom: 2 }}>
+            Out of credits
+          </div>
+          <div style={{ fontSize: 13, color: BANNER_DANGER_FG, opacity: 0.85 }}>
+            Auto-tracking paused. Resumes <strong>{fmtDate(nextResetAt)}</strong>.
+          </div>
+        </div>
+        <a href="#plan-comparison" style={{
+          ...upgradeBtnStyle,
+          background: '#fff', color: BANNER_DANGER_FG, borderColor: '#e6c5bd',
+        }}>
+          Upgrade plan
+        </a>
       </div>
     );
   }
   if (kind === 'low') {
     const pct = Math.round((remaining / Math.max(1, monthlyCap)) * 100);
     return (
-      <div style={{ ...wrap,
-        background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.25)',
+      <div style={{
+        background: BANNER_WARN_BG, borderRadius: SURFACE_RADIUS,
+        padding: '14px 20px',
+        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
       }}>
-        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--amber)' }} />
-        <span style={{ ...eyebrowMini, color: 'var(--amber)' }}>Low balance</span>
-        <span style={{ flex: 1, color: 'var(--text)', minWidth: 200 }}>
-          You&apos;re at <strong style={MONO}>{pct}%</strong> of monthly credits.
-        </span>
-        <Link href="/dashboard/billing/ledger" style={{ ...ACTION_LINK, color: 'var(--muted)' }} className="usage-action-link">
-          View ledger →
-        </Link>
-        <Link href="/dashboard/billing" style={{
-          padding: '7px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--amber)',
-          color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 700,
-        }}>Upgrade</Link>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: BANNER_WARN_FG, marginBottom: 2 }}>
+            Running low on {tightestCardLabel?.toLowerCase() ?? 'credits'}
+          </div>
+          <div style={{ fontSize: 13, color: BANNER_WARN_FG, opacity: 0.9 }}>
+            {nextPlanKey && nextPlanPrice
+              ? <>{capitalize(nextPlanKey)} plan adds {fmtNumOrInf(nextPlanBrands)} brands and {fmtNumOrInf(nextPlanPrompts)} prompts for {nextPlanPrice}/mo.</>
+              : <>You&apos;re at {pct}% remaining of monthly credits.</>}
+          </div>
+        </div>
+        <a href="#plan-comparison" style={{
+          ...upgradeBtnStyle,
+          background: '#fff', color: BANNER_WARN_FG, borderColor: '#e6cba0',
+        }}>
+          Compare plans
+        </a>
       </div>
     );
   }
   return (
-    <div style={{ ...wrap,
-      background: 'rgba(59,130,246,.04)', border: '1px solid rgba(59,130,246,.25)',
+    <div style={{
+      background: BANNER_INFO_BG, borderRadius: SURFACE_RADIUS,
+      padding: '14px 20px',
+      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
     }}>
-      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--blue)' }} />
-      <span style={{ ...eyebrowMini, color: 'var(--blue)' }}>Daily cap reached</span>
-      <span style={{ flex: 1, color: 'var(--text)', minWidth: 200 }}>
-        Manual run cap reached. Auto-runs continue. Resets <strong style={MONO}>{fmtDate(nextDailyResetAt)}</strong>.
-      </span>
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: BANNER_INFO_FG, marginBottom: 2 }}>
+          Daily manual run cap reached
+        </div>
+        <div style={{ fontSize: 13, color: BANNER_INFO_FG, opacity: 0.85 }}>
+          Auto-runs continue. Resets <strong>{fmtDate(nextDailyResetAt)}</strong>.
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
- *  Tiny shared atoms.
- * ════════════════════════════════════════════════════════════ */
-function PlanBadge({ label, unlimited }: { label: string; unlimited: boolean }) {
+function SoftUpgradeBanner({
+  tightLabel, nextPlanKey, nextPlanBrands, nextPlanPrompts, nextPlanPrice,
+}: {
+  tightLabel: string; nextPlanKey: string;
+  nextPlanBrands?: number; nextPlanPrompts?: number; nextPlanPrice?: string;
+}) {
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '3px 9px',
-      fontSize: 11, fontWeight: 700,
-      borderRadius: 'var(--radius-xs)',
-      color: unlimited ? '#fff' : 'var(--text)',
-      background: unlimited
-        ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
-        : 'var(--bg3)',
-      border: unlimited ? 'none' : '1px solid var(--border)',
+    <div style={{
+      background: BANNER_INFO_BG, borderRadius: SURFACE_RADIUS,
+      padding: '14px 20px',
+      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
     }}>
-      <span aria-hidden="true" style={{
-        width: 5, height: 5, borderRadius: '50%',
-        background: unlimited ? '#fff' : 'var(--text)',
-      }} />
-      {label}
-      {unlimited && (
-        <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.85, marginLeft: 2 }}>
-          · UNLIMITED
-        </span>
-      )}
-    </span>
+      <div style={{ flex: 1, minWidth: 240 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: BANNER_INFO_FG, marginBottom: 2 }}>
+          Running low on {tightLabel.toLowerCase()}
+        </div>
+        <div style={{ fontSize: 13, color: BANNER_INFO_FG, opacity: 0.85 }}>
+          {nextPlanPrice
+            ? <>{capitalize(nextPlanKey)} plan adds {fmtNumOrInf(nextPlanBrands)} brands and {fmtNumOrInf(nextPlanPrompts)} prompts for {nextPlanPrice}/mo.</>
+            : <>{capitalize(nextPlanKey)} plan unlocks higher caps — contact us for pricing.</>}
+        </div>
+      </div>
+      <a href="#plan-comparison" style={{
+        ...secondaryBtnStyle, background: '#fff', color: BANNER_INFO_FG, borderColor: '#c5cee5',
+      }}>
+        Compare plans
+      </a>
+    </div>
   );
 }
 
-function StatusDot({ color, pulsing = false }: { color: string; pulsing?: boolean }) {
-  return (
-    <span aria-hidden="true" style={{
-      position: 'relative', display: 'inline-flex', width: 8, height: 8,
-    }}>
-      {pulsing && (
-        <span style={{
-          position: 'absolute', inset: 0, borderRadius: '50%', background: color,
-          animation: 'usagePulse 2.4s ease-in-out infinite',
-        }} />
-      )}
-      <span style={{
-        position: 'relative', width: 8, height: 8, borderRadius: '50%', background: color,
-      }} />
-    </span>
-  );
-}
-
-function Arrow() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-      <path d="M5 12h14M13 5l7 7-7 7" />
-    </svg>
-  );
+function capitalize(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function fmtNumOrInf(n: number | undefined): string {
+  if (n === undefined || n === null) return '—';
+  return n >= 9999 ? '∞' : n.toLocaleString();
 }
