@@ -61,58 +61,70 @@ export async function GET(
   const { id } = await params;
   if (!id) return Response.json({ error: 'Missing audit id' }, { status: 400 });
 
-  await ensureGeoAuditsSchema();
+  try {
+    await ensureGeoAuditsSchema();
 
-  const auditRes = await pool.query(
-    `SELECT id, user_id, brand_id, regions, prompts, prompts_count, status,
-            mentions_count, total_expected, received, error,
-            created_at, started_at, completed_at
-       FROM geo_audits WHERE id = $1 LIMIT 1`,
-    [id],
-  );
-  const audit = auditRes.rows[0] as AuditRowRaw | undefined;
-  if (!audit) return Response.json({ error: 'Audit not found' }, { status: 404 });
-  if (audit.user_id !== user.id) {
-    // Don't leak existence of someone else's audit id.
-    return Response.json({ error: 'Audit not found' }, { status: 404 });
+    const auditRes = await pool.query(
+      `SELECT id, user_id, brand_id, regions, prompts, prompts_count, status,
+              mentions_count, total_expected, received, error,
+              created_at, started_at, completed_at
+         FROM geo_audits WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    const audit = auditRes.rows[0] as AuditRowRaw | undefined;
+    if (!audit) return Response.json({ error: 'Audit not found' }, { status: 404 });
+    if (audit.user_id !== user.id) {
+      // Don't leak existence of someone else's audit id.
+      return Response.json({ error: 'Audit not found' }, { status: 404 });
+    }
+
+    const resultsRes = await pool.query(
+      `SELECT id, region, prompt_text, platform, model, response, mentioned, error, created_at
+         FROM geo_audit_results
+        WHERE audit_id = $1
+        ORDER BY created_at ASC`,
+      [id],
+    );
+
+    return Response.json({
+      audit: {
+        id: audit.id,
+        brandId: audit.brand_id,
+        regions: audit.regions,
+        prompts: audit.prompts,
+        promptsCount: audit.prompts_count,
+        status: audit.status,
+        mentionsCount: audit.mentions_count,
+        totalExpected: audit.total_expected,
+        received: audit.received,
+        error: audit.error,
+        createdAt: isoOrNull(audit.created_at),
+        startedAt: isoOrNull(audit.started_at),
+        completedAt: isoOrNull(audit.completed_at),
+      },
+      results: (resultsRes.rows as ResultRowRaw[]).map((r) => ({
+        id: r.id,
+        region: r.region,
+        promptText: r.prompt_text,
+        platform: r.platform,
+        model: r.model,
+        response: r.response,
+        mentioned: r.mentioned,
+        error: r.error,
+        createdAt: isoOrNull(r.created_at),
+      })),
+    }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    logger.error('geo_audits.detail_failed', {
+      err: (e as Error).message,
+      auditId: id,
+      userId: user.id,
+    });
+    return Response.json(
+      { error: 'Failed to load audit', message: (e as Error).message },
+      { status: 500 },
+    );
   }
-
-  const resultsRes = await pool.query(
-    `SELECT id, region, prompt_text, platform, model, response, mentioned, error, created_at
-       FROM geo_audit_results
-      WHERE audit_id = $1
-      ORDER BY created_at ASC`,
-    [id],
-  );
-
-  return Response.json({
-    audit: {
-      id: audit.id,
-      brandId: audit.brand_id,
-      regions: audit.regions,
-      prompts: audit.prompts,
-      promptsCount: audit.prompts_count,
-      status: audit.status,
-      mentionsCount: audit.mentions_count,
-      totalExpected: audit.total_expected,
-      received: audit.received,
-      error: audit.error,
-      createdAt: isoOrNull(audit.created_at),
-      startedAt: isoOrNull(audit.started_at),
-      completedAt: isoOrNull(audit.completed_at),
-    },
-    results: (resultsRes.rows as ResultRowRaw[]).map((r) => ({
-      id: r.id,
-      region: r.region,
-      promptText: r.prompt_text,
-      platform: r.platform,
-      model: r.model,
-      response: r.response,
-      mentioned: r.mentioned,
-      error: r.error,
-      createdAt: isoOrNull(r.created_at),
-    })),
-  }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function POST(
