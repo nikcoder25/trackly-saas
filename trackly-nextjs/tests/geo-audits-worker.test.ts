@@ -123,11 +123,13 @@ function setupAuditQueries(state: AuditState) {
     }
     // finalize UPDATE
     if (/UPDATE geo_audits[\s\S]*SET status = \$2/i.test(sql)) {
+      // params: [id=$1, status=$2, received=$3, mentions=$4,
+      //          mention_rate=$5, error=$6]
       const p = params || [];
       state.status = (p[1] as AuditState['status']) ?? state.status;
       state.receivedFinal = Number(p[2]) || 0;
       state.mentionsFinal = Number(p[3]) || 0;
-      state.errorFinal = (p[4] as string | null) ?? null;
+      state.errorFinal = (p[5] as string | null) ?? null;
       return { rows: [], rowCount: 1 };
     }
     return { rows: [] };
