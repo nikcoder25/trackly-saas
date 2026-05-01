@@ -675,7 +675,7 @@ function PlatformBreakdownCard({
             Prompts by AI platform
           </div>
           <div style={{ fontSize: 12, color: TEXT_SECONDARY }}>
-            {usedLabel} of {capLabel} used this period
+            {usedLabel} of {capLabel} AI credits used this period
           </div>
         </div>
         <div style={{ fontSize: 12, color: TEXT_MUTED }}>Last 30 days</div>
