@@ -25,7 +25,13 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
+import { reapStaleGeoAudits } from '@/lib/geo-audits';
 import { logger } from '@/lib/logger';
+
+// Geo-audit reaper threshold (minutes). Mirrors the active_runs
+// watchdog window so a stuck Regional Audit gets reaped on the same
+// tick as a stuck brand-run.
+const GEO_AUDIT_STALE_MINUTES = 10;
 
 export async function GET(request: Request): Promise<Response> {
   const cronSecret = process.env.CRON_SECRET;
@@ -55,13 +61,29 @@ export async function GET(request: Request): Promise<Response> {
     const result = await reconcileStaleRuns({
       reason: 'reaped by /api/cron/reap-stale-runs (5-min safety net)',
     });
+
+    // Also reap any Regional Audits stuck in 'running' past the same
+    // watchdog window. Refunds the unused portion of the credit
+    // reservation so users aren't double-billed for calls that
+    // didn't land. Best-effort: a failure here doesn't block the
+    // brand-run reconcile that already succeeded above.
+    let geoReaped: string[] = [];
+    try {
+      const geo = await reapStaleGeoAudits(GEO_AUDIT_STALE_MINUTES);
+      geoReaped = geo.reaped;
+    } catch (e) {
+      logger.warn('cron.reap_stale_runs.geo_audit_reap_failed', {
+        error: (e as Error).message,
+      });
+    }
     const durationMs = Date.now() - start;
 
-    if (result.count > 0) {
+    if (result.count > 0 || geoReaped.length > 0) {
       logger.info('cron.reap_stale_runs.reaped', {
         count: result.count,
         brand_ids: result.brandIds.slice(0, 20),
         run_ids: result.runIds.slice(0, 20),
+        geo_audit_ids: geoReaped.slice(0, 20),
         duration_ms: durationMs,
       });
     }
@@ -71,6 +93,7 @@ export async function GET(request: Request): Promise<Response> {
       reconciled: result.count,
       brandIds: result.brandIds,
       runIds: result.runIds,
+      geoAuditsReaped: geoReaped,
       durationMs,
       timestamp: new Date().toISOString(),
     });
