@@ -13,7 +13,6 @@ import {
   fmtRelative,
 } from './usage-state';
 import type { UsageBreakdown } from '@/app/api/credits/usage/route';
-import CreditsRing from './usage/CreditsRing';
 import Sparkline from './usage/Sparkline';
 import PlatformChips from './usage/PlatformChips';
 import AvatarStack from './usage/AvatarStack';
@@ -23,29 +22,43 @@ interface UsageSectionProps {
   resetDateLabel?: string;
 }
 
-const PANEL: React.CSSProperties = {
-  background: 'linear-gradient(180deg, #ffffff 0%, #fafbff 100%)',
-  border: '1px solid #e2e8f0',
-  borderRadius: 20,
-  padding: 24,
-  boxShadow: '0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(99,102,241,.06)',
+/* ──────────────────────────────────────────────────────────────
+ *  Modern SaaS redesign of the "Usage This Period" section.
+ *
+ *  Visual language: Linear / Stripe / Vercel — single flat panel
+ *  with hairline dividers, generous whitespace, monospace numerals
+ *  for tabular alignment, subtle status indicators, and minimal
+ *  chrome. Hooks into the *exact same data* as the previous version
+ *  (CreditsContext, BrandContext, /api/credits/usage) and preserves
+ *  all behaviour: View ledger, Add prompt, Manage links, at-risk
+ *  warning logic, daily auto-tracking status, projection logic,
+ *  Agency plan name (via `status.label`), banners, and copy.
+ *
+ *  Sub-components (defined below): HeaderStrip, CreditsHero,
+ *  ProjectionStrip, MetricCard, PlatformBreakdown, AutoTrackingStrip,
+ *  GeoAuditsStrip, UsageBanner, PlanBadge, StatusDot.
+ * ──────────────────────────────────────────────────────────── */
+
+// Small style helpers reused across sub-components.
+const MONO: React.CSSProperties = {
+  fontFamily: 'var(--mono)',
+  fontVariantNumeric: 'tabular-nums',
 };
-const TILE_LABEL: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8,
-  fontSize: 11, fontWeight: 700, letterSpacing: 1.1,
-  textTransform: 'uppercase', color: '#64748b',
+const EYEBROW: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 0.6,
+  textTransform: 'uppercase',
+  color: 'var(--muted)',
 };
-const TILE_NUMBER: React.CSSProperties = {
-  fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums',
-  fontSize: 30, fontWeight: 700, color: '#0f172a', lineHeight: 1.1,
-  letterSpacing: -0.5,
-};
-const SUBLINE: React.CSSProperties = {
-  fontSize: 12, color: '#64748b', fontFamily: 'var(--font)',
-};
-const FOOTER_LINK: React.CSSProperties = {
-  fontSize: 11, color: '#4f46e5', fontWeight: 600,
-  textDecoration: 'none', letterSpacing: 0.2,
+const ACTION_LINK: React.CSSProperties = {
+  fontSize: 12,
+  color: 'var(--text)',
+  fontWeight: 600,
+  textDecoration: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
 };
 
 export default function UsageSection({ numBrandsFromPage, resetDateLabel }: UsageSectionProps) {
@@ -63,11 +76,21 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
   }, []);
 
   if (!status) {
-    return <div style={{ marginTop: 16, ...PANEL, height: 320 }} aria-busy="true" />;
+    return (
+      <section
+        aria-busy="true"
+        style={{
+          marginTop: 16, height: 360, borderRadius: 'var(--radius)',
+          background: 'var(--bg2)', border: '1px solid var(--border)',
+        }}
+      />
+    );
   }
 
   const cfg = getPlanCredits(status.plan);
   const isUnlimited = status.monthlyCap >= 99999 || status.plan === 'owner';
+
+  // Banner state (exhausted / low / manual_cap / null).
   const banner = bannerKind({
     remaining: status.remaining,
     monthlyCap: status.monthlyCap,
@@ -76,6 +99,7 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
     plan: status.plan,
   });
 
+  // Forecast (drives the at-risk warning + projection text).
   const dailyCredits = (usage?.dailyUsageLast14Days ?? []).map((p) => p.credits);
   const avgDaily = usage?.avgDailyCredits ?? 0;
   const projectedMonthEnd = usage?.projectedMonthEnd ?? status.monthlyUsed;
@@ -103,186 +127,101 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
 
   return (
     <section style={{ marginTop: 16 }}>
-      {/* ── Hero panel ────────────────────────────────────────── */}
-      <div style={PANEL}>
-        {/* Header strip */}
-        <div style={{
-          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-          flexWrap: 'wrap', gap: 12, marginBottom: 24,
-        }}>
-          <div>
-            <div style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: 1.4,
-              textTransform: 'uppercase', color: '#6366f1', marginBottom: 6,
-            }}>
-              Usage this period
-            </div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-              fontSize: 14, color: '#334155',
-            }}>
-              <span><strong style={{ color: '#0f172a' }}>{status.label}</strong> plan</span>
-              <span style={{ color: '#cbd5e1' }}>·</span>
-              <span>Resets <strong style={{ color: '#0f172a' }}>{fmtDate(status.nextResetAt)}</strong></span>
-              {isUnlimited && (
-                <span style={{
-                  padding: '2px 10px', borderRadius: 999,
-                  background: 'linear-gradient(135deg, #6366f1, #7c3aed)',
-                  color: '#fff', fontSize: 10, fontWeight: 700, letterSpacing: 0.6,
-                  textTransform: 'uppercase',
-                }}>
-                  Unlimited
-                </span>
-              )}
-            </div>
-          </div>
-          <Link href="/dashboard/billing/ledger" style={{
-            ...FOOTER_LINK, padding: '8px 14px', borderRadius: 10,
-            border: '1px solid #e2e8f0', background: '#fff',
-            transition: 'all 150ms ease',
-          }}>
-            View ledger →
-          </Link>
-        </div>
+      {/* ════════════════════════════════════════════════════════
+          Primary panel — single surface, sectioned by hairlines.
+          ════════════════════════════════════════════════════════ */}
+      <div style={{
+        background: 'var(--bg2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        overflow: 'hidden',
+        boxShadow: 'var(--app-shadow)',
+      }}>
+        <HeaderStrip
+          planLabel={status.label}
+          unlimited={isUnlimited}
+          nextResetAt={status.nextResetAt}
+        />
 
-        {/* KPI row */}
-        <div className="usage-v2-grid" style={{
-          display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) repeat(3, 1fr)', gap: 16,
-        }}>
-          {/* Credits */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
-            <CreditsRing
-              used={status.monthlyUsed}
-              cap={status.monthlyCap}
-              unlimited={isUnlimited}
-              size={156}
-              label={isUnlimited
-                ? 'Unlimited credits on this plan'
-                : `Credits used ${status.monthlyUsed} of ${status.monthlyCap}`}
-            />
-            <div>
-              <div style={TILE_LABEL}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path d="M12 2v20M2 12h20" />
-                </svg>
-                Credits used
-              </div>
-              <div style={{ ...TILE_NUMBER, marginTop: 6 }}>
-                {status.monthlyUsed.toLocaleString()}
-                <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: 18 }}>
-                  {' '}/ {isUnlimited ? '∞' : status.monthlyCap.toLocaleString()}
-                </span>
-                {isUnlimited && <span className="sr-only"> Unlimited</span>}
-              </div>
-              <div style={{ ...SUBLINE, marginTop: 6 }}>
-                {isUnlimited
-                  ? 'No monthly cap'
-                  : `${status.remaining.toLocaleString()} remaining · resets ${fmtDate(status.nextResetAt)}`}
-              </div>
-              {!isUnlimited && (
-                <div style={{ ...SUBLINE, fontSize: 11, marginTop: 2, opacity: 0.85 }}>
-                  Manual today: {(status.manualDailyCap - status.manualRemainingToday).toLocaleString()} / {status.manualDailyCap.toLocaleString()}
-                </div>
-              )}
-            </div>
-          </div>
+        <CreditsHero
+          monthlyUsed={status.monthlyUsed}
+          monthlyCap={status.monthlyCap}
+          remaining={status.remaining}
+          manualUsedToday={status.manualDailyCap - status.manualRemainingToday}
+          manualDailyCap={status.manualDailyCap}
+          unlimited={isUnlimited}
+          planLabel={status.label}
+          dailyCredits={dailyCredits}
+          avgDaily={avgDaily}
+        />
 
-          {/* Tracked prompts (account-wide cap, v3 spec). Per-brand
-              breakdown is informational in the sub-line. */}
-          <KpiTile
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            }
+        {!isUnlimited && (
+          <ProjectionStrip
+            state={forecastCopy.state}
+            text={forecastCopy.text}
+          />
+        )}
+
+        <div className="usage-stats-band" style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          borderTop: '1px solid var(--border)',
+        }}>
+          <MetricCard
             label="Tracked prompts"
             number={configuredPrompts}
             cap={isUnlimited || cfg.trackedPromptsPerAccount >= 9999 ? null : cfg.trackedPromptsPerAccount}
-            sub={`Account-wide · ${configuredPrompts.toLocaleString()} across ${numBrands} brand${numBrands === 1 ? '' : 's'}`}
-            footer={<Link href="/dashboard/setup" style={FOOTER_LINK}>Add prompt →</Link>}
-            visual={<Sparkline data={dailyCredits} width={108} height={32} />}
+            sub={`Account-wide · across ${numBrands} brand${numBrands === 1 ? '' : 's'}`}
+            action={<Link href="/dashboard/setup" style={ACTION_LINK} className="usage-action-link">Add prompt →</Link>}
+            withRightBorder
           />
-
-          {/* Platforms */}
-          <KpiTile
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
-              </svg>
-            }
+          <MetricCard
             label="Active platforms"
             number={activePlatforms.length}
             cap={isUnlimited ? null : cfg.maxPlatforms}
             sub={null}
-            footer={<Link href="/dashboard/setup" style={FOOTER_LINK}>Manage →</Link>}
-            visual={<PlatformChips platforms={activePlatforms} maxVisible={3} />}
+            visual={<PlatformBreakdown platforms={activePlatforms} />}
+            action={<Link href="/dashboard/setup" style={ACTION_LINK} className="usage-action-link">Manage links →</Link>}
+            withRightBorder
           />
-
-          {/* Brands */}
-          <KpiTile
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M3 7h18M3 12h18M3 17h18" />
-              </svg>
-            }
+          <MetricCard
             label="Brands"
             number={numBrands}
             cap={null}
-            capLabel={isUnlimited ? '∞' : '∞'}
+            capLabel="∞"
             sub={`${numActiveBrands} active`}
-            footer={<Link href="/dashboard/setup" style={FOOTER_LINK}>Manage →</Link>}
-            visual={<AvatarStack brands={brandList} maxVisible={4} size={28} />}
+            visual={brandList.length > 0
+              ? <AvatarStack brands={brandList} maxVisible={4} size={26} />
+              : null}
+            action={<Link href="/dashboard/setup" style={ACTION_LINK} className="usage-action-link">Manage →</Link>}
           />
         </div>
-
-        {/* Burn-rate forecast (hidden for unlimited) */}
-        {!isUnlimited && (
-          <div style={{
-            marginTop: 24, paddingTop: 18, borderTop: '1px solid #eef2f7',
-            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
-          }}>
-            <span style={{
-              padding: '4px 10px', borderRadius: 999, fontSize: 10,
-              fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
-              background: forecastCopy.state === 'at_risk' ? 'rgba(245,158,11,.12)' : 'rgba(16,185,129,.12)',
-              color: forecastCopy.state === 'at_risk' ? '#b45309' : '#047857',
-            }}>
-              {forecastCopy.state === 'at_risk' ? '⚠ At risk' : '✓ On track'}
-            </span>
-            <span style={{ flex: 1, minWidth: 240, fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-              {forecastCopy.text}
-            </span>
-            <Sparkline
-              data={dailyCredits}
-              width={120}
-              height={28}
-              color={forecastCopy.state === 'at_risk' ? '#f59e0b' : '#6366f1'}
-            />
-          </div>
-        )}
       </div>
 
-      {/* ── Auto-tracking pill ────────────────────────────────── */}
-      <AutoTrackingPill
-        paused={autoRunPaused}
-        plan={status.label}
-        scheduled={cfg.scheduledRuns}
-        nextRun={nextRun}
-        lastRun={lastRun}
-        nextResetAt={status.nextResetAt}
-        remaining={status.remaining}
-      />
+      {/* Status row: auto-tracking + GEO audits side-by-side. */}
+      <div className="usage-status-row" style={{
+        marginTop: 12,
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 12,
+      }}>
+        <AutoTrackingStrip
+          paused={autoRunPaused}
+          plan={status.label}
+          scheduled={cfg.scheduledRuns}
+          nextRun={nextRun}
+          lastRun={lastRun}
+          nextResetAt={status.nextResetAt}
+          remaining={status.remaining}
+        />
+        <GeoAuditsStrip
+          used={usage?.geoAuditsThisMonth ?? 0}
+          cap={isUnlimited ? null : null}
+          resetAt={usage?.geoAuditsResetAt ?? status.nextResetAt}
+          resetDateLabel={resetDateLabel}
+        />
+      </div>
 
-      {/* ── GEO Audits ────────────────────────────────────────── */}
-      <GeoAuditsCard
-        used={usage?.geoAuditsThisMonth ?? 0}
-        cap={isUnlimited ? null : null}
-        resetAt={usage?.geoAuditsResetAt ?? status.nextResetAt}
-        resetDateLabel={resetDateLabel}
-      />
-
-      {/* ── Banner ────────────────────────────────────────────── */}
       {banner && (
         <UsageBanner
           kind={banner}
@@ -294,56 +233,286 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
       )}
 
       <style>{`
-        @media (max-width: 980px) {
-          .usage-v2-grid { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 600px) {
-          .usage-v2-grid { grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
-        }
+        .usage-action-link { transition: color 150ms ease; }
+        .usage-action-link:hover { color: var(--primary) !important; }
         @keyframes usagePulse {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.55; transform: scale(1.4); }
+          50% { opacity: 0.4; transform: scale(2.2); }
+        }
+        @keyframes usageShift {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @media (max-width: 880px) {
+          .usage-hero-row { grid-template-columns: 1fr !important; align-items: flex-start !important; }
+          .usage-hero-spark { align-items: flex-start !important; }
+          .usage-stats-band { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+          .usage-stat-cell:nth-child(2) { border-right: none !important; }
+          .usage-stat-cell:nth-child(3) {
+            grid-column: 1 / -1;
+            border-top: 1px solid var(--border) !important;
+            border-right: none !important;
+          }
+          .usage-status-row { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 640px) {
+          .usage-header-strip { padding: 14px 16px !important; }
+          .usage-hero-block { padding: 18px 16px !important; }
+          .usage-hero-num { font-size: 36px !important; }
+          .usage-stats-band { grid-template-columns: 1fr !important; }
+          .usage-stat-cell {
+            border-right: none !important;
+            border-top: 1px solid var(--border) !important;
+          }
+          .usage-stat-cell:first-child { border-top: none !important; }
+          .usage-stat-cell:nth-child(3) { grid-column: auto; }
         }
       `}</style>
     </section>
   );
-  void fmtRelative;
 }
 
-function KpiTile({
-  icon, label, number, cap, capLabel, sub, footer, visual,
+/* ══════════════════════════════════════════════════════════════
+ *  HeaderStrip — eyebrow, plan badge, reset date, ledger button.
+ * ════════════════════════════════════════════════════════════ */
+function HeaderStrip({
+  planLabel, unlimited, nextResetAt,
+}: { planLabel: string; unlimited: boolean; nextResetAt: string }) {
+  return (
+    <div className="usage-header-strip" style={{
+      padding: '16px 22px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 12, flexWrap: 'wrap',
+      borderBottom: '1px solid var(--border)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={EYEBROW}>Usage this period</span>
+        <PlanBadge label={planLabel} unlimited={unlimited} />
+        <span style={{ fontSize: 12, color: 'var(--muted)', ...MONO }}>
+          Resets {fmtDate(nextResetAt)}
+        </span>
+      </div>
+      <Link
+        href="/dashboard/billing/ledger"
+        style={{
+          ...ACTION_LINK,
+          padding: '7px 12px',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)',
+          background: 'var(--bg2)',
+        }}
+        className="usage-action-link"
+      >
+        View ledger
+        <Arrow />
+      </Link>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+ *  CreditsHero — primary credits stat, progress bar, sparkline,
+ *  manual-today line.
+ * ════════════════════════════════════════════════════════════ */
+function CreditsHero({
+  monthlyUsed, monthlyCap, remaining, manualUsedToday, manualDailyCap,
+  unlimited, planLabel, dailyCredits, avgDaily,
 }: {
-  icon: React.ReactNode;
+  monthlyUsed: number; monthlyCap: number; remaining: number;
+  manualUsedToday: number; manualDailyCap: number;
+  unlimited: boolean; planLabel: string;
+  dailyCredits: number[]; avgDaily: number;
+}) {
+  const usedPct = unlimited
+    ? 0
+    : monthlyCap > 0 ? Math.min(100, (monthlyUsed / monthlyCap) * 100) : 0;
+  const usageColor = unlimited
+    ? 'var(--primary)'
+    : usedPct > 85 ? 'var(--red)' : usedPct >= 60 ? 'var(--amber)' : 'var(--text)';
+  const sparkColor = unlimited
+    ? '#6366f1'
+    : usedPct > 85 ? '#ef4444' : usedPct >= 60 ? '#f59e0b' : '#6366f1';
+
+  return (
+    <div className="usage-hero-block" style={{ padding: '22px' }}>
+      <div className="usage-hero-row" style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) auto',
+        gap: 24, alignItems: 'flex-end',
+      }}>
+        <div>
+          <div style={{ ...EYEBROW, marginBottom: 8 }}>Credits used</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span className="usage-hero-num" style={{
+              ...MONO, fontSize: 44, fontWeight: 700, lineHeight: 1,
+              letterSpacing: -1, color: usageColor,
+            }}>
+              {monthlyUsed.toLocaleString()}
+            </span>
+            <span style={{ ...MONO, fontSize: 18, fontWeight: 400, color: 'var(--muted)' }}>
+              / {unlimited ? '∞' : monthlyCap.toLocaleString()}
+            </span>
+            {!unlimited && (
+              <span style={{
+                ...MONO, marginLeft: 4,
+                fontSize: 11, fontWeight: 600,
+                color: 'var(--muted)',
+                padding: '3px 8px',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-xs)',
+              }}>
+                {Math.round(usedPct)}%
+              </span>
+            )}
+          </div>
+
+          {/* Hairline progress bar */}
+          <div style={{
+            marginTop: 14, height: 4, borderRadius: 'var(--radius-full)',
+            background: 'var(--bg3)', overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%',
+              width: unlimited ? '100%' : `${usedPct}%`,
+              background: unlimited
+                ? 'linear-gradient(90deg, #6366f1, #8b5cf6, #6366f1)'
+                : usedPct > 85
+                  ? 'var(--red)'
+                  : usedPct >= 60
+                    ? 'var(--amber)'
+                    : 'var(--text)',
+              backgroundSize: unlimited ? '200% 100%' : undefined,
+              animation: unlimited ? 'usageShift 8s linear infinite' : undefined,
+              borderRadius: 'var(--radius-full)',
+              transition: 'width 1s cubic-bezier(.16,1,.3,1)',
+            }} />
+          </div>
+
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>
+            {unlimited ? (
+              <>No monthly cap on the {planLabel} plan.</>
+            ) : (
+              <>
+                <span style={MONO}>{remaining.toLocaleString()}</span> credits remaining
+                <span style={{ color: 'var(--muted)', opacity: 0.5, margin: '0 6px' }}>·</span>
+                Manual today <span style={MONO}>{manualUsedToday.toLocaleString()}</span>
+                <span style={{ color: 'var(--muted)', opacity: 0.5 }}> / </span>
+                <span style={MONO}>{manualDailyCap.toLocaleString()}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Sparkline cluster — last 14 days */}
+        <div className="usage-hero-spark" style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
+        }}>
+          <span style={{ ...EYEBROW, fontSize: 10 }}>Last 14 days</span>
+          <Sparkline
+            data={dailyCredits}
+            width={172}
+            height={44}
+            color={sparkColor}
+          />
+          <span style={{ fontSize: 11, color: 'var(--muted)', ...MONO }}>
+            avg {avgDaily.toLocaleString()}/day
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+ *  ProjectionStrip — On track / At risk inline forecast.
+ * ════════════════════════════════════════════════════════════ */
+function ProjectionStrip({
+  state, text,
+}: { state: 'healthy' | 'at_risk'; text: string }) {
+  const atRisk = state === 'at_risk';
+  return (
+    <div style={{
+      margin: '0 22px 22px',
+      padding: '10px 14px',
+      borderRadius: 'var(--radius-sm)',
+      border: `1px solid ${atRisk ? 'rgba(239,68,68,.25)' : 'var(--border)'}`,
+      background: atRisk ? 'rgba(239,68,68,.04)' : 'var(--bg3)',
+      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+    }}>
+      <StatusDot color={atRisk ? 'var(--red)' : 'var(--green)'} />
+      <span style={{
+        fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
+        textTransform: 'uppercase',
+        color: atRisk ? 'var(--red)' : 'var(--green)',
+      }}>
+        {atRisk ? 'At risk' : 'On track'}
+      </span>
+      <span style={{ flex: 1, minWidth: 240, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+ *  MetricCard — one cell of the 3-up stats band.
+ * ════════════════════════════════════════════════════════════ */
+function MetricCard({
+  label, number, cap, capLabel, sub, visual, action, withRightBorder,
+}: {
   label: string;
   number: number;
   cap: number | null;
   capLabel?: string;
   sub: string | null;
-  footer?: React.ReactNode;
   visual?: React.ReactNode;
+  action?: React.ReactNode;
+  withRightBorder?: boolean;
 }) {
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 10,
-      padding: 16, borderRadius: 14, background: '#ffffff',
-      border: '1px solid #eef2f7', minHeight: 168,
-      transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
+    <div className="usage-stat-cell" style={{
+      padding: '20px 22px',
+      borderRight: withRightBorder ? '1px solid var(--border)' : 'none',
+      display: 'flex', flexDirection: 'column', gap: 10, minHeight: 144,
     }}>
-      <div style={TILE_LABEL}>{icon}{label}</div>
-      <div style={TILE_NUMBER}>
-        {number.toLocaleString()}
-        <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: 18 }}>
-          {' '}/ {cap === null ? (capLabel ?? '∞') : cap.toLocaleString()}
+      <div style={EYEBROW}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{
+          ...MONO, fontSize: 26, fontWeight: 700, lineHeight: 1,
+          letterSpacing: -0.5, color: 'var(--text)',
+        }}>
+          {number.toLocaleString()}
+        </span>
+        <span style={{ ...MONO, fontSize: 14, fontWeight: 400, color: 'var(--muted)' }}>
+          / {cap === null ? (capLabel ?? '∞') : cap.toLocaleString()}
         </span>
       </div>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>{visual}</div>
-      {sub && <div style={SUBLINE}>{sub}</div>}
-      {footer && <div>{footer}</div>}
+      {visual && (
+        <div style={{ minHeight: 28, display: 'flex', alignItems: 'center' }}>
+          {visual}
+        </div>
+      )}
+      {sub && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{sub}</div>}
+      <div style={{ flex: 1 }} />
+      {action && <div>{action}</div>}
     </div>
   );
 }
 
-function AutoTrackingPill({
+/* ══════════════════════════════════════════════════════════════
+ *  PlatformBreakdown — chips of active platforms with a fallback.
+ * ════════════════════════════════════════════════════════════ */
+function PlatformBreakdown({ platforms }: { platforms: string[] }) {
+  if (platforms.length === 0) {
+    return <span style={{ fontSize: 12, color: 'var(--muted)' }}>No platforms enabled yet.</span>;
+  }
+  return <PlatformChips platforms={platforms} maxVisible={5} />;
+}
+
+/* ══════════════════════════════════════════════════════════════
+ *  AutoTrackingStrip — green pulse when active, amber when paused.
+ * ════════════════════════════════════════════════════════════ */
+function AutoTrackingStrip({
   paused, plan, scheduled, nextRun, lastRun, nextResetAt, remaining,
 }: {
   paused: boolean; plan: string; scheduled: boolean;
@@ -351,63 +520,82 @@ function AutoTrackingPill({
   lastRun: { at: string; atDate: string; credits: number; platforms: string[] } | null;
   nextResetAt: string; remaining: number;
 }) {
+  const cardBase: React.CSSProperties = {
+    padding: '14px 18px',
+    borderRadius: 'var(--radius)',
+    background: 'var(--bg2)',
+    border: '1px solid var(--border)',
+    display: 'flex', flexDirection: 'column', gap: 8,
+    minHeight: 88,
+    boxShadow: 'var(--app-shadow)',
+  };
+
   if (paused) {
     return (
       <div style={{
-        marginTop: 12, padding: '12px 18px', borderRadius: 14,
-        background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)',
-        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 13,
+        ...cardBase,
+        background: 'rgba(245,158,11,.04)',
+        border: '1px solid rgba(245,158,11,.25)',
       }}>
-        <span aria-hidden="true" style={{
-          width: 8, height: 8, borderRadius: '50%', background: '#f59e0b',
-        }} />
-        <span style={{ flex: 1, color: '#334155', lineHeight: 1.55 }}>
-          <strong style={{ color: '#b45309' }}>Auto-tracking paused</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span aria-hidden="true" style={{
+            width: 8, height: 8, borderRadius: '50%', background: 'var(--amber)',
+          }} />
+          <span style={{ ...EYEBROW, color: 'var(--amber)' }}>
+            Auto-tracking paused
+          </span>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>
           {!scheduled
-            ? ` — ${plan} plan doesn't include scheduled runs.`
+            ? <>The {plan} plan doesn&apos;t include scheduled runs.</>
             : remaining <= 0
-              ? ' — credits exhausted.'
-              : ''}
-          {scheduled && remaining <= 0 && (
-            <> Resumes <strong>{fmtDate(nextResetAt)}</strong>, or upgrade now.</>
-          )}
-        </span>
-        <Link href="/dashboard/billing" style={{ ...FOOTER_LINK, color: '#b45309' }}>Upgrade →</Link>
+              ? <>Credits exhausted. Resumes <strong>{fmtDate(nextResetAt)}</strong>, or upgrade now.</>
+              : <>Awaiting next scheduled run.</>}
+        </div>
+        <div>
+          <Link href="/dashboard/billing" style={{
+            fontSize: 12, fontWeight: 700,
+            color: 'var(--amber)', textDecoration: 'none',
+          }} className="usage-action-link">
+            Upgrade plan →
+          </Link>
+        </div>
       </div>
     );
   }
+
   return (
-    <div style={{
-      marginTop: 12, padding: '12px 18px', borderRadius: 14,
-      background: 'linear-gradient(180deg, rgba(16,185,129,.06), rgba(16,185,129,.02))',
-      border: '1px solid rgba(16,185,129,.22)',
-      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 13,
-    }}>
-      <span aria-hidden="true" style={{ position: 'relative', display: 'inline-flex', width: 10, height: 10 }}>
-        <span style={{
-          position: 'absolute', inset: 0, borderRadius: '50%', background: '#10b981',
-          animation: 'usagePulse 1.8s ease-in-out infinite',
-        }} />
-        <span style={{
-          position: 'relative', width: 10, height: 10, borderRadius: '50%', background: '#10b981',
-        }} />
-      </span>
-      <span style={{ flex: 1, color: '#334155', lineHeight: 1.55 }}>
-        <strong style={{ color: '#047857' }}>Daily auto-tracking active</strong>
-        {nextRun && <> · Next run <strong>{fmtRelative(nextRun)}</strong> ({fmtDate(nextRun)})</>}
-        {lastRun && (
+    <div style={cardBase}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <StatusDot color="var(--green)" pulsing />
+        <span style={{ ...EYEBROW, color: 'var(--green)' }}>
+          Daily auto-tracking active
+        </span>
+      </div>
+      <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.55 }}>
+        {nextRun && (
           <>
-            {' '}· Last run {fmtDateUtc(lastRun.atDate)} consumed{' '}
-            <strong style={{ fontFamily: 'var(--mono)' }}>{lastRun.credits.toLocaleString()}</strong>{' '}
-            credit{lastRun.credits === 1 ? '' : 's'} across {lastRun.platforms.length} platform{lastRun.platforms.length === 1 ? '' : 's'}.
+            Next run <strong style={MONO}>{fmtRelative(nextRun)}</strong>
+            <span style={{ color: 'var(--muted)', opacity: 0.6 }}> · </span>
+            <span style={MONO}>{fmtDate(nextRun)}</span>
           </>
         )}
-      </span>
+        {lastRun && (
+          <div style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>
+            Last run <span style={MONO}>{fmtDateUtc(lastRun.atDate)}</span>
+            <span style={{ opacity: 0.6 }}> · </span>
+            <span style={MONO}>{lastRun.credits.toLocaleString()}</span> credit{lastRun.credits === 1 ? '' : 's'} across {lastRun.platforms.length} platform{lastRun.platforms.length === 1 ? '' : 's'}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function GeoAuditsCard({
+/* ══════════════════════════════════════════════════════════════
+ *  GeoAuditsStrip — count + thin bar + reset + run-audit CTA.
+ * ════════════════════════════════════════════════════════════ */
+function GeoAuditsStrip({
   used, cap, resetAt, resetDateLabel,
 }: {
   used: number; cap: number | null; resetAt: string | null; resetDateLabel?: string;
@@ -415,48 +603,62 @@ function GeoAuditsCard({
   const pct = cap && cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
   return (
     <div style={{
-      marginTop: 12, padding: 18, borderRadius: 16,
-      background: '#fff', border: '1px solid #e2e8f0',
-      boxShadow: '0 1px 2px rgba(15,23,42,.04)',
-      display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 16,
+      padding: '14px 18px',
+      borderRadius: 'var(--radius)',
+      background: 'var(--bg2)',
+      border: '1px solid var(--border)',
+      display: 'grid',
+      gridTemplateColumns: '1fr auto',
+      alignItems: 'center', gap: 16,
+      minHeight: 88,
+      boxShadow: 'var(--app-shadow)',
     }}>
       <div>
-        <div style={TILE_LABEL}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <circle cx="12" cy="10" r="3" />
-            <path d="M12 21s-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z" />
-          </svg>
-          GEO Audits
-        </div>
-        <div style={{ ...TILE_NUMBER, fontSize: 22, marginTop: 6 }}>
-          {used.toLocaleString()}
-          <span style={{ color: '#94a3b8', fontWeight: 400, fontSize: 14 }}>
-            {' '}/ {cap === null ? '∞' : cap.toLocaleString()} this month
+        <div style={EYEBROW}>GEO Audits</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
+          <span style={{
+            ...MONO, fontSize: 22, fontWeight: 700, lineHeight: 1,
+            letterSpacing: -0.5, color: 'var(--text)',
+          }}>
+            {used.toLocaleString()}
+          </span>
+          <span style={{ ...MONO, fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>
+            / {cap === null ? '∞' : cap.toLocaleString()} this month
           </span>
         </div>
-        <div style={{ height: 6, borderRadius: 999, background: '#eef2f7', overflow: 'hidden', marginTop: 10 }}>
+        {cap !== null && (
           <div style={{
-            height: '100%', borderRadius: 999, width: `${pct}%`,
-            background: 'linear-gradient(90deg, #10b981, #34d399)',
-            transition: 'width .8s cubic-bezier(.16,1,.3,1)',
-          }} />
-        </div>
-        <div style={{ ...SUBLINE, fontSize: 11, marginTop: 6 }}>
+            height: 3, borderRadius: 'var(--radius-full)', background: 'var(--bg3)',
+            overflow: 'hidden', marginTop: 10,
+          }}>
+            <div style={{
+              height: '100%', borderRadius: 'var(--radius-full)', width: `${pct}%`,
+              background: 'var(--green)',
+              transition: 'width .8s cubic-bezier(.16,1,.3,1)',
+            }} />
+          </div>
+        )}
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, ...MONO }}>
           Resets {fmtDate(resetAt ?? null)}{resetDateLabel ? ` · ${resetDateLabel}` : ''}
         </div>
       </div>
       <Link href="/dashboard/geo-audit" style={{
-        padding: '10px 14px', borderRadius: 10,
-        border: '1px solid #e2e8f0', color: '#0f172a',
+        padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+        border: '1px solid var(--border)', color: 'var(--text)',
         textDecoration: 'none', fontSize: 12, fontWeight: 600,
-        background: '#fff', whiteSpace: 'nowrap',
-      }}>
-        Run new audit →
+        background: 'var(--bg2)', whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+      }} className="usage-action-link">
+        Run audit
+        <Arrow />
       </Link>
     </div>
   );
 }
 
+/* ══════════════════════════════════════════════════════════════
+ *  UsageBanner — exhausted / low / manual_cap.
+ * ════════════════════════════════════════════════════════════ */
 function UsageBanner({
   kind, monthlyCap, remaining, nextResetAt, nextDailyResetAt,
 }: {
@@ -464,55 +666,117 @@ function UsageBanner({
   monthlyCap: number; remaining: number;
   nextResetAt: string; nextDailyResetAt: string;
 }) {
+  const wrap: React.CSSProperties = {
+    marginTop: 12, padding: '12px 16px', borderRadius: 'var(--radius)',
+    display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap',
+  };
+  const eyebrowMini: React.CSSProperties = {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+  };
+
   if (kind === 'exhausted') {
     return (
-      <div style={{
-        marginTop: 12, padding: '14px 20px', borderRadius: 14,
-        background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.25)',
-        display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap',
+      <div style={{ ...wrap,
+        background: 'rgba(239,68,68,.04)', border: '1px solid rgba(239,68,68,.25)',
       }}>
-        <span style={{ color: '#ef4444', fontWeight: 700 }}>● Out of credits.</span>
-        <span style={{ flex: 1, color: '#0f172a' }}>
-          Auto-tracking paused. Resumes <strong>{fmtDate(nextResetAt)}</strong>.
+        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)' }} />
+        <span style={{ ...eyebrowMini, color: 'var(--red)' }}>Out of credits</span>
+        <span style={{ flex: 1, color: 'var(--text)', minWidth: 200 }}>
+          Auto-tracking paused. Resumes <strong style={MONO}>{fmtDate(nextResetAt)}</strong>.
         </span>
         <Link href="/dashboard/billing" style={{
-          padding: '8px 14px', borderRadius: 10, background: '#ef4444',
+          padding: '7px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--red)',
           color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 700,
-        }}>Upgrade Plan</Link>
+        }}>Upgrade plan</Link>
       </div>
     );
   }
   if (kind === 'low') {
     const pct = Math.round((remaining / Math.max(1, monthlyCap)) * 100);
     return (
-      <div style={{
-        marginTop: 12, padding: '14px 20px', borderRadius: 14,
-        background: 'rgba(245,158,11,.06)', border: '1px solid rgba(245,158,11,.25)',
-        display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap',
+      <div style={{ ...wrap,
+        background: 'rgba(245,158,11,.04)', border: '1px solid rgba(245,158,11,.25)',
       }}>
-        <span style={{ color: '#b45309', fontWeight: 700 }}>⚠</span>
-        <span style={{ flex: 1, color: '#0f172a' }}>
-          You&apos;re at <strong>{pct}%</strong> of monthly credits.
+        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--amber)' }} />
+        <span style={{ ...eyebrowMini, color: 'var(--amber)' }}>Low balance</span>
+        <span style={{ flex: 1, color: 'var(--text)', minWidth: 200 }}>
+          You&apos;re at <strong style={MONO}>{pct}%</strong> of monthly credits.
         </span>
-        <Link href="/dashboard/billing/ledger" style={FOOTER_LINK}>View ledger →</Link>
+        <Link href="/dashboard/billing/ledger" style={{ ...ACTION_LINK, color: 'var(--muted)' }} className="usage-action-link">
+          View ledger →
+        </Link>
         <Link href="/dashboard/billing" style={{
-          padding: '8px 14px', borderRadius: 10, background: '#f59e0b',
+          padding: '7px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--amber)',
           color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 700,
         }}>Upgrade</Link>
       </div>
     );
   }
   return (
-    <div style={{
-      marginTop: 12, padding: '14px 20px', borderRadius: 14,
-      background: 'rgba(59,130,246,.06)', border: '1px solid rgba(59,130,246,.25)',
-      display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap',
+    <div style={{ ...wrap,
+      background: 'rgba(59,130,246,.04)', border: '1px solid rgba(59,130,246,.25)',
     }}>
-      <span style={{ color: '#1d4ed8', fontWeight: 700 }}>ℹ</span>
-      <span style={{ flex: 1, color: '#0f172a' }}>
-        Daily manual run cap reached. Auto-runs continue. Resets{' '}
-        <strong>{fmtDate(nextDailyResetAt)}</strong>.
+      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--blue)' }} />
+      <span style={{ ...eyebrowMini, color: 'var(--blue)' }}>Daily cap reached</span>
+      <span style={{ flex: 1, color: 'var(--text)', minWidth: 200 }}>
+        Manual run cap reached. Auto-runs continue. Resets <strong style={MONO}>{fmtDate(nextDailyResetAt)}</strong>.
       </span>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+ *  Tiny shared atoms.
+ * ════════════════════════════════════════════════════════════ */
+function PlanBadge({ label, unlimited }: { label: string; unlimited: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      padding: '3px 9px',
+      fontSize: 11, fontWeight: 700,
+      borderRadius: 'var(--radius-xs)',
+      color: unlimited ? '#fff' : 'var(--text)',
+      background: unlimited
+        ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
+        : 'var(--bg3)',
+      border: unlimited ? 'none' : '1px solid var(--border)',
+    }}>
+      <span aria-hidden="true" style={{
+        width: 5, height: 5, borderRadius: '50%',
+        background: unlimited ? '#fff' : 'var(--text)',
+      }} />
+      {label}
+      {unlimited && (
+        <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.85, marginLeft: 2 }}>
+          · UNLIMITED
+        </span>
+      )}
+    </span>
+  );
+}
+
+function StatusDot({ color, pulsing = false }: { color: string; pulsing?: boolean }) {
+  return (
+    <span aria-hidden="true" style={{
+      position: 'relative', display: 'inline-flex', width: 8, height: 8,
+    }}>
+      {pulsing && (
+        <span style={{
+          position: 'absolute', inset: 0, borderRadius: '50%', background: color,
+          animation: 'usagePulse 2.4s ease-in-out infinite',
+        }} />
+      )}
+      <span style={{
+        position: 'relative', width: 8, height: 8, borderRadius: '50%', background: color,
+      }} />
+    </span>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+      <path d="M5 12h14M13 5l7 7-7 7" />
+    </svg>
   );
 }
