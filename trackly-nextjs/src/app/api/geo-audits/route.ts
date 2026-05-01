@@ -50,40 +50,55 @@ export async function GET(request: Request): Promise<Response> {
   if (auth instanceof Response) return auth;
   const user = auth;
 
-  await ensureGeoAuditsSchema();
+  try {
+    await ensureGeoAuditsSchema();
 
-  const res = await pool.query(
-    `SELECT id, brand_id, regions, prompts_count, status, mentions_count,
-            total_expected, received, error, created_at, started_at, completed_at
-       FROM geo_audits
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT 100`,
-    [user.id],
-  );
+    const res = await pool.query(
+      `SELECT id, brand_id, regions, prompts_count, status, mentions_count,
+              total_expected, received, error, created_at, started_at, completed_at
+         FROM geo_audits
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100`,
+      [user.id],
+    );
 
-  const audits: GeoAuditListItem[] = (res.rows as Array<{
-    id: string; brand_id: string; regions: string[]; prompts_count: number;
-    status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
-    mentions_count: number; total_expected: number; received: number;
-    error: string | null;
-    created_at: Date | string; started_at: Date | string | null; completed_at: Date | string | null;
-  }>).map((r) => ({
-    id: r.id,
-    brandId: r.brand_id,
-    regions: r.regions,
-    promptsCount: r.prompts_count,
-    status: r.status,
-    mentionsCount: r.mentions_count,
-    totalExpected: r.total_expected,
-    received: r.received,
-    error: r.error,
-    createdAt: typeof r.created_at === 'string' ? r.created_at : r.created_at.toISOString(),
-    startedAt: r.started_at == null ? null : (typeof r.started_at === 'string' ? r.started_at : r.started_at.toISOString()),
-    completedAt: r.completed_at == null ? null : (typeof r.completed_at === 'string' ? r.completed_at : r.completed_at.toISOString()),
-  }));
+    const audits: GeoAuditListItem[] = (res.rows as Array<{
+      id: string; brand_id: string; regions: string[]; prompts_count: number;
+      status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+      mentions_count: number; total_expected: number; received: number;
+      error: string | null;
+      created_at: Date | string; started_at: Date | string | null; completed_at: Date | string | null;
+    }>).map((r) => ({
+      id: r.id,
+      brandId: r.brand_id,
+      regions: r.regions,
+      promptsCount: r.prompts_count,
+      status: r.status,
+      mentionsCount: r.mentions_count,
+      totalExpected: r.total_expected,
+      received: r.received,
+      error: r.error,
+      createdAt: typeof r.created_at === 'string' ? r.created_at : r.created_at.toISOString(),
+      startedAt: r.started_at == null ? null : (typeof r.started_at === 'string' ? r.started_at : r.started_at.toISOString()),
+      completedAt: r.completed_at == null ? null : (typeof r.completed_at === 'string' ? r.completed_at : r.completed_at.toISOString()),
+    }));
 
-  return Response.json({ audits }, { headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ audits }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    // Without this catch, schema-bootstrap or DB errors propagate as
+    // an empty-body 500 from Next.js (no JSON, no error message).
+    // That's exactly the symptom that hid the brand_id UUID/TEXT FK
+    // type-mismatch in production until users hit the route.
+    logger.error('geo_audits.list_failed', {
+      err: (e as Error).message,
+      userId: user.id,
+    });
+    return Response.json(
+      { error: 'Failed to load audits', message: (e as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 interface PostBody {

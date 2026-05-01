@@ -104,8 +104,8 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS geo_audits (
       id              UUID PRIMARY KEY,
-      user_id         UUID NOT NULL,
-      brand_id        UUID NOT NULL,
+      user_id         TEXT NOT NULL,
+      brand_id        TEXT NOT NULL,
       regions         TEXT[] NOT NULL,
       prompts         TEXT[] NOT NULL,
       prompts_count   INTEGER NOT NULL DEFAULT 0,
