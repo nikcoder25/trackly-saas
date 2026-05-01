@@ -8,9 +8,10 @@ import MentionRateSparkline from './MentionRateSparkline';
  * 768px via the `is-mobile` class toggle from the parent media-query).
  *
  * Columns:
- *   checkbox | region · date | run (Px·R × 5) | mentions (X/Y + %) | 4-week trend | status pill
+ *   region · date | run (Px·R × 5) | mentions (X/Y + %) | 4-week trend | status pill
  *
- * Click anywhere except the checkbox → router.push to drill-down.
+ * Click any row → router.push to drill-down. (Selection / compare
+ * was removed in the cleanup PR — no checkboxes, no compare flow.)
  */
 
 export type DerivedStatus =
@@ -39,9 +40,8 @@ export interface AuditTableRow {
 
 interface Props {
   rows: AuditTableRow[];
-  selectedIds: Set<string>;
-  onToggleSelect: (id: string) => void;
-  /** Fired when the user clicks the row body (NOT the checkbox). */
+  /** Fired when the user clicks a row. Defaults to a router.push to
+   *  the drill-down at /dashboard/geo-audits/[id] when omitted. */
   onRowClick?: (id: string) => void;
 }
 
@@ -79,8 +79,6 @@ function formatRowDate(iso: string): string {
 
 export default function AuditsListTable({
   rows,
-  selectedIds,
-  onToggleSelect,
   onRowClick,
 }: Props) {
   const router = useRouter();
@@ -98,7 +96,7 @@ export default function AuditsListTable({
         role="row"
         style={{
           display: 'grid',
-          gridTemplateColumns: '40px 1fr 100px 130px 90px 110px',
+          gridTemplateColumns: '1fr 100px 130px 90px 110px',
           alignItems: 'center',
           gap: 8,
           padding: '10px 14px',
@@ -109,7 +107,6 @@ export default function AuditsListTable({
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <span aria-hidden="true" />
         <span>Region · date</span>
         <span>Run</span>
         <span>Mentions</span>
@@ -119,7 +116,6 @@ export default function AuditsListTable({
 
       <div role="rowgroup">
         {rows.map((row) => {
-          const checked = selectedIds.has(row.id);
           const failedCalls = Math.max(0, row.totalExpected - row.received);
           // Approximate prompts-failed from call-level data: each
           // prompt fans out to 5 platforms, so ceil(failed_calls / 5)
@@ -138,12 +134,7 @@ export default function AuditsListTable({
               key={row.id}
               className="ral-row"
               role="row"
-              onClick={(e) => {
-                // Don't navigate when the user clicks the checkbox cell.
-                const t = e.target as HTMLElement;
-                if (t.closest('[data-rowclick-ignore]')) return;
-                handleRowClick(row.id);
-              }}
+              onClick={() => handleRowClick(row.id)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -153,7 +144,7 @@ export default function AuditsListTable({
               tabIndex={0}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '40px 1fr 100px 130px 90px 110px',
+                gridTemplateColumns: '1fr 100px 130px 90px 110px',
                 alignItems: 'center',
                 gap: 8,
                 padding: '14px',
@@ -162,21 +153,6 @@ export default function AuditsListTable({
                 fontSize: 13,
               }}
             >
-              {/* checkbox */}
-              <div
-                data-rowclick-ignore
-                onClick={(e) => e.stopPropagation()}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggleSelect(row.id)}
-                  aria-label={`Select audit ${row.regions.join(' · ')}`}
-                  style={{ width: 16, height: 16, cursor: 'pointer' }}
-                />
-              </div>
-
               {/* Region · date (with optional sub-text) */}
               <div className="ral-cell-region" style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -240,17 +216,16 @@ export default function AuditsListTable({
         @media (max-width: 767px) {
           .ral-thead { display: none !important; }
           .ral-row {
-            grid-template-columns: 24px 1fr !important;
+            grid-template-columns: 1fr !important;
             grid-template-areas:
-              'check region'
-              'check run'
-              'check mentions'
-              'check trend'
-              'check status' !important;
+              'region'
+              'run'
+              'mentions'
+              'trend'
+              'status' !important;
             row-gap: 6px !important;
             padding: 14px 12px !important;
           }
-          .ral-row > :nth-child(1) { grid-area: check; }
           .ral-row > .ral-cell-region   { grid-area: region; }
           .ral-row > .ral-cell-run      { grid-area: run; }
           .ral-row > .ral-cell-mentions { grid-area: mentions; }

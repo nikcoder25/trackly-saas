@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-
 /**
  * Filter pill row for the Regional Audits list:
- *   Region: <All | …>   Last <7|30|90> days / All time   Status: <All|…>   Schedule: Any (disabled)
+ *   Region: <All | …>   Last <7|30|90> days / All time   Status: <All|…>
  * + search box on the right.
  *
  * The Region/Status pills open a native <select>-style dropdown on
- * click. Schedule is rendered disabled with a tooltip ("Coming soon").
+ * click. (The Schedule pill placeholder was removed in the cleanup
+ * PR — bring it back when scheduled audits actually ship.)
  *
  * NO mock data — region options are fed in by the parent from the
  * actually-loaded audits list, so users only see regions they have
@@ -87,8 +86,6 @@ export default function AuditFilterPills(props: Props) {
         options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))}
         onChange={(next) => props.onStatusChange(next as StatusFilter)}
       />
-
-      <DisabledPill label="Schedule: Any" tooltip="Coming soon" />
 
       <div style={{ flex: 1, minWidth: 180 }} />
 
@@ -181,58 +178,3 @@ function CyclePill({
   );
 }
 
-function DisabledPill({ label, tooltip }: { label: string; tooltip: string }) {
-  // Stateful for tooltip positioning when JS-based tooltips are
-  // requested. Using the native title attribute as a baseline so the
-  // hint still shows for keyboard / screen-reader users.
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    function close(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) {
-      document.addEventListener('mousedown', close);
-      return () => document.removeEventListener('mousedown', close);
-    }
-  }, [open]);
-
-  return (
-    <span
-      ref={ref}
-      role="button"
-      tabIndex={0}
-      aria-disabled="true"
-      title={tooltip}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      style={{
-        position: 'relative',
-        padding: '6px 12px',
-        background: 'var(--bg3, var(--bg))',
-        border: '1px dashed var(--border)',
-        borderRadius: 'var(--radius-full)',
-        fontSize: 12, fontWeight: 600,
-        color: 'var(--muted)',
-        cursor: 'not-allowed', whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-      {open && (
-        <span
-          role="tooltip"
-          style={{
-            position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '4px 8px', borderRadius: 4,
-            background: '#161614', color: '#fff',
-            fontSize: 11, fontWeight: 500, whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-          }}
-        >
-          {tooltip}
-        </span>
-      )}
-    </span>
-  );
-}
