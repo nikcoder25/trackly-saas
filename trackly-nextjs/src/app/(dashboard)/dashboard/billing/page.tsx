@@ -243,7 +243,7 @@ export default function BillingPage() {
           amountUsd={monthlyPriceUsd}
           noChargeReason={noChargeReason}
         />
-        <UsageAlertsCard email={user?.email ?? null} />
+        <UsageAlertsCard />
       </div>
 
       {!isOwner && (
