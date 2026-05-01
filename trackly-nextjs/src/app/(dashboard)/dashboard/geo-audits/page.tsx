@@ -3,6 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { COUNTRIES } from '@/lib/constants';
 import { useBrands } from '@/contexts/BrandContext';
+import AuditCreditConfirmModal, {
+  AUDIT_PER_UNIT_COST,
+  AUDIT_PLATFORMS_COUNT,
+} from '@/components/dashboard/geo-audits/AuditCreditConfirmModal';
 
 const MAX_REGIONS_PER_AUDIT = 5;
 const POLL_INTERVAL_MS = 5_000;
@@ -89,6 +93,11 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
   const [promptCount, setPromptCount] = useState<number>(trackedPrompts.length);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Two-stage submit: the user fills in regions/prompts, presses
+  // "Run audit", we open the credit-confirmation modal with the
+  // computed cost. POST only fires after Confirm & Run.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<{ prompts: string[] } | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
@@ -124,7 +133,7 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
     setExtraRegions(extraRegions.filter((_, i) => i !== idx));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
     setError(null);
@@ -140,14 +149,27 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
       ? trackedPrompts.length
       : Math.max(1, Math.min(trackedPrompts.length, promptCount));
     const prompts = trackedPrompts.slice(0, count);
+    // Stage the payload, open the credit-confirmation popup. The
+    // actual POST fires from `handleConfirmedSubmit` only after the
+    // user clicks "Confirm & Run".
+    setPendingPayload({ prompts });
+    setConfirmOpen(true);
+  }
 
+  async function handleConfirmedSubmit() {
+    if (!pendingPayload || submitting) return;
+    setConfirmOpen(false);
     setSubmitting(true);
     try {
       const res = await fetch('/api/geo-audits', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brandId, regions: allRegions, prompts }),
+        body: JSON.stringify({
+          brandId,
+          regions: allRegions,
+          prompts: pendingPayload.prompts,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -157,6 +179,7 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
           `Failed (HTTP ${res.status})`;
         setError(msg);
         setSubmitting(false);
+        setPendingPayload(null);
         return;
       }
       onCreated();
@@ -164,6 +187,7 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
     } catch (err) {
       setError((err as Error).message || 'Network error');
       setSubmitting(false);
+      setPendingPayload(null);
     }
   }
 
@@ -266,6 +290,22 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
           </div>
         </form>
       </div>
+
+      {confirmOpen && pendingPayload && (
+        <AuditCreditConfirmModal
+          regionsCount={allRegions.length}
+          promptsCount={pendingPayload.prompts.length}
+          perUnitCost={AUDIT_PER_UNIT_COST}
+          platformsCount={AUDIT_PLATFORMS_COUNT}
+          onCancel={() => {
+            // Cancel from credit modal: keep the config modal open
+            // so the user can adjust regions/prompts and re-submit.
+            setConfirmOpen(false);
+            setPendingPayload(null);
+          }}
+          onConfirm={handleConfirmedSubmit}
+        />
+      )}
     </div>
   );
 }
