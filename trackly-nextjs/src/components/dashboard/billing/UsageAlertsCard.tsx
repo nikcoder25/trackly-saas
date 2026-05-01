@@ -6,15 +6,10 @@ const SURFACE = '#ffffff';
 const SURFACE_BORDER = '#ececec';
 const SURFACE_RADIUS = 14;
 const TEXT_PRIMARY = '#161614';
-const TEXT_SECONDARY = '#6b6b6b';
 const TEXT_MUTED = '#9a9a9a';
 const HAIRLINE = '#f1f1ef';
 const TOGGLE_OFF = '#d4d4d4';
 const TOGGLE_ON = '#161614';
-
-interface UsageAlertsCardProps {
-  email: string | null;
-}
 
 interface AlertPrefs {
   notify80: boolean;
@@ -45,7 +40,7 @@ function readPrefs(): AlertPrefs {
   }
 }
 
-export default function UsageAlertsCard({ email }: UsageAlertsCardProps) {
+export default function UsageAlertsCard() {
   // Hydrate from localStorage post-mount so SSR markup matches the
   // default state and the toggles flip on first render only.
   const [prefs, setPrefs] = useState<AlertPrefs>(DEFAULT_PREFS);
@@ -91,18 +86,6 @@ export default function UsageAlertsCard({ email }: UsageAlertsCardProps) {
         <span style={{ fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY }}>
           Usage alerts
         </span>
-        {email && (
-          <span
-            style={{
-              fontSize: 12,
-              color: TEXT_SECONDARY,
-              wordBreak: 'break-all',
-              maxWidth: '100%',
-            }}
-          >
-            {email}
-          </span>
-        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -136,7 +119,7 @@ export default function UsageAlertsCard({ email }: UsageAlertsCardProps) {
           lineHeight: 1.5,
         }}
       >
-        Saved locally — server sync coming soon.
+        Notifications appear in the header bell when thresholds are crossed.
       </div>
     </div>
   );

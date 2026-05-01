@@ -17,7 +17,7 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showAddBrand, setShowAddBrand] = useState(false);
   const [showLimitPrompt, setShowLimitPrompt] = useState(false);
-  const { notifications, unreadCount } = useNotifications();
+  const { notifications, unreadCount, markRead } = useNotifications();
   const notifRef = useRef<HTMLDivElement>(null);
   const limitRef = useRef<HTMLDivElement>(null);
 
@@ -166,12 +166,42 @@ export default function Topbar({ onMenuToggle }: { onMenuToggle: () => void }) {
                 <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No new notifications.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
-                  {notifications.slice(0, 10).map(n => (
-                    <div key={n.id} style={{ fontSize: 12, color: n.read ? 'var(--muted)' : 'var(--text)', padding: '8px 0', borderBottom: '1px solid var(--border)', fontWeight: n.read ? 400 : 600 }}>
-                      <div>{n.message}</div>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>{new Date(n.created_at).toLocaleString()}</div>
-                    </div>
-                  ))}
+                  {notifications.slice(0, 10).map(n => {
+                    const rowStyle: React.CSSProperties = {
+                      fontSize: 12,
+                      color: n.read ? 'var(--muted)' : 'var(--text)',
+                      padding: '8px 0',
+                      borderBottom: '1px solid var(--border)',
+                      fontWeight: n.read ? 400 : 600,
+                      textDecoration: 'none',
+                      display: 'block',
+                    };
+                    const inner = (
+                      <>
+                        <div>{n.message}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
+                          {new Date(n.created_at).toLocaleString()}
+                        </div>
+                      </>
+                    );
+                    if (n.href) {
+                      return (
+                        <Link
+                          key={n.id}
+                          href={n.href}
+                          style={rowStyle}
+                          onClick={() => { markRead(n.id); setShowNotifs(false); }}
+                        >
+                          {inner}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <div key={n.id} style={rowStyle} onClick={() => markRead(n.id)}>
+                        {inner}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
