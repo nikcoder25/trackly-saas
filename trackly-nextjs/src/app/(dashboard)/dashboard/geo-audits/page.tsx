@@ -168,7 +168,7 @@ function NewAuditModal({ brandId, brandName, trackedPrompts, onClose, onCreated 
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Run new geo audit"
+    <div role="dialog" aria-modal="true" aria-label="Run new regional audit"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000,
