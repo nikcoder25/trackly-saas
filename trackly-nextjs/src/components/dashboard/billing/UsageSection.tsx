@@ -15,6 +15,7 @@ import {
 } from './usage-state';
 import type { UsageBreakdown } from '@/app/api/credits/usage/route';
 import Sparkline from './usage/Sparkline';
+import DailyCreditChart from './DailyCreditChart';
 
 interface UsageSectionProps {
   numBrandsFromPage: number;
@@ -124,7 +125,9 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
     plan: status.plan,
   });
 
-  const dailyCredits = (usage?.dailyUsageLast14Days ?? []).map((p) => p.credits);
+  // Use the 30-day series; UsageSection's sparkline is decorative and
+  // size-agnostic, so a longer trail just adds resolution.
+  const dailyCredits = (usage?.dailyUsageLast30Days ?? usage?.dailyUsageLast14Days ?? []).map((p) => p.credits);
   const avgDaily = usage?.avgDailyCredits ?? 0;
   const projectedMonthEnd = usage?.projectedMonthEnd ?? status.monthlyUsed;
   const daysIntoMonth = usage?.daysIntoMonth ?? 0;
@@ -238,9 +241,7 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
     <section className="usage-redesign" style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* ── Header strip ─────────────────────────────────────── */}
       <HeaderStrip
-        planTitle={`${status.label} plan`}
         periodLabel={`${fmtRange(periodStart)} to ${fmtRange(periodEnd)}`}
-        daysRemaining={daysRemaining}
         manualRemaining={status.manualRemainingToday}
         manualCap={status.manualDailyCap}
         isUnlimited={isUnlimited}
@@ -275,6 +276,9 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
       }}>
         {cards.map((c) => <MetricCard key={c.label} {...c} />)}
       </div>
+
+      {/* ── Daily credit usage (30 days) ─────────────────────── */}
+      <DailyCreditChart series={usage?.dailyUsageLast30Days ?? []} />
 
       {/* ── Platform breakdown ───────────────────────────────── */}
       <PlatformBreakdownCard
@@ -337,9 +341,9 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
 // ────────────────────────────────────────────────────────────────────
 
 function HeaderStrip({
-  planTitle, periodLabel, daysRemaining, manualRemaining, manualCap, isUnlimited, modelTier,
+  periodLabel, manualRemaining, manualCap, isUnlimited, modelTier,
 }: {
-  planTitle: string; periodLabel: string; daysRemaining: number;
+  periodLabel: string;
   manualRemaining: number; manualCap: number;
   isUnlimited: boolean; modelTier: string;
 }) {
@@ -350,19 +354,13 @@ function HeaderStrip({
     }}>
       <div style={{ minWidth: 0 }}>
         <div style={{
-          fontSize: 13, color: TEXT_SECONDARY, fontWeight: 400,
-          marginBottom: 4, letterSpacing: 0.1,
-        }}>
-          Usage this period
-        </div>
-        <div style={{
           display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
         }}>
           <h2 style={{
-            fontSize: 28, fontWeight: 700, color: TEXT_PRIMARY,
-            margin: 0, letterSpacing: -0.4, lineHeight: 1.2,
+            fontSize: 18, fontWeight: 700, color: TEXT_PRIMARY,
+            margin: 0, letterSpacing: -0.2, lineHeight: 1.2,
           }}>
-            {planTitle}
+            Usage this period
           </h2>
           {isUnlimited && (
             <span style={{
@@ -387,10 +385,6 @@ function HeaderStrip({
           fontSize: 13, color: TEXT_SECONDARY, marginTop: 6, lineHeight: 1.55,
         }}>
           <span>{periodLabel}</span>
-          <span style={{ color: TEXT_MUTED, margin: '0 8px' }}>·</span>
-          <span>
-            <strong style={{ color: TEXT_BODY, fontWeight: 600 }}>{daysRemaining}</strong> days left
-          </span>
           {!isUnlimited && manualCap > 0 && (
             <>
               <span style={{ color: TEXT_MUTED, margin: '0 8px' }}>·</span>
@@ -404,24 +398,25 @@ function HeaderStrip({
           )}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-        <Link href="/dashboard/billing/ledger" style={{
-          ...secondaryBtnStyle,
-          color: TEXT_SECONDARY,
-          fontWeight: 500,
-        }}>
-          View ledger
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, flexWrap: 'wrap' }}>
+        <a href="#plan-comparison" style={headerLinkStyle}>
+          Top up credits
+        </a>
+        <Link href="/dashboard/billing/ledger" style={headerLinkStyle}>
+          View ledger →
         </Link>
-        <a href="#plan-comparison" style={secondaryBtnStyle}>
-          Manage plan
-        </a>
-        <a href="#plan-comparison" style={upgradeBtnStyle}>
-          Upgrade
-        </a>
       </div>
     </header>
   );
 }
+
+const headerLinkStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: '#4f46e5',
+  fontWeight: 600,
+  textDecoration: 'none',
+  whiteSpace: 'nowrap',
+};
 
 const secondaryBtnStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -672,10 +667,10 @@ function PlatformBreakdownCard({
           <div style={{
             fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 4,
           }}>
-            Prompts by AI platform
+            Credits by AI platform
           </div>
           <div style={{ fontSize: 12, color: TEXT_SECONDARY }}>
-            {usedLabel} of {capLabel} AI credits used this period
+            {usedLabel} of {capLabel} credits used this period
           </div>
         </div>
         <div style={{ fontSize: 12, color: TEXT_MUTED }}>Last 30 days</div>

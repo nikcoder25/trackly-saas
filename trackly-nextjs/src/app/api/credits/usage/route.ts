@@ -45,6 +45,18 @@ export interface LastRunSummary {
 }
 
 export interface UsageBreakdown {
+  /**
+   * 30-day daily series. Powers the "Daily credit usage" bar chart on
+   * the billing page. Zero-filled to exactly 30 entries so the chart
+   * doesn't have to gap-fill in the browser.
+   */
+  dailyUsageLast30Days: DailyUsagePoint[];
+  /**
+   * @deprecated Kept for backwards compatibility with older clients
+   * that still read the 14-day series directly. New consumers should
+   * read `dailyUsageLast30Days` and slice as needed. This field is
+   * the trailing 14 entries of the 30-day series.
+   */
   dailyUsageLast14Days: DailyUsagePoint[];
   avgDailyCredits: number;
   projectedMonthEnd: number;
@@ -79,7 +91,7 @@ export async function GET(request: Request): Promise<Response> {
   const now = new Date();
   const monthStart = currentMonthStart(now);
   const monthEnd = nextMonthStart(now);
-  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgoDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
   // Run the independent reads in parallel — they don't depend on each
@@ -92,7 +104,7 @@ export async function GET(request: Request): Promise<Response> {
     brandsRes,
     geoAuditRes,
   ] = await Promise.all([
-    // 14-day series, grouped by UTC day. We zero-fill missing days
+    // 30-day series, grouped by UTC day. We zero-fill missing days
     // client-side so the SQL stays simple and the response is bounded.
     pool.query(
       `SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
@@ -102,7 +114,7 @@ export async function GET(request: Request): Promise<Response> {
           AND created_at >= $2
         GROUP BY 1
         ORDER BY 1`,
-      [user.id, fourteenDaysAgo.toISOString()],
+      [user.id, thirtyDaysAgoDate.toISOString()],
     ).catch(() => ({ rows: [] as Array<{ day: string; credits: number }> })),
     pool.query(
       `SELECT COUNT(*)::int AS c FROM tenant_cost_events
@@ -138,17 +150,20 @@ export async function GET(request: Request): Promise<Response> {
     ).catch(() => ({ rows: [] as Array<{ count: number | string; reset_at: string | number }> })),
   ]);
 
-  // ── Build 14-day series, zero-filling missing days ─────────────
+  // ── Build 30-day series, zero-filling missing days ─────────────
+  // The 14-day field is the trailing 14 entries of the same series so
+  // the older `dailyUsageLast14Days` consumer stays byte-equivalent.
   const seriesMap = new Map<string, number>();
   for (const row of dailyRes.rows as Array<{ day: string; credits: number }>) {
     seriesMap.set(row.day, Number(row.credits) || 0);
   }
-  const dailyUsageLast14Days: DailyUsagePoint[] = [];
-  for (let i = 13; i >= 0; i--) {
+  const dailyUsageLast30Days: DailyUsagePoint[] = [];
+  for (let i = 29; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
     const key = d.toISOString().slice(0, 10);
-    dailyUsageLast14Days.push({ date: key, credits: seriesMap.get(key) || 0 });
+    dailyUsageLast30Days.push({ date: key, credits: seriesMap.get(key) || 0 });
   }
+  const dailyUsageLast14Days: DailyUsagePoint[] = dailyUsageLast30Days.slice(-14);
 
   // ── Avg + projection ──────────────────────────────────────────
   const credits7d = Number((avg7Res.rows[0] as { c: number } | undefined)?.c || 0);
@@ -262,6 +277,7 @@ export async function GET(request: Request): Promise<Response> {
     : null;
 
   const body: UsageBreakdown = {
+    dailyUsageLast30Days,
     dailyUsageLast14Days,
     avgDailyCredits,
     projectedMonthEnd,
