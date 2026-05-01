@@ -155,25 +155,30 @@ describe('GET /api/credits/usage', () => {
     expect(body.lastRun.at).toBe('2026-04-26T08:05:00Z');
   });
 
-  it('reads geoAuditsThisMonth from rate_limits', async () => {
+  it('reads geoAuditsThisMonth from COUNT(*) of geo_audits in the current period', async () => {
     queryMock.mockImplementation(async (sql: string, params?: unknown[]) => {
       if (sql.includes('FROM users')) return { rows: [{ plan: 'pro', trial_ends_at: null }] };
       if (sql.includes("date_trunc('day'")) return { rows: [] };
       if (sql.includes('FROM tenant_cost_events')) return { rows: [{ c: 0 }] };
       if (sql.includes('FROM active_runs')) return { rows: [] };
       if (sql.includes('FROM brands')) return { rows: [] };
-      if (sql.includes('FROM rate_limits')) {
-        // Sanity: the right key is being looked up.
+      if (sql.includes('FROM geo_audits')) {
+        // Sanity: scoped to the right user + a created_at lower bound.
         expect(params).toBeDefined();
-        expect(params![0]).toBe('geo-audit-monthly:u1');
-        return { rows: [{ count: 12, reset_at: '2026-05-15T00:00:00.000Z' }] };
+        expect(params![0]).toBe('u1');
+        expect(typeof params![1]).toBe('string');
+        return { rows: [{ c: 12 }] };
       }
       return { rows: [] };
     });
     const resp = await GET(fakeRequest());
     const body = await resp.json();
     expect(body.geoAuditsThisMonth).toBe(12);
-    expect(body.geoAuditsResetAt).toMatch(/^2026-05-15T/);
+    // Reset is now derived from the billing period boundary (monthEnd),
+    // so it's a valid ISO 8601 timestamp rather than a rate-limit row's
+    // `reset_at`. We just assert it parses.
+    expect(typeof body.geoAuditsResetAt).toBe('string');
+    expect(Number.isFinite(new Date(body.geoAuditsResetAt as string).getTime())).toBe(true);
   });
 
   it('returns 401 when the user has no row', async () => {

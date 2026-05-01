@@ -1,0 +1,43 @@
+# 1-minute cron for /api/cron/geo-audits-worker — Regional Audits
+# safety-net dispatcher.
+#
+# 99% of audits are processed in-process via Next.js after() fired
+# from POST /api/geo-audits. This cron is the cold-restart safety
+# net: it picks up any rows stuck in 'queued' for >60s (typically
+# because after() didn't fire — deploy mid-flight, OOM, etc.).
+#
+# Real-world cadence: GH Actions documents a soft minimum of ~5 min
+# for cron schedules, and frequently doesn't fire * * * * * exactly
+# on time. This is acceptable here — the cron is a safety net, not
+# the happy path. End users see audits start within ~ms of clicking
+# "Run audit" in the normal case; the cron only matters when the
+# in-process spawn fails to land.
+#
+# Endpoint takes its own `geo_audits_worker` cron lock so overlapping
+# GH Actions ticks (which can happen on a busy runner schedule) are
+# de-duped server-side and return `{ skipped: true, reason: 'locked' }`.
+#
+# Required repository secrets: CRON_SECRET (matches the env var on
+# DigitalOcean).
+
+name: Regional Audits worker
+
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+jobs:
+  worker:
+    name: Process queued geo audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/geo-audits-worker
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --max-time 240 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://livesov.com/api/cron/geo-audits-worker"

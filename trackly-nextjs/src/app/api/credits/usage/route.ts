@@ -144,10 +144,20 @@ export async function GET(request: Request): Promise<Response> {
       `SELECT id, data, updated_at FROM brands WHERE user_id = $1`,
       [user.id],
     ).catch(() => ({ rows: [] as Array<{ id: string; data: Record<string, unknown>; updated_at: string }> })),
+    // Geo Audits this month: counts rows in the new geo_audits table
+    // (Regional Audits, /api/geo-audits) created since the start of
+    // the current billing period. The single-URL /api/geo-audit route
+    // continues to use its own `geo-audit-monthly:<userId>` rate-limit
+    // row for its own quota — that's a separate counter the URL audit
+    // already enforces. Falls back to 0 if the table doesn't exist
+    // yet (idempotent ensure runs in the geo-audits route's own path).
     pool.query(
-      `SELECT count, reset_at FROM rate_limits WHERE key = $1 LIMIT 1`,
-      [`geo-audit-monthly:${user.id}`],
-    ).catch(() => ({ rows: [] as Array<{ count: number | string; reset_at: string | number }> })),
+      `SELECT COUNT(*)::int AS c FROM geo_audits
+        WHERE user_id = $1
+          AND created_at >= $2
+          AND status <> 'cancelled'`,
+      [user.id, monthStart.toISOString()],
+    ).catch(() => ({ rows: [{ c: 0 }] as Array<{ c: number }> })),
   ]);
 
   // ── Build 30-day series, zero-filling missing days ─────────────
@@ -266,15 +276,14 @@ export async function GET(request: Request): Promise<Response> {
   const activePlatforms = Array.from(platformSet);
 
   // ── GEO audits this month ─────────────────────────────────────
-  // /api/geo-audit increments rate_limits with a 30-day window keyed
-  // `geo-audit-monthly:<userId>`. Reading the row directly gives us
-  // a count without exposing the rate-limit module's internals.
-  const auditRow = (geoAuditRes.rows as Array<{ count: number | string; reset_at: string | number }>)[0];
-  const geoAuditsThisMonth = auditRow ? Number(auditRow.count) || 0 : 0;
-  const geoAuditsResetAt = auditRow?.reset_at
-    ? new Date(Number(auditRow.reset_at) || Date.parse(String(auditRow.reset_at)))
-        .toISOString()
-    : null;
+  // Counts Regional Audit rows in the geo_audits table created since
+  // the start of the current billing period. Cancelled audits don't
+  // count (no provider calls were made). The reset is implicit: the
+  // next month rolls when monthStart advances.
+  const auditRow = (geoAuditRes.rows as Array<{ c: number | string }>)[0];
+  const geoAuditsThisMonth = auditRow ? Number(auditRow.c) || 0 : 0;
+  const geoAuditsResetAt = monthEnd.toISOString();
+
 
   const body: UsageBreakdown = {
     dailyUsageLast30Days,
