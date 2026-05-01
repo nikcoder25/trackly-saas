@@ -15,7 +15,7 @@ import AuditsListTable, {
   type AuditTableRow,
   type DerivedStatus,
 } from '@/components/dashboard/geo-audits/AuditsListTable';
-import CompareStubModal from '@/components/dashboard/geo-audits/CompareStubModal';
+import { useRouter } from 'next/navigation';
 
 const MAX_REGIONS_PER_AUDIT = 5;
 const POLL_INTERVAL_MS = 5_000;
@@ -383,6 +383,7 @@ function buildTrendMap(audits: GeoAuditRow[]): Record<string, number[]> {
 }
 
 export default function GeoAuditsPage() {
+  const router = useRouter();
   const { selectedBrand } = useBrands();
   const [audits, setAudits] = useState<GeoAuditRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -394,7 +395,9 @@ export default function GeoAuditsPage() {
   const [status, setStatus] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [compareIds, setCompareIds] = useState<[string, string] | null>(null);
+  // Compare ids tracked separately from selectedIds so the button
+  // freezes the snapshot at click time (vs. continuing to track new
+  // checkbox toggles).
 
   // Tracked prompts come from the currently-selected brand. Brand
   // shape carries `queries` as a string array on the client (same
@@ -506,7 +509,11 @@ export default function GeoAuditsPage() {
   function openCompare() {
     if (!canCompare) return;
     const [a, b] = Array.from(selectedIds);
-    setCompareIds([a, b]);
+    // Stub route — the /dashboard/geo-audits/compare page is a
+    // follow-up PR (Screens 03+). Until then this navigates to the
+    // canonical URL contract; clicking it on the current preview
+    // 404s gracefully because the route doesn't exist yet.
+    router.push(`/dashboard/geo-audits/compare?ids=${encodeURIComponent(a)},${encodeURIComponent(b)}`);
   }
 
   return (
@@ -642,13 +649,6 @@ export default function GeoAuditsPage() {
         />
       )}
 
-      {/* ── Compare stub ──────────────────────────────────────── */}
-      {compareIds && (
-        <CompareStubModal
-          ids={compareIds}
-          onClose={() => setCompareIds(null)}
-        />
-      )}
     </div>
   );
 }
