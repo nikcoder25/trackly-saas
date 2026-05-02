@@ -454,7 +454,6 @@ export default function LivesovHomePage() {
             <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
             <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
             <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-            <Link href="/geo-audit">GEO Audit</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/contact">Contact</Link>
           </div>
@@ -472,7 +471,6 @@ export default function LivesovHomePage() {
           <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
           <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
           <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-          <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
           <Link href="/blog" onClick={closeMenu}>Blog</Link>
           <Link href="/contact" onClick={closeMenu}>Contact</Link>
           <div className="tl-mobile-menu-actions">
