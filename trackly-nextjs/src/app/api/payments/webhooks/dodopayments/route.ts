@@ -4,6 +4,8 @@ import {
   sendPlanUpgradeEmail,
   sendPlanDowngradeEmail,
   sendPlanCancellationEmail,
+  planCancellationIdempotencyKey,
+  tryEnqueueRecoveredCancellationEmail,
 } from '@/lib/email';
 import { comparePlans } from '@/lib/plan-config';
 import crypto from 'crypto';
@@ -981,6 +983,43 @@ export async function POST(request: Request) {
                           active_subscription_id: typeof activeSubscriptionId === 'string' ? activeSubscriptionId : null,
                           previousPlan,
                         });
+
+                        // Safety-net cancellation email. We landed in
+                        // superseded_sub for one of two reasons:
+                        //   (1) genuine orphan-upgrade race — the user
+                        //       was upgraded to a NEW subscription_id
+                        //       and Dodo is now sending a delayed
+                        //       cancellation for the OLD sub_id. The
+                        //       user is currently on a paid plan and
+                        //       must NOT be told their subscription was
+                        //       cancelled.
+                        //   (2) cancel-route-ran-first race — the
+                        //       /api/payments/cancel handler stripped
+                        //       settings.subscription_id before this
+                        //       delivery arrived, so cancellationMatchesActive
+                        //       is false even though the user genuinely
+                        //       cancelled. The user is now on 'free' and
+                        //       must receive the confirmation email.
+                        // We distinguish on previousPlan: 'free' means
+                        // (2), anything else means (1). For (2) we
+                        // enqueue under the SAME shared idempotency key
+                        // the cancel route uses, so this is a UNIQUE-
+                        // constraint no-op when the cancel route already
+                        // succeeded, and fills the gap when it didn't.
+                        if (previousPlan === 'free' && previousEmail && userId) {
+                          tryEnqueueRecoveredCancellationEmail({
+                            userId,
+                            email: previousEmail,
+                            source: 'webhook_superseded_sub',
+                          })
+                            .catch((err) => {
+                              logger.error('webhook.dodo.superseded_recovery_email_error', {
+                                userId,
+                                error: (err as Error).message,
+                              });
+                            });
+                        }
+
                         return Response.json({ received: true, skipped: 'superseded_sub' });
                       }
 
@@ -1076,20 +1115,20 @@ export async function POST(request: Request) {
             //   - upgrade / downgrade kinds   -> plan_email:userId:eventId
             //     (per-webhook-event scope; webhook_events idempotency
             //     above prevents the same event_id from re-emitting).
-            //   - cancellation kind           -> plan_cancellation:userId:subscriptionId
-            //     (per-subscription scope; collides with the cancel
-            //     route's pre-fix key shape AND dedups the case where
-            //     Dodo emits both `subscription.updated`+status=cancelled
-            //     AND a separate `subscription.cancelled` for the same
-            //     logical cancellation — different event_ids but the
-            //     same subscription_id, so user gets exactly one email).
-            //     Falls back to a UUID when subscription_id is missing.
+            //   - cancellation kind           -> planCancellationIdempotencyKey
+            //     (per-subscription scope, shared formula with the
+            //     cancel route — see lib/email.ts. Dedups the cancel-
+            //     route + webhook race AND the case where Dodo emits
+            //     both `subscription.updated`+status=cancelled AND a
+            //     separate `subscription.cancelled` for the same
+            //     logical cancellation. The pre-fix random-UUID
+            //     fallback for missing subscription_id is replaced by
+            //     a stable 'no_sub' marker so the dedup still holds
+            //     when the binding has been stripped.)
             if (pendingPlanEmail) {
                       const planEmail = pendingPlanEmail;
                       const idempotencyKey = planEmail.kind === 'cancellation'
-                        ? (planEmail.subscriptionId
-                            ? `plan_cancellation:${userId}:${planEmail.subscriptionId}`
-                            : `plan_cancellation:${userId}:${crypto.randomUUID()}`)
+                        ? planCancellationIdempotencyKey(userId, planEmail.subscriptionId)
                         : `plan_email:${userId}:${eventId}`;
                       const send = planEmail.kind === 'upgrade'
                                 ? sendPlanUpgradeEmail(planEmail.email, { previousPlan: planEmail.from, newPlan: planEmail.to }, idempotencyKey)

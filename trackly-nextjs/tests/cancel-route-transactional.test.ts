@@ -32,6 +32,7 @@ const {
   loggerError,
   verifyRequestAuthFn,
   sendPlanCancellationEmailFn,
+  tryEnqueueRecoveredFn,
   rateLimitFn,
 } = vi.hoisted(() => ({
   safeConnectFn: vi.fn(),
@@ -42,6 +43,7 @@ const {
   loggerError: vi.fn(),
   verifyRequestAuthFn: vi.fn(),
   sendPlanCancellationEmailFn: vi.fn().mockResolvedValue({ sent: true }),
+  tryEnqueueRecoveredFn: vi.fn().mockResolvedValue(undefined),
   rateLimitFn: vi.fn().mockResolvedValue({ allowed: true, retryAfter: 0 }),
 }));
 
@@ -80,6 +82,10 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/lib/email', () => ({
   sendPlanCancellationEmail: (...args: unknown[]) => sendPlanCancellationEmailFn(...args),
+  planCancellationIdempotencyKey: (userId: string, sub: string | null | undefined) =>
+    `plan_cancellation:${userId}:${sub || 'no_sub'}`,
+  tryEnqueueRecoveredCancellationEmail: (...args: unknown[]) =>
+    tryEnqueueRecoveredFn(...args),
 }));
 
 import { POST as cancelPost } from '@/app/api/payments/cancel/route';
@@ -169,6 +175,8 @@ beforeEach(() => {
   verifyRequestAuthFn.mockReturnValue({ id: 'user_A', email: 'a@test.com' });
   sendPlanCancellationEmailFn.mockReset();
   sendPlanCancellationEmailFn.mockResolvedValue({ sent: true });
+  tryEnqueueRecoveredFn.mockReset();
+  tryEnqueueRecoveredFn.mockResolvedValue(undefined);
   rateLimitFn.mockReset();
   rateLimitFn.mockResolvedValue({ allowed: true, retryAfter: 0 });
 
@@ -412,11 +420,20 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
     }
   });
 
-  it('T6: concurrent double-click — second request sees plan=free and returns 400 idempotently without re-PATCHing Dodo', async () => {
+  it('T6: concurrent double-click — second request sees plan=free and returns 200 idempotently with a recovery enqueue, without re-PATCHing Dodo', async () => {
     // First request: pro -> free. Second request runs after the first
     // commits and sees the new state via SELECT FOR UPDATE (the lock
     // serialises them; we model serialisation here by running them
     // sequentially with the second seeing the already-cancelled state).
+    //
+    // Behaviour change vs the pre-fix route: the second request no
+    // longer returns 400. Returning 400 was the silent-no-email bug —
+    // if the first request's email-enqueue had failed (network blip,
+    // DEV-mode short-circuit, transient INSERT error) the user would
+    // never receive the confirmation. We now respond 200 idempotently
+    // and best-effort enqueue from audit history; the email_outbox
+    // UNIQUE(idempotency_key) collapses the dedupe so the user gets
+    // exactly one email regardless of how many double-clicks happen.
     const firstFake = makeFakeClient({
       user: {
         email: 'a@test.com',
@@ -447,9 +464,10 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
       expect(res1.status).toBe(200);
 
       const res2 = await cancelPost(buildRequest());
-      expect(res2.status).toBe(400);
+      expect(res2.status).toBe(200);
       const body2 = await res2.json();
-      expect(body2.error).toBe('You are already on the free plan.');
+      expect(body2.success).toBe(true);
+      expect(body2.alreadyCancelled).toBe(true);
 
       // Dodo PATCH was issued for the first request only — the second
       // short-circuits before the provider call once it sees plan=free.
@@ -463,6 +481,16 @@ describe('/api/payments/cancel — transactional Dodo PATCH + DB UPDATE', () => 
       expect(stmt2.find(s => /^ROLLBACK/.test(s))).toBeTruthy();
       expect(stmt2.find(s => /UPDATE users SET plan = 'free'/.test(s))).toBeUndefined();
       expect(stmt2.find(s => /^COMMIT/.test(s))).toBeUndefined();
+
+      // The second request invoked the recovery enqueue helper —
+      // proves the silent-no-email regression is closed even when the
+      // first request's enqueue was lost.
+      expect(tryEnqueueRecoveredFn).toHaveBeenCalledTimes(1);
+      expect(tryEnqueueRecoveredFn.mock.calls[0][0]).toMatchObject({
+        userId: 'user_A',
+        email: 'a@test.com',
+        source: 'cancel_route_already_free',
+      });
     } finally {
       fetchMock.restore();
     }

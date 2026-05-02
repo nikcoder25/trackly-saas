@@ -574,6 +574,153 @@ export async function sendMonthlyResetEmail(
   });
 }
 
+/**
+ * Shared idempotency-key shape for plan-cancellation emails.
+ *
+ * Three call sites construct this key for the SAME logical cancellation:
+ *   1. /api/payments/cancel post-commit (user-initiated cancel),
+ *   2. the Dodo webhook handler on subscription.cancelled / .expired /
+ *      refund.succeeded,
+ *   3. the reconcile-payments cron when it detects a Dodo-side cancel
+ *      we missed.
+ *
+ * They MUST agree on the exact string so the email_outbox.idempotency_key
+ * UNIQUE constraint collapses concurrent enqueues into one row. When the
+ * subscription_id has been stripped from settings before one of the
+ * paths reads it (the bug fixed by this PR), we fall back to a stable
+ * 'no_sub' marker rather than a random UUID — a UUID would produce
+ * different keys per call site and silently break dedup.
+ *
+ * Note: re-subscribe-then-cancel-again with no sub_id on either side
+ * will dedupe to a single email per user, ever. That's fine for the
+ * confirmation-email use case (the second cancel is a no-op transition
+ * if the user was already free), and a fresh sub_id breaks the tie
+ * naturally.
+ */
+export function planCancellationIdempotencyKey(
+  userId: string,
+  subscriptionId: string | null | undefined,
+): string {
+  return `plan_cancellation:${userId}:${subscriptionId || 'no_sub'}`;
+}
+
+/**
+ * Best-effort enqueue of a plan_cancellation email when the caller has
+ * detected that the user has already transitioned to free but doesn't
+ * itself hold the previousPlan / subscription_id needed to construct
+ * the message. Recovers both from the most recent relevant audit_logs
+ * row.
+ *
+ * Two callers:
+ *   - /api/payments/cancel: when the route is invoked against a user
+ *     who is already on plan='free' (e.g. the webhook beat us to the
+ *     transition or the user double-clicked).
+ *   - the Dodo webhook handler: when the cancellation event lands in
+ *     the superseded_sub branch because the cancel route stripped
+ *     settings.subscription_id before this delivery arrived.
+ *
+ * Behaviour:
+ *   - Looks up the latest 'subscription_cancelled' (cancel-route audit)
+ *     or 'webhook_plan_change' (webhook audit) row for the user.
+ *   - Reads previousPlan + subscription_id from details.
+ *   - Calls sendPlanCancellationEmail with the SHARED idempotency key,
+ *     so an INSERT here is a UNIQUE-constraint no-op against any prior
+ *     enqueue from either path.
+ *
+ * Never throws. Returns silently when there's no audit history to
+ * recover from (e.g. brand-new accounts that were never on a paid
+ * plan), no email on file, or the audit lookup itself errors.
+ */
+export interface RecoveredCancellationEnqueueInput {
+  userId: string;
+  email: string | null;
+  /** Free-form caller tag for log lines, e.g. 'cancel_route_already_free'. */
+  source: string;
+}
+
+export async function tryEnqueueRecoveredCancellationEmail(
+  input: RecoveredCancellationEnqueueInput,
+): Promise<void> {
+  if (!input.email) return;
+
+  let auditRows: Array<{ action: string; details: unknown }>;
+  try {
+    const result = await pool.query<{ action: string; details: unknown }>(
+      `SELECT action, details
+         FROM audit_logs
+        WHERE target_type = 'user'
+          AND target_id = $1
+          AND action IN ('subscription_cancelled', 'webhook_plan_change')
+        ORDER BY created_at DESC
+        LIMIT 5`,
+      [input.userId],
+    );
+    auditRows = result.rows;
+  } catch (e) {
+    console.warn(
+      `[email.cancellation_recovery.audit_lookup_failed] userId=${input.userId} `
+      + `source=${input.source} reason=${(e as Error).message}`,
+    );
+    return;
+  }
+
+  let previousPlan: string | null = null;
+  let subscriptionId: string | null = null;
+  for (const r of auditRows) {
+    const d = parseAuditDetails(r.details);
+    const candidatePlan = typeof d.previousPlan === 'string' ? d.previousPlan : null;
+    const candidateSub =
+      (typeof d.previousSubscriptionId === 'string' && d.previousSubscriptionId)
+      || (typeof d.subscription_id === 'string' && d.subscription_id)
+      || null;
+    if (candidatePlan && candidatePlan !== 'free') {
+      previousPlan = candidatePlan;
+      subscriptionId = candidateSub || subscriptionId;
+      break;
+    }
+    if (!subscriptionId && candidateSub) {
+      subscriptionId = candidateSub;
+    }
+  }
+
+  if (!previousPlan) {
+    // No prior paid-plan evidence in audit history — nothing to recover.
+    // Common for users who never had a paid plan; not an error.
+    return;
+  }
+
+  const idempotencyKey = planCancellationIdempotencyKey(input.userId, subscriptionId);
+  try {
+    await sendPlanCancellationEmail(input.email, { previousPlan }, idempotencyKey);
+    console.log(
+      `[email.cancellation_recovery.enqueued] userId=${input.userId} `
+      + `source=${input.source} previousPlan=${previousPlan} `
+      + `idempotency_key=${idempotencyKey}`,
+    );
+  } catch (err) {
+    console.error(
+      `[email.cancellation_recovery.enqueue_failed] userId=${input.userId} `
+      + `source=${input.source} reason=${(err as Error).message}`,
+    );
+  }
+}
+
+function parseAuditDetails(raw: unknown): Record<string, unknown> {
+  // pg returns JSONB columns as already-parsed objects, but some legacy
+  // audit rows may have been written by the Express app as TEXT — handle
+  // both shapes so the recovery doesn't silently miss older history.
+  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 // ── Plan upgrade / downgrade / cancellation confirmations ──────────
 //
 // Fired from the DodoPayments webhook (and the user-initiated
