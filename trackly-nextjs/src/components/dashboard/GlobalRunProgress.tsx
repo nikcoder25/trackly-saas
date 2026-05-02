@@ -57,6 +57,11 @@ export default function GlobalRunProgress() {
           {live.statusText}
         </div>
       )}
+      {live.slowWarning && (
+        <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--amber)', marginTop: 2 }}>
+          {live.slowWarning}
+        </div>
+      )}
     </div>
   );
 }

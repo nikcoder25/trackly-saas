@@ -34,6 +34,10 @@ export interface RunLiveState {
   errorMsg: string | null;
   results: LiveResult[];
   liveSov: number | null;
+  // Additive secondary message shown alongside the running progress when
+  // the run is healthy but slower than usual (3-10 min without progress).
+  // Hard stalls (>10 min) flip into status: 'error' instead.
+  slowWarning: string | null;
 }
 
 interface StartRunOptions {
@@ -53,7 +57,7 @@ const INITIAL_STATE: RunLiveState = {
   running: false, runId: null, brandId: null,
   received: 0, totalExpected: 0, foundCount: 0, errorCount: 0,
   startTime: 0, status: 'idle', statusText: '', errorMsg: null,
-  results: [], liveSov: null,
+  results: [], liveSov: null, slowWarning: null,
 };
 
 const RunContext = createContext<RunContextType>({
@@ -121,14 +125,16 @@ export function RunProvider({ children }: { children: ReactNode }) {
     const MAX_POLL_ERRORS = 20;
     let pollDelay = 2000;
     let lastResultCount = 0;
-    // Client-side stall watchdog: if the server-reported `received`
-    // counter stops advancing for this long, treat the run as hung and
-    // surface a retryable error state. The server reconciler flips the
-    // active_runs row at 10 min, but 90s is short enough that a human
-    // operator won't assume the UI is frozen before feedback arrives.
-    const NO_PROGRESS_STALL_MS = 90_000;
+    // Two-tier stall watchdog. SLOW_RUN_NUDGE_MS (3 min) surfaces an
+    // additive yellow "still working" hint without tearing down the run.
+    // HARD_STALL_MS (10 min) mirrors the server-side reconciler timeout
+    // and flips the run into a retryable error state.
+    // The watchdog only arms after the first real progress event so
+    // initial AI-platform warmup cannot trigger a false stall.
+    const SLOW_RUN_NUDGE_MS = 180_000;
+    const HARD_STALL_MS = 600_000;
     let lastProgressReceived = 0;
-    let lastProgressAt = Date.now();
+    let lastProgressAt = 0; // 0 = not yet armed
 
     // Use iterative loop instead of recursive calls to avoid stack overflow on long runs
     const runPollLoop = async () => {
@@ -153,6 +159,17 @@ export function RunProvider({ children }: { children: ReactNode }) {
             lastProgressAt = Date.now();
           }
 
+          // Compute stall age. lastProgressAt === 0 means the watchdog
+          // is not yet armed (no progress has been reported), so the
+          // soft/hard checks below are skipped naturally.
+          const stalledMs = lastProgressAt === 0 ? 0 : Date.now() - lastProgressAt;
+          const slowWarning =
+            data.status === 'running'
+              && stalledMs > SLOW_RUN_NUDGE_MS
+              && stalledMs <= HARD_STALL_MS
+              ? 'Still working — taking longer than usual. We will keep checking...'
+              : null;
+
           setLive(prev => ({
             ...prev,
             received: serverReceived || prev.received,
@@ -161,27 +178,14 @@ export function RunProvider({ children }: { children: ReactNode }) {
             errorCount: data.errorCount || 0,
             statusText: `${serverReceived}/${data.totalExpected || 0} - ${data.foundCount || 0} found`,
             results: newResults.length > 0 ? [...prev.results, ...newResults] : prev.results,
+            slowWarning,
           }));
 
-          // No-progress stall check: if the run is still 'running' on
-          // the server but the received counter hasn't moved for
-          // NO_PROGRESS_STALL_MS, bail out with a retryable error. We
-          // don't touch the server state here - the run-status endpoint
-          // invokes the watchdog defensively on every poll, so this is
-          // purely a UI escape hatch.
-          if (data.status === 'running'
-              && Date.now() - lastProgressAt > NO_PROGRESS_STALL_MS) {
-            pollRef.current = false;
-            runningRef.current = false;
-            localStorage.removeItem('livesov_active_run');
-            setLive(prev => ({
-              ...prev, running: false, status: 'error',
-              statusText: 'No progress for 90s - run appears stuck. Retry?',
-              errorMsg: 'stalled',
-            }));
-            return;
-          }
-
+          // Race-safe terminal handler runs first: if the same poll
+          // reports the run as done/error, fall through to the existing
+          // terminal block regardless of any stall calculation. This
+          // closes the race where a run finishes during the stall window
+          // and the alarming toast fires anyway.
           if (data.status === 'done' || data.status === 'error') {
             pollRef.current = false;
             runningRef.current = false;
@@ -196,6 +200,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
                 statusText: queued
                   ? `Done! Running ${queued.length} queued queries next...`
                   : `Done! Found in ${finalResult.newMentions || finalResult.totalM || 0} of ${finalResult.totalQ || 0} responses`,
+                slowWarning: null,
               }));
               setTimeout(() => {
                 setLive(INITIAL_STATE); refreshBrands();
@@ -210,9 +215,29 @@ export function RunProvider({ children }: { children: ReactNode }) {
                 ...prev, running: false, status: 'error',
                 statusText: 'Run failed: ' + (data.error || 'Unknown error'),
                 errorMsg: data.error || 'Unknown error',
+                slowWarning: null,
               }));
               setTimeout(() => setLive(INITIAL_STATE), 5000);
             }
+            return;
+          }
+
+          // Hard stall: only fires when the watchdog is armed
+          // (lastProgressAt !== 0) and the server still reports the run
+          // as 'running' after HARD_STALL_MS without progress. Mirrors
+          // the server-side reconciler timeout.
+          if (data.status === 'running'
+              && lastProgressAt !== 0
+              && stalledMs > HARD_STALL_MS) {
+            pollRef.current = false;
+            runningRef.current = false;
+            localStorage.removeItem('livesov_active_run');
+            setLive(prev => ({
+              ...prev, running: false, status: 'error',
+              statusText: 'Run appears stuck — no progress for 10 minutes. Retry?',
+              errorMsg: 'stalled',
+              slowWarning: null,
+            }));
             return;
           }
 
@@ -227,6 +252,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
               ...prev, running: false, status: 'error',
               statusText: 'Lost connection. Refresh to check status.',
               errorMsg: 'Lost connection to server',
+              slowWarning: null,
             }));
             setTimeout(() => setLive(INITIAL_STATE), 5000);
             return;
@@ -260,7 +286,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
             startTime: runInfo.startedAt, status: 'running',
             statusText: 'Resuming active run...', errorMsg: null,
             results: (data.results || []).map((r: LiveResult) => ({ ...r, ts: Date.now() })),
-            liveSov: null,
+            liveSov: null, slowWarning: null,
           });
           pollRunStatus(runInfo.brandId, runInfo.runId);
         } else if (data.status === 'done') {
