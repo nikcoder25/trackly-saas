@@ -569,6 +569,11 @@ export default function DashboardPage() {
             {live.statusText}
             {live.running && liveSOV !== null && ` · Live SOV: ${liveSOV}%`}
           </div>
+          {live.slowWarning && (
+            <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--amber)', marginTop: 2 }}>
+              {live.slowWarning}
+            </div>
+          )}
         </div>
       )}
 
