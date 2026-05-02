@@ -32,7 +32,7 @@ export default function Comparison() {
             <thead>
               <tr>
                 <th scope="col">Feature</th>
-                <th scope="col" className="hp-compare-us">Trackly</th>
+                <th scope="col" className="hp-compare-us">Livesov</th>
                 <th scope="col">Profound</th>
                 <th scope="col">Peec AI</th>
                 <th scope="col">Otterly</th>

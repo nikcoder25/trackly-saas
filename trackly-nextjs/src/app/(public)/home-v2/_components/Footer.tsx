@@ -7,9 +7,9 @@ export default function Footer() {
       <div className="hp-container">
         <div className="hp-footer-grid">
           <div className="hp-footer-brand">
-            <Link href="/" className="hp-logo" aria-label="Trackly home">
+            <Link href="/" className="hp-logo" aria-label="Livesov home">
               <span className="hp-logo-dot" aria-hidden="true" />
-              Trackly
+              Livesov
             </Link>
             <p>
               The AI visibility tracker for ChatGPT, Perplexity, Claude, Gemini, and Grok.
@@ -52,7 +52,7 @@ export default function Footer() {
         </div>
 
         <div className="hp-footer-bottom">
-          <span>© {new Date().getFullYear()} Trackly. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Livesov. All rights reserved.</span>
           <span>Made for teams winning the AI answer.</span>
         </div>
       </div>

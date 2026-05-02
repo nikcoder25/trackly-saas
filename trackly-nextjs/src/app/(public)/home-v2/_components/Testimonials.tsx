@@ -6,13 +6,13 @@ const items = [
     initials: 'HV',
   },
   {
-    text: 'Trackly is the cheapest, cleanest AI visibility tool I’ve found. Cut my agency’s monthly research time from 6 hours to 20 minutes.',
+    text: 'Livesov is the cheapest, cleanest AI visibility tool I’ve found. Cut my agency’s monthly research time from 6 hours to 20 minutes.',
     name: 'Marcus L.',
     role: 'Founder, digital agency',
     initials: 'ML',
   },
   {
-    text: 'We compared Trackly, Profound, and Peec AI. Trackly gave us the same answer for a fraction of the cost — and the GEO audits are genuinely useful.',
+    text: 'We compared Livesov, Profound, and Peec AI. Livesov gave us the same answer for a fraction of the cost — and the GEO audits are genuinely useful.',
     name: 'Priya S.',
     role: 'SEO Lead, Series A startup',
     initials: 'PS',

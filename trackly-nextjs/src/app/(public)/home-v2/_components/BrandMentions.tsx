@@ -26,7 +26,7 @@ export default function BrandMentions() {
             <div className="hp-feature-card-visual">
               <div style={{ marginBottom: 8, color: '#71717a' }}>“Best AI visibility tools 2026”</div>
               <div>
-                ChatGPT recommends <strong style={{ color: '#6366f1' }}>Trackly</strong>,
+                ChatGPT recommends <strong style={{ color: '#6366f1' }}>Livesov</strong>,
                 Profound, and Peec AI as the leading platforms for…
               </div>
             </div>
@@ -49,7 +49,7 @@ export default function BrandMentions() {
                 <span>g2.com/ai-visibility-tools</span><span style={{ color: '#6366f1' }}>34</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #e4e4e7' }}>
-                <span>trackly.com/blog/geo-guide</span><span style={{ color: '#6366f1' }}>21</span>
+                <span>livesov.com/blog/geo-guide</span><span style={{ color: '#6366f1' }}>21</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
                 <span>reddit.com/r/SaaS</span><span style={{ color: '#6366f1' }}>17</span>

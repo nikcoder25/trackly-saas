@@ -9,18 +9,18 @@ const faqs = [
   },
   {
     q: 'How do I track my brand in ChatGPT?',
-    a: 'Add your brand and the buyer prompts you care about. Trackly runs them daily inside ChatGPT (and the other LLMs) and shows you when, how, and what is said about your brand.',
+    a: 'Add your brand and the buyer prompts you care about. Livesov runs them daily inside ChatGPT (and the other LLMs) and shows you when, how, and what is said about your brand.',
   },
   {
-    q: 'How is Trackly different from Profound, Peec AI, and Otterly?',
-    a: 'Trackly tracks all six major AI platforms, includes GEO content audits, and starts free. Profound is enterprise-priced, Peec covers fewer platforms, and Otterly does not include sentiment or audits.',
+    q: 'How is Livesov different from Profound, Peec AI, and Otterly?',
+    a: 'Livesov tracks all six major AI platforms, includes GEO content audits, and starts free. Profound is enterprise-priced, Peec covers fewer platforms, and Otterly does not include sentiment or audits.',
   },
   {
     q: 'Do you support Claude and Gemini?',
     a: 'Yes — and Grok. We track ChatGPT, Perplexity, Claude, Gemini, Grok, and one more, on every paid plan above Starter.',
   },
   {
-    q: 'How much does Trackly cost?',
+    q: 'How much does Livesov cost?',
     a: 'Free plan available. Starter is $9/mo, Pro is $29/mo, Agency is $89/mo. All plans include a free trial — no credit card required.',
   },
   {

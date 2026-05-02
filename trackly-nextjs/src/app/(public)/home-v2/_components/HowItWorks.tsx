@@ -7,7 +7,7 @@ const steps = [
   {
     num: 'Step 02',
     title: 'Auto-track daily',
-    desc: 'Trackly re-runs every prompt across ChatGPT, Perplexity, Claude, Gemini, and Grok every day.',
+    desc: 'Livesov re-runs every prompt across ChatGPT, Perplexity, Claude, Gemini, and Grok every day.',
   },
   {
     num: 'Step 03',

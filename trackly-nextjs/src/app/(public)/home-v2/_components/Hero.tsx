@@ -9,7 +9,7 @@ export default function Hero() {
           Perplexity, Claude, Gemini, and Grok.
         </h1>
         <p className="hp-hero-sub">
-          Trackly is the AI visibility platform that shows you how ChatGPT, Perplexity,
+          Livesov is the AI visibility platform that shows you how ChatGPT, Perplexity,
           Claude, Gemini, and Grok answer when buyers ask about your brand, your
           competitors, and your category.
         </p>
@@ -25,7 +25,7 @@ export default function Hero() {
           Free plan available. No credit card required.
         </div>
 
-        <div className="hp-hero-mock" role="img" aria-label="Trackly dashboard preview showing AI share of voice growing to 42%.">
+        <div className="hp-hero-mock" role="img" aria-label="Livesov dashboard preview showing AI share of voice growing to 42%.">
           <div className="hp-mock-bar">
             <div className="hp-mock-dots">
               <span className="hp-mock-dot" />
@@ -33,7 +33,7 @@ export default function Hero() {
               <span className="hp-mock-dot" />
             </div>
             <div style={{ fontSize: 12, color: '#71717a', fontFamily: 'ui-monospace, monospace' }}>
-              app.trackly.com / dashboard
+              app.livesov.com / dashboard
             </div>
           </div>
           <div className="hp-mock-body">

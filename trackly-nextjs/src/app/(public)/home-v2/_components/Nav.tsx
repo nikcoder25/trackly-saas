@@ -15,9 +15,9 @@ export default function Nav() {
   return (
     <nav className="hp-nav" aria-label="Primary">
       <div className="hp-nav-inner">
-        <Link href="/" className="hp-logo" aria-label="Trackly home">
+        <Link href="/" className="hp-logo" aria-label="Livesov home">
           <span className="hp-logo-dot" aria-hidden="true" />
-          Trackly
+          Livesov
         </Link>
 
         <div className={`hp-nav-links${open ? ' is-open' : ''}`}>

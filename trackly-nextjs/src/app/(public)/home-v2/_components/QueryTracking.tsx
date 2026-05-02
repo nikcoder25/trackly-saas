@@ -4,7 +4,7 @@ const queries = [
   'alternatives to Profound',
   'cheapest geo audit software',
   'enterprise SEO platforms 2026',
-  'is Trackly worth it',
+  'is Livesov worth it',
   'B2B marketing tools comparison',
   'how to track AI mentions',
   'GEO vs SEO',
