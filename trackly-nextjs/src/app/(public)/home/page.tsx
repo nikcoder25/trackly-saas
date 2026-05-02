@@ -64,7 +64,7 @@ const faqs = [
   { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
   { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
   { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 5 tracked queries and 2 AI platforms (ChatGPT & Claude). Paid plans start at $9/mo (Starter) with 30 tracked queries, 2 platforms, and 20 GEO audits. Pro ($29/mo) offers 100 tracked queries across 5 platforms. Agency ($89/mo) scales to 500 tracked queries and 20 competitors.' },
+  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 150 AI credits/month, 1 brand, 5 tracked prompts per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 750 credits, 3 brands, 15 prompts per brand, and 20 GEO audits. Pro ($29/mo) adds unlimited brands, 2,500 credits, 3 AI platforms, daily auto-runs, sentiment analysis, and 75 GEO audits. Agency ($89/mo) scales to 8,000 credits, all 6 AI platforms, premium AI models, priority support, API access, and 300 GEO audits.' },
 ];
 
 const testimonials = [
@@ -130,7 +130,7 @@ function DemoSection() {
         <div className="tl-section-header">
           <span className="tl-section-tag">Live Demo</span>
           <h2>See Livesov in Action</h2>
-          <p>Here&apos;s what happens when you track a brand across all 6 AI platforms.</p>
+          <p>Here&apos;s what happens when you track a brand across all 5 AI platforms.</p>
         </div>
 
         <div className="tl-demo-window">
@@ -452,9 +452,8 @@ export default function LivesovHomePage() {
 
           <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
             <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-            <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-            <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-            <Link href="/geo-audit">GEO Audit</Link>
+            <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
+            <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/contact">Contact</Link>
           </div>
@@ -470,9 +469,8 @@ export default function LivesovHomePage() {
       {menuOpen && (
         <div className="tl-mobile-menu">
           <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-          <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-          <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-          <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
+          <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
+          <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
           <Link href="/blog" onClick={closeMenu}>Blog</Link>
           <Link href="/contact" onClick={closeMenu}>Contact</Link>
           <div className="tl-mobile-menu-actions">
@@ -509,7 +507,7 @@ export default function LivesovHomePage() {
             </a>
           </div>
 
-          <p className="tl-hero-note">7-day free trial &middot; No credit card required &middot; All 6 AI platforms included</p>
+          <p className="tl-hero-note">7-day free trial &middot; No credit card required &middot; All 5 AI platforms included</p>
         </div>
 
         {/* Platform pills floating */}
@@ -619,44 +617,46 @@ export default function LivesovHomePage() {
           </div>
 
           <div className="tl-pricing-grid">
-            {pricingPlans.map(plan => {
-              const isCustom = plan.price === 'Custom';
-              return (
-                <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
-                  {plan.featured && <div className="tl-price-badge">Most Popular</div>}
-                  <h3>{plan.name}</h3>
-                  <div className="tl-price-amount">
-                    {plan.price}{!isCustom && <span>/mo</span>}
-                  </div>
-                  <p className="tl-price-sub">{plan.sub}</p>
-                  <ul className="tl-price-features">
-                    {plan.features.map(f => {
-                      const isNegative = f.toLowerCase().startsWith('no ');
-                      return (
-                        <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
-                          {isNegative ? (
-                            <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
-                          ) : (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          )}
-                          {f}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {plan.name === 'Enterprise' ? (
-                    <a href="/contact" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                      {plan.cta}
-                    </a>
-                  ) : (
-                    <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                      {plan.cta}
-                    </Link>
-                  )}
+            {pricingPlans.map(plan => (
+              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
+                {plan.featured && <div className="tl-price-badge">Most Popular</div>}
+                <h3>{plan.name}</h3>
+                <div className="tl-price-amount">
+                  {plan.price}<span>/mo</span>
                 </div>
-              );
-            })}
+                <div className="tl-price-includes">
+                  <div className="tl-price-includes-label">Includes</div>
+                  <div className="tl-price-includes-value">{plan.headline}</div>
+                </div>
+                <p className="tl-price-sub">{plan.sub}</p>
+                <ul className="tl-price-features">
+                  {plan.features.map(f => {
+                    const isNegative = f.toLowerCase().startsWith('no ');
+                    return (
+                      <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
+                        {isNegative ? (
+                          <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        )}
+                        {f}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
+                  {plan.cta}
+                </Link>
+                {plan.name !== 'Free' && (
+                  <p className="tl-price-trial">7-day free trial · No credit card</p>
+                )}
+              </div>
+            ))}
           </div>
+
+          <p className="tl-pricing-compare-link">
+            Need a side-by-side breakdown? <Link href="/pricing">View the full plan comparison →</Link>
+          </p>
 
           {/* Comparison Table */}
           <div className="tl-comparison">
@@ -772,8 +772,8 @@ export default function LivesovHomePage() {
             <div className="tl-footer-col">
               <h4>{t.footer.product}</h4>
               <Link href="/#features">{t.footer.links.features}</Link>
-              <Link href="/pricing">{t.footer.links.pricing}</Link>
-              <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
+              <Link href="/#pricing">{t.footer.links.pricing}</Link>
+              <Link href="/#how-it-works">{t.footer.links.howItWorks}</Link>
               <Link href="/use-cases">Use Cases</Link>
               <Link href="/integrations">{t.footer.links.integrations}</Link>
             </div>
