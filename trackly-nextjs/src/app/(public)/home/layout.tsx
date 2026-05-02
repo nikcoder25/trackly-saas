@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'Livesov - AI Visibility Tracker | Track Your Brand Across ChatGPT, Perplexity, Claude, Gemini & Grok',
+  title: 'AI Visibility Tracker for ChatGPT, Perplexity, Claude & Gemini',
   description:
-    'Monitor how AI platforms mention your brand. Track share of voice, sentiment, and competitors across ChatGPT, Perplexity, Claude, Gemini & Grok. Free plan available.',
+    'Track how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. Free plan. From $9/mo.',
   keywords: [
     'AI visibility tracking',
     'AI brand monitoring',
