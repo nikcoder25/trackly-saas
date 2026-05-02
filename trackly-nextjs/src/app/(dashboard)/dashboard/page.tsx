@@ -37,7 +37,7 @@ function runTimestampMs(run: { time?: string; date?: string } | null | undefined
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { live, elapsed, pct, startRun } = useRun();
   const startRunRef = useRef(startRun);
   useEffect(() => { startRunRef.current = startRun; }, [startRun]);
@@ -63,12 +63,55 @@ export default function DashboardPage() {
     window.history.replaceState({}, '', '/dashboard');
   }, []);
   useEffect(() => {
-    if (searchParams.get('payment') === 'success') {
-      setShowPaymentSuccess(true);
-      const timer = setTimeout(dismissPaymentBanner, 8000);
-      return () => clearTimeout(timer);
+    if (searchParams.get('payment') !== 'success') return;
+    setShowPaymentSuccess(true);
+    const fromPlan = searchParams.get('from') || null;
+
+    // Active reconciliation poll. The webhook is best-effort, so we
+    // also pull live state from Dodo on the user's behalf until the
+    // local plan diverges from the pre-checkout value (or we hit the
+    // ceiling). Without this, the dashboard could sit on the stale
+    // cached plan for ~20 minutes if the webhook is delayed — the
+    // exact incident this page is trying to mask with the spinner.
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 20;
+    const INTERVAL_MS = 3000;
+
+    async function pollOnce() {
+      if (cancelled) return;
+      attempts++;
+      try {
+        const res = await fetch('/api/payments/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data?.plan && data.plan !== fromPlan) {
+            await refreshUser();
+            return; // upgrade landed; stop polling
+          }
+        }
+      } catch {
+        // Network blip — keep polling until ceiling.
+      }
+      if (cancelled || attempts >= MAX_ATTEMPTS) return;
+      setTimeout(pollOnce, INTERVAL_MS);
     }
-  }, [searchParams, dismissPaymentBanner]);
+    // Kick off immediately so the spinner doesn't sit empty for a full
+    // interval before the first attempt.
+    pollOnce();
+
+    // Auto-dismiss after the polling window. If the upgrade landed
+    // mid-poll, refreshUser() above already flipped the banner to the
+    // success state.
+    const timer = setTimeout(dismissPaymentBanner, MAX_ATTEMPTS * INTERVAL_MS + 2000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchParams, dismissPaymentBanner, refreshUser]);
 
   // Preset section visibility
   const allSections = ['hero', 'health', 'scores', 'categories', 'location', 'platforms', 'trend', 'qperf', 'citations', 'insights', 'lastrun', 'queries'];

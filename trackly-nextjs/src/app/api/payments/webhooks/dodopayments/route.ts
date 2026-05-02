@@ -357,9 +357,15 @@ export async function POST(request: Request) {
       // contain customer email/name and subscription IDs.
       const headerNames: string[] = [];
       request.headers.forEach((_value, key) => { headerNames.push(key); });
-      logger.debug('webhook.dodo.received', {
+      // Info-level so it shows up in DigitalOcean's runtime logs (debug
+      // is suppressed in production). Without this, a grep for "webhook"
+      // or "dodo" returns nothing during an incident — which is exactly
+      // the gap surfaced by the subscription-sync postmortem.
+      const previewWebhookId = request.headers.get('webhook-id');
+      logger.info('webhook.dodo.received', {
         header_names: headerNames,
         body_length: rawBody.length,
+        webhook_id: previewWebhookId,
       });
 
       // Webhook signature verification
@@ -559,6 +565,20 @@ export async function POST(request: Request) {
               subscription_id: body.subscription_id || body.data?.subscription_id || body.payload?.subscription_id,
               customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id,
               metadata: body.metadata || body.data?.metadata || body.payload?.metadata,
+      });
+      // Info-level dispatch summary — matches the postmortem requirement
+      // ("event ID, event type, customer ID, plan, success or failure
+      // status"). Excludes anything PII-shaped (no email, no full
+      // metadata blob). Customer ID is acceptable because it's the
+      // payment provider's opaque id, not a user-supplied identifier.
+      logger.info('webhook.dodo.dispatch', {
+        event_id: eventId,
+        event_type: eventType,
+        effective_event_type: effectiveEventType,
+        payload_status: payloadStatus,
+        product_id: resolveProductId(eventData, body),
+        subscription_id: incomingSubscriptionId,
+        customer_id: body.customer_id || body.data?.customer_id || body.payload?.customer_id || null,
       });
 
       // Plan-change confirmation email to dispatch after the DB
@@ -1276,7 +1296,7 @@ export async function POST(request: Request) {
                                 });
             }
 
-            logger.debug('webhook.dodo.processed', { eventId, eventType });
+            logger.info('webhook.dodo.processed', { event_id: eventId, event_type: eventType, effective_event_type: effectiveEventType });
             return Response.json({ received: true });
           } catch (txErr) {
                   await client.query('ROLLBACK').catch(() => {});
