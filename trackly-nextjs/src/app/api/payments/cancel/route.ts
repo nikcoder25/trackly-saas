@@ -8,6 +8,7 @@ import {
   sendPlanCancellationEmail,
   tryEnqueueRecoveredCancellationEmail,
 } from '@/lib/email';
+import { recordBillingEvent } from '@/lib/billing-events';
 
 // Dodo statuses that mean "already cancelled / not found at provider".
 // We treat all three as cancellation-success when we PATCH /subscriptions/{id}
@@ -219,6 +220,25 @@ export async function POST(request: Request) {
     previousPlan: postCommit.previousPlan,
     previousSubscriptionId: postCommit.previousSubscriptionId,
   }, '').catch(() => {});
+
+  // Record the user-visible billing event. Post-commit (the local pg
+  // client has been released; recordBillingEvent uses the global pool).
+  // No dodo_event_id — when the webhook subscription.cancelled later
+  // arrives it goes down the superseded_sub case (2) branch (because
+  // the cancel route stripped settings.subscription_id, so
+  // cancellationMatchesActive is false) and that branch suppresses
+  // its superseded_sub_cancelled row when previousPlan === 'free'.
+  // Net: exactly one user-visible plan_cancelled row per logical
+  // cancellation regardless of which path commits first.
+  recordBillingEvent({
+    userId: user.id,
+    eventType: 'plan_cancelled',
+    fromPlan: postCommit.previousPlan ?? null,
+    toPlan: 'free',
+    subscriptionId: postCommit.previousSubscriptionId,
+    source: 'cancel_route',
+    details: {},
+  }).catch(() => {});
 
   // Enqueue the cancellation email whenever the user transitioned from
   // a paid plan to free. previousSubscriptionId is NOT a precondition:
