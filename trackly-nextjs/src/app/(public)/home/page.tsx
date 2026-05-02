@@ -452,8 +452,8 @@ export default function LivesovHomePage() {
 
           <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
             <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-            <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-            <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
+            <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
+            <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
             <Link href="/geo-audit">GEO Audit</Link>
             <Link href="/blog">Blog</Link>
             <Link href="/contact">Contact</Link>
@@ -470,8 +470,8 @@ export default function LivesovHomePage() {
       {menuOpen && (
         <div className="tl-mobile-menu">
           <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-          <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-          <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
+          <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
+          <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
           <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
           <Link href="/blog" onClick={closeMenu}>Blog</Link>
           <Link href="/contact" onClick={closeMenu}>Contact</Link>
@@ -774,8 +774,8 @@ export default function LivesovHomePage() {
             <div className="tl-footer-col">
               <h4>{t.footer.product}</h4>
               <Link href="/#features">{t.footer.links.features}</Link>
-              <Link href="/pricing">{t.footer.links.pricing}</Link>
-              <Link href="/how-it-works">{t.footer.links.howItWorks}</Link>
+              <Link href="/#pricing">{t.footer.links.pricing}</Link>
+              <Link href="/#how-it-works">{t.footer.links.howItWorks}</Link>
               <Link href="/use-cases">Use Cases</Link>
               <Link href="/integrations">{t.footer.links.integrations}</Link>
             </div>
