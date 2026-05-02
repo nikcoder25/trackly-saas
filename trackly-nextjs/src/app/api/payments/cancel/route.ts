@@ -3,6 +3,7 @@ import { verifyRequestAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
+import { sendPlanCancellationEmail } from '@/lib/email';
 
 // Dodo statuses that mean "already cancelled / not found at provider".
 // We treat all three as cancellation-success when we PATCH /subscriptions/{id}
@@ -177,19 +178,43 @@ export async function POST(request: Request) {
     client.release();
   }
 
-  // Post-commit: audit only. The cancellation confirmation email is
-  // owned by the DodoPayments webhook handler — when our PATCH to
-  // /subscriptions/{id} succeeds, Dodo fires subscription.cancelled
-  // (or subscription.updated with status='cancelled') back to us, and
-  // the webhook's downgrade branch enqueues the email with idempotency
-  // key plan_cancellation:userId:subscriptionId. Single owner = no
-  // double-sends. The trade-off: if Dodo's webhook delivery is dropped
-  // and never replayed, the user gets no email. This is rare and the
-  // audit row below is the support trail.
+  // Post-commit: audit + cancellation email enqueue. The webhook handler
+  // also enqueues this email on subscription.cancelled with the SAME
+  // idempotency key (plan_cancellation:userId:subscriptionId), so whichever
+  // path inserts into email_outbox first wins and the other is a no-op via
+  // ON CONFLICT (idempotency_key) DO NOTHING. Pre-fix, the email was owned
+  // solely by the webhook — if Dodo's webhook delivery was dropped or
+  // replayed out of order, the user got no cancellation email. Now the
+  // user-initiated cancel path also enqueues, closing that race.
   auditLog(user.id, 'subscription_cancelled', 'user', user.id, {
     previousPlan: postCommit.previousPlan,
     previousSubscriptionId: postCommit.previousSubscriptionId,
   }, '').catch(() => {});
+
+  // Only enqueue when we have a subscription_id — without one, the key
+  // shape can't match the webhook's and dedup is impossible. A null subId
+  // also means there was no Dodo subscription to cancel, so there's no
+  // webhook to race with anyway.
+  if (postCommit.email && postCommit.previousSubscriptionId) {
+    const idempotencyKey = `plan_cancellation:${user.id}:${postCommit.previousSubscriptionId}`;
+    try {
+      await sendPlanCancellationEmail(
+        postCommit.email,
+        { previousPlan: postCommit.previousPlan },
+        idempotencyKey,
+      );
+    } catch (emailErr) {
+      // The cancel itself committed successfully; an email-enqueue failure
+      // must not roll that back. The audit row above remains the support
+      // trail, and the webhook still has a chance to enqueue the email
+      // independently under the same idempotency key.
+      logger.error('cancel.email_enqueue_failed', {
+        userId: user.id,
+        subscriptionId: postCommit.previousSubscriptionId,
+        error: (emailErr as Error).message,
+      });
+    }
+  }
 
   return Response.json({
     success: true,
