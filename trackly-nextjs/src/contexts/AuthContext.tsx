@@ -81,6 +81,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser().finally(() => setLoading(false));
   }, [refreshUser]);
 
+  // Revalidate the user (and therefore their plan) whenever the tab
+  // becomes visible again. Without this, /dashboard/account and
+  // /dashboard/billing can render conflicting plan values when the
+  // user switches between them after a webhook lands in the background
+  // — exactly the 20-minute drift the subscription-sync incident
+  // surfaced. Throttled to once per 5 seconds so rapid tab switching
+  // doesn't hammer /api/auth/me.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let lastRefresh = 0;
+    const THROTTLE_MS = 5000;
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefresh < THROTTLE_MS) return;
+      lastRefresh = now;
+      refreshUser();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [refreshUser]);
+
   const login = async (email: string, password: string, totpCode?: string) => {
     try {
       const data = await api('POST', '/api/auth/login', { email, password, totpCode });

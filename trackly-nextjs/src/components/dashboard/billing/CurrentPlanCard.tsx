@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { BILLING_PORTAL_URL } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 
 const SURFACE = '#ffffff';
 const SURFACE_BORDER = '#ececec';
@@ -55,6 +57,38 @@ export default function CurrentPlanCard({
     daysRemainingInMonth <= 0
       ? 'Renews today'
       : `${daysRemainingInMonth} day${daysRemainingInMonth === 1 ? '' : 's'} left`;
+
+  const { refreshUser } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+
+  // User-facing escape hatch when the webhook is delayed and the page
+  // shows a stale plan. Hits /api/payments/refresh which pulls live
+  // state from Dodo, reconciles the local DB, then we re-pull the
+  // user record so this card and any other plan-driven view rerenders.
+  async function handleRefreshStatus() {
+    if (refreshing) return;
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const res = await fetch('/api/payments/refresh', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRefreshMsg(data?.error || 'Could not refresh subscription. Try again shortly.');
+        return;
+      }
+      await refreshUser();
+      setRefreshMsg(data?.synced ? `Synced — now on ${data.plan}.` : 'Already up to date.');
+    } catch {
+      setRefreshMsg('Network error while refreshing subscription.');
+    } finally {
+      setRefreshing(false);
+      setTimeout(() => setRefreshMsg(null), 6000);
+    }
+  }
 
   return (
     <div
@@ -173,6 +207,31 @@ export default function CurrentPlanCard({
         >
           Manage plan
         </button>
+        <button
+          onClick={handleRefreshStatus}
+          disabled={refreshing}
+          title="Pull the latest subscription state from the payment provider"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px 16px',
+            borderRadius: 10,
+            background: SURFACE,
+            border: `1px solid ${SURFACE_BORDER}`,
+            color: refreshing ? TEXT_MUTED : TEXT_PRIMARY,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: refreshing ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh status'}
+        </button>
+        {refreshMsg && (
+          <span style={{ fontSize: 12, color: TEXT_SECONDARY, alignSelf: 'center' }}>
+            {refreshMsg}
+          </span>
+        )}
       </div>
 
       {/* Period progress */}
