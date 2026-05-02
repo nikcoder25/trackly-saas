@@ -149,6 +149,23 @@ function runMigrations(): Promise<void> {
         CREATE INDEX IF NOT EXISTS email_outbox_pickup_idx
           ON email_outbox (status, next_attempt_at)
           WHERE status IN ('pending', 'failed');
+        CREATE TABLE IF NOT EXISTS billing_events (
+          id UUID PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          event_type TEXT NOT NULL,
+          from_plan TEXT,
+          to_plan TEXT,
+          subscription_id TEXT,
+          dodo_event_id TEXT,
+          source TEXT NOT NULL,
+          details JSONB NOT NULL DEFAULT '{}',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS billing_events_user_created_idx
+          ON billing_events (user_id, created_at DESC);
+        CREATE UNIQUE INDEX IF NOT EXISTS billing_events_dodo_event_id_uniq
+          ON billing_events (dodo_event_id)
+          WHERE dodo_event_id IS NOT NULL;
         DO $$
         BEGIN
           IF NOT EXISTS (
@@ -156,6 +173,13 @@ function runMigrations(): Promise<void> {
           ) THEN
             ALTER TABLE user_sessions
               ADD CONSTRAINT user_sessions_user_id_fkey
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'billing_events_user_id_fkey'
+          ) THEN
+            ALTER TABLE billing_events
+              ADD CONSTRAINT billing_events_user_id_fkey
               FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
           END IF;
         END $$;

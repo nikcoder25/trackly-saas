@@ -8,7 +8,45 @@ import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
 
-interface BillingEntry { date: string; plan: string; amount: string; status: string; }
+interface BillingEntry {
+  date: string;
+  /** Pre-rendered "Plan changed" / "Pro → Agency" / "Cancelled" copy. */
+  event: string;
+  amount: string;
+  status: string;
+}
+
+const EVENT_LABEL: Record<string, string> = {
+  plan_upgraded: 'Plan upgraded',
+  plan_downgraded: 'Plan downgraded',
+  plan_cancelled: 'Subscription cancelled',
+  plan_renewed: 'Subscription renewed',
+  subscription_on_hold: 'Subscription on hold',
+  subscription_paused: 'Subscription paused',
+  superseded_sub_cancelled: 'Old subscription cancelled',
+  payment_succeeded: 'Payment received',
+};
+
+function titleCase(s: string): string {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Render a billing-events row as a user-readable line. For plan moves
+// we surface the transition (e.g. "Plan upgraded · Pro → Agency") so
+// the user can audit the lifecycle without cross-referencing receipts.
+function describeBillingRow(h: Record<string, unknown>): string {
+  const eventType = typeof h.event_type === 'string' ? h.event_type : '';
+  const label = EVENT_LABEL[eventType] || (eventType ? eventType.replace(/_/g, ' ') : 'Activity');
+  const fromPlan = typeof h.from_plan === 'string' ? h.from_plan : '';
+  const toPlan = typeof h.to_plan === 'string' ? h.to_plan : '';
+  if (fromPlan && toPlan && fromPlan !== toPlan) {
+    return `${label} · ${titleCase(fromPlan)} → ${titleCase(toPlan)}`;
+  }
+  if (toPlan) return `${label} · ${titleCase(toPlan)}`;
+  if (fromPlan) return `${label} · ${titleCase(fromPlan)}`;
+  return label;
+}
 
 const PLANS = PRICING_PLANS;
 
@@ -36,11 +74,11 @@ export default function AccountPage() {
     fetch('/api/payments/history', { credentials: 'include' })
       .then(r => { if (!r.ok) throw new Error('Request failed'); return r.json(); })
       .then(d => {
-        const history = (d.history || []).map((h: Record<string, unknown>) => ({
-          date: h.date || h.processed_at || h.created_at || '',
-          plan: h.plan || (typeof h.event_type === 'string' ? h.event_type.replace(/_/g, ' ') : '') || '',
-          amount: h.amount || '',
-          status: h.status || (h.event_type ? 'processed' : ''),
+        const history: BillingEntry[] = (d.history || []).map((h: Record<string, unknown>) => ({
+          date: (h.date as string) || (h.processed_at as string) || (h.created_at as string) || '',
+          event: describeBillingRow(h),
+          amount: (h.amount as string) || '',
+          status: (h.status as string) || (h.event_type ? 'processed' : ''),
         }));
         setBillingHistory(history);
       })
@@ -205,14 +243,14 @@ export default function AccountPage() {
           </div>
           <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12, minWidth: 600 }}>
-            <thead><tr style={{ borderBottom: '2px solid var(--border)' }}><th className="th">Date</th><th className="th">Plan</th><th className="th">Amount</th><th className="th">Status</th></tr></thead>
+            <thead><tr style={{ borderBottom: '2px solid var(--border)' }}><th className="th">Date</th><th className="th">Event</th><th className="th">Amount</th><th className="th">Status</th></tr></thead>
             <tbody>
               {billingHistory.map((b, i) => (
                 <tr key={i} className="trow">
                   <td className="td">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
-                  <td className="td" style={{ textTransform: 'uppercase', fontWeight: 600 }}>{b.plan}</td>
-                  <td className="td">{b.amount}</td>
-                  <td className="td"><span style={{ color: b.status === 'succeeded' ? 'var(--green)' : 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{b.status}</span></td>
+                  <td className="td" style={{ fontWeight: 600 }}>{b.event}</td>
+                  <td className="td">{b.amount || '-'}</td>
+                  <td className="td"><span style={{ color: b.status === 'succeeded' || b.status === 'paid' || b.status === 'upgraded' || b.status === 'renewed' ? 'var(--green)' : 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{b.status}</span></td>
                 </tr>
               ))}
             </tbody>

@@ -38,6 +38,43 @@ function noChargeReasonFor(plan: string): 'free' | 'owner' | 'custom' | null {
   return null;
 }
 
+const HISTORY_EVENT_LABEL: Record<string, string> = {
+  plan_upgraded: 'Plan upgraded',
+  plan_downgraded: 'Plan downgraded',
+  plan_cancelled: 'Subscription cancelled',
+  plan_renewed: 'Subscription renewed',
+  subscription_on_hold: 'Subscription on hold',
+  subscription_paused: 'Subscription paused',
+  superseded_sub_cancelled: 'Old subscription cancelled',
+  payment_succeeded: 'Payment received',
+};
+
+function titleCasePlan(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+
+function mapHistoryRow(h: Record<string, unknown>): ActivityEntry {
+  const eventType = typeof h.event_type === 'string' ? h.event_type : '';
+  const fromPlan = typeof h.from_plan === 'string' ? h.from_plan : '';
+  const toPlan = typeof h.to_plan === 'string' ? h.to_plan : '';
+  const baseLabel = HISTORY_EVENT_LABEL[eventType]
+    || (eventType ? eventType.replace(/_/g, ' ') : 'Activity');
+  let event = baseLabel;
+  if (fromPlan && toPlan && fromPlan !== toPlan) {
+    event = `${baseLabel} · ${titleCasePlan(fromPlan)} → ${titleCasePlan(toPlan)}`;
+  } else if (toPlan) {
+    event = `${baseLabel} · ${titleCasePlan(toPlan)}`;
+  } else if (fromPlan) {
+    event = `${baseLabel} · ${titleCasePlan(fromPlan)}`;
+  }
+  return {
+    date: (h.date as string) || (h.processed_at as string) || (h.created_at as string) || '',
+    event,
+    amount: (h.amount as string) || '',
+    status: (h.status as string) || (eventType ? 'processed' : ''),
+  };
+}
+
 export default function BillingPage() {
   const { user } = useAuth();
   const { brands } = useBrands();
@@ -80,15 +117,9 @@ export default function BillingPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
-        const rows: ActivityEntry[] = (d.history || []).map((h: Record<string, unknown>) => ({
-          date: (h.date || h.processed_at || h.created_at || '') as string,
-          event:
-            (h.plan ||
-              (typeof h.event_type === 'string' ? h.event_type.replace(/_/g, ' ') : '') ||
-              'Activity') as string,
-          amount: (h.amount || '') as string,
-          status: (h.status || (h.event_type ? 'processed' : '')) as string,
-        }));
+        const rows: ActivityEntry[] = (d.history || []).map((h: Record<string, unknown>) =>
+          mapHistoryRow(h),
+        );
         setBillingHistory(rows);
       })
       .catch(() => {});

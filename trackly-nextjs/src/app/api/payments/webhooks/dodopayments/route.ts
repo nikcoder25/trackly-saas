@@ -8,6 +8,7 @@ import {
   tryEnqueueRecoveredCancellationEmail,
 } from '@/lib/email';
 import { comparePlans } from '@/lib/plan-config';
+import { recordBillingEvent } from '@/lib/billing-events';
 import crypto from 'crypto';
 
 // Constant-time comparison for HMAC signatures. Attempts the given
@@ -874,6 +875,57 @@ export async function POST(request: Request) {
                                       `UPDATE users SET settings = settings || $1::jsonb WHERE id = $2`,
                                       [JSON.stringify(settingsUpdate), userId]
                                     );
+
+                        // Record the billing event inside the same SERIALIZABLE
+                        // tx as the plan UPDATE so the user's billing history
+                        // can never lag behind their actual plan. Three rules:
+                        //   - previousPlan !== plan -> upgrade or downgrade.
+                        //   - subscription.renewed with previousPlan === plan
+                        //     -> renewal (the user-meaningful "you were billed
+                        //     again" row).
+                        //   - everything else (e.g. subscription.active firing
+                        //     a second time after the upgrade already landed,
+                        //     or payment.succeeded for an upgrade we just
+                        //     recorded as plan_upgraded) -> skip; we already
+                        //     captured the user-meaningful transition.
+                        if (previousPlan !== plan) {
+                                  const direction = comparePlans(previousPlan, plan);
+                                  const billingEventType = direction === 'upgrade'
+                                              ? 'plan_upgraded'
+                                              : direction === 'downgrade'
+                                                          ? 'plan_downgraded'
+                                                          : null;
+                                  if (billingEventType) {
+                                              await recordBillingEvent({
+                                                          client,
+                                                          userId,
+                                                          eventType: billingEventType,
+                                                          fromPlan: previousPlan,
+                                                          toPlan: plan,
+                                                          subscriptionId: subscriptionId ?? null,
+                                                          dodoEventId: eventId,
+                                                          source: 'webhook',
+                                                          details: {
+                                                                      eventType,
+                                                                      effectiveEventType,
+                                                                      productId,
+                                                                      planSource,
+                                                          },
+                                              });
+                                  }
+                        } else if (effectiveEventType === 'subscription.renewed') {
+                                  await recordBillingEvent({
+                                              client,
+                                              userId,
+                                              eventType: 'plan_renewed',
+                                              fromPlan: previousPlan,
+                                              toPlan: plan,
+                                              subscriptionId: subscriptionId ?? null,
+                                              dodoEventId: eventId,
+                                              source: 'webhook',
+                                              details: { eventType, effectiveEventType, productId, planSource },
+                                  });
+                        }
                     } else {
                                 // Fail loudly - silently marking this event as processed
                                 // would leave the user on their old plan forever despite
@@ -973,6 +1025,38 @@ export async function POST(request: Request) {
                             [JSON.stringify(supersededMerge), userId],
                           );
                         }
+
+                        // Record the orphan-cancellation row inside the
+                        // tx, but only for case (1) — a genuine orphan
+                        // from a plan-upgrade race (previousPlan !== 'free').
+                        // For case (2) the cancel route already wrote a
+                        // plan_cancelled row, and emitting another
+                        // superseded_sub_cancelled row on top would be
+                        // user-visible noise. The plan_upgraded row from
+                        // the new sub remains the user's primary record;
+                        // this orphan row is informational and tagged so
+                        // the UI can render it as "Old subscription
+                        // cancelled" rather than the more alarming
+                        // "Plan cancelled".
+                        if (previousPlan !== 'free') {
+                          await recordBillingEvent({
+                            client,
+                            userId,
+                            eventType: 'superseded_sub_cancelled',
+                            fromPlan: null,
+                            toPlan: null,
+                            subscriptionId: incomingSubscriptionId,
+                            dodoEventId: eventId,
+                            source: 'webhook',
+                            details: {
+                              eventType,
+                              effectiveEventType,
+                              active_subscription_id: typeof activeSubscriptionId === 'string' ? activeSubscriptionId : null,
+                              previousPlan,
+                              reason: 'orphan_post_upgrade',
+                            },
+                          });
+                        }
                         await client.query('COMMIT');
                         logger.info('webhook.dodo.cancel_skipped_superseded_sub', {
                           userId,
@@ -1053,6 +1137,28 @@ export async function POST(request: Request) {
                                 );
                       logger.info('webhook.dodo.plan_downgraded', { userId, from: previousPlan, to: 'free', eventType, effectiveEventType, payloadStatus });
 
+                      // Record the cancellation inside the tx. Dedup is
+                      // by dodo_event_id so a webhook replay of this
+                      // exact event does not duplicate. The cancel route
+                      // path writes a separate row under
+                      // source='cancel_route' with no dodo_event_id —
+                      // those collide when the cancel route ran first
+                      // (see the superseded_sub case (2) branch above,
+                      // which suppresses the superseded row in that
+                      // case). Net effect: every genuine cancellation
+                      // produces exactly one user-visible row.
+                      await recordBillingEvent({
+                                  client,
+                                  userId,
+                                  eventType: 'plan_cancelled',
+                                  fromPlan: previousPlan ?? null,
+                                  toPlan: 'free',
+                                  subscriptionId: incomingSubscriptionId,
+                                  dodoEventId: eventId,
+                                  source: 'webhook',
+                                  details: { eventType, effectiveEventType, payloadStatus },
+                      });
+
                       // Bug 2: always queue the cancellation email for a
                       // genuine cancellation event, even when previousPlan
                       // is already 'free' (e.g. the cancel route ran
@@ -1083,6 +1189,15 @@ export async function POST(request: Request) {
                                                 [userId]
                                               );
                                   logger.info('webhook.dodo.subscription_on_hold', { userId, eventType });
+                                  await recordBillingEvent({
+                                              client,
+                                              userId,
+                                              eventType: 'subscription_on_hold',
+                                              subscriptionId: incomingSubscriptionId,
+                                              dodoEventId: eventId,
+                                              source: 'webhook',
+                                              details: { eventType, effectiveEventType, payloadStatus },
+                                  });
                       }
             }
 
@@ -1094,6 +1209,15 @@ export async function POST(request: Request) {
                                                 [userId]
                                               );
                                   logger.info('webhook.dodo.subscription_paused', { userId, eventType });
+                                  await recordBillingEvent({
+                                              client,
+                                              userId,
+                                              eventType: 'subscription_paused',
+                                              subscriptionId: incomingSubscriptionId,
+                                              dodoEventId: eventId,
+                                              source: 'webhook',
+                                              details: { eventType, effectiveEventType, payloadStatus },
+                                  });
                       }
             }
 
