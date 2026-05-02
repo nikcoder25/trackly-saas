@@ -68,6 +68,9 @@ vi.mock('@/lib/email', () => ({
   sendPlanUpgradeEmail: vi.fn().mockResolvedValue({ sent: true }),
   sendPlanDowngradeEmail: vi.fn().mockResolvedValue({ sent: true }),
   sendPlanCancellationEmail: vi.fn().mockResolvedValue({ sent: true }),
+  planCancellationIdempotencyKey: (userId: string, sub: string | null | undefined) =>
+    `plan_cancellation:${userId}:${sub || 'no_sub'}`,
+  tryEnqueueRecoveredCancellationEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/plan-config', () => ({

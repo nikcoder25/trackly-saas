@@ -3,7 +3,11 @@ import { verifyRequestAuth } from '@/lib/auth';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 import { logError, serverError } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
-import { sendPlanCancellationEmail } from '@/lib/email';
+import {
+  planCancellationIdempotencyKey,
+  sendPlanCancellationEmail,
+  tryEnqueueRecoveredCancellationEmail,
+} from '@/lib/email';
 
 // Dodo statuses that mean "already cancelled / not found at provider".
 // We treat all three as cancellation-success when we PATCH /subscriptions/{id}
@@ -31,8 +35,9 @@ export async function POST(request: Request) {
   //
   // Order is: BEGIN -> SELECT FOR UPDATE -> PATCH Dodo -> UPDATE -> COMMIT.
   // The row lock serialises a concurrent double-click cancel; on the second
-  // click the user is already on `free` and we return 400 idempotently
-  // without touching Dodo a second time.
+  // click the user is already on `free` and we return 200 idempotently
+  // (with alreadyCancelled: true) after a best-effort recovery enqueue of
+  // the confirmation email — without touching Dodo a second time.
   const client = await safeConnect();
   let postCommit: { email: string | null; previousPlan: string; previousSubscriptionId: string | null } | null = null;
 
@@ -49,8 +54,32 @@ export async function POST(request: Request) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }
     if (row.plan === 'free') {
+      // The cancellation already committed — either via the webhook,
+      // an earlier call to this route, or the reconcile cron. Pre-fix
+      // we 400'd here; that produced the bug where, if the prior path
+      // failed to enqueue the confirmation email (e.g. webhook went
+      // down the superseded_sub branch with subscription_id stripped),
+      // the user got nothing AND the retry from this route also
+      // dropped the email. Now we treat it as an idempotent success
+      // and best-effort recover the email from audit history. The
+      // email_outbox idempotency_key UNIQUE constraint collapses any
+      // duplicate against whatever the prior path enqueued.
       await client.query('ROLLBACK');
-      return Response.json({ error: 'You are already on the free plan.' }, { status: 400 });
+      await tryEnqueueRecoveredCancellationEmail({
+        userId: user.id,
+        email: row.email,
+        source: 'cancel_route_already_free',
+      }).catch((err) => {
+        logger.warn('cancel.recovery_enqueue_unexpected_throw', {
+          userId: user.id,
+          error: (err as Error).message,
+        });
+      });
+      return Response.json({
+        success: true,
+        message: 'Subscription already cancelled. You are on the free plan.',
+        alreadyCancelled: true,
+      });
     }
 
     const subId = row.settings?.subscription_id;
@@ -191,12 +220,16 @@ export async function POST(request: Request) {
     previousSubscriptionId: postCommit.previousSubscriptionId,
   }, '').catch(() => {});
 
-  // Only enqueue when we have a subscription_id — without one, the key
-  // shape can't match the webhook's and dedup is impossible. A null subId
-  // also means there was no Dodo subscription to cancel, so there's no
-  // webhook to race with anyway.
-  if (postCommit.email && postCommit.previousSubscriptionId) {
-    const idempotencyKey = `plan_cancellation:${user.id}:${postCommit.previousSubscriptionId}`;
+  // Enqueue the cancellation email whenever the user transitioned from
+  // a paid plan to free. previousSubscriptionId is NOT a precondition:
+  // if settings.subscription_id was already null when this request
+  // arrived (a prior partial flow stripped it, or the user cancelled
+  // before re-binding), the user still moved paid -> free and still
+  // expects the email. The shared key helper produces 'no_sub' as a
+  // stable third segment in that case so the webhook (which is also
+  // updated to use the same helper) still dedupes against this row.
+  if (postCommit.email && postCommit.previousPlan && postCommit.previousPlan !== 'free') {
+    const idempotencyKey = planCancellationIdempotencyKey(user.id, postCommit.previousSubscriptionId);
     try {
       await sendPlanCancellationEmail(
         postCommit.email,
