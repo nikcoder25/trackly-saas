@@ -85,6 +85,8 @@ vi.mock('@/lib/email', () => ({
   sendPlanUpgradeEmail: (...args: unknown[]) => sendUpgrade(...args),
   sendPlanDowngradeEmail: (...args: unknown[]) => sendDowngrade(...args),
   sendPlanCancellationEmail: (...args: unknown[]) => sendCancellation(...args),
+  planCancellationIdempotencyKey: (userId: string, subscriptionId: string | null | undefined) =>
+    `plan_cancellation:${userId}:${subscriptionId || 'no_sub'}`,
 }));
 
 // comparePlans is real — we want the genuine direction logic, not a stub.
@@ -197,11 +199,11 @@ describe('reconcile-payments cron — email parity with webhook', () => {
       expect(sendCancellation).toHaveBeenCalledWith(
         'a@test.com',
         { previousPlan: 'agency' },
-        // Idempotency key shape: plan_email:userId:subscriptionId:not_found:free
-        // — keyed off the observed Dodo state (404) so a late
-        // subscription.cancelled webhook for the same row dedups via
-        // the outbox UNIQUE index.
-        expect.stringMatching(/^plan_email:user_A:sub_X:not_found:free$/),
+        // Shared cancellation key (plan_cancellation:userId:subscriptionId)
+        // — produced by planCancellationIdempotencyKey so the cron, the
+        // webhook, and the cancel route all collide on the same key in
+        // the email_outbox UNIQUE index for a given logical cancellation.
+        expect.stringMatching(/^plan_cancellation:user_A:sub_X$/),
       );
       expect(sendUpgrade).not.toHaveBeenCalled();
       expect(sendDowngrade).not.toHaveBeenCalled();
@@ -350,7 +352,7 @@ describe('reconcile-payments cron — email parity with webhook', () => {
       expect(sendCancellation).toHaveBeenCalledWith(
         'a@test.com',
         { previousPlan: 'agency' },
-        expect.stringMatching(/^plan_email:user_A:sub_X:cancelled:free$/),
+        expect.stringMatching(/^plan_cancellation:user_A:sub_X$/),
       );
       expect(sendUpgrade).not.toHaveBeenCalled();
       expect(sendDowngrade).not.toHaveBeenCalled();
