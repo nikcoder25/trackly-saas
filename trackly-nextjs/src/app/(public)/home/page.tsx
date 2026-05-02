@@ -451,12 +451,10 @@ export default function LivesovHomePage() {
           </button>
 
           <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
-            <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-            <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-            <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-            <Link href="/geo-audit">GEO Audit</Link>
-            <Link href="/blog">Blog</Link>
-            <Link href="/contact">Contact</Link>
+            <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
+            <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
+            <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+            <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>FAQ</a>
           </div>
 
           <div className="tl-nav-actions">
@@ -469,12 +467,10 @@ export default function LivesovHomePage() {
       {/* Mobile menu overlay */}
       {menuOpen && (
         <div className="tl-mobile-menu">
-          <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-          <Link href="/how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-          <Link href="/pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-          <Link href="/geo-audit" onClick={closeMenu}>GEO Audit</Link>
-          <Link href="/blog" onClick={closeMenu}>Blog</Link>
-          <Link href="/contact" onClick={closeMenu}>Contact</Link>
+          <a href="#features" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.features}</a>
+          <a href="#how-it-works" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.howItWorks}</a>
+          <a href="#pricing" onClick={(e) => smoothScrollTo(e, closeMenu)}>{t.nav.pricing}</a>
+          <a href="#faq" onClick={(e) => smoothScrollTo(e, closeMenu)}>FAQ</a>
           <div className="tl-mobile-menu-actions">
             <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>{t.nav.login}</Link>
             <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>{t.nav.getStarted}</Link>
