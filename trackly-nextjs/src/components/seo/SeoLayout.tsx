@@ -76,8 +76,8 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
           <div className="land-footer-col">
             <h4>Product</h4>
             <Link href="/#features">Features</Link>
-            <Link href="/pricing">Pricing</Link>
-            <Link href="/how-it-works">How it Works</Link>
+            <Link href="/#pricing">Pricing</Link>
+            <Link href="/#how-it-works">How it Works</Link>
             <Link href="/use-cases">Use Cases</Link>
             <Link href="/integrations">Integrations</Link>
           </div>
