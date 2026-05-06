@@ -129,11 +129,11 @@ export function resetApiKeyFailures(apiKey: string): void {
 // platform consecutive-failure counter in the run route short-circuits
 // the rest of the run instead of waiting for each query to time out.
 const PLATFORM_CB_THRESHOLD =
-  Number(process.env.AI_PLATFORM_CB_THRESHOLD) || 8;
+  Number(process.env.AI_PLATFORM_CB_THRESHOLD) || 12;
 const PLATFORM_CB_WINDOW_MS =
   Number(process.env.AI_PLATFORM_CB_WINDOW_MS) || 60000;
 const PLATFORM_CB_COOLDOWN_MS =
-  Number(process.env.AI_PLATFORM_CB_COOLDOWN_MS) || 5 * 60 * 1000;
+  Number(process.env.AI_PLATFORM_CB_COOLDOWN_MS) || 60 * 1000;
 
 interface PlatformBreakerState {
   failures: number[];
@@ -226,7 +226,7 @@ export interface PlatformLimit { maxConcurrent: number; rpm: number; windowMs: n
 // legacy `AI_LIMITS_CHATGPT_CONCURRENCY` name; both are read for back-
 // compat with existing production env.
 export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
-  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 2, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 300, windowMs: 60000 },
+  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 1, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 300, windowMs: 60000 },
   Claude:     { maxConcurrent: Number(process.env.AI_LIMITS_CLAUDE_CONCURRENCY)     || 3, rpm: Number(process.env.AI_LIMITS_CLAUDE_RPM)     || 80,  windowMs: 60000 },
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
@@ -542,7 +542,7 @@ interface RateLimit { minDelayMs: number; }
 // ChatGPT default raised from 500ms → 1500ms to pace against Search-Preview
 // pool (see PLATFORM_LIMITS comment). Tune via AI_CHATGPT_MIN_DELAY_MS.
 const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
-  ChatGPT:    { minDelayMs: Number(process.env.AI_CHATGPT_MIN_DELAY_MS) || 1500 },
+  ChatGPT:    { minDelayMs: Number(process.env.AI_CHATGPT_MIN_DELAY_MS) || 2500 },
   Claude:     { minDelayMs: 300 },
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
