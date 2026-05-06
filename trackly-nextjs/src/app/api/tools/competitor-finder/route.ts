@@ -50,7 +50,8 @@ function parseBrands(text: string): Brand[] {
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const { allowed, retryAfter } = await rateLimit(`competitor-finder:${ip}`, 60 * 60 * 1000, 5);
+    // 3 queries per IP per day - calls a paid AI provider per request.
+    const { allowed, retryAfter } = await rateLimit(`competitor-finder:${ip}`, 24 * 60 * 60 * 1000, 3);
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));

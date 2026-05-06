@@ -94,6 +94,9 @@ export default function CompetitorFinderPage() {
           <PrimaryButton type="submit" loading={loading}>
             {loading ? 'Asking AI...' : 'Find AI-Recommended Brands'}
           </PrimaryButton>
+          <div style={{ marginTop: 10, fontSize: 12, color: '#6b7280', textAlign: 'center' }}>
+            3 free checks per day. <a href="/signup" style={{ color: 'var(--brand)', fontWeight: 600 }}>Sign up</a> to track competitor mentions across every prompt, every day.
+          </div>
         </form>
         <ErrorBanner message={error} />
       </div>

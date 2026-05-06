@@ -52,7 +52,9 @@ function buildPrompt(query: string, brand?: string): string {
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const { allowed, retryAfter } = await rateLimit(`citation-finder:${ip}`, 60 * 60 * 1000, 5);
+    // 2 queries per IP per day - this tool calls Perplexity/ChatGPT which
+    // costs us per-query. Anything beyond a tasting menu should sign up.
+    const { allowed, retryAfter } = await rateLimit(`citation-finder:${ip}`, 24 * 60 * 60 * 1000, 2);
     if (!allowed) return rateLimitResponse(retryAfter);
 
     const body = await req.json().catch(() => ({}));

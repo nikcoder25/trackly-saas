@@ -108,6 +108,9 @@ export default function CitationFinderPage() {
           <PrimaryButton type="submit" loading={loading}>
             {loading ? 'Asking AI...' : 'Find Citations'}
           </PrimaryButton>
+          <div style={{ marginTop: 10, fontSize: 12, color: '#6b7280', textAlign: 'center' }}>
+            2 free checks per day. <a href="/signup" style={{ color: 'var(--brand)', fontWeight: 600 }}>Sign up</a> for unlimited citation tracking across every prompt.
+          </div>
         </form>
         <ErrorBanner message={error} />
       </div>
