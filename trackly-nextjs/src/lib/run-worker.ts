@@ -86,6 +86,10 @@ async function processRun(job: Job<BrandRunJobData>) {
   const fairnessSettings = await loadTenantFairnessSettings(fairnessTenantId);
   setTenantFairness(fairnessTenantId, fairnessSettings);
 
+  // Per-platform task queues (perf fix: workers were stuck serialising on the slowest platform).
+  // Each platform owns its own queue; spawn its own workers up to maxConcurrent.
+  const tasksByPlat: Record<string, string[]> = {};
+  for (const plat of activePlatforms) tasksByPlat[plat] = [...queries];
   const tasks: Array<{ plat: string; q: string }> = [];
   for (let qi = 0; qi < queries.length; qi++) {
     for (let pi = 0; pi < activePlatforms.length; pi++) {
@@ -168,11 +172,11 @@ async function processRun(job: Job<BrandRunJobData>) {
   const platLastCall: Record<string, number> = {};
   const PLATFORM_STAGGER_MS = 500;
 
-  async function runWorker() {
-    while (nextIdx < tasks.length) {
+  async function runWorker(assignedPlat: string) {
+    while (tasksByPlat[assignedPlat] && tasksByPlat[assignedPlat].length > 0) {
+      const q = tasksByPlat[assignedPlat].shift()!;
+      const plat = assignedPlat;
       const idx = nextIdx++;
-      if (idx >= tasks.length) return;
-      const { plat, q } = tasks[idx];
       try {
         if (platFailCount[plat] >= FAIL_THRESHOLD) {
           throw new Error(`Skipped - ${plat} had ${FAIL_THRESHOLD} consecutive failures`);
@@ -267,8 +271,22 @@ async function processRun(job: Job<BrandRunJobData>) {
   }
 
   try {
-    const CONCURRENCY = Math.min(activePlatforms.length, tasks.length);
-    await Promise.all(Array.from({ length: CONCURRENCY }, () => runWorker()));
+    // Spawn N workers PER platform where N = that platform's maxConcurrent
+    // (clamped to its task count). Each worker only pulls from its own queue,
+    // so a slow platform can't block fast ones.
+    const PLATFORM_WORKERS: Record<string, number> = {
+      ChatGPT: Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || 1,
+      Claude: Number(process.env.AI_LIMITS_CLAUDE_CONCURRENCY) || 3,
+      Gemini: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY) || 6,
+      Grok: Number(process.env.AI_LIMITS_GROK_CONCURRENCY) || 3,
+      Perplexity: Number(process.env.AI_LIMITS_PERPLEXITY_CONCURRENCY) || 3,
+    };
+    const workerPromises: Promise<void>[] = [];
+    for (const plat of activePlatforms) {
+      const slots = Math.max(1, Math.min(PLATFORM_WORKERS[plat] || 2, tasksByPlat[plat]?.length || 0));
+      for (let i = 0; i < slots; i++) workerPromises.push(runWorker(plat));
+    }
+    await Promise.all(workerPromises);
     await flushProgress(true);
 
     // Verify this run is still active before saving
