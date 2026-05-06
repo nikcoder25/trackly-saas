@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 interface Citation {
   url: string;
@@ -180,6 +180,28 @@ export default function CitationFinderPage() {
       )}
 
       <ToolArticle>
+        <ArticleSchema
+          headline="AI Citation Finder: See Which URLs Perplexity and ChatGPT Cite in Their Answers"
+          description="Find every URL Perplexity or ChatGPT cites for any prompt. The complete guide to AI citations - why they matter, how to earn more, how the major engines differ."
+          url="https://livesov.com/tools/citation-finder"
+          datePublished="2026-05-01"
+          dateModified="2026-05-06"
+        />
+
+        <AnswerCapsule>
+          The <strong>AI Citation Finder</strong> sends a question to Perplexity (default) or ChatGPT, extracts every URL the model cites in its answer, and highlights matches against your domain if you supply one. AI citations are the new backlinks - they drive direct traffic and reinforce future inclusion. Free with 2 checks per IP per day.
+        </AnswerCapsule>
+
+        <KeyTakeaways
+          items={[
+            'Citations are the new backlinks - explicit footnotes from AI answers that drive intent-rich traffic.',
+            'Perplexity is citation-native; ChatGPT cites less consistently, mostly in browsing/search mode.',
+            'The fastest way to earn citations is to be present on the third-party sites the engine already trusts.',
+            'Citation profile is a strategic competitive intelligence asset - it shows which sites the AI uses to define your category.',
+            'Track citations weekly. Domain-level citation share is a leading indicator of mention rate.',
+          ]}
+        />
+
         <h2>What an AI citation actually is</h2>
         <p>
           A citation is a URL that an AI engine references in its answer. Perplexity makes citations explicit - every claim is footnoted to a source. ChatGPT (with browsing or search) embeds them inline as markdown links. Either way, the cited URL is the one a curious user can click through to verify the claim.
@@ -217,6 +239,43 @@ export default function CitationFinderPage() {
           <strong>Perplexity vs ChatGPT.</strong> Perplexity is citation-native - every answer has explicit footnotes. ChatGPT cites less consistently; it cites most when in browsing/search mode and least in plain chat. If your audience is research-heavy, prioritise Perplexity citations. If they are mass-market, prioritise ChatGPT mentions.
         </div>
 
+        <ExpertQuote
+          quote="The fastest way to earn AI citations isn't to publish more on your own blog. It's to get cited by the sites the AI already trusts. Find the top three citation sources in your category and concentrate guest posts, expert quotes and product mentions there. Compounding follows."
+          name="Nik Sov"
+          title="Founder, Livesov"
+        />
+
+        <h2>Citation source archetypes</h2>
+        <p>
+          AI engines pull from a small number of source types repeatedly. Knowing which type you need to be on is half the battle.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Archetype</th>
+              <th>Examples</th>
+              <th>Why AI cites them</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Review platforms</td><td>G2, Capterra, TrustRadius, Trustpilot</td><td>Aggregated user voice with structured ratings.</td></tr>
+            <tr><td>Comparison roundups</td><td>Top-N blog posts, &quot;best X tools&quot; articles</td><td>Pre-organised competitive sets.</td></tr>
+            <tr><td>Authoritative news</td><td>TechCrunch, The Verge, Wired, industry trade press</td><td>High citation density and freshness.</td></tr>
+            <tr><td>Reference works</td><td>Wikipedia, official spec sites, RFCs</td><td>Definitional anchor points.</td></tr>
+            <tr><td>Forums</td><td>Reddit, Hacker News, Stack Overflow, niche Discords (indexed)</td><td>Real-user signal at scale.</td></tr>
+            <tr><td>Vendor docs</td><td>Your own /docs, /api, /integrations</td><td>Authoritative source on the product itself.</td></tr>
+            <tr><td>Aggregators</td><td>Producthunt, Indie Hackers, niche directories</td><td>Discovery surface for newer brands.</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Common mistakes</h2>
+        <ul>
+          <li><strong>Reading a single result as the truth.</strong> Citations vary across runs. Treat the result as one sample, not the canon.</li>
+          <li><strong>Fixating on your own blog citations.</strong> Self-citations are weaker signal than third-party citations. Diversify.</li>
+          <li><strong>Counting citations from any low-quality source as wins.</strong> AI engines de-weight thin sites. Prioritise the eight archetypes above.</li>
+          <li><strong>Ignoring engine differences.</strong> Perplexity citations follow different patterns than ChatGPT citations. Track both separately.</li>
+        </ul>
+
         <FaqSection
           items={[
             {
@@ -238,6 +297,18 @@ export default function CitationFinderPage() {
             {
               q: 'What is the daily cap?',
               a: '2 free checks per day per IP. Each check makes a real Perplexity or ChatGPT API call. Sign up to track citations across multiple prompts on a daily schedule.',
+            },
+            {
+              q: 'How long does it take to earn a Perplexity citation after publishing?',
+              a: 'For the right kind of page (FAQ-rich, schema-marked, on a known domain), Perplexity often picks it up within a week. For new domains or sparse content, expect months.',
+            },
+            {
+              q: 'Should I track citations per domain or per URL?',
+              a: 'Both. Domain-level shows category-leading sources; URL-level shows the specific pages cited. The paid product surfaces both views.',
+            },
+            {
+              q: 'Do AI citations help my Google rankings?',
+              a: 'Indirectly. Pages cited heavily by AI tend to be the same pages that rank well in search - not because AI causes the ranking but because both reward similar structural and citation signals.',
             },
           ]}
         />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 interface Brand {
   name: string;
@@ -159,6 +159,28 @@ export default function CompetitorFinderPage() {
       )}
 
       <ToolArticle>
+        <ArticleSchema
+          headline="AI Competitor Finder: See Which Brands AI Recommends in Your Industry"
+          description="Discover the top 10 brands AI engines recommend for any vertical. The complete guide to AI competitive sets - how they form, why they differ from search, and how to act on them."
+          url="https://livesov.com/tools/competitor-finder"
+          datePublished="2026-05-01"
+          dateModified="2026-05-06"
+        />
+
+        <AnswerCapsule>
+          The <strong>AI Competitor Finder</strong> asks an AI engine for the top 10 brands in any industry and returns a clean ranked list with one-line descriptions. The result is your competitive set as the AI sees it - which is increasingly the set your customers see. Free with 3 checks per IP per day.
+        </AnswerCapsule>
+
+        <KeyTakeaways
+          items={[
+            'AI competitive sets are different from search SERPs - they reward citation density over backlink count.',
+            'Surprises in the list matter. Unfamiliar names are usually brands punching above their weight on third-party signals.',
+            'AI competitive sets vary by region. Always test your top markets separately.',
+            'Treat the description as a positioning artifact - it shows how the AI summarises each brand, including yours.',
+            'Run monthly. Sets shift slowly during a model version and abruptly when a new model ships.',
+          ]}
+        />
+
         <h2>What this tool reveals</h2>
         <p>
           Ask any AI engine &quot;what are the best X companies?&quot; and you get a curated shortlist. That shortlist is the modern competitive set - whether you agree with it or not. This tool surfaces it for you in seconds, with one-line descriptions that show <em>how</em> the AI positions each brand.
@@ -182,6 +204,39 @@ export default function CompetitorFinderPage() {
           <li>For each brand you expected and the AI omitted, check whether <a href="/tools/ai-readiness-audit">your AI readiness</a> is comparable. The omission is usually structural, not a popularity contest.</li>
           <li>Rerun monthly per region. AI competitive sets are slow-moving but worth tracking quarterly at minimum.</li>
         </ol>
+
+        <ExpertQuote
+          quote="The most useful column in this table isn't the brand name - it's the gap between the AI's competitive set and yours. Every founder we work with discovers two competitors they hadn't been tracking and two they thought mattered who don't. That recalibration is worth the price of the whole product."
+          name="Nik Sov"
+          title="Founder, Livesov"
+        />
+
+        <h2>Why AI competitive sets differ from your spreadsheet</h2>
+        <p>
+          Three structural reasons explain almost every surprise.
+        </p>
+        <table>
+          <thead>
+            <tr><th>Reason</th><th>Why it matters</th><th>What to do</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Citation density</td>
+              <td>AI weighs third-party citations heavily. A startup with strong G2 + comparison-roundup presence outranks a larger competitor with thin third-party signal.</td>
+              <td>Audit competitor citation profiles; replicate the patterns that work.</td>
+            </tr>
+            <tr>
+              <td>Co-occurrence in training data</td>
+              <td>Brands that appear together in the corpus get linked in the model&apos;s implicit category map. Adjacent verticals blur into one set.</td>
+              <td>Define category boundary explicitly on your site (vs/, alternatives/ pages).</td>
+            </tr>
+            <tr>
+              <td>Live retrieval signal</td>
+              <td>In browsing modes, AI uses real search results. Brands that rank well for the query get surfaced regardless of training data.</td>
+              <td>Maintain SEO basics on your top buying-intent queries.</td>
+            </tr>
+          </tbody>
+        </table>
 
         <h2>Common mistakes</h2>
         <ul>
@@ -216,6 +271,22 @@ export default function CompetitorFinderPage() {
             {
               q: 'What is the cap?',
               a: '3 free checks per day per IP. Each check is a paid AI call. To track competitive shifts continuously across regions and prompts, sign up.',
+            },
+            {
+              q: 'Should I include myself in the prompt to see if I appear?',
+              a: 'Do not name yourself in the industry input - that biases the model. Run it as a third party would and see if you naturally appear. The absence is itself the data point.',
+            },
+            {
+              q: 'How does this differ from a category report on G2 or Gartner?',
+              a: 'G2 ranks by user reviews. Gartner ranks by analyst opinion. AI ranks by what shows up most in its training data and live retrieval. The three rarely match - and it is the AI ranking that customers see when they ask.',
+            },
+            {
+              q: 'My category does not return a clean list. What now?',
+              a: 'Tighten the industry input. "Software" is too broad; "AI visibility tracking software for B2B SaaS" gets a cleaner answer. Iteration is part of the workflow.',
+            },
+            {
+              q: 'Can I use this for vertical research before launching a new product?',
+              a: 'Yes - and it is one of the highest-leverage uses. Before committing to a category, run this tool to see the AI-defined competitive set. If the list is dominated by 5 well-funded incumbents, you are entering a hard market.',
             },
           ]}
         />

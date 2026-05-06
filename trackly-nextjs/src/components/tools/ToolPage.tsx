@@ -190,20 +190,21 @@ export function ToolArticle({ children }: { children: React.ReactNode }) {
       </div>
       <style jsx global>{`
         .tool-article-prose h2 {
-          font-size: 22px;
+          font-size: 24px;
           font-weight: 800;
           color: #0f172a;
-          margin: 32px 0 12px;
+          margin: 36px 0 14px;
           line-height: 1.3;
+          scroll-margin-top: 80px;
         }
         .tool-article-prose h2:first-child {
           margin-top: 0;
         }
         .tool-article-prose h3 {
-          font-size: 17px;
+          font-size: 18px;
           font-weight: 700;
           color: #0f172a;
-          margin: 24px 0 8px;
+          margin: 26px 0 8px;
         }
         .tool-article-prose p {
           margin: 0 0 14px;
@@ -245,8 +246,155 @@ export function ToolArticle({ children }: { children: React.ReactNode }) {
           border: 1px solid #e0e7ff;
           border-radius: 10px;
         }
+        .tool-article-prose table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 16px 0 22px;
+          font-size: 14.5px;
+          background: #fff;
+        }
+        .tool-article-prose th,
+        .tool-article-prose td {
+          border: 1px solid #e5e7eb;
+          padding: 10px 12px;
+          text-align: left;
+          vertical-align: top;
+        }
+        .tool-article-prose th {
+          background: #f8fafc;
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .tool-article-prose tbody tr:nth-child(even) td {
+          background: #fafbfd;
+        }
       `}</style>
     </article>
+  );
+}
+
+/**
+ * The "answer capsule" that sits at the top of every article - a 1-2
+ * sentence direct answer to the page's primary question. AI engines
+ * reward this pattern because they extract the capsule cleanly.
+ */
+export function AnswerCapsule({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="note"
+      aria-label="Quick answer"
+      style={{
+        background: 'linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%)',
+        border: '1px solid #e2e8f0',
+        borderLeft: '4px solid var(--brand)',
+        borderRadius: 10,
+        padding: '16px 20px',
+        margin: '0 0 24px',
+        fontSize: 15.5,
+        lineHeight: 1.7,
+        color: '#1e293b',
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--brand)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>
+        Quick answer
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Highlighted key-takeaways box. Drop in after the intro paragraphs.
+ */
+export function KeyTakeaways({ items }: { items: string[] }) {
+  return (
+    <aside
+      aria-label="Key takeaways"
+      style={{
+        background: '#fffbf2',
+        border: '1px solid #fde68a',
+        borderRadius: 12,
+        padding: '18px 22px',
+        margin: '20px 0 28px',
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+        Key takeaways
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 22 }}>
+        {items.map((it, i) => (
+          <li key={i} style={{ color: '#334155' }}>{it}</li>
+        ))}
+      </ul>
+    </aside>
+  );
+}
+
+/**
+ * Expert pull-quote. Adds an E-E-A-T signal and breaks up long copy.
+ */
+export function ExpertQuote({ quote, name, title }: { quote: string; name: string; title: string }) {
+  return (
+    <figure
+      style={{
+        margin: '24px 0',
+        padding: '22px 26px',
+        background: '#0f172a',
+        borderRadius: 14,
+        color: '#e2e8f0',
+      }}
+    >
+      <div style={{ fontSize: 28, color: 'var(--brand)', lineHeight: 1, marginBottom: 8 }}>“</div>
+      <blockquote style={{ margin: 0, padding: 0, background: 'transparent', border: 'none', fontStyle: 'normal', color: '#f1f5f9', fontSize: 16, lineHeight: 1.7 }}>
+        {quote}
+      </blockquote>
+      <figcaption style={{ marginTop: 14, fontSize: 13, color: '#94a3b8' }}>
+        <strong style={{ color: '#fff' }}>{name}</strong>
+        <span style={{ marginLeft: 6 }}>· {title}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * Article JSON-LD schema. Drop one per tool page so the article is
+ * eligible for Article rich results.
+ */
+export function ArticleSchema({
+  headline,
+  description,
+  url,
+  datePublished,
+  dateModified,
+}: {
+  headline: string;
+  description: string;
+  url: string;
+  datePublished: string;
+  dateModified: string;
+}) {
+  const nonce = useNonce();
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline,
+    description,
+    author: { '@type': 'Organization', name: 'Livesov', url: 'https://livesov.com/about' },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Livesov',
+      logo: { '@type': 'ImageObject', url: 'https://livesov.com/og-image.png' },
+    },
+    datePublished,
+    dateModified,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+  };
+  return (
+    <script
+      type="application/ld+json"
+      nonce={nonce || undefined}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
   );
 }
 

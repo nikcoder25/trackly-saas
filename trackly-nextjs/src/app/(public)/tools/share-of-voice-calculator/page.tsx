@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 interface BrandRow {
   id: number;
@@ -184,6 +184,28 @@ export default function ShareOfVoiceCalculatorPage() {
       </div>
 
       <ToolArticle>
+        <ArticleSchema
+          headline="Free AI Share of Voice Calculator: Measure Your Brand Inclusion in AI Answers"
+          description="The complete guide to AI Share of Voice - the formula, how to gather data, benchmarks, growth levers, and a free calculator with CSV export."
+          url="https://livesov.com/tools/share-of-voice-calculator"
+          datePublished="2026-05-01"
+          dateModified="2026-05-06"
+        />
+
+        <AnswerCapsule>
+          <strong>AI Share of Voice (SoV)</strong> is the percentage of AI responses about your category that mention your brand. Formula: (mentions ÷ total responses) × 100. Sample at least 30 responses per prompt across all five AI engines for a reliable number. This calculator does the math, supports unlimited competitors, and exports to CSV - 100% client-side, no signup.
+        </AnswerCapsule>
+
+        <KeyTakeaways
+          items={[
+            'AI SoV measures inclusion in the answer, not the link list. The user reads the answer, so this is what counts.',
+            'Sample size matters. 30+ responses per prompt smooths out the inherent randomness of LLM outputs.',
+            'Aggregate across 10-30 prompts. A single prompt is a data point; a prompt portfolio is a measurement.',
+            'Benchmark targets vary by category. Mature SaaS leaders sit at 30-50%; emerging brands at 5-15%.',
+            'AI SoV moves slowly but it moves. A 5-percentage-point lift over a quarter is a real result.',
+          ]}
+        />
+
         <h2>What is AI Share of Voice?</h2>
         <p>
           AI Share of Voice (SoV) is the percentage of AI responses about your category that mention your brand. If you sample 100 ChatGPT answers about &quot;the best AI visibility tool&quot; and your brand appears in 23 of them, your AI SoV for that prompt is 23%.
@@ -213,6 +235,48 @@ export default function ShareOfVoiceCalculatorPage() {
           <strong>Doing this by hand?</strong> Sampling 5 platforms × 30 runs × 20 prompts is 3,000 manual queries. <a href="/signup">Livesov</a> automates this and reports a daily SoV per prompt and per platform.
         </div>
 
+        <ExpertQuote
+          quote="The teams that obsess over AI Share of Voice eat the teams that obsess over keyword rankings. The user is asking the engine, not the index. Measuring what the engine actually says is the only thing that matters."
+          name="Nik Sov"
+          title="Founder, Livesov"
+        />
+
+        <h2>Variants of AI Share of Voice</h2>
+        <p>
+          The single number is useful, but most teams quickly graduate to four sub-metrics that paint a fuller picture.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>What it measures</th>
+              <th>When to use it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Aggregate SoV</strong></td>
+              <td>Mentions across all prompts and engines</td>
+              <td>Board-level reporting; quarterly trend</td>
+            </tr>
+            <tr>
+              <td><strong>Prompt-level SoV</strong></td>
+              <td>Mentions for a single prompt across engines</td>
+              <td>Identifying weak categories or use cases</td>
+            </tr>
+            <tr>
+              <td><strong>Engine-level SoV</strong></td>
+              <td>Mentions on one engine across prompts</td>
+              <td>Spotting platform-specific gaps</td>
+            </tr>
+            <tr>
+              <td><strong>Top-1 SoV</strong></td>
+              <td>How often you are the FIRST brand mentioned</td>
+              <td>Measuring category leadership</td>
+            </tr>
+          </tbody>
+        </table>
+
         <h2>Reading your number</h2>
         <ul>
           <li><strong>0-5%</strong> - effectively invisible. AI never recommends you for this query.</li>
@@ -223,12 +287,33 @@ export default function ShareOfVoiceCalculatorPage() {
         </ul>
 
         <h2>How to grow your AI Share of Voice</h2>
+        <p>
+          Five levers, ranked by how reliably they move the number for the average B2B SaaS or services business. Pick the top two and run them concurrently for a quarter before evaluating.
+        </p>
+        <ol>
+          <li><strong>Earn third-party citations.</strong> G2, Capterra, niche subreddits, podcast roundups, comparison articles. The single highest-correlation lever in our data.</li>
+          <li><strong>Ship comparison and alternatives pages.</strong> A clean <code>/vs/</code> and <code>/alternatives/</code> set teaches the model your category boundary and reinforces co-occurrence.</li>
+          <li><strong>Make pricing transparent.</strong> AI engines under-recommend brands that hide pricing. A public price page, even a starting-from price, removes friction.</li>
+          <li><strong>Open your AI crawl perimeter.</strong> Use the <a href="/tools/ai-crawler-checker">AI Crawler Checker</a> to confirm GPTBot, ClaudeBot and PerplexityBot can fetch your important pages. Add <a href="/tools/llms-txt-generator">llms.txt</a> for explicit curation.</li>
+          <li><strong>Track and iterate weekly.</strong> SoV changes more slowly than search rankings, but it does move - and it shifts faster every quarter as more buyers start with AI.</li>
+        </ol>
+
+        <h2>Use cases for the calculator</h2>
         <ul>
-          <li>Get cited on the third-party sites AI models actually trust (G2, comparison roundups, Wikipedia, niche forums).</li>
-          <li>Publish comparison and alternatives pages - these are over-represented in AI training corpora.</li>
-          <li>Build pricing transparency. AI models reward sites that answer the &quot;how much&quot; question without forcing a demo request.</li>
-          <li>Make sure your <a href="/tools/ai-crawler-checker">robots.txt is open to AI bots</a> and your <a href="/tools/llms-txt-generator">llms.txt</a> spotlights your strongest pages.</li>
-          <li>Track weekly. SoV changes more slowly than search rankings, but it does move - and it shifts faster as more people use AI as a starting point.</li>
+          <li><strong>Founder report</strong> - a single SoV number to put on the monthly investor update.</li>
+          <li><strong>Marketing planning</strong> - decompose by prompt to find the gaps your next campaign should close.</li>
+          <li><strong>Competitive analysis</strong> - run the same calculator with competitors as the focal brand to gauge their standing.</li>
+          <li><strong>PR proof</strong> - quantify the impact of a major launch or coverage push by re-running before and after.</li>
+          <li><strong>Sales enablement</strong> - share the per-prompt breakdown with sales as proof of category presence.</li>
+        </ul>
+
+        <h2>Common mistakes</h2>
+        <ul>
+          <li><strong>Sampling too few responses.</strong> 5 runs is not a measurement, it is a coin flip. Use 30 minimum, 100 if you can.</li>
+          <li><strong>Counting multiple mentions in one response as multiple data points.</strong> Most teams count it as a binary - mentioned or not - per response, per brand. That keeps the math interpretable.</li>
+          <li><strong>Comparing your SoV to a competitor with a different prompt set.</strong> Different prompts produce different results. Apples to apples requires the same prompt portfolio.</li>
+          <li><strong>Stopping after one measurement.</strong> SoV is a trend, not a snapshot. Re-run monthly to see whether the levers are actually moving the number.</li>
+          <li><strong>Optimising for a number you cannot control.</strong> If your category has 200 viable competitors, top-1 SoV of 30% is a fantasy. Aim for top-5 SoV instead.</li>
         </ul>
 
         <FaqSection
@@ -252,6 +337,18 @@ export default function ShareOfVoiceCalculatorPage() {
             {
               q: 'Why does my SoV vary day to day?',
               a: 'Three reasons: model updates, RAG-source updates, and ordinary sampling variance. A 2-3 point swing per week is normal. A 10+ point swing usually means a model upgrade or a major change in citation sources.',
+            },
+            {
+              q: 'Should I include AI Overviews in my SoV calculation?',
+              a: 'Yes. AI Overviews appear above organic results for an estimated 40% of informational queries; ignoring them under-counts the channel. The paid product samples AI Overviews automatically.',
+            },
+            {
+              q: 'Can I use this for branded queries (where my own brand is the subject)?',
+              a: 'Yes, but the math is different. For "is X legit" or "X reviews" prompts, you measure sentiment and correctness rather than mention rate. The calculator handles the inclusion side; sentiment is in the paid product.',
+            },
+            {
+              q: 'How does AI SoV relate to traditional Brand Tracking?',
+              a: 'Traditional brand tracking measures unaided recall in surveys. AI SoV measures unaided recall by the AI - which is increasingly the substitute for human discovery. The two correlate but capture different moments: surveys catch the buyer at rest; AI SoV catches them at the point of decision.',
             },
           ]}
         />
