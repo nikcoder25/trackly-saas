@@ -226,7 +226,7 @@ export interface PlatformLimit { maxConcurrent: number; rpm: number; windowMs: n
 // legacy `AI_LIMITS_CHATGPT_CONCURRENCY` name; both are read for back-
 // compat with existing production env.
 export const PLATFORM_LIMITS: Record<string, PlatformLimit> = {
-  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 1, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 300, windowMs: 60000 },
+  ChatGPT:    { maxConcurrent: Number(process.env.AI_CHATGPT_MAX_CONCURRENT) || Number(process.env.AI_LIMITS_CHATGPT_CONCURRENCY) || 1, rpm: Number(process.env.AI_LIMITS_CHATGPT_RPM) || 60, windowMs: 60000 },
   Claude:     { maxConcurrent: Number(process.env.AI_LIMITS_CLAUDE_CONCURRENCY)     || 3, rpm: Number(process.env.AI_LIMITS_CLAUDE_RPM)     || 80,  windowMs: 60000 },
   Gemini:     { maxConcurrent: Number(process.env.AI_LIMITS_GEMINI_CONCURRENCY)     || 6, rpm: Number(process.env.AI_LIMITS_GEMINI_RPM)     || 400, windowMs: 60000 },
   Grok:       { maxConcurrent: Number(process.env.AI_LIMITS_GROK_CONCURRENCY)       || 3, rpm: Number(process.env.AI_LIMITS_GROK_RPM)       || 100, windowMs: 60000 },
@@ -542,7 +542,7 @@ interface RateLimit { minDelayMs: number; }
 // ChatGPT default raised from 500ms → 1500ms to pace against Search-Preview
 // pool (see PLATFORM_LIMITS comment). Tune via AI_CHATGPT_MIN_DELAY_MS.
 const PLATFORM_RATE_LIMITS: Record<string, RateLimit> = {
-  ChatGPT:    { minDelayMs: Number(process.env.AI_CHATGPT_MIN_DELAY_MS) || 2500 },
+  ChatGPT:    { minDelayMs: Number(process.env.AI_CHATGPT_MIN_DELAY_MS) || 6000 },
   Claude:     { minDelayMs: 300 },
   Gemini:     { minDelayMs: 300 },
   Grok:       { minDelayMs: 250 },
@@ -832,7 +832,7 @@ const AI_GEMINI_REQUEST_TIMEOUT_MS = Number(process.env.AI_GEMINI_REQUEST_TIMEOU
 // 12s on every retry) could chew through the entire per-task budget on
 // sleeps alone, starving the rest of the fanout. 15s default mirrors the
 // "two short backoffs" intent of MAX_RETRIES=2.
-const MAX_RETRY_SLEEP_MS = Number(process.env.AI_MAX_RETRY_SLEEP_MS) || 15000;
+const MAX_RETRY_SLEEP_MS = Number(process.env.AI_MAX_RETRY_SLEEP_MS) || 90000;
 
 // retryConfig is how the ChatGPT call site overrides retry behaviour WITHOUT
 // touching any other platform's fetchAI call. When undefined, every default
@@ -863,7 +863,7 @@ function _abortReasonMessage(signal: AbortSignal | undefined, fallback: string):
 }
 
 async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS, apiKey?: string, platform?: string, retryConfig?: FetchAiRetryConfig): Promise<AiResponseData> {
-  const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 2);
+  const MAX_RETRIES = retryConfig?.maxRetries ?? (Number(process.env.AI_MAX_RETRIES) || 5);
   const CALL_MAX_RETRY_SLEEP_MS = retryConfig?.maxSleepMs ?? MAX_RETRY_SLEEP_MS;
   const logPrefix = retryConfig?.logPrefix;
   const logModel = retryConfig?.model;
