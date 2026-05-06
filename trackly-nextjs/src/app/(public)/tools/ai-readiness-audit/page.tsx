@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 interface CategoryResult {
   name: string;
@@ -246,6 +246,154 @@ function AiReadinessAuditInner() {
           </div>
         </div>
       )}
+
+      <ToolArticle>
+        <ArticleSchema
+          headline="Free AI Readiness Audit: Test Your Site for ChatGPT, Perplexity, Claude, Gemini Visibility"
+          description="Run a free 50-checkpoint audit across crawlability, structure, content, citations and freshness. Includes per-category breakdown, fix list, and email-gated PDF."
+          url="https://livesov.com/tools/ai-readiness-audit"
+          datePublished="2026-05-01"
+          dateModified="2026-05-06"
+        />
+
+        <AnswerCapsule>
+          The <strong>AI Readiness Audit</strong> runs 50+ checkpoints across five categories - crawlability, structure, content quality, citations and freshness - and returns a single GEO score plus a prioritised to-do list. Free with no signup; the full PDF report is email-gated.
+        </AnswerCapsule>
+
+        <KeyTakeaways
+          items={[
+            'AI engines reward structure as much as substance. Pages with schema, FAQs, and answer-first prose get cited; dense marketing copy gets skipped.',
+            'Five pillars decide AI readiness: crawlability, structure, content quality, citations, freshness.',
+            'A 30 in any single category drags the whole page down. Fix the lowest-scoring category first.',
+            'Most public pages land in the 40-69 range on first audit. The improvement curve is steep early and shallows fast.',
+            'Re-audit after every meaningful edit. The score moves in days, not months.',
+          ]}
+        />
+
+        <h2>What the AI Readiness Audit checks</h2>
+        <p>
+          The audit runs 50+ checkpoints in five categories: <strong>crawlability</strong>, <strong>structure</strong>, <strong>content quality</strong>, <strong>citations</strong>, and <strong>freshness</strong>. Every checkpoint is mapped to a behaviour we have observed in ChatGPT, Perplexity, Claude, Gemini and Grok. The output is a single GEO score, a per-category breakdown, and a prioritised to-do list you can hand to whoever owns the page.
+        </p>
+
+        <h2>The five pillars of AI readiness</h2>
+
+        <h3>1. Crawlability</h3>
+        <p>
+          Can AI bots fetch the page? We check status code, response time, redirect chains, content-length, robots.txt rules, and the most common edge-level blocks. If a bot cannot fetch the page, nothing else matters.
+        </p>
+
+        <h3>2. Structure</h3>
+        <p>
+          Can AI parse the page reliably? We grade heading hierarchy, semantic HTML, schema.org markup (Article, FAQPage, HowTo, BreadcrumbList, Product, Organization), and the presence of FAQ blocks. Pages with clean structure get cited verbatim; messy pages get summarised badly.
+        </p>
+
+        <h3>3. Content quality</h3>
+        <p>
+          Does the page answer a real question? We grade word count, reading level, answer density (the ratio of declarative answers to filler), use of lists and tables, expert quotes, and definitional clarity. AI engines reward answer-first prose over keyword-stuffed marketing copy.
+        </p>
+
+        <h3>4. Citations</h3>
+        <p>
+          Does the page demonstrate expertise? We check outbound citations, expert references, source diversity, and links to authoritative third parties. The pages AI quotes most are usually the pages that themselves quote sources well.
+        </p>
+
+        <h3>5. Freshness</h3>
+        <p>
+          Is the page current? We grade the visible date, the year mentioned in copy, the <code>lastmod</code> in your sitemap, and whether AI engines have a recent cached copy. Stale content gets quietly demoted; pages dated in the current year get a free boost.
+        </p>
+
+        <ExpertQuote
+          quote="The AI readiness audit is most valuable on the pages you stopped looking at three years ago. The pricing page nobody touches. The integrations page that gets traffic but no edits. Those are where AI engines look first - and where the gaps are usually largest."
+          name="Nik Sov"
+          title="Founder, Livesov"
+        />
+
+        <h2>50+ checkpoints, summarised</h2>
+        <p>
+          The audit runs in seconds but covers a lot of ground. Here is a representative sample by category so you know what is being graded.
+        </p>
+        <table>
+          <thead>
+            <tr><th>Category</th><th>Sample checkpoints</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Crawlability</td><td>HTTP status, response time, redirect depth, content-length, robots.txt rules, AI-bot disallows, meta-robots, X-Robots-Tag.</td></tr>
+            <tr><td>Structure</td><td>H1 presence and uniqueness, H2-H6 hierarchy, semantic HTML usage, JSON-LD presence, FAQPage schema, Article schema, BreadcrumbList, Open Graph completeness.</td></tr>
+            <tr><td>Content quality</td><td>Word count, sentence length, reading level, list density, table presence, answer capsule presence, definitional clarity, expert quotes, declarative-to-filler ratio.</td></tr>
+            <tr><td>Citations</td><td>Outbound links count, source diversity, authority of cited domains, presence of date attribution, presence of author bio, internal-link density.</td></tr>
+            <tr><td>Freshness</td><td>Visible date, year-currency in copy, last-modified header, sitemap lastmod, schema dateModified, age of cited sources.</td></tr>
+          </tbody>
+        </table>
+
+        <h2>How to act on the results</h2>
+        <ol>
+          <li>Fix red categories first - a 30 in any single category drags the whole page down.</li>
+          <li>Work through the recommendations in order. Each one is phrased as a concrete change.</li>
+          <li>Re-run the audit after each round of fixes to confirm score lift.</li>
+          <li>For multiple pages: audit your homepage, pricing, top 3 product pages and top 3 blog posts. Those 7 URLs typically drive 80% of AI mentions.</li>
+        </ol>
+
+        <h2>What the email-gated PDF includes</h2>
+        <ul>
+          <li>The full 50-checkpoint result with raw values per check.</li>
+          <li>An executive summary you can paste into a Slack channel or PR description.</li>
+          <li>A printable, brand-friendly export for sharing with leadership.</li>
+          <li>Bonus: weekly GEO tips and category benchmarks delivered to your inbox.</li>
+        </ul>
+
+        <FaqSection
+          items={[
+            {
+              q: 'How long does an audit take?',
+              a: 'About 8-15 seconds. We fetch the page once, render it, and run all checks in parallel. Most of the time is the fetch + render of your page, not our analysis.',
+            },
+            {
+              q: 'Does this work for SPA / client-rendered pages?',
+              a: 'Mostly yes - we render server-side first. If your page relies on client-side hydration to render its main content, the score will under-count what an AI engine actually sees, because most AI crawlers do not execute JS. That is the most important takeaway from a poor SPA audit.',
+            },
+            {
+              q: 'Why do I need to provide an email for the full PDF?',
+              a: 'Two reasons. First, it lets us send the report and the weekly newsletter that deepens what the audit teaches. Second, it filters casual lookers from people who are serious about improvement - so the inbox flow stays clean for both sides.',
+            },
+            {
+              q: 'Will my email be sold or shared?',
+              a: 'No. We use it for the report, the weekly newsletter, and nothing else. Unsubscribe in any email, any time. Read the privacy policy for the full detail.',
+            },
+            {
+              q: 'How is this different from a traditional SEO audit?',
+              a: 'Traditional SEO audits are tuned for Google rankings - keyword targeting, backlink profile, Core Web Vitals. This audit is tuned for AI inclusion - schema, answer density, citation hygiene, freshness signals. The two overlap maybe 30%; the rest is genuinely different criteria.',
+            },
+            {
+              q: 'I scored low. Where do I start?',
+              a: 'Start with the lowest-scoring category. If the page is not crawlable, fix that first - everything else is moot. If structure is the problem, add JSON-LD and clean your heading hierarchy. If content is thin, expand answers and add an FAQ. The recommendations list is ordered by expected lift.',
+            },
+            {
+              q: 'How many pages should I audit?',
+              a: 'Start with the 7-10 pages that drive 80% of your AI mention surface: home, pricing, top product pages, top blog posts. Fixing those first delivers most of the lift. Audit the remainder over time.',
+            },
+            {
+              q: 'What is the rate limit?',
+              a: '2 audits per hour for unauthenticated users; 10 per hour and a monthly plan-based cap for signed-in users. Heavy users should sign up - free accounts unlock continuous tracking and a higher per-month allowance.',
+            },
+            {
+              q: 'Can I share the result with my team?',
+              a: 'The on-page result is shareable via URL. The PDF (email-gated) is the right artifact for Slack threads and pull-request descriptions. For ongoing collaboration, signed-in accounts share results inside a workspace.',
+            },
+            {
+              q: 'Do you store the audited URL or its content?',
+              a: 'We log the URL and high-level metrics for our own analytics. We do not retain the page contents. Sensitive sites should consider whether the URL itself is sensitive before submitting.',
+            },
+          ]}
+        />
+
+        <RelatedTools
+          items={[
+            { slug: 'geo-score-checker', name: 'GEO Score Checker', tagline: 'Just want the number? Score any URL in seconds.' },
+            { slug: 'ai-crawler-checker', name: 'AI Crawler Checker', tagline: 'Confirm AI bots can fetch the page you audited.' },
+            { slug: 'citation-finder', name: 'AI Citation Finder', tagline: 'See which URLs Perplexity and ChatGPT cite for your industry.' },
+          ]}
+        />
+      </ToolArticle>
     </ToolPage>
   );
 }

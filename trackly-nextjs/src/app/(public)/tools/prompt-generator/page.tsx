@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools, AnswerCapsule, KeyTakeaways, ExpertQuote, ArticleSchema } from '@/components/tools/ToolPage';
 
 // Templates grouped by intent. Each template is filled by replacing {industry},
 // {brand}, {audience}, {region}. We aim for 50+ unique prompts.
@@ -217,6 +217,143 @@ export default function PromptGeneratorPage() {
           ))}
         </div>
       )}
+
+      <ToolArticle>
+        <ArticleSchema
+          headline="AI Prompt Generator for Brand Tracking: 50+ Ready-to-Use Prompts"
+          description="The complete guide to building a brand-tracking prompt portfolio - the eight categories that matter, what makes a high-signal prompt, and a free generator with CSV export."
+          url="https://livesov.com/tools/prompt-generator"
+          datePublished="2026-05-01"
+          dateModified="2026-05-06"
+        />
+
+        <AnswerCapsule>
+          The <strong>AI Prompt Generator</strong> creates 50+ ready-to-use brand-tracking prompts from a single industry input. Eight intent categories - discovery, comparison, use case, alternatives, reviews, pricing, how-to, local - each with battle-tested templates. Free, no signup, CSV export.
+        </AnswerCapsule>
+
+        <KeyTakeaways
+          items={[
+            'Prompts are how customers find answers; keywords are how they used to find links. Track the right unit.',
+            'A useful prompt portfolio is 10-30 prompts spanning at least four intent categories.',
+            'The single best source of high-signal prompts is your sales team\'s call recordings, not keyword tools.',
+            'Run each tracked prompt 30+ times across all five major engines for a stable mention-rate signal.',
+            'Refresh your prompt list quarterly - new product lines, new use cases, new competitors all introduce new questions.',
+          ]}
+        />
+
+        <h2>Why prompts are the unit of AI brand tracking</h2>
+        <p>
+          Search keywords are how customers find <em>links</em>. Prompts are how customers find <em>answers</em>. The shift from one to the other is reshaping how brands measure visibility - and the prompts you choose to track decide what story your dashboard tells.
+        </p>
+        <p>
+          A good tracked prompt mirrors what a real customer would type into ChatGPT or Perplexity at the moment they decide to evaluate vendors. A bad one is a keyword pasted into a prompt with no context. The first 50 prompts you track should cover discovery, comparison, alternatives and use-case fit - not the same long-tail keyword in five voices.
+        </p>
+
+        <h2>The eight prompt categories we cover</h2>
+        <ul>
+          <li><strong>Discovery</strong> - &quot;what are the best X tools?&quot;. The widest funnel. AI gives a top-N list.</li>
+          <li><strong>Comparison</strong> - &quot;compare A and B&quot;. Mid-funnel. AI gives features and trade-offs.</li>
+          <li><strong>Use case</strong> - &quot;best X for agencies / SaaS / freelancers&quot;. Persona-fit prompts. High intent.</li>
+          <li><strong>Alternatives</strong> - &quot;alternatives to A&quot;. Late-funnel. AI gives shortlists where you should be present.</li>
+          <li><strong>Reviews and trust</strong> - &quot;is A legit?&quot;. Risk-reduction prompts. Mention rate matters but sentiment matters more.</li>
+          <li><strong>Pricing</strong> - &quot;how much does A cost?&quot;. Late-funnel. Brands with public pricing dominate here.</li>
+          <li><strong>How-to</strong> - &quot;how to choose X&quot;. Education funnel. Win these and you set the buying criteria.</li>
+          <li><strong>Local</strong> - &quot;best X in {'{region}'}&quot;. For local services and regional SaaS, this is the entire game.</li>
+        </ul>
+
+        <h2>How to use the generated list</h2>
+        <ol>
+          <li>Copy the full list into a spreadsheet or paste into Livesov to track them automatically.</li>
+          <li>Pick the 10-30 prompts that match the moments your customers are actually deciding. Skip the rest.</li>
+          <li>Run each prompt 30+ times across each AI engine. (We do this for you on a daily schedule.)</li>
+          <li>Track mention rate per prompt and per engine. Patterns appear in 2-3 weeks.</li>
+          <li>Add new prompts as you launch new product lines, new use cases, or new geographies.</li>
+        </ol>
+
+        <div className="callout">
+          <strong>Pro tip:</strong> ask your sales team for the exact words their best inbound leads use in discovery calls. Those are the prompts that matter most. Generic templates get you started; sales transcripts get you to truth.
+        </div>
+
+        <ExpertQuote
+          quote="We see two failure modes. Founders who track 200 prompts and drown in noise, and founders who track 3 prompts and miss every shift in customer language. The sweet spot is 15-25 prompts you can name from memory - chosen because they map to real buying moments, not because a keyword tool said so."
+          name="Nik Sov"
+          title="Founder, Livesov"
+        />
+
+        <h2>Prompt portfolio benchmarks by team type</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Team type</th>
+              <th>Prompt count</th>
+              <th>Sampling frequency</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Solo founder / pre-seed</td><td>5-10</td><td>Weekly</td><td>Discovery-heavy. Establish baseline.</td></tr>
+            <tr><td>Seed-Series A SaaS</td><td>15-25</td><td>Daily</td><td>Add comparison + alternatives as you grow.</td></tr>
+            <tr><td>Growth-stage SaaS</td><td>30-60</td><td>Daily</td><td>Per-persona and per-price-tier prompts.</td></tr>
+            <tr><td>Marketplace / multi-product</td><td>50-150</td><td>Daily</td><td>One portfolio per category line.</td></tr>
+            <tr><td>Local services</td><td>20-50</td><td>Weekly</td><td>Region-specific variants of every prompt.</td></tr>
+            <tr><td>Agencies (per client)</td><td>10-30</td><td>Weekly</td><td>Standardised template + client-specific overrides.</td></tr>
+          </tbody>
+        </table>
+
+        <h2>What makes a high-signal prompt</h2>
+        <ul>
+          <li><strong>Specific category</strong> - &quot;ai visibility tracking software&quot; beats &quot;ai tools&quot;.</li>
+          <li><strong>Real intent verbs</strong> - &quot;recommend&quot;, &quot;compare&quot;, &quot;help me choose&quot;.</li>
+          <li><strong>Optional persona qualifier</strong> - &quot;for a small agency&quot;, &quot;under $50/mo&quot;.</li>
+          <li><strong>Brand-named where appropriate</strong> - half your prompts should test you by name; half should test the category without naming you.</li>
+          <li><strong>Avoid leading the model</strong> - &quot;is Livesov the best?&quot; produces a different (worse) signal than &quot;what are the best AI visibility tools?&quot;.</li>
+        </ul>
+
+        <FaqSection
+          items={[
+            {
+              q: 'Are these prompts based on real search data?',
+              a: 'They are templates derived from the structure of buying-intent prompts we observe in customer logs. They cover the categories that drive most decisions; the specifics come from you when you fill in the industry, brand, audience and region fields.',
+            },
+            {
+              q: 'How many prompts should I actually track?',
+              a: '10-30 is plenty for most B2B SaaS. Local and ecommerce can need 100+ to cover regional and product variants. Tracking too many dilutes attention; tracking too few misses the breadth of how customers actually phrase questions.',
+            },
+            {
+              q: 'How is this different from a keyword tool?',
+              a: 'Keyword tools optimise for search-volume + difficulty. This generates conversational prompts in a buyer’s natural language. The two are complementary - keywords still drive your blog plan; prompts drive your AI visibility plan.',
+            },
+            {
+              q: 'Can I import these into Livesov?',
+              a: 'Yes. Export the CSV and bulk-import into your Livesov account. From there each prompt is sampled across all five AI engines on a schedule.',
+            },
+            {
+              q: 'Why are there fewer prompts when I leave brand or region empty?',
+              a: 'Brand-specific and region-specific templates need that input to make sense. We hide them rather than fill in placeholders that produce nonsense queries.',
+            },
+            {
+              q: 'Should I include negative-sentiment prompts (is X bad, X complaints)?',
+              a: 'Yes - tracking how AI handles your weakest moments is as important as tracking your strongest. The paid product separates positive, neutral and negative response sentiment automatically.',
+            },
+            {
+              q: 'How do I localise prompts for non-English markets?',
+              a: 'Generate the English templates, translate them, and have a native speaker rewrite them in conversational form. Direct translation often misses the verb forms locals actually use. Repeat for each major market.',
+            },
+            {
+              q: 'What is the difference between a prompt and a query?',
+              a: 'In our usage they are interchangeable. Search "queries" tend to be 1-3 keywords; AI "prompts" tend to be full sentences. The shift in unit length itself is part of the channel migration we are tracking.',
+            },
+          ]}
+        />
+
+        <RelatedTools
+          items={[
+            { slug: 'chatgpt-mention-checker', name: 'ChatGPT Mention Checker', tagline: 'Test one of your prompts against ChatGPT now.' },
+            { slug: 'share-of-voice-calculator', name: 'Share of Voice Calculator', tagline: 'Once you have run the prompts, compute your SoV.' },
+            { slug: 'competitor-finder', name: 'AI Competitor Finder', tagline: 'See who AI recommends in the same vertical.' },
+          ]}
+        />
+      </ToolArticle>
     </ToolPage>
   );
 }
