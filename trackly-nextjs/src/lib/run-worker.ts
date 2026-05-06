@@ -23,8 +23,8 @@ const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
   Gemini: 'gemini', Grok: 'grok',
 };
-const FAIL_THRESHOLD = 5;
-const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 120000;
+const FAIL_THRESHOLD = Number(process.env.RUN_PLATFORM_FAIL_THRESHOLD) || 5;
+const WORKER_TIMEOUT_MS = Number(process.env.RUN_PER_QUERY_TIMEOUT_MS) || 180000;
 
 async function processRun(job: Job<BrandRunJobData>) {
   const { brandId, runId } = job.data;
@@ -141,11 +141,16 @@ async function processRun(job: Job<BrandRunJobData>) {
   }
 
   function processError(plat: string, q: string, err: Error) {
-    platFailCount[plat] = (platFailCount[plat] || 0) + 1;
     // Distinguish rate-limit failures (transient, retried via deferred queue)
     // from generic errors so the UI/telemetry can render them differently.
     const aiErr = err as AiError;
     const errorType = aiErr.isRateLimit ? 'rate_limited' : 'error';
+    // Only count NON-rate-limit failures toward the consecutive-failure
+    // breaker. A burst of 429s should slow us down (Retry-After is already
+    // honoured inside fetchAI), not kill the rest of the platform's queries.
+    if (!aiErr.isRateLimit) {
+      platFailCount[plat] = (platFailCount[plat] || 0) + 1;
+    }
     allResults.push({
       platform: plat, query: q, model: getDefaultModel(plat),
       mentioned: false, sentiment: 'neutral', recommended: false,
