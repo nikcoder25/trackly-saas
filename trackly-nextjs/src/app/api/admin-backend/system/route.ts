@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { logError, serverError } from '@/lib/api-error';
+import { __cacheStats } from '@/lib/response-cache';
 
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
       dbStats,
       tableStats,
       cacheStats,
+      cacheHitRate,
       apiKeyStatus,
       recentErrors,
     ] = await Promise.all([
@@ -33,9 +35,20 @@ export async function GET(request: Request) {
       pool.query(`
         SELECT
           COUNT(*)::int AS total_entries,
-          COUNT(*) FILTER (WHERE expires_at < NOW())::int AS expired_entries
+          COUNT(*) FILTER (WHERE expires_at < NOW())::int AS expired_entries,
+          COUNT(*) FILTER (WHERE expires_at > NOW())::int AS active_entries
         FROM response_cache
-      `).catch(() => ({ rows: [{ total_entries: 0, expired_entries: 0 }] })),
+      `).catch(() => ({ rows: [{ total_entries: 0, expired_entries: 0, active_entries: 0 }] })),
+      // 24h cache hit rate from prompt_runs. Returns null on tables without
+      // the cache_hit column yet (first deploy before runMigrations runs).
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE cache_hit) * 100.0 / NULLIF(COUNT(*), 0) AS hit_rate_pct,
+          COUNT(*) FILTER (WHERE cache_hit)::int AS hits,
+          COUNT(*)::int AS total_runs
+        FROM prompt_runs
+        WHERE created_at > NOW() - interval '24 hours'
+      `).catch(() => ({ rows: [{ hit_rate_pct: null, hits: 0, total_runs: 0 }] })),
       // Which API keys are configured (check base key OR numbered variants like _1, _2, etc.)
       pool.query(`SELECT 1`).then(() => {
         function hasKey(base: string): boolean {
@@ -78,7 +91,11 @@ export async function GET(request: Request) {
         idleConnections: dbInfo.idle_connections,
       },
       tables: tableStats.rows,
-      cache: cacheStats.rows[0],
+      cache: {
+        ...cacheStats.rows[0],
+        hitRate24h: cacheHitRate.rows[0],
+        inProcessStats: __cacheStats,
+      },
       apiKeys: apiKeyStatus,
       recentErrors: recentErrors.rows,
       environment: {

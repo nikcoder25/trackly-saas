@@ -31,6 +31,12 @@ import {
   recordCostEvent,
   CostCapExceededError,
 } from './cost-tracker';
+import {
+  buildCacheKey,
+  getCached,
+  setCached,
+  getCacheTtl,
+} from './response-cache';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
 const MAX_OUTPUT_TOKENS = 300;
@@ -510,6 +516,68 @@ export async function withDeepRetry<T>(
     }
   }
 }
+
+// ── Shared response cache wrapper ───────────────────────────────
+// Wraps any provider-call function (typically a withDeepRetry-wrapped
+// singleAttempt or a raw queryAI call) with a Postgres-backed read-through
+// cache. On hit, the provider is never invoked. On miss, the inner function
+// runs and the successful result is persisted; errors are NEVER cached and
+// cache-layer failures NEVER break the caller (they log and fall through).
+//
+// The wrapper is intentionally agnostic to whether `fn` itself retries —
+// that's the caller's responsibility (the run route wraps singleAttempt in
+// withDeepRetry; the BullMQ worker calls queryAI directly without retry).
+export interface CacheAndRetryParams {
+  prompt: string;
+  platform: string;
+  model: string;
+  searchEnabled: boolean;
+  /** When true, skip the read but still write the resulting response. */
+  fresh?: boolean;
+}
+
+export interface CacheAndRetryResult<T> {
+  data: T;
+  fromCache: boolean;
+  /** Provider-reported model on miss; cached row's model on hit. */
+  model: string;
+}
+
+export async function withCacheAndRetry<T extends { model?: string }>(
+  params: CacheAndRetryParams,
+  fn: () => Promise<T>,
+): Promise<CacheAndRetryResult<T>> {
+  const cacheKey = buildCacheKey({
+    prompt: params.prompt,
+    platform: params.platform,
+    model: params.model,
+    searchEnabled: params.searchEnabled,
+  });
+  if (!params.fresh) {
+    const hit = await getCached<T>(cacheKey);
+    if (hit) {
+      return { data: hit.response, fromCache: true, model: hit.model };
+    }
+  }
+  // Cache miss (or ?fresh=1): call the provider. Errors propagate
+  // unchanged so withDeepRetry / processError stay in charge of the
+  // failure taxonomy. We deliberately wait for fn() to fully resolve
+  // before writing — for streaming callers, the caller is expected to
+  // assemble the full response inside `fn` first.
+  const data = await fn();
+  // Best-effort write: failures here must not break the caller.
+  await setCached(cacheKey, data, {
+    platform: params.platform,
+    model: data.model || params.model,
+    ttlSeconds: getCacheTtl(params.searchEnabled),
+  });
+  return { data, fromCache: false, model: data.model || params.model };
+}
+
+// Re-export the in-process counter so /admin-backend/system can surface
+// it without importing response-cache directly through ai-platforms'
+// public surface.
+export { __cacheStats } from './response-cache';
 
 // ── In-flight request coalescing ────────────────────────────────
 // Two callers asking for the same (platform, model, query, city) at once

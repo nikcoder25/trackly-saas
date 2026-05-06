@@ -6,7 +6,8 @@ import { setTenantFairness } from '@/lib/fairness-scheduler';
 import { getPlanLimits, getEffectivePlan } from '@/lib/constants';
 import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
-import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, withCacheAndRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
@@ -158,6 +159,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const url = new URL(request.url);
   const forceRun = url.searchParams.get('force') === '1';
+  // ?fresh=1 bypasses the response-cache READ but still WRITES the result,
+  // so an admin can force a refresh and warm the cache for everyone else.
+  const freshBypass = url.searchParams.get('fresh') === '1';
 
   // --- Validation ---
   const access = await getBrandWithAccess(id, user.id);
@@ -550,12 +554,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const shouldEnqueue = await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass);
     });
   };
   if (syncMode && (isCronCall || callerIsAdminOrOwner)) {
     try {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass);
       const resp = Response.json({ runId, totalExpected, platforms: activePlatforms, queries, syncCompleted: true });
       if (requestId) resp.headers.set('x-request-id', requestId);
       return resp;
@@ -609,11 +613,13 @@ async function executeRunBackground(
   creditOwnerId?: string,
   creditKind?: 'manual' | 'auto',
   ownerPlan?: string,
+  freshBypass?: boolean,
 ) {
   try {
     return await executeRunBackgroundInner(
       brand, brandId, userId, runId, totalExpected,
       activePlatforms, queries, serverKeys, userKeys, requestId, ownerPlan,
+      freshBypass,
     );
   } finally {
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
@@ -683,6 +689,7 @@ async function executeRunBackgroundInner(
   serverKeys: Record<string, string[]>, userKeys: Record<string, string | null>,
   requestId?: string,
   ownerPlan?: string,
+  freshBypass?: boolean,
 ) {
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
@@ -746,10 +753,14 @@ async function executeRunBackgroundInner(
     }
   }
 
-  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }) {
+  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }, fromCache = false) {
     const parsed = parseResponse(result.text, brand, q, matcher);
     const competitors = detectCompetitors(result.text, matcher);
-    const cost = estimateCost(result.model, result.tokensIn, result.tokensOut);
+    // Cache hits cost zero (no provider call happened) and emit no token
+    // usage — analytics summaries that aggregate prompt_runs.cost should
+    // attribute zero to the cached row even though tokensIn/Out from the
+    // original call are part of the cached payload.
+    const cost = fromCache ? 0 : estimateCost(result.model, result.tokensIn, result.tokensOut);
     const ctxLen = parsed.mentioned ? 300 : 150;
     const entry = {
       platform: plat, query: q, model: result.model,
@@ -760,6 +771,7 @@ async function executeRunBackgroundInner(
       snippet: result.text.substring(0, 200),
       raw: result.text,
       tokensIn: result.tokensIn, tokensOut: result.tokensOut, cost,
+      cacheHit: fromCache,
     };
     allResults.push(entry);
     totalQ++;
@@ -992,12 +1004,28 @@ async function executeRunBackgroundInner(
         // timeout (AbortController above) also interrupts retry sleeps -
         // otherwise a 10-17s sleep could outlive the 60s task deadline and
         // let 429 retries burn the full per-run budget.
-        const result = await Promise.race([
-          withDeepRetry(plat, singleAttempt, { signal }),
+        // Resolve the cache-key model up front: ChatGPT's smart router may
+        // downshift search-preview to gpt-4o for non-search queries, which
+        // changes both the cache key (model) and searchEnabled. We intentionally
+        // key on the resolved model so two queries that the router classifies
+        // differently don't collide on a stale cached answer from the wrong tier.
+        const cacheModelBase = adminModels[plat] || getDefaultModel(plat);
+        const cacheModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, cacheModelBase) : cacheModelBase;
+        const cached = await Promise.race([
+          withCacheAndRetry(
+            {
+              prompt: q,
+              platform: plat,
+              model: cacheModel,
+              searchEnabled: isSearchEnabled(plat, cacheModel),
+              fresh: !!freshBypass,
+            },
+            () => withDeepRetry(plat, singleAttempt, { signal }),
+          ),
           hardTimeoutPromise,
         ]);
         platFailCount[plat] = 0;
-        processResult(plat, q, result);
+        processResult(plat, q, cached.data, cached.fromCache);
       } catch (err) {
         const e = err as Error;
         // Translate AbortError-shaped failures into the user-facing
@@ -1175,17 +1203,17 @@ async function executeRunBackgroundInner(
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
-        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13})`);
+        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14})`);
         p.push(prId, brandId, r.query, r.platform, r.model || null,
           r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
           r.listPosition || null, JSON.stringify(r.citations || []),
           JSON.stringify(r.competitorMentions || []), !r.error, runId,
-          r.raw || null);
-        pi += 14;
+          r.raw || null, r.cacheHit || false);
+        pi += 15;
       }
       try {
         await pool.query(
-          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit) VALUES ${values.join(',')}`, p,
         );
       } catch (e) {
         runLog.error('run.persist_prompt_runs_failed', {

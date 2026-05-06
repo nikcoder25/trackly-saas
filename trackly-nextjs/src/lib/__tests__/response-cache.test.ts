@@ -1,0 +1,194 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mock the db pool so we never touch a real Postgres. Each test resets
+// the implementation; helper below installs row sequences for
+// SELECT/INSERT.
+const queryMock = vi.fn();
+vi.mock('../db', () => ({
+  pool: { query: (...args: unknown[]) => queryMock(...args) },
+}));
+// Logger writes warnings on cache failures; silence them for clean test output.
+vi.mock('../logger', () => ({
+  logger: {
+    debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(),
+    child: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })),
+  },
+}));
+
+import {
+  buildCacheKey,
+  getCached,
+  setCached,
+  getCacheTtl,
+  isSearchEnabled,
+  __cacheStats,
+} from '../response-cache';
+
+beforeEach(() => {
+  queryMock.mockReset();
+  __cacheStats.hits = 0;
+  __cacheStats.misses = 0;
+  __cacheStats.writes = 0;
+  __cacheStats.errors = 0;
+  delete process.env.RESPONSE_CACHE_DISABLED;
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('buildCacheKey', () => {
+  it('produces a deterministic SHA-256 hex string', () => {
+    const k1 = buildCacheKey({ prompt: 'best plumber in Boston', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const k2 = buildCacheKey({ prompt: 'best plumber in Boston', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    expect(k1).toBe(k2);
+    expect(k1).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('is case-insensitive and whitespace-insensitive after normalize', () => {
+    const a = buildCacheKey({ prompt: 'Best  Plumber  in  Boston', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const b = buildCacheKey({ prompt: '  best plumber in boston  ', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const c = buildCacheKey({ prompt: 'BEST PLUMBER IN BOSTON', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+  });
+
+  it('changes when the model changes', () => {
+    const a = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const b = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'gpt-4o-search-preview', searchEnabled: false });
+    expect(a).not.toBe(b);
+  });
+
+  it('changes when the searchEnabled flag changes', () => {
+    const a = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const b = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: true });
+    expect(a).not.toBe(b);
+  });
+
+  it('changes when the platform changes', () => {
+    const a = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'm', searchEnabled: false });
+    const b = buildCacheKey({ prompt: 'foo', platform: 'Claude', model: 'm', searchEnabled: false });
+    expect(a).not.toBe(b);
+  });
+});
+
+describe('getCacheTtl', () => {
+  it('returns 6h for search-enabled and 24h otherwise', () => {
+    expect(getCacheTtl(true)).toBe(6 * 60 * 60);
+    expect(getCacheTtl(false)).toBe(24 * 60 * 60);
+  });
+});
+
+describe('isSearchEnabled', () => {
+  it('treats Perplexity as always search', () => {
+    expect(isSearchEnabled('Perplexity', 'sonar-pro')).toBe(true);
+  });
+  it('treats ChatGPT search-preview as search', () => {
+    expect(isSearchEnabled('ChatGPT', 'gpt-4o-search-preview')).toBe(true);
+    expect(isSearchEnabled('ChatGPT', 'gpt-4o')).toBe(false);
+  });
+  it('treats other platforms as non-search', () => {
+    expect(isSearchEnabled('Claude', 'claude-3-5-sonnet')).toBe(false);
+    expect(isSearchEnabled('Gemini', 'gemini-2.5-pro')).toBe(false);
+    expect(isSearchEnabled('Grok', 'grok-2')).toBe(false);
+  });
+});
+
+describe('getCached', () => {
+  it('returns null on miss and increments misses counter', async () => {
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    const result = await getCached('nonexistent');
+    expect(result).toBeNull();
+    expect(__cacheStats.misses).toBe(1);
+    expect(__cacheStats.hits).toBe(0);
+  });
+
+  it('only returns rows where expires_at > NOW (the SQL filter enforces this)', async () => {
+    // Expired row would be filtered by the WHERE clause; the mock returns
+    // empty to simulate that — verify the SQL contains the filter.
+    queryMock.mockResolvedValueOnce({ rows: [] });
+    await getCached('expired');
+    const sql = queryMock.mock.calls[0][0] as string;
+    expect(sql).toMatch(/expires_at\s*>\s*NOW\(\)/);
+  });
+
+  it('returns the row and increments hits on cache hit', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{
+        response: { text: 'cached', model: 'gpt-4o', tokensIn: 1, tokensOut: 1, citations: [] },
+        model: 'gpt-4o',
+        created_at: new Date('2026-05-01T00:00:00Z'),
+      }],
+    });
+    const result = await getCached('hit-key');
+    expect(result?.response).toMatchObject({ text: 'cached', model: 'gpt-4o' });
+    expect(result?.model).toBe('gpt-4o');
+    expect(__cacheStats.hits).toBe(1);
+  });
+
+  it('returns null when JSON parsing fails on a stringified payload', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [{ response: '{ not json', model: 'gpt-4o', created_at: new Date() }],
+    });
+    const result = await getCached('bad-json');
+    expect(result).toBeNull();
+  });
+
+  it('returns null and bumps errors counter when DB throws', async () => {
+    queryMock.mockRejectedValueOnce(new Error('db down'));
+    const result = await getCached('any');
+    expect(result).toBeNull();
+    expect(__cacheStats.errors).toBe(1);
+  });
+
+  it('is a no-op when RESPONSE_CACHE_DISABLED=true', async () => {
+    process.env.RESPONSE_CACHE_DISABLED = 'true';
+    const result = await getCached('any');
+    expect(result).toBeNull();
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('setCached', () => {
+  it('issues an INSERT ... ON CONFLICT (cache_key) DO UPDATE', async () => {
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    await setCached('k', { text: 'v' }, { platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 });
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/INSERT INTO response_cache/);
+    expect(sql).toMatch(/ON CONFLICT \(cache_key\) DO UPDATE/);
+    expect(params[0]).toBe('k');
+    expect(params[1]).toBe('ChatGPT');
+    expect(params[2]).toBe('gpt-4o');
+    expect(JSON.parse(params[3])).toEqual({ text: 'v' });
+    expect(params[4]).toBe('3600');
+    expect(__cacheStats.writes).toBe(1);
+  });
+
+  it('swallows DB errors so the caller is never broken', async () => {
+    queryMock.mockRejectedValueOnce(new Error('unique violation under concurrent insert'));
+    await expect(
+      setCached('k', { text: 'v' }, { platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 })
+    ).resolves.toBeUndefined();
+    expect(__cacheStats.errors).toBe(1);
+    expect(__cacheStats.writes).toBe(0);
+  });
+
+  it('is a no-op when RESPONSE_CACHE_DISABLED=true', async () => {
+    process.env.RESPONSE_CACHE_DISABLED = 'true';
+    await setCached('k', { text: 'v' }, { platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 });
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('handles concurrent upsert via ON CONFLICT (last write wins)', async () => {
+    // Two concurrent setCached calls with the same key should both
+    // succeed because the SQL uses ON CONFLICT DO UPDATE — verify both
+    // resolve cleanly when the underlying query resolves.
+    queryMock.mockResolvedValue({ rowCount: 1 });
+    await Promise.all([
+      setCached('same', { v: 1 }, { platform: 'ChatGPT', model: 'm', ttlSeconds: 60 }),
+      setCached('same', { v: 2 }, { platform: 'ChatGPT', model: 'm', ttlSeconds: 60 }),
+    ]);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    expect(__cacheStats.writes).toBe(2);
+  });
+});
