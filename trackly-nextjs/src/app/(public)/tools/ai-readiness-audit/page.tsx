@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
 
 interface CategoryResult {
   name: string;
@@ -246,6 +246,93 @@ function AiReadinessAuditInner() {
           </div>
         </div>
       )}
+
+      <ToolArticle>
+        <h2>What the AI Readiness Audit checks</h2>
+        <p>
+          The audit runs 50+ checkpoints in five categories: <strong>crawlability</strong>, <strong>structure</strong>, <strong>content quality</strong>, <strong>citations</strong>, and <strong>freshness</strong>. Every checkpoint is mapped to a behaviour we have observed in ChatGPT, Perplexity, Claude, Gemini and Grok. The output is a single GEO score, a per-category breakdown, and a prioritised to-do list you can hand to whoever owns the page.
+        </p>
+
+        <h2>The five pillars of AI readiness</h2>
+
+        <h3>1. Crawlability</h3>
+        <p>
+          Can AI bots fetch the page? We check status code, response time, redirect chains, content-length, robots.txt rules, and the most common edge-level blocks. If a bot cannot fetch the page, nothing else matters.
+        </p>
+
+        <h3>2. Structure</h3>
+        <p>
+          Can AI parse the page reliably? We grade heading hierarchy, semantic HTML, schema.org markup (Article, FAQPage, HowTo, BreadcrumbList, Product, Organization), and the presence of FAQ blocks. Pages with clean structure get cited verbatim; messy pages get summarised badly.
+        </p>
+
+        <h3>3. Content quality</h3>
+        <p>
+          Does the page answer a real question? We grade word count, reading level, answer density (the ratio of declarative answers to filler), use of lists and tables, expert quotes, and definitional clarity. AI engines reward answer-first prose over keyword-stuffed marketing copy.
+        </p>
+
+        <h3>4. Citations</h3>
+        <p>
+          Does the page demonstrate expertise? We check outbound citations, expert references, source diversity, and links to authoritative third parties. The pages AI quotes most are usually the pages that themselves quote sources well.
+        </p>
+
+        <h3>5. Freshness</h3>
+        <p>
+          Is the page current? We grade the visible date, the year mentioned in copy, the <code>lastmod</code> in your sitemap, and whether AI engines have a recent cached copy. Stale content gets quietly demoted; pages dated in the current year get a free boost.
+        </p>
+
+        <h2>How to act on the results</h2>
+        <ol>
+          <li>Fix red categories first - a 30 in any single category drags the whole page down.</li>
+          <li>Work through the recommendations in order. Each one is phrased as a concrete change.</li>
+          <li>Re-run the audit after each round of fixes to confirm score lift.</li>
+          <li>For multiple pages: audit your homepage, pricing, top 3 product pages and top 3 blog posts. Those 7 URLs typically drive 80% of AI mentions.</li>
+        </ol>
+
+        <h2>What the email-gated PDF includes</h2>
+        <ul>
+          <li>The full 50-checkpoint result with raw values per check.</li>
+          <li>An executive summary you can paste into a Slack channel or PR description.</li>
+          <li>A printable, brand-friendly export for sharing with leadership.</li>
+          <li>Bonus: weekly GEO tips and category benchmarks delivered to your inbox.</li>
+        </ul>
+
+        <FaqSection
+          items={[
+            {
+              q: 'How long does an audit take?',
+              a: 'About 8-15 seconds. We fetch the page once, render it, and run all checks in parallel. Most of the time is the fetch + render of your page, not our analysis.',
+            },
+            {
+              q: 'Does this work for SPA / client-rendered pages?',
+              a: 'Mostly yes - we render server-side first. If your page relies on client-side hydration to render its main content, the score will under-count what an AI engine actually sees, because most AI crawlers do not execute JS. That is the most important takeaway from a poor SPA audit.',
+            },
+            {
+              q: 'Why do I need to provide an email for the full PDF?',
+              a: 'Two reasons. First, it lets us send the report and the weekly newsletter that deepens what the audit teaches. Second, it filters casual lookers from people who are serious about improvement - so the inbox flow stays clean for both sides.',
+            },
+            {
+              q: 'Will my email be sold or shared?',
+              a: 'No. We use it for the report, the weekly newsletter, and nothing else. Unsubscribe in any email, any time. Read the privacy policy for the full detail.',
+            },
+            {
+              q: 'How is this different from a traditional SEO audit?',
+              a: 'Traditional SEO audits are tuned for Google rankings - keyword targeting, backlink profile, Core Web Vitals. This audit is tuned for AI inclusion - schema, answer density, citation hygiene, freshness signals. The two overlap maybe 30%; the rest is genuinely different criteria.',
+            },
+            {
+              q: 'I scored low. Where do I start?',
+              a: 'Start with the lowest-scoring category. If the page is not crawlable, fix that first - everything else is moot. If structure is the problem, add JSON-LD and clean your heading hierarchy. If content is thin, expand answers and add an FAQ. The recommendations list is ordered by expected lift.',
+            },
+          ]}
+        />
+
+        <RelatedTools
+          items={[
+            { slug: 'geo-score-checker', name: 'GEO Score Checker', tagline: 'Just want the number? Score any URL in seconds.' },
+            { slug: 'ai-crawler-checker', name: 'AI Crawler Checker', tagline: 'Confirm AI bots can fetch the page you audited.' },
+            { slug: 'citation-finder', name: 'AI Citation Finder', tagline: 'See which URLs Perplexity and ChatGPT cite for your industry.' },
+          ]}
+        />
+      </ToolArticle>
     </ToolPage>
   );
 }

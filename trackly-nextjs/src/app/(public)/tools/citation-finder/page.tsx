@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
 
 interface Citation {
   url: string;
@@ -178,6 +178,78 @@ export default function CitationFinderPage() {
           </div>
         </div>
       )}
+
+      <ToolArticle>
+        <h2>What an AI citation actually is</h2>
+        <p>
+          A citation is a URL that an AI engine references in its answer. Perplexity makes citations explicit - every claim is footnoted to a source. ChatGPT (with browsing or search) embeds them inline as markdown links. Either way, the cited URL is the one a curious user can click through to verify the claim.
+        </p>
+        <p>
+          Citations matter because they are the new backlinks. Being cited by Perplexity or ChatGPT for &quot;the best CRM for startups&quot; sends qualified traffic to your page <em>and</em> reinforces your standing the next time the model answers a similar question.
+        </p>
+
+        <h2>Why getting cited is the goal</h2>
+        <ul>
+          <li><strong>Direct traffic</strong> - users who click footnotes are explicitly verifying. They convert at high rates.</li>
+          <li><strong>Compounding signal</strong> - the citation itself becomes evidence the next time a related query is asked.</li>
+          <li><strong>Brand reinforcement</strong> - even unread citations attach your domain to authoritative answers.</li>
+          <li><strong>Defensive moat</strong> - cited brands are harder to dislodge from a category narrative.</li>
+        </ul>
+
+        <h2>How to read your result</h2>
+        <ol>
+          <li><strong>Citation count</strong> - how many distinct URLs the model leaned on. More citations = a richer, more verifiable answer.</li>
+          <li><strong>Domain coverage</strong> - which sites dominate the response. If review sites and competitor blogs dominate, you have a coverage gap.</li>
+          <li><strong>Your domain status</strong> - if you supplied a brand, we highlight cited URLs from your domain so you can see at a glance whether you made the cut.</li>
+          <li><strong>Answer snippet</strong> - the first 500 chars of the response. Useful to verify the model gave a substantive answer (and not a refusal or generic disclaimer).</li>
+        </ol>
+
+        <h2>How to earn more AI citations</h2>
+        <ul>
+          <li>Publish single-question pages that answer one query exhaustively. AI engines prefer pages with one clear thesis.</li>
+          <li>Use <code>FAQPage</code> and <code>HowTo</code> schema. Both translate cleanly to citation-friendly snippets.</li>
+          <li>Cite your own sources. Pages with strong outbound citations are themselves cited more often - it is reflexive.</li>
+          <li>Get covered on the third-party sites Perplexity already trusts (G2, niche communities, news outlets, Wikipedia where appropriate).</li>
+          <li>Improve your <a href="/tools/geo-score-checker">GEO score</a> on each page you want cited.</li>
+        </ul>
+
+        <div className="callout">
+          <strong>Perplexity vs ChatGPT.</strong> Perplexity is citation-native - every answer has explicit footnotes. ChatGPT cites less consistently; it cites most when in browsing/search mode and least in plain chat. If your audience is research-heavy, prioritise Perplexity citations. If they are mass-market, prioritise ChatGPT mentions.
+        </div>
+
+        <FaqSection
+          items={[
+            {
+              q: 'Why does my domain not appear in the citations?',
+              a: 'Three usual reasons: the page does not exist for this query, the page exists but is not crawlable, or the page exists but is buried behind generic competitors. Run the same query on /tools/ai-readiness-audit to score the page that should be cited.',
+            },
+            {
+              q: 'How does this differ from the ChatGPT Mention Checker?',
+              a: 'The Mention Checker tells you if your brand name appears in the answer text. This tool tells you which URLs the model linked to. They are complementary: a brand can be mentioned without any citation, or cited without an explicit name.',
+            },
+            {
+              q: 'Are these the exact citations end-users see?',
+              a: 'Yes for Perplexity - we use the same provider API end-users see. ChatGPT citations vary by mode (browsing vs no-browsing); the tool reflects whatever mode the model chooses for the prompt.',
+            },
+            {
+              q: 'Can I use this to find competitor citation profiles?',
+              a: 'Absolutely. Skip the brand field, run the prompt, and study which domains appear most often. That is your competitive citation profile - the sites you need to be present on.',
+            },
+            {
+              q: 'What is the daily cap?',
+              a: '2 free checks per day per IP. Each check makes a real Perplexity or ChatGPT API call. Sign up to track citations across multiple prompts on a daily schedule.',
+            },
+          ]}
+        />
+
+        <RelatedTools
+          items={[
+            { slug: 'chatgpt-mention-checker', name: 'ChatGPT Mention Checker', tagline: 'See if your brand is named in the response itself.' },
+            { slug: 'ai-readiness-audit', name: 'AI Readiness Audit', tagline: 'Score the page that should be cited but is not.' },
+            { slug: 'competitor-finder', name: 'AI Competitor Finder', tagline: 'Find the brands AI recommends - and citations follow.' },
+          ]}
+        />
+      </ToolArticle>
     </ToolPage>
   );
 }

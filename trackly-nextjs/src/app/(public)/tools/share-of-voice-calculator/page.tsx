@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
 
 interface BrandRow {
   id: number;
@@ -182,6 +182,88 @@ export default function ShareOfVoiceCalculatorPage() {
             ))}
         </div>
       </div>
+
+      <ToolArticle>
+        <h2>What is AI Share of Voice?</h2>
+        <p>
+          AI Share of Voice (SoV) is the percentage of AI responses about your category that mention your brand. If you sample 100 ChatGPT answers about &quot;the best AI visibility tool&quot; and your brand appears in 23 of them, your AI SoV for that prompt is 23%.
+        </p>
+        <p>
+          Unlike search SoV, which measures impressions or rankings, AI SoV measures inclusion in the <em>answer</em>. It is the cleanest way to compare yourself to competitors in the channel users actually consume.
+        </p>
+
+        <h2>The formula we use</h2>
+        <blockquote>
+          Share of Voice (%) = (mentions ÷ total responses) × 100
+        </blockquote>
+        <p>
+          Run the same prompt N times, count how often each brand is named, divide. Repeat across the prompts that matter to your business and aggregate. The math is trivial - the discipline is in sampling enough responses (we recommend at least 30 per prompt) and across enough prompts (10 to 50, depending on category breadth).
+        </p>
+
+        <h2>How to gather the data</h2>
+        <ol>
+          <li>Pick the question your customers actually ask AI - not the question you wish they asked.</li>
+          <li>Run the same prompt 30+ times across ChatGPT, Perplexity, Claude, Gemini and Grok. Sampling matters - LLMs are stochastic.</li>
+          <li>Count brand mentions per response. Multiple mentions in the same response usually count as 1.</li>
+          <li>Total responses = 5 platforms × 30 runs = 150 (or whatever sample size you actually achieved).</li>
+          <li>Plug the numbers into this calculator. Repeat for each prompt and average.</li>
+        </ol>
+
+        <div className="callout">
+          <strong>Doing this by hand?</strong> Sampling 5 platforms × 30 runs × 20 prompts is 3,000 manual queries. <a href="/signup">Livesov</a> automates this and reports a daily SoV per prompt and per platform.
+        </div>
+
+        <h2>Reading your number</h2>
+        <ul>
+          <li><strong>0-5%</strong> - effectively invisible. AI never recommends you for this query.</li>
+          <li><strong>5-15%</strong> - on the radar. You appear in some long-tail variants but rarely in the headline answer.</li>
+          <li><strong>15-30%</strong> - established. Most well-known brands in a category sit here.</li>
+          <li><strong>30-50%</strong> - dominant. You are the safe default the model reaches for first.</li>
+          <li><strong>50%+</strong> - category-defining. Either you have a structural moat or the prompt is too narrow.</li>
+        </ul>
+
+        <h2>How to grow your AI Share of Voice</h2>
+        <ul>
+          <li>Get cited on the third-party sites AI models actually trust (G2, comparison roundups, Wikipedia, niche forums).</li>
+          <li>Publish comparison and alternatives pages - these are over-represented in AI training corpora.</li>
+          <li>Build pricing transparency. AI models reward sites that answer the &quot;how much&quot; question without forcing a demo request.</li>
+          <li>Make sure your <a href="/tools/ai-crawler-checker">robots.txt is open to AI bots</a> and your <a href="/tools/llms-txt-generator">llms.txt</a> spotlights your strongest pages.</li>
+          <li>Track weekly. SoV changes more slowly than search rankings, but it does move - and it shifts faster as more people use AI as a starting point.</li>
+        </ul>
+
+        <FaqSection
+          items={[
+            {
+              q: 'How is AI SoV different from traditional Share of Voice?',
+              a: 'Traditional SoV is built from impressions, rankings or ad spend. AI SoV is built from inclusion in generative answers. The two correlate loosely - a brand that wins traditional SoV often wins AI SoV - but the levers are different. AI SoV rewards third-party citations, structured content and clean facts, not just keyword targeting.',
+            },
+            {
+              q: 'How many responses should I sample?',
+              a: 'For a single prompt: at least 30 responses to smooth out LLM variance. For a category overview: 10-50 prompts × 5 platforms × 30 runs. Most teams do not have time to do this manually, which is why automated tracking exists.',
+            },
+            {
+              q: 'Can total mentions exceed total responses?',
+              a: 'Yes - multiple brands often appear in the same response. The calculator warns you when sum-of-mentions exceeds total responses, which usually means you are tracking unique mentions per response per brand (correct) rather than co-mention combinations (rare).',
+            },
+            {
+              q: 'What about regional differences?',
+              a: 'AI SoV varies by region because the underlying training data and live-search results differ. If you sell in multiple markets, calculate SoV per region. The tool does not gate that - just rerun with locale-specific prompts.',
+            },
+            {
+              q: 'Why does my SoV vary day to day?',
+              a: 'Three reasons: model updates, RAG-source updates, and ordinary sampling variance. A 2-3 point swing per week is normal. A 10+ point swing usually means a model upgrade or a major change in citation sources.',
+            },
+          ]}
+        />
+
+        <RelatedTools
+          items={[
+            { slug: 'chatgpt-mention-checker', name: 'ChatGPT Mention Checker', tagline: 'See if ChatGPT mentions your brand for any question.' },
+            { slug: 'competitor-finder', name: 'AI Competitor Finder', tagline: 'Discover the top 10 brands AI recommends.' },
+            { slug: 'prompt-generator', name: 'Prompt Generator', tagline: 'Get 50+ brand-tracking prompts you can sample against.' },
+          ]}
+        />
+      </ToolArticle>
     </ToolPage>
   );
 }

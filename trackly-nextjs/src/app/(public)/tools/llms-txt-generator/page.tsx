@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner } from '@/components/tools/ToolPage';
+import ToolPage, { cardStyle, inputStyle, labelStyle, PrimaryButton, ErrorBanner, ToolArticle, FaqSection, RelatedTools } from '@/components/tools/ToolPage';
 
 interface Result {
   domain: string;
@@ -147,6 +147,80 @@ export default function LlmsTxtGeneratorPage() {
           </div>
         </div>
       )}
+
+      <ToolArticle>
+        <h2>What is llms.txt?</h2>
+        <p>
+          <code>llms.txt</code> is a plain-text manifest that lives at the root of your domain and tells large language models which URLs on your site are worth reading. Think of it as a curated reading list for AI: rather than letting ChatGPT, Perplexity, Claude or Gemini guess at your site structure, you hand them a clean, hierarchical map of your most important pages.
+        </p>
+        <p>
+          The format is intentionally simple. A title, a short description, then markdown links grouped under H2 headings. AI crawlers and answer engines that support the convention can fetch one file and understand your site in seconds, instead of crawling thousands of low-value URLs to find the same handful of high-signal pages.
+        </p>
+
+        <h2>Why your site needs an llms.txt file</h2>
+        <p>
+          AI assistants are now a primary discovery channel. When a user asks ChatGPT or Perplexity for &quot;the best tool for X&quot;, the model answers from what it has indexed and from live sources it can fetch. If your site is poorly structured or your sitemap is bloated with archive pages, the model will struggle to find and cite your most relevant content.
+        </p>
+        <p>
+          A handcrafted <code>llms.txt</code> changes that. You decide which pages matter, in what order, and how they&apos;re grouped. The result: cleaner citations, fewer hallucinations about your product, and a higher chance of being recommended for the queries you actually care about.
+        </p>
+
+        <h2>How this generator works</h2>
+        <ol>
+          <li>Enter your root domain (we accept <code>example.com</code> or <code>https://example.com</code>).</li>
+          <li>We fetch <code>/sitemap.xml</code> and <code>/sitemap_index.xml</code> with our SSRF-hardened crawler. Nested sitemaps are followed up to 8 deep.</li>
+          <li>Each URL is parsed and bucketed into one of 12 categories (Home, Product, Pricing, Tools, Use Cases, Integrations, Comparisons, Documentation, Blog, Company, Contact, Other).</li>
+          <li>Up to 500 URLs are emitted in priority order with human-friendly titles derived from each path.</li>
+          <li>You copy the output or download <code>llms.txt</code> and upload it to your web root.</li>
+        </ol>
+
+        <h2>Where to host the file</h2>
+        <p>
+          Upload the file so it&apos;s reachable at <code>https://yourdomain.com/llms.txt</code>. It must return HTTP 200 with <code>content-type: text/plain</code> or <code>text/markdown</code>. If you use Next.js, drop it into <code>/public</code>. If you use Vercel or Netlify, the same root-public approach applies. CDNs should let it through unmodified.
+        </p>
+
+        <h2>Tips for a high-signal llms.txt</h2>
+        <ul>
+          <li>Lead with your highest-value page (typically pricing or the product home).</li>
+          <li>Limit each section to 10-20 URLs. AI models reward density over breadth.</li>
+          <li>Remove archive pages, paginated listings, and tag/category pages - they dilute the manifest.</li>
+          <li>Re-generate after every major content launch so your llms.txt stays current.</li>
+          <li>Pair it with a strong <a href="/tools/ai-crawler-checker">robots.txt policy</a> so AI crawlers can actually reach the pages you list.</li>
+        </ul>
+
+        <FaqSection
+          items={[
+            {
+              q: 'Do AI models actually read llms.txt today?',
+              a: 'Adoption is still emerging - Anthropic, Cursor, and a growing list of vendors check for the file, and many web indexers (including the corpora that feed retrieval-augmented systems) treat it as a high-priority hint. Even where it is not consumed directly, having a clean manifest forces you to audit your IA, which improves AI visibility regardless.',
+            },
+            {
+              q: 'Is llms.txt the same as robots.txt?',
+              a: 'No. robots.txt is an exclusion list - it tells crawlers where they may NOT go. llms.txt is an inclusion list - a curated set of URLs you want AI to focus on. Most sites need both: robots.txt to gate access, llms.txt to spotlight the best content.',
+            },
+            {
+              q: 'How often should I regenerate the file?',
+              a: 'Regenerate after every meaningful content change: new product page, new comparison page, deprecated docs, etc. A monthly re-run is a sensible cadence for sites that publish weekly.',
+            },
+            {
+              q: 'My sitemap is huge. Will the tool include everything?',
+              a: 'The tool caps output at 500 URLs and at most 50 per section. That keeps the file readable for AI and aligned with the spec’s spirit. Trim further by hand if you want a tighter signal.',
+            },
+            {
+              q: 'Can I edit the output?',
+              a: 'Absolutely. The download is plain markdown. Open it in any editor, reorder sections, sharpen titles, add a short paragraph under each H2 if you want richer context. The generator gives you 90% of the file in seconds; the last 10% is your editorial voice.',
+            },
+          ]}
+        />
+
+        <RelatedTools
+          items={[
+            { slug: 'ai-crawler-checker', name: 'AI Crawler Checker', tagline: 'Confirm GPTBot, ClaudeBot and Perplexity can actually reach your URLs.' },
+            { slug: 'geo-score-checker', name: 'GEO Score Checker', tagline: 'Score any page on its AI-readiness in seconds.' },
+            { slug: 'ai-readiness-audit', name: 'AI Readiness Audit', tagline: 'Full breakdown across 50+ AI-readiness checkpoints.' },
+          ]}
+        />
+      </ToolArticle>
     </ToolPage>
   );
 }
