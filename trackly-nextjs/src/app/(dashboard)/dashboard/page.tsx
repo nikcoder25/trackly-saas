@@ -219,10 +219,17 @@ export default function DashboardPage() {
   const runQueriesCount = ((lastRun as Record<string, unknown> | null)?.queries as string[] | undefined)?.length
     || queries.length;
   const runPlatformsCount = Object.keys(platforms).length;
+  // PARTIAL_ERROR_THRESHOLD: fraction of dispatches that may error before
+  // we flag a run as 'partial'. A single transient 429 in 80+ queries
+  // shouldn't bury an otherwise-clean run under a scary badge. The
+  // worker already retries rate-limited calls inside fetchAI, so any
+  // residual errors are genuinely lost results.
+  const PARTIAL_ERROR_THRESHOLD = 0.05;
+  const errorRate = allResultsArr.length > 0 ? runErrorCount / allResultsArr.length : 0;
   const runStatus: 'ok' | 'partial' | 'failed' | null =
     !lastRun || live.running || allResultsArr.length === 0 ? null
     : runSuccessCount === 0 ? 'failed'
-    : runErrorCount > 0 ? 'partial'
+    : errorRate > PARTIAL_ERROR_THRESHOLD ? 'partial'
     : 'ok';
   // Honest-zero hint: the run completed with usable data, but the
   // brand was never mentioned. Distinct from failed runs (no data)
