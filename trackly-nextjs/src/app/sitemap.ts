@@ -18,6 +18,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/pricing`, lastModified: new Date('2026-04-01'), changeFrequency: 'weekly', priority: 0.9 },
     { url: `${BASE_URL}/geo-audit`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.9 },
 
+    // Free tools hub + individual tools
+    { url: `${BASE_URL}/tools`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${BASE_URL}/tools/llms-txt-generator`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/tools/ai-crawler-checker`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/tools/chatgpt-mention-checker`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/tools/share-of-voice-calculator`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/tools/geo-score-checker`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/tools/ai-readiness-audit`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/tools/prompt-generator`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/tools/citation-finder`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${BASE_URL}/tools/competitor-finder`, lastModified: new Date('2026-05-01'), changeFrequency: 'monthly', priority: 0.7 },
+
     // Product & feature pages
     { url: `${BASE_URL}/how-it-works`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE_URL}/use-cases`, lastModified: new Date('2026-04-01'), changeFrequency: 'monthly', priority: 0.8 },
