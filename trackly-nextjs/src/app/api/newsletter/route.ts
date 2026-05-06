@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, website } = body;
+    const { email, website, source } = body;
 
     // Honeypot: silently reject if filled
     if (website) return Response.json({ success: true });
@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
+    const sourceTag = typeof source === 'string' && source.trim() ? source.trim().slice(0, 50) : 'home_page';
+
     if (!tableReady) {
       await ensureTable();
       tableReady = true;
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
        VALUES ($1, $2)
        ON CONFLICT (email) DO UPDATE SET unsubscribed_at = NULL, subscribed_at = NOW()
        RETURNING (xmax = 0) AS is_new`,
-      [trimmed, 'home_page']
+      [trimmed, sourceTag]
     );
 
     const isNew = result.rows[0]?.is_new;

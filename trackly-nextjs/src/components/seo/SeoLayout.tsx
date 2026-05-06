@@ -14,6 +14,7 @@ const navLinks = [
   { href: '/how-it-works', label: 'How it Works' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/geo-audit', label: 'GEO Audit' },
+  { href: '/tools', label: 'Free Tools' },
   { href: '/blog', label: 'Blog' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -91,6 +92,19 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
             <Link href="/partners">Partners</Link>
             <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
             <Link href="/vs/semrush">Livesov vs Semrush</Link>
+          </div>
+          <div className="land-footer-col">
+            <h4>Free Tools</h4>
+            <Link href="/tools">All Tools</Link>
+            <Link href="/tools/llms-txt-generator">llms.txt Generator</Link>
+            <Link href="/tools/ai-crawler-checker">AI Crawler Checker</Link>
+            <Link href="/tools/chatgpt-mention-checker">ChatGPT Mention Checker</Link>
+            <Link href="/tools/geo-score-checker">GEO Score Checker</Link>
+            <Link href="/tools/ai-readiness-audit">AI Readiness Audit</Link>
+            <Link href="/tools/share-of-voice-calculator">Share of Voice Calculator</Link>
+            <Link href="/tools/prompt-generator">Prompt Generator</Link>
+            <Link href="/tools/citation-finder">AI Citation Finder</Link>
+            <Link href="/tools/competitor-finder">AI Competitor Finder</Link>
           </div>
           <div className="land-footer-col">
             <h4>AI Platforms</h4>
