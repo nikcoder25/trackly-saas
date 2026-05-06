@@ -13,6 +13,7 @@ import { logger } from '@/lib/logger';
 import { reconcileStaleRuns, getStaleRunMinutes } from '@/lib/run-reconciler';
 import { recordDispatchOutcome } from '@/lib/cron-dispatch-alert';
 import { resolveLastRunTime } from '@/lib/cron-eligibility';
+import { cleanupExpiredCache } from '@/lib/response-cache';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
@@ -208,6 +209,17 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Daily-only: prune response_cache rows that expired more than 7
+    // days ago. Inline here (rather than a dedicated cron route) per
+    // the existing pattern where one-shot daily housekeeping rides on
+    // the daily_floor branch.
+    if (isDailyFloor) {
+      const purged = await cleanupExpiredCache();
+      if (purged > 0) {
+        logger.info('cron.response_cache.cleanup', { rows_deleted: purged });
+      }
+    }
+
     // Reap stale 'running' rows BEFORE computing eligibility. Any row
     // stuck here would otherwise make its brand look "recently run"
     // forever, silently suppressing scheduled runs - not just for one

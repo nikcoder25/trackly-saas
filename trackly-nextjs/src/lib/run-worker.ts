@@ -8,7 +8,8 @@
 import { Worker, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { pool } from './db';
-import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, type AiError } from './ai-platforms';
+import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, withCacheAndRetry, type AiError } from './ai-platforms';
+import { isSearchEnabled } from './response-cache';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
@@ -116,10 +117,10 @@ async function processRun(job: Job<BrandRunJobData>) {
     }
   }
 
-  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }) {
+  function processResult(plat: string, q: string, result: { text: string; model: string; tokensIn: number; tokensOut: number; citations?: string[] }, fromCache = false) {
     const parsed = parseResponse(result.text, brand, q, matcher);
     const competitors = detectCompetitors(result.text, matcher);
-    const cost = estimateCost(result.model, result.tokensIn, result.tokensOut);
+    const cost = fromCache ? 0 : estimateCost(result.model, result.tokensIn, result.tokensOut);
     const ctxLen = parsed.mentioned ? 300 : 150;
     const entry = {
       platform: plat, query: q, model: result.model,
@@ -130,6 +131,7 @@ async function processRun(job: Job<BrandRunJobData>) {
       snippet: result.text.substring(0, 200),
       raw: result.text,
       tokensIn: result.tokensIn, tokensOut: result.tokensOut, cost,
+      cacheHit: fromCache,
     };
     allResults.push(entry);
     totalQ++;
@@ -232,25 +234,40 @@ async function processRun(job: Job<BrandRunJobData>) {
             weight: fairnessSettings.weight,
             maxQueueDepth: fairnessSettings.maxQueueDepth,
           });
-          const result = await queryAI(
-            plat, q, rawKey, modelForTask, brand,
+          // Wrap the queryAI call with the shared response cache. On a hit,
+          // the provider is never invoked and we skip key-success bookkeeping
+          // (no key was used). On a miss, the live result is cached on the
+          // way out — errors are not cached. The worker has no withDeepRetry
+          // wrapper today (separate concern from caching).
+          const cached = await withCacheAndRetry(
             {
-              queryId,
-              signal: taskController.signal,
-              tenantId: userId,
-              runId,
+              prompt: q,
+              platform: plat,
+              model: modelForTask,
+              searchEnabled: isSearchEnabled(plat, modelForTask),
             },
+            () => queryAI(
+              plat, q, rawKey, modelForTask, brand,
+              {
+                queryId,
+                signal: taskController.signal,
+                tenantId: userId,
+                runId,
+              },
+            ),
           );
+          const result = cached.data;
           platFailCount[plat] = 0;
-          // Only the global server pool feeds the global breaker; the
-          // (tenant, platform) row owns its own success counter so a
-          // hot tenant key cools its own (tenant, platform) state.
-          if (resolved.source === 'server') resetApiKeyFailures(rawKey);
-          if (resolved.source === 'tenant' && brand.userId) {
-            recordTenantKeyResult(brand.userId, keyName, { ok: true })
-              .catch(() => { /* health is best-effort */ });
+          // Skip key-success/health bookkeeping on cache hits — no provider
+          // call was made, so the key wasn't exercised.
+          if (!cached.fromCache) {
+            if (resolved.source === 'server') resetApiKeyFailures(rawKey);
+            if (resolved.source === 'tenant' && brand.userId) {
+              recordTenantKeyResult(brand.userId, keyName, { ok: true })
+                .catch(() => { /* health is best-effort */ });
+            }
           }
-          processResult(plat, q, result);
+          processResult(plat, q, result, cached.fromCache);
         } catch (err) {
           if (resolved.source === 'tenant' && brand.userId) {
             recordTenantKeyResult(brand.userId, keyName, {
@@ -411,17 +428,17 @@ async function processRun(job: Job<BrandRunJobData>) {
       let pi = 1;
       for (const r of batch) {
         const prId = uid();
-        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13})`);
+        values.push(`($${pi},$${pi+1},$${pi+2},$${pi+3},$${pi+4},$${pi+5},$${pi+6},$${pi+7},$${pi+8},$${pi+9},$${pi+10},$${pi+11},$${pi+12},$${pi+13},$${pi+14})`);
         p.push(prId, brandId, r.query, r.platform, r.model || null,
           r.mentioned || false, r.sentiment || 'neutral', r.recommended || false,
           r.listPosition || null, JSON.stringify(r.citations || []),
           JSON.stringify(r.competitorMentions || []), !r.error, runId,
-          r.raw || null);
-        pi += 14;
+          r.raw || null, r.cacheHit || false);
+        pi += 15;
       }
       try {
         await pool.query(
-          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw) VALUES ${values.join(',')}`, p,
+          `INSERT INTO prompt_runs (id, brand_id, prompt, platform, model, mentioned, sentiment, recommended, list_position, citations, competitor_mentions, success, batch_id, response_raw, cache_hit) VALUES ${values.join(',')}`, p,
         );
       } catch (e) {
         logger.error('worker.prompt_runs_batch_failed', {

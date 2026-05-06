@@ -166,6 +166,23 @@ function runMigrations(): Promise<void> {
         CREATE UNIQUE INDEX IF NOT EXISTS billing_events_dodo_event_id_uniq
           ON billing_events (dodo_event_id)
           WHERE dodo_event_id IS NOT NULL;
+        -- Shared AI response cache. Cross-tenant by design: same prompt +
+        -- platform + model + searchEnabled key produces the same answer for
+        -- every customer asking on the same day. CREATE/ALTER are
+        -- non-destructive so they're safe to run on a deploy where the
+        -- table already exists with a slightly different shape.
+        CREATE TABLE IF NOT EXISTS response_cache (
+          cache_key TEXT PRIMARY KEY,
+          platform TEXT NOT NULL,
+          model TEXT NOT NULL,
+          response JSONB NOT NULL,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_response_cache_expires
+          ON response_cache (expires_at);
+        ALTER TABLE prompt_runs
+          ADD COLUMN IF NOT EXISTS cache_hit BOOLEAN DEFAULT false;
         DO $$
         BEGIN
           IF NOT EXISTS (
