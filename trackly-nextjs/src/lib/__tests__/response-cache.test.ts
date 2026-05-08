@@ -152,22 +152,26 @@ describe('getCached', () => {
 describe('setCached', () => {
   it('issues an INSERT ... ON CONFLICT (cache_key) DO UPDATE', async () => {
     queryMock.mockResolvedValueOnce({ rowCount: 1 });
-    await setCached('k', { text: 'v' }, { platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 });
+    await setCached('k', { text: 'v' }, { query: 'q', platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 });
     const [sql, params] = queryMock.mock.calls[0];
     expect(sql).toMatch(/INSERT INTO response_cache/);
     expect(sql).toMatch(/ON CONFLICT \(cache_key\) DO UPDATE/);
+    // Param order matches the prod-schema INSERT (cache_key, platform,
+    // model, query, brand_id, city, response, is_search, expires_at).
+    // Per-position assertions live in tests/response-cache.test.ts; here
+    // we only spot-check that the call is well-formed.
     expect(params[0]).toBe('k');
     expect(params[1]).toBe('ChatGPT');
     expect(params[2]).toBe('gpt-4o');
-    expect(JSON.parse(params[3])).toEqual({ text: 'v' });
-    expect(params[4]).toBe('3600');
+    expect(params[3]).toBe('q');
+    expect(JSON.parse(params[6])).toEqual({ text: 'v' });
     expect(__cacheStats.writes).toBe(1);
   });
 
   it('swallows DB errors so the caller is never broken', async () => {
     queryMock.mockRejectedValueOnce(new Error('unique violation under concurrent insert'));
     await expect(
-      setCached('k', { text: 'v' }, { platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 })
+      setCached('k', { text: 'v' }, { query: 'q', platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 })
     ).resolves.toBeUndefined();
     expect(__cacheStats.errors).toBe(1);
     expect(__cacheStats.writes).toBe(0);
@@ -175,7 +179,7 @@ describe('setCached', () => {
 
   it('is a no-op when RESPONSE_CACHE_DISABLED=true', async () => {
     process.env.RESPONSE_CACHE_DISABLED = 'true';
-    await setCached('k', { text: 'v' }, { platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 });
+    await setCached('k', { text: 'v' }, { query: 'q', platform: 'ChatGPT', model: 'gpt-4o', ttlSeconds: 3600 });
     expect(queryMock).not.toHaveBeenCalled();
   });
 
@@ -185,8 +189,8 @@ describe('setCached', () => {
     // resolve cleanly when the underlying query resolves.
     queryMock.mockResolvedValue({ rowCount: 1 });
     await Promise.all([
-      setCached('same', { v: 1 }, { platform: 'ChatGPT', model: 'm', ttlSeconds: 60 }),
-      setCached('same', { v: 2 }, { platform: 'ChatGPT', model: 'm', ttlSeconds: 60 }),
+      setCached('same', { v: 1 }, { query: 'q1', platform: 'ChatGPT', model: 'm', ttlSeconds: 60 }),
+      setCached('same', { v: 2 }, { query: 'q2', platform: 'ChatGPT', model: 'm', ttlSeconds: 60 }),
     ]);
     expect(queryMock).toHaveBeenCalledTimes(2);
     expect(__cacheStats.writes).toBe(2);

@@ -534,6 +534,14 @@ export interface CacheAndRetryParams {
   searchEnabled: boolean;
   /** When true, skip the read but still write the resulting response. */
   fresh?: boolean;
+  /**
+   * Brand context — recorded on the row for ops/debug only. Cross-tenant
+   * dedup is keyed on the SHA-256 cache_key alone, so once a row exists
+   * it serves every tenant whose prompt normalizes to the same value
+   * regardless of the brandId/city stamped on it.
+   */
+  brandId?: string | null;
+  city?: string | null;
 }
 
 export interface CacheAndRetryResult<T> {
@@ -567,9 +575,13 @@ export async function withCacheAndRetry<T extends { model?: string }>(
   const data = await fn();
   // Best-effort write: failures here must not break the caller.
   await setCached(cacheKey, data, {
+    query: params.prompt,
     platform: params.platform,
     model: data.model || params.model,
     ttlSeconds: getCacheTtl(params.searchEnabled),
+    brandId: params.brandId ?? null,
+    city: params.city ?? null,
+    isSearch: params.searchEnabled,
   });
   return { data, fromCache: false, model: data.model || params.model };
 }
