@@ -93,6 +93,41 @@ describe('recordCall', () => {
       typeof c[0] === 'string' && c[0].includes('INSERT INTO daily_cost_tracker'));
     expect(inserts).toHaveLength(0);
   });
+
+  // Regression for the prod incident where `ensureCostEventsTable`'s
+  // `CREATE INDEX ... ON daily_cost_tracker(day DESC)` raised
+  // `column "day" does not exist` against a partial-state legacy table,
+  // and the error escaped recordCall into queryAI's success path,
+  // surfacing as the per-platform errorMessage on every brand run.
+  // recordCall is best-effort by contract — table-readiness failures
+  // must never break the LLM happy path.
+  it('never throws when ensureCostEventsTable fails (e.g. column "day" does not exist)', async () => {
+    queryMock.mockImplementation(async (sql: string) => {
+      if (typeof sql === 'string' && sql.includes('CREATE TABLE')) {
+        throw new Error('column "day" does not exist');
+      }
+      return { rows: [] };
+    });
+    await expect(recordCall({
+      platform: 'ChatGPT',
+      model: 'gpt-4o',
+      tokensIn: 1, tokensOut: 1, costUsd: 0.001,
+    })).resolves.toBeUndefined();
+  });
+
+  it('never throws when the upsert INSERT itself fails', async () => {
+    queryMock.mockImplementation(async (sql: string) => {
+      if (typeof sql === 'string' && sql.includes('INSERT INTO daily_cost_tracker')) {
+        throw new Error('column "day" does not exist');
+      }
+      return { rows: [] };
+    });
+    await expect(recordCall({
+      platform: 'Perplexity',
+      model: 'sonar-pro',
+      tokensIn: 1, tokensOut: 1, costUsd: 0.001,
+    })).resolves.toBeUndefined();
+  });
 });
 
 // ── countWebSearchCalls ─────────────────────────────────────────

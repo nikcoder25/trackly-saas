@@ -21,6 +21,7 @@
  */
 import { pool } from './db';
 import { MODEL_PRICING } from './ai-platforms';
+import { logger } from './logger';
 
 export const DEFAULT_DAILY_CAP_USD = (() => {
   const raw = parseFloat(process.env.TENANT_DAILY_COST_CAP_USD || '');
@@ -183,6 +184,21 @@ export async function ensureCostEventsTable(): Promise<void> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           PRIMARY KEY (day, platform, model)
         );
+        -- Forward-compat ALTERs. PR #518 deployed against an environment
+        -- where a pre-existing daily_cost_tracker table was missing the
+        -- day column. CREATE TABLE IF NOT EXISTS is a no-op when the
+        -- table already exists, so the missing column survived, and the
+        -- CREATE INDEX ... ON daily_cost_tracker(day DESC) below failed
+        -- with ERROR: column "day" does not exist. The thrown error
+        -- escaped ensureCostEventsTable -> recordCall -> queryAI and
+        -- surfaced as the per-platform errorMessage on every brand run
+        -- (recordCall is on the success path of every provider). Adding
+        -- the day column as nullable is safe even on a populated legacy
+        -- table; recordCalls INSERT always supplies a non-null value,
+        -- and getTodayPlatformTotals filters WHERE day = $1 so legacy
+        -- rows with NULL day simply don not appear in the rollup.
+        ALTER TABLE daily_cost_tracker
+          ADD COLUMN IF NOT EXISTS day DATE;
         ALTER TABLE daily_cost_tracker
           ADD COLUMN IF NOT EXISTS tokens_in_total BIGINT NOT NULL DEFAULT 0;
         ALTER TABLE daily_cost_tracker
@@ -411,7 +427,6 @@ export function __resetAlarmStateForTests(): void {
  */
 export async function recordCall(input: RecordCallInput): Promise<void> {
   if (!input.platform || !input.model) return;
-  await ensureCostEventsTable();
   const tokensIn = Math.max(0, Math.floor(input.tokensIn || 0));
   const tokensOut = Math.max(0, Math.floor(input.tokensOut || 0));
   const webSearchCalls = Math.max(0, Math.floor(input.webSearchCalls || 0));
@@ -421,8 +436,16 @@ export async function recordCall(input: RecordCallInput): Promise<void> {
   const now = input.at || new Date();
   const day = currentDayBoundaryUtc(now);
 
+  // Defense-in-depth: `ensureCostEventsTable` was previously awaited
+  // outside this try/catch, which let a migration failure (e.g. PR #518's
+  // `column "day" does not exist` against a partial-state legacy table)
+  // escape into `queryAI`'s happy path and surface as the per-platform
+  // errorMessage on every brand run. recordCall is best-effort by
+  // contract — the caller has already paid for the provider response —
+  // so any failure here, including table-readiness, must be swallowed.
   let costToday: number | null = null;
   try {
+    await ensureCostEventsTable();
     const res = await pool.query(
       `INSERT INTO daily_cost_tracker
          (day, platform, model, tokens_in_total, tokens_out_total,
@@ -443,8 +466,14 @@ export async function recordCall(input: RecordCallInput): Promise<void> {
       ],
     );
     costToday = parseFloat(res.rows[0]?.cost_usd_total) || costUsd;
-  } catch {
-    // Swallow: see contract above. costToday stays null so we skip alarm.
+  } catch (e) {
+    // Best-effort. Log once at warn so we still see migration / DB
+    // problems in Sentry without breaking the LLM call success path.
+    logger.warn('cost_tracker.record_call_failed', {
+      platform: input.platform,
+      model: input.model,
+      errorMessage: (e as Error).message,
+    });
   }
 
   if (costToday !== null) {
@@ -463,9 +492,9 @@ export async function getTodayPlatformTotals(now: Date = new Date()): Promise<Ar
   web_search_calls_total: number;
   cost_usd_total: number;
 }>> {
-  await ensureCostEventsTable();
   const day = currentDayBoundaryUtc(now).toISOString().slice(0, 10);
   try {
+    await ensureCostEventsTable();
     const res = await pool.query(
       `SELECT platform,
          SUM(tokens_in_total)::bigint AS tokens_in_total,
