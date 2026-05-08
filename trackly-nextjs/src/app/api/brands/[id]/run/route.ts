@@ -8,6 +8,7 @@ import { countTrackedPromptsForOwner } from '@/lib/prompt-quota';
 import { reserveTrialPromptBudget } from '@/lib/anti-abuse';
 import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKeyFailures, pickBestKey, withDeepRetry, withCacheAndRetry, isTransientError, acquirePlatformSlot, resolveChatGPTModel } from '@/lib/ai-platforms';
 import { isSearchEnabled } from '@/lib/response-cache';
+import { resolveSearchModelWithBudget } from '@/lib/search-budget';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
@@ -910,6 +911,27 @@ async function executeRunBackgroundInner(
         const keySource = resolved.source;
 
         const signal = taskController.signal;
+        // Resolve the effective model ONCE per task so the cache key, the
+        // provider call, and the budget-counter increment all agree.
+        // Order: plan-clamp → smart-route → daily budget. Plan-clamping
+        // first prevents budget consumption for queries that would have
+        // been forced off the search tier anyway by the customer's plan.
+        const adminBase = adminModels[plat] || getDefaultModel(plat);
+        const planClampedModel = resolveModelForPlan(plat, ownerPlan, adminBase);
+        const smartRoutedModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, planClampedModel) : planClampedModel;
+        // Daily search-budget guard. See `search-budget.ts` for the
+        // rationale — we share the quota across the API-driven path
+        // (this route) and the BullMQ worker (run-worker.ts). The atomic
+        // Redis Lua script means a race between this pod and the worker
+        // pod cannot exceed the configured limit. Fail-open: if Redis is
+        // unavailable the helper returns `allowed=true` so quota
+        // telemetry never blocks paid traffic.
+        const budgetResolved = await resolveSearchModelWithBudget({
+          platform: plat,
+          model: smartRoutedModel,
+          isSearch: isSearchEnabled(plat, smartRoutedModel),
+        });
+        const effectiveModel = budgetResolved.model;
         const singleAttempt = async () => {
           if (signal.aborted) throw new Error(timeoutMessage());
           const rawKey = pickBestKey(keyPool);
@@ -947,24 +969,15 @@ async function executeRunBackgroundInner(
             maxQueueDepth: fairnessSettings.maxQueueDepth,
           });
           try {
-            // Resolve the model: for ChatGPT this may downshift from
-            // search-preview to gpt-4o when the query has clear non-search
-            // intent. Smart routing is ON by default; set
-            // CHATGPT_SMART_MODEL_ROUTING=false to disable.
-            // Plan-aware model gating: free/starter/pro are clamped
-            // to the platform's economy model regardless of what the
-            // admin selected; only agency+ may hit premium tiers.
-            // Centralised in plan-config so the same rule applies to
-            // queue-based workers and any future entry points.
-            const adminBase = adminModels[plat] || getDefaultModel(plat);
-            const baseModel = resolveModelForPlan(plat, ownerPlan, adminBase);
-            const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+            // Effective model resolved once outside this closure so the
+            // cache key, provider call, and budget counter agree. See
+            // the comment block where `effectiveModel` is computed.
             runLog.info('run.query_ai_before', {
-              platform: plat, queryIndex: idx, model: modelForTask,
+              platform: plat, queryIndex: idx, model: effectiveModel,
             });
             const r = await queryAI(
               plat, q, rawKey,
-              modelForTask,
+              effectiveModel,
               brand,
               {
                 signal,
@@ -1001,23 +1014,16 @@ async function executeRunBackgroundInner(
         };
 
         // Plumb the task signal into withDeepRetry so an outer per-platform
-        // timeout (AbortController above) also interrupts retry sleeps -
-        // otherwise a 10-17s sleep could outlive the 60s task deadline and
-        // let 429 retries burn the full per-run budget.
-        // Resolve the cache-key model up front: ChatGPT's smart router may
-        // downshift search-preview to gpt-4o for non-search queries, which
-        // changes both the cache key (model) and searchEnabled. We intentionally
-        // key on the resolved model so two queries that the router classifies
-        // differently don't collide on a stale cached answer from the wrong tier.
-        const cacheModelBase = adminModels[plat] || getDefaultModel(plat);
-        const cacheModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, cacheModelBase) : cacheModelBase;
+        // timeout (AbortController above) also interrupts retry sleeps —
+        // otherwise a 10-17s sleep could outlive the 60s task deadline
+        // and let 429 retries burn the full per-run budget.
         const cached = await Promise.race([
           withCacheAndRetry(
             {
               prompt: q,
               platform: plat,
-              model: cacheModel,
-              searchEnabled: isSearchEnabled(plat, cacheModel),
+              model: effectiveModel,
+              searchEnabled: budgetResolved.searchEnabled,
               fresh: !!freshBypass,
               brandId: brand?.id ?? null,
               city: brand?.city ?? null,
