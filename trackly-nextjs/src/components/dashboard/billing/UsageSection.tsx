@@ -217,6 +217,12 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
       cap: geoAuditsCap,
       unlimited: geoAuditsCap >= 9999,
     },
+    {
+      label: 'AI credits',
+      used: status.monthlyUsed,
+      cap: status.monthlyCap,
+      unlimited: isUnlimited,
+    },
   ];
 
   const tightestCard = cards
@@ -268,10 +274,10 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
         remaining={status.remaining}
       />
 
-      {/* ── 4 metric cards ───────────────────────────────────── */}
+      {/* ── 5 metric cards ───────────────────────────────────── */}
       <div className="usage-cards-row" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
         gap: 14,
       }}>
         {cards.map((c) => <MetricCard key={c.label} {...c} />)}
@@ -318,6 +324,9 @@ export default function UsageSection({ numBrandsFromPage, resetDateLabel }: Usag
       )}
 
       <style>{`
+        @media (max-width: 1240px) {
+          .usage-cards-row { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        }
         @media (max-width: 980px) {
           .usage-cards-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         }
