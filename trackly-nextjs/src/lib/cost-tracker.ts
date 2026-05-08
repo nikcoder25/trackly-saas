@@ -32,6 +32,22 @@ export const DEFAULT_MONTHLY_CAP_USD = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : 200;
 })();
 
+// OpenAI bills web-search tool calls on the *-search-preview models as a
+// flat per-call surcharge on top of token cost. $0.030/call is the public
+// rate at time of writing (https://openai.com/pricing). If OpenAI changes
+// the published rate, update this constant; we deliberately do NOT read it
+// from env so the recorded ledger remains auditable from source code alone.
+export const CHATGPT_WEB_SEARCH_CALL_USD = 0.030;
+
+// Per-platform daily cost-alarm threshold (USD). When today's cost_usd_total
+// for any single platform crosses this number, we WARN once per UTC day per
+// platform. Default $3.00 keeps alarm noise low for the dev workload while
+// still flaring well below the per-tenant daily cap.
+export const COST_DAILY_ALARM_USD = (() => {
+  const raw = parseFloat(process.env.COST_DAILY_ALARM_USD || '');
+  return Number.isFinite(raw) && raw > 0 ? raw : 3.00;
+})();
+
 export interface CostCaps {
   dailyUsd: number;
   monthlyUsd: number;
@@ -148,6 +164,35 @@ export async function ensureCostEventsTable(): Promise<void> {
           ON tenant_cost_events(tenant_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS tenant_cost_events_run_idx
           ON tenant_cost_events(run_id) WHERE run_id IS NOT NULL;
+
+        -- Per-(UTC-day, platform, model) rollup for the admin dashboard
+        -- and for the daily threshold alarm. We deliberately do NOT
+        -- backfill historical rows from tenant_cost_events / api_logs:
+        -- those rows were written before we parsed real OpenAI usage and
+        -- web-search tool calls, so summing them would mix real and
+        -- estimated numbers. New calls after this migration record real
+        -- numbers; older windows simply stay empty.
+        CREATE TABLE IF NOT EXISTS daily_cost_tracker (
+          day DATE NOT NULL,
+          platform TEXT NOT NULL,
+          model TEXT NOT NULL,
+          tokens_in_total BIGINT NOT NULL DEFAULT 0,
+          tokens_out_total BIGINT NOT NULL DEFAULT 0,
+          web_search_calls_total INTEGER NOT NULL DEFAULT 0,
+          cost_usd_total NUMERIC(10, 4) NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (day, platform, model)
+        );
+        ALTER TABLE daily_cost_tracker
+          ADD COLUMN IF NOT EXISTS tokens_in_total BIGINT NOT NULL DEFAULT 0;
+        ALTER TABLE daily_cost_tracker
+          ADD COLUMN IF NOT EXISTS tokens_out_total BIGINT NOT NULL DEFAULT 0;
+        ALTER TABLE daily_cost_tracker
+          ADD COLUMN IF NOT EXISTS web_search_calls_total INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE daily_cost_tracker
+          ADD COLUMN IF NOT EXISTS cost_usd_total NUMERIC(10, 4) NOT NULL DEFAULT 0;
+        CREATE INDEX IF NOT EXISTS daily_cost_tracker_day_idx
+          ON daily_cost_tracker(day DESC);
       `);
       _tableReady = true;
     } catch (e) {
@@ -326,6 +371,135 @@ export async function recordCostEvent(input: CostEventInput): Promise<void> {
   } catch {
     // Swallow: see contract above.
   }
+}
+
+export interface RecordCallInput {
+  platform: string;
+  model: string;
+  tokensIn: number;
+  tokensOut: number;
+  /** Number of web_search tool invocations the provider charged for. */
+  webSearchCalls?: number;
+  /**
+   * Caller-computed USD cost for this call. Should already include any
+   * per-web-search-call surcharge (CHATGPT_WEB_SEARCH_CALL_USD * calls).
+   * Falls back to estimateCostUsd(model, tokensIn, tokensOut) when omitted
+   * - that fallback does NOT know about web-search surcharges.
+   */
+  costUsd?: number;
+  at?: Date;
+}
+
+// Module-scoped alarm de-dup key set: "<UTC-day>|<platform>". Reset on
+// process restart, which is acceptable - a redeploy at most re-fires one
+// warning per platform that's already over threshold today.
+const _alarmFiredKeys = new Set<string>();
+
+/** Test-only: clear the in-process alarm de-dup set. */
+export function __resetAlarmStateForTests(): void {
+  _alarmFiredKeys.clear();
+}
+
+/**
+ * Upsert today's (platform, model) row in `daily_cost_tracker` with the
+ * just-observed numbers, then check the per-platform daily alarm.
+ *
+ * Called by ai-platforms.ts on the success path of every provider call.
+ * Retry/failure paths must NOT call this - we only count what the provider
+ * actually billed for. Best-effort: a DB hiccup must not fail the LLM call
+ * (the caller has already paid for the response).
+ */
+export async function recordCall(input: RecordCallInput): Promise<void> {
+  if (!input.platform || !input.model) return;
+  await ensureCostEventsTable();
+  const tokensIn = Math.max(0, Math.floor(input.tokensIn || 0));
+  const tokensOut = Math.max(0, Math.floor(input.tokensOut || 0));
+  const webSearchCalls = Math.max(0, Math.floor(input.webSearchCalls || 0));
+  const costUsd = typeof input.costUsd === 'number' && Number.isFinite(input.costUsd) && input.costUsd >= 0
+    ? input.costUsd
+    : estimateCostUsd(input.model, tokensIn, tokensOut);
+  const now = input.at || new Date();
+  const day = currentDayBoundaryUtc(now);
+
+  let costToday: number | null = null;
+  try {
+    const res = await pool.query(
+      `INSERT INTO daily_cost_tracker
+         (day, platform, model, tokens_in_total, tokens_out_total,
+          web_search_calls_total, cost_usd_total, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (day, platform, model) DO UPDATE SET
+         tokens_in_total = daily_cost_tracker.tokens_in_total + EXCLUDED.tokens_in_total,
+         tokens_out_total = daily_cost_tracker.tokens_out_total + EXCLUDED.tokens_out_total,
+         web_search_calls_total = daily_cost_tracker.web_search_calls_total + EXCLUDED.web_search_calls_total,
+         cost_usd_total = daily_cost_tracker.cost_usd_total + EXCLUDED.cost_usd_total,
+         updated_at = NOW()
+       RETURNING cost_usd_total`,
+      [
+        day.toISOString().slice(0, 10),
+        input.platform,
+        input.model,
+        tokensIn, tokensOut, webSearchCalls, costUsd,
+      ],
+    );
+    costToday = parseFloat(res.rows[0]?.cost_usd_total) || costUsd;
+  } catch {
+    // Swallow: see contract above. costToday stays null so we skip alarm.
+  }
+
+  if (costToday !== null) {
+    maybeFireDailyAlarm(input.platform, costToday, day);
+  }
+}
+
+/**
+ * Per-platform aggregate of today's cost row. Returns 0s when the row
+ * doesn't exist yet. Used by the admin /system endpoint widget.
+ */
+export async function getTodayPlatformTotals(now: Date = new Date()): Promise<Array<{
+  platform: string;
+  tokens_in_total: number;
+  tokens_out_total: number;
+  web_search_calls_total: number;
+  cost_usd_total: number;
+}>> {
+  await ensureCostEventsTable();
+  const day = currentDayBoundaryUtc(now).toISOString().slice(0, 10);
+  try {
+    const res = await pool.query(
+      `SELECT platform,
+         SUM(tokens_in_total)::bigint AS tokens_in_total,
+         SUM(tokens_out_total)::bigint AS tokens_out_total,
+         SUM(web_search_calls_total)::int AS web_search_calls_total,
+         SUM(cost_usd_total)::numeric AS cost_usd_total
+       FROM daily_cost_tracker
+       WHERE day = $1
+       GROUP BY platform
+       ORDER BY cost_usd_total DESC`,
+      [day],
+    );
+    return res.rows.map(r => ({
+      platform: r.platform,
+      tokens_in_total: Number(r.tokens_in_total) || 0,
+      tokens_out_total: Number(r.tokens_out_total) || 0,
+      web_search_calls_total: Number(r.web_search_calls_total) || 0,
+      cost_usd_total: parseFloat(r.cost_usd_total) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function maybeFireDailyAlarm(platform: string, costToday: number, day: Date): void {
+  if (costToday < COST_DAILY_ALARM_USD) return;
+  const key = `${day.toISOString().slice(0, 10)}|${platform}`;
+  if (_alarmFiredKeys.has(key)) return;
+  _alarmFiredKeys.add(key);
+  console.warn('[cost.alarm]', {
+    platform,
+    costToday: Number(costToday.toFixed(4)),
+    threshold: COST_DAILY_ALARM_USD,
+  });
 }
 
 /** 402-shaped JSON body for `CostCapExceededError`, ready for `Response.json`. */

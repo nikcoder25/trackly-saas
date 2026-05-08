@@ -2,6 +2,7 @@ import { pool } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { logError, serverError } from '@/lib/api-error';
 import { __cacheStats } from '@/lib/response-cache';
+import { getTodayPlatformTotals, COST_DAILY_ALARM_USD } from '@/lib/cost-tracker';
 
 export async function GET(request: Request) {
     const admin = await requireAdmin(request);
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
                 cacheSchema,
                 apiKeyStatus,
                 recentErrors,
+                todayCostByPlatform,
               ] = await Promise.all([
                 // Database health
                                           pool.query(`
@@ -89,6 +91,9 @@ export async function GET(request: Request) {
                                                 ORDER BY created_at DESC
                                                         LIMIT 15
                                                               `).catch(() => ({ rows: [] })),
+                // Today's per-platform cost rollup from daily_cost_tracker.
+                // Empty array on first deploy (no rows yet for current UTC day).
+                getTodayPlatformTotals().catch(() => []),
               ]);
 
       const dbInfo = dbStats.rows[0];
@@ -111,6 +116,10 @@ export async function GET(request: Request) {
               },
               apiKeys: apiKeyStatus,
               recentErrors: recentErrors.rows,
+              costsToday: {
+                alarmThresholdUsd: COST_DAILY_ALARM_USD,
+                byPlatform: todayCostByPlatform,
+              },
               environment: {
                         nodeEnv: process.env.NODE_ENV || 'development',
                         appUrl: process.env.APP_URL || 'not set',
