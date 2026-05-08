@@ -245,6 +245,8 @@ async function processRun(job: Job<BrandRunJobData>) {
               platform: plat,
               model: modelForTask,
               searchEnabled: isSearchEnabled(plat, modelForTask),
+              brandId: brand?.id ?? null,
+              city: brand?.city ?? null,
             },
             () => queryAI(
               plat, q, rawKey, modelForTask, brand,

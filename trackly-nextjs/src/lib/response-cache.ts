@@ -32,9 +32,28 @@ export interface CachedEntry<T = unknown> {
 }
 
 export interface SetCachedOptions {
+  /**
+   * Raw prompt text. Stored verbatim in the `query` column for
+   * cross-tenant debug visibility (PR #514 introspection confirmed
+   * `query TEXT NOT NULL` on the prod table). Not returned by getCached
+   * — the cache READ path remains tenant-agnostic and key-only.
+   */
+  query: string;
   platform: string;
   model: string;
   ttlSeconds: number;
+  /**
+   * Brand context, attached for ops/debug only. Cross-tenant dedup is
+   * still keyed on the SHA-256 cache_key alone, so the row that
+   * `setCached` writes will end up serving every tenant whose prompt
+   * normalizes to the same value — `brandId`/`city` simply record which
+   * brand happened to populate the row first (or most recently, given
+   * the ON CONFLICT update).
+   */
+  brandId?: string | null;
+  city?: string | null;
+  /** Whether the cached call hit a search-enabled provider path. */
+  isSearch?: boolean;
 }
 
 export const __cacheStats = { hits: 0, misses: 0, writes: 0, errors: 0 };
@@ -108,15 +127,34 @@ export async function setCached(
 ): Promise<void> {
   if (disabled()) return;
   try {
+    // `query` is stored verbatim for cross-tenant debug visibility.
+    // `getCached` does not return it, so cache reads remain tenant-agnostic
+    // by design. `brand_id`/`city` likewise populate only the column —
+    // they are not part of the cache key, so a row written for Brand A
+    // still serves Brand B once present.
     await pool.query(
-      `INSERT INTO response_cache (cache_key, platform, model, response, expires_at)
-       VALUES ($1, $2, $3, $4::jsonb, NOW() + ($5 || ' seconds')::interval)
+      `INSERT INTO response_cache (cache_key, platform, model, query, brand_id, city, response, is_search, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW() + ($9 || ' seconds')::interval)
        ON CONFLICT (cache_key) DO UPDATE
          SET response = EXCLUDED.response,
              platform = EXCLUDED.platform,
              model = EXCLUDED.model,
+             query = EXCLUDED.query,
+             brand_id = EXCLUDED.brand_id,
+             city = EXCLUDED.city,
+             is_search = EXCLUDED.is_search,
              expires_at = EXCLUDED.expires_at`,
-      [cacheKey, opts.platform, opts.model, JSON.stringify(response), String(opts.ttlSeconds)],
+      [
+        cacheKey,
+        opts.platform,
+        opts.model,
+        opts.query,
+        opts.brandId ?? null,
+        opts.city ?? null,
+        JSON.stringify(response),
+        opts.isSearch ?? false,
+        String(opts.ttlSeconds),
+      ],
     );
     __cacheStats.writes++;
   } catch (e) {

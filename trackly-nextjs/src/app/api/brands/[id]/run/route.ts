@@ -1019,6 +1019,8 @@ async function executeRunBackgroundInner(
               model: cacheModel,
               searchEnabled: isSearchEnabled(plat, cacheModel),
               fresh: !!freshBypass,
+              brandId: brand?.id ?? null,
+              city: brand?.city ?? null,
             },
             () => withDeepRetry(plat, singleAttempt, { signal }),
           ),
