@@ -29,6 +29,9 @@ import {
 import {
   enforceCostCap,
   recordCostEvent,
+  recordCall,
+  CHATGPT_WEB_SEARCH_CALL_USD,
+  estimateCostUsd,
   CostCapExceededError,
 } from './cost-tracker';
 import {
@@ -817,6 +820,41 @@ export function getDefaultModel(platform: string): string {
   return def ? def.id : models[0].id;
 }
 
+/**
+ * Count billable web_search tool invocations from an OpenAI Chat Completions
+ * response. Accepts both shapes the API returns today:
+ *   - usage.tool_calls as a `{ web_search: N }` map or a flat number
+ *   - choices[0].message.tool_calls as an array of `{ type, function }`
+ * Returns 0 when neither shape is present (non-search models, older
+ * responses). Exported for unit tests.
+ */
+export function countWebSearchCalls(resp: unknown): number {
+  if (!resp || typeof resp !== 'object') return 0;
+  const r = resp as {
+    usage?: { tool_calls?: unknown };
+    choices?: Array<{ message?: { tool_calls?: unknown } }>;
+  };
+  const u = r.usage?.tool_calls;
+  if (typeof u === 'number' && Number.isFinite(u)) {
+    return Math.max(0, Math.floor(u));
+  }
+  if (u && typeof u === 'object') {
+    const map = u as Record<string, unknown>;
+    const n = Number(map.web_search ?? map['web_search_call'] ?? 0);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+  const arr = r.choices?.[0]?.message?.tool_calls;
+  if (Array.isArray(arr)) {
+    return arr.filter(c => {
+      const tc = c as { type?: string; function?: { name?: string } };
+      return tc?.type === 'web_search'
+        || tc?.type === 'web_search_call'
+        || tc?.function?.name === 'web_search';
+    }).length;
+  }
+  return 0;
+}
+
 export function estimateCost(model: string, tokensIn: number, tokensOut: number): number | null {
   const pricing = MODEL_PRICING[model] || Object.entries(MODEL_PRICING).find(([k]) => model.startsWith(k))?.[1];
   if (!pricing || (!tokensIn && !tokensOut)) return null;
@@ -1505,6 +1543,13 @@ export async function queryAI(
     try {
       await rateLimitWait(platform, apiKey);
       let result: QueryResult;
+      // Per-call extras parsed alongside `result`. Only ChatGPT populates
+      // these today (web_search tool calls are an OpenAI-specific concept);
+      // other platforms leave them at 0/null and recordCall falls back to
+      // estimateCostUsd. Set here so the success-path `recordCall` below
+      // can read them without a platform-specific branch.
+      let webSearchCalls = 0;
+      let chatgptCostUsd: number | null = null;
 
       if (platform === 'ChatGPT') {
         const isSearch = useModel.includes('search');
@@ -1561,6 +1606,21 @@ export async function queryAI(
           tokensOut: d.usage?.completion_tokens || 0,
           citations: [...new Set(citations)].slice(0, 10) as string[],
         };
+        // Count billable web_search tool invocations. OpenAI exposes them
+        // in two shapes depending on the surface:
+        //   1. d.usage.tool_calls (current Search-Preview chat-completion
+        //      shape: object keyed by tool name -> count, OR a number).
+        //   2. d.choices[0].message.tool_calls (generic Chat Completions
+        //      shape: array of { type, function?: { name } }).
+        // We accept whichever the SDK gave us and never double count.
+        webSearchCalls = countWebSearchCalls(d);
+        const tIn = d.usage?.prompt_tokens || 0;
+        const tOut = d.usage?.completion_tokens || 0;
+        const tokenCost = estimateCostUsd(result.model, tIn, tOut);
+        const searchSurcharge = useModel === 'gpt-4o-mini-search-preview'
+          ? webSearchCalls * CHATGPT_WEB_SEARCH_CALL_USD
+          : 0;
+        chatgptCostUsd = tokenCost + searchSurcharge;
       } else if (platform === 'Claude') {
         const d = await fetchAI(API_ENDPOINTS.claude.messages, {
           method: 'POST',
@@ -1644,8 +1704,22 @@ export async function queryAI(
           model: result.model,
           tokensIn: result.tokensIn,
           tokensOut: result.tokensOut,
+          usdCost: chatgptCostUsd ?? undefined,
         });
       }
+
+      // Aggregate per-(day, platform, model) totals for the admin
+      // dashboard and the daily threshold alarm. Only fires on the
+      // success path; the failure branch below does not call this, so
+      // retries cannot double-count. recordCall swallows DB errors.
+      await recordCall({
+        platform,
+        model: result.model,
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
+        webSearchCalls,
+        costUsd: chatgptCostUsd ?? undefined,
+      });
 
       return result;
     } catch (e) {
