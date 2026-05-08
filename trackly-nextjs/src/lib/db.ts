@@ -170,15 +170,44 @@ function runMigrations(): Promise<void> {
         -- platform + model + searchEnabled key produces the same answer for
         -- every customer asking on the same day. CREATE/ALTER are
         -- non-destructive so they're safe to run on a deploy where the
-        -- table already exists with a slightly different shape.
+        -- table already exists with a different shape.
+        --
+        -- This block mirrors the prod schema introspected via PR #514
+        -- (10 columns, all referenced by setCached as of PR #515) so a
+        -- fresh-bootstrap DB matches prod exactly: types, nullability,
+        -- and defaults. On the live prod table the CREATE TABLE is a
+        -- no-op; the ALTERs below converge any pre-PR-#515 environment.
         CREATE TABLE IF NOT EXISTS response_cache (
           cache_key TEXT PRIMARY KEY,
           platform TEXT NOT NULL,
           model TEXT NOT NULL,
+          query TEXT NOT NULL,
+          brand_id TEXT,
+          city TEXT,
           response JSONB NOT NULL,
-          expires_at TIMESTAMPTZ NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          is_search BOOLEAN DEFAULT false,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          expires_at TIMESTAMPTZ NOT NULL
         );
+        -- Forward-compat ALTERs for environments that already had the
+        -- table with the original 6-column shape (pre-PR #515). All
+        -- additive and idempotent — re-running the bootstrap on a
+        -- partially-migrated DB converges on the prod column set
+        -- without dropping data.
+        --
+        -- Asymmetry: prod's query column is NOT NULL, but
+        -- ADD COLUMN ... NOT NULL on a populated table fails
+        -- (Postgres rejects the constraint when existing rows would
+        -- violate it). We add query as nullable here so the ALTER
+        -- stays idempotent on dev DBs that pre-date PR #515. Fresh
+        -- bootstraps still get NOT NULL via the CREATE TABLE above;
+        -- prod already has it (verified via PR #514 introspection).
+        -- Retrofit NOT NULL on legacy dev DBs manually after
+        -- backfilling if you need it.
+        ALTER TABLE response_cache ADD COLUMN IF NOT EXISTS query TEXT;
+        ALTER TABLE response_cache ADD COLUMN IF NOT EXISTS brand_id TEXT;
+        ALTER TABLE response_cache ADD COLUMN IF NOT EXISTS city TEXT;
+        ALTER TABLE response_cache ADD COLUMN IF NOT EXISTS is_search BOOLEAN DEFAULT false;
         CREATE INDEX IF NOT EXISTS idx_response_cache_expires
           ON response_cache (expires_at);
         ALTER TABLE prompt_runs
