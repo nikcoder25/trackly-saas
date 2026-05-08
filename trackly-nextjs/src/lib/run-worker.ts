@@ -10,6 +10,7 @@ import IORedis from 'ioredis';
 import { pool } from './db';
 import { queryAI, getDefaultModel, estimateCost, resolveChatGPTModel, withCacheAndRetry, type AiError } from './ai-platforms';
 import { isSearchEnabled } from './response-cache';
+import { resolveSearchModelWithBudget } from './search-budget';
 import { getAdminModel } from './site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from './parser';
 import { uid, decryptApiKeys, loadTenantFairnessSettings } from './helpers';
@@ -214,7 +215,21 @@ async function processRun(job: Job<BrandRunJobData>) {
         // intent. Smart routing is ON by default; set
         // CHATGPT_SMART_MODEL_ROUTING=false to disable.
         const baseModel = adminModels[plat] || getDefaultModel(plat);
-        const modelForTask = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+        const smartRoutedModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+        // Daily search-budget guard. When the platform's web-search quota
+        // for today is spent AND a non-search fallback exists (ChatGPT
+        // search-preview → gpt-4o), drop to the fallback so the cache
+        // key + prompt shape both flip onto the non-search path. When no
+        // fallback exists (Perplexity is search-native), the helper logs
+        // and returns the original model unchanged — fail-open, never
+        // block traffic on a quota-saver.
+        const budgetResolved = await resolveSearchModelWithBudget({
+          platform: plat,
+          model: smartRoutedModel,
+          isSearch: isSearchEnabled(plat, smartRoutedModel),
+        });
+        const modelForTask = budgetResolved.model;
+        const searchEnabledForTask = budgetResolved.searchEnabled;
         // Correlation ID for ChatGPT rate-limit log grep.
         const queryId = `${runId}:${idx}`;
 
@@ -244,7 +259,7 @@ async function processRun(job: Job<BrandRunJobData>) {
               prompt: q,
               platform: plat,
               model: modelForTask,
-              searchEnabled: isSearchEnabled(plat, modelForTask),
+              searchEnabled: searchEnabledForTask,
               brandId: brand?.id ?? null,
               city: brand?.city ?? null,
             },
