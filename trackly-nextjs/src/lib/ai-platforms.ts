@@ -1390,15 +1390,24 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
 const NON_SEARCH_INTENT_RE = /^\s*(what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b/i;
 const FRESHNESS_OR_LOCAL_RE = /\b(best|top|recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+year|20\d{2})\b/i;
 
+// Shared heuristic: a query is "non-search-intent" when it reads as
+// definitional/explanatory AND lacks any freshness/local/comparison
+// qualifier that would benefit from live web data. Used by both the
+// model-routing fallback and the per-query web_search_options gate.
+function isNonSearchIntentQuery(query: string): boolean {
+  const q = (query || '').trim();
+  if (!q) return false;
+  if (!NON_SEARCH_INTENT_RE.test(q)) return false;
+  if (FRESHNESS_OR_LOCAL_RE.test(q)) return false;
+  return true;
+}
+
 export function resolveChatGPTModel(query: string, adminModel: string): string {
   if (process.env.CHATGPT_SMART_MODEL_ROUTING === 'false') return adminModel;
   // Only route AWAY from search-preview models. If admin already picked a
   // non-search model, leave it alone.
   if (!adminModel.includes('search')) return adminModel;
-  const q = (query || '').trim();
-  if (!q) return adminModel;
-  if (!NON_SEARCH_INTENT_RE.test(q)) return adminModel;
-  if (FRESHNESS_OR_LOCAL_RE.test(q)) return adminModel;
+  if (!isNonSearchIntentQuery(query)) return adminModel;
   // Safe to route to standard model.
   const fallback = 'gpt-4o';
   logger.warn('[chatgpt.ratelimit]', {
@@ -1406,9 +1415,21 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
     platform: 'ChatGPT',
     fromModel: adminModel,
     toModel: fallback,
-    query: q.slice(0, 120),
+    query: (query || '').trim().slice(0, 120),
   });
   return fallback;
+}
+
+// Per-query gate for ChatGPT's `web_search_options`. Defense in depth on
+// top of `resolveChatGPTModel`: when a search-preview model is still in
+// play (admin override, smart routing disabled, or smart routing didn't
+// fire), suppressing `web_search_options` for clearly definitional
+// queries lets the model answer from training data and spares the
+// Search-Preview pool. Default ON; set CHATGPT_WEB_SEARCH_GATING=false
+// to attach `web_search_options` on every search-model call.
+export function shouldAttachChatGPTWebSearch(query: string): boolean {
+  if (process.env.CHATGPT_WEB_SEARCH_GATING === 'false') return true;
+  return !isNonSearchIntentQuery(query);
 }
 
 export async function queryAI(
@@ -1502,9 +1523,16 @@ export async function queryAI(
           model: useModel, max_tokens: maxTok,
           messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
         };
-        if (isSearch) {
+        if (isSearch && shouldAttachChatGPTWebSearch(query)) {
           payload.web_search_options = {};
           if (brand?.city) payload.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
+        } else if (isSearch) {
+          logger.warn('[chatgpt.ratelimit]', {
+            event: 'web_search_gated',
+            platform: 'ChatGPT',
+            model: useModel,
+            query: query.trim().slice(0, 120),
+          });
         }
         // ChatGPT-specific retry config. Search-Preview model pool is
         // tight, so we allow more attempts (default 6 vs. 2) and a larger
