@@ -1441,7 +1441,25 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
 // is functionally a no-op for now but documents intent should we later
 // decide to drop it from the freshness regex.
 const NON_SEARCH_INTENT_RE = /(?:^\s*(?:what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b)|(?:\b(?:similar|competitors?|alternatives?|versus|vs)\b)/i;
-const FRESHNESS_OR_LOCAL_RE = /\b(best|top|recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+year|20\d{2})\b/i;
+// Narrowed for the web_search cost-reduction effort (see May-11 incident).
+// Removed: `best`, `top`, bare year `20\d{2}` — these are common in
+// brand-tracking queries ("best CRM 2026", "top plumbers") and don't
+// genuinely need live web data on a daily cron; training-data answers
+// are fine. Added `this week` alongside `this year` for actual
+// short-horizon freshness signals. Kept: recommend/review/pricing/
+// compare/vs/versus/in {city}/near me/latest/today/this (week|year) —
+// these still indicate the caller wants fresh or location-aware data.
+const FRESHNESS_OR_LOCAL_RE = /\b(recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+(?:week|year))\b/i;
+
+// Pure regex-test exposed for unit tests so the FRESHNESS_OR_LOCAL_RE
+// surface can be pinned without going through the full
+// shouldAttachChatGPTWebSearch cascade (which also depends on
+// NON_SEARCH_INTENT_RE).
+export function isFreshnessOrLocalQuery(query: string): boolean {
+  const q = (query || '').trim();
+  if (!q) return false;
+  return FRESHNESS_OR_LOCAL_RE.test(q);
+}
 
 // Shared heuristic: a query is "non-search-intent" when it reads as
 // definitional/explanatory AND lacks any freshness/local/comparison
