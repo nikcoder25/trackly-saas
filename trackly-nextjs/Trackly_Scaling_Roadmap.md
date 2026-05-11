@@ -1,4 +1,4 @@
-# Trackly (Livesov) Scaling Roadmap
+# Livesov Scaling Roadmap
 
 **Date:** April 14, 2026
 **Generated from:** Analysis of the actual codebase and infrastructure

@@ -51,7 +51,7 @@ describe('PLAN_CREDITS', () => {
       monthlyCredits: 8000,
       manualDailyCap: 9999,
       cooldownSeconds: 30,
-      // Trackly supports 5 AI platforms (ChatGPT, Perplexity, Claude,
+      // Livesov supports 5 AI platforms (ChatGPT, Perplexity, Claude,
       // Gemini, Grok). Pre-launch fix-up brought the cap down from 6
       // to 5 to match reality — see PR "chore(pre-launch): platform
       // count copy".

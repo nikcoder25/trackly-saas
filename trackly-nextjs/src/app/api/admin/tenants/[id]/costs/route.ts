@@ -7,7 +7,7 @@
  * configured caps, the current window status (`ok` vs which window has
  * been hit), and a small breakdown by platform and model for triage.
  *
- * Banks operating Trackly use this to confirm a tenant has actually hit
+ * Banks operating Livesov use this to confirm a tenant has actually hit
  * its cap before raising it, and to attribute spend across providers.
  */
 import { pool } from '@/lib/db';

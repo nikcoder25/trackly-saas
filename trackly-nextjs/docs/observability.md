@@ -1,7 +1,7 @@
 # Observability
 
 Reference for the structured logs and Prometheus metrics emitted by
-Trackly. See issue #412 for the original spec.
+Livesov. See issue #412 for the original spec.
 
 ## Quick start
 
