@@ -86,11 +86,14 @@ describe('NON_SEARCH_INTENT_RE — static-comparison nouns', () => {
       .toBe('gpt-4o');
   });
 
-  it('keeps web_search when a freshness qualifier overrides the noun gate', () => {
-    // "best alternatives" / "top competitors" — NON_SEARCH matches the
-    // noun, but FRESHNESS_OR_LOCAL_RE matches "best"/"top" and wins.
-    expect(shouldAttachChatGPTWebSearch('best alternatives to Stripe')).toBe(true);
-    expect(shouldAttachChatGPTWebSearch('top competitors of Salesforce')).toBe(true);
+  it('suppresses web_search for static-comparison queries once best/top are removed from freshness', () => {
+    // Post-#527: FRESHNESS_OR_LOCAL_RE no longer matches `best` / `top`,
+    // so brand-landscape queries like "best alternatives to Stripe" or
+    // "top competitors of Salesforce" now flip OFF web_search via the
+    // NON_SEARCH noun branch ("alternatives" / "competitors"). This is
+    // the intended cost-reduction outcome of the May-11 incident chain.
+    expect(shouldAttachChatGPTWebSearch('best alternatives to Stripe')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('top competitors of Salesforce')).toBe(false);
   });
 
   it('vs/versus stays in the freshness gate: precedence keeps web_search ON', () => {
