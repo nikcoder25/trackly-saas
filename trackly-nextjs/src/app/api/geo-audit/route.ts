@@ -3,7 +3,7 @@ import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { verifyRequestAuth } from '@/lib/auth';
 import { getPlanLimits } from '@/lib/constants';
 import { pool } from '@/lib/db';
-import { safeFetch, SSRFError } from '@/lib/safe-fetch';
+import { safeFetch, SSRFError, ssrfErrorToCopy } from '@/lib/safe-fetch';
 import { logError, serverError } from '@/lib/api-error';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -418,10 +418,7 @@ export async function POST(req: NextRequest) {
       html = await response.text();
     } catch (err: unknown) {
       if (err instanceof SSRFError) {
-        const msg = err.code === 'PROTOCOL_BLOCKED'
-          ? 'URL protocol not allowed'
-          : 'URL points to a private/internal network address';
-        return Response.json({ error: msg }, { status: 400 });
+        return Response.json({ error: ssrfErrorToCopy(err.code) }, { status: 400 });
       }
       const message = err instanceof Error && err.name === 'AbortError'
         ? 'URL fetch timed out (10s limit)'

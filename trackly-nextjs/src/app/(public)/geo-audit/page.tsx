@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import SeoLayout from '@/components/seo/SeoLayout';
+import { validateUrlClientSide } from './validate-url';
 
 interface CategoryResult {
   name: string;
@@ -108,6 +109,15 @@ export default function GeoAuditPage() {
     if (honeypot) return;
     setError('');
     setResult(null);
+
+    // Pre-fetch validation: catch obvious bad inputs before burning
+    // a network round trip + a rate-limit slot. Server-side re-validates.
+    const clientErr = validateUrlClientSide(url);
+    if (clientErr) {
+      setError(clientErr);
+      return;
+    }
+
     setLoading(true);
     setProgress(0);
 
@@ -180,7 +190,7 @@ export default function GeoAuditPage() {
             boxShadow: '0 4px 24px rgba(0,0,0,.08)',
           }}
         >
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} aria-busy={loading}>
             <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true" tabIndex={-1}>
               <label htmlFor="audit-website">Website</label>
               <input id="audit-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
@@ -240,7 +250,7 @@ export default function GeoAuditPage() {
 
           {/* Loading progress */}
           {loading && (
-            <div style={{ marginTop: 24 }}>
+            <div style={{ marginTop: 24 }} role="status" aria-live="polite">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 13, color: '#6b7280' }}>Analyzing page...</span>
                 <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{Math.round(progress)}%</span>
@@ -267,6 +277,7 @@ export default function GeoAuditPage() {
 
           {error && (
             <div
+              role="alert"
               style={{
                 marginTop: 20,
                 padding: '12px 16px',
