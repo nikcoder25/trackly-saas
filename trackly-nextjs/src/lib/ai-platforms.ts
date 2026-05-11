@@ -42,7 +42,11 @@ import {
 } from './response-cache';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
-const MAX_OUTPUT_TOKENS = 300;
+// Output ceiling. Parsed responses (mentions, sentiment, position)
+// typically consume <100 tokens; 180 leaves ample headroom while
+// trimming the slack from the prior 300 cap. Override via env for
+// experiments or incident rollback.
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 180;
 
 // ── Error typing ────────────────────────────────────────────────
 export interface AiError extends Error {
@@ -1426,7 +1430,17 @@ async function callGemini(model: string, query: string, apiKey: string, sysPromp
 // location/comparison qualifiers. Mis-routing a query costs us answer
 // quality; under-routing costs us quota - so we err on the side of
 // keeping search when in doubt.
-const NON_SEARCH_INTENT_RE = /^\s*(what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b/i;
+// Two-style match:
+//   (a) anchored definitional prefixes — "what is X", "how does Y", etc.
+//   (b) unanchored static-comparison nouns — "alternatives to Stripe",
+//       "Stripe competitors", "similar to Slack". These describe
+//       relatively static landscape questions that a daily cron can
+//       answer from training data without burning web_search quota.
+// Note: `vs|versus` also appears in FRESHNESS_OR_LOCAL_RE; the freshness
+// gate takes precedence (see isNonSearchIntentQuery), so adding it here
+// is functionally a no-op for now but documents intent should we later
+// decide to drop it from the freshness regex.
+const NON_SEARCH_INTENT_RE = /(?:^\s*(?:what\s+is|what\s+are|how\s+does|how\s+do|how\s+to|explain|define|describe|tell\s+me\s+about)\b)|(?:\b(?:similar|competitors?|alternatives?|versus|vs)\b)/i;
 const FRESHNESS_OR_LOCAL_RE = /\b(best|top|recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+year|20\d{2})\b/i;
 
 // Shared heuristic: a query is "non-search-intent" when it reads as
@@ -1591,8 +1605,13 @@ export async function queryAI(
           body: JSON.stringify(payload),
           signal,
         }, AI_CHATGPT_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
-          maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 6,
-          maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 60000,
+          // Defaults tightened from 6/60000 — once smart routing and the
+          // gpt-4o-mini-search-preview cohort relieve Search-Preview pool
+          // pressure, 3 attempts over 30s covers transient blips while
+          // capping cost from billed-200 retries. Override via
+          // AI_CHATGPT_MAX_RETRIES / AI_CHATGPT_MAX_RETRY_SLEEP_MS.
+          maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 3,
+          maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 30000,
           logPrefix: '[chatgpt.ratelimit]',
           queryId: options?.queryId,
           model: useModel,
