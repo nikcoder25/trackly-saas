@@ -254,4 +254,4 @@
 
 ---
 
-*This document was generated on April 14, 2026 based on analysis of the actual Trackly (Livesov) codebase and infrastructure. All file paths, configurations, costs, and technical details reflect the current state of the repository.*
+*This document was generated on April 14, 2026 based on analysis of the actual Livesov codebase and infrastructure. All file paths, configurations, costs, and technical details reflect the current state of the repository.*
