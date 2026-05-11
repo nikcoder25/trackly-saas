@@ -73,7 +73,10 @@ beforeEach(() => {
   store = { strings: new Map() };
   fake = makeFakeRedis(store);
   _setLimiterRedisForTests(fake);
-  process.env.AI_SEARCH_BUDGET_ENABLED = 'true';
+  // Budget is enabled by default since the May-11 incident; clear any
+  // stray kill-switch from a prior test so each case starts from the
+  // production default.
+  delete process.env.AI_SEARCH_BUDGET_ENABLED;
   delete process.env.AI_SEARCH_BUDGET_DEFAULT;
   delete process.env.AI_SEARCH_BUDGET_CHATGPT;
   delete process.env.AI_SEARCH_BUDGET_PERPLEXITY;
@@ -99,15 +102,35 @@ describe('getSearchBudgetLimit', () => {
     expect(getSearchBudgetLimit('Perplexity')).toBe(500);
   });
 
-  it('returns 0 (no limit) when no env vars are set', () => {
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(0);
+  it('returns the ChatGPT default cap of 600 when no env vars are set', () => {
+    // 600 calls/day = $15/day ceiling at $25/1k web_search invocations.
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
   });
 
-  it('treats negative or non-numeric values as unset', () => {
+  it('has no default cap for non-ChatGPT platforms', () => {
+    expect(getSearchBudgetLimit('Perplexity')).toBe(0);
+    expect(getSearchBudgetLimit('Claude')).toBe(0);
+    expect(getSearchBudgetLimit('Gemini')).toBe(0);
+    expect(getSearchBudgetLimit('Grok')).toBe(0);
+  });
+
+  it('AI_SEARCH_BUDGET_DEFAULT overrides the ChatGPT platform default', () => {
+    process.env.AI_SEARCH_BUDGET_DEFAULT = '100';
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(100);
+    expect(getSearchBudgetLimit('Perplexity')).toBe(100);
+  });
+
+  it('AI_SEARCH_BUDGET_CHATGPT=0 opts ChatGPT out without affecting others', () => {
+    process.env.AI_SEARCH_BUDGET_CHATGPT = '0';
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(0);
+    expect(getSearchBudgetLimit('Perplexity')).toBe(0);
+  });
+
+  it('treats negative or non-numeric ChatGPT overrides as unset (falls back to default cap)', () => {
     process.env.AI_SEARCH_BUDGET_CHATGPT = '-5';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(0);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
     process.env.AI_SEARCH_BUDGET_CHATGPT = 'banana';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(0);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
   });
 });
 
@@ -132,18 +155,36 @@ describe('getSearchFallbackModel', () => {
 });
 
 describe('tryConsumeSearchBudget', () => {
-  it('is a no-op pass when AI_SEARCH_BUDGET_ENABLED is not set', async () => {
-    delete process.env.AI_SEARCH_BUDGET_ENABLED;
+  it('engages the budget by default when AI_SEARCH_BUDGET_ENABLED is unset', async () => {
+    // Post-incident default: enabled. ChatGPT's 600-call cap means the
+    // very first call lands at used=1, not at the no-op disabled path.
+    const result = await tryConsumeSearchBudget('ChatGPT');
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe('consumed');
+    expect(result.used).toBe(1);
+    expect(result.limit).toBe(600);
+    expect((fake.eval as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op pass when AI_SEARCH_BUDGET_ENABLED=false (kill switch)', async () => {
+    process.env.AI_SEARCH_BUDGET_ENABLED = 'false';
     process.env.AI_SEARCH_BUDGET_CHATGPT = '5';
     const result = await tryConsumeSearchBudget('ChatGPT');
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('disabled');
-    // No INCR fired against Redis when the feature flag is off.
     expect((fake.eval as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
   });
 
-  it('is a no-op pass when the platform limit is 0', async () => {
+  it('is a no-op pass when the platform limit is explicitly 0', async () => {
+    process.env.AI_SEARCH_BUDGET_CHATGPT = '0';
     const result = await tryConsumeSearchBudget('ChatGPT');
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe('disabled');
+    expect((fake.eval as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op pass for platforms without a default cap (e.g. Perplexity)', async () => {
+    const result = await tryConsumeSearchBudget('Perplexity');
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('disabled');
     expect((fake.eval as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();

@@ -18,14 +18,29 @@
  *     Search budgeting is a quota-saver, not a safety mechanism, so a
  *     telemetry outage must never block customer traffic. Operators who
  *     want fail-closed on Redis loss already have AI_REDIS_REQUIRED.
- *   - Disabled by default behind `AI_SEARCH_BUDGET_ENABLED=true` so this
- *     PR can roll out behind a flag and be flipped on per-environment
- *     once observed in dry-run.
+ *   - Enabled by default. The web_search tool bills $25/1k calls on
+ *     gpt-4o-search-preview / $50/1k on gpt-5-search-api and dominates
+ *     OpenAI spend; the May 11 incident (~$48/day on web_search alone)
+ *     showed that "off-by-default + unset" is the wrong posture. Set
+ *     `AI_SEARCH_BUDGET_ENABLED=false` to opt out.
+ *   - ChatGPT default cap is 600 calls/day (~$15/day at $25/1k). Other
+ *     platforms have no default cap (set the env override to add one).
+ *     Perplexity is search-native and fail-opens on exhaustion, so a
+ *     default cap there would only produce log noise.
  */
 import { getLimiterRedis, type RedisLikeClient } from './redis';
 import { logger } from './logger';
 
 const KEY_TTL_SECONDS = 90_000;
+
+// Per-platform default daily caps. Only ChatGPT has a default — it's
+// the platform with billable web_search tool calls AND a useful
+// non-search fallback. Perplexity charges per query, not per tool
+// invocation, and Claude/Gemini/Grok don't have a billable tool. An
+// env override (AI_SEARCH_BUDGET_<PLATFORM>) always takes precedence.
+const PLATFORM_DEFAULT_DAILY_CAP: Record<string, number> = {
+  ChatGPT: 600,
+};
 
 export type SearchBudgetReason =
   | 'disabled'
@@ -54,10 +69,6 @@ function budgetKey(platform: string, date: string): string {
   return `search-budget:${platform}:${date}`;
 }
 
-function envFlag(name: string): boolean {
-  return process.env[name] === 'true';
-}
-
 function envInt(name: string): number | undefined {
   const raw = process.env[name];
   if (raw == null || raw === '') return undefined;
@@ -66,16 +77,21 @@ function envInt(name: string): number | undefined {
 }
 
 /**
- * Resolve the daily limit for a platform. Per-platform overrides take
- * precedence over the default; 0 (or any non-positive value) disables
- * the budget for that platform entirely.
+ * Resolve the daily limit for a platform. Precedence (first hit wins):
+ *   1. AI_SEARCH_BUDGET_<PLATFORM> env override
+ *   2. AI_SEARCH_BUDGET_DEFAULT env override
+ *   3. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 600)
+ *   4. 0 (no limit)
+ * Set the platform-specific env var to 0 to opt that platform out
+ * without disabling the feature globally.
  */
 export function getSearchBudgetLimit(platform: string): number {
   const platformKey = `AI_SEARCH_BUDGET_${platform.toUpperCase()}`;
   const platformOverride = envInt(platformKey);
   if (platformOverride != null) return platformOverride;
   const defaultLimit = envInt('AI_SEARCH_BUDGET_DEFAULT');
-  return defaultLimit ?? 0;
+  if (defaultLimit != null) return defaultLimit;
+  return PLATFORM_DEFAULT_DAILY_CAP[platform] ?? 0;
 }
 
 /**
@@ -136,14 +152,17 @@ export interface ConsumeOptions {
 
 /**
  * Atomically reserve one search-call slot for `platform` for the current
- * UTC day. Honours `AI_SEARCH_BUDGET_ENABLED` (off → always allowed) and
- * the resolved per-platform limit (0 → always allowed).
+ * UTC day. Enabled by default; the resolved per-platform limit (0 →
+ * always allowed) still gates per-platform behaviour. Set
+ * AI_SEARCH_BUDGET_ENABLED=false to bypass the budget globally.
  */
 export async function tryConsumeSearchBudget(
   platform: string,
   opts: ConsumeOptions = {},
 ): Promise<BudgetCheckResult> {
-  if (!envFlag('AI_SEARCH_BUDGET_ENABLED')) {
+  // Kill switch: opt-out only. Any value other than the literal string
+  // "false" leaves the budget engaged.
+  if (process.env.AI_SEARCH_BUDGET_ENABLED === 'false') {
     return { allowed: true, used: 0, limit: 0, remaining: 0, reason: 'disabled' };
   }
   const limit = getSearchBudgetLimit(platform);
