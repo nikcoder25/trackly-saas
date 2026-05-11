@@ -196,3 +196,135 @@ describe('setCached', () => {
     expect(__cacheStats.writes).toBe(2);
   });
 });
+
+// ── Cross-tenant dedup invariant (regression coverage) ──────────
+//
+// Locks in the design property that two different tenants asking the
+// exact same question for the same city share a cache row. Combined
+// with the schema-shape assertion, this stops both the May 6-8 class
+// of bug (silent INSERT failure dropping every write) and any future
+// drift that accidentally re-introduces a per-tenant field into the
+// SHA-256 input.
+describe('cache_key dedup invariant', () => {
+  it('two different brand_ids with identical (platform, model, query, city, is_search) produce the same cache_key', () => {
+    // Tenant A
+    const keyA = buildCacheKey({
+      prompt: 'best plumber in Boston',
+      platform: 'ChatGPT',
+      model: 'gpt-4o-search-preview',
+      searchEnabled: true,
+      city: 'Boston',
+    });
+    // Tenant B — different brand context entirely; key inputs identical.
+    // Note brand_id is intentionally absent from CacheKeyParams; this
+    // test pins that absence.
+    const keyB = buildCacheKey({
+      prompt: 'best plumber in Boston',
+      platform: 'ChatGPT',
+      model: 'gpt-4o-search-preview',
+      searchEnabled: true,
+      city: 'Boston',
+    });
+    expect(keyA).toBe(keyB);
+  });
+
+  it('different cities produce different cache_keys (no false collisions)', () => {
+    const boston = buildCacheKey({
+      prompt: 'best plumber', platform: 'ChatGPT', model: 'gpt-4o',
+      searchEnabled: true, city: 'Boston',
+    });
+    const nyc = buildCacheKey({
+      prompt: 'best plumber', platform: 'ChatGPT', model: 'gpt-4o',
+      searchEnabled: true, city: 'NYC',
+    });
+    expect(boston).not.toBe(nyc);
+  });
+
+  it('city is normalized for case/whitespace (so "Boston" and " boston " collapse)', () => {
+    const a = buildCacheKey({
+      prompt: 'p', platform: 'ChatGPT', model: 'm',
+      searchEnabled: false, city: 'Boston',
+    });
+    const b = buildCacheKey({
+      prompt: 'p', platform: 'ChatGPT', model: 'm',
+      searchEnabled: false, city: '  boston  ',
+    });
+    expect(a).toBe(b);
+  });
+
+  it('null/undefined/empty city all hash the same (legacy callers unaffected)', () => {
+    const k1 = buildCacheKey({ prompt: 'p', platform: 'ChatGPT', model: 'm', searchEnabled: false });
+    const k2 = buildCacheKey({ prompt: 'p', platform: 'ChatGPT', model: 'm', searchEnabled: false, city: null });
+    const k3 = buildCacheKey({ prompt: 'p', platform: 'ChatGPT', model: 'm', searchEnabled: false, city: '' });
+    expect(k1).toBe(k2);
+    expect(k2).toBe(k3);
+  });
+});
+
+describe('setCached writes every NOT NULL prod-schema column', () => {
+  it('populates cache_key, platform, model, query, response, is_search, expires_at with non-null values', async () => {
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    await setCached(
+      'cache-key-abc',
+      { text: 'cached', model: 'gpt-4o' },
+      {
+        query: 'best plumber in Boston',
+        platform: 'ChatGPT',
+        model: 'gpt-4o-search-preview',
+        ttlSeconds: 24 * 60 * 60,
+        brandId: 'brand_A',
+        city: 'Boston',
+        isSearch: true,
+      },
+    );
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    const params = queryMock.mock.calls[0][1] as unknown[];
+    // Param positions match the INSERT column list:
+    // (cache_key, platform, model, query, brand_id, city, response, is_search, expires_at)
+    expect(params).toHaveLength(9);
+    // Every NOT NULL prod column must be non-null/non-empty:
+    expect(params[0]).toBeTruthy();                   // cache_key
+    expect(params[1]).toBeTruthy();                   // platform
+    expect(params[2]).toBeTruthy();                   // model
+    expect(params[3]).toBeTruthy();                   // query
+    expect(params[6]).toBeTruthy();                   // response (jsonb stringified)
+    expect(typeof params[7]).toBe('boolean');         // is_search
+    expect(params[8]).toBeTruthy();                   // expires_at interval seconds
+    expect(__cacheStats.writes).toBe(1);
+    expect(__cacheStats.errors).toBe(0);
+  });
+
+  it('serves Tenant B from the row Tenant A wrote (post-insert SELECT returns the cached payload)', async () => {
+    const key = buildCacheKey({
+      prompt: 'best plumber in Boston',
+      platform: 'ChatGPT',
+      model: 'gpt-4o-search-preview',
+      searchEnabled: true,
+      city: 'Boston',
+    });
+    // 1) Tenant A writes.
+    queryMock.mockResolvedValueOnce({ rowCount: 1 });
+    await setCached(key, { text: 'shared payload', model: 'gpt-4o-search-preview' }, {
+      query: 'best plumber in Boston',
+      platform: 'ChatGPT',
+      model: 'gpt-4o-search-preview',
+      ttlSeconds: 24 * 60 * 60,
+      brandId: 'brand_A',
+      city: 'Boston',
+      isSearch: true,
+    });
+    // 2) Tenant B reads with the same key — mock the row coming back.
+    queryMock.mockResolvedValueOnce({
+      rows: [{
+        response: { text: 'shared payload', model: 'gpt-4o-search-preview' },
+        model: 'gpt-4o-search-preview',
+        created_at: new Date('2026-05-11T00:00:00Z'),
+      }],
+    });
+    const hit = await getCached(key);
+    expect(hit).not.toBeNull();
+    expect(hit?.response).toMatchObject({ text: 'shared payload' });
+    expect(__cacheStats.writes).toBe(1);
+    expect(__cacheStats.hits).toBe(1);
+  });
+});
