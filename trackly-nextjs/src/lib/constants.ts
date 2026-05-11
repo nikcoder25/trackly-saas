@@ -131,7 +131,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       '1 brand',
       '5 tracked prompts',
-      '2 AI platforms',
+      '2 AI platforms (Gemini & Grok)',
       'Weekly auto-runs',
       '3 GEO audits/month',
     ],
@@ -170,7 +170,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       'Unlimited brands',
       '100 tracked prompts',
-      '6 AI platforms (all)',
+      '5 AI platforms (all)',
       'Competitor tracking (20)',
       'Premium AI models',
       'Daily auto-runs',

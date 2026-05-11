@@ -91,7 +91,7 @@ GEO isn't a one-time fix. AI models update regularly, and your competitors are a
 
 GEO is not replacing SEO - it's an **additional layer** of visibility that's growing rapidly. Brands that start optimizing for AI now will have a significant advantage as more users shift to AI-first discovery.
 
-The first step? [Check your AI visibility](https://livesov.com/signup) across all 6 platforms. You might be surprised by what you find.
+The first step? [Check your AI visibility](https://livesov.com/signup) across all 5 platforms. You might be surprised by what you find.
 `,
   },
   {

@@ -39,7 +39,7 @@ const modelTierLabel = (t: Tier) => {
 };
 const platformsLabel = (t: Tier) => {
   const n = PLAN_CREDITS[t].maxPlatforms;
-  return n >= 6 ? `${n} (all)` : String(n);
+  return n >= 5 ? `${n} (all)` : String(n);
 };
 const manualCapLabel = (t: Tier) => {
   const n = PLAN_CREDITS[t].manualDailyCap;
