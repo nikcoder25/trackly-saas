@@ -27,6 +27,14 @@ export interface CacheKeyParams {
   platform: string;
   model: string;
   searchEnabled: boolean;
+  /**
+   * Defense-in-depth dedup dimension. Most prompts already embed the
+   * locality verbatim, but callers that pass city as separate metadata
+   * must keep cache entries city-scoped. Omitted/null → empty, which
+   * preserves the legacy key shape for prompts that already contain
+   * the city string.
+   */
+  city?: string | null;
 }
 
 export interface CachedEntry<T = unknown> {
@@ -71,8 +79,9 @@ function normalize(prompt: string): string {
 }
 
 export function buildCacheKey(params: CacheKeyParams): string {
-  const { prompt, platform, model, searchEnabled } = params;
-  const material = `${normalize(prompt)}|${platform}|${model}|${searchEnabled ? 1 : 0}`;
+  const { prompt, platform, model, searchEnabled, city } = params;
+  const cityPart = (city ?? '').toLowerCase().trim();
+  const material = `${normalize(prompt)}|${platform}|${model}|${searchEnabled ? 1 : 0}|${cityPart}`;
   return crypto.createHash('sha256').update(material).digest('hex');
 }
 

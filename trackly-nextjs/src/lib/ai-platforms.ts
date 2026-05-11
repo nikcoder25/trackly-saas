@@ -563,6 +563,7 @@ export async function withCacheAndRetry<T extends { model?: string }>(
     platform: params.platform,
     model: params.model,
     searchEnabled: params.searchEnabled,
+    city: params.city ?? null,
   });
   if (!params.fresh) {
     const hit = await getCached<T>(cacheKey);
