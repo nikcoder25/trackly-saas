@@ -20,6 +20,31 @@ export class SSRFError extends Error {
   }
 }
 
+// Maps `SSRFError.code` to user-facing copy for endpoints that surface
+// safe-fetch failures (e.g. /api/geo-audit). HOST_BLOCKED + IP_BLOCKED
+// stay generic on purpose — telling a caller exactly which private
+// range we rejected would leak infra topology to an attacker. Every
+// other code is non-security-sensitive and gets actionable copy.
+export function ssrfErrorToCopy(code: string): string {
+  switch (code) {
+    case 'PROTOCOL_BLOCKED':
+      return 'URL protocol not allowed. Use http or https.';
+    case 'DNS_FAILED':
+    case 'DNS_EMPTY':
+      return "We couldn't find that domain. Check the URL and try again.";
+    case 'TOO_MANY_REDIRECTS':
+      return 'URL redirects too many times.';
+    case 'TOO_LARGE':
+      return 'Page is too large to analyze (over 5 MB).';
+    case 'INVALID_URL':
+      return 'Invalid URL.';
+    case 'HOST_BLOCKED':
+    case 'IP_BLOCKED':
+    default:
+      return "We couldn't reach that URL.";
+  }
+}
+
 function isBlockedIPv4(ip: string): boolean {
   const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!m) return false;
