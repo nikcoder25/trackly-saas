@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
+import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 
 /* ─── Smooth scroll helper ─── */
@@ -451,11 +452,11 @@ export default function LivesovHomePage() {
           </button>
 
           <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
-            <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-            <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-            <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-            <Link href="/blog">Blog</Link>
-            <Link href="/contact">Contact</Link>
+            {MARKETING_NAV_LINKS.map((link) => {
+              const href = link.homeHref ?? link.href;
+              const label = link.i18nKey ? t.nav[link.i18nKey] : link.label;
+              return <Link key={href} href={href} onClick={closeMenu}>{label}</Link>;
+            })}
           </div>
 
           <div className="tl-nav-actions">
@@ -468,11 +469,11 @@ export default function LivesovHomePage() {
       {/* Mobile menu overlay */}
       {menuOpen && (
         <div className="tl-mobile-menu">
-          <Link href="/#features" onClick={closeMenu}>{t.nav.features}</Link>
-          <Link href="/#how-it-works" onClick={closeMenu}>{t.nav.howItWorks}</Link>
-          <Link href="/#pricing" onClick={closeMenu}>{t.nav.pricing}</Link>
-          <Link href="/blog" onClick={closeMenu}>Blog</Link>
-          <Link href="/contact" onClick={closeMenu}>Contact</Link>
+          {MARKETING_NAV_LINKS.map((link) => {
+            const href = link.homeHref ?? link.href;
+            const label = link.i18nKey ? t.nav[link.i18nKey] : link.label;
+            return <Link key={href} href={href} onClick={closeMenu}>{label}</Link>;
+          })}
           <div className="tl-mobile-menu-actions">
             <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>{t.nav.login}</Link>
             <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>{t.nav.getStarted}</Link>

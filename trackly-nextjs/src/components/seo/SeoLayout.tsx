@@ -4,20 +4,11 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { CookiePreferencesButton } from '@/components/CookieConsent';
 import { useNonce } from '@/components/NonceProvider';
+import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
 
 interface SeoLayoutProps {
   children: React.ReactNode;
 }
-
-const navLinks = [
-  { href: '/#features', label: 'Features' },
-  { href: '/how-it-works', label: 'How it Works' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/geo-audit', label: 'GEO Audit' },
-  { href: '/tools', label: 'Free Tools' },
-  { href: '/blog', label: 'Blog' },
-  { href: '/contact', label: 'Contact' },
-];
 
 export default function SeoLayout({ children }: SeoLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -28,7 +19,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
 
       {/* Nav - uses legacy .land-nav classes */}
       <nav className="land-nav">
-        <Link href="/" className="land-nav-logo" style={{ textDecoration: 'none' }}>
+        <Link href="/" className="land-nav-logo" style={{ textDecoration: 'none' }} aria-label="Livesov - Go to homepage">
           Live<span>sov</span>
         </Link>
 
@@ -44,7 +35,7 @@ export default function SeoLayout({ children }: SeoLayoutProps) {
         </button>
 
         <div id="land-nav-links" className={`land-nav-links${menuOpen ? ' open' : ''}`}>
-          {navLinks.map((link) => (
+          {MARKETING_NAV_LINKS.map((link) => (
             <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>
           ))}
         </div>
