@@ -15,6 +15,16 @@ const nextConfig: NextConfig = {
         destination: '/',
         permanent: true,
       },
+      {
+        // Defense-in-depth for the legacy /features route, which never
+        // shipped as a page. The homepage `#features` section is the
+        // canonical destination. Catches any stray external backlink,
+        // cached crawler entry, or future internal link that points at
+        // the bare /features path.
+        source: '/features',
+        destination: '/#features',
+        permanent: true,
+      },
     ],
     headers: async () => [
       {
