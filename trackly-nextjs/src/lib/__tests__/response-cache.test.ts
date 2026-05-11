@@ -73,8 +73,8 @@ describe('buildCacheKey', () => {
 });
 
 describe('getCacheTtl', () => {
-  it('returns 6h for search-enabled and 24h otherwise', () => {
-    expect(getCacheTtl(true)).toBe(6 * 60 * 60);
+  it('returns 24h for both search-enabled and default (aligned with daily cron cadence)', () => {
+    expect(getCacheTtl(true)).toBe(24 * 60 * 60);
     expect(getCacheTtl(false)).toBe(24 * 60 * 60);
   });
 });
