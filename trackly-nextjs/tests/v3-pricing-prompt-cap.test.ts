@@ -65,7 +65,7 @@ describe('v3 spec — plan tier numbers', () => {
     expect(PLAN_LIMITS.starter.competitors).toBe(3);
     expect(PLAN_LIMITS.pro.competitors).toBe(8);
     expect(PLAN_LIMITS.agency.competitors).toBe(20);
-    // AI platforms — Trackly supports exactly 5 (ChatGPT, Perplexity,
+    // AI platforms — Livesov supports exactly 5 (ChatGPT, Perplexity,
     // Claude, Gemini, Grok). Agency caps at 5 (all) post-PR
     // "chore(pre-launch): platform count copy"; the previous 6 was a
     // copy/config bug that surfaced as the dashboard "6 / ∞" tile.

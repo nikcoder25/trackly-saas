@@ -227,7 +227,7 @@ export async function GET(request: Request): Promise<Response> {
   const numBrands = brandRows.length;
   let configuredPrompts = 0;
   const platformSet = new Set<string>();
-  // Canonical 5-platform allowlist. Trackly supports ChatGPT,
+  // Canonical 5-platform allowlist. Livesov supports ChatGPT,
   // Perplexity, Claude, Gemini, Grok — anything else in
   // brand.data.platforms is stale data from earlier iterations
   // (e.g. provider names that got renamed) and must not surface in
