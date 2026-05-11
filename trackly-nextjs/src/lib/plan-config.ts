@@ -10,6 +10,8 @@
  * portion in the worker's terminal handler.
  */
 
+import crypto from 'crypto';
+
 export type ModelTier = 'economy' | 'premium';
 
 /**
@@ -302,6 +304,85 @@ export function resolveModelForPlan(
   if (requestedModel === economy) return economy;
   // The requested model is a premium one — clamp to economy.
   return economy || requestedModel;
+}
+
+// ── ChatGPT premium-tier A/B cohort ─────────────────────────────
+//
+// Optional A/B that routes a percentage of premium-tier (Agency /
+// Enterprise) brands away from `gpt-5-search-api` ($2.50/$10.00 per
+// 1M tokens) and onto `gpt-4o-mini-search-preview` ($0.15/$0.60 per
+// 1M tokens) — ~17× cheaper on input. Off by default
+// (CHATGPT_COHORT_MINI_PERCENT unset or 0); ship the plumbing in this
+// PR, flip the percent at the env layer once we've A/B'd quality.
+//
+// Cohort selection is deterministic (SHA-256(brand_id) mod 100) and
+// monotonic at the boundary: increasing the percent from P to P+1 adds
+// exactly one new "bucket" of brand_ids without re-shuffling the prior
+// cohort. This means a brand promoted into the cohort stays there as
+// the percent climbs, so any A/B quality signal accumulates cleanly.
+//
+// Override only ever acts on the premium ChatGPT model — economy
+// tier (Free/Starter/Pro, already on gpt-4o-mini-search-preview) and
+// non-ChatGPT platforms are passthrough.
+
+const CHATGPT_COHORT_PREMIUM_MODEL = 'gpt-5-search-api';
+const CHATGPT_COHORT_TARGET_MODEL = 'gpt-4o-mini-search-preview';
+
+/**
+ * Deterministic [0, 100) bucket assignment for a brand. SHA-256 over a
+ * namespaced key so a future "claude cohort" or "gemini cohort" can
+ * reuse the same brand_id without colliding on the same bucket.
+ */
+export function chatGPTCohortBucket(brandId: string): number {
+  const hash = crypto
+    .createHash('sha256')
+    .update(`chatgpt-cohort|${brandId}`)
+    .digest();
+  // First 4 bytes as an unsigned 32-bit BE int → mod 100 → bucket.
+  // Modulo bias on uint32 % 100 is < 1 ppm, immaterial for A/B.
+  return hash.readUInt32BE(0) % 100;
+}
+
+function readCohortPercent(): number {
+  const raw = Number(process.env.CHATGPT_COHORT_MINI_PERCENT);
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.min(100, Math.floor(raw)));
+}
+
+export interface ChatGPTCohortDecision {
+  /** The model the caller should actually use after cohort routing. */
+  model: string;
+  /** Whether the cohort override fired (model was rewritten). */
+  inCohort: boolean;
+  /** The percent the env layer is currently configured to route. */
+  cohortPercent: number;
+  /** Bucket assignment for ops-side correlation; null when no brand_id. */
+  bucket: number | null;
+}
+
+/**
+ * Apply the ChatGPT premium-tier A/B cohort override. Passthrough for:
+ *   - any model that isn't the premium ChatGPT search API
+ *   - missing/empty brandId (cron heartbeats, anonymous probes)
+ *   - cohortPercent <= 0 (kill switch / default)
+ * Caller is responsible for logging the decision if `inCohort` is true.
+ */
+export function applyChatGPTCohortOverride(
+  resolvedModel: string,
+  brandId: string | null | undefined,
+): ChatGPTCohortDecision {
+  const cohortPercent = readCohortPercent();
+  if (resolvedModel !== CHATGPT_COHORT_PREMIUM_MODEL || !brandId || cohortPercent <= 0) {
+    return { model: resolvedModel, inCohort: false, cohortPercent, bucket: brandId ? chatGPTCohortBucket(brandId) : null };
+  }
+  const bucket = chatGPTCohortBucket(brandId);
+  const inCohort = bucket < cohortPercent;
+  return {
+    model: inCohort ? CHATGPT_COHORT_TARGET_MODEL : resolvedModel,
+    inCohort,
+    cohortPercent,
+    bucket,
+  };
 }
 
 /**

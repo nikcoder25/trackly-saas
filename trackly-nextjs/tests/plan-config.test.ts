@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   PLAN_CREDITS,
   ECONOMY_MODEL_BY_PLATFORM,
@@ -9,6 +9,8 @@ import {
   LOW_BALANCE_THRESHOLD,
   comparePlans,
   getPlanRank,
+  applyChatGPTCohortOverride,
+  chatGPTCohortBucket,
 } from '../src/lib/plan-config';
 
 describe('PLAN_CREDITS', () => {
@@ -202,5 +204,152 @@ describe('isLowBalance', () => {
   it('does not flag when monthlyCap is zero or negative', () => {
     expect(isLowBalance(10, 0)).toBe(false);
     expect(isLowBalance(10, -5)).toBe(false);
+  });
+});
+
+// ── ChatGPT premium-tier A/B cohort ─────────────────────────────
+//
+// The cohort routes a fraction of premium-tier brand_ids from the
+// expensive `gpt-5-search-api` ($2.50/$10.00 per 1M) to the much
+// cheaper `gpt-4o-mini-search-preview` ($0.15/$0.60 per 1M) for A/B
+// quality comparison. These tests pin:
+//   - deterministic hashing of brand_id → bucket
+//   - bucket range [0, 100)
+//   - monotonicity at the percent boundary (no flapping when percent
+//     is increased)
+//   - passthrough conditions (model != gpt-5-search-api, no brand_id,
+//     percent <= 0)
+
+const ORIGINAL_ENV = { ...process.env };
+
+describe('chatGPTCohortBucket', () => {
+  beforeEach(() => { delete process.env.CHATGPT_COHORT_MINI_PERCENT; });
+  afterEach(() => { process.env = { ...ORIGINAL_ENV }; });
+
+  it('is deterministic: same brand_id always returns the same bucket', () => {
+    const a1 = chatGPTCohortBucket('brand_abc123');
+    const a2 = chatGPTCohortBucket('brand_abc123');
+    const a3 = chatGPTCohortBucket('brand_abc123');
+    expect(a1).toBe(a2);
+    expect(a2).toBe(a3);
+  });
+
+  it('returns a bucket in [0, 100)', () => {
+    for (let i = 0; i < 200; i++) {
+      const b = chatGPTCohortBucket(`brand_${i}`);
+      expect(b).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThan(100);
+      expect(Number.isInteger(b)).toBe(true);
+    }
+  });
+
+  it('different brand_ids spread roughly evenly across buckets (no obvious clustering)', () => {
+    // Smoke-check distribution: 1000 brand_ids over 10 deciles should
+    // each carry ~100 ± a generous tolerance. Catches gross hash
+    // misuse (e.g., taking the wrong byte) without being a
+    // statistical test.
+    const counts = new Array(10).fill(0);
+    for (let i = 0; i < 1000; i++) {
+      counts[Math.floor(chatGPTCohortBucket(`brand_${i}`) / 10)]++;
+    }
+    for (const c of counts) {
+      expect(c).toBeGreaterThan(50);
+      expect(c).toBeLessThan(170);
+    }
+  });
+});
+
+describe('applyChatGPTCohortOverride', () => {
+  beforeEach(() => { delete process.env.CHATGPT_COHORT_MINI_PERCENT; });
+  afterEach(() => { process.env = { ...ORIGINAL_ENV }; });
+
+  it('is a passthrough when CHATGPT_COHORT_MINI_PERCENT is unset (default 0)', () => {
+    const d = applyChatGPTCohortOverride('gpt-5-search-api', 'brand_abc123');
+    expect(d.model).toBe('gpt-5-search-api');
+    expect(d.inCohort).toBe(false);
+    expect(d.cohortPercent).toBe(0);
+  });
+
+  it('is a passthrough for non-premium ChatGPT models even when percent is 100', () => {
+    process.env.CHATGPT_COHORT_MINI_PERCENT = '100';
+    expect(applyChatGPTCohortOverride('gpt-4o-mini-search-preview', 'brand_abc').model)
+      .toBe('gpt-4o-mini-search-preview');
+    expect(applyChatGPTCohortOverride('gpt-4o', 'brand_abc').model).toBe('gpt-4o');
+    expect(applyChatGPTCohortOverride('claude-sonnet-4-20250514', 'brand_abc').model)
+      .toBe('claude-sonnet-4-20250514');
+  });
+
+  it('is a passthrough when brandId is missing/empty', () => {
+    process.env.CHATGPT_COHORT_MINI_PERCENT = '100';
+    expect(applyChatGPTCohortOverride('gpt-5-search-api', null).inCohort).toBe(false);
+    expect(applyChatGPTCohortOverride('gpt-5-search-api', undefined).inCohort).toBe(false);
+    expect(applyChatGPTCohortOverride('gpt-5-search-api', '').inCohort).toBe(false);
+  });
+
+  it('routes 100% of premium-tier brands to the target model when percent=100', () => {
+    process.env.CHATGPT_COHORT_MINI_PERCENT = '100';
+    for (let i = 0; i < 50; i++) {
+      const d = applyChatGPTCohortOverride('gpt-5-search-api', `brand_${i}`);
+      expect(d.inCohort).toBe(true);
+      expect(d.model).toBe('gpt-4o-mini-search-preview');
+      expect(d.cohortPercent).toBe(100);
+    }
+  });
+
+  it('routes ~25% of premium-tier brands when percent=25 (smoke distribution)', () => {
+    process.env.CHATGPT_COHORT_MINI_PERCENT = '25';
+    let routed = 0;
+    const N = 500;
+    for (let i = 0; i < N; i++) {
+      if (applyChatGPTCohortOverride('gpt-5-search-api', `brand_${i}`).inCohort) routed++;
+    }
+    // Expect ~125; allow generous slack (75 .. 175) — this is a smoke
+    // test, not a statistical one. Catches off-by-one bucket math.
+    expect(routed).toBeGreaterThan(75);
+    expect(routed).toBeLessThan(175);
+  });
+
+  it('is monotonic at the boundary: a brand routed at percent=P stays routed at percent>=P', () => {
+    // Pick 100 brand_ids and sweep percent from 0 → 100. Each brand's
+    // routed-membership must transition exactly once (false → true)
+    // and never flap back. This is the property that lets an A/B
+    // increase the percent without losing the prior cohort's signal.
+    const brandIds = Array.from({ length: 100 }, (_, i) => `brand_${i}`);
+    const transitionAt = new Map<string, number>();
+    for (let p = 0; p <= 100; p++) {
+      process.env.CHATGPT_COHORT_MINI_PERCENT = String(p);
+      for (const id of brandIds) {
+        const routed = applyChatGPTCohortOverride('gpt-5-search-api', id).inCohort;
+        if (routed && !transitionAt.has(id)) {
+          transitionAt.set(id, p);
+        }
+        // Once a brand is in the cohort, it must STAY in the cohort
+        // for every higher percent. Catches any hash-stability bug.
+        if (transitionAt.has(id)) {
+          expect(routed).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('clamps invalid env values to a safe percent (negative/NaN/over-100)', () => {
+    for (const raw of ['-5', 'banana', '120', '']) {
+      process.env.CHATGPT_COHORT_MINI_PERCENT = raw;
+      const d = applyChatGPTCohortOverride('gpt-5-search-api', 'brand_abc');
+      // Negative/NaN/empty clamp to 0 (no routing); >100 clamps to 100.
+      if (raw === '120') {
+        expect(d.inCohort).toBe(true);
+        expect(d.cohortPercent).toBe(100);
+      } else {
+        expect(d.inCohort).toBe(false);
+        expect(d.cohortPercent).toBe(0);
+      }
+    }
+  });
+
+  it('returns the brand bucket on every call for ops correlation', () => {
+    process.env.CHATGPT_COHORT_MINI_PERCENT = '50';
+    const d = applyChatGPTCohortOverride('gpt-5-search-api', 'brand_abc123');
+    expect(d.bucket).toBe(chatGPTCohortBucket('brand_abc123'));
   });
 });
