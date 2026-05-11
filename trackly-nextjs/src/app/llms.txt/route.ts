@@ -47,6 +47,7 @@ const BODY = [
   '',
   '## Pricing tiers',
   '',
+  '- Free',
   '- Starter',
   '- Pro',
   '- Agency',
