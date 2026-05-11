@@ -26,7 +26,7 @@ import {
   tryClaimLowBalanceNotify,
   tryClaimMonthlyResetNotify,
 } from '@/lib/credits';
-import { getPlanCredits, isLowBalance, resolveModelForPlan } from '@/lib/plan-config';
+import { getPlanCredits, isLowBalance, resolveModelForPlan, applyChatGPTCohortOverride } from '@/lib/plan-config';
 import { sendLowCreditsEmail, sendAutoSkipEmail, sendMonthlyResetEmail } from '@/lib/email';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -918,7 +918,27 @@ async function executeRunBackgroundInner(
         // been forced off the search tier anyway by the customer's plan.
         const adminBase = adminModels[plat] || getDefaultModel(plat);
         const planClampedModel = resolveModelForPlan(plat, ownerPlan, adminBase);
-        const smartRoutedModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, planClampedModel) : planClampedModel;
+        // Premium-tier ChatGPT A/B cohort (CHATGPT_COHORT_MINI_PERCENT).
+        // No-op for non-ChatGPT platforms and for non-premium models;
+        // returns the input unchanged when the env var is 0/unset.
+        const cohortDecision = plat === 'ChatGPT'
+          ? applyChatGPTCohortOverride(planClampedModel, brandId)
+          : { model: planClampedModel, inCohort: false, cohortPercent: 0, bucket: null };
+        if (cohortDecision.inCohort) {
+          logger.info('[chatgpt.cohort]', {
+            event: 'cohort_routed',
+            platform: 'ChatGPT',
+            brandId,
+            runId,
+            fromModel: planClampedModel,
+            toModel: cohortDecision.model,
+            bucket: cohortDecision.bucket,
+            cohortPercent: cohortDecision.cohortPercent,
+          });
+        }
+        const smartRoutedModel = plat === 'ChatGPT'
+          ? resolveChatGPTModel(q, cohortDecision.model)
+          : cohortDecision.model;
         // Daily search-budget guard. See `search-budget.ts` for the
         // rationale — we share the quota across the API-driven path
         // (this route) and the BullMQ worker (run-worker.ts). The atomic

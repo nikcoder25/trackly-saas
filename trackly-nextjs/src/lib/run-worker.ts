@@ -20,6 +20,7 @@ import { logger } from './logger';
 import { getServerKeys } from './server-keys';
 import { resolveKeysForTenant, recordTenantKeyResult } from './tenant-keys';
 import type { BrandRunJobData } from './job-queue';
+import { applyChatGPTCohortOverride } from './plan-config';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
   ChatGPT: 'openai', Perplexity: 'perplexity', Claude: 'claude',
@@ -215,7 +216,25 @@ async function processRun(job: Job<BrandRunJobData>) {
         // intent. Smart routing is ON by default; set
         // CHATGPT_SMART_MODEL_ROUTING=false to disable.
         const baseModel = adminModels[plat] || getDefaultModel(plat);
-        const smartRoutedModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, baseModel) : baseModel;
+        // Premium-tier ChatGPT A/B cohort (CHATGPT_COHORT_MINI_PERCENT).
+        // Same plumbing as the /run route — passthrough unless the
+        // env var is set and brand is premium ChatGPT.
+        const cohortDecision = plat === 'ChatGPT'
+          ? applyChatGPTCohortOverride(baseModel, brandId)
+          : { model: baseModel, inCohort: false, cohortPercent: 0, bucket: null };
+        if (cohortDecision.inCohort) {
+          logger.info('[chatgpt.cohort]', {
+            event: 'cohort_routed',
+            platform: 'ChatGPT',
+            brandId,
+            runId,
+            fromModel: baseModel,
+            toModel: cohortDecision.model,
+            bucket: cohortDecision.bucket,
+            cohortPercent: cohortDecision.cohortPercent,
+          });
+        }
+        const smartRoutedModel = plat === 'ChatGPT' ? resolveChatGPTModel(q, cohortDecision.model) : cohortDecision.model;
         // Daily search-budget guard. When the platform's web-search quota
         // for today is spent AND a non-search fallback exists (ChatGPT
         // search-preview → gpt-4o), drop to the fallback so the cache
