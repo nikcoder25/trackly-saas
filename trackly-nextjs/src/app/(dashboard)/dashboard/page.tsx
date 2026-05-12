@@ -353,9 +353,12 @@ export default function DashboardPage() {
     Object.entries(citationData).sort((a, b) => b[1] - a[1]).slice(0, 10),
   [citationData]);
 
-  // SOV Trend (from runs history)
+  // SOV Trend (from runs history). Route every historical SOV read
+  // through computeOverviewSov so pre-PR-C-1 sov:0 entries with
+  // populated allResults render their recomputed value, matching the
+  // hero ring's defensive read. PR-8.
   const sovTrend = useMemo(() =>
-    sortedRuns.slice(-14).map(r => ({ sov: r.sov || 0, date: r.date || '' })),
+    sortedRuns.slice(-14).map(r => ({ sov: computeOverviewSov(r), date: r.date || '' })),
   [sortedRuns]);
 
   const addQuery = () => {
@@ -396,8 +399,10 @@ export default function DashboardPage() {
     return `${days}d ${hrs % 24}h ago`;
   }, [lastRun, now]);
 
-  // SOV change from previous run
-  const sovChange = prevRun?.sov !== undefined && lastRun?.sov !== undefined ? lastRun.sov - prevRun.sov : null;
+  // SOV change from previous run. Both ends route through
+  // computeOverviewSov so the arrow direction agrees with the hero
+  // ring (which also reads via the defensive helper). PR-8.
+  const sovChange = lastRun && prevRun ? computeOverviewSov(lastRun) - computeOverviewSov(prevRun) : null;
 
   // Alerts derived from data
   const alerts = useMemo(() => {
@@ -684,17 +689,24 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* COMPARE BANNER - shows when vs Last Week or vs Last Month is active */}
-      {compareRun && compareMode !== 'current' && (
+      {/* COMPARE BANNER - shows when vs Last Week or vs Last Month is active.
+          Both `sov` (current) and the compared run route through
+          computeOverviewSov so the delta is computed on like-for-like
+          values (PR-8 — previously the compared side read raw .sov). */}
+      {compareRun && compareMode !== 'current' && (() => {
+        const compareSov = computeOverviewSov(compareRun);
+        const delta = sov - compareSov;
+        return (
         <div style={{padding:'10px 16px',marginBottom:14,background:'var(--primary-light)',border:'1px solid var(--primary-border)',borderRadius:'var(--radius-xs)',fontSize:12,fontFamily:'var(--mono)',color:'var(--primary)',display:'flex',alignItems:'center',gap:8}}>
           <span>📊</span>
           Comparing with run from {compareRun.date ? new Date(compareRun.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '?'}:
-          SOV was {compareRun.sov ?? 0}% → now {sov}%
-          <span style={{fontWeight:700,color:sov-(compareRun.sov??0)>=0?'var(--green)':'var(--red)'}}>
-            ({sov-(compareRun.sov??0)>=0?'+':''}{sov-(compareRun.sov??0)}%)
+          SOV was {compareSov}% → now {sov}%
+          <span style={{fontWeight:700,color:delta>=0?'var(--green)':'var(--red)'}}>
+            ({delta>=0?'+':''}{delta}%)
           </span>
         </div>
-      )}
+        );
+      })()}
       {compareMode !== 'current' && !compareRun && (
         <div style={{padding:'10px 16px',marginBottom:14,background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--muted)'}}>
           No comparison data available for {compareMode === 'week' ? 'last week' : 'last month'}. Need more runs to compare.
@@ -817,7 +829,9 @@ export default function DashboardPage() {
       {/* LAST RUN */}
       {show('lastrun')&&lastRun&&(()=>{
         const lr = lastRun;
-        const lrSov = lr.sov || 0;
+        // PR-8: route through the defensive helper so the Last Run
+        // tile agrees with the hero ring for the same run object.
+        const lrSov = computeOverviewSov(lr);
         const lrFound = lr.totalM || 0;
         const lrTotal = lr.totalQ || 0;
         const lrPlats = lr.platforms || {};

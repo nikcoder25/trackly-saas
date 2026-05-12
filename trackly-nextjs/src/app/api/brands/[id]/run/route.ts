@@ -10,6 +10,7 @@ import { queryAI, getDefaultModel, estimateCost, circuitBreakerCheck, resetApiKe
 import { isSearchEnabled } from '@/lib/response-cache';
 import { resolveSearchModelWithBudget } from '@/lib/search-budget';
 import { reconcileStaleRuns } from '@/lib/run-reconciler';
+import { computeSovFromResults } from '@/lib/run-sov';
 import { getAdminModel } from '@/lib/site-config';
 import { parseResponse, buildBrandMatcher, detectCompetitors, aggregateCompetitorCounts } from '@/lib/parser';
 import { after } from 'next/server';
@@ -1108,13 +1109,17 @@ async function executeRunBackgroundInner(
       const platTotal = queries.length;
       const platMentions = platMentionCount[plat] || 0;
       const platErrors = allResults.filter((r: { platform: string; error?: boolean }) => r.platform === plat && r.error).length;
+      // Canonical SOV (PR-8): error-EXCLUDED denominator, matching the
+      // Mentions-page formula. Errors are a delivery problem, not a
+      // visibility problem — they shouldn't drag SOV down.
+      const platOk = Math.max(0, platTotal - platErrors);
       platformStats[plat] = {
         queries: platTotal, mentions: platMentions,
-        sov: platTotal > 0 ? Math.round((platMentions / platTotal) * 100) : 0,
+        sov: platOk > 0 ? Math.round((platMentions / platOk) * 100) : 0,
         errors: platErrors,
       };
     }
-    const overallSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+    const overallSov = computeSovFromResults(allResults);
     const totalErrors = allResults.filter((r: { error?: boolean }) => r.error).length;
     const durationMs = Date.now() - startTime;
     const newMentions = allResults
@@ -1272,7 +1277,7 @@ async function executeRunBackgroundInner(
     // Emergency save partial results to brand data
     if (allResults.length > 0) {
       try {
-        const emergSov = totalQ > 0 ? Math.round((totalM / totalQ) * 100) : 0;
+        const emergSov = computeSovFromResults(allResults);
         const emergResults = allResults.map(({ tokensIn, tokensOut, cost, ...rest }: Record<string, unknown>) => rest);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const brandData = { ...brand } as any;
