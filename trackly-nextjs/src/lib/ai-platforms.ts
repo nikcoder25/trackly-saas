@@ -780,9 +780,8 @@ _runProviderBootProbes();
 
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
   ChatGPT: [
-    { id: 'gpt-5-search-api', label: 'GPT-5 Search (Latest)', search: true },
-    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true },
-    { id: 'gpt-4o', label: 'GPT-4o (No search)', default: true },
+    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true, default: true },
+    { id: 'gpt-4o', label: 'GPT-4o (No search)' },
   ],
   Claude: [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
@@ -804,7 +803,6 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  'gpt-5-search-api': { input: 2.50, output: 10.00 },
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
@@ -1449,7 +1447,10 @@ const NON_SEARCH_INTENT_RE = /(?:^\s*(?:what\s+is|what\s+are|how\s+does|how\s+do
 // short-horizon freshness signals. Kept: recommend/review/pricing/
 // compare/vs/versus/in {city}/near me/latest/today/this (week|year) —
 // these still indicate the caller wants fresh or location-aware data.
-const FRESHNESS_OR_LOCAL_RE = /\b(recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+(?:week|year))\b/i;
+// Narrowed to only genuinely time-sensitive or price-sensitive intent.
+// For brand-tracking the training-data answer is fine for everything else,
+// so we keep web_search OFF by default to avoid the $0.030/call surcharge.
+const FRESHNESS_OR_LOCAL_RE = /\b(news|latest|today|this\s+week|2026|price|pricing|cost)\b/i;
 
 // Pure regex-test exposed for unit tests so the FRESHNESS_OR_LOCAL_RE
 // surface can be pinned without going through the full
@@ -1500,7 +1501,10 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
 // to attach `web_search_options` on every search-model call.
 export function shouldAttachChatGPTWebSearch(query: string): boolean {
   if (process.env.CHATGPT_WEB_SEARCH_GATING === 'false') return true;
-  return !isNonSearchIntentQuery(query);
+  // web_search is OFF by default. Only attach `web_search_options` when
+  // the query contains an explicit freshness or price keyword — those
+  // are the only intents where training-data answers actually miss.
+  return FRESHNESS_OR_LOCAL_RE.test((query || '').trim());
 }
 
 export async function queryAI(
@@ -1655,9 +1659,18 @@ export async function queryAI(
         const tIn = d.usage?.prompt_tokens || 0;
         const tOut = d.usage?.completion_tokens || 0;
         const tokenCost = estimateCostUsd(result.model, tIn, tOut);
-        const searchSurcharge = useModel === 'gpt-4o-mini-search-preview'
-          ? webSearchCalls * CHATGPT_WEB_SEARCH_CALL_USD
-          : 0;
+        // Count the $0.030/call web_search surcharge for ANY ChatGPT
+        // search-preview model when web_search was actually invoked.
+        // Previously this only fired for `gpt-4o-mini-search-preview`,
+        // so the in-app daily_cost_tracker under-reported spend whenever
+        // an admin pointed ChatGPT at a different search-preview model.
+        let searchSurcharge = 0;
+        if (webSearchCalls > 0 && useModel.includes('search')) {
+          const perCallUsd = useModel === 'gpt-4o-mini-search-preview'
+            ? CHATGPT_WEB_SEARCH_CALL_USD
+            : 0.030;
+          searchSurcharge = webSearchCalls * perCallUsd;
+        }
         chatgptCostUsd = tokenCost + searchSurcharge;
       } else if (platform === 'Claude') {
         const d = await fetchAI(API_ENDPOINTS.claude.messages, {
