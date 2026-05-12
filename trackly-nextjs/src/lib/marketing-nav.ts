@@ -10,23 +10,17 @@
 //     scroll), otherwise falls back to `href`.
 // Features always uses the anchor form because `/features` is a 301
 // redirect to `/#features` (PR-1), not a real page.
-//
-// `i18nKey` is opt-in for consumers that have a LanguageContext in
-// scope (currently only the homepage). Consumers without i18n
-// (SeoLayout) render `label` directly. Adding new i18n keys requires
-// touching locale files — covered by finding #18.
 
 export interface MarketingNavLink {
   href: string;
   homeHref?: string;
   label: string;
-  i18nKey?: 'features' | 'howItWorks' | 'pricing';
 }
 
 export const MARKETING_NAV_LINKS: ReadonlyArray<MarketingNavLink> = [
-  { href: '/#features',    label: 'Features',     i18nKey: 'features' },
-  { href: '/how-it-works', label: 'How it Works', i18nKey: 'howItWorks', homeHref: '/#how-it-works' },
-  { href: '/pricing',      label: 'Pricing',      i18nKey: 'pricing',    homeHref: '/#pricing' },
+  { href: '/#features',    label: 'Features' },
+  { href: '/how-it-works', label: 'How it Works', homeHref: '/#how-it-works' },
+  { href: '/pricing',      label: 'Pricing',      homeHref: '/#pricing' },
   { href: '/tools',        label: 'Free Tools' },
   { href: '/blog',         label: 'Blog' },
   { href: '/contact',      label: 'Contact' },
