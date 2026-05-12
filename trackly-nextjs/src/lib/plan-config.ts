@@ -271,8 +271,13 @@ export const ECONOMY_MODEL_BY_PLATFORM: Record<string, string> = {
   Perplexity: 'sonar',
 };
 
+// ChatGPT premium points at `gpt-4o-mini-search-preview` (same as
+// economy) — the previous premium `gpt-5-search-api` was dropped from
+// the lineup because its web_search surcharge ($0.030/call) and 16×
+// token cost made it the dominant line on the OpenAI invoice. The
+// premium A/B cohort below is now a no-op as a result.
 export const PREMIUM_MODEL_BY_PLATFORM: Record<string, string> = {
-  ChatGPT: 'gpt-5-search-api',
+  ChatGPT: 'gpt-4o-mini-search-preview',
   Claude: 'claude-sonnet-4-20250514',
   Gemini: 'gemini-2.5-pro',
   Grok: 'grok-4',
@@ -306,7 +311,7 @@ export function resolveModelForPlan(
   return economy || requestedModel;
 }
 
-// ── ChatGPT premium-tier A/B cohort ─────────────────────────────
+// ── ChatGPT premium-tier A/B cohort ─────────────────
 //
 // Optional A/B that routes a percentage of premium-tier (Agency /
 // Enterprise) brands away from `gpt-5-search-api` ($2.50/$10.00 per

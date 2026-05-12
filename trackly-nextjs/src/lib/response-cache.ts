@@ -17,10 +17,13 @@ import { logger } from './logger';
 
 // Cron cadence is daily; sub-24h TTLs guarantee a cold start on every
 // run and were the dominant cause of the 27.68% hit rate observed
-// during the May 6-8 cost-spike incident. Both classes now default to
-// 24h; override via env if a fresher snapshot is needed.
+// during the May 6-8 cost-spike incident. Search-enabled responses
+// stay at 24h because freshness is the whole point of attaching
+// web_search. Non-search responses default to 72h: brand-tracking
+// answers from training data don't drift inside a 3-day window, and
+// the longer TTL multiplies dedup hits across tenants.
 const TTL_SEARCH_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_SEARCH_S) || 24 * 60 * 60;
-const TTL_DEFAULT_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) || 24 * 60 * 60;
+const TTL_DEFAULT_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) || 72 * 60 * 60;
 
 export interface CacheKeyParams {
   prompt: string;

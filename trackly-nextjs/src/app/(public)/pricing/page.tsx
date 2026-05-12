@@ -190,7 +190,7 @@ const FAQ = [
   },
   {
     q: 'Economy vs. Premium AI models — what changes?',
-    a: 'Economy uses fast, cost-efficient models (gpt-4o-mini-search-preview, claude-haiku, gemini-flash-lite, sonar, grok-3-mini). Premium tier (Agency) unlocks gpt-5-search-api, Claude Sonnet, Gemini Pro, sonar-pro, and grok-4 for deeper reasoning.',
+    a: 'Economy uses fast, cost-efficient models (gpt-4o-mini-search-preview, claude-haiku, gemini-flash-lite, sonar, grok-3-mini). Premium tier (Agency) unlocks Claude Sonnet, Gemini Pro, sonar-pro, and grok-4 for deeper reasoning.',
   },
   {
     q: 'How does annual billing work?',
@@ -209,7 +209,7 @@ export default function PricingPage() {
     <SeoLayout>
       <Breadcrumbs items={[{ name: 'Pricing', url: '/pricing' }]} />
 
-      {/* ── Hero ───────────────────────────────────────────────── */}
+      {/* ── Hero ───────────────────────────────── */}
       <section style={{ padding: '80px 24px 32px', textAlign: 'center', background: 'var(--bg-landing)' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <span style={{
@@ -278,7 +278,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Plan cards ─────────────────────────────────────────── */}
+      {/* ── Plan cards ─────────────────────────────── */}
       <section style={{ padding: '24px 24px 64px', background: 'var(--bg-landing)' }}>
         <div style={{
           maxWidth: 1200, margin: '0 auto', display: 'grid', gap: 20,
@@ -340,7 +340,7 @@ export default function PricingPage() {
                   color: featured ? 'rgba(255,255,255,.75)' : 'var(--text-muted, #94a3b8)',
                 }}>
                   {annual && plan.price !== '$0' ? `Billed annually at ${plan.annualPrice}/mo` : ''}
-                  {!annual && ' '}
+                  {!annual && ' '}
                 </div>
 
                 <div style={{
@@ -422,7 +422,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Detailed plan comparison (mirrors dashboard) ─────────── */}
+      {/* ── Detailed plan comparison (mirrors dashboard) ───────── */}
       <section style={{ padding: '64px 24px', background: 'var(--bg-section)' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -570,7 +570,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Competitor comparison ────────────────────────────────── */}
+      {/* ── Competitor comparison ──────────────────────── */}
       <section style={{ padding: '64px 24px', background: 'var(--bg-landing)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -652,7 +652,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── FAQ ──────────────────────────────────────────────────── */}
+      {/* ── FAQ ──────────────────────────────────── */}
       <section style={{ padding: '64px 24px 96px', background: 'var(--bg-section)' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>

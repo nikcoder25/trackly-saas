@@ -41,14 +41,14 @@ import {
   getCacheTtl,
 } from './response-cache';
 
-const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
+const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
-// typically consume <100 tokens; 180 leaves ample headroom while
-// trimming the slack from the prior 300 cap. Override via env for
+// typically consume <100 tokens; 100 matches the tightened SYSTEM_PROMPT
+// budget (3-6 names, one line each, no preamble). Override via env for
 // experiments or incident rollback.
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 180;
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 100;
 
-// ── Error typing ────────────────────────────────────────────────
+// ── Error typing ───────────────────────────────────
 export interface AiError extends Error {
   isRateLimit?: boolean;
   isTransient?: boolean;
@@ -86,7 +86,7 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> => {
   });
 };
 
-// ── Shared narrow types for provider calls ──────────────────────
+// ── Shared narrow types for provider calls ──────────────
 // The fields AI code actually reads off a brand record.  Keeps the
 // call signature strict without dragging the full Brand entity in.
 export interface BrandContext {
@@ -132,7 +132,7 @@ export function resetApiKeyFailures(apiKey: string): void {
   apiKeyFailures.delete(apiKey);
 }
 
-// ── Platform-wide rate-limit circuit breaker ────────────────────
+// ── Platform-wide rate-limit circuit breaker ────────────────
 // When a provider is account-level rate-limited (quota saturated, not a
 // transient per-request throttle), every brand hitting it burns the same
 // dead-end sleep budget. Track 429s across ALL callers in this process;
@@ -198,7 +198,7 @@ export function resetPlatformBreaker(platform: string): void {
   _platformBreaker.delete(platform);
 }
 
-// ── Per-key rate-limit cooldowns ────────────────────────────────
+// ── Per-key rate-limit cooldowns ────────────────────────
 // When a key gets 429'd, park it for a cool-down proportional to consecutive
 // 429 count. pickBestKey skips keys that are in cooldown.
 interface CooldownEntry { until: number; consecutive: number; }
@@ -226,7 +226,7 @@ export function clearKeyCooldown(apiKey: string): void {
   _keyCooldown.delete(apiKey);
 }
 
-// ── Global per-platform rate limiter ────────────────────────────
+// ── Global per-platform rate limiter ──────────────────────
 // Concurrency semaphore + sliding-window RPM. Enforced across all brands /
 // queries in this worker process. Values leave headroom under published
 // provider limits so retries and multi-brand bursts don't trip 429s.
@@ -395,7 +395,7 @@ export async function acquirePlatformSlot(
   return release;
 }
 
-// ── Key selection ───────────────────────────────────────────────
+// ── Key selection ────────────────────────────────────
 // Skip circuit-broken keys, prefer keys NOT in cooldown, then pick the
 // one with the earliest cooldown expiry. Falls back to any non-null key
 // so the call still goes through after a brief extra wait.
@@ -417,7 +417,7 @@ export function pickBestKey(keysArray: string[]): string | null {
   return keysArray[Math.floor(Math.random() * keysArray.length)];
 }
 
-// ── Transient error detection ───────────────────────────────────
+// ── Transient error detection ───────────────────────────
 export function isTransientError(e: unknown): boolean {
   if (!e) return false;
   const err = e as AiError;
@@ -436,7 +436,7 @@ export function isTransientError(e: unknown): boolean {
       || msg.includes('socket hang up');
 }
 
-// ── Deep-retry wall-clock budget ────────────────────────────────
+// ── Deep-retry wall-clock budget ────────────────────────
 // Wraps a provider call with "never-give-up" semantics for transient errors,
 // backing off up to 60s between attempts until the wall-clock budget expires.
 const DEEP_RETRY_BUDGET_MS = Number(process.env.AI_DEEP_RETRY_BUDGET_MS) || 75000;
@@ -524,7 +524,7 @@ export async function withDeepRetry<T>(
   }
 }
 
-// ── Shared response cache wrapper ───────────────────────────────
+// ── Shared response cache wrapper ───────────────────────
 // Wraps any provider-call function (typically a withDeepRetry-wrapped
 // singleAttempt or a raw queryAI call) with a Postgres-backed read-through
 // cache. On hit, the provider is never invoked. On miss, the inner function
@@ -599,7 +599,7 @@ export async function withCacheAndRetry<T extends { model?: string }>(
 // public surface.
 export { __cacheStats } from './response-cache';
 
-// ── In-flight request coalescing ────────────────────────────────
+// ── In-flight request coalescing ────────────────────────
 // Two callers asking for the same (platform, model, query, city) at once
 // get coalesced into one outbound call. Halves load during cron batches
 // where multiple brands share a city/query.
@@ -624,7 +624,7 @@ function coalesce(
   return promise;
 }
 
-// ── Per-platform, per-key minimum spacing ───────────────────────
+// ── Per-platform, per-key minimum spacing ───────────────────
 // Upper bound on per-key request rate - complements the global semaphore.
 interface RateLimit { minDelayMs: number; }
 // ChatGPT default raised from 500ms → 1500ms to pace against Search-Preview
@@ -657,7 +657,7 @@ async function rateLimitWait(platform: string, apiKey: string): Promise<void> {
   return gate;
 }
 
-// ── Per-key map memory sweep ────────────────────────────────────
+// ── Per-key map memory sweep ────────────────────────────
 // `apiKeyFailures`, `_keyCooldown`, `lastRequestTimePerKey` and
 // `rateLimitQueues` are keyed by (a hash of) apiKey strings. Server
 // keys are bounded but per-tenant user-supplied keys come and go as
@@ -690,7 +690,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
 }
 
-// ── Model catalog & pricing ─────────────────────────────────────
+// ── Model catalog & pricing ─────────────────────────────
 const API_ENDPOINTS = {
   openai: { chat: 'https://api.openai.com/v1/chat/completions' },
   perplexity: { chat: 'https://api.perplexity.ai/chat/completions' },
@@ -780,9 +780,8 @@ _runProviderBootProbes();
 
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
   ChatGPT: [
-    { id: 'gpt-5-search-api', label: 'GPT-5 Search (Latest)', search: true },
-    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true },
-    { id: 'gpt-4o', label: 'GPT-4o (No search)', default: true },
+    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true, default: true },
+    { id: 'gpt-4o', label: 'GPT-4o (No search)' },
   ],
   Claude: [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
@@ -804,7 +803,6 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  'gpt-5-search-api': { input: 2.50, output: 10.00 },
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
@@ -866,7 +864,7 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
   return ((tokensIn || 0) * pricing.input + (tokensOut || 0) * pricing.output) / 1_000_000;
 }
 
-// ── Retry-After header parsing ──────────────────────────────────
+// ── Retry-After header parsing ──────────────────────────
 // Parse a single duration header value. Supports:
 //   - Integer seconds ("20")
 //   - HTTP-date ("Wed, 21 Oct 2026 07:28:00 GMT")
@@ -925,7 +923,7 @@ function extractBodyRetryAfter(body: unknown): number | null {
   return null;
 }
 
-// ── Upgraded fetchAI ────────────────────────────────────────────
+// ── Upgraded fetchAI ──────────────────────────────────
 // Uses fetch (Next.js runtime), honours Retry-After, treats 429/529 as rate
 // limits, retries 5xx as transient, and tags thrown errors for caller routing.
 const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 150000;
@@ -1236,7 +1234,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
   throw lastErr || new Error('fetchAI: retries exhausted');
 }
 
-// ── Deferred retry queue ────────────────────────────────────────
+// ── Deferred retry queue ────────────────────────────────
 // When a query exhausts its deep-retry budget, enqueue it for a later
 // background retry. On success, the response cache (DB layer) is warmed
 // so the next cron tick / manual re-run returns instantly.
@@ -1303,7 +1301,7 @@ if (typeof setInterval !== 'undefined') {
   setInterval(() => { _drainDeferredQueue().catch(() => {}); }, 60 * 1000);
 }
 
-// ── queryAI ─────────────────────────────────────────────────────
+// ── queryAI ────────────────────────────────────────
 interface QueryResult {
   text: string;
   model: string;
@@ -1449,7 +1447,10 @@ const NON_SEARCH_INTENT_RE = /(?:^\s*(?:what\s+is|what\s+are|how\s+does|how\s+do
 // short-horizon freshness signals. Kept: recommend/review/pricing/
 // compare/vs/versus/in {city}/near me/latest/today/this (week|year) —
 // these still indicate the caller wants fresh or location-aware data.
-const FRESHNESS_OR_LOCAL_RE = /\b(recommend(?:ed|ation)?s?|review(?:ed|s)?|pricing|compare|vs\.?|versus|near\s+me|in\s+\w+|latest|today|this\s+(?:week|year))\b/i;
+// Narrowed to only genuinely time-sensitive or price-sensitive intent.
+// For brand-tracking the training-data answer is fine for everything else,
+// so we keep web_search OFF by default to avoid the $0.030/call surcharge.
+const FRESHNESS_OR_LOCAL_RE = /\b(news|latest|today|this\s+week|2026|price|pricing|cost)\b/i;
 
 // Pure regex-test exposed for unit tests so the FRESHNESS_OR_LOCAL_RE
 // surface can be pinned without going through the full
@@ -1500,7 +1501,10 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
 // to attach `web_search_options` on every search-model call.
 export function shouldAttachChatGPTWebSearch(query: string): boolean {
   if (process.env.CHATGPT_WEB_SEARCH_GATING === 'false') return true;
-  return !isNonSearchIntentQuery(query);
+  // web_search is OFF by default. Only attach `web_search_options` when
+  // the query contains an explicit freshness or price keyword — those
+  // are the only intents where training-data answers actually miss.
+  return FRESHNESS_OR_LOCAL_RE.test((query || '').trim());
 }
 
 export async function queryAI(
@@ -1655,9 +1659,18 @@ export async function queryAI(
         const tIn = d.usage?.prompt_tokens || 0;
         const tOut = d.usage?.completion_tokens || 0;
         const tokenCost = estimateCostUsd(result.model, tIn, tOut);
-        const searchSurcharge = useModel === 'gpt-4o-mini-search-preview'
-          ? webSearchCalls * CHATGPT_WEB_SEARCH_CALL_USD
-          : 0;
+        // Count the $0.030/call web_search surcharge for ANY ChatGPT
+        // search-preview model when web_search was actually invoked.
+        // Previously this only fired for `gpt-4o-mini-search-preview`,
+        // so the in-app daily_cost_tracker under-reported spend whenever
+        // an admin pointed ChatGPT at a different search-preview model.
+        let searchSurcharge = 0;
+        if (webSearchCalls > 0 && useModel.includes('search')) {
+          const perCallUsd = useModel === 'gpt-4o-mini-search-preview'
+            ? CHATGPT_WEB_SEARCH_CALL_USD
+            : 0.030;
+          searchSurcharge = webSearchCalls * perCallUsd;
+        }
         chatgptCostUsd = tokenCost + searchSurcharge;
       } else if (platform === 'Claude') {
         const d = await fetchAI(API_ENDPOINTS.claude.messages, {
