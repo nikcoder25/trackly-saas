@@ -196,7 +196,6 @@ export default function DashboardPage() {
     return { sov: 0, total: 0, mentions: 0, errors: 0 };
   }
   const circumference = 2 * Math.PI * 52;
-  const offset = circumference - (sov / 100) * circumference;
 
   // Sentiment data - computed from individual allResults items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -654,7 +653,7 @@ export default function DashboardPage() {
             <div className="ov-hero-stat-val" style={live.running?{color:'var(--green)'}:{}}>{displayM} / {displayQ}</div>
             <div className="ov-hero-stat-lbl">
               {!live.running && lastRun && allResultsArr.length > 0
-                ? `Mentioned in ${displayM} of ${allResultsArr.length} responses`
+                ? `Mentioned in ${displayM} of ${displayQ} responses`
                 : 'Mentions / Total'}
             </div>
           </div>
