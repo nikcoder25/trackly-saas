@@ -41,14 +41,14 @@ import {
   getCacheTtl,
 } from './response-cache';
 
-const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
+const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
-// typically consume <100 tokens; 180 leaves ample headroom while
-// trimming the slack from the prior 300 cap. Override via env for
+// typically consume <100 tokens; 100 matches the tightened SYSTEM_PROMPT
+// budget (3-6 names, one line each, no preamble). Override via env for
 // experiments or incident rollback.
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 180;
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 100;
 
-// ── Error typing ────────────────────────────────────────────────
+// ── Error typing ───────────────────────────────────
 export interface AiError extends Error {
   isRateLimit?: boolean;
   isTransient?: boolean;
@@ -86,7 +86,7 @@ const sleep = (ms: number, signal?: AbortSignal): Promise<void> => {
   });
 };
 
-// ── Shared narrow types for provider calls ──────────────────────
+// ── Shared narrow types for provider calls ──────────────
 // The fields AI code actually reads off a brand record.  Keeps the
 // call signature strict without dragging the full Brand entity in.
 export interface BrandContext {
@@ -132,7 +132,7 @@ export function resetApiKeyFailures(apiKey: string): void {
   apiKeyFailures.delete(apiKey);
 }
 
-// ── Platform-wide rate-limit circuit breaker ────────────────────
+// ── Platform-wide rate-limit circuit breaker ────────────────
 // When a provider is account-level rate-limited (quota saturated, not a
 // transient per-request throttle), every brand hitting it burns the same
 // dead-end sleep budget. Track 429s across ALL callers in this process;
@@ -198,7 +198,7 @@ export function resetPlatformBreaker(platform: string): void {
   _platformBreaker.delete(platform);
 }
 
-// ── Per-key rate-limit cooldowns ────────────────────────────────
+// ── Per-key rate-limit cooldowns ────────────────────────
 // When a key gets 429'd, park it for a cool-down proportional to consecutive
 // 429 count. pickBestKey skips keys that are in cooldown.
 interface CooldownEntry { until: number; consecutive: number; }
@@ -226,7 +226,7 @@ export function clearKeyCooldown(apiKey: string): void {
   _keyCooldown.delete(apiKey);
 }
 
-// ── Global per-platform rate limiter ────────────────────────────
+// ── Global per-platform rate limiter ──────────────────────
 // Concurrency semaphore + sliding-window RPM. Enforced across all brands /
 // queries in this worker process. Values leave headroom under published
 // provider limits so retries and multi-brand bursts don't trip 429s.
@@ -395,7 +395,7 @@ export async function acquirePlatformSlot(
   return release;
 }
 
-// ── Key selection ───────────────────────────────────────────────
+// ── Key selection ────────────────────────────────────
 // Skip circuit-broken keys, prefer keys NOT in cooldown, then pick the
 // one with the earliest cooldown expiry. Falls back to any non-null key
 // so the call still goes through after a brief extra wait.
@@ -417,7 +417,7 @@ export function pickBestKey(keysArray: string[]): string | null {
   return keysArray[Math.floor(Math.random() * keysArray.length)];
 }
 
-// ── Transient error detection ───────────────────────────────────
+// ── Transient error detection ───────────────────────────
 export function isTransientError(e: unknown): boolean {
   if (!e) return false;
   const err = e as AiError;
@@ -436,7 +436,7 @@ export function isTransientError(e: unknown): boolean {
       || msg.includes('socket hang up');
 }
 
-// ── Deep-retry wall-clock budget ────────────────────────────────
+// ── Deep-retry wall-clock budget ────────────────────────
 // Wraps a provider call with "never-give-up" semantics for transient errors,
 // backing off up to 60s between attempts until the wall-clock budget expires.
 const DEEP_RETRY_BUDGET_MS = Number(process.env.AI_DEEP_RETRY_BUDGET_MS) || 75000;
@@ -524,7 +524,7 @@ export async function withDeepRetry<T>(
   }
 }
 
-// ── Shared response cache wrapper ───────────────────────────────
+// ── Shared response cache wrapper ───────────────────────
 // Wraps any provider-call function (typically a withDeepRetry-wrapped
 // singleAttempt or a raw queryAI call) with a Postgres-backed read-through
 // cache. On hit, the provider is never invoked. On miss, the inner function
@@ -599,7 +599,7 @@ export async function withCacheAndRetry<T extends { model?: string }>(
 // public surface.
 export { __cacheStats } from './response-cache';
 
-// ── In-flight request coalescing ────────────────────────────────
+// ── In-flight request coalescing ────────────────────────
 // Two callers asking for the same (platform, model, query, city) at once
 // get coalesced into one outbound call. Halves load during cron batches
 // where multiple brands share a city/query.
@@ -624,7 +624,7 @@ function coalesce(
   return promise;
 }
 
-// ── Per-platform, per-key minimum spacing ───────────────────────
+// ── Per-platform, per-key minimum spacing ───────────────────
 // Upper bound on per-key request rate - complements the global semaphore.
 interface RateLimit { minDelayMs: number; }
 // ChatGPT default raised from 500ms → 1500ms to pace against Search-Preview
@@ -657,7 +657,7 @@ async function rateLimitWait(platform: string, apiKey: string): Promise<void> {
   return gate;
 }
 
-// ── Per-key map memory sweep ────────────────────────────────────
+// ── Per-key map memory sweep ────────────────────────────
 // `apiKeyFailures`, `_keyCooldown`, `lastRequestTimePerKey` and
 // `rateLimitQueues` are keyed by (a hash of) apiKey strings. Server
 // keys are bounded but per-tenant user-supplied keys come and go as
@@ -690,7 +690,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
 }
 
-// ── Model catalog & pricing ─────────────────────────────────────
+// ── Model catalog & pricing ─────────────────────────────
 const API_ENDPOINTS = {
   openai: { chat: 'https://api.openai.com/v1/chat/completions' },
   perplexity: { chat: 'https://api.perplexity.ai/chat/completions' },
@@ -864,7 +864,7 @@ export function estimateCost(model: string, tokensIn: number, tokensOut: number)
   return ((tokensIn || 0) * pricing.input + (tokensOut || 0) * pricing.output) / 1_000_000;
 }
 
-// ── Retry-After header parsing ──────────────────────────────────
+// ── Retry-After header parsing ──────────────────────────
 // Parse a single duration header value. Supports:
 //   - Integer seconds ("20")
 //   - HTTP-date ("Wed, 21 Oct 2026 07:28:00 GMT")
@@ -923,7 +923,7 @@ function extractBodyRetryAfter(body: unknown): number | null {
   return null;
 }
 
-// ── Upgraded fetchAI ────────────────────────────────────────────
+// ── Upgraded fetchAI ──────────────────────────────────
 // Uses fetch (Next.js runtime), honours Retry-After, treats 429/529 as rate
 // limits, retries 5xx as transient, and tags thrown errors for caller routing.
 const AI_REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS || '', 10) || 150000;
@@ -1234,7 +1234,7 @@ async function fetchAI(url: string, options: RequestInit, timeoutMs = AI_REQUEST
   throw lastErr || new Error('fetchAI: retries exhausted');
 }
 
-// ── Deferred retry queue ────────────────────────────────────────
+// ── Deferred retry queue ────────────────────────────────
 // When a query exhausts its deep-retry budget, enqueue it for a later
 // background retry. On success, the response cache (DB layer) is warmed
 // so the next cron tick / manual re-run returns instantly.
@@ -1301,7 +1301,7 @@ if (typeof setInterval !== 'undefined') {
   setInterval(() => { _drainDeferredQueue().catch(() => {}); }, 60 * 1000);
 }
 
-// ── queryAI ─────────────────────────────────────────────────────
+// ── queryAI ────────────────────────────────────────
 interface QueryResult {
   text: string;
   model: string;
