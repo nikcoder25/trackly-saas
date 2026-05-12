@@ -139,6 +139,56 @@ describe('computeOverviewSov — fallback ONLY when stored missing/zero AND allR
   });
 });
 
+describe('Overview ↔ Mentions formula agreement (PR-8 pin)', () => {
+  // The motivating fix: before PR-8, the worker stored
+  // sov = totalM / totalQ (error-INCLUDED denominator) while the
+  // Mentions page rendered found / ok.length (error-EXCLUDED). The
+  // same run rendered ~20% on Overview and ~27% on Mentions. After
+  // PR-8 the worker writes via computeSovFromResults — the same
+  // formula Mentions uses — so the two pages must agree for any run
+  // shape the worker is now capable of producing.
+  //
+  // We simulate the worker contract: stored.sov === computeSovFromResults(allResults).
+  // Then assert computeOverviewSov(run) === computeSovFromResults(run.allResults).
+  // This is the regression guard for F1+F2 from the Investigate-#12 audit.
+  const mkRun = (results: Array<{ mentioned: boolean; error: boolean }>) => ({
+    allResults: results,
+    sov: computeSovFromResults(results),
+  });
+
+  it('mixed errors + mentions: Overview and Mentions render identical values', () => {
+    // 10 mentioned of 17 ok (1 of 18 errored) → 59% on both pages.
+    const results = Array.from({ length: 18 }, (_, i) => ({
+      mentioned: i < 10,
+      error: i === 17,
+    }));
+    const run = mkRun(results);
+    expect(computeOverviewSov(run)).toBe(computeSovFromResults(results));
+    expect(computeOverviewSov(run)).toBe(59);
+  });
+
+  it('all-errored run: Overview and Mentions both render 0', () => {
+    const results = Array.from({ length: 5 }, () => ({ mentioned: false, error: true }));
+    const run = mkRun(results);
+    expect(computeOverviewSov(run)).toBe(0);
+    expect(computeSovFromResults(results)).toBe(0);
+  });
+
+  it('zero-mentions run: Overview and Mentions both render 0 (legitimate zero)', () => {
+    const results = Array.from({ length: 12 }, () => ({ mentioned: false, error: false }));
+    const run = mkRun(results);
+    expect(computeOverviewSov(run)).toBe(0);
+    expect(computeSovFromResults(results)).toBe(0);
+  });
+
+  it('perfect run (every clean result mentioned): both render 100', () => {
+    const results = Array.from({ length: 10 }, () => ({ mentioned: true, error: false }));
+    const run = mkRun(results);
+    expect(computeOverviewSov(run)).toBe(100);
+    expect(computeSovFromResults(results)).toBe(100);
+  });
+});
+
 describe('computeOverviewSov — pre-PR-C-1 reaper entry shape', () => {
   it('renders truthful SOV for a 15/18 watchdog-reap entry (the production bug)', () => {
     // Faithful reproduction of the actual entry shape that landed in
