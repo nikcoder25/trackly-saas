@@ -41,12 +41,12 @@ import {
   getCacheTtl,
 } from './response-cache';
 
-const SYSTEM_PROMPT = 'Recommendation assistant. Name specific businesses/brands with full names. List 5-10 with brief descriptions. Max 200 words.';
+const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
-// typically consume <100 tokens; 180 leaves ample headroom while
-// trimming the slack from the prior 300 cap. Override via env for
+// typically consume <100 tokens; 100 matches the tightened SYSTEM_PROMPT
+// budget (3-6 names, one line each, no preamble). Override via env for
 // experiments or incident rollback.
-const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 180;
+const MAX_OUTPUT_TOKENS = Number(process.env.AI_MAX_OUTPUT_TOKENS) || 100;
 
 // ── Error typing ────────────────────────────────────────────────
 export interface AiError extends Error {
