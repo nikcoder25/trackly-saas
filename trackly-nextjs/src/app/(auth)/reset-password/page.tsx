@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -14,7 +13,6 @@ function ResetPasswordForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [honeypot, setHoneypot] = useState('');
-  const { t } = useLanguage();
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,13 +58,13 @@ function ResetPasswordForm() {
 
   return (
     <div>
-      <Link href="/" className="auth-back-link">&larr; {t.auth.backToHome}</Link>
+      <Link href="/" className="auth-back-link">&larr; Back to home</Link>
 
       <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-        {token ? t.auth.setNewPassword : t.auth.resetPassword}
+        {token ? 'Set New Password' : 'Reset Password'}
       </h1>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.6 }}>
-        {token ? t.auth.enterNewPassword : t.auth.enterResetEmail}
+        {token ? 'Enter your new password below.' : "Enter your email and we'll send you a reset link."}
       </p>
 
       {error && (
@@ -82,7 +80,7 @@ function ResetPasswordForm() {
             <label htmlFor="reset-website">Website</label>
             <input id="reset-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
           </div>
-          <label htmlFor="newPassword" className="flbl">{t.auth.newPassword}</label>
+          <label htmlFor="newPassword" className="flbl">New Password</label>
           <input
             id="newPassword"
             type="password"
@@ -95,7 +93,7 @@ function ResetPasswordForm() {
             autoComplete="new-password"
           />
           <button type="submit" disabled={loading} className="btn-primary" style={loading ? { opacity: 0.5 } : undefined}>
-            {loading ? t.auth.resetting : t.auth.resetPassword}
+            {loading ? 'Resetting...' : 'Reset Password'}
           </button>
         </form>
       ) : (
@@ -104,7 +102,7 @@ function ResetPasswordForm() {
             <label htmlFor="forgot-website">Website</label>
             <input id="forgot-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
           </div>
-          <label htmlFor="email" className="flbl">{t.auth.email}</label>
+          <label htmlFor="email" className="flbl">Email</label>
           <input
             id="email"
             type="email"
@@ -116,13 +114,13 @@ function ResetPasswordForm() {
             autoComplete="email"
           />
           <button type="submit" disabled={loading} className="btn-primary" style={loading ? { opacity: 0.5 } : undefined}>
-            {loading ? t.auth.sending : t.auth.sendResetLink}
+            {loading ? 'Sending...' : 'Send Reset Link'}
           </button>
         </form>
       )}
 
       <div style={{ marginTop: 20, textAlign: 'center', fontSize: 14, color: 'var(--text-muted)' }}>
-        <Link href="/login" style={{ color: 'var(--primary)', textDecoration: 'none' }}>{t.auth.backToLogin}</Link>
+        <Link href="/login" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Back to login</Link>
       </div>
     </div>
   );

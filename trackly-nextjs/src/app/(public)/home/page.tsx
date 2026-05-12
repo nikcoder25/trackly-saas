@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
@@ -207,19 +206,19 @@ function TestimonialCarousel() {
       aria-label="Customer testimonials"
     >
       <div className="tl-carousel-track" aria-live={paused ? 'polite' : 'off'} style={{ transform: `translateX(-${active * 100}%)` }}>
-        {testimonials.map((t, i) => (
-          <div key={t.name} className="tl-carousel-slide" role="group" aria-roledescription="slide" aria-label={`Testimonial ${i + 1} of ${testimonials.length}`} aria-hidden={active !== i}>
+        {testimonials.map((testimonial, i) => (
+          <div key={testimonial.name} className="tl-carousel-slide" role="group" aria-roledescription="slide" aria-label={`Testimonial ${i + 1} of ${testimonials.length}`} aria-hidden={active !== i}>
             <div className="tl-carousel-quote">
               <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
                 <path d="M6 18C6 14.5 8 12 12 10L13 12C10 13.5 9.5 15.5 9.5 16.5H13V22H6V18ZM18 18C18 14.5 20 12 24 10L25 12C22 13.5 21.5 15.5 21.5 16.5H25V22H18V18Z" fill="currentColor" opacity="0.15"/>
               </svg>
-              <p>&ldquo;{t.text}&rdquo;</p>
+              <p>&ldquo;{testimonial.text}&rdquo;</p>
             </div>
             <div className="tl-carousel-author">
-              <div className="tl-testimonial-avatar">{t.initials}</div>
+              <div className="tl-testimonial-avatar">{testimonial.initials}</div>
               <div>
-                <div className="tl-testimonial-name">{t.name}</div>
-                <div className="tl-testimonial-role">{t.role}</div>
+                <div className="tl-testimonial-name">{testimonial.name}</div>
+                <div className="tl-testimonial-role">{testimonial.role}</div>
               </div>
             </div>
           </div>
@@ -324,7 +323,6 @@ declare global {
 }
 
 export default function LivesovHomePage() {
-  const { t } = useLanguage();
   const { user, loginWithGoogle } = useAuth();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -454,14 +452,13 @@ export default function LivesovHomePage() {
           <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
             {MARKETING_NAV_LINKS.map((link) => {
               const href = link.homeHref ?? link.href;
-              const label = link.i18nKey ? t.nav[link.i18nKey] : link.label;
-              return <Link key={href} href={href} onClick={closeMenu}>{label}</Link>;
+              return <Link key={href} href={href} onClick={closeMenu}>{link.label}</Link>;
             })}
           </div>
 
           <div className="tl-nav-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost">{t.nav.login}</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary">{t.nav.getStarted}</Link>
+            <Link href="/login" className="tl-btn tl-btn--ghost">Login</Link>
+            <Link href="/signup" className="tl-btn tl-btn--primary">Get Started</Link>
           </div>
         </div>
       </nav>
@@ -471,12 +468,11 @@ export default function LivesovHomePage() {
         <div className="tl-mobile-menu">
           {MARKETING_NAV_LINKS.map((link) => {
             const href = link.homeHref ?? link.href;
-            const label = link.i18nKey ? t.nav[link.i18nKey] : link.label;
-            return <Link key={href} href={href} onClick={closeMenu}>{label}</Link>;
+            return <Link key={href} href={href} onClick={closeMenu}>{link.label}</Link>;
           })}
           <div className="tl-mobile-menu-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>{t.nav.login}</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>{t.nav.getStarted}</Link>
+            <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>Login</Link>
+            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>Get Started</Link>
           </div>
         </div>
       )}
@@ -490,21 +486,21 @@ export default function LivesovHomePage() {
         <div className="tl-hero-content">
           <div className="tl-badge">
             <span className="tl-badge-dot" />
-            {t.hero.badge}
+            AI Visibility Tracker
           </div>
           <h1>
-            {t.hero.title}
-            <span className="tl-gradient-text">{t.hero.titleHighlight}</span>
+            Is your brand visible in{' '}
+            <span className="tl-gradient-text">AI answers?</span>
           </h1>
           <p className="tl-hero-sub">
-            {t.hero.description}
+            Track how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.
           </p>
           <div className="tl-hero-ctas">
             <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              {t.hero.cta} <span className="tl-arrow">&rarr;</span>
+              Start Tracking <span className="tl-arrow">&rarr;</span>
             </Link>
             <a href="#demo-section" onClick={(e) => smoothScrollTo(e)} className="tl-btn tl-btn--outline tl-btn--lg">
-              {t.hero.ctaDemo}
+              See Demo
             </a>
           </div>
 
@@ -752,12 +748,12 @@ export default function LivesovHomePage() {
       <section className="tl-cta">
         <div className="tl-cta-glow" />
         <div className="tl-cta-content">
-          <h2>{t.cta.title}</h2>
-          <p>{t.cta.subtitle}</p>
+          <h2>Ready to track your AI visibility?</h2>
+          <p>Start monitoring your presence across AI platforms today.</p>
           <Link href="/signup" className="tl-btn tl-btn--white tl-btn--lg">
-            {t.cta.button} <span className="tl-arrow">&rarr;</span>
+            Start Tracking <span className="tl-arrow">&rarr;</span>
           </Link>
-          <span className="tl-cta-note">{t.cta.note}</span>
+          <span className="tl-cta-note">Plans start at just $9/mo. Set up in under 2 minutes.</span>
         </div>
       </section>
       </main>
@@ -768,23 +764,23 @@ export default function LivesovHomePage() {
           <div className="tl-footer-grid">
             <div className="tl-footer-brand">
               <div className="tl-logo" style={{ fontSize: 22 }}>Live<span>sov</span></div>
-              <p>{t.footer.desc}</p>
+              <p>AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</p>
             </div>
             <div className="tl-footer-col">
-              <h4>{t.footer.product}</h4>
-              <Link href="/#features">{t.footer.links.features}</Link>
-              <Link href="/#pricing">{t.footer.links.pricing}</Link>
-              <Link href="/#how-it-works">{t.footer.links.howItWorks}</Link>
+              <h4>Product</h4>
+              <Link href="/#features">Features</Link>
+              <Link href="/#pricing">Pricing</Link>
+              <Link href="/#how-it-works">How it Works</Link>
               <Link href="/use-cases">Use Cases</Link>
-              <Link href="/integrations">{t.footer.links.integrations}</Link>
+              <Link href="/integrations">Integrations</Link>
             </div>
             <div className="tl-footer-col">
-              <h4>{t.footer.resources}</h4>
-              <Link href="/blog">{t.footer.links.blog}</Link>
-              <Link href="/geo-optimization">{t.footer.links.geoGuide}</Link>
-              <Link href="/about">{t.footer.links.about}</Link>
-              <Link href="/contact">{t.footer.links.contact}</Link>
-              <Link href="/changelog">{t.footer.links.changelog}</Link>
+              <h4>Resources</h4>
+              <Link href="/blog">Blog</Link>
+              <Link href="/geo-optimization">GEO Guide</Link>
+              <Link href="/about">About</Link>
+              <Link href="/contact">Contact</Link>
+              <Link href="/changelog">Changelog</Link>
               <Link href="/partners">Partners</Link>
               <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
               <Link href="/vs/semrush">Livesov vs Semrush</Link>
@@ -798,14 +794,14 @@ export default function LivesovHomePage() {
               <Link href="/grok-brand-tracking">Grok Tracking</Link>
             </div>
             <div className="tl-footer-col">
-              <h4>{t.footer.legal}</h4>
-              <Link href="/privacy">{t.footer.links.privacy}</Link>
-              <Link href="/terms">{t.footer.links.terms}</Link>
-              <Link href="/cookies">{t.footer.links.cookies}</Link>
+              <h4>Legal</h4>
+              <Link href="/privacy">Privacy Policy</Link>
+              <Link href="/terms">Terms of Service</Link>
+              <Link href="/cookies">Cookie Policy</Link>
             </div>
           </div>
           <div className="tl-footer-bottom">
-            <span>&copy; {new Date().getFullYear()} {t.footer.copyright}</span>
+            <span>&copy; {new Date().getFullYear()} Livesov. All rights reserved.</span>
             <CookiePreferencesButton />
             <div className="tl-footer-social">
               <a href="mailto:hello@livesov.com" aria-label="Email">✉</a>

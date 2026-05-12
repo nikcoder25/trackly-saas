@@ -3,7 +3,6 @@ import { headers } from 'next/headers';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import '@/styles/globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { LanguageProvider } from '@/contexts/LanguageContext';
 import ProgressBar from '@/components/ProgressBar';
 import CookieConsent from '@/components/CookieConsent';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
@@ -76,11 +75,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NonceProvider nonce={nonce}>
           <CsrfFetchInterceptor />
           <ProgressBar />
-          <LanguageProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </LanguageProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
           <CookieConsent />
           <GoogleAnalytics nonce={nonce} />
         </NonceProvider>
