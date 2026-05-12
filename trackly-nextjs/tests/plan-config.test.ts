@@ -100,8 +100,8 @@ describe('resolveModelForPlan', () => {
   });
 
   it('honors a premium request on agency / owner', () => {
-    expect(resolveModelForPlan('ChatGPT', 'agency', 'gpt-5-search-api'))
-      .toBe('gpt-5-search-api');
+    expect(resolveModelForPlan('ChatGPT', 'agency', 'gpt-4o-mini-search-preview'))
+      .toBe('gpt-4o-mini-search-preview');
     expect(resolveModelForPlan('Claude', 'owner', 'claude-sonnet-4-20250514'))
       .toBe('claude-sonnet-4-20250514');
   });
@@ -207,7 +207,7 @@ describe('isLowBalance', () => {
   });
 });
 
-// ── ChatGPT premium-tier A/B cohort ─────────────────────────────
+// ── ChatGPT premium-tier A/B cohort ─────────────────
 //
 // The cohort routes a fraction of premium-tier brand_ids from the
 // expensive `gpt-5-search-api` ($2.50/$10.00 per 1M) to the much
