@@ -73,9 +73,13 @@ describe('buildCacheKey', () => {
 });
 
 describe('getCacheTtl', () => {
-  it('returns 24h for both search-enabled and default (aligned with daily cron cadence)', () => {
+  it('returns 72h for non-search default and 24h for search-enabled', () => {
+    // Search-class responses stay at 24h — freshness is the whole
+    // point of attaching web_search. Non-search responses default to
+    // 72h: brand-tracking answers from training data don't drift inside
+    // a 3-day window and the longer TTL multiplies cross-tenant dedup.
     expect(getCacheTtl(true)).toBe(24 * 60 * 60);
-    expect(getCacheTtl(false)).toBe(24 * 60 * 60);
+    expect(getCacheTtl(false)).toBe(72 * 60 * 60);
   });
 });
 
