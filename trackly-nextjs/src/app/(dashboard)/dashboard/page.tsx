@@ -658,7 +658,7 @@ export default function DashboardPage() {
                 : 'Mentions / Total'}
             </div>
           </div>
-          <div className="ov-hero-stat"><div className="ov-hero-stat-val">{getPlanPlatforms(user?.plan||'free').filter(p=>normPlatform(platforms[p]).total>0).length} / {getPlanPlatforms(user?.plan||'free').length}</div><div className="ov-hero-stat-lbl">Platforms Active</div></div>
+          <div className="ov-hero-stat" title="Platforms that ran in the latest run, out of your plan's cap."><div className="ov-hero-stat-val">{getPlanPlatforms(user?.plan||'free').filter(p=>normPlatform(platforms[p]).total>0).length} / {getPlanPlatforms(user?.plan||'free').length}</div><div className="ov-hero-stat-lbl">Platforms Run / Allowed</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{queries.length} / {planLimit>1000?'∞':planLimit}</div><div className="ov-hero-stat-lbl">Queries Tracked</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val" style={{color:live.running?'var(--green)':lastRunAge.includes('d')?'var(--amber)':''}}>{live.running?elapsed||'0s':lastRunAge||'--'}</div><div className="ov-hero-stat-lbl">{live.running?'Run Duration':'Last Run'}</div></div>
           <div className="ov-hero-stat"><div className="ov-hero-stat-val">{live.running?`${live.received - live.foundCount - live.errorCount}`:fmtDuration(lastRun?.durationMs)}</div><div className="ov-hero-stat-lbl">{live.running?'Not Found':'Run Duration'}</div></div>
@@ -715,7 +715,7 @@ export default function DashboardPage() {
 
       {/* API HEALTH - live counter during run */}
       {show('health') && (apiTotalResponses > 0 || live.running) && (
-        <div className="ov-health">
+        <div className="ov-health" title="Platforms that returned at least one usable response without errors, out of those that ran.">
           <span className="ov-health-dot" style={{ background: live.running ? 'var(--green)' : apiHealthColor }} />
           <span className="ov-health-text">
             {live.running
@@ -858,9 +858,9 @@ export default function DashboardPage() {
               <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)'}}>{lrFound}<span style={{color:'var(--muted)',fontSize:13,fontWeight:500}}>/{lrTotal}</span></div>
               <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Found</div>
             </div>
-            <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
+            <div title="Number of platforms that returned at least one result in this run." style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
               <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)'}}>{lrPlatEntries.length}</div>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Platforms</div>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:2}}>Platforms in Run</div>
             </div>
             <div style={{textAlign:'center',padding:'10px 6px',background:'var(--bg)',borderRadius:'var(--radius-xs)',border:'1px solid var(--border)'}}>
               <div style={{fontSize:20,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)'}}>{fmtDuration(lrDuration)}</div>
