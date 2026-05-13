@@ -40,6 +40,7 @@ import {
   setCached,
   getCacheTtl,
 } from './response-cache';
+import { decideRequiresFreshness } from './freshness-classifier';
 
 const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
@@ -1492,19 +1493,23 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
   return fallback;
 }
 
-// Per-query gate for ChatGPT's `web_search_options`. Defense in depth on
-// top of `resolveChatGPTModel`: when a search-preview model is still in
-// play (admin override, smart routing disabled, or smart routing didn't
-// fire), suppressing `web_search_options` for clearly definitional
-// queries lets the model answer from training data and spares the
-// Search-Preview pool. Default ON; set CHATGPT_WEB_SEARCH_GATING=false
-// to attach `web_search_options` on every search-model call.
+// Per-query gate for ChatGPT's `web_search_options`. Two layers:
+//
+//   1. CHATGPT_WEB_SEARCH_GATING=false → hard kill switch, attach on every
+//      search-model call (used to recover from a classifier outage).
+//   2. WEB_SEARCH_DEFAULT_OFF=true → strict freshness classifier path
+//      (decideRequiresFreshness). web_search is OFF unless the query
+//      carries an unambiguous freshness signal.
+//   3. Otherwise → legacy permissive FRESHNESS_OR_LOCAL_RE behavior.
+//      Kept verbatim so flipping WEB_SEARCH_DEFAULT_OFF=false at runtime
+//      restores the pre-classifier behavior with zero code change.
 export function shouldAttachChatGPTWebSearch(query: string): boolean {
   if (process.env.CHATGPT_WEB_SEARCH_GATING === 'false') return true;
-  // web_search is OFF by default. Only attach `web_search_options` when
-  // the query contains an explicit freshness or price keyword — those
-  // are the only intents where training-data answers actually miss.
-  return FRESHNESS_OR_LOCAL_RE.test((query || '').trim());
+  const q = (query || '').trim();
+  if (process.env.WEB_SEARCH_DEFAULT_OFF === 'true') {
+    return decideRequiresFreshness(q).requires_freshness;
+  }
+  return FRESHNESS_OR_LOCAL_RE.test(q);
 }
 
 export async function queryAI(
@@ -1609,10 +1614,20 @@ export async function queryAI(
           payload.web_search_options = {};
           if (brand?.city) payload.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
         } else if (isSearch) {
+          // Telemetry: emit the classifier reason when the strict path is
+          // active so the gate allow-rate dashboard can break down denials
+          // by reason. When the flag is off (legacy regex path) the reason
+          // is `legacy_regex_gate`.
+          const strictMode = process.env.WEB_SEARCH_DEFAULT_OFF === 'true';
+          const reason = strictMode
+            ? decideRequiresFreshness(query).reason
+            : 'legacy_regex_gate';
           logger.warn('[chatgpt.ratelimit]', {
             event: 'web_search_gated',
             platform: 'ChatGPT',
             model: useModel,
+            mode: strictMode ? 'strict' : 'legacy',
+            reason,
             query: query.trim().slice(0, 120),
           });
         }

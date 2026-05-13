@@ -14,6 +14,7 @@ const ORIGINAL_ENV = { ...process.env };
 beforeEach(() => {
   delete process.env.CHATGPT_WEB_SEARCH_GATING;
   delete process.env.CHATGPT_SMART_MODEL_ROUTING;
+  delete process.env.WEB_SEARCH_DEFAULT_OFF;
 });
 
 afterEach(() => {
@@ -62,6 +63,49 @@ describe('shouldAttachChatGPTWebSearch — off by default', () => {
     process.env.CHATGPT_WEB_SEARCH_GATING = 'false';
     expect(shouldAttachChatGPTWebSearch('What is HTTP?')).toBe(true);
     expect(shouldAttachChatGPTWebSearch('Acme Corp customer support')).toBe(true);
+  });
+});
+
+// WEB_SEARCH_DEFAULT_OFF=true swaps the permissive legacy regex out for
+// the strict freshness classifier (decideRequiresFreshness). The previous
+// describe block exercises the legacy regex path; this one pins the
+// strict path behind the flag. Flipping the flag false at runtime is the
+// one-step rollback documented in the PR body.
+describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict classifier)', () => {
+  it('attaches web_search ONLY for strict freshness anchors', () => {
+    process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
+    expect(shouldAttachChatGPTWebSearch('news today')).toBe(true);
+    expect(shouldAttachChatGPTWebSearch('events this week')).toBe(true);
+    expect(shouldAttachChatGPTWebSearch('Tesla stock price')).toBe(true);
+    expect(shouldAttachChatGPTWebSearch('weather in Austin')).toBe(true);
+    expect(shouldAttachChatGPTWebSearch('outages right now')).toBe(true);
+  });
+
+  it('drops everything the legacy regex would have caught without a freshness anchor', () => {
+    process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
+    // Legacy regex caught these via `pricing`, `price`, `cost`, `2026`,
+    // `latest`. Strict classifier rejects them — no time anchor.
+    expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('iPhone price')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('cost of Salesforce')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('best CRM in 2026')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('latest iPhone reviews')).toBe(false);
+  });
+
+  it('still attaches everything when CHATGPT_WEB_SEARCH_GATING=false (kill switch wins)', () => {
+    process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
+    process.env.CHATGPT_WEB_SEARCH_GATING = 'false';
+    expect(shouldAttachChatGPTWebSearch('What is HTTP?')).toBe(true);
+    expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(true);
+  });
+
+  it('flipping WEB_SEARCH_DEFAULT_OFF=false (or unset) restores the legacy regex', () => {
+    // Set to literal "false" — explicit rollback.
+    process.env.WEB_SEARCH_DEFAULT_OFF = 'false';
+    expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(true);
+    // Unset — same as never-deployed.
+    delete process.env.WEB_SEARCH_DEFAULT_OFF;
+    expect(shouldAttachChatGPTWebSearch('Stripe pricing')).toBe(true);
   });
 });
 
