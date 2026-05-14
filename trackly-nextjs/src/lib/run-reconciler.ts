@@ -25,6 +25,7 @@ import { pool } from './db';
 import { logger } from './logger';
 import { computeSovFromResults } from './run-sov';
 import { aggregateCompetitorCounts } from './parser';
+import { refundCredits } from './credits';
 
 // Staleness threshold. A row is considered stuck if `updated_at`
 // (bumped by flushProgress() on every 3rd result) has not advanced
@@ -39,6 +40,7 @@ interface ActiveRunColumns {
   hasFinishedAt: boolean;
   errorCol: 'error' | 'error_message' | null;
   hasUpdatedAt: boolean;
+  hasKind: boolean;
 }
 
 async function introspectActiveRunsColumns(): Promise<ActiveRunColumns | null> {
@@ -55,6 +57,7 @@ async function introspectActiveRunsColumns(): Promise<ActiveRunColumns | null> {
         : cols.has('error') ? 'error'
         : null,
       hasUpdatedAt: cols.has('updated_at'),
+      hasKind: cols.has('kind'),
     };
   } catch {
     return null;
@@ -73,6 +76,10 @@ interface StaleRow {
   last_progress_at: string | Date | null;
   queries: unknown;
   platforms: unknown;
+  // 'auto' (cron) or 'manual' (user-triggered). NULL on rows inserted
+  // before the kind column was added — treated as 'auto' downstream to
+  // avoid over-refunding the manual daily counter for unknown rows.
+  kind: 'auto' | 'manual' | null;
 }
 
 interface ReconcileOptions {
@@ -143,10 +150,11 @@ async function selectStaleRuns(
     where.push(`id = $${params.length}`);
   }
 
+  const kindExpr = cols.hasKind ? 'kind' : 'NULL::text';
   const sql = `
     SELECT id, brand_id, received, found_count, error_count, total_expected,
            results, started_at, ${progressExpr} AS last_progress_at,
-           queries, platforms
+           queries, platforms, ${kindExpr} AS kind
     FROM active_runs
     WHERE ${where.join(' AND ')}
     FOR UPDATE SKIP LOCKED
@@ -199,6 +207,60 @@ async function finalizeStaleRow(
     updateParams,
   );
   if (!updateRes.rowCount) return false;
+
+  // Refund unused reserved credits to the brand owner. Mirrors the
+  // /run handler's terminal `finally` block (route.ts:654-683): we
+  // reserved `total_expected` up front; `received` is how many sub-
+  // tasks the worker actually dispatched. Any gap is a sub-task that
+  // never spent against the ledger, so it's safe — and necessary — to
+  // return those credits to the owner's reservation counter. Without
+  // this, every watchdog-reaped run permanently inflates
+  // usage_counters.monthly_used until the monthly reset, eventually
+  // pinning the cap gate even when the ledger shows plenty of headroom
+  // remaining (issue: contractor-kingdom freeze, May 2026).
+  //
+  // Resolve the credit owner from the brand row directly — distinct
+  // from active_runs.user_id, which for shared brands is the calling
+  // team member, not the credit-holding account.
+  const totalExpected = Number(row.total_expected || 0);
+  const received = Number(row.received || 0);
+  const unused = Math.max(0, totalExpected - received);
+  if (unused > 0) {
+    try {
+      const ownerRes = await pool.query(
+        'SELECT user_id FROM brands WHERE id = $1 LIMIT 1',
+        [row.brand_id],
+      );
+      const ownerId = ownerRes.rows[0]?.user_id as string | undefined;
+      if (ownerId) {
+        // Default to 'auto' when kind is unknown (pre-migration rows):
+        // refunds against 'auto' only touch monthly_used, so we never
+        // over-refund the manual daily counter for runs whose kind
+        // wasn't recorded.
+        const kind: 'auto' | 'manual' = row.kind === 'manual' ? 'manual' : 'auto';
+        await refundCredits(ownerId, unused, kind);
+        logger.info('watchdog.credits_refunded', {
+          run_id: row.id,
+          brand_id: row.brand_id,
+          owner_id: ownerId,
+          kind,
+          refunded: unused,
+          received,
+          total_expected: totalExpected,
+        });
+      }
+    } catch (e) {
+      logger.warn('watchdog.credit_refund_failed', {
+        run_id: row.id,
+        brand_id: row.brand_id,
+        error: (e as Error).message,
+      });
+      // Don't bail — appending the brand entry still needs to happen so
+      // the dashboard "Last Run" clock advances. A missed refund self-
+      // heals on monthly reset and is recoverable via the drift sweeper
+      // (src/lib/credits-sweeper.ts).
+    }
+  }
 
   // Append a minimal run entry so the dashboard "Last Run" clock moves.
   // Must be done in a single transaction: SELECT FOR UPDATE + UPDATE on
