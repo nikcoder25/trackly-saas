@@ -14,6 +14,7 @@ import { reconcileStaleRuns, getStaleRunMinutes } from '@/lib/run-reconciler';
 import { recordDispatchOutcome } from '@/lib/cron-dispatch-alert';
 import { resolveLastRunTime } from '@/lib/cron-eligibility';
 import { cleanupExpiredCache } from '@/lib/response-cache';
+import { sweepUsageCounterDrift } from '@/lib/credits-sweeper';
 
 export const maxDuration = 300; // 5 minutes max for cron
 
@@ -226,6 +227,29 @@ export async function GET(request: Request) {
     // brand, but any customer whose scan has ever crashed mid-flight.
     const { count: reconciled, brandIds: reconciledBrandIds } =
       await reconcileStaleActiveRuns();
+
+    // Drift sweep for the reservation counter. Must run AFTER the
+    // watchdog above, because that pass refunds the just-reaped rows
+    // and we want the sweep's inflight calculation to see them as
+    // 'error' rather than 'running'. Catches any leak the watchdog
+    // refund missed (DB hiccup, refund path error, pre-migration row
+    // with no `kind`) so the dashboard cap gate eventually agrees
+    // with the ledger again. Best-effort: failure here does not abort
+    // the cron tick.
+    try {
+      const sweep = await sweepUsageCounterDrift();
+      if (sweep.reconciled > 0) {
+        logger.info('cron.credits_sweeper', {
+          scanned: sweep.scanned,
+          reconciled: sweep.reconciled,
+          total_decremented: sweep.totalDecremented,
+        });
+      }
+    } catch (e) {
+      logger.warn('cron.credits_sweeper_failed', {
+        error: (e as Error).message,
+      });
+    }
 
     // Pre-filter: only fetch brands on paid plans that support scheduled runs.
     // This avoids wasting the LIMIT on free-plan brands which are always ineligible.

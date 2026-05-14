@@ -75,6 +75,12 @@ async function ensureActiveRunsTable() {
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_platform_attempted TEXT`);
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_query_attempted TEXT`);
   await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ`);
+  // Reservation kind ('auto' for cron, 'manual' for user-triggered). Read
+  // by the watchdog reaper so a crashed run can refund credits against
+  // the same counter slot reserveCredits() debited. Without this the
+  // reaper has to guess, and a wrong guess on manual runs over-refunds
+  // the daily counter.
+  await pool.query(`ALTER TABLE active_runs ADD COLUMN IF NOT EXISTS kind TEXT`);
 
   // Clean up any pre-existing duplicate 'running' rows before the unique
   // index is created. Keep the most recent per brand; mark the rest as
@@ -522,11 +528,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       `WITH lock_check AS (
         SELECT id FROM active_runs WHERE brand_id = $1 AND status = 'running' AND started_at > NOW() - INTERVAL '10 minutes'
       )
-      INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries)
-      SELECT $2, $1, $3, 'running', $4, $5, $6
+      INSERT INTO active_runs (id, brand_id, user_id, status, total_expected, platforms, queries, kind)
+      SELECT $2, $1, $3, 'running', $4, $5, $6, $7
       WHERE NOT EXISTS (SELECT 1 FROM lock_check)
       RETURNING id`,
-      [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries)]
+      [id, runId, user.id, totalExpected, JSON.stringify(activePlatforms), JSON.stringify(queries), reserveKind]
     );
   } catch (e) {
     // 23505 = unique_violation. Concurrent request won the race.
