@@ -42,6 +42,15 @@ import {
 } from './response-cache';
 import { decideRequiresFreshness } from './freshness-classifier';
 
+// MUST stay byte-identical across calls. OpenAI's automatic prompt
+// caching keys off the longest exact-match prefix of the request; any
+// per-call variation here defeats caching for every downstream call.
+// Per-call context (brand, region, freshness hints) belongs in the user
+// message, not here. See geo-audits.buildRegionUserPrompt for the
+// reference pattern. Note: the current string is ~30 tokens, well under
+// OpenAI's automatic-cache threshold (~1024 tokens) — caching engages
+// only on requests where the combined system+user prefix crosses that
+// bar. This invariant is what keeps the door open.
 const SYSTEM_PROMPT = 'Recommendation assistant. List 3-6 specific businesses by name with one-line descriptions. Max 80 words. No intro, no caveats, no closing advice.';
 // Output ceiling. Parsed responses (mentions, sentiment, position)
 // typically consume <100 tokens; 100 matches the tightened SYSTEM_PROMPT
