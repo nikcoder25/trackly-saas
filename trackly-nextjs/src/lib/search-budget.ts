@@ -23,7 +23,7 @@
  *     OpenAI spend; the May 11 incident (~$48/day on web_search alone)
  *     showed that "off-by-default + unset" is the wrong posture. Set
  *     `AI_SEARCH_BUDGET_ENABLED=false` to opt out.
- *   - ChatGPT default cap is 600 calls/day (~$15/day at $25/1k). Other
+ *   - ChatGPT default cap is 150 calls/day (~$3.75/day at $25/1k). Other
  *     platforms have no default cap (set the env override to add one).
  *     Perplexity is search-native and fail-opens on exhaustion, so a
  *     default cap there would only produce log noise.
@@ -39,7 +39,7 @@ const KEY_TTL_SECONDS = 90_000;
 // invocation, and Claude/Gemini/Grok don't have a billable tool. An
 // env override (AI_SEARCH_BUDGET_<PLATFORM>) always takes precedence.
 const PLATFORM_DEFAULT_DAILY_CAP: Record<string, number> = {
-  ChatGPT: 600,
+  ChatGPT: 150,
 };
 
 export type SearchBudgetReason =
@@ -80,7 +80,7 @@ function envInt(name: string): number | undefined {
  * Resolve the daily limit for a platform. Precedence (first hit wins):
  *   1. AI_SEARCH_BUDGET_<PLATFORM> env override
  *   2. AI_SEARCH_BUDGET_DEFAULT env override
- *   3. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 600)
+ *   3. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 150)
  *   4. 0 (no limit)
  * Set the platform-specific env var to 0 to opt that platform out
  * without disabling the feature globally.

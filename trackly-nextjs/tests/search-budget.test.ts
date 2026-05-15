@@ -102,9 +102,9 @@ describe('getSearchBudgetLimit', () => {
     expect(getSearchBudgetLimit('Perplexity')).toBe(500);
   });
 
-  it('returns the ChatGPT default cap of 600 when no env vars are set', () => {
-    // 600 calls/day = $15/day ceiling at $25/1k web_search invocations.
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
+  it('returns the ChatGPT default cap of 150 when no env vars are set', () => {
+    // 150 calls/day = $3.75/day ceiling at $25/1k web_search invocations.
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
   });
 
   it('has no default cap for non-ChatGPT platforms', () => {
@@ -128,9 +128,9 @@ describe('getSearchBudgetLimit', () => {
 
   it('treats negative or non-numeric ChatGPT overrides as unset (falls back to default cap)', () => {
     process.env.AI_SEARCH_BUDGET_CHATGPT = '-5';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
     process.env.AI_SEARCH_BUDGET_CHATGPT = 'banana';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
   });
 });
 
@@ -156,13 +156,13 @@ describe('getSearchFallbackModel', () => {
 
 describe('tryConsumeSearchBudget', () => {
   it('engages the budget by default when AI_SEARCH_BUDGET_ENABLED is unset', async () => {
-    // Post-incident default: enabled. ChatGPT's 600-call cap means the
+    // Post-incident default: enabled. ChatGPT's 150-call cap means the
     // very first call lands at used=1, not at the no-op disabled path.
     const result = await tryConsumeSearchBudget('ChatGPT');
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('consumed');
     expect(result.used).toBe(1);
-    expect(result.limit).toBe(600);
+    expect(result.limit).toBe(150);
     expect((fake.eval as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
   });
 
