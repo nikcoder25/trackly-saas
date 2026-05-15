@@ -22,7 +22,7 @@ const PLATFORM_SEARCH_URLS: Record<string, string> = {
 // Prefer cheaper models for fact-checking
 const CHECKER_MODELS = {
   gemini: 'gemini-2.5-flash',
-  openai: 'gpt-4o-mini',
+  openai: 'gpt-5.4-nano',
   claude: 'claude-haiku-4-5-20251001',
 };
 
