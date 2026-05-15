@@ -5,7 +5,7 @@
  * search-preview / search-api) have been issued cluster-wide per UTC day,
  * and lets callers atomically reserve a slot. When the budget is
  * exhausted the caller can ask for a non-search fallback model — for
- * ChatGPT that's `gpt-4o`; Perplexity has no non-search variant, so the
+ * ChatGPT that's `gpt-5.4`; Perplexity has no non-search variant, so the
  * caller logs and proceeds (fail-open at the platform level).
  *
  * Design decisions:
@@ -106,7 +106,7 @@ export function getSearchFallbackModel(
   platform: string,
   model: string,
 ): string | null {
-  if (platform === 'ChatGPT' && model.includes('search')) return 'gpt-4o';
+  if (platform === 'ChatGPT' && model.includes('search')) return 'gpt-5.4';
   return null;
 }
 

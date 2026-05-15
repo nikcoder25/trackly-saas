@@ -135,13 +135,14 @@ describe('getSearchBudgetLimit', () => {
 });
 
 describe('getSearchFallbackModel', () => {
-  it('returns gpt-4o for ChatGPT search-preview models', () => {
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o-mini-search-preview')).toBe('gpt-4o');
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-5-search-api')).toBe('gpt-4o');
+  it('returns gpt-5.4 for ChatGPT search-preview models', () => {
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o-mini-search-preview')).toBe('gpt-5.4');
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5-search-api')).toBe('gpt-5.4');
   });
 
   it('returns null for ChatGPT non-search models', () => {
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o')).toBeNull();
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5.4-mini')).toBeNull();
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5.4')).toBeNull();
   });
 
   it('returns null for Perplexity (search-native, no fallback)', () => {
@@ -294,7 +295,7 @@ describe('resolveSearchModelWithBudget', () => {
     expect(result.budget.allowed).toBe(true);
   });
 
-  it('downgrades ChatGPT search-preview to gpt-4o when the budget is exhausted', async () => {
+  it('downgrades ChatGPT search-preview to gpt-5.4 when the budget is exhausted', async () => {
     process.env.AI_SEARCH_BUDGET_CHATGPT = '1';
     await resolveSearchModelWithBudget({
       platform: 'ChatGPT', model: 'gpt-4o-mini-search-preview', isSearch: true,
@@ -303,7 +304,7 @@ describe('resolveSearchModelWithBudget', () => {
       platform: 'ChatGPT', model: 'gpt-4o-mini-search-preview', isSearch: true,
     });
     expect(next.downgraded).toBe(true);
-    expect(next.model).toBe('gpt-4o');
+    expect(next.model).toBe('gpt-5.4');
     expect(next.searchEnabled).toBe(false);
   });
 

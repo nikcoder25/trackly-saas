@@ -781,8 +781,9 @@ _runProviderBootProbes();
 
 export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; search?: boolean; default?: boolean }>> = {
   ChatGPT: [
-    { id: 'gpt-4o-mini-search-preview', label: 'GPT-4o Mini Search', search: true, default: true },
-    { id: 'gpt-4o', label: 'GPT-4o (No search)' },
+    { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', default: true },
+    { id: 'gpt-5.4', label: 'GPT-5.4' },
+    { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano' },
   ],
   Claude: [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
@@ -804,6 +805,11 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
 };
 
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  'gpt-5.4-mini': { input: 0.75, output: 4.50 },
+  'gpt-5.4': { input: 2.50, output: 15.00 },
+  'gpt-5.4-nano': { input: 0.20, output: 1.25 },
+  // Legacy ChatGPT entries kept for cost-tracker price lookups against
+  // historical record_call rows. The new lineup is gpt-5.4-{mini,,nano}.
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
@@ -1482,7 +1488,7 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
   if (!adminModel.includes('search')) return adminModel;
   if (!isNonSearchIntentQuery(query)) return adminModel;
   // Safe to route to standard model.
-  const fallback = 'gpt-4o';
+  const fallback = 'gpt-5.4';
   logger.warn('[chatgpt.ratelimit]', {
     event: 'smart_route',
     platform: 'ChatGPT',
