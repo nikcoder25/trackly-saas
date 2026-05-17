@@ -79,6 +79,7 @@ beforeEach(() => {
   delete process.env.AI_SEARCH_BUDGET_ENABLED;
   delete process.env.AI_SEARCH_BUDGET_DEFAULT;
   delete process.env.AI_SEARCH_BUDGET_CHATGPT;
+  delete process.env.CHATGPT_SEARCH_BUDGET_DAILY;
   delete process.env.AI_SEARCH_BUDGET_PERPLEXITY;
 });
 
@@ -131,6 +132,27 @@ describe('getSearchBudgetLimit', () => {
     expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
     process.env.AI_SEARCH_BUDGET_CHATGPT = 'banana';
     expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
+  });
+
+  it('CHATGPT_SEARCH_BUDGET_DAILY is the canonical ChatGPT override name', () => {
+    process.env.CHATGPT_SEARCH_BUDGET_DAILY = '42';
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(42);
+  });
+
+  it('CHATGPT_SEARCH_BUDGET_DAILY wins over the legacy AI_SEARCH_BUDGET_CHATGPT alias', () => {
+    process.env.CHATGPT_SEARCH_BUDGET_DAILY = '42';
+    process.env.AI_SEARCH_BUDGET_CHATGPT = '999';
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(42);
+  });
+
+  it('legacy AI_SEARCH_BUDGET_CHATGPT still works when the new name is unset', () => {
+    process.env.AI_SEARCH_BUDGET_CHATGPT = '77';
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(77);
+  });
+
+  it('CHATGPT_SEARCH_BUDGET_DAILY does not leak into other platforms', () => {
+    process.env.CHATGPT_SEARCH_BUDGET_DAILY = '42';
+    expect(getSearchBudgetLimit('Perplexity')).toBe(0);
   });
 });
 

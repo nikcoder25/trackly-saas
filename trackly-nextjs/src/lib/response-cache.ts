@@ -23,8 +23,14 @@ import { logger } from './logger';
 // lineup the default path is non-search, brand-tracking answers from
 // training data don't drift inside a week, and a 7-day TTL maximises
 // repeat hits within the daily-scan cadence.
+// Two-name read for backwards compatibility: RESPONSE_CACHE_TTL_NO_SEARCH_S
+// is the documented name; RESPONSE_CACHE_TTL_DEFAULT_S is kept working as
+// a legacy alias so existing deploys don't break on this rename.
 const TTL_SEARCH_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_SEARCH_S) || 24 * 60 * 60;
-const TTL_DEFAULT_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) || 7 * 24 * 60 * 60;
+const TTL_DEFAULT_SECONDS =
+  Number(process.env.RESPONSE_CACHE_TTL_NO_SEARCH_S) ||
+  Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) ||
+  7 * 24 * 60 * 60;
 
 export interface CacheKeyParams {
   prompt: string;

@@ -78,14 +78,22 @@ function envInt(name: string): number | undefined {
 
 /**
  * Resolve the daily limit for a platform. Precedence (first hit wins):
- *   1. AI_SEARCH_BUDGET_<PLATFORM> env override
- *   2. AI_SEARCH_BUDGET_DEFAULT env override
- *   3. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 150)
- *   4. 0 (no limit)
+ *   1. CHATGPT_SEARCH_BUDGET_DAILY env var (ChatGPT-only, documented name)
+ *   2. AI_SEARCH_BUDGET_<PLATFORM> env override (legacy alias, all platforms)
+ *   3. AI_SEARCH_BUDGET_DEFAULT env override
+ *   4. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 150)
+ *   5. 0 (no limit)
  * Set the platform-specific env var to 0 to opt that platform out
  * without disabling the feature globally.
  */
 export function getSearchBudgetLimit(platform: string): number {
+  // Documented name for the ChatGPT cap. Takes precedence over the
+  // dynamic AI_SEARCH_BUDGET_<PLATFORM> alias so operators reading the
+  // .env.example see one canonical name.
+  if (platform === 'ChatGPT') {
+    const chatgptCap = envInt('CHATGPT_SEARCH_BUDGET_DAILY');
+    if (chatgptCap != null) return chatgptCap;
+  }
   const platformKey = `AI_SEARCH_BUDGET_${platform.toUpperCase()}`;
   const platformOverride = envInt(platformKey);
   if (platformOverride != null) return platformOverride;
