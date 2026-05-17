@@ -101,6 +101,11 @@ describe('getCacheTtl', () => {
     expect(getCacheTtl(true)).toBe(24 * 60 * 60);
     expect(getCacheTtl(false)).toBe(7 * 24 * 60 * 60);
   });
+
+  // The env-var aliasing (RESPONSE_CACHE_TTL_NO_SEARCH_S as primary,
+  // RESPONSE_CACHE_TTL_DEFAULT_S as legacy fallback) is exercised by the
+  // dedicated tests/response-cache-ttl-env.test.ts file — the value is
+  // captured at module load, so a single import suite cannot toggle it.
 });
 
 describe('isSearchEnabled', () => {
