@@ -173,9 +173,24 @@ export async function ensureGeoAuditsSchema(): Promise<void> {
 // Uses the existing queryAI options.systemPrompt slot — every provider
 // already wires that field to its native system-message channel
 // (see ai-platforms.ts's queryAI implementation per platform).
+//
+// Kept for backwards-compat: callers that still want the legacy
+// region-in-system shape can use this. New code should call
+// buildRegionUserPrompt instead so the system prompt stays byte-identical
+// across calls (required for OpenAI's automatic prompt caching to engage).
 export function buildRegionSystemPrompt(region: string, basePrompt: string): string {
   const r = region.trim();
   return `${basePrompt}\n\nAnswering for a user located in ${r}. Use that geographic context (local providers, language, regional brands, market norms) when surfacing names, recommendations, or comparisons.`;
+}
+
+// Region context as a USER-message prefix. Pairs with a fixed system
+// prompt: the system slot stays byte-identical across regions (so
+// OpenAI's automatic prompt caching can hit on the system prefix), while
+// the per-region instruction rides in the user message where variation
+// is expected.
+export function buildRegionUserPrompt(region: string, promptText: string): string {
+  const r = region.trim();
+  return `Answering for a user located in ${r}. Use that geographic context (local providers, language, regional brands, market norms) when surfacing names, recommendations, or comparisons.\n\n${promptText}`;
 }
 
 interface BrandRow {
@@ -362,11 +377,13 @@ const defaultCallProvider: CallProvider = async ({
   }
   const model = getDefaultModel(platform);
   const matcher = buildBrandMatcher(brand);
-  // Inject region context via the existing systemPrompt slot. The base
-  // is the parser's own SYSTEM_PROMPT-equivalent — we use a neutral
-  // analytic baseline plus the region note.
-  const baseSystem = 'You are an unbiased assistant. Answer the user\'s query directly and concisely.';
-  const systemPrompt = buildRegionSystemPrompt(region, baseSystem);
+  // Region context moved into the user message so the system prompt
+  // stays byte-identical across regions (required for OpenAI automatic
+  // prompt caching to engage). The system slot keeps a fixed neutral
+  // analytic baseline; the per-region instruction rides in the user
+  // message via buildRegionUserPrompt.
+  const systemPrompt = 'You are an unbiased assistant. Answer the user\'s query directly and concisely.';
+  const userPrompt = buildRegionUserPrompt(region, promptText);
   // Acquire a platform slot to obey the existing per-platform RPM /
   // semaphore. Mirrors how brands/[id]/run wraps its queryAI call.
   const release = await acquirePlatformSlot(platform);
@@ -374,7 +391,7 @@ const defaultCallProvider: CallProvider = async ({
     // queryAI takes BrandContext (index-sig'd); BrandInput from parser
     // doesn't carry the index signature, so we widen at the call site.
     const brandCtx = { ...brand } as Record<string, unknown>;
-    const result = await queryAI(platform, promptText, rawKey, model, brandCtx, {
+    const result = await queryAI(platform, userPrompt, rawKey, model, brandCtx, {
       systemPrompt,
       tenantId: userId,
     });

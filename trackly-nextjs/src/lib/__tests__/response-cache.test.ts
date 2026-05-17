@@ -53,6 +53,26 @@ describe('buildCacheKey', () => {
     expect(b).toBe(c);
   });
 
+  it('strips trailing punctuation so "best plumber", "best plumber.", "best plumber?" collapse', () => {
+    const base = buildCacheKey({ prompt: 'best plumber', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const dot = buildCacheKey({ prompt: 'best plumber.', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const q = buildCacheKey({ prompt: 'best plumber?', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const bang = buildCacheKey({ prompt: 'best plumber!', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const stack = buildCacheKey({ prompt: 'best plumber!?!', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    const spaced = buildCacheKey({ prompt: 'best plumber ?', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
+    expect(dot).toBe(base);
+    expect(q).toBe(base);
+    expect(bang).toBe(base);
+    expect(stack).toBe(base);
+    expect(spaced).toBe(base);
+  });
+
+  it('does not strip internal punctuation', () => {
+    const a = buildCacheKey({ prompt: 'best plumber, electrician', platform: 'ChatGPT', model: 'm', searchEnabled: false });
+    const b = buildCacheKey({ prompt: 'best plumber electrician', platform: 'ChatGPT', model: 'm', searchEnabled: false });
+    expect(a).not.toBe(b);
+  });
+
   it('changes when the model changes', () => {
     const a = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'gpt-4o', searchEnabled: false });
     const b = buildCacheKey({ prompt: 'foo', platform: 'ChatGPT', model: 'gpt-4o-search-preview', searchEnabled: false });
@@ -73,13 +93,13 @@ describe('buildCacheKey', () => {
 });
 
 describe('getCacheTtl', () => {
-  it('returns 72h for non-search default and 24h for search-enabled', () => {
+  it('returns 7d for non-search default and 24h for search-enabled', () => {
     // Search-class responses stay at 24h — freshness is the whole
     // point of attaching web_search. Non-search responses default to
-    // 72h: brand-tracking answers from training data don't drift inside
-    // a 3-day window and the longer TTL multiplies cross-tenant dedup.
+    // 7d: with the gpt-5.4 lineup the default path is non-search and
+    // training-data answers don't drift inside a week.
     expect(getCacheTtl(true)).toBe(24 * 60 * 60);
-    expect(getCacheTtl(false)).toBe(72 * 60 * 60);
+    expect(getCacheTtl(false)).toBe(7 * 24 * 60 * 60);
   });
 });
 

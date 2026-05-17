@@ -102,9 +102,9 @@ describe('getSearchBudgetLimit', () => {
     expect(getSearchBudgetLimit('Perplexity')).toBe(500);
   });
 
-  it('returns the ChatGPT default cap of 600 when no env vars are set', () => {
-    // 600 calls/day = $15/day ceiling at $25/1k web_search invocations.
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
+  it('returns the ChatGPT default cap of 150 when no env vars are set', () => {
+    // 150 calls/day = $3.75/day ceiling at $25/1k web_search invocations.
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
   });
 
   it('has no default cap for non-ChatGPT platforms', () => {
@@ -128,20 +128,21 @@ describe('getSearchBudgetLimit', () => {
 
   it('treats negative or non-numeric ChatGPT overrides as unset (falls back to default cap)', () => {
     process.env.AI_SEARCH_BUDGET_CHATGPT = '-5';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
     process.env.AI_SEARCH_BUDGET_CHATGPT = 'banana';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(600);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
   });
 });
 
 describe('getSearchFallbackModel', () => {
-  it('returns gpt-4o for ChatGPT search-preview models', () => {
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o-mini-search-preview')).toBe('gpt-4o');
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-5-search-api')).toBe('gpt-4o');
+  it('returns gpt-5.4 for ChatGPT search-preview models', () => {
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o-mini-search-preview')).toBe('gpt-5.4');
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5-search-api')).toBe('gpt-5.4');
   });
 
   it('returns null for ChatGPT non-search models', () => {
-    expect(getSearchFallbackModel('ChatGPT', 'gpt-4o')).toBeNull();
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5.4-mini')).toBeNull();
+    expect(getSearchFallbackModel('ChatGPT', 'gpt-5.4')).toBeNull();
   });
 
   it('returns null for Perplexity (search-native, no fallback)', () => {
@@ -156,13 +157,13 @@ describe('getSearchFallbackModel', () => {
 
 describe('tryConsumeSearchBudget', () => {
   it('engages the budget by default when AI_SEARCH_BUDGET_ENABLED is unset', async () => {
-    // Post-incident default: enabled. ChatGPT's 600-call cap means the
+    // Post-incident default: enabled. ChatGPT's 150-call cap means the
     // very first call lands at used=1, not at the no-op disabled path.
     const result = await tryConsumeSearchBudget('ChatGPT');
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('consumed');
     expect(result.used).toBe(1);
-    expect(result.limit).toBe(600);
+    expect(result.limit).toBe(150);
     expect((fake.eval as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
   });
 
@@ -294,7 +295,7 @@ describe('resolveSearchModelWithBudget', () => {
     expect(result.budget.allowed).toBe(true);
   });
 
-  it('downgrades ChatGPT search-preview to gpt-4o when the budget is exhausted', async () => {
+  it('downgrades ChatGPT search-preview to gpt-5.4 when the budget is exhausted', async () => {
     process.env.AI_SEARCH_BUDGET_CHATGPT = '1';
     await resolveSearchModelWithBudget({
       platform: 'ChatGPT', model: 'gpt-4o-mini-search-preview', isSearch: true,
@@ -303,7 +304,7 @@ describe('resolveSearchModelWithBudget', () => {
       platform: 'ChatGPT', model: 'gpt-4o-mini-search-preview', isSearch: true,
     });
     expect(next.downgraded).toBe(true);
-    expect(next.model).toBe('gpt-4o');
+    expect(next.model).toBe('gpt-5.4');
     expect(next.searchEnabled).toBe(false);
   });
 

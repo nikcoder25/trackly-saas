@@ -264,20 +264,21 @@ export function getPlanCredits(plan: string | undefined | null): PlanCreditConfi
  * between a $200/mo SaaS and a runaway provider bill.
  */
 export const ECONOMY_MODEL_BY_PLATFORM: Record<string, string> = {
-  ChatGPT: 'gpt-4o-mini-search-preview',
+  ChatGPT: 'gpt-5.4-mini',
   Claude: 'claude-haiku-4-5-20251001',
   Gemini: 'gemini-2.5-flash-lite',
   Grok: 'grok-3-mini',
   Perplexity: 'sonar',
 };
 
-// ChatGPT premium points at `gpt-4o-mini-search-preview` (same as
-// economy) — the previous premium `gpt-5-search-api` was dropped from
-// the lineup because its web_search surcharge ($0.030/call) and 16×
-// token cost made it the dominant line on the OpenAI invoice. The
-// premium A/B cohort below is now a no-op as a result.
+// ChatGPT economy and premium both point at `gpt-5.4-mini`. The earlier
+// `gpt-4o-mini-search-preview` was retired in favour of the gpt-5.4
+// family which removes the web_search surcharge dependency from the
+// default lineup. The premium A/B cohort below is a no-op as a result;
+// kept in place so a future split (e.g. premium → gpt-5.4) can be
+// re-enabled with an env flip.
 export const PREMIUM_MODEL_BY_PLATFORM: Record<string, string> = {
-  ChatGPT: 'gpt-4o-mini-search-preview',
+  ChatGPT: 'gpt-5.4-mini',
   Claude: 'claude-sonnet-4-20250514',
   Gemini: 'gemini-2.5-pro',
   Grok: 'grok-4',

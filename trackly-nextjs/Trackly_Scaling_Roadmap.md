@@ -136,22 +136,47 @@
 
 ### Current Cost Per Query by Platform
 
-| Platform | Model | Cost/Query | Notes |
-|----------|-------|-----------|-------|
-| ChatGPT Search | gpt-4o-mini-search | ~$0.01 | Dominant cost driver |
-| ChatGPT (no search) | gpt-4o | ~$0.0003 | Much cheaper, no live data |
-| Claude | haiku-4.5 | ~$0.0016 | Good balance |
-| Perplexity | sonar | ~$0.0004 | Includes citations |
-| Gemini | gemini-2.5-flash | ~$0.0001 | Cheapest option |
-| Grok | grok-3-mini | ~$0.0002 | Very affordable |
+| Platform | Model | Input $/1M | Output $/1M | Notes |
+|----------|-------|-----------:|------------:|-------|
+| ChatGPT (default) | gpt-5.4-mini | $0.75 | $4.50 | Default lineup; non-search path |
+| ChatGPT (premium) | gpt-5.4 | $2.50 | $15.00 | Admin opt-in for premium tier |
+| ChatGPT (analysis) | gpt-5.4-nano | $0.20 | $1.25 | Fact-checker / internal-analysis tier |
+| Claude | claude-haiku-4-5 | $0.80 | $4.00 | Good balance |
+| Perplexity | sonar | $1.00 | $1.00 | Search-native, includes citations |
+| Gemini | gemini-2.5-flash-lite | $0.075 | $0.30 | Cheapest option |
+| Grok | grok-3-mini | $0.30 | $0.50 | Very affordable |
 
-### Optimization Strategies
+The `web_search_options` surcharge ($0.030/call) on the legacy
+`*-search-preview` lineup was the May-11 cost incident driver. The
+gpt-5.4 family removes that surcharge from the default path entirely;
+the freshness gate (`WEB_SEARCH_DEFAULT_OFF=true`) and 150-call/day
+budget cap (`AI_SEARCH_BUDGET_CHATGPT=150`) remain as defense-in-depth
+for any admin-selected `*-search-preview` model.
 
-1. **Cache-first architecture** - The 24-48hr response cache already exists. Ensure cache hit rate is >60% by sharing cache across users with identical queries
-2. **Tiered model access** - Free/Starter use cheaper models (GPT-4o, Gemini Flash). Pro+ get search-enabled models
-3. **Smart scheduling** - Batch scheduled runs during off-peak hours (2-6 AM UTC) when API rate limits are less contested
-4. **Query deduplication** - If 10 users track "best CRM software," query once and share results. Requires a shared query pool
-5. **Circuit breaker tuning** - Already implemented (`src/lib/ai-platforms.ts:19`). Tune threshold from 5 to 3 failures to fail-fast on bad keys
+### Optimization Strategies (status: shipped this PR)
+
+1. **web_search OFF by default** - `WEB_SEARCH_DEFAULT_OFF=true` gates the
+   per-call surcharge behind a strict freshness classifier (only fires on
+   "today / this week / breaking news / live score / weather / right now"
+   anchors).
+2. **Daily search budget capped at 150 calls/day** -
+   `AI_SEARCH_BUDGET_CHATGPT=150` (~$3.75/day ceiling). When exhausted,
+   ChatGPT falls back to gpt-5.4.
+3. **gpt-5.4 family as default** - Replaces gpt-4o-mini-search-preview /
+   gpt-4o; the new lineup has no `search` in the model name so
+   `web_search_options` is structurally not attached on default calls.
+4. **Internal analysis on gpt-5.4-nano** - fact-checker downgraded from
+   gpt-4o-mini.
+5. **Response cache TTL → 7 days** - Non-search responses now live 7
+   days (was 72h); cache key normalization strips trailing punctuation
+   so "best plumber" / "best plumber?" / "best plumber!" share a row.
+6. **Prompt caching invariant** - System prompt is byte-identical across
+   calls (region context moved to the user message in geo-audits) so
+   OpenAI's automatic prompt caching engages once the prefix grows past
+   the ~1024-token threshold.
+
+Deferred (24h SLA risk needs more planning):
+- Batch API for scheduled scans.
 
 ---
 

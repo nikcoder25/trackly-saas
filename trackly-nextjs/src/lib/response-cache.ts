@@ -19,11 +19,12 @@ import { logger } from './logger';
 // run and were the dominant cause of the 27.68% hit rate observed
 // during the May 6-8 cost-spike incident. Search-enabled responses
 // stay at 24h because freshness is the whole point of attaching
-// web_search. Non-search responses default to 72h: brand-tracking
-// answers from training data don't drift inside a 3-day window, and
-// the longer TTL multiplies dedup hits across tenants.
+// web_search. Non-search responses default to 7 days: with the gpt-5.4
+// lineup the default path is non-search, brand-tracking answers from
+// training data don't drift inside a week, and a 7-day TTL maximises
+// repeat hits within the daily-scan cadence.
 const TTL_SEARCH_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_SEARCH_S) || 24 * 60 * 60;
-const TTL_DEFAULT_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) || 72 * 60 * 60;
+const TTL_DEFAULT_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) || 7 * 24 * 60 * 60;
 
 export interface CacheKeyParams {
   prompt: string;
@@ -77,8 +78,17 @@ function disabled(): boolean {
   return process.env.RESPONSE_CACHE_DISABLED === 'true';
 }
 
+// lowercase → trim → collapse internal whitespace → strip trailing
+// punctuation/whitespace. The trailing-strip catches "best plumber",
+// "best plumber.", "best plumber?", and "best plumber!?!" as the same
+// query — common variation in human-written prompts that previously
+// fragmented the cache.
 function normalize(prompt: string): string {
-  return prompt.toLowerCase().trim().replace(/\s+/g, ' ');
+  return prompt
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[\s.!?,;:]+$/, '');
 }
 
 export function buildCacheKey(params: CacheKeyParams): string {
