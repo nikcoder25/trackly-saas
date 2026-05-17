@@ -793,10 +793,13 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
     { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', default: true },
     { id: 'gpt-5.4', label: 'GPT-5.4' },
     { id: 'gpt-5.4-nano', label: 'GPT-5.4 Nano' },
+    { id: 'gpt-5.5', label: 'GPT-5.5' },
+    { id: 'gpt-5.5-pro', label: 'GPT-5.5 Pro' },
   ],
   Claude: [
     { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', default: true },
-    { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { id: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
   ],
   Gemini: [
     { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', default: true },
@@ -806,10 +809,12 @@ export const PLATFORM_MODELS: Record<string, Array<{ id: string; label: string; 
   Grok: [
     { id: 'grok-3-mini', label: 'Grok 3 Mini', default: true },
     { id: 'grok-4', label: 'Grok 4' },
+    { id: 'grok-4-fast', label: 'Grok 4 Fast' },
   ],
   Perplexity: [
     { id: 'sonar', label: 'Sonar', default: true },
     { id: 'sonar-pro', label: 'Sonar Pro' },
+    { id: 'sonar-reasoning-pro', label: 'Sonar Reasoning Pro' },
   ],
 };
 
@@ -817,19 +822,26 @@ export const MODEL_PRICING: Record<string, { input: number; output: number }> = 
   'gpt-5.4-mini': { input: 0.75, output: 4.50 },
   'gpt-5.4': { input: 2.50, output: 15.00 },
   'gpt-5.4-nano': { input: 0.20, output: 1.25 },
+  'gpt-5.5': { input: 5.00, output: 30.00 },
+  'gpt-5.5-pro': { input: 30.00, output: 180.00 },
   // Legacy ChatGPT entries kept for cost-tracker price lookups against
   // historical record_call rows. The new lineup is gpt-5.4-{mini,,nano}.
   'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
   'gpt-4o': { input: 2.50, output: 10.00 },
+  // Legacy Claude pricing kept for historical record_call rows.
   'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
-  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
+  'claude-haiku-4-5-20251001': { input: 1.00, output: 5.00 },
+  'claude-sonnet-4-6': { input: 3.00, output: 15.00 },
+  'claude-opus-4-7': { input: 5.00, output: 25.00 },
   'gemini-2.5-flash': { input: 0.10, output: 0.40 },
   'gemini-2.5-pro': { input: 1.25, output: 10.00 },
   'gemini-2.5-flash-lite': { input: 0.075, output: 0.30 },
   'grok-3-mini': { input: 0.30, output: 0.50 },
   'grok-4': { input: 3.00, output: 15.00 },
+  'grok-4-fast': { input: 0.20, output: 0.50 },
   'sonar': { input: 1.00, output: 1.00 },
   'sonar-pro': { input: 3.00, output: 15.00 },
+  'sonar-reasoning-pro': { input: 2.00, output: 8.00 },
 };
 
 export function getDefaultModel(platform: string): string {

@@ -1,7 +1,8 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
-import { getDefaultModel, MODEL_PRICING } from '@/lib/ai-platforms';
+import { MODEL_PRICING } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 
 const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
 const AVG_INPUT_TOKENS = 150;
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const breakdown: Record<string, number> = {};
 
   for (const platform of PLATFORMS) {
-    const model = getDefaultModel(platform);
+    const model = await getAdminModel(platform);
     const pricing = MODEL_PRICING[model];
     if (!pricing) continue;
     const cost = queryCount * ((AVG_INPUT_TOKENS * pricing.input + AVG_OUTPUT_TOKENS * pricing.output) / 1_000_000);

@@ -31,10 +31,10 @@ import { reserveCredits, refundCredits } from '@/lib/credits';
 import { logger } from '@/lib/logger';
 import {
   queryAI,
-  getDefaultModel,
   pickBestKey,
   acquirePlatformSlot,
 } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { resolveKeysForTenant } from '@/lib/tenant-keys';
 import { getServerKeys } from '@/lib/server-keys';
 import { buildBrandMatcher, parseResponse } from '@/lib/parser';
@@ -375,7 +375,7 @@ const defaultCallProvider: CallProvider = async ({
   if (!rawKey) {
     return { model: null, response: null, mentioned: false, error: `No usable API key for ${platform}` };
   }
-  const model = getDefaultModel(platform);
+  const model = await getAdminModel(platform);
   const matcher = buildBrandMatcher(brand);
   // Region context moved into the user message so the system prompt
   // stays byte-identical across regions (required for OpenAI automatic

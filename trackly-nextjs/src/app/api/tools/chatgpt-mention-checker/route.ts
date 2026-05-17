@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, pickBestKey } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { getServerKeys } from '@/lib/server-keys';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'ChatGPT is not currently available. Please try again later.' }, { status: 503 });
     }
 
-    const model = getDefaultModel('ChatGPT');
+    const model = await getAdminModel('ChatGPT');
     const result = await queryAI('ChatGPT', query, apiKey, model);
 
     const text = result.text || '';

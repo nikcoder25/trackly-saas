@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, pickBestKey } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { getServerKeys } from '@/lib/server-keys';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = buildPrompt(query, brand);
-    const model = getDefaultModel(platform);
+    const model = await getAdminModel(platform);
     const result = await queryAI(platform, prompt, apiKey, model);
     const text = result.text || '';
 

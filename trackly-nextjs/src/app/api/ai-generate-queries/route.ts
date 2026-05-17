@@ -1,6 +1,7 @@
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
-import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { queryAI } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { decryptApiKeys } from '@/lib/helpers';
 import { getServerKeys } from '@/lib/server-keys';
 import { resolveKeysForTenant, PROVIDER_SPECS } from '@/lib/tenant-keys';
@@ -95,7 +96,7 @@ Requirements:
 Example format: ["best ${industry} in ${city || 'my area'}", "top rated ${industry} company"]`;
 
   try {
-    const model = getDefaultModel(platform);
+    const model = await getAdminModel(platform);
     const result = await queryAI(platform, prompt, apiKey, model);
 
     if (!result?.text) {

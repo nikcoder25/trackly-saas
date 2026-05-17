@@ -9,6 +9,14 @@ let modelCache: { models: Record<string, string>; expires: number } | null = nul
 const CACHE_TTL = 60_000; // 1 minute
 
 /**
+ * Invalidate the in-memory model cache. Called by the admin PUT handler
+ * so changes take effect immediately rather than after the 60s TTL.
+ */
+export function clearModelCache(): void {
+  modelCache = null;
+}
+
+/**
  * Get the admin-selected model for a platform.
  * Falls back to getDefaultModel() if no admin selection exists.
  * Results are cached for 1 minute to avoid DB hits on every query.

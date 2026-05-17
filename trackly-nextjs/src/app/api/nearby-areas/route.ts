@@ -1,5 +1,6 @@
 import { verifyRequestAuth } from '@/lib/auth';
-import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { queryAI } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 
 const PLATFORM_KEY_MAP: Record<string, string> = {
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
     const attemptTimeout = Math.min(PER_ATTEMPT_TIMEOUT_MS, remainingBudget);
 
     try {
-      const model = getDefaultModel(plat);
+      const model = await getAdminModel(plat);
       const result = await withTimeout(
         queryAI(plat, prompt, key, model, undefined, {
           systemPrompt: 'You are a geography assistant. Return ONLY valid JSON arrays with no extra text, no markdown, no explanation.',

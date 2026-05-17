@@ -184,7 +184,7 @@ export default function AdminModelsPage() {
       <div style={{ marginTop: 24, padding: 16, background: 'var(--bg2)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
         <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
           Model selection applies globally to all users. When a user runs queries, the platform will use the model you select here.
-          Changes take effect within 1 minute.
+          Changes take effect immediately.
         </p>
       </div>
     </div>

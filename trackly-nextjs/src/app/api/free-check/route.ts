@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { queryAI } from '@/lib/ai-platforms';
+import { getAdminModel } from '@/lib/site-config';
 import { logError, serverError } from '@/lib/api-error';
 
 const PLATFORMS_CONFIG = [
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     const query = `What are the best ${industry.trim()} companies or brands you would recommend?`;
-    const model = getDefaultModel(platform);
+    const model = await getAdminModel(platform);
 
     const result = await queryAI(platform, query, apiKey, model);
 

@@ -1,6 +1,7 @@
 import { pool, auditLog } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-auth';
 import { PLATFORM_MODELS, getDefaultModel } from '@/lib/ai-platforms';
+import { clearModelCache } from '@/lib/site-config';
 import { logError, serverError } from '@/lib/api-error';
 
 /**
@@ -82,6 +83,8 @@ export async function PUT(request: Request) {
        ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
       [JSON.stringify(updatedModels)]
     );
+
+    clearModelCache();
 
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     auditLog(admin.id, 'admin_update_models', 'site_config', 'platform_models', models, ip);
