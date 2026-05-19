@@ -26,6 +26,13 @@ const CHECKER_MODELS = {
   claude: 'claude-haiku-4-5-20251001',
 };
 
+// Output ceiling for fact-check calls. Prompt asks for a JSON array of
+// per-fact findings; worst-case ~30 facts × ~30 tokens each ≈ 900 tokens.
+// 1024 covers the realistic ceiling with headroom while cutting the
+// previous 4096 ceiling by 75%. parseCheckerResponse already handles
+// truncation gracefully (strips trailing partial object).
+const FACT_CHECKER_MAX_TOKENS = Number(process.env.FACT_CHECKER_MAX_TOKENS) || 1024;
+
 interface CanonicalFact {
   key: string;
   value: string;
@@ -195,7 +202,7 @@ async function callChecker(
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${checker.key}` },
           body: JSON.stringify({
             model: checker.model,
-            max_tokens: 4096,
+            max_tokens: FACT_CHECKER_MAX_TOKENS,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }],
           }),
@@ -224,7 +231,7 @@ async function callChecker(
           },
           body: JSON.stringify({
             model: checker.model,
-            max_tokens: 4096,
+            max_tokens: FACT_CHECKER_MAX_TOKENS,
             temperature: 0,
             messages: [{ role: 'user', content: prompt }],
           }),
@@ -250,7 +257,7 @@ async function callChecker(
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': checker.key },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 4096, temperature: 0 },
+            generationConfig: { maxOutputTokens: FACT_CHECKER_MAX_TOKENS, temperature: 0 },
           }),
           signal: controller.signal,
         });

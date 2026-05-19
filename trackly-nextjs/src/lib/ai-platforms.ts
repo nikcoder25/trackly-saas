@@ -1613,6 +1613,7 @@ export async function queryAI(
         interface OpenAiPayload {
           model: string;
           max_tokens: number;
+          temperature: number;
           messages: Array<{ role: string; content: string }>;
           web_search_options?: {
             user_location?: {
@@ -1621,8 +1622,12 @@ export async function queryAI(
             };
           };
         }
+        // temperature=0: brand-tracking is a measurement workload, not a
+        // creative one. Determinism raises cross-day response-cache hit
+        // rate, shortens completions (lower output-token bill), and
+        // reduces variance in mention/sentiment parsing downstream.
         const payload: OpenAiPayload = {
-          model: useModel, max_tokens: maxTok,
+          model: useModel, max_tokens: maxTok, temperature: 0,
           messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
         };
         if (isSearch && shouldAttachChatGPTWebSearch(query)) {
