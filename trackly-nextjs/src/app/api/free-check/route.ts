@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { logError, serverError } from '@/lib/api-error';
 
 const PLATFORMS_CONFIG = [
@@ -48,7 +49,18 @@ export async function POST(req: NextRequest) {
     const query = `What are the best ${industry.trim()} companies or brands you would recommend?`;
     const model = getDefaultModel(platform);
 
-    const result = await queryAI(platform, query, apiKey, model);
+    // Public viral endpoint — popular industries get queried by many
+    // anonymous users. Wire it through the cross-tenant response cache
+    // so the second visitor for the same industry doesn't pay again.
+    const { data: result } = await withCacheAndRetry(
+      {
+        prompt: query,
+        platform,
+        model,
+        searchEnabled: isSearchEnabled(platform, model),
+      },
+      () => queryAI(platform!, query, apiKey!, model),
+    );
 
     const mentioned = result.text.toLowerCase().includes(brandName.trim().toLowerCase());
     const snippet = result.text.slice(0, 300);

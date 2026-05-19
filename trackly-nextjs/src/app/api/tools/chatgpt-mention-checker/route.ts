@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -33,7 +34,18 @@ export async function POST(req: NextRequest) {
     }
 
     const model = getDefaultModel('ChatGPT');
-    const result = await queryAI('ChatGPT', query, apiKey, model);
+    // Public tool — same brand+query pair can be requested by many
+    // anonymous users. The cross-tenant response cache dedupes them so
+    // we only pay once per (normalized query, model) combination.
+    const { data: result } = await withCacheAndRetry(
+      {
+        prompt: query,
+        platform: 'ChatGPT',
+        model,
+        searchEnabled: isSearchEnabled('ChatGPT', model),
+      },
+      () => queryAI('ChatGPT', query, apiKey!, model),
+    );
 
     const text = result.text || '';
     const lower = text.toLowerCase();

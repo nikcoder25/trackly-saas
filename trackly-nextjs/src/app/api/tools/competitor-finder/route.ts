@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -73,7 +74,18 @@ export async function POST(req: NextRequest) {
     const prompt = `List the top 10 ${industry}${regionClause} companies you would recommend. For each, give the brand name and a one-line description. Reply as a numbered list. Format: "1. Brand Name - description".`;
 
     const model = getDefaultModel(platform);
-    const result = await queryAI(platform, prompt, apiKey, model);
+    // Public tool — (industry, region) tuples have heavy reuse across
+    // anonymous visitors. Cache the response cross-tenant so popular
+    // industries pay the API exactly once per cache window.
+    const { data: result } = await withCacheAndRetry(
+      {
+        prompt,
+        platform,
+        model,
+        searchEnabled: isSearchEnabled(platform, model),
+      },
+      () => queryAI(platform, prompt, apiKey!, model),
+    );
     const text = result.text || '';
 
     const brands = parseBrands(text);

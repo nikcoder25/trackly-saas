@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit, rateLimitResponse } from '@/lib/rate-limit';
-import { queryAI, getDefaultModel, pickBestKey } from '@/lib/ai-platforms';
+import { queryAI, getDefaultModel, pickBestKey, withCacheAndRetry } from '@/lib/ai-platforms';
+import { isSearchEnabled } from '@/lib/response-cache';
 import { getServerKeys } from '@/lib/server-keys';
 import { logError, serverError } from '@/lib/api-error';
 
@@ -86,7 +87,19 @@ export async function POST(req: NextRequest) {
 
     const prompt = buildPrompt(query, brand);
     const model = getDefaultModel(platform);
-    const result = await queryAI(platform, prompt, apiKey, model);
+    // Public tool — popular (query, brand) pairs from social/SEO traffic
+    // hit this often. Cache cross-tenant so we only pay once per cache
+    // window. Note: ChatGPT search-preview models bypass the read TTL
+    // via the shorter search-mode cache lifetime.
+    const { data: result } = await withCacheAndRetry(
+      {
+        prompt,
+        platform,
+        model,
+        searchEnabled: isSearchEnabled(platform, model),
+      },
+      () => queryAI(platform, prompt, apiKey!, model),
+    );
     const text = result.text || '';
 
     const citations = extractCitations(text);
