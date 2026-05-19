@@ -1497,7 +1497,7 @@ export function resolveChatGPTModel(query: string, adminModel: string): string {
   if (!adminModel.includes('search')) return adminModel;
   if (!isNonSearchIntentQuery(query)) return adminModel;
   // Safe to route to standard model.
-  const fallback = 'gpt-5.4';
+  const fallback = 'gpt-4o';
   logger.warn('[chatgpt.ratelimit]', {
     event: 'smart_route',
     platform: 'ChatGPT',
