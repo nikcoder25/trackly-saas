@@ -112,7 +112,7 @@ describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict c
 describe('resolveChatGPTModel (definitional → non-search fallback)', () => {
   it('routes definitional queries off search-preview models', () => {
     expect(resolveChatGPTModel('What is HTTP?', 'gpt-4o-mini-search-preview'))
-      .toBe('gpt-5.4');
+      .toBe('gpt-4o');
   });
 
   it('leaves non-search admin model alone', () => {
@@ -121,9 +121,9 @@ describe('resolveChatGPTModel (definitional → non-search fallback)', () => {
 
   it('routes static-comparison queries off search-preview models', () => {
     expect(resolveChatGPTModel('Stripe alternatives', 'gpt-4o-mini-search-preview'))
-      .toBe('gpt-5.4');
+      .toBe('gpt-4o');
     expect(resolveChatGPTModel('Salesforce competitors', 'gpt-4o-mini-search-preview'))
-      .toBe('gpt-5.4');
+      .toBe('gpt-4o');
   });
 });
 
