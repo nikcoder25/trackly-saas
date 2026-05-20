@@ -23,7 +23,6 @@ const navGroups = [
       { href: '/dashboard/trends', label: 'SOV Trends', icon: '◆' },
       { href: '/dashboard/accuracy', label: 'Accuracy Monitor', icon: '◎' },
       { href: '/dashboard/citations', label: 'Citations', icon: '◇' },
-      { href: '/dashboard/results', label: 'Results', icon: '☰' },
       { href: '/dashboard/query-tracker', label: 'Query Tracker', icon: '◈' },
       { href: '/dashboard/recommendations', label: 'Recommendations', icon: '◆' },
     ],
