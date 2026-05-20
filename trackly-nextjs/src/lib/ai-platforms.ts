@@ -1610,9 +1610,15 @@ export async function queryAI(
 
       if (platform === 'ChatGPT') {
         const isSearch = useModel.includes('search');
+        // OpenAI deprecated `max_tokens` in favour of `max_completion_tokens`
+        // for the gpt-5 family (and o1/o3 reasoning models) — passing the old
+        // name is silently ignored, so output runs to the full model budget
+        // and gets billed in full. `max_completion_tokens` is also accepted
+        // by gpt-4o/gpt-4o-mini and the *-search-preview models, so we use
+        // it uniformly for every ChatGPT call.
         interface OpenAiPayload {
           model: string;
-          max_tokens: number;
+          max_completion_tokens: number;
           messages: Array<{ role: string; content: string }>;
           web_search_options?: {
             user_location?: {
@@ -1622,7 +1628,7 @@ export async function queryAI(
           };
         }
         const payload: OpenAiPayload = {
-          model: useModel, max_tokens: maxTok,
+          model: useModel, max_completion_tokens: maxTok,
           messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
         };
         if (isSearch && shouldAttachChatGPTWebSearch(query)) {
