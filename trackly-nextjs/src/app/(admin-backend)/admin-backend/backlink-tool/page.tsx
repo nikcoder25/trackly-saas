@@ -1,6 +1,28 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+
+const STORAGE_KEY = 'trackly.backlink-tool.v1';
+type PersistedState = {
+  provider: 'claude' | 'openai';
+  model: string;
+  concurrency: number;
+  moneySite: string;
+  niche: string;
+  location: string;
+  authorInfo: string;
+  linkPairs: LinkPair[];
+  distributionMode: DistributionMode;
+  count: number;
+  wordCount: string;
+  tone: string;
+  placement: string;
+  extras: string;
+  includeExternalLinks: boolean;
+  includeServiceLinks: boolean;
+  includeBlogLinks: boolean;
+  articles: Article[];
+};
 
 type LinkPair = { id: number; keyword: string; link: string; weight: number };
 type ArticleStatus = 'pending' | 'generating' | 'done' | 'error';
@@ -44,6 +66,70 @@ export default function BacklinkToolPage() {
   const shouldStopRef = useRef(false);
   const [genStatus, setGenStatus] = useState<GenStatus | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load persisted state on first mount. Runs once - the `hydrated` flag
+  // gates the save effect below so we don't overwrite saved data with
+  // initial state before the load completes.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw) as Partial<PersistedState>;
+        if (s.provider === 'claude' || s.provider === 'openai') setProvider(s.provider);
+        if (typeof s.model === 'string') setModel(s.model);
+        if (typeof s.concurrency === 'number') setConcurrency(s.concurrency);
+        if (typeof s.moneySite === 'string') setMoneySite(s.moneySite);
+        if (typeof s.niche === 'string') setNiche(s.niche);
+        if (typeof s.location === 'string') setLocation(s.location);
+        if (typeof s.authorInfo === 'string') setAuthorInfo(s.authorInfo);
+        if (Array.isArray(s.linkPairs) && s.linkPairs.length > 0) setLinkPairs(s.linkPairs);
+        if (s.distributionMode === 'rotate' || s.distributionMode === 'random' || s.distributionMode === 'weighted') {
+          setDistributionMode(s.distributionMode);
+        }
+        if (typeof s.count === 'number') setCount(s.count);
+        if (typeof s.wordCount === 'string') setWordCount(s.wordCount);
+        if (typeof s.tone === 'string') setTone(s.tone);
+        if (typeof s.placement === 'string') setPlacement(s.placement);
+        if (typeof s.extras === 'string') setExtras(s.extras);
+        if (typeof s.includeExternalLinks === 'boolean') setIncludeExternalLinks(s.includeExternalLinks);
+        if (typeof s.includeServiceLinks === 'boolean') setIncludeServiceLinks(s.includeServiceLinks);
+        if (typeof s.includeBlogLinks === 'boolean') setIncludeBlogLinks(s.includeBlogLinks);
+        if (Array.isArray(s.articles)) {
+          // Rehydrate any in-flight articles as errored so the UI doesn't
+          // look stuck in 'generating' forever after a reload.
+          const fixed = s.articles.map((a) =>
+            a.status === 'generating' || a.status === 'pending'
+              ? { ...a, status: 'error' as ArticleStatus, error: a.error || 'Interrupted (page reloaded)' }
+              : a,
+          );
+          setArticles(fixed);
+        }
+      }
+    } catch {
+      /* corrupt storage - ignore */
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist on any relevant change. Skipped until the initial load runs.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const snapshot: PersistedState = {
+        provider, model, concurrency, moneySite, niche, location, authorInfo,
+        linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+        includeExternalLinks, includeServiceLinks, includeBlogLinks, articles,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      /* quota exceeded - silently drop; user can clear manually */
+    }
+  }, [
+    hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
+    linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+    includeExternalLinks, includeServiceLinks, includeBlogLinks, articles,
+  ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
     setProvider(p);
@@ -501,6 +587,48 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setTimeout(() => setGenStatus(null), 2000);
   }
 
+  async function copyAllArticles() {
+    const done = articles.filter((a) => a.status === 'done');
+    if (done.length === 0) {
+      setGenStatus({ msg: 'No completed articles to copy', type: 'warn' });
+      return;
+    }
+    const html = done
+      .map(
+        (a) =>
+          `<!-- Article #${a.index + 1}: ${a.title} | Keyword: ${a.pair?.keyword || ''} | Link: ${a.pair?.link || ''} -->\n${a.content}`,
+      )
+      .join('\n\n<hr />\n\n');
+    const plain = done
+      .map((a) => {
+        const body = a.content.replace(/<[^>]+>/g, '').replace(/\n\n+/g, '\n\n').trim();
+        return `=== Article #${a.index + 1}: ${a.title} ===\nKeyword: ${a.pair?.keyword || ''}\nLink: ${a.pair?.link || ''}\n\n${body}`;
+      })
+      .join('\n\n----------------------------------------\n\n');
+    try {
+      const w = window as unknown as { ClipboardItem?: typeof ClipboardItem };
+      if (navigator.clipboard && w.ClipboardItem) {
+        await navigator.clipboard.write([
+          new w.ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([plain], { type: 'text/plain' }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(html);
+      }
+      setGenStatus({ msg: `✓ Copied all ${done.length} articles to clipboard`, type: 'success' });
+    } catch {
+      try {
+        await navigator.clipboard.writeText(html);
+        setGenStatus({ msg: `✓ Copied all ${done.length} articles (HTML source)`, type: 'success' });
+      } catch {
+        setGenStatus({ msg: 'Copy failed - browser blocked clipboard access', type: 'error' });
+      }
+    }
+    setTimeout(() => setGenStatus(null), 2500);
+  }
+
   function slugify(s: string): string {
     return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
   }
@@ -529,26 +657,19 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       setGenStatus({ msg: 'No articles to download yet', type: 'warn' });
       return;
     }
-    type JSZipCtor = new () => {
-      file: (name: string, content: string) => void;
-      generateAsync: (opts: { type: 'blob' }) => Promise<Blob>;
-    };
-    const win = window as unknown as { JSZip?: JSZipCtor };
-    if (!win.JSZip) {
-      await new Promise<void>((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error('Failed to load JSZip'));
-        document.head.appendChild(s);
-      });
-    }
-    const JSZip = win.JSZip;
-    if (!JSZip) {
+    let zip: import('jszip');
+    try {
+      const mod = await import('jszip');
+      // jszip uses `export = JSZip` (CommonJS), so the runtime module
+      // is either the constructor itself or wrapped in `.default`
+      // depending on the bundler's interop. Try both.
+      const Ctor = (mod as unknown as { default?: new () => import('jszip') }).default
+        || (mod as unknown as new () => import('jszip'));
+      zip = new Ctor();
+    } catch {
       setGenStatus({ msg: 'Failed to load ZIP library', type: 'error' });
       return;
     }
-    const zip = new JSZip();
     const byKw: Record<string, Article[]> = {};
     done.forEach((a) => {
       const k = a.pair ? slugify(a.pair.keyword) : 'general';
@@ -857,6 +978,9 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         <div style={styles.card}>
           <div style={styles.cardTitle}>Generated Articles</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 15, padding: 12, background: 'var(--bg)', borderRadius: 8 }}>
+            <button onClick={copyAllArticles} style={styles.btn} disabled={totalDone === 0}>
+              Copy {totalDone} {totalDone === 1 ? 'Article' : 'Articles'}
+            </button>
             <button onClick={downloadAllZip} style={styles.btnSuccess}>Download All (ZIP)</button>
             <button onClick={exportCsv} style={styles.btnSmall}>Export CSV</button>
             <button onClick={clearResults} style={styles.btnDanger}>Clear All</button>
