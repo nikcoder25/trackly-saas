@@ -76,6 +76,7 @@ export default function BacklinkToolPage() {
   const shouldStopRef = useRef(false);
   const [genStatus, setGenStatus] = useState<GenStatus | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [hydrated, setHydrated] = useState(false);
 
   // Load persisted state on first mount. Runs once - the `hydrated` flag
@@ -581,6 +582,50 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setExpanded(next);
   }
 
+  function toggleSelect(idx: number) {
+    const next = new Set(selected);
+    if (next.has(idx)) next.delete(idx);
+    else next.add(idx);
+    setSelected(next);
+  }
+
+  function selectAll() {
+    setSelected(new Set(articles.map((a) => a.index)));
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
+  function deleteArticles(indices: number[]) {
+    if (indices.length === 0) return;
+    const toRemove = new Set(indices);
+    setArticles((prev) => prev.filter((a) => !toRemove.has(a.index)));
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      indices.forEach((i) => next.delete(i));
+      return next;
+    });
+    setSelected((prev) => {
+      const next = new Set(prev);
+      indices.forEach((i) => next.delete(i));
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} selected article${selected.size > 1 ? 's' : ''}?`)) return;
+    deleteArticles(Array.from(selected));
+    setGenStatus({ msg: `Deleted ${selected.size} article${selected.size > 1 ? 's' : ''}`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 1800);
+  }
+
+  function deleteOne(idx: number) {
+    if (!confirm('Delete this article?')) return;
+    deleteArticles([idx]);
+  }
+
   async function copyArticle(idx: number) {
     const a = articles.find((x) => x.index === idx);
     if (!a) return;
@@ -1042,12 +1087,40 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <button onClick={exportCsv} style={styles.btnSmall}>Export CSV</button>
             <button onClick={clearResults} style={styles.btnDanger}>Clear All</button>
           </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+              {selected.size} of {articles.length} selected
+            </span>
+            <div style={{ flex: 1 }} />
+            <button onClick={selectAll} style={styles.btnSmall} disabled={selected.size === articles.length}>
+              Select All
+            </button>
+            <button onClick={clearSelection} style={styles.btnSmall} disabled={selected.size === 0}>
+              Deselect
+            </button>
+            <button
+              onClick={deleteSelected}
+              style={{ ...styles.btnDanger, opacity: selected.size === 0 ? 0.5 : 1, cursor: selected.size === 0 ? 'not-allowed' : 'pointer' }}
+              disabled={selected.size === 0}
+            >
+              Delete Selected ({selected.size})
+            </button>
+          </div>
           {articles.map((a) => (
-            <div key={a.index} style={styles.articleCard}>
+            <div key={a.index} style={{ ...styles.articleCard, ...(selected.has(a.index) ? { borderColor: 'var(--primary)', boxShadow: '0 0 0 1px var(--primary)' } : {}) }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
-                <div style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 600, flex: 1, minWidth: 200 }}>
-                  #{a.index + 1}: {a.title}
-                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 200 }}>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(a.index)}
+                    onChange={() => toggleSelect(a.index)}
+                    style={styles.checkbox}
+                    aria-label={`Select article ${a.index + 1}`}
+                  />
+                  <span style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 600 }}>
+                    #{a.index + 1}: {a.title}
+                  </span>
+                </label>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   {a.pair && (
                     <span style={{ ...styles.badge, background: 'rgba(99,102,241,0.18)', color: 'var(--primary)' }}>
@@ -1071,16 +1144,25 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
                 </div>
               )}
               {a.error && <div style={{ color: 'var(--red)', fontSize: '0.8rem', marginBottom: 8 }}>{a.error}</div>}
-              {a.status === 'done' && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button onClick={() => toggleExpand(a.index)} style={styles.btnSmall}>
-                    {expanded.has(a.index) ? 'Hide' : 'View'}
-                  </button>
-                  <button onClick={() => copyArticle(a.index)} style={styles.btnSmall}>Copy (Rich)</button>
-                  <button onClick={() => copyHtmlSource(a.index)} style={styles.btnSmall}>Copy HTML</button>
-                  <button onClick={() => downloadArticle(a.index)} style={styles.btnSmall}>Download</button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {a.status === 'done' && (
+                  <>
+                    <button onClick={() => toggleExpand(a.index)} style={styles.btnSmall}>
+                      {expanded.has(a.index) ? 'Hide' : 'View'}
+                    </button>
+                    <button onClick={() => copyArticle(a.index)} style={styles.btnSmall}>Copy (Rich)</button>
+                    <button onClick={() => copyHtmlSource(a.index)} style={styles.btnSmall}>Copy HTML</button>
+                    <button onClick={() => downloadArticle(a.index)} style={styles.btnSmall}>Download</button>
+                  </>
+                )}
+                <button
+                  onClick={() => deleteOne(a.index)}
+                  disabled={a.status === 'generating'}
+                  style={{ ...styles.btnSmallDanger, opacity: a.status === 'generating' ? 0.5 : 1, cursor: a.status === 'generating' ? 'not-allowed' : 'pointer' }}
+                >
+                  Delete
+                </button>
+              </div>
               {expanded.has(a.index) && a.content && (
                 <div style={styles.articleContent} dangerouslySetInnerHTML={{ __html: a.content }} />
               )}
@@ -1135,6 +1217,15 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--bg)',
     color: 'var(--text)',
     border: '1px solid var(--border)',
+    padding: '6px 12px',
+    borderRadius: 6,
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+  },
+  btnSmallDanger: {
+    background: 'transparent',
+    color: 'var(--red)',
+    border: '1px solid var(--red)',
     padding: '6px 12px',
     borderRadius: 6,
     fontSize: '0.8rem',
