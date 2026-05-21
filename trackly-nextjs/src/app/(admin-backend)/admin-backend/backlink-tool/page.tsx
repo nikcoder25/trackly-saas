@@ -199,8 +199,83 @@ export default function BacklinkToolPage() {
           { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
         ];
 
+  const [csvInput, setCsvInput] = useState('');
+  const [csvOpen, setCsvOpen] = useState(false);
+  const [csvMode, setCsvMode] = useState<'append' | 'replace'>('append');
+
   function addLinkPair() {
     setLinkPairs([...linkPairs, { id: Date.now() + Math.random(), keyword: '', link: '', weight: 1 }]);
+  }
+
+  function parseCsvLine(line: string): string[] {
+    // Minimal CSV parser supporting quoted fields and either comma or
+    // tab as the delimiter (so Excel/Sheets paste works either way).
+    const delim = line.includes('\t') && !line.includes(',') ? '\t' : ',';
+    const out: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQuotes = false;
+        else cur += ch;
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === delim) {
+        out.push(cur.trim());
+        cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  function importCsv() {
+    const text = csvInput.trim();
+    if (!text) {
+      setGenStatus({ msg: 'Paste some CSV data first', type: 'error' });
+      return;
+    }
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const parsed: LinkPair[] = [];
+    let skippedHeader = false;
+    for (const line of lines) {
+      const cols = parseCsvLine(line);
+      const keyword = cols[0] || '';
+      const link = cols[1] || '';
+      const weightRaw = cols[2];
+      // Heuristic: first row looks like a header if its second column
+      // doesn't start with http(s) - skip it.
+      if (!skippedHeader && parsed.length === 0 && link && !/^https?:\/\//i.test(link)) {
+        skippedHeader = true;
+        continue;
+      }
+      if (!keyword || !link) continue;
+      const weight = weightRaw ? parseFloat(weightRaw) || 1 : 1;
+      parsed.push({
+        id: Date.now() + Math.random(),
+        keyword,
+        link,
+        weight,
+      });
+    }
+    if (parsed.length === 0) {
+      setGenStatus({ msg: 'No valid keyword/URL rows found. Expected: keyword,https://url[,weight]', type: 'error' });
+      return;
+    }
+    if (csvMode === 'replace') {
+      setLinkPairs(parsed);
+    } else {
+      const existing = linkPairs.filter((p) => p.keyword.trim() || p.link.trim());
+      setLinkPairs(existing.length === 0 ? parsed : [...existing, ...parsed]);
+    }
+    setCsvInput('');
+    setCsvOpen(false);
+    setGenStatus({ msg: `✓ Imported ${parsed.length} link pair${parsed.length === 1 ? '' : 's'}`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 2000);
   }
   function removeLinkPair(id: number) {
     if (linkPairs.length === 1) {
@@ -753,6 +828,12 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
   }
 
+  function getBaseFilename(): string {
+    const today = new Date().toISOString().slice(0, 10);
+    const nicheSlug = slugify(niche.trim()) || slugify(moneySite.replace(/^https?:\/\//, '').trim()) || 'backlink-articles';
+    return `${nicheSlug}-${today}`;
+  }
+
   function downloadBlob(content: string, filename: string, type: string) {
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
@@ -809,7 +890,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `articles-${Date.now()}.zip`;
+    link.download = `${getBaseFilename()}.zip`;
     link.click();
     URL.revokeObjectURL(url);
     setGenStatus({ msg: `✓ Downloaded ${done.length} articles as ZIP`, type: 'success' });
@@ -824,7 +905,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       rows.push([a.index + 1, a.title, a.pair?.keyword || '', a.pair?.link || '', wc, a.content]);
     });
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    downloadBlob(csv, `articles-${Date.now()}.csv`, 'text/csv');
+    downloadBlob(csv, `${getBaseFilename()}.csv`, 'text/csv');
   }
 
   function clearResults() {
@@ -1111,7 +1192,53 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           </div>
         ))}
 
-        <button onClick={addLinkPair} style={styles.btnAdd}>+ Add Another Pair</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <button onClick={addLinkPair} style={styles.btnAdd}>+ Add Another Pair</button>
+          <button onClick={() => setCsvOpen((v) => !v)} style={styles.btnAdd}>
+            {csvOpen ? '✕ Cancel Import' : '⬆ Import CSV'}
+          </button>
+        </div>
+
+        {csvOpen && (
+          <div style={{ marginTop: 12, padding: 14, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600, marginBottom: 6 }}>
+              Paste CSV or TSV
+            </div>
+            <div style={{ ...styles.help, marginBottom: 8 }}>
+              One row per pair. Format: <code>keyword,https://url</code> or <code>keyword,https://url,weight</code>. Tab-separated also works (paste straight from Google Sheets / Excel). Header row is auto-detected and skipped.
+            </div>
+            <textarea
+              value={csvInput}
+              onChange={(e) => setCsvInput(e.target.value)}
+              placeholder={`hvac repair near me, https://example.com/hvac-repair\nfurnace replacement, https://example.com/furnace, 2`}
+              style={{ ...styles.input, minHeight: 120, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '0.82rem' }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--muted)' }}>
+                <input
+                  type="radio"
+                  name="csv-mode"
+                  value="append"
+                  checked={csvMode === 'append'}
+                  onChange={() => setCsvMode('append')}
+                />
+                Append to existing
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--muted)' }}>
+                <input
+                  type="radio"
+                  name="csv-mode"
+                  value="replace"
+                  checked={csvMode === 'replace'}
+                  onChange={() => setCsvMode('replace')}
+                />
+                Replace all existing
+              </label>
+              <div style={{ flex: 1 }} />
+              <button onClick={importCsv} style={styles.btn}>Import</button>
+            </div>
+          </div>
+        )}
 
         <div style={styles.distInfo}>{getDistributionPreview()}</div>
       </div>
