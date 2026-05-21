@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-const STORAGE_KEY = 'trackly.backlink-tool.v1';
+const STORAGE_KEY = 'trackly.backlink-tool.v2';
+const MAX_LINK_COUNT = 5;
 type PersistedState = {
   provider: 'claude' | 'openai';
   model: string;
@@ -18,11 +19,18 @@ type PersistedState = {
   tone: string;
   placement: string;
   extras: string;
-  includeExternalLinks: boolean;
-  includeServiceLinks: boolean;
-  includeBlogLinks: boolean;
+  externalLinkCount: number;
+  serviceLinkCount: number;
+  blogLinkCount: number;
+  includeTable: boolean;
+  includeImages: boolean;
   articles: Article[];
 };
+
+function clampCount(n: unknown): number | null {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(MAX_LINK_COUNT, Math.floor(n)));
+}
 
 type LinkPair = { id: number; keyword: string; link: string; weight: number };
 type ArticleStatus = 'pending' | 'generating' | 'done' | 'error';
@@ -57,9 +65,11 @@ export default function BacklinkToolPage() {
   const [tone, setTone] = useState('conversational');
   const [placement, setPlacement] = useState('natural');
   const [extras, setExtras] = useState('');
-  const [includeExternalLinks, setIncludeExternalLinks] = useState(true);
-  const [includeServiceLinks, setIncludeServiceLinks] = useState(true);
-  const [includeBlogLinks, setIncludeBlogLinks] = useState(true);
+  const [externalLinkCount, setExternalLinkCount] = useState(3);
+  const [serviceLinkCount, setServiceLinkCount] = useState(2);
+  const [blogLinkCount, setBlogLinkCount] = useState(2);
+  const [includeTable, setIncludeTable] = useState(false);
+  const [includeImages, setIncludeImages] = useState(false);
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -92,9 +102,14 @@ export default function BacklinkToolPage() {
         if (typeof s.tone === 'string') setTone(s.tone);
         if (typeof s.placement === 'string') setPlacement(s.placement);
         if (typeof s.extras === 'string') setExtras(s.extras);
-        if (typeof s.includeExternalLinks === 'boolean') setIncludeExternalLinks(s.includeExternalLinks);
-        if (typeof s.includeServiceLinks === 'boolean') setIncludeServiceLinks(s.includeServiceLinks);
-        if (typeof s.includeBlogLinks === 'boolean') setIncludeBlogLinks(s.includeBlogLinks);
+        const ec = clampCount(s.externalLinkCount);
+        if (ec !== null) setExternalLinkCount(ec);
+        const sc = clampCount(s.serviceLinkCount);
+        if (sc !== null) setServiceLinkCount(sc);
+        const bc = clampCount(s.blogLinkCount);
+        if (bc !== null) setBlogLinkCount(bc);
+        if (typeof s.includeTable === 'boolean') setIncludeTable(s.includeTable);
+        if (typeof s.includeImages === 'boolean') setIncludeImages(s.includeImages);
         if (Array.isArray(s.articles)) {
           // Rehydrate any in-flight articles as errored so the UI doesn't
           // look stuck in 'generating' forever after a reload.
@@ -119,7 +134,8 @@ export default function BacklinkToolPage() {
       const snapshot: PersistedState = {
         provider, model, concurrency, moneySite, niche, location, authorInfo,
         linkPairs, distributionMode, count, wordCount, tone, placement, extras,
-        includeExternalLinks, includeServiceLinks, includeBlogLinks, articles,
+        externalLinkCount, serviceLinkCount, blogLinkCount,
+        includeTable, includeImages, articles,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     } catch {
@@ -128,7 +144,8 @@ export default function BacklinkToolPage() {
   }, [
     hydrated, provider, model, concurrency, moneySite, niche, location, authorInfo,
     linkPairs, distributionMode, count, wordCount, tone, placement, extras,
-    includeExternalLinks, includeServiceLinks, includeBlogLinks, articles,
+    externalLinkCount, serviceLinkCount, blogLinkCount,
+    includeTable, includeImages, articles,
   ]);
 
   function handleProviderChange(p: 'claude' | 'openai') {
@@ -204,9 +221,11 @@ export default function BacklinkToolPage() {
     tone: string;
     placement: string;
     extras: string;
-    includeExternalLinks: boolean;
-    includeServiceLinks: boolean;
-    includeBlogLinks: boolean;
+    externalLinkCount: number;
+    serviceLinkCount: number;
+    blogLinkCount: number;
+    includeTable: boolean;
+    includeImages: boolean;
   };
 
   function buildPrompt(params: PromptParams, index: number, pair: LinkPair): string {
@@ -236,36 +255,37 @@ export default function BacklinkToolPage() {
     const linkingRules: string[] = [
       `- ONE money-site backlink: <a href="${pair.link}">${pair.keyword}</a> placed naturally (no anchor variations, exact match only).`,
     ];
-    if (params.includeServiceLinks) {
+    if (params.serviceLinkCount > 0) {
       linkingRules.push(
-        `- 2 internal links to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from rule above.`,
+        `- EXACTLY ${params.serviceLinkCount} internal link${params.serviceLinkCount > 1 ? 's' : ''} to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path across links (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from the rule above.`,
       );
     }
-    if (params.includeBlogLinks) {
+    if (params.blogLinkCount > 0) {
       linkingRules.push(
-        `- 1-2 internal links to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
+        `- EXACTLY ${params.blogLinkCount} internal link${params.blogLinkCount > 1 ? 's' : ''} to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
       );
     }
-    if (params.includeExternalLinks) {
+    if (params.externalLinkCount > 0) {
       linkingRules.push(
-        '- 2-3 EXTERNAL AUTHORITY links to .gov, .edu, Wikipedia, EPA, DOE, industry associations, or major news outlets. Natural anchor text.',
+        `- EXACTLY ${params.externalLinkCount} EXTERNAL AUTHORITY link${params.externalLinkCount > 1 ? 's' : ''} to .gov, .edu, Wikipedia, EPA, DOE, industry associations, or major news outlets. Natural anchor text.`,
       );
     } else {
       linkingRules.push('- DO NOT include any external links to other websites or domains. Only the single money-site backlink above is permitted.');
     }
-    // Recompute total based on what's enabled so the model doesn't try to
-    // hit the original 6-8 figure when sections are turned off.
-    const minLinks =
-      1 +
-      (params.includeServiceLinks ? 2 : 0) +
-      (params.includeBlogLinks ? 1 : 0) +
-      (params.includeExternalLinks ? 2 : 0);
-    const maxLinks =
-      1 +
-      (params.includeServiceLinks ? 2 : 0) +
-      (params.includeBlogLinks ? 2 : 0) +
-      (params.includeExternalLinks ? 3 : 0);
-    linkingRules.push(`- Total link count: ~${minLinks}-${maxLinks} links per article.`);
+    const totalLinks = 1 + params.serviceLinkCount + params.blogLinkCount + params.externalLinkCount;
+    linkingRules.push(`- Total link count target: EXACTLY ${totalLinks} link${totalLinks > 1 ? 's' : ''} per article (no more, no fewer).`);
+
+    const mediaRules: string[] = [];
+    if (params.includeTable) {
+      mediaRules.push(
+        'Include ONE relevant HTML <table> somewhere in the middle of the article. Use it for a comparison, pricing breakdown, pros/cons, statistics summary, or specs - whichever fits the angle. Use <thead> with <th> for the header row and <tbody>/<tr>/<td> for rows. Aim for 3-5 rows and 2-4 columns. The table must add real informational value, not just restate the prose.',
+      );
+    }
+    if (params.includeImages) {
+      mediaRules.push(
+        'Include 1-2 <figure> blocks placed in different sections of the article. Each <figure> must contain an <img> with src="https://picsum.photos/seed/<unique-slug>/1200/630" (replace <unique-slug> with a short keyword-relevant slug, kebab-case, different for each image), descriptive alt text matching the article content, and a <figcaption> with a one-line caption. Example: <figure><img src="https://picsum.photos/seed/hvac-repair-tools/1200/630" alt="Technician inspecting an HVAC unit" /><figcaption>Routine inspection helps catch problems early.</figcaption></figure>',
+      );
+    }
 
     return `You are an expert SEO content writer creating a GEO-optimized article for off-page backlink purposes. The article must follow strict GEO (Generative Engine Optimization) and E-E-A-T standards to maximize AI citations and search visibility.
 
@@ -336,8 +356,15 @@ Use ONLY these tags:
 - <strong> for bold emphasis
 - <em> for italic (used for "Last Updated" line)
 - <a href="..."> for links
+- <table>, <thead>, <tbody>, <tr>, <th>, <td> for tabular data (ONLY if instructed in the MEDIA RULES section below)
+- <figure>, <img>, <figcaption> for images (ONLY if instructed in the MEDIA RULES section below)
 - NEVER use # ## ### markdown. NEVER use - or * for bullets. Real HTML tags only.
-
+${mediaRules.length > 0 ? `
+================================================================
+MEDIA RULES
+================================================================
+${mediaRules.map((r) => '- ' + r).join('\n')}
+` : ''}
 ================================================================
 WRITING RULES
 ================================================================
@@ -430,7 +457,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
 
     const params: PromptParams = {
       moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
-      includeExternalLinks, includeServiceLinks, includeBlogLinks,
+      externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
     };
 
     const assigned: LinkPair[] = [];
@@ -500,7 +527,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
 
     const params: PromptParams = {
       moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
-      includeExternalLinks, includeServiceLinks, includeBlogLinks,
+      externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
     };
     const queue = [...failedIdx];
 
@@ -721,7 +748,7 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
   return (
     <div style={{ maxWidth: 1300, margin: '0 auto', color: 'var(--text)' }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={styles.title}>Bulk Backlink Article Generator</h1>
+        <h1 style={styles.title}>Backlink Content Generate</h1>
         <p style={{ color: 'var(--muted)', fontSize: '0.95rem' }}>
           Admin tool — GEO-optimized articles for off-page SEO. API keys stay server-side.
         </p>
@@ -889,43 +916,73 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <textarea value={extras} onChange={(e) => setExtras(e.target.value)} placeholder="e.g. Focus on Detroit area, mention luxury chauffeur service..." style={{ ...styles.input, minHeight: 60 }} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={styles.label}>Link Options</label>
-            <div style={styles.help}>The money-site backlink (your target keyword) is always included. These toggles control the additional links.</div>
+            <label style={styles.label}>Link Counts</label>
+            <div style={styles.help}>The money-site backlink (your target keyword) is always included. Set any count to 0 to skip that type entirely.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 8 }}>
+              <div>
+                <label style={styles.label}>Outbound Authority Links</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={MAX_LINK_COUNT}
+                  value={externalLinkCount}
+                  onChange={(e) => setExternalLinkCount(clampCount(parseInt(e.target.value, 10)) ?? 0)}
+                  style={styles.input}
+                />
+                <div style={styles.help}>0-{MAX_LINK_COUNT}. Links to .gov, .edu, Wikipedia, etc.</div>
+              </div>
+              <div>
+                <label style={styles.label}>Internal Service Links</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={MAX_LINK_COUNT}
+                  value={serviceLinkCount}
+                  onChange={(e) => setServiceLinkCount(clampCount(parseInt(e.target.value, 10)) ?? 0)}
+                  style={styles.input}
+                />
+                <div style={styles.help}>0-{MAX_LINK_COUNT}. /services, /pricing, /about etc.</div>
+              </div>
+              <div>
+                <label style={styles.label}>Internal Blog Links</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={MAX_LINK_COUNT}
+                  value={blogLinkCount}
+                  onChange={(e) => setBlogLinkCount(clampCount(parseInt(e.target.value, 10)) ?? 0)}
+                  style={styles.input}
+                />
+                <div style={styles.help}>0-{MAX_LINK_COUNT}. /blog/... posts on the money site.</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={styles.label}>Rich Content</label>
+            <div style={styles.help}>Optional extras to include in the article body.</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
               <label style={styles.toggleRow}>
                 <input
                   type="checkbox"
-                  checked={includeExternalLinks}
-                  onChange={(e) => setIncludeExternalLinks(e.target.checked)}
+                  checked={includeTable}
+                  onChange={(e) => setIncludeTable(e.target.checked)}
                   style={styles.checkbox}
                 />
                 <span>
-                  <strong>External Authority Outbound Links</strong>
-                  <span style={styles.toggleHint}> — 2-3 links to .gov, .edu, Wikipedia, EPA, DOE, etc.</span>
+                  <strong>Include a Table</strong>
+                  <span style={styles.toggleHint}> — model adds one comparison/stats/pricing table where it fits.</span>
                 </span>
               </label>
               <label style={styles.toggleRow}>
                 <input
                   type="checkbox"
-                  checked={includeServiceLinks}
-                  onChange={(e) => setIncludeServiceLinks(e.target.checked)}
+                  checked={includeImages}
+                  onChange={(e) => setIncludeImages(e.target.checked)}
                   style={styles.checkbox}
                 />
                 <span>
-                  <strong>Internal Service Interlinks</strong>
-                  <span style={styles.toggleHint}> — 2 links to /services, /pricing, /about on the money site.</span>
-                </span>
-              </label>
-              <label style={styles.toggleRow}>
-                <input
-                  type="checkbox"
-                  checked={includeBlogLinks}
-                  onChange={(e) => setIncludeBlogLinks(e.target.checked)}
-                  style={styles.checkbox}
-                />
-                <span>
-                  <strong>Internal Blog Interlinks</strong>
-                  <span style={styles.toggleHint}> — 1-2 links to /blog/... posts on the money site.</span>
+                  <strong>Include Placeholder Images</strong>
+                  <span style={styles.toggleHint}> — adds 1-2 &lt;figure&gt; blocks using picsum.photos placeholders. Replace src with your own images later.</span>
                 </span>
               </label>
             </div>
