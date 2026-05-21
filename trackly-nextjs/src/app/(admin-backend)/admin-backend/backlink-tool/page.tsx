@@ -35,6 +35,9 @@ export default function BacklinkToolPage() {
   const [tone, setTone] = useState('conversational');
   const [placement, setPlacement] = useState('natural');
   const [extras, setExtras] = useState('');
+  const [includeExternalLinks, setIncludeExternalLinks] = useState(true);
+  const [includeServiceLinks, setIncludeServiceLinks] = useState(true);
+  const [includeBlogLinks, setIncludeBlogLinks] = useState(true);
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -115,6 +118,9 @@ export default function BacklinkToolPage() {
     tone: string;
     placement: string;
     extras: string;
+    includeExternalLinks: boolean;
+    includeServiceLinks: boolean;
+    includeBlogLinks: boolean;
   };
 
   function buildPrompt(params: PromptParams, index: number, pair: LinkPair): string {
@@ -140,6 +146,40 @@ export default function BacklinkToolPage() {
 
     const cleanDomain = params.moneySite.replace(/\/$/, '');
     const updateDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const linkingRules: string[] = [
+      `- ONE money-site backlink: <a href="${pair.link}">${pair.keyword}</a> placed naturally (no anchor variations, exact match only).`,
+    ];
+    if (params.includeServiceLinks) {
+      linkingRules.push(
+        `- 2 internal links to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from rule above.`,
+      );
+    }
+    if (params.includeBlogLinks) {
+      linkingRules.push(
+        `- 1-2 internal links to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.`,
+      );
+    }
+    if (params.includeExternalLinks) {
+      linkingRules.push(
+        '- 2-3 EXTERNAL AUTHORITY links to .gov, .edu, Wikipedia, EPA, DOE, industry associations, or major news outlets. Natural anchor text.',
+      );
+    } else {
+      linkingRules.push('- DO NOT include any external links to other websites or domains. Only the single money-site backlink above is permitted.');
+    }
+    // Recompute total based on what's enabled so the model doesn't try to
+    // hit the original 6-8 figure when sections are turned off.
+    const minLinks =
+      1 +
+      (params.includeServiceLinks ? 2 : 0) +
+      (params.includeBlogLinks ? 1 : 0) +
+      (params.includeExternalLinks ? 2 : 0);
+    const maxLinks =
+      1 +
+      (params.includeServiceLinks ? 2 : 0) +
+      (params.includeBlogLinks ? 2 : 0) +
+      (params.includeExternalLinks ? 3 : 0);
+    linkingRules.push(`- Total link count: ~${minLinks}-${maxLinks} links per article.`);
 
     return `You are an expert SEO content writer creating a GEO-optimized article for off-page backlink purposes. The article must follow strict GEO (Generative Engine Optimization) and E-E-A-T standards to maximize AI citations and search visibility.
 
@@ -186,11 +226,7 @@ CONTENT QUALITY RULES (FOLLOW EVERY SINGLE ONE)
 - Include a "Last Updated" line in italics just below the H1 title: <p><em>Last Updated: ${updateDate}</em></p>
 
 6. LINKING STRATEGY (CRITICAL)
-- ONE money-site backlink: <a href="${pair.link}">${pair.keyword}</a> placed naturally (no anchor variations, exact match only).
-- 2 internal links to RELATED SERVICE/COMMERCIAL pages on the same money site domain. Use natural anchor text. Format: <a href="${cleanDomain}/services">related service page</a>. Vary the path (e.g., /services, /about, /pricing, /contact, /resources). DO NOT reuse the exact money-site link from rule above.
-- 1-2 internal links to RELATED BLOGS on the same money site (e.g., <a href="${cleanDomain}/blog/related-topic">descriptive anchor</a>). Use realistic blog slug paths.
-- 2-3 EXTERNAL AUTHORITY links to .gov, .edu, Wikipedia, EPA, DOE, industry associations, or major news outlets. Natural anchor text.
-- Total link count: ~6-8 links per article.
+${linkingRules.join('\n')}
 
 7. KEYWORD PLACEMENT
 - Primary keyword "${pair.keyword}" MUST appear in the H1 title (naturally, not stuffed).
@@ -306,7 +342,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       return;
     }
 
-    const params: PromptParams = { moneySite, niche, location, authorInfo, wordCount, tone, placement, extras };
+    const params: PromptParams = {
+      moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
+      includeExternalLinks, includeServiceLinks, includeBlogLinks,
+    };
 
     const assigned: LinkPair[] = [];
     if (distributionMode === 'rotate') {
@@ -373,7 +412,10 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     shouldStopRef.current = false;
     setGenStatus({ msg: 'Retrying failed articles...', type: 'loading' });
 
-    const params: PromptParams = { moneySite, niche, location, authorInfo, wordCount, tone, placement, extras };
+    const params: PromptParams = {
+      moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
+      includeExternalLinks, includeServiceLinks, includeBlogLinks,
+    };
     const queue = [...failedIdx];
 
     const updateArticle = (idx: number, changes: Partial<Article>) => {
@@ -725,6 +767,48 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <label style={styles.label}>Extra Instructions (optional)</label>
             <textarea value={extras} onChange={(e) => setExtras(e.target.value)} placeholder="e.g. Focus on Detroit area, mention luxury chauffeur service..." style={{ ...styles.input, minHeight: 60 }} />
           </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={styles.label}>Link Options</label>
+            <div style={styles.help}>The money-site backlink (your target keyword) is always included. These toggles control the additional links.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              <label style={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={includeExternalLinks}
+                  onChange={(e) => setIncludeExternalLinks(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>
+                  <strong>External Authority Outbound Links</strong>
+                  <span style={styles.toggleHint}> — 2-3 links to .gov, .edu, Wikipedia, EPA, DOE, etc.</span>
+                </span>
+              </label>
+              <label style={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={includeServiceLinks}
+                  onChange={(e) => setIncludeServiceLinks(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>
+                  <strong>Internal Service Interlinks</strong>
+                  <span style={styles.toggleHint}> — 2 links to /services, /pricing, /about on the money site.</span>
+                </span>
+              </label>
+              <label style={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={includeBlogLinks}
+                  onChange={(e) => setIncludeBlogLinks(e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <span>
+                  <strong>Internal Blog Interlinks</strong>
+                  <span style={styles.toggleHint}> — 1-2 links to /blog/... posts on the money site.</span>
+                </span>
+              </label>
+            </div>
+          </div>
         </div>
         <button onClick={startGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
           {isRunning ? 'Generating...' : 'Generate Articles'}
@@ -1007,5 +1091,28 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     fontSize: '0.7rem',
     fontWeight: 600,
+  },
+  toggleRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: '8px 12px',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    fontSize: '0.85rem',
+    color: 'var(--text)',
+    cursor: 'pointer',
+  },
+  checkbox: {
+    marginTop: 3,
+    width: 16,
+    height: 16,
+    cursor: 'pointer',
+    accentColor: 'var(--primary)',
+  },
+  toggleHint: {
+    color: 'var(--muted)',
+    fontWeight: 400,
   },
 };
