@@ -1,10 +1,23 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 const STORAGE_KEY = 'trackly.backlink-tool.v2';
+const PRESETS_KEY = 'trackly.backlink-tool.presets.v1';
 const MAX_LINK_COUNT = 5;
-type PersistedState = {
+const INTERRUPTED_ERROR = 'Interrupted (page reloaded)';
+
+// USD per 1M tokens. Numbers are list prices used only for a rough
+// pre-flight estimate; real billing comes from the provider invoice.
+const MODEL_RATES: Record<string, { input: number; output: number }> = {
+  'claude-sonnet-4-6': { input: 3.0, output: 15.0 },
+  'claude-haiku-4-5': { input: 0.8, output: 4.0 },
+  'claude-opus-4-7': { input: 15.0, output: 75.0 },
+  'gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'gpt-4o': { input: 2.5, output: 10.0 },
+  'gpt-4-turbo': { input: 10.0, output: 30.0 },
+};
+type PresetState = {
   provider: 'claude' | 'openai';
   model: string;
   concurrency: number;
@@ -24,6 +37,8 @@ type PersistedState = {
   blogLinkCount: number;
   includeTable: boolean;
   includeImages: boolean;
+};
+type PersistedState = PresetState & {
   articles: Article[];
 };
 
@@ -77,6 +92,23 @@ export default function BacklinkToolPage() {
   const [genStatus, setGenStatus] = useState<GenStatus | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'done' | 'error' | 'pending'>('all');
+  const [presets, setPresets] = useState<Record<string, PresetState>>({});
+  const [activePresetName, setActivePresetName] = useState('');
+
+  // Load presets once. Stored separately from STORAGE_KEY so the form
+  // state and the named presets evolve independently.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') setPresets(parsed);
+    } catch {
+      /* corrupt - ignore */
+    }
+  }, []);
   const [hydrated, setHydrated] = useState(false);
 
   // Load persisted state on first mount. Runs once - the `hydrated` flag
@@ -116,7 +148,7 @@ export default function BacklinkToolPage() {
           // look stuck in 'generating' forever after a reload.
           const fixed = s.articles.map((a) =>
             a.status === 'generating' || a.status === 'pending'
-              ? { ...a, status: 'error' as ArticleStatus, error: a.error || 'Interrupted (page reloaded)' }
+              ? { ...a, status: 'error' as ArticleStatus, error: a.error || INTERRUPTED_ERROR }
               : a,
           );
           setArticles(fixed);
@@ -442,6 +474,52 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     return data.content;
   }
 
+  function buildParams(): PromptParams {
+    return {
+      moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
+      externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
+    };
+  }
+
+  // Shared worker pool used by initial generation, retry, regenerate, and
+  // resume. Reads the pair for each index from a caller-supplied lookup so
+  // it works both for freshly assigned articles (startGeneration) and for
+  // already-persisted ones (retry/regenerate).
+  async function runWorkers(indices: number[], pairLookup: Map<number, LinkPair>) {
+    if (indices.length === 0) return;
+    const params = buildParams();
+    const queue = [...indices];
+
+    const updateArticle = (idx: number, changes: Partial<Article>) => {
+      setArticles((prev) => prev.map((a) => (a.index === idx ? { ...a, ...changes } : a)));
+    };
+
+    const workersList: Promise<void>[] = [];
+    for (let w = 0; w < concurrency; w++) {
+      workersList.push((async () => {
+        while (queue.length > 0 && !shouldStopRef.current) {
+          const idx = queue.shift();
+          if (idx === undefined) break;
+          const pair = pairLookup.get(idx);
+          if (!pair) continue;
+          updateArticle(idx, { status: 'generating', error: null });
+          try {
+            const prompt = buildPrompt(params, idx, pair);
+            const raw = await callGenerate(prompt);
+            const content = cleanToHtml(raw);
+            const title = extractTitle(content) || `Article ${idx + 1}`;
+            updateArticle(idx, { status: 'done', title, content, error: null });
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Unknown error';
+            updateArticle(idx, { status: 'error', error: msg });
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      })());
+    }
+    await Promise.all(workersList);
+  }
+
   async function startGeneration() {
     if (validPairs.length === 0) {
       setGenStatus({ msg: 'Add at least one keyword + link pair', type: 'error' });
@@ -456,11 +534,6 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
       return;
     }
 
-    const params: PromptParams = {
-      moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
-      externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
-    };
-
     const assigned: LinkPair[] = [];
     if (distributionMode === 'rotate') {
       for (let i = 0; i < count; i++) assigned.push(validPairs[i % validPairs.length]);
@@ -469,43 +542,18 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     }
 
     const initial: Article[] = [];
+    const lookup = new Map<number, LinkPair>();
     for (let i = 0; i < count; i++) {
       initial.push({ index: i, status: 'pending', title: `Article #${i + 1}`, content: '', error: null, pair: assigned[i] });
+      lookup.set(i, assigned[i]);
     }
     setArticles(initial);
+    setSelected(new Set());
     setIsRunning(true);
     shouldStopRef.current = false;
     setGenStatus({ msg: `Generating ${count} articles with ${concurrency} parallel workers...`, type: 'loading' });
 
-    const queue = Array.from({ length: count }, (_, i) => i);
-    const workersList: Promise<void>[] = [];
-
-    const updateArticle = (idx: number, changes: Partial<Article>) => {
-      setArticles((prev) => prev.map((a) => (a.index === idx ? { ...a, ...changes } : a)));
-    };
-
-    for (let w = 0; w < concurrency; w++) {
-      workersList.push((async () => {
-        while (queue.length > 0 && !shouldStopRef.current) {
-          const idx = queue.shift();
-          if (idx === undefined) break;
-          updateArticle(idx, { status: 'generating' });
-          try {
-            const prompt = buildPrompt(params, idx, assigned[idx]);
-            const raw = await callGenerate(prompt);
-            const content = cleanToHtml(raw);
-            const title = extractTitle(content) || `Article ${idx + 1}`;
-            updateArticle(idx, { status: 'done', title, content });
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : 'Unknown error';
-            updateArticle(idx, { status: 'error', error: msg });
-          }
-          await new Promise((r) => setTimeout(r, 200));
-        }
-      })());
-    }
-
-    await Promise.all(workersList);
+    await runWorkers(Array.from({ length: count }, (_, i) => i), lookup);
     setIsRunning(false);
 
     setArticles((prev) => {
@@ -518,56 +566,50 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     });
   }
 
-  async function retryFailed() {
-    const failedIdx = articles.filter((a) => a.status === 'error').map((a) => a.index);
-    if (failedIdx.length === 0) return;
-    setArticles((prev) => prev.map((a) => (a.status === 'error' ? { ...a, status: 'pending', error: null } : a)));
+  async function regenerateIndices(indices: number[], statusMsg: string) {
+    if (indices.length === 0) return;
+    const toRun = new Set(indices);
+    const lookup = new Map<number, LinkPair>();
+    articles.forEach((a) => {
+      if (toRun.has(a.index)) lookup.set(a.index, a.pair);
+    });
+    setArticles((prev) =>
+      prev.map((a) => (toRun.has(a.index) ? { ...a, status: 'pending', content: '', error: null } : a)),
+    );
     setIsRunning(true);
     shouldStopRef.current = false;
-    setGenStatus({ msg: 'Retrying failed articles...', type: 'loading' });
+    setGenStatus({ msg: statusMsg, type: 'loading' });
 
-    const params: PromptParams = {
-      moneySite, niche, location, authorInfo, wordCount, tone, placement, extras,
-      externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
-    };
-    const queue = [...failedIdx];
-
-    const updateArticle = (idx: number, changes: Partial<Article>) => {
-      setArticles((prev) => prev.map((a) => (a.index === idx ? { ...a, ...changes } : a)));
-    };
-
-    const workersList: Promise<void>[] = [];
-    for (let w = 0; w < concurrency; w++) {
-      workersList.push((async () => {
-        while (queue.length > 0 && !shouldStopRef.current) {
-          const idx = queue.shift();
-          if (idx === undefined) break;
-          const art = articles.find((a) => a.index === idx);
-          if (!art) continue;
-          updateArticle(idx, { status: 'generating' });
-          try {
-            const prompt = buildPrompt(params, idx, art.pair);
-            const raw = await callGenerate(prompt);
-            const content = cleanToHtml(raw);
-            const title = extractTitle(content) || `Article ${idx + 1}`;
-            updateArticle(idx, { status: 'done', title, content });
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : 'Unknown error';
-            updateArticle(idx, { status: 'error', error: msg });
-          }
-          await new Promise((r) => setTimeout(r, 200));
-        }
-      })());
-    }
-    await Promise.all(workersList);
+    await runWorkers(indices, lookup);
     setIsRunning(false);
 
     setArticles((prev) => {
-      const failed = prev.filter((a) => a.status === 'error').length;
-      if (failed > 0) setGenStatus({ msg: `${failed} still failed.`, type: 'warn' });
-      else setGenStatus({ msg: '✓ All articles now complete!', type: 'success' });
+      const failed = prev.filter((a) => toRun.has(a.index) && a.status === 'error').length;
+      const done = prev.filter((a) => toRun.has(a.index) && a.status === 'done').length;
+      if (failed > 0) setGenStatus({ msg: `${done} regenerated, ${failed} failed.`, type: 'warn' });
+      else setGenStatus({ msg: `✓ Regenerated ${done} article${done === 1 ? '' : 's'}.`, type: 'success' });
       return prev;
     });
+  }
+
+  async function retryFailed() {
+    const failedIdx = articles.filter((a) => a.status === 'error').map((a) => a.index);
+    if (failedIdx.length === 0) return;
+    await regenerateIndices(failedIdx, 'Retrying failed articles...');
+  }
+
+  async function regenerateSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`Regenerate ${selected.size} selected article${selected.size > 1 ? 's' : ''}? Existing content will be replaced.`)) return;
+    await regenerateIndices(Array.from(selected), `Regenerating ${selected.size} selected...`);
+  }
+
+  async function resumeInterrupted() {
+    const interruptedIdx = articles
+      .filter((a) => a.status === 'error' && a.error === INTERRUPTED_ERROR)
+      .map((a) => a.index);
+    if (interruptedIdx.length === 0) return;
+    await regenerateIndices(interruptedIdx, `Resuming ${interruptedIdx.length} interrupted article${interruptedIdx.length === 1 ? '' : 's'}...`);
   }
 
   function stopGeneration() {
@@ -589,8 +631,14 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     setSelected(next);
   }
 
-  function selectAll() {
-    setSelected(new Set(articles.map((a) => a.index)));
+  function selectVisible() {
+    // Select all currently-visible (filtered) articles. Adds to any
+    // existing selection from rows that are not visible right now.
+    setSelected((prev) => {
+      const next = new Set(prev);
+      filteredArticles.forEach((a) => next.add(a.index));
+      return next;
+    });
   }
 
   function clearSelection() {
@@ -789,6 +837,107 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
   const totalFailed = articles.filter((a) => a.status === 'error').length;
   const totalPending = articles.filter((a) => a.status === 'pending' || a.status === 'generating').length;
   const progressPct = articles.length > 0 ? (totalDone / articles.length) * 100 : 0;
+  const interruptedCount = articles.filter((a) => a.status === 'error' && a.error === INTERRUPTED_ERROR).length;
+
+  const filteredArticles = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return articles.filter((a) => {
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'pending') {
+          if (a.status !== 'pending' && a.status !== 'generating') return false;
+        } else if (a.status !== statusFilter) return false;
+      }
+      if (q) {
+        const hay = `${a.title} ${a.pair?.keyword || ''} ${a.pair?.link || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [articles, searchQuery, statusFilter]);
+
+  const visibleIndexSet = useMemo(() => new Set(filteredArticles.map((a) => a.index)), [filteredArticles]);
+  const visibleSelectedCount = useMemo(() => {
+    let n = 0;
+    selected.forEach((i) => { if (visibleIndexSet.has(i)) n++; });
+    return n;
+  }, [selected, visibleIndexSet]);
+
+  // Pre-flight cost estimate. Prompt overhead ~ 1500 input tokens; output
+  // ~ wordCount * 1.4 (rough token-per-word average for HTML content).
+  const estimatedCost = useMemo(() => {
+    const rate = MODEL_RATES[model];
+    if (!rate) return null;
+    const wc = parseInt(wordCount, 10);
+    if (!Number.isFinite(wc)) return null;
+    const inputTokens = 1500;
+    const outputTokens = Math.round(wc * 1.4);
+    const perArticle = (inputTokens * rate.input + outputTokens * rate.output) / 1_000_000;
+    return perArticle * Math.max(1, count);
+  }, [model, wordCount, count]);
+
+  function savePreset() {
+    const suggested = activePresetName || (niche ? niche.slice(0, 30) : '');
+    const name = prompt('Save current settings as preset. Name:', suggested);
+    if (!name || !name.trim()) return;
+    const key = name.trim();
+    const preset: PresetState = {
+      provider, model, concurrency, moneySite, niche, location, authorInfo,
+      linkPairs, distributionMode, count, wordCount, tone, placement, extras,
+      externalLinkCount, serviceLinkCount, blogLinkCount, includeTable, includeImages,
+    };
+    const next = { ...presets, [key]: preset };
+    setPresets(next);
+    setActivePresetName(key);
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    } catch {
+      /* quota - ignore */
+    }
+    setGenStatus({ msg: `✓ Saved preset "${key}"`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 1800);
+  }
+
+  function loadPreset(name: string) {
+    if (!name) return;
+    const p = presets[name];
+    if (!p) return;
+    setProvider(p.provider);
+    setModel(p.model);
+    setConcurrency(p.concurrency);
+    setMoneySite(p.moneySite);
+    setNiche(p.niche);
+    setLocation(p.location);
+    setAuthorInfo(p.authorInfo);
+    setLinkPairs(p.linkPairs);
+    setDistributionMode(p.distributionMode);
+    setCount(p.count);
+    setWordCount(p.wordCount);
+    setTone(p.tone);
+    setPlacement(p.placement);
+    setExtras(p.extras);
+    setExternalLinkCount(p.externalLinkCount);
+    setServiceLinkCount(p.serviceLinkCount);
+    setBlogLinkCount(p.blogLinkCount);
+    setIncludeTable(p.includeTable);
+    setIncludeImages(p.includeImages);
+    setActivePresetName(name);
+    setGenStatus({ msg: `✓ Loaded preset "${name}"`, type: 'success' });
+    setTimeout(() => setGenStatus(null), 1800);
+  }
+
+  function deletePreset() {
+    if (!activePresetName) return;
+    if (!confirm(`Delete preset "${activePresetName}"?`)) return;
+    const next = { ...presets };
+    delete next[activePresetName];
+    setPresets(next);
+    setActivePresetName('');
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
 
   return (
     <div style={{ maxWidth: 1300, margin: '0 auto', color: 'var(--text)' }}>
@@ -797,6 +946,32 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
         <p style={{ color: 'var(--muted)', fontSize: '0.95rem' }}>
           Admin tool — GEO-optimized articles for off-page SEO. API keys stay server-side.
         </p>
+      </div>
+
+      {/* PRESETS */}
+      <div style={{ ...styles.card, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: 14 }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>Preset:</span>
+        <select
+          value={activePresetName}
+          onChange={(e) => loadPreset(e.target.value)}
+          style={{ ...styles.input, width: 'auto', minWidth: 180 }}
+        >
+          <option value="">— Choose a saved preset —</option>
+          {Object.keys(presets).sort().map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <button onClick={savePreset} style={styles.btnSmall}>
+          {activePresetName ? `Save (overwrite "${activePresetName}")` : 'Save as new preset'}
+        </button>
+        {activePresetName && (
+          <button onClick={deletePreset} style={styles.btnSmallDanger}>
+            Delete preset
+          </button>
+        )}
+        <span style={{ fontSize: '0.75rem', color: 'var(--muted)', flex: 1, textAlign: 'right' }}>
+          Presets save your form settings (not generated articles). Useful when running campaigns for multiple money sites.
+        </span>
       </div>
 
       {/* AI CONFIG */}
@@ -1033,6 +1208,11 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             </div>
           </div>
         </div>
+        {estimatedCost !== null && (
+          <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.85rem', color: 'var(--muted)' }}>
+            Estimated cost for {count} article{count === 1 ? '' : 's'} on <strong style={{ color: 'var(--text)' }}>{model}</strong>: <strong style={{ color: 'var(--text)' }}>~${estimatedCost.toFixed(estimatedCost < 1 ? 3 : 2)}</strong> at list prices. Real billing comes from the provider.
+          </div>
+        )}
         <button onClick={startGeneration} disabled={isRunning} style={{ ...styles.btn, width: '100%', marginTop: 12, opacity: isRunning ? 0.5 : 1, cursor: isRunning ? 'not-allowed' : 'pointer' }}>
           {isRunning ? 'Generating...' : 'Generate Articles'}
         </button>
@@ -1070,7 +1250,12 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
           )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {isRunning && <button onClick={stopGeneration} style={styles.btnDanger}>Stop</button>}
-            {!isRunning && totalFailed > 0 && <button onClick={retryFailed} style={styles.btnSmall}>Retry Failed</button>}
+            {!isRunning && totalFailed > 0 && <button onClick={retryFailed} style={styles.btnSmall}>Retry Failed ({totalFailed})</button>}
+            {!isRunning && interruptedCount > 0 && (
+              <button onClick={resumeInterrupted} style={styles.btnSmall}>
+                Resume Interrupted ({interruptedCount})
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1087,16 +1272,50 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             <button onClick={exportCsv} style={styles.btnSmall}>Export CSV</button>
             <button onClick={clearResults} style={styles.btnDanger}>Clear All</button>
           </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search title, keyword, or URL..."
+              style={{ ...styles.input, flex: 1, minWidth: 200 }}
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'done' | 'error' | 'pending')}
+              style={{ ...styles.input, width: 'auto' }}
+            >
+              <option value="all">All statuses</option>
+              <option value="done">Done only</option>
+              <option value="error">Failed only</option>
+              <option value="pending">Pending / generating</option>
+            </select>
+            {(searchQuery || statusFilter !== 'all') && (
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}
+                style={styles.btnSmall}
+              >
+                Reset filters
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-              {selected.size} of {articles.length} selected
+              {selected.size} selected ({filteredArticles.length} visible / {articles.length} total)
             </span>
             <div style={{ flex: 1 }} />
-            <button onClick={selectAll} style={styles.btnSmall} disabled={selected.size === articles.length}>
-              Select All
+            <button onClick={selectVisible} style={styles.btnSmall} disabled={filteredArticles.length === 0 || visibleSelectedCount === filteredArticles.length}>
+              Select Visible
             </button>
             <button onClick={clearSelection} style={styles.btnSmall} disabled={selected.size === 0}>
               Deselect
+            </button>
+            <button
+              onClick={regenerateSelected}
+              style={{ ...styles.btnSmall, opacity: selected.size === 0 || isRunning ? 0.5 : 1, cursor: selected.size === 0 || isRunning ? 'not-allowed' : 'pointer' }}
+              disabled={selected.size === 0 || isRunning}
+            >
+              Regenerate Selected ({selected.size})
             </button>
             <button
               onClick={deleteSelected}
@@ -1106,7 +1325,12 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
               Delete Selected ({selected.size})
             </button>
           </div>
-          {articles.map((a) => (
+          {filteredArticles.length === 0 && (
+            <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: '0.9rem' }}>
+              No articles match the current filter.
+            </div>
+          )}
+          {filteredArticles.map((a) => (
             <div key={a.index} style={{ ...styles.articleCard, ...(selected.has(a.index) ? { borderColor: 'var(--primary)', boxShadow: '0 0 0 1px var(--primary)' } : {}) }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 200 }}>
