@@ -84,6 +84,7 @@ function runMigrations(): Promise<void> {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}';
         ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_end_email_sent_at TIMESTAMPTZ;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS email_normalized TEXT;
         ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_ip TEXT;
         CREATE INDEX IF NOT EXISTS users_email_normalized_idx ON users(email_normalized);
