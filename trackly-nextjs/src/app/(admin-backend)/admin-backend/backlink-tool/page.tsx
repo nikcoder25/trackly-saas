@@ -939,6 +939,26 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
     }
   }
 
+  function clearForm() {
+    const hasBusinessData = moneySite.trim() || niche.trim() || location.trim() || authorInfo.trim()
+      || linkPairs.some((p) => p.keyword.trim() || p.link.trim()) || extras.trim();
+    if (hasBusinessData && !confirm('Clear all form fields for a new campaign? Generated articles below will be kept.')) return;
+    setMoneySite('');
+    setNiche('');
+    setLocation('');
+    setAuthorInfo('');
+    setLinkPairs([{ id: Date.now(), keyword: '', link: '', weight: 1 }]);
+    setDistributionMode('rotate');
+    setCount(10);
+    setExtras('');
+    setActivePresetName('');
+    // AI provider/model, concurrency, word count, tone, placement, and the
+    // link-count / table / images preferences are intentionally kept since
+    // they're more like user defaults than campaign-specific data.
+    setGenStatus({ msg: '✓ Form cleared — ready for a new campaign', type: 'success' });
+    setTimeout(() => setGenStatus(null), 2000);
+  }
+
   return (
     <div style={{ maxWidth: 1300, margin: '0 auto', color: 'var(--text)' }}>
       <div style={{ marginBottom: 20 }}>
@@ -969,6 +989,9 @@ Return ONLY the article as clean HTML. No preamble, no explanation, no code fenc
             Delete preset
           </button>
         )}
+        <button onClick={clearForm} style={styles.btnSmallDanger}>
+          Clear Form (New Campaign)
+        </button>
         <span style={{ fontSize: '0.75rem', color: 'var(--muted)', flex: 1, textAlign: 'right' }}>
           Presets save your form settings (not generated articles). Useful when running campaigns for multiple money sites.
         </span>
