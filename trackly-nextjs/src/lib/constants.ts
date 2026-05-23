@@ -73,8 +73,12 @@ export const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const TRIAL_INITIAL_UNVERIFIED_MS = 24 * 60 * 60 * 1000;
 
 // Anti-abuse caps for trial accounts. Overridable via env for ops.
+// 30 matches PLAN_LIMITS.trial.trackedPromptsPerAccount so a trial user can
+// execute one full single-query-batch run across all 5 platforms in a day
+// (e.g. 6 queries × 5 platforms = 30 credits). Daily worst-case provider
+// spend at this cap is ~$0.012 on economy models.
 export const TRIAL_DAILY_PROMPT_CAP_PER_USER = parseInt(
-  process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '10', 10
+  process.env.TRIAL_DAILY_PROMPT_CAP_PER_USER || '30', 10
 );
 export const TRIAL_DAILY_GLOBAL_PROMPT_CAP = parseInt(
   process.env.TRIAL_DAILY_GLOBAL_PROMPT_CAP || '5000', 10
