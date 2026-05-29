@@ -104,7 +104,7 @@ export default function DashboardV2() {
   const [t, setT] = useLS('lvx_tweaks', { dark: false, accent: 'indigo', density: 'comfortable' });
   const setTweak = (k: string, v: any) => setT(prev => ({ ...prev, [k]: v }));
   return (
-    <div className="lvx" data-theme={t.dark ? 'dark' : 'light'} data-accent={t.accent} data-density={t.density}>
+    <div className="lvx lvx-standalone" data-theme={t.dark ? 'dark' : 'light'} data-accent={t.accent} data-density={t.density}>
       <RouterProvider>
         <ExtrasProvider>
           <Shell>

@@ -409,7 +409,7 @@ function OverviewRecentMentions({ onOpen, total }: { onOpen: (it: any) => void; 
     <Card title="Recent mentions" info="mention"
       lede="The newest AI answers that named you — click any row to read the exact wording."
       right={<Pill tone="acc"><span className="pulse" /> Live</Pill>} padding={false}
-      foot={<><span>{total.toLocaleString()} total · 7 days</span><a className="dim" href="#" onClick={e => { e.preventDefault(); window.location.hash = 'mentions'; }}>Open mentions →</a></>}>
+      foot={<><span>{total.toLocaleString()} total · 7 days</span><a className="dim" href="/dashboard/mentions">Open mentions →</a></>}>
       <ul className="feed">
         {items.map((it, i) => (
           <li key={i} className="feed-i" onClick={() => onOpen(it)}>
@@ -441,7 +441,7 @@ function OverviewQueriesTable() {
   return (
     <Card title="Top tracked queries" info="prompt"
       lede="The buyer questions you watch — and how visible you are on each."
-      right={<a href="#" className="mono dim" onClick={e => { e.preventDefault(); window.location.hash = 'query-tracker'; }} style={{ fontSize: 11 }}>ALL 142 →</a>} padding={false}>
+      right={<a href="/dashboard/query-tracker" className="mono dim" style={{ fontSize: 11 }}>ALL 142 →</a>} padding={false}>
       <table className="tbl">
         <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th></tr></thead>
         <tbody>
@@ -465,7 +465,7 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
   return (
     <Card title="Competitor SOV" info="sov"
       lede="Who's winning the AI conversation in your category right now."
-      right={<a href="#" className="mono dim" onClick={e => { e.preventDefault(); window.location.hash = 'competitors'; }} style={{ fontSize: 11 }}>COMPETITORS →</a>}>
+      right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>COMPETITORS →</a>}>
       <div style={{ display: 'grid', gap: 14 }}>
         {rows.map((r, i) => (
           <div key={i} className="comp-row">
@@ -489,7 +489,7 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
   return (
     <Card title="Most cited sources" info="citation"
       lede="The web pages AI leans on when it describes you. Strengthen the helpful ones."
-      right={<a href="#" className="mono dim" onClick={e => { e.preventDefault(); window.location.hash = 'citations'; }} style={{ fontSize: 11 }}>CITATIONS →</a>}>
+      right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>CITATIONS →</a>}>
       <div style={{ display: 'grid', gap: 10 }}>
         {rows.map((r, i) => (
           <div key={i} className="src-row">
