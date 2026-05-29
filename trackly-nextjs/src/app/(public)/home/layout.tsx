@@ -74,41 +74,10 @@ const jsonLd = {
         { '@type': 'Offer', name: 'Agency', price: '89', priceCurrency: 'USD', url: 'https://livesov.com/signup' },
       ],
     },
-    {
-      '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'What is AI visibility tracking?',
-          acceptedAnswer: { '@type': 'Answer', text: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
-        },
-        {
-          '@type': 'Question',
-          name: 'Which AI platforms does Livesov support?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
-        },
-        {
-          '@type': 'Question',
-          name: 'What is Share of Voice in AI?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
-        },
-        {
-          '@type': 'Question',
-          name: 'How is this different from traditional SEO tools?',
-          acceptedAnswer: { '@type': 'Answer', text: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
-        },
-        {
-          '@type': 'Question',
-          name: 'Can I use Livesov for client reporting?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-        },
-        {
-          '@type': 'Question',
-          name: 'How much does Livesov cost?',
-          acceptedAnswer: { '@type': 'Answer', text: 'Livesov has a free plan with 150 AI credits/month, 1 brand, 5 tracked prompts per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 750 credits, 3 brands, 15 prompts per brand, and 20 GEO audits. Pro ($29/mo) adds unlimited brands, 2,500 credits, 3 AI platforms, daily auto-runs, sentiment analysis, and 75 GEO audits. Agency ($89/mo) scales to 8,000 credits, all 5 AI platforms, premium AI models, priority support, API access, and 300 GEO audits.' },
-        },
-      ],
-    },
+    // NOTE: FAQPage schema intentionally omitted — the editorial homepage has
+    // no visible FAQ section, and FAQ structured data without matching on-page
+    // content violates Google's rich-results guidelines. The full FAQ lives on
+    // /how-it-works and the tool pages.
   ],
 };
 
