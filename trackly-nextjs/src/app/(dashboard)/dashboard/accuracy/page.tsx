@@ -532,6 +532,11 @@ export default function AccuracyPage() {
   const severityTone = (sev: string) =>
     sev === 'critical' || sev === 'high' ? 'neg' : sev === 'medium' ? 'warn' : 'info';
 
+
+  // Worst-offender engine + topic (derived from real accuracy data)
+  const worstEngine = platformAccuracy.length ? platformAccuracy[platformAccuracy.length - 1] : null;
+  const worstTopic = categoryAccuracy.length ? categoryAccuracy[0] : null;
+
   return (
     <div className="lvx">
       <LockedBrandBanner />
@@ -551,155 +556,86 @@ export default function AccuracyPage() {
       />
 
       <div className="page-body">
-      <LockedBrandBanner />
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-        <div>
-          <div className="view-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            Accuracy Monitor
-            <span style={{
-              fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '2px 8px', borderRadius: 100,
-              background: ACCENT_GRADIENT_BOLD,
-              color: ACCENT_PURPLE, border: '1px solid rgba(124,58,237,0.2)', textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>
-              AI-Powered
-            </span>
-          </div>
-          <div className="view-sub">Uses AI to analyze actual responses from AI platforms against your canonical facts.</div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="pbtn" onClick={checkNow} disabled={checking}
-            style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, opacity: checking ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-            {checking ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                Analyzing...
-              </span>
-            ) : 'Check Now'}
-          </button>
-        </div>
-      </div>
+        {/* KPI rail — real metrics */}
+        <KPIRail items={[
+          { k: 'OPEN', v: issues.length - issueSummary.fixed, danger: (issues.length - issueSummary.fixed) > 0 },
+          { k: 'FIXED', v: issueSummary.fixed },
+          { k: 'ACCURACY RATE', v: accuracyRate != null ? accuracyRate : '—', suffix: accuracyRate != null ? '%' : '' },
+          { k: 'CLAIMS VERIFIED', v: facts.length },
+          { k: 'LAST CHECKED', v: lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Never', info: lastChecked ? new Date(lastChecked).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : undefined },
+        ]} />
 
-      {/* Status message */}
-      {checkMessage && (
-        <div style={{
-          padding: '8px 14px', marginBottom: 12, borderRadius: 6, fontSize: 12, fontFamily: 'var(--mono)',
-          background: checkMessage.isError ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)',
-          color: checkMessage.isError ? 'var(--red)' : 'var(--green)',
-          border: `1px solid ${checkMessage.isError ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <span>{checkMessage.text}</span>
-          <button onClick={() => setCheckMessage(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}>×</button>
-        </div>
-      )}
+        {/* Status message */}
+        {checkMessage && (
+          <Card padding={false}>
+            <div style={{ padding: '12px 16px', fontSize: 12.5, color: checkMessage.isError ? 'var(--danger)' : 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span>{checkMessage.text}</span>
+              <button className="btn-d" style={{ padding: '2px 8px' }} onClick={() => setCheckMessage(null)}>Dismiss</button>
+            </div>
+          </Card>
+        )}
 
-      {/* KPI Cards - 4 score cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 16 }}>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24, color: accuracyRate != null ? rateColor(accuracyRate) : 'var(--muted)' }}>
-            {accuracyRate != null ? `${accuracyRate}%` : '-'}
-          </div>
-          <div className="score-label">Accuracy Rate</div>
-          {accuracyRate != null && trend.length >= 2 && (() => {
-            const trendUp = trend[trend.length - 1].rate >= trend[trend.length - 2].rate;
-            return (
-              <div style={{ fontSize: 11, fontFamily: 'var(--mono)', marginTop: 4, color: trendUp ? 'var(--green)' : 'var(--red)' }}>
-                {trendUp ? '↑' : '↓'} vs prev
-              </div>
-            );
-          })()}
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24, color: issues.length > 0 ? 'var(--red)' : 'var(--green)' }}>{issues.length}</div>
-          <div className="score-label">Inaccuracies Found</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24, color: 'var(--green)' }}>{facts.length}</div>
-          <div className="score-label">Claims Verified</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 13, fontWeight: 600, color: lastChecked ? 'var(--text)' : 'var(--muted)' }}>
-            {lastChecked ? new Date(lastChecked).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
-          </div>
-          <div className="score-label">Last Checked</div>
-        </div>
-      </div>
-
-      {/* ── Brand Facts (prominent) ── */}
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: 'var(--app-shadow)', marginBottom: 16, overflow: 'hidden' }}>
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>Your Brand Facts</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Define what&apos;s true about your brand - AI accuracy is checked against these.</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={autoDiscover} disabled={discovering}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, fontFamily: 'var(--font)', cursor: discovering ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.25)', background: ACCENT_GRADIENT, color: ACCENT_PURPLE, opacity: discovering ? 0.6 : 1, whiteSpace: 'nowrap', transition: 'opacity .15s' }}>
+        {/* ── Brand Facts ── */}
+        <Card
+          title="Your brand facts"
+          lede="Define what's true about your brand — AI accuracy is checked against these."
+          right={
+            <button className="btn-g" onClick={autoDiscover} disabled={discovering}>
               {discovering ? (
-                <><span style={{ width: 12, height: 12, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />Discovering...</>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 12, height: 12, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                  Discovering…
+                </span>
               ) : '✦ Auto-Discover'}
             </button>
-          </div>
-        </div>
-
-        <div style={{ padding: '16px 22px' }}>
-          {/* Discovering spinner */}
+          }
+        >
           {discovering && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', marginBottom: 16, borderRadius: 8, background: ACCENT_GRADIENT_SUBTLE, border: '1px solid rgba(124,58,237,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', marginBottom: 14, borderRadius: 8, background: ACCENT_GRADIENT_SUBTLE, border: '1px solid rgba(124,58,237,0.15)' }}>
               <span style={{ width: 16, height: 16, border: '2.5px solid rgba(124,58,237,0.25)', borderTopColor: ACCENT_PURPLE, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: ACCENT_PURPLE, fontWeight: 600 }}>AI is analyzing your brand to discover facts...</span>
+              <span style={{ fontSize: 13, color: ACCENT_PURPLE, fontWeight: 600 }}>AI is analyzing your brand to discover facts…</span>
             </div>
           )}
-          {/* Add Fact Form - inline */}
+
+          {/* Add Fact Form */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 160px', minWidth: 140 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Fact Key</label>
-              <input placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')} />
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Fact Key</div>
+              <input className="sel" placeholder="e.g. founded_year" value={factKey} onChange={e => setFactKey(e.target.value)} style={{ width: '100%' }} />
             </div>
             <div style={{ flex: '1 1 160px', minWidth: 140 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Fact Value</label>
-              <input placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')} />
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Fact Value</div>
+              <input className="sel" placeholder="e.g. 2009" value={factValue} onChange={e => setFactValue(e.target.value)} style={{ width: '100%' }} />
             </div>
             <div style={{ minWidth: 100 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4 }}>Category</label>
-              <select value={factCategory} onChange={e => setFactCategory(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, fontSize: 13, fontFamily: 'var(--font)', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', outline: 'none', cursor: 'pointer' }}>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Category</div>
+              <select className="sel" value={factCategory} onChange={e => setFactCategory(e.target.value)} style={{ width: '100%' }}>
                 {RECOMMENDED_CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
                 ))}
               </select>
             </div>
-            <button onClick={addFact}
-              style={{ padding: '8px 18px', borderRadius: 6, fontSize: 13, fontWeight: 700, fontFamily: 'var(--font)', background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'opacity .15s' }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>Add Fact</button>
+            <button className="btn-p" onClick={addFact}>Add Fact</button>
           </div>
 
-          {/* AI Suggested Facts (if any) */}
+          {/* AI Suggested Facts */}
           {suggestedFacts.length > 0 && (
             <div style={{ marginBottom: 16, padding: 14, borderRadius: 8, background: ACCENT_GRADIENT_SUBTLE, border: '1px solid rgba(124,58,237,0.15)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: ACCENT_PURPLE }}>✦ {suggestedFacts.length} AI-suggested fact{suggestedFacts.length !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: ACCENT_PURPLE }}>✦ {suggestedFacts.length} AI-suggested fact{suggestedFacts.length !== 1 ? 's' : ''}</span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={acceptAllFacts} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer' }}>Add All</button>
-                  <button onClick={() => setSuggestedFacts([])} style={{ padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, background: 'var(--bg3)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer' }}>Dismiss</button>
+                  <button className="btn-p" style={{ padding: '4px 10px', fontSize: 11 }} onClick={acceptAllFacts}>Add All</button>
+                  <button className="btn-d" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => setSuggestedFacts([])}>Dismiss</button>
                 </div>
               </div>
               {suggestedFacts.map(sf => (
                 <div key={sf.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderTop: '1px solid rgba(124,58,237,0.08)', fontSize: 12 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: sf.confidence === 'high' ? 'var(--green)' : sf.confidence === 'medium' ? 'var(--amber)' : 'var(--red)' }} />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: sf.confidence === 'high' ? 'var(--success)' : sf.confidence === 'medium' ? 'var(--warn)' : 'var(--danger)' }} />
                   <span style={{ fontWeight: 600, color: 'var(--text)', minWidth: 100 }}>{sf.key}</span>
-                  <span style={{ color: 'var(--muted)', flex: 1 }}>{sf.value}</span>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '1px 6px', background: 'var(--bg3)', borderRadius: 4 }}>{sf.category}</span>
-                  <button onClick={() => acceptFact(sf)} style={{ background: 'none', border: 'none', color: 'var(--green)', cursor: 'pointer', fontSize: 14, fontWeight: 700, padding: '0 4px' }}>+</button>
-                  <button onClick={() => dismissFact(sf.key)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
+                  <span style={{ color: 'var(--text-2)', flex: 1 }}>{sf.value}</span>
+                  <Badge tone="neu">{sf.category}</Badge>
+                  <button className="btn-d" style={{ padding: '2px 8px', fontSize: 11, color: 'var(--success)' }} onClick={() => acceptFact(sf)}>+ Add</button>
+                  <button className="btn-d" style={{ padding: '2px 8px', fontSize: 11 }} onClick={() => dismissFact(sf.key)}>×</button>
                 </div>
               ))}
             </div>
@@ -707,7 +643,7 @@ export default function AccuracyPage() {
 
           {/* Fact Coverage */}
           {facts.length > 0 && (
-            <div style={{ marginBottom: 14, padding: 10, background: 'var(--bg3)', borderRadius: 6 }}>
+            <div style={{ marginBottom: 14, padding: 12, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--line)' }}>
               <FactCoverage facts={facts} />
             </div>
           )}
@@ -716,159 +652,80 @@ export default function AccuracyPage() {
           {facts.length > 0 ? (
             <div>
               {facts.map((f, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < facts.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < facts.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', minWidth: 120 }}>{f.key}</span>
-                  <span style={{ fontSize: 13, color: 'var(--muted)', flex: 1 }}>{f.value}</span>
-                  <span style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--muted)', padding: '2px 8px', background: 'var(--bg3)', borderRadius: 4 }}>{f.category}</span>
-                  <button onClick={() => removeFact(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14 }}>×</button>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)', flex: 1 }}>{f.value}</span>
+                  <Badge tone="neu">{f.category}</Badge>
+                  <button className="btn-d" style={{ padding: '2px 8px', fontSize: 11, color: 'var(--danger)' }} onClick={() => removeFact(i)}>×</button>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--muted)', fontSize: 12 }}>
+            <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-3)', fontSize: 12.5 }}>
               No facts yet. Add your brand&apos;s facts above or click <strong>Auto-Discover</strong> to let AI find them.
             </div>
           )}
-        </div>
-      </div>
+        </Card>
 
-      {/* Charts Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-        {/* Accuracy Trend */}
-        <div className="card" style={{ padding: '16px 20px' }}>
-          <div className="section-title">Accuracy Trend</div>
-          <TrendChart data={trend} />
+        {/* Charts Row */}
+        <div className="g2">
+          <Card title="Accuracy trend">
+            <TrendChart data={trend} />
+          </Card>
+          <Card title="Severity distribution">
+            <SeverityDonut issues={issues} />
+          </Card>
         </div>
 
-        {/* Severity Distribution */}
-        <div className="card" style={{ padding: '16px 20px' }}>
-          <div className="section-title">Severity Distribution</div>
-          <SeverityDonut issues={issues} />
-        </div>
-      </div>
-
-      {/* Platform + Category Breakdown Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-        <div className="card" style={{ padding: '16px 20px' }}>
-          <div className="section-title">Platform Accuracy</div>
-          {platformAccuracy.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>Run accuracy checks to see platform-level breakdowns.</div>
-          ) : (
-            <div style={{ marginTop: 8 }}>{platformAccuracy.map(p => (
-              <HBar key={p.name} label={p.name} value={p.rate} max={100} color={rateColor(p.rate)} />
-            ))}</div>
-          )}
-        </div>
-        <div className="card" style={{ padding: '16px 20px' }}>
-          <div className="section-title">Category Accuracy</div>
-          {categoryAccuracy.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 16, color: 'var(--muted)', fontSize: 12 }}>Add facts across categories and run checks to see category-level accuracy.</div>
-          ) : (
-            <div style={{ marginTop: 8 }}>{categoryAccuracy.map(c => (
-              <HBar key={c.name} label={c.name} value={c.rate} max={100} color={rateColor(c.rate)} />
-            ))}</div>
-          )}
-        </div>
-      </div>
-
-      {/* Per-Fact Accuracy Breakdown */}
-      {factBreakdown.length > 0 && (
-        <div className="card" style={{ padding: '16px 20px', marginBottom: 14 }}>
-          <div className="section-title">Fact Accuracy Breakdown</div>
-          <div style={{ marginTop: 8 }}>
-            {factBreakdown.map(fb => {
-              const wrong = fb.wrongPlatforms.size;
-              const total = fb.totalPlatforms.size;
-              const pct = total > 0 ? wrong / total : 0;
-              const dotColor = pct > 0.5 ? 'var(--red)' : pct > 0 ? 'var(--amber)' : 'var(--green)';
-              return (
-                <div key={fb.factKey} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--text)', minWidth: 140 }}>{fb.factKey}</span>
-                  <span style={{ fontSize: 11, color: 'var(--muted)', flex: 1 }}>{wrong}/{total} platform{total !== 1 ? 's' : ''} incorrect</span>
-                  <div style={{ display: 'flex', gap: 2 }}>
-                    {[...fb.totalPlatforms].map(p => (
-                      <span key={p} style={{ width: 6, height: 6, borderRadius: '50%', background: fb.wrongPlatforms.has(p) ? 'var(--red)' : 'var(--green)' }} title={p} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Recent Issues ── */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {/* Summary Bar */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text)' }}>
-              Recent Issues ({issues.length})
+        {/* ── Hallucination feed (real issues) ── */}
+        <Card
+          title="Hallucination feed"
+          right={issues.length > 0 ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)' }}>
+              {issueSummary.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>{issueSummary.critical} crit</span>}
+              {issueSummary.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>{issueSummary.high} high</span>}
+              {issueSummary.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>{issueSummary.medium} med</span>}
+              {issueSummary.low > 0 && <span style={{ color: SEVERITY_COLORS.low }}>{issueSummary.low} low</span>}
+              {issueSummary.fixed > 0 && <span style={{ color: 'var(--success)' }}>{issueSummary.fixed} fixed</span>}
             </span>
-            {issues.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontFamily: 'var(--mono)' }}>
-                {issueSummary.critical > 0 && <span style={{ color: SEVERITY_COLORS.critical }}>{issueSummary.critical} Critical</span>}
-                {issueSummary.high > 0 && <span style={{ color: SEVERITY_COLORS.high }}>{issueSummary.high} High</span>}
-                {issueSummary.medium > 0 && <span style={{ color: SEVERITY_COLORS.medium }}>{issueSummary.medium} Medium</span>}
-                {issueSummary.low > 0 && <span style={{ color: SEVERITY_COLORS.low }}>{issueSummary.low} Low</span>}
-                {issueSummary.fixed > 0 && <span style={{ color: 'var(--green)' }}>{issueSummary.fixed} Fixed</span>}
+          ) : undefined}
+          padding={false}
+          foot={issues.length > 0 ? <><span>Showing {filteredIssues.length} of {issues.length}</span><span>Last checked {lastChecked ? new Date(lastChecked).toLocaleString() : 'never'}</span></> : undefined}
+        >
+          {/* Filter & Sort Toolbar */}
+          {issues.length > 0 && (
+            <div style={{ padding: '10px 22px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {['All', ...allPlatforms].map(p => (
+                  <button key={p} onClick={() => setFilterPlatform(p)} style={filterPillStyle(filterPlatform === p)}>{p}</button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Filter & Sort Toolbar */}
-        {issues.length > 0 && (
-          <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--bg)' }}>
-            {/* Platform filter */}
-            <div style={{ display: 'flex', gap: 4 }}>
-              {['All', ...allPlatforms].map(p => (
-                <button key={p} onClick={() => setFilterPlatform(p)} style={filterPillStyle(filterPlatform === p)}>{p}</button>
-              ))}
+              <div style={{ width: 1, height: 16, background: 'var(--line)' }} />
+              <div style={{ display: 'flex', gap: 4 }}>
+                {SEVERITY_LABELS.map(s => (
+                  <button key={s} onClick={() => setFilterSeverity(s)} style={filterPillStyle(filterSeverity === s)}>{s}</button>
+                ))}
+              </div>
+              <div style={{ width: 1, height: 16, background: 'var(--line)' }} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--mono)' }}>
+                <span onClick={() => setHideFixed(!hideFixed)} style={{ width: 28, height: 16, borderRadius: 8, background: hideFixed ? ACCENT_PURPLE : 'var(--surface-3)', position: 'relative', transition: 'background .15s', display: 'inline-block', cursor: 'pointer' }}>
+                  <span style={{ position: 'absolute', top: 2, left: hideFixed ? 14 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                </span>
+                Hide Fixed
+              </label>
+              <div style={{ width: 1, height: 16, background: 'var(--line)' }} />
+              <select className="sel" value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}>
+                <option value="severity">By Severity</option>
+                <option value="date">By Date</option>
+                <option value="platform">By Platform</option>
+              </select>
             </div>
-            <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
-            {/* Severity filter */}
-            <div style={{ display: 'flex', gap: 4 }}>
-              {SEVERITY_LABELS.map(s => (
-                <button key={s} onClick={() => setFilterSeverity(s)} style={filterPillStyle(filterSeverity === s)}>{s}</button>
-              ))}
-            </div>
-            <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
-            {/* Hide Fixed toggle */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer', fontFamily: 'var(--mono)' }}>
-              <span onClick={() => setHideFixed(!hideFixed)} style={{
-                width: 28, height: 16, borderRadius: 8, background: hideFixed ? ACCENT_PURPLE : 'var(--bg3)',
-                position: 'relative', transition: 'background .15s', display: 'inline-block', cursor: 'pointer',
-              }}>
-                <span style={{
-                  position: 'absolute', top: 2, left: hideFixed ? 14 : 2, width: 12, height: 12,
-                  borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                }} />
-              </span>
-              Hide Fixed
-            </label>
-            <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
-            {/* Sort */}
-            <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)} style={{
-              padding: '3px 8px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--mono)', fontWeight: 600,
-              background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', outline: 'none',
-            }}>
-              <option value="severity">By Severity</option>
-              <option value="date">By Date</option>
-              <option value="platform">By Platform</option>
-            </select>
-            <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', marginLeft: 'auto' }}>
-              Showing {filteredIssues.length} of {issues.length}
-            </span>
-          </div>
-        )}
+          )}
 
-        <div style={{ padding: '16px 20px' }}>
           {issues.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
+            <div style={{ textAlign: 'center', padding: 36, color: 'var(--text-3)', fontSize: 12.5 }}>
               {facts.length === 0 ? (
-                <>Add your brand&apos;s facts in the card above, then click <strong>&quot;Check Now&quot;</strong> to verify AI accuracy.</>
+                <>Add your brand&apos;s facts above, then click <strong>&quot;Check Now&quot;</strong> to verify AI accuracy.</>
               ) : accuracyRate !== null ? (
                 <>All facts verified accurately across AI platforms. No issues found.</>
               ) : (
@@ -876,106 +733,137 @@ export default function AccuracyPage() {
               )}
             </div>
           ) : filteredIssues.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>
+            <div style={{ textAlign: 'center', padding: 28, color: 'var(--text-3)', fontSize: 12.5 }}>
               No issues match the current filters.
             </div>
           ) : (
-            <div>
-              {filteredIssues.map((issue, i) => (
-                <div key={issue.id ?? i} style={{ borderBottom: i < filteredIssues.length - 1 ? '1px solid var(--border)' : 'none', opacity: issue.fixed ? 0.55 : 1 }}>
-                  <div
-                    onClick={() => setExpandedIssue(expandedIssue === i ? null : i)}
-                    style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', cursor: 'pointer' }}
-                  >
-                    {issue.fixed ? (
-                      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0, color: 'var(--green)', background: 'rgba(34,197,94,0.08)' }}>FIXED</span>
-                    ) : (
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)', padding: '3px 8px', borderRadius: 100, textTransform: 'uppercase', flexShrink: 0,
-                        color: issue.severity === 'high' || issue.severity === 'critical' ? 'var(--red)' : issue.severity === 'medium' ? 'var(--amber)' : 'var(--blue)',
-                        background: issue.severity === 'high' || issue.severity === 'critical' ? 'rgba(239,68,68,.08)' : issue.severity === 'medium' ? 'rgba(245,158,11,.08)' : 'rgba(59,130,246,.08)',
-                      }}>
-                        {issue.severity}
-                      </span>
-                    )}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, textDecoration: issue.fixed ? 'line-through' : 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {issue.fact_key}
-                        {(issue.count ?? 1) > 1 && (
-                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', padding: '1px 5px', borderRadius: 100, background: 'rgba(124,58,237,0.08)', color: ACCENT_PURPLE, border: '1px solid rgba(124,58,237,0.15)' }}>
-                            ×{issue.count}
-                          </span>
-                        )}
+            <ul className="hal-list">
+              {filteredIssues.map((issue, i) => {
+                const expanded = expandedIssue === i;
+                return (
+                  <li key={issue.id ?? i} className="hal-row" style={{ opacity: issue.fixed ? 0.6 : 1 }}>
+                    <PlatformTile p={platformFor(issue.platform)} size={26} />
+                    <div style={{ minWidth: 0 }}>
+                      <div className="hal-q mono">
+                        <span className="dim">FACT ›</span> {issue.fact_key}
+                        {(issue.count ?? 1) > 1 && <span className="dim"> · ×{issue.count}</span>}
+                        {issue.query && <> &nbsp;<span className="dim">QUERY ›</span> &ldquo;{issue.query}&rdquo;</>}
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        Expected: <strong style={{ color: 'var(--green)' }}>{getExpected(issue) || '(not set)'}</strong> · Found: <strong style={{ color: issue.fixed ? 'var(--muted)' : 'var(--red)' }}>{issue.found}</strong>
-                      </div>
-                      <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ padding: '1px 5px', background: 'var(--bg3)', borderRadius: 3 }}>{issue.platform}</span>
+                      <div className="hal-claim"><span className="hal-tag mono">CLAIMED ✗</span> {issue.found}</div>
+                      <div className="hal-truth"><span className="hal-tag mono ok">TRUTH ✓</span> {getExpected(issue) || '(not set)'}</div>
+                      <div style={{ marginTop: 6, fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span>{issue.platform}</span>
                         {issue.date && <span>{new Date(issue.date).toLocaleDateString()}</span>}
                         {issue.category && <span style={{ textTransform: 'capitalize' }}>{issue.category}</span>}
                         <SourceUrlLink issue={issue} />
+                        {(issue.explanation || issue.query) && (
+                          <button className="btn-d" style={{ padding: '2px 8px', fontSize: 10 }} onClick={() => setExpandedIssue(expanded ? null : i)}>
+                            {expanded ? 'Hide detail ▲' : 'Detail ▼'}
+                          </button>
+                        )}
                       </div>
+                      {expanded && (issue.explanation || issue.query) && (
+                        <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: ACCENT_GRADIENT_SUBTLE, border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}>
+                          {issue.query && (
+                            <div style={{ marginBottom: issue.explanation ? 10 : 0 }}>
+                              <div className="eyebrow" style={{ marginBottom: 4 }}>Query Asked</div>
+                              <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)', padding: '6px 10px', background: 'var(--surface-2)', borderRadius: 6 }}>{issue.query}</div>
+                            </div>
+                          )}
+                          {issue.explanation && (
+                            <div>
+                              <div className="eyebrow" style={{ marginBottom: 4, color: ACCENT_PURPLE }}>AI Analysis</div>
+                              {issue.explanation}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {/* Mark Fixed + Re-verify */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 2 }}>
-                      {issue.id != null ? (
+                    <div className="hal-actions">
+                      <Badge tone={issue.fixed ? 'pos' : severityTone(issue.severity)}>{issue.fixed ? 'FIXED' : issue.severity.toUpperCase()}</Badge>
+                      {issue.id != null && (
                         <>
-                          <button onClick={e => { e.stopPropagation(); toggleFixed(issue); }}
-                            disabled={togglingFixed === issue.id}
-                            style={{
-                            padding: '3px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'var(--font)',
-                            cursor: togglingFixed === issue.id ? 'not-allowed' : 'pointer', border: '1px solid', transition: 'all .15s',
-                            opacity: togglingFixed === issue.id ? 0.6 : 1,
-                            ...(issue.fixed
-                              ? { background: 'rgba(34,197,94,0.08)', color: 'var(--green)', borderColor: 'rgba(34,197,94,0.2)' }
-                              : { background: 'var(--bg3)', color: 'var(--muted)', borderColor: 'var(--border)' }),
-                          }}>
-                            {togglingFixed === issue.id ? 'Updating...' : issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
+                          <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => toggleFixed(issue)} disabled={togglingFixed === issue.id}>
+                            {togglingFixed === issue.id ? 'Updating…' : issue.fixed ? 'Marked Fixed ✓' : 'Mark as Fixed'}
                           </button>
                           {issue.fixed && (
-                            <button onClick={e => { e.stopPropagation(); reverifyIssue(issue); }}
-                              disabled={reverifying === issue.id}
-                              style={{
-                                padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
-                                cursor: reverifying === issue.id ? 'not-allowed' : 'pointer', border: '1px solid rgba(124,58,237,0.2)',
-                                background: ACCENT_GRADIENT, color: ACCENT_PURPLE,
-                                opacity: reverifying === issue.id ? 0.6 : 1, transition: 'opacity .15s',
-                              }}>
-                              {reverifying === issue.id ? '...' : 'Re-verify ↻'}
+                            <button className="btn-d" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => reverifyIssue(issue)} disabled={reverifying === issue.id}>
+                              {reverifying === issue.id ? '…' : 'Re-verify ↻'}
                             </button>
                           )}
                         </>
-                      ) : null}
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{expandedIssue === i ? '▼' : '▶'}</span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+
+        {/* By engine + By topic */}
+        {(platformAccuracy.length > 0 || categoryAccuracy.length > 0) && (
+          <div className="g2">
+            <Card title="By engine" right={worstEngine ? <Badge tone="neg">WORST · {worstEngine.name}</Badge> : undefined}>
+              {platformAccuracy.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-3)', fontSize: 12.5 }}>Run accuracy checks to see platform-level breakdowns.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {platformAccuracy.map(p => (
+                    <div key={p.name} style={{ display: 'grid', gridTemplateColumns: '26px 90px 1fr 44px', gap: 10, alignItems: 'center' }}>
+                      <PlatformTile p={platformFor(p.name)} size={22} />
+                      <span style={{ fontSize: 12 }}>{p.name}</span>
+                      <Bar value={p.rate} max={100} color={rateColor(p.rate)} />
+                      <span className="mono" style={{ textAlign: 'right', fontSize: 12 }}><b>{p.rate}%</b></span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card title="By topic" right={worstTopic ? <Badge tone="warn">WORST · {worstTopic.name}</Badge> : undefined}>
+              {categoryAccuracy.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 16, color: 'var(--text-3)', fontSize: 12.5 }}>Add facts across categories and run checks to see category-level accuracy.</div>
+              ) : (
+                <ul className="topic-list">
+                  {categoryAccuracy.map(c => (
+                    <li key={c.name}>
+                      <span style={{ textTransform: 'capitalize' }}>{c.name}</span>
+                      <Bar value={c.rate} max={100} color={rateColor(c.rate)} />
+                      <span className="num">{c.rate}%</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
+        )}
+
+        {/* Per-Fact Accuracy Breakdown */}
+        {factBreakdown.length > 0 && (
+          <Card title="Fact accuracy breakdown">
+            <div style={{ display: 'grid', gap: 2 }}>
+              {factBreakdown.map(fb => {
+                const wrong = fb.wrongPlatforms.size;
+                const total = fb.totalPlatforms.size;
+                const pct = total > 0 ? wrong / total : 0;
+                const dotColor = pct > 0.5 ? 'var(--danger)' : pct > 0 ? 'var(--warn)' : 'var(--success)';
+                return (
+                  <div key={fb.factKey} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--line)' }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--text)', minWidth: 140 }}>{fb.factKey}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)', flex: 1 }}>{wrong}/{total} platform{total !== 1 ? 's' : ''} incorrect</span>
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      {[...fb.totalPlatforms].map(p => (
+                        <span key={p} style={{ width: 6, height: 6, borderRadius: '50%', background: fb.wrongPlatforms.has(p) ? 'var(--danger)' : 'var(--success)' }} title={p} />
+                      ))}
                     </div>
                   </div>
-                  {expandedIssue === i && (issue.explanation || issue.query) && (
-                    <div style={{
-                      margin: '0 0 12px 32px', padding: '10px 14px', borderRadius: 6,
-                      background: ACCENT_GRADIENT_SUBTLE,
-                      border: '1px solid rgba(124,58,237,0.1)', fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
-                    }}>
-                      {issue.query && (
-                        <div style={{ marginBottom: issue.explanation ? 10 : 0 }}>
-                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>Query Asked</div>
-                          <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg3)', borderRadius: 4 }}>{issue.query}</div>
-                        </div>
-                      )}
-                      {issue.explanation && (
-                        <div>
-                          <div style={{ fontSize: 9, fontWeight: 700, fontFamily: 'var(--mono)', color: ACCENT_PURPLE, textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>AI Analysis</div>
-                          {issue.explanation}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
-          )}
-        </div>
-      </div>
+          </Card>
+        )}
       </div>
     </div>
   );

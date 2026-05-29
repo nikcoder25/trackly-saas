@@ -65,6 +65,11 @@ const THEMED_ROUTES = new Set<string>([
   '/dashboard/query-tracker',
   '/dashboard/recommendations',
   '/dashboard/proof',
+  '/dashboard/setup',
+  '/dashboard/prompts',
+  '/dashboard/account',
+  '/dashboard/billing',
+  '/dashboard/alerts',
 ]);
 
 function NavIcon({ id }: { id: string }) {

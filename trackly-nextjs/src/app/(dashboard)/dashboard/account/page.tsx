@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { PRICING_PLANS, BILLING_PORTAL_URL } from '@/lib/constants';
 import { useToast } from '@/components/dashboard/Toast';
+import { Card, Badge, PageHead, Pill } from '@/app/dashboard-v2/ui';
 
 interface BillingEntry {
   date: string;
@@ -210,201 +211,233 @@ export default function AccountPage() {
     }
   }
 
+  const currentPlanDef = PLANS.find(p => p.name.toLowerCase() === plan);
+
   return (
-    <div>
-      <div className="view-title">Account &amp; Plan</div>
-      <div className="view-sub">Manage your account and subscription.</div>
-
-      {/* Account Info */}
-      <div className="card">
-        <div className="section-title">Account Info</div>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, lineHeight: 2.2 }}>
-          <div>Email: <strong>{user?.email}</strong> {emailVerified ? <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(16,185,129,.08)', color: 'var(--green)', border: '1px solid rgba(16,185,129,.2)' }}>VERIFIED</span> : <><span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(239,68,68,.08)', color: 'var(--red)', border: '1px solid rgba(239,68,68,.2)' }}>UNVERIFIED</span> <button className="pbtn" onClick={async () => { try { let res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); if (res.status === 401) { try { const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }); if (r.ok) res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); } catch { /* refresh failed */ } } let d; try { d = await res.json(); } catch { alert('Server error - please try again later.'); return; } alert(res.ok ? 'Verification email sent!' : d.error || 'Failed to send verification email'); } catch { alert('Failed to send verification email. Please try again later.'); } }} style={{ fontSize: 9, padding: '2px 8px', marginLeft: 4 }}>RESEND VERIFICATION</button></>}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            Username: <strong style={{ color: 'var(--primary)' }}>@{usernameEdit ? '' : (user?.username || '-')}</strong>
-            {usernameEdit ? (
-              <><input className="finp" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ margin: 0, padding: '2px 8px', width: 180, fontSize: 12 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="pbtn" onClick={saveUsername} style={{ fontSize: 9, padding: '3px 8px' }}>SAVE</button></>
-            ) : (
-              <button className="pbtn" onClick={() => setUsernameEdit(true)} style={{ fontSize: 9, padding: '3px 8px' }}>EDIT</button>
+    <div className="lvx">
+      <PageHead
+        title="Account & Plan"
+        sub="Manage your account, security and subscription."
+        actions={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="btn-p" style={{ textDecoration: 'none' }}>Manage billing</a>}
+      />
+      <div className="page-body">
+        <div className="g3">
+          {/* Current plan */}
+          <Card title="Current plan" right={<Badge tone="acc">{plan.toUpperCase()}</Badge>}>
+            <div className="kpi-v mono" style={{ fontSize: 32 }}>{currentPlanDef?.price ?? '$0'}<i>/mo</i></div>
+            <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{currentPlanDef?.headline ?? currentPlanDef?.sub ?? 'Free plan'}</div>
+            {currentPlanDef && (
+              <ul className="plan-feat">
+                {currentPlanDef.features.map(f => <li key={f}>{f}</li>)}
+              </ul>
             )}
-          </div>
-          <div>Plan: <strong style={{ textTransform: 'uppercase' }}>{plan}</strong> <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'rgba(16,185,129,.08)', color: 'var(--green)' }}>ACTIVE</span></div>
-          <div>Member since: <span style={{ color: 'var(--muted)' }}>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-'}</span></div>
-          {plan !== 'free' && <div style={{ marginTop: 8 }}><button onClick={cancelSubscription} style={{ padding: '6px 14px', background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, cursor: 'pointer', borderRadius: 'var(--radius-xs)', letterSpacing: '.5px' }}>CANCEL SUBSCRIPTION</button></div>}
-        </div>
-      </div>
-
-      {/* Billing History */}
-      {billingHistory.length > 0 && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="section-title" style={{ margin: 0 }}>Billing History</div>
-            <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--primary)', textDecoration: 'none', letterSpacing: '.5px' }}>MANAGE BILLING →</a>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12, minWidth: 600 }}>
-            <thead><tr style={{ borderBottom: '2px solid var(--border)' }}><th className="th">Date</th><th className="th">Event</th><th className="th">Amount</th><th className="th">Status</th></tr></thead>
-            <tbody>
-              {billingHistory.map((b, i) => (
-                <tr key={i} className="trow">
-                  <td className="td">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
-                  <td className="td" style={{ fontWeight: 600 }}>{b.event}</td>
-                  <td className="td">{b.amount || '-'}</td>
-                  <td className="td"><span style={{ color: b.status === 'succeeded' || b.status === 'paid' || b.status === 'upgraded' || b.status === 'renewed' ? 'var(--green)' : 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{b.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
-      )}
-
-      {/* Two-Factor Authentication */}
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="section-title">Two-Factor Authentication</div>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
-          {twoFAEnabled ? 'Enabled - your account is protected with 2FA.' : 'Not enabled. Add an extra layer of security to your account with an authenticator app.'}
-        </div>
-        {twoFAMsg && <div style={{ fontSize: 11, fontFamily: 'var(--mono)', color: twoFAMsg.includes('success') || twoFAMsg.includes('enabled') || twoFAMsg.includes('disabled') ? 'var(--green)' : 'var(--red)', marginBottom: 12 }}>{twoFAMsg}</div>}
-
-        {/* Enable 2FA Flow */}
-        {!twoFAEnabled && !twoFASetup && (
-          <button className="pbtn" onClick={async () => {
-            try {
-              const res = await fetch('/api/auth/2fa/setup', { method: 'POST', credentials: 'include' });
-              const data = await res.json();
-              if (!res.ok) { setTwoFAMsg(data.error || 'Failed to setup 2FA'); toast('Failed to setup 2FA', 'error'); return; }
-              setTwoFASetup({ secret: data.secret, otpauthUrl: data.otpauthUrl });
-              setTwoFAMsg('');
-            } catch { setTwoFAMsg('Failed to connect'); toast('Failed to connect', 'error'); }
-          }} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, fontSize: 11 }}>
-            ENABLE 2FA
-          </button>
-        )}
-
-        {/* QR Code + Verify Step */}
-        {twoFASetup && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>1. Scan this QR code with your authenticator app</div>
-              <div style={{ display: 'flex', justifyContent: 'center', padding: 16, background: '#ffffff', borderRadius: 'var(--radius-xs)', maxWidth: 240, marginTop: 8 }}>
-                <QRCodeSVG value={twoFASetup.otpauthUrl} size={180} level="M" bgColor="#ffffff" fgColor="#000000" includeMargin />
+            {plan !== 'free' && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                <button className="btn-d btn-danger" onClick={cancelSubscription}>Cancel subscription</button>
               </div>
-              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--muted)' }}>Or enter this key manually:</div>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', display: 'inline-block', letterSpacing: 2, userSelect: 'all' as const }}>
-                {twoFASetup.secret}
+            )}
+          </Card>
+
+          {/* Account info */}
+          <Card title="Account info" right={<Badge tone={emailVerified ? 'pos' : 'neg'}>{emailVerified ? 'VERIFIED' : 'UNVERIFIED'}</Badge>}>
+            <div className="fld">
+              <div className="eyebrow">EMAIL</div>
+              <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--text)' }}>{user?.email}</span>
+                {!emailVerified && <button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={async () => { try { let res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); if (res.status === 401) { try { const r = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }); if (r.ok) res = await fetch('/api/auth/resend-verification', { method: 'POST', credentials: 'include' }); } catch { /* refresh failed */ } } let d; try { d = await res.json(); } catch { alert('Server error - please try again later.'); return; } alert(res.ok ? 'Verification email sent!' : d.error || 'Failed to send verification email'); } catch { alert('Failed to send verification email. Please try again later.'); } }}>Resend verification</button>}
               </div>
             </div>
+            <div className="fld">
+              <div className="eyebrow">USERNAME</div>
+              <div style={{ fontSize: 13, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                {usernameEdit ? (
+                  <><input className="fld-in mono" value={usernameVal} onChange={e => setUsernameVal(e.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ''))} style={{ width: 180 }} onKeyDown={e => e.key === 'Enter' && saveUsername()} /><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={saveUsername}>Save</button></>
+                ) : (
+                  <><span className="mono" style={{ color: 'var(--text)' }}>@{user?.username || '-'}</span><button className="btn-d" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => setUsernameEdit(true)}>Edit</button></>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
+              <div>
+                <div className="eyebrow">PLAN</div>
+                <div style={{ fontSize: 13, marginTop: 4 }}><span style={{ textTransform: 'uppercase' }}>{plan}</span> · <span className="pos">active</span></div>
+              </div>
+              <div>
+                <div className="eyebrow">MEMBER SINCE</div>
+                <div style={{ fontSize: 13, marginTop: 4 }} className="mono">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '-'}</div>
+              </div>
+            </div>
+          </Card>
 
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>2. Enter the 6-digit code from your app</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
-              <input className="finp" value={twoFACode} onChange={e => setTwoFACode(e.target.value)} type="text" placeholder="Enter 6-digit code" maxLength={6} inputMode="numeric" style={{ margin: 0, flex: 1, textAlign: 'center', letterSpacing: 4, fontSize: 18 }} />
-              <button className="pbtn" onClick={async () => {
+          {/* Export data */}
+          <Card title="Export data">
+            <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>Download your brand data for backup or migration.</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn-d" onClick={() => exportBrand('json')}>Export brand (JSON)</button>
+              <button className="btn-d" onClick={() => exportBrand('csv')}>Export brand (CSV)</button>
+              <button className="btn-d" onClick={exportAll}>Export all (JSON)</button>
+              <button className="btn-g" onClick={() => toast('Import coming soon', 'error')}>Import brand</button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Billing history */}
+        {billingHistory.length > 0 && (
+          <Card title="Billing history" padding={false}
+            right={<a href={BILLING_PORTAL_URL} target="_blank" rel="noopener" className="mono dim" style={{ fontSize: 11, textDecoration: 'none' }}>MANAGE BILLING →</a>}>
+            <table className="tbl">
+              <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
+              <tbody>
+                {billingHistory.map((b, i) => (
+                  <tr key={i}>
+                    <td className="num">{b.date && !isNaN(new Date(b.date).getTime()) ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
+                    <td><b>{b.event}</b></td>
+                    <td className="right num">{b.amount || '-'}</td>
+                    <td><Badge tone={b.status === 'succeeded' || b.status === 'paid' || b.status === 'upgraded' || b.status === 'renewed' ? 'pos' : 'neu'}>{(b.status || '').toUpperCase()}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
+        <div className="g2">
+          {/* Two-factor authentication */}
+          <Card title="Two-factor authentication" right={<Badge tone={twoFAEnabled ? 'pos' : 'neu'}>{twoFAEnabled ? 'ENABLED' : 'OFF'}</Badge>}>
+            <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
+              {twoFAEnabled ? 'Your account is protected with 2FA.' : 'Add an extra layer of security to your account with an authenticator app.'}
+            </p>
+            {twoFAMsg && <div style={{ fontSize: 12, fontFamily: 'var(--mono)', marginBottom: 12 }} className={twoFAMsg.includes('success') || twoFAMsg.includes('enabled') || twoFAMsg.includes('disabled') ? 'pos' : 'neg'}>{twoFAMsg}</div>}
+
+            {/* Enable 2FA Flow */}
+            {!twoFAEnabled && !twoFASetup && (
+              <button className="btn-p" onClick={async () => {
                 try {
-                  const res = await fetch('/api/auth/2fa/verify', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: twoFACode }) });
+                  const res = await fetch('/api/auth/2fa/setup', { method: 'POST', credentials: 'include' });
                   const data = await res.json();
-                  if (!res.ok) { setTwoFAMsg(data.error || 'Invalid code'); toast('Invalid 2FA code', 'error'); return; }
-                  setTwoFAEnabled(true);
-                  setTwoFASetup(null);
-                  setTwoFACode('');
-                  setTwoFAStatus('Enabled');
-                  setTwoFAMsg('2FA enabled successfully!');
-                  toast('2FA enabled successfully');
-                  if (data.backupCodes) setBackupCodes(data.backupCodes);
-                } catch { setTwoFAMsg('Failed to verify'); toast('Failed to verify 2FA code', 'error'); }
-              }} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', whiteSpace: 'nowrap', fontWeight: 700 }}>VERIFY</button>
-            </div>
-          </div>
-        )}
+                  if (!res.ok) { setTwoFAMsg(data.error || 'Failed to setup 2FA'); toast('Failed to setup 2FA', 'error'); return; }
+                  setTwoFASetup({ secret: data.secret, otpauthUrl: data.otpauthUrl });
+                  setTwoFAMsg('');
+                } catch { setTwoFAMsg('Failed to connect'); toast('Failed to connect', 'error'); }
+              }}>
+                Enable 2FA
+              </button>
+            )}
 
-        {/* Backup Codes Display */}
-        {backupCodes.length > 0 && (
-          <div style={{ marginTop: 16, padding: 16, background: 'var(--bg3)', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup Codes - Save these somewhere safe!</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-              {backupCodes.map((code, i) => (
-                <div key={i} style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '6px 10px', background: 'var(--bg2)', borderRadius: 4, textAlign: 'center' }}>{code}</div>
-              ))}
-            </div>
-            <button className="pbtn" onClick={() => { navigator.clipboard.writeText(backupCodes.join('\n')); setTwoFAMsg('Backup codes copied!'); }} style={{ marginTop: 10, fontSize: 10 }}>COPY ALL CODES</button>
-          </div>
-        )}
+            {/* QR Code + Verify Step */}
+            {twoFASetup && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>1 · SCAN THIS QR CODE WITH YOUR AUTHENTICATOR APP</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: 16, background: '#ffffff', borderRadius: 8, maxWidth: 240, marginTop: 8 }}>
+                    <QRCodeSVG value={twoFASetup.otpauthUrl} size={180} level="M" bgColor="#ffffff" fgColor="#000000" includeMargin />
+                  </div>
+                  <div className="quiet" style={{ marginTop: 12, fontSize: 12 }}>Or enter this key manually:</div>
+                  <div className="mono" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4, padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 6, display: 'inline-block', letterSpacing: 2, userSelect: 'all' as const }}>
+                    {twoFASetup.secret}
+                  </div>
+                </div>
 
-        {/* Disable 2FA */}
-        {twoFAEnabled && !twoFASetup && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
-              <input className="finp" type="password" placeholder="Enter password to confirm" value={disablePw} onChange={e => setDisablePw(e.target.value)} style={{ margin: 0, flex: 1 }} />
-              <button className="pbtn" onClick={async () => {
-                try {
-                  const res = await fetch('/api/auth/2fa/disable', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: disablePw }) });
-                  const data = await res.json();
-                  if (!res.ok) { setTwoFAMsg(data.error || 'Failed'); return; }
-                  setTwoFAEnabled(false);
-                  setDisablePw('');
-                  setTwoFAStatus('Not enabled');
-                  setTwoFAMsg('2FA disabled successfully');
-                  setBackupCodes([]);
-                } catch { setTwoFAMsg('Failed'); }
-              }} style={{ borderColor: 'var(--red)', color: 'var(--red)', whiteSpace: 'nowrap' }}>DISABLE 2FA</button>
-            </div>
-          </div>
-        )}
-      </div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>2 · ENTER THE 6-DIGIT CODE FROM YOUR APP</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
+                  <input className="fld-in mono" value={twoFACode} onChange={e => setTwoFACode(e.target.value)} type="text" placeholder="Enter 6-digit code" maxLength={6} inputMode="numeric" style={{ flex: 1, textAlign: 'center', letterSpacing: 4, fontSize: 18 }} />
+                  <button className="btn-p" onClick={async () => {
+                    try {
+                      const res = await fetch('/api/auth/2fa/verify', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: twoFACode }) });
+                      const data = await res.json();
+                      if (!res.ok) { setTwoFAMsg(data.error || 'Invalid code'); toast('Invalid 2FA code', 'error'); return; }
+                      setTwoFAEnabled(true);
+                      setTwoFASetup(null);
+                      setTwoFACode('');
+                      setTwoFAStatus('Enabled');
+                      setTwoFAMsg('2FA enabled successfully!');
+                      toast('2FA enabled successfully');
+                      if (data.backupCodes) setBackupCodes(data.backupCodes);
+                    } catch { setTwoFAMsg('Failed to verify'); toast('Failed to verify 2FA code', 'error'); }
+                  }} style={{ whiteSpace: 'nowrap' }}>Verify</button>
+                </div>
+              </div>
+            )}
 
-      {/* Export Data */}
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="section-title">Export Data</div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="pbtn" onClick={() => exportBrand('json')}>EXPORT BRAND (JSON)</button>
-          <button className="pbtn" onClick={() => exportBrand('csv')}>EXPORT BRAND (CSV)</button>
-          <button className="pbtn" onClick={exportAll}>EXPORT ALL (JSON)</button>
-          <button className="pbtn" onClick={() => toast('Import coming soon', 'error')} style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}>IMPORT BRAND</button>
+            {/* Backup Codes Display */}
+            {backupCodes.length > 0 && (
+              <div style={{ marginTop: 16, padding: 16, background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Backup codes — save these somewhere safe!</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                  {backupCodes.map((code, i) => (
+                    <div key={i} className="mono" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: '6px 10px', background: 'var(--surface)', borderRadius: 4, textAlign: 'center' }}>{code}</div>
+                  ))}
+                </div>
+                <button className="btn-d" style={{ marginTop: 10 }} onClick={() => { navigator.clipboard.writeText(backupCodes.join('\n')); setTwoFAMsg('Backup codes copied!'); }}>Copy all codes</button>
+              </div>
+            )}
+
+            {/* Disable 2FA */}
+            {twoFAEnabled && !twoFASetup && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 400 }}>
+                  <input className="fld-in" type="password" placeholder="Enter password to confirm" value={disablePw} onChange={e => setDisablePw(e.target.value)} style={{ flex: 1 }} />
+                  <button className="btn-d btn-danger" style={{ whiteSpace: 'nowrap' }} onClick={async () => {
+                    try {
+                      const res = await fetch('/api/auth/2fa/disable', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: disablePw }) });
+                      const data = await res.json();
+                      if (!res.ok) { setTwoFAMsg(data.error || 'Failed'); return; }
+                      setTwoFAEnabled(false);
+                      setDisablePw('');
+                      setTwoFAStatus('Not enabled');
+                      setTwoFAMsg('2FA disabled successfully');
+                      setBackupCodes([]);
+                    } catch { setTwoFAMsg('Failed'); }
+                  }}>Disable 2FA</button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Change password */}
+          <Card title="Change password">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 400 }}>
+              <input className="fld-in" type="password" placeholder="Current password" value={pwCurrent} onChange={e => setPwCurrent(e.target.value)} />
+              <input className="fld-in" type="password" placeholder="New password (min 8 characters)" value={pwNew} onChange={e => setPwNew(e.target.value)} />
+              <input className="fld-in" type="password" placeholder="Confirm new password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} />
+              {pwMsg && <div style={{ fontSize: 12, fontFamily: 'var(--mono)' }} className={pwMsg.includes('updated') ? 'pos' : 'neg'}>{pwMsg}</div>}
+              <button className="btn-p" style={{ width: 'fit-content' }} onClick={changePassword}>Update password</button>
+            </div>
+          </Card>
         </div>
-      </div>
 
-      {/* Change Password */}
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="section-title">Change Password</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 400 }}>
-          <input className="finp" type="password" placeholder="Current password" value={pwCurrent} onChange={e => setPwCurrent(e.target.value)} />
-          <input className="finp" type="password" placeholder="New password (min 8 characters)" value={pwNew} onChange={e => setPwNew(e.target.value)} />
-          <input className="finp" type="password" placeholder="Confirm new password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} />
-          {pwMsg && <div style={{ fontSize: 11, color: pwMsg.includes('updated') ? 'var(--green)' : 'var(--red)', fontFamily: 'var(--mono)' }}>{pwMsg}</div>}
-          <button className="pbtn" onClick={changePassword} style={{ width: 'fit-content' }}>UPDATE PASSWORD</button>
-        </div>
-      </div>
+        {/* Choose your plan */}
+        <Card title="Choose your plan" right={<Pill tone="acc">Current · {plan.toUpperCase()}</Pill>}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            {PLANS.map(p => {
+              const isCurrent = plan === p.name.toLowerCase();
+              return (
+                <Card key={p.name} title={p.name} right={p.featured ? <Badge tone="acc">POPULAR</Badge> : isCurrent ? <Badge tone="pos">CURRENT</Badge> : undefined}>
+                  <div className="kpi-v mono" style={{ fontSize: 28 }}>{p.price}<i>/mo</i></div>
+                  <div className="quiet" style={{ fontSize: 13, margin: '6px 0 14px' }}>{p.sub}</div>
+                  <ul className="plan-feat">{p.features.map(f => <li key={f}>{f}</li>)}</ul>
+                  <div style={{ marginTop: 14 }}>
+                    {isCurrent ? (
+                      <button className="btn-d" style={{ width: '100%', opacity: 0.7, cursor: 'default' }} disabled>Current plan</button>
+                    ) : p.name.toLowerCase() === 'enterprise' ? (
+                      <a href="/contact" className="btn-p" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>Contact us</a>
+                    ) : (
+                      <button className="btn-p" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
+                        {(PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `Downgrade to ${p.name}` : `Upgrade to ${p.name}`}
+                      </button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </Card>
 
-      {/* Danger Zone */}
-      <div className="card" style={{ marginTop: 14, borderColor: 'var(--red)' }}>
-        <div className="section-title" style={{ color: 'var(--red)' }}>Danger Zone</div>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>Permanently delete your account. This cannot be undone.</div>
-        <button onClick={deleteAccount} style={{ padding: '8px 16px', background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--font)', fontSize: 11, fontWeight: 700, cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>DELETE MY ACCOUNT</button>
-      </div>
-
-      {/* Choose Your Plan */}
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="section-title">Choose Your Plan</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-          {PLANS.map(p => (
-            <div key={p.name} className="land-price-card" style={p.featured ? { borderColor: 'var(--primary)', boxShadow: '0 0 0 1px var(--primary), var(--card-shadow-lg)' } : {}}>
-              {p.featured && <span style={{ position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)', fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: '#fff', padding: '4px 16px', letterSpacing: '.5px', borderRadius: 100 }}>MOST POPULAR</span>}
-              <h3>{p.name}</h3>
-              <div className="price">{p.price}<span>/mo</span></div>
-              <div className="price-sub">{p.sub}</div>
-              <ul>{p.features.map(f => <li key={f}>{f}</li>)}</ul>
-              {plan === p.name.toLowerCase() ? (
-                <button className="land-btn land-btn-primary" style={{ width: '100%', opacity: 0.7, cursor: 'default' }}>CURRENT PLAN</button>
-              ) : p.name.toLowerCase() === 'enterprise' ? (
-                <a href="/contact" className="land-btn land-btn-primary" style={{ width: '100%', display: 'block', textAlign: 'center', textDecoration: 'none' }}>CONTACT US</a>
-              ) : (
-                <button className="land-btn land-btn-primary" style={{ width: '100%' }} onClick={() => switchPlan(p.name)}>
-                  {(PLAN_TIERS[p.name.toLowerCase()] ?? 0) < (PLAN_TIERS[plan] ?? 0) ? `DOWNGRADE TO ${p.name.toUpperCase()}` : `UPGRADE TO ${p.name.toUpperCase()}`}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Danger zone */}
+        <Card title="Danger zone">
+          <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>Permanently delete your account. This cannot be undone.</p>
+          <button className="btn-d btn-danger" onClick={deleteAccount}>Delete my account</button>
+        </Card>
       </div>
     </div>
   );

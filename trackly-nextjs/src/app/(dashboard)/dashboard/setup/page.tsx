@@ -11,6 +11,23 @@ import { useBrands } from '@/contexts/BrandContext';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import AddBrandModal from '@/components/dashboard/AddBrandModal';
+import { Card, Badge, PageHead } from '@/app/dashboard-v2/ui';
+
+/* ── design-system field/tag helpers (presentation only) ───────────────── */
+function Fld({ label, value, onChange, placeholder, type = 'text', mono = false }: any) {
+  return (
+    <div className="fld">
+      <label className="eyebrow">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={'fld-in' + (mono ? ' mono' : '')}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
 
 interface Brand {
   id: string;
@@ -86,23 +103,22 @@ export default function SetupPage() {
     await refreshBrands();
   }, [refreshBrands]);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return (
+    <div className="lvx">
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
+        <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }} />
+      </div>
+    </div>
+  );
 
   return (
-    <div>
+    <div className="lvx">
       <LockedBrandBanner />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div>
-          <div className="view-title">Brand Setup</div>
-          <div className="view-sub">Configure your brand details.</div>
-        </div>
-        <button onClick={() => setShowCreate(true)} style={{
-          background: 'var(--primary)', color: '#fff', border: 'none',
-          padding: '9px 18px', borderRadius: 'var(--radius-xs)', fontSize: 13,
-          fontWeight: 700, fontFamily: 'var(--font)', cursor: 'pointer',
-          boxShadow: '0 1px 2px rgba(99,102,241,.2)', transition: 'all .15s',
-        }}>+ New Brand</button>
-      </div>
+      <PageHead
+        title="Brand Setup"
+        sub="Configure your brand details."
+        actions={<button className="btn-p" onClick={() => setShowCreate(true)}>+ New Brand</button>}
+      />
 
       {showCreate && (
         <AddBrandModal
@@ -117,11 +133,13 @@ export default function SetupPage() {
         />
       )}
 
-      {selectedBrand ? (
-        <EditBrandForm brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
-          onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
-          onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
-      ) : null}
+      <div className="page-body">
+        {selectedBrand ? (
+          <EditBrandForm brand={selectedBrand} accountPromptCap={accountPromptCap} allBrands={brands}
+            onUpdated={updated => { setBrands(brands.map(b => b.id === updated.id ? updated : b)); setSelectedBrand(updated); setCtxSelectedBrand(updated); refreshBrands(); }}
+            onDeleted={() => { const remaining = brands.filter(b => b.id !== selectedBrand.id); setBrands(remaining); setSelectedBrand(remaining[0] || null); refreshBrands(); }} />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -565,54 +583,45 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
   };
 
   return (
-    <div>
-      <div className="card">
-        {error && <div style={{ background: 'var(--danger-light)', border: '1px solid rgba(239,68,68,.2)', color: 'var(--danger)', fontSize: 11, fontFamily: 'var(--mono)', padding: '8px 12px', borderRadius: 'var(--radius-xs)', marginBottom: 12 }}>{error}</div>}
-        {message && <div style={{ background: 'var(--success-light)', border: '1px solid rgba(16,185,129,.2)', color: 'var(--success)', fontSize: 11, fontFamily: 'var(--mono)', padding: '8px 12px', borderRadius: 'var(--radius-xs)', marginBottom: 12 }}>{message}</div>}
-        <form onSubmit={handleSave}>
+    <form onSubmit={handleSave} style={{ display: 'grid', gap: 16 }}>
+      {error && <Badge tone="neg" style={{ display: 'block', padding: '8px 12px', fontSize: 11 }}>{error}</Badge>}
+      {message && <Badge tone="pos" style={{ display: 'block', padding: '8px 12px', fontSize: 11 }}>{message}</Badge>}
 
-          {/* Brand Name */}
-          <SectionField label="Brand Name" value={name} onChange={setName} placeholder="Your Brand Name" />
+      <Card title="Identity">
+        <Fld label="BRAND NAME" value={name} onChange={setName} placeholder="Your Brand Name" />
 
-          {/* Industry */}
-          <SectionField label="Industry" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
+        <Fld label="INDUSTRY" value={industry} onChange={setIndustry} placeholder="e.g. HVAC, Plumbing, Landscaping" />
+        <Fld label="WEBSITE" value={website} onChange={setWebsite} placeholder="yourbrand.com" mono />
+        <Fld label="CITY / LOCATION" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
+        <Fld label="SOV GOAL (%)" value={String(goal)} onChange={(v: string) => setGoal(Number(v))} placeholder="70" type="number" mono />
+      </Card>
 
-          {/* Website */}
-          <SectionField label="Website" value={website} onChange={setWebsite} placeholder="yourbrand.com" />
+      <Card title="Alternate names & aliases" right={<button type="button" onClick={autoGenerateAliases} className="btn-d">Auto-generate</button>}>
+        <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
+          AI platforms may refer to your brand differently. Add all variations so no mention is missed. Auto-generated from brand name &amp; website - add more if needed.
+        </p>
+        <div className="tag-grid">
+          {aliases.map((a, i) => (
+            <span key={`${a}-${i}`} className="ttag mono">{a} <span className="x" onClick={() => setAliases(aliases.filter((_, j) => j !== i))}>×</span></span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <input value={aliasInput} onChange={e => setAliasInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAlias(); } }}
+            placeholder="Add alternate name..." className="fld-in" style={{ flex: 1 }} />
+          <button type="button" onClick={addAlias} className="btn-g">+ Add</button>
+        </div>
+      </Card>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+      <Card title="Nearby areas">
+        <NearbyAreasSection city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
+      </Card>
 
-          {/* Alternate Names / Aliases */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="flbl">Alternate Names / Aliases</label>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
-              AI platforms may refer to your brand differently. Add all variations so no mention is missed.<br />
-              Auto-generated from brand name &amp; website - add more if needed.
-            </div>
-            <TagList items={aliases} onRemove={i => setAliases(aliases.filter((_, j) => j !== i))} />
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <input value={aliasInput} onChange={e => setAliasInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAlias(); } }}
-                placeholder="Add alternate name..." className="finp" style={{ flex: 1, margin: 0 }} />
-              <button type="button" onClick={addAlias} className="setup-add-btn">+ Add</button>
-              <button type="button" onClick={autoGenerateAliases} className="setup-mono-btn">AUTO-GENERATE</button>
-            </div>
-          </div>
-
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-
-          {/* City / Location */}
-          <SectionField label="City / Location" value={city} onChange={setCity} placeholder="e.g. Austin TX" />
-
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-
-          {/* Nearby Areas */}
-          <NearbyAreasSection city={city} areas={nearbyAreas} onChange={setNearbyAreas} brandId={brand.id} />
-
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-
-          {/* Manage Queries */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="flbl">Manage Queries</label>
+      <Card title="Manage queries"
+        lede={isPromptCapUnlimited
+          ? `${queries.length} prompts on this brand · ∞ account-wide`
+          : `${queries.length + otherBrandsPromptCount} / ${accountPromptCap} prompts account-wide · ${queries.length} on this brand${otherBrandsPromptCount > 0 ? ` · ${otherBrandsPromptCount} on other brands` : ''}`}
+      >
+        <div style={{ display: 'none' }} aria-hidden="true"></div>
             <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
               Add, remove, or bulk-manage the queries tracked for this brand.{' '}
               {isPromptCapUnlimited ? (
@@ -649,7 +658,7 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
             {/* Action buttons row */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               <button type="button" onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} className="setup-mono-btn">
-                {selectMode ? 'CANCEL' : '\u2610 SELECT'}
+                {selectMode ? 'Cancel' : '\u2610 Select'}
               </button>
               {selectMode && (
                 <>
@@ -709,7 +718,6 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
                 </div>
               </div>
             )}
-          </div>
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
 
@@ -767,9 +775,8 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
           }}>
             DELETE BRAND
           </button>
-        </form>
-      </div>
-    </div>
+      </Card>
+    </form>
   );
 }
 
