@@ -60,6 +60,11 @@ const THEMED_ROUTES = new Set<string>([
   '/dashboard/citations',
   '/dashboard/platforms',
   '/dashboard/trends',
+  '/dashboard/accuracy',
+  '/dashboard/results',
+  '/dashboard/query-tracker',
+  '/dashboard/recommendations',
+  '/dashboard/proof',
 ]);
 
 function NavIcon({ id }: { id: string }) {

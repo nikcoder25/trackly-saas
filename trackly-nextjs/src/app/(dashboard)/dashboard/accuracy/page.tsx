@@ -5,6 +5,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrandData } from '@/hooks/useBrandData';
 import { safeExternalUrl } from '@/lib/sanitize';
+import { Card, KPIRail, Badge, Bar, PageHead, PlatformTile, PLATFORMS, type Platform } from '@/app/dashboard-v2/ui';
 
 interface Brand { id: string; name: string; }
 interface Fact { key: string; value: string; category: string; }
@@ -232,6 +233,15 @@ function SourceUrlLink({ issue }: { issue: Issue }) {
       {isSearchUrl ? `Verify on ${issue.platform} ↗` : `${hostname} ↗`}
     </a>
   );
+}
+
+// ── Resolve a raw platform name to a design-system Platform tile ──
+function platformFor(name: string): Platform {
+  const lc = (name || '').toLowerCase();
+  const match = PLATFORMS.find(p => p.id === lc || p.name.toLowerCase() === lc || p.short.toLowerCase() === lc || lc.includes(p.id));
+  if (match) return match;
+  const short = (name || '?').slice(0, 3).toUpperCase();
+  return { id: lc || 'unknown', name: name || 'Unknown', short, sov: 0, delta: 0, ok: true, ms: 0 };
 }
 
 // ── Main Page ───────────────────────────────────────────────────
@@ -510,13 +520,37 @@ export default function AccuracyPage() {
   }, [issues, platformStats]);
 
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-      <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+    <div className="lvx">
+      <div className="page-body" style={{ paddingTop: 28 }}>
+        <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
+          <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        </div>
+      </div>
     </div>
   );
 
+  const severityTone = (sev: string) =>
+    sev === 'critical' || sev === 'high' ? 'neg' : sev === 'medium' ? 'warn' : 'info';
+
   return (
-    <div>
+    <div className="lvx">
+      <LockedBrandBanner />
+      <PageHead
+        title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>Accuracy Monitor <Badge tone="acc">AI-POWERED</Badge></span>}
+        sub="Uses AI to analyze actual responses from AI platforms against your canonical facts — find inaccurate claims, fix them, prevent them."
+        actions={
+          <button className="btn-p" onClick={checkNow} disabled={checking}>
+            {checking ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                Analyzing…
+              </span>
+            ) : 'Check Now'}
+          </button>
+        }
+      />
+
+      <div className="page-body">
       <LockedBrandBanner />
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
@@ -941,6 +975,7 @@ export default function AccuracyPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

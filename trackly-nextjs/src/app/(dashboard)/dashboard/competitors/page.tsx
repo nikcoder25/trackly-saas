@@ -8,7 +8,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { friendlyCompetitorName as friendlyName } from '@/lib/parser';
-import { Card, PageHead, Badge, Bar, StackBar, Delta, Spark } from '@/app/dashboard-v2/ui';
+import { Card, PageHead, Badge, Bar, StackBar, Spark } from '@/app/dashboard-v2/ui';
 
 const COMP_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ef4444'];
 
@@ -201,18 +201,6 @@ export default function CompetitorsPage() {
       .slice(0, 15);
   }, [citations, brand?.website, competitors]);
 
-  if (loading || compStatsLoading) return (
-    <div className="lvx">
-      <div className="page-body" style={{ paddingTop: 28 }}>
-        <Card>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
-            <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'lvx-spin 1s linear infinite' }} />
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-
   // Build the ranked leaderboard from real data: brand + tracked competitors,
   // sorted by share of voice (SOV = mentions / totalQueries).
   const leaderboard = useMemo(() => {
@@ -238,6 +226,18 @@ export default function CompetitorsPage() {
     ];
     return rows.sort((a, b) => b.sov - a.sov);
   }, [brand?.name, competitors, compStats, compStatsData, brandPct, totalQueries]);
+
+  if (loading || compStatsLoading) return (
+    <div className="lvx">
+      <div className="page-body" style={{ paddingTop: 28 }}>
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+            <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'lvx-spin 1s linear infinite' }} />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
 
   return (
     <div className="lvx">

@@ -5,6 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
+import { PLATFORMS, type Platform, PlatformTile, Badge, Card, Pill, Filter, PageHead } from '@/app/dashboard-v2/ui';
+
+// Map a real platform/model name to the design's Platform tile descriptor.
+function platformFor(name: string): Platform {
+  const lc = (name || '').toLowerCase();
+  return PLATFORMS.find(p => p.name.toLowerCase() === lc || p.id === lc)
+    || { id: lc || 'unknown', name: name || 'Unknown', short: (name || '?').slice(0, 3).toUpperCase(), sov: 0, delta: 0, ok: true, ms: 0 };
+}
 
 interface Mention {
   query: string;
@@ -200,167 +208,112 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <div>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ height: 22, width: 140, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
-          <div style={{ height: 13, width: 300, borderRadius: 4, background: 'var(--bg3)' }} />
+      <div className="lvx">
+        <PageHead title="Results" sub="The full text of every model response — drill into a single query across all engines." />
+        <div className="page-body">
+          <Card padding={false}><TableSkeleton rows={6} cols={5} /></Card>
         </div>
-        <TableSkeleton rows={6} cols={5} />
       </div>
     );
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: 4 }}>
-        <div className="view-title">Results</div>
-        <div className="view-sub">Every prompt × model × run, one row per result.</div>
-      </div>
+    <div className="lvx">
+      <PageHead title="Results" sub="The full text of every model response — drill into a single query across all engines."
+        actions={hasFilters ? <button type="button" className="btn-d" onClick={clearFilters}>Clear filters</button> : undefined} />
 
-      {allRows.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-          <div style={{ fontSize: 36, opacity: .4, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No results yet</div>
-          <p style={{ color: 'var(--muted)', fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
-            No results yet — add a tracked prompt to start collecting.
-          </p>
-          <a href="/dashboard/prompts"
-            style={{
-              display: 'inline-block', background: 'var(--primary)', color: '#fff',
-              padding: '8px 20px', borderRadius: 'var(--radius-xs)', fontSize: 12, fontWeight: 700, textDecoration: 'none',
-            }}>
-            Manage tracked prompts
-          </a>
-        </div>
-      ) : (
-        <>
-          {/* Filters */}
-          <div className="card" style={{ padding: 14, marginBottom: 14 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
-                <label htmlFor="r-from" style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>From</label>
-                <input id="r-from" type="date" className="brand-select" style={{ width: '100%', margin: 0 }}
-                  value={from} onChange={e => setParam('from', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
-                <label htmlFor="r-to" style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>To</label>
-                <input id="r-to" type="date" className="brand-select" style={{ width: '100%', margin: 0 }}
-                  value={to} onChange={e => setParam('to', e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 140 }}>
-                <label htmlFor="r-model" style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Model</label>
-                <select id="r-model" className="brand-select" style={{ width: '100%', margin: 0 }}
-                  value={model} onChange={e => setParam('model', e.target.value)}>
-                  <option value="all">All models</option>
-                  {allModels.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200, flex: 1 }}>
-                <label htmlFor="r-prompt" style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Prompt</label>
-                <select id="r-prompt" className="brand-select" style={{ width: '100%', margin: 0 }}
-                  value={prompt} onChange={e => setParam('prompt', e.target.value)}>
-                  <option value="all">All prompts</option>
-                  {allPrompts.map(p => <option key={p} value={p}>{truncate(p, 60)}</option>)}
-                </select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
-                <label htmlFor="r-mentioned" style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Mentioned</label>
-                <select id="r-mentioned" className="brand-select" style={{ width: '100%', margin: 0 }}
-                  value={mentioned} onChange={e => setParam('mentioned', e.target.value)}>
-                  <option value="all">All</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </div>
-              {hasFilters && (
-                <button type="button" onClick={clearFilters} className="pbtn" style={{ minHeight: 44 }}>
-                  Clear filters
-                </button>
+      <div className="page-body">
+        {allRows.length === 0 ? (
+          <Card>
+            <div style={{ textAlign: 'center', padding: 28 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No results yet</div>
+              <p style={{ color: 'var(--text-2)', fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
+                No results yet — add a tracked prompt to start collecting.
+              </p>
+              <a href="/dashboard/prompts" className="btn-p" style={{ textDecoration: 'none' }}>
+                Manage tracked prompts
+              </a>
+            </div>
+          </Card>
+        ) : (
+          <>
+            {/* Filter row: query selector + meta pills + prev/next */}
+            <Filter>
+              <select className="sel" style={{ minWidth: 380 }}
+                value={prompt} onChange={e => setParam('prompt', e.target.value)}>
+                <option value="all">All prompts</option>
+                {allPrompts.map(p => <option key={p} value={p}>{truncate(p, 60)}</option>)}
+              </select>
+              <select className="sel"
+                value={model} onChange={e => setParam('model', e.target.value)}>
+                <option value="all">All models</option>
+                {allModels.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <select className="sel"
+                value={mentioned} onChange={e => setParam('mentioned', e.target.value)}>
+                <option value="all">All</option>
+                <option value="yes">Mentioned</option>
+                <option value="no">Not mentioned</option>
+              </select>
+              <input type="date" className="sel" aria-label="From"
+                value={from} onChange={e => setParam('from', e.target.value)} />
+              <input type="date" className="sel" aria-label="To"
+                value={to} onChange={e => setParam('to', e.target.value)} />
+              <Pill>{filtered.length === 0 ? 'No matches' : `${filtered.length} result${filtered.length === 1 ? '' : 's'}`}</Pill>
+              {totalPages > 1 && (
+                <Pill>Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}</Pill>
               )}
-            </div>
-          </div>
+              <span style={{ flex: 1 }} />
+              {totalPages > 1 && (
+                <>
+                  <button type="button" className="btn-d" disabled={page === 0} onClick={() => setPage(p => p - 1)}>◀ Prev</button>
+                  <button type="button" className="btn-d" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next ▶</button>
+                </>
+              )}
+            </Filter>
 
-          {/* Results count */}
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
-            {filtered.length === 0
-              ? 'No results match filters'
-              : `${filtered.length} result${filtered.length === 1 ? '' : 's'}`}
-          </div>
-
-          {filtered.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-              <div style={{ fontSize: 36, opacity: .4, marginBottom: 12 }}>🔍</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No matching results</div>
-              <p style={{ color: 'var(--muted)', fontSize: 13 }}>Try adjusting your filters to see more results.</p>
-            </div>
-          ) : (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div className={`scroll-fade-wrap${tableScrolled ? ' is-scrolled' : ''}`}>
-                <div
-                  style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
-                  onScroll={(e) => {
-                    const next = (e.currentTarget.scrollLeft || 0) > 0;
-                    if (next !== tableScrolled) setTableScrolled(next);
-                  }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 720 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg3)' }}>
-                        <th className="th" style={{ width: '16%' }}>Timestamp</th>
-                        <th className="th" style={{ width: '24%' }}>Prompt</th>
-                        <th className="th" style={{ width: '12%' }}>Model</th>
-                        <th className="th" style={{ width: '12%' }}>Mentioned</th>
-                        <th className="th">Snippet</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {slice.map(r => (
-                        <tr key={r.id} className="trow" role="button" tabIndex={0}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => setActiveRow(r)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setActiveRow(r);
-                            }
-                          }}>
-                          <td className="td" style={{ fontFamily: 'var(--mono)', whiteSpace: 'nowrap' }}>{formatTimestamp(r.timestamp)}</td>
-                          <td className="td">{truncate(r.prompt, 60)}</td>
-                          <td className="td" style={{ color: PLATFORM_COLORS[r.model] || 'var(--text)', fontWeight: 700 }}>{r.model}</td>
-                          <td className="td"><MentionedBadge mentioned={r.mentioned} /></td>
-                          <td className="td" style={{ color: 'var(--muted)' }}>{truncate(r.response.replace(/\s+/g, ' '), 90)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {filtered.length === 0 ? (
+              <Card>
+                <div style={{ textAlign: 'center', padding: 28 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No matching results</div>
+                  <p style={{ color: 'var(--text-2)', fontSize: 13 }}>Try adjusting your filters to see more results.</p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>
-                Showing {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}
-              </div>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {page > 0 && <button className="pbtn" onClick={() => setPage(p => p - 1)} style={{ minHeight: 44 }}>‹</button>}
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  const ps = Math.max(0, Math.min(page - 2, totalPages - 5));
-                  const p = ps + i;
-                  if (p >= totalPages) return null;
-                  return (
-                    <button key={p} className="pbtn"
-                      style={{ minHeight: 44, ...(p === page ? { background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)' } : {}) }}
-                      onClick={() => setPage(p)}>{p + 1}</button>
-                  );
-                })}
-                {page < totalPages - 1 && <button className="pbtn" onClick={() => setPage(p => p + 1)} style={{ minHeight: 44 }}>›</button>}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+              </Card>
+            ) : (
+              slice.map(r => {
+                const p = platformFor(r.model);
+                return (
+                  <Card key={r.id}
+                    title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                      <PlatformTile p={p} size={26} /> {p.name}
+                    </span>}
+                    right={<>
+                      <Badge tone={r.mentioned ? 'pos' : 'neg'}>{r.mentioned ? 'MENTIONED' : 'NOT MENTIONED'}</Badge>
+                      <span className="mono dim" style={{ fontSize: 11 }}>{formatTimestamp(r.timestamp)}</span>
+                    </>}>
+                    <div className="proof-body">
+                      <div className="proof-q mono"><span className="dim">QUERY ›</span> &ldquo;{r.prompt}&rdquo;</div>
+                      <div className="proof-answer" style={{ whiteSpace: 'pre-wrap', cursor: 'pointer' }}
+                        role="button" tabIndex={0}
+                        onClick={() => setActiveRow(r)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveRow(r); }
+                        }}>
+                        {r.response || <span className="dim">Engine returned no usable answer.</span>}
+                      </div>
+                      <div className="proof-meta mono">
+                        <span><span className="dim">MODEL:</span> {r.model}</span>
+                        <span className="dim">·</span>
+                        <span><span className="dim">RESULT:</span> {r.mentioned ? 'mentioned' : 'not mentioned'}</span>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
+          </>
+        )}
+      </div>
 
       {activeRow && <DetailPanel row={activeRow} onClose={() => setActiveRow(null)} />}
     </div>

@@ -8,6 +8,7 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
+import { Card, Badge, Pill, PlatformTile, Cit, Filter, Seg, PageHead, type Platform } from '@/app/dashboard-v2/ui';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; error?: string; errorMessage?: string; competitorMentions?: string[]; citations?: string[]; }
 interface Run { id?: string; date?: string; time?: string; created_at?: string; sov?: number; durationMs?: number; queries?: string[]; allResults?: Result[]; results?: Result[]; }
@@ -106,6 +107,29 @@ export default function ProofPage() {
     [brand],
   );
 
+  // The single result featured in the "Verbatim model output" card: prefer the
+  // first mentioned result in the current filter, else the first result.
+  const proof = useMemo<Result | null>(() => {
+    if (!filtered.length) return null;
+    return filtered.find(r => r.mentioned && !r.error) || filtered[0];
+  }, [filtered]);
+  const proofQuery = proof?.query || '';
+  // All engines that ran the same query as the featured result.
+  const sameQuery = useMemo(
+    () => (proofQuery ? allResults.filter(r => r.query === proofQuery) : []),
+    [allResults, proofQuery],
+  );
+  // Resolve a v2 Platform descriptor for a given platform name (for PlatformTile).
+  const platformFor = useMemo(
+    () => (name: string): Platform => ({ id: (name || '').toLowerCase().replace(/[^a-z0-9]/g, ''), name, short: (name || '?').slice(0, 3).toUpperCase(), sov: 0, delta: 0, ok: true, ms: 0 }),
+    [],
+  );
+  const proofText = proof && !proof.error ? (proof.raw || proof.response || proof.context || proof.snippet || '') : '';
+  const proofExcerpt = proofText.replace(/[#*_~`]/g, '').replace(/\n/g, ' ').trim();
+  const proofSent = proof?.error ? 'error' : (proof?.sentiment || 'neutral');
+  const proofTone = proofSent === 'positive' ? 'pos' : proofSent === 'negative' ? 'neg' : proofSent === 'error' ? 'warn' : 'neu';
+  const proofPos = proof?.mentioned && (proof.listPosition || proof.position) ? `${proof.listPosition || proof.position}` : '';
+
   function exportCSV() {
     try {
       const rows = [['Platform', 'Query', 'Mentioned', 'Sentiment', 'Recommended', 'Response'].join(',')];
@@ -125,13 +149,12 @@ export default function ProofPage() {
   }
 
   if (loading) return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
-        <div style={{ height: 13, width: 320, borderRadius: 4, background: 'var(--bg3)' }} />
+    <div className="lvx">
+      <PageHead title="Evidence & Proof" sub="Every AI response about your brand — verified and organized." />
+      <div className="page-body">
+        <KpiCardsSkeleton count={4} />
+        <CardsSkeleton count={4} />
       </div>
-      <KpiCardsSkeleton count={4} />
-      <CardsSkeleton count={4} />
     </div>
   );
 
