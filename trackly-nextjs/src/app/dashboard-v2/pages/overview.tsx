@@ -36,7 +36,10 @@ interface OverviewData {
   trend: number[];
   queries: QueryRow[];
   recent: RecentItem[];
+  insights: InsightItem[];
 }
+
+interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; d: string; cta: string; href: string }
 
 const COMP_COLORS = ['var(--accent)', 'var(--text-2)', 'var(--mute)', 'var(--mute-2)', 'var(--info)', 'var(--warn)', '#a78bfa', '#f472b6'];
 
@@ -121,6 +124,7 @@ function buildFallback(): OverviewData {
       { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m' },
       { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m' },
     ],
+    insights: [],
   };
 }
 
@@ -138,6 +142,7 @@ function buildFromBrand(brand: any): OverviewData {
       ...fb, hasReal: true, brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
       queries: brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 })),
       recent: [],
+      insights: [],
     };
   }
   const sov = Math.round(Number(lastRun.sov) || 0);
@@ -241,6 +246,28 @@ function buildFromBrand(brand: any): OverviewData {
   if (queries.length === 0) queries = brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 }));
 
   const prevTotalM = prevRun ? (Number(prevRun.totalM) || 0) : 0;
+
+  // Real "needs you today" insights — derived only from data we actually have.
+  // Cards with no real backing are simply not emitted (the strip hides itself
+  // when there are none).
+  const realComp = compEntries.length > 0;
+  const insights: InsightItem[] = [];
+  if (trend.length >= 2) {
+    const momentum = Math.round((sov - prevSov) * 10) / 10;
+    if (momentum >= 1) insights.push({ icon: '▲', tone: 'pos', t: `Share of Voice up ${momentum} pts`, d: `now ${sov}% across the AI engines`, cta: 'See trends', href: '/dashboard/trends' });
+    else if (momentum <= -1) insights.push({ icon: '▼', tone: 'warn', t: `Share of Voice down ${Math.abs(momentum)} pts`, d: `now ${sov}% — see what changed`, cta: 'Investigate', href: '/dashboard/competitors' });
+  }
+  if (realComp) {
+    const top = competitors[0];
+    if (top?.me) insights.push({ icon: '★', tone: 'pos', t: 'You lead your category', d: `#1 of ${competitors.length} at ${sov}% Share of Voice`, cta: 'Compare', href: '/dashboard/competitors' });
+    else if (top) insights.push({ icon: '◆', tone: 'info', t: `${top.name} leads at ${top.sov}%`, d: `you're at ${sov}% — close the gap`, cta: 'Compare', href: '/dashboard/competitors' });
+  }
+  if (sentTotal > 0 && sentiment < 60) {
+    insights.push({ icon: '⚠', tone: 'warn', t: `Sentiment is ${sentiment}%`, d: 'how the AI engines describe you needs attention', cta: 'Review mentions', href: '/dashboard/mentions' });
+  }
+  // Always-valid CTA (links to a real page; not fabricated copy).
+  insights.push({ icon: '✦', tone: 'info', t: 'Ways to win more visibility', d: 'see your prioritized recommendations', cta: 'See plan', href: '/dashboard/recommendations' });
+
   return {
     hasReal: true,
     brandName: brand.name || fb.brandName,
@@ -252,6 +279,7 @@ function buildFromBrand(brand: any): OverviewData {
     trend: trend.length >= 2 ? trend : fb.trend,
     queries,
     recent,
+    insights: insights.slice(0, 3),
   };
 }
 function sentTotalSafe(n: number) { return n > 0; }
@@ -289,7 +317,7 @@ export function PageOverview() {
       <div className="page-body">
         <HealthBanner health={d.health} sentiment={d.sentiment} sov={d.sov} totalQ={d.totalQ} />
         <GoalCard current={d.sov} />
-        <InsightsStrip />
+        <InsightsStrip items={d.insights} />
 
         <Filter>
           <Seg value={range} onChange={setRange} options={['24h', '7d', '30d', '90d']} />
@@ -399,12 +427,8 @@ function HealthBanner({ health, sentiment, sov, totalQ }: { health: number; sent
   );
 }
 
-function InsightsStrip() {
-  const items = [
-    { icon: '▲', tone: 'pos', t: 'Acme overtook Linear', d: 'on 3 priority queries · last 24h', cta: 'Show wins' },
-    { icon: '⚠', tone: 'warn', t: '6 false claims to fix', d: 'Gemini stale pricing claim · 2 hours ago', cta: 'Review' },
-    { icon: '✦', tone: 'info', t: '12 things to try', d: 'est. +8.4 pts of Share of Voice if done', cta: 'See plan' },
-  ];
+function InsightsStrip({ items }: { items: InsightItem[] }) {
+  if (!items.length) return null;
   return (
     <div>
       <div className="strip-head">
@@ -413,7 +437,7 @@ function InsightsStrip() {
       </div>
       <div className="ins-strip">
         {items.map((it, i) => (
-          <button key={i} className={'ins-card ins-' + it.tone}>
+          <button key={i} className={'ins-card ins-' + it.tone} onClick={() => { window.location.href = it.href; }}>
             <span className="ins-icon">{it.icon}</span>
             <div className="ins-body">
               <div className="ins-t">{it.t}</div>
