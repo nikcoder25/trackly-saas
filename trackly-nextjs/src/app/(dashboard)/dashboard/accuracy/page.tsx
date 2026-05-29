@@ -670,7 +670,7 @@ export default function AccuracyPage() {
         {/* Charts Row */}
         <div className="g2">
           <Card title="Accuracy trend">
-            <TrendChart data={trend} />
+            <TrendChart data={facts.length === 0 ? [] : trend} />
           </Card>
           <Card title="Severity distribution">
             <SeverityDonut issues={issues} />
