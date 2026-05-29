@@ -299,9 +299,9 @@ function HealthBanner({ health, sentiment, sov, totalQ }: { health: number; sent
 
 function InsightsStrip() {
   const items = [
-    { icon: '▲', tone: 'pos', t: 'Acme overtook Linear', d: 'on 3 priority queries · last 24h', cta: 'Show wins' },
-    { icon: '⚠', tone: 'warn', t: '6 false claims to fix', d: 'Gemini stale pricing claim · 2 hours ago', cta: 'Review' },
-    { icon: '✦', tone: 'info', t: '12 things to try', d: 'est. +8.4 pts of Share of Voice if done', cta: 'See plan' },
+    { icon: '▲', tone: 'pos', t: 'Acme overtook Linear', d: 'on 3 priority queries · last 24h', cta: 'Show wins', href: '/dashboard/competitors' },
+    { icon: '⚠', tone: 'warn', t: '6 false claims to fix', d: 'Gemini stale pricing claim · 2 hours ago', cta: 'Review', href: '/dashboard/accuracy' },
+    { icon: '✦', tone: 'info', t: '12 things to try', d: 'est. +8.4 pts of Share of Voice if done', cta: 'See plan', href: '/dashboard/recommendations' },
   ];
   return (
     <div>
@@ -311,7 +311,7 @@ function InsightsStrip() {
       </div>
       <div className="ins-strip">
         {items.map((it, i) => (
-          <button key={i} className={'ins-card ins-' + it.tone}>
+          <button key={i} className={'ins-card ins-' + it.tone} onClick={() => { window.location.href = it.href; }}>
             <span className="ins-icon">{it.icon}</span>
             <div className="ins-body">
               <div className="ins-t">{it.t}</div>
