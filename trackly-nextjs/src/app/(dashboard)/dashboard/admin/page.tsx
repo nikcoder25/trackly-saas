@@ -148,9 +148,8 @@ export default function AdminPage() {
           <p className="text-[var(--muted)]">{search ? 'No users match your search.' : 'No users found.'}</p>
         </div>
       ) : (
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--app-shadow)' }}>
-          <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflowX: 'auto', boxShadow: 'var(--app-shadow)' }}>
+          <table style={{ width: '100%', minWidth: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
             <thead>
               <tr className="border-b border-[var(--border)]">
                 <th className="text-left px-4 py-3 text-[10px] uppercase tracking-wider text-[var(--muted)] font-semibold">Name / Email</th>
@@ -165,20 +164,22 @@ export default function AdminPage() {
             <tbody>
               {users.map(u => (
                 <tr key={u.id} className="border-b border-[var(--border)]/50 hover:bg-[var(--bg3)] transition-colors">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 max-w-[200px]">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center text-white text-xs font-bold shrink-0">
                         {(u.name || u.email)?.[0]?.toUpperCase() || '?'}
                       </div>
-                      <div>
-                        {u.name && <p className="text-[var(--text)] font-medium text-xs">{u.name}</p>}
-                        <p className="text-[var(--muted)] text-xs">{u.email}</p>
+                      <div className="min-w-0 overflow-hidden">
+                        {u.name && <p className="text-[var(--text)] font-medium text-xs truncate">{u.name}</p>}
+                        <p className="text-[var(--muted)] text-xs truncate">{u.email}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[var(--muted)] text-xs font-mono">{u.username ? `@${u.username}` : '-'}</td>
+                  <td className="px-4 py-3 text-[var(--muted)] text-xs font-mono max-w-[160px]">
+                    <span className="block truncate">{u.username ? `@${u.username}` : '-'}</span>
+                  </td>
                   <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" style={{ color: PLAN_COLORS[u.plan] || 'var(--muted)', background: `color-mix(in srgb, ${PLAN_COLORS[u.plan] || 'gray'} 10%, transparent)` }}>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider whitespace-nowrap" style={{ color: PLAN_COLORS[u.plan] || 'var(--muted)', background: `color-mix(in srgb, ${PLAN_COLORS[u.plan] || 'gray'} 10%, transparent)` }}>
                       {u.plan}
                     </span>
                   </td>
@@ -196,8 +197,8 @@ export default function AdminPage() {
                       <span className="text-[var(--amber)] text-xs">✗ Unverified</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs text-[var(--muted)]" style={{ whiteSpace: 'nowrap' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '-'}</td>
-                  <td style={{ padding: '12px 14px' }}>
+                  <td className="px-4 py-3 text-xs text-[var(--muted)] whitespace-nowrap">{u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { year: '2-digit', month: 'short', day: 'numeric' }) : '-'}</td>
+                  <td className="px-4 py-3">
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         onClick={() => { setEditingUser(u); setEditPlan(u.plan); }}
@@ -219,7 +220,6 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
-          </div>
         </div>
       )}
 
