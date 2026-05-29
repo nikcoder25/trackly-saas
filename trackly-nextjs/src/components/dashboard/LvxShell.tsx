@@ -50,6 +50,18 @@ const NAV: { label: string; items: NavItem[] }[] = [
 ];
 const ALL_ITEMS = NAV.flatMap(g => g.items.map(it => ({ ...it, group: g.label })));
 
+// Routes whose page already renders the redesigned (.lvx) layout and owns its
+// own padding. These bypass the legacy `.lvx-shell-content` padding wrapper so
+// they line up with the Overview. Add a route here once its page is themed.
+const THEMED_ROUTES = new Set<string>([
+  '/dashboard',
+  '/dashboard/mentions',
+  '/dashboard/competitors',
+  '/dashboard/citations',
+  '/dashboard/platforms',
+  '/dashboard/trends',
+]);
+
 function NavIcon({ id }: { id: string }) {
   const s: any = { width: 14, height: 14, viewBox: '0 0 14 14', fill: 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round', strokeLinejoin: 'round' };
   switch (id) {
@@ -198,7 +210,7 @@ function ProdSubbar() {
 export default function LvxShell({ banners, children }: { banners?: React.ReactNode; children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const pathname = usePathname();
-  const isOverview = pathname === '/dashboard';
+  const themed = !!pathname && THEMED_ROUTES.has(pathname);
   return (
     <>
       <div className="lvx-shell">
@@ -207,7 +219,7 @@ export default function LvxShell({ banners, children }: { banners?: React.ReactN
         <main className="lvx-shell-main">
           <Lvx><ProdSubbar /></Lvx>
           {banners && <div className="lvx-shell-banners">{banners}</div>}
-          {isOverview ? children : <div className="lvx-shell-content">{children}</div>}
+          {themed ? children : <div className="lvx-shell-content">{children}</div>}
         </main>
       </div>
       {mobileOpen && (

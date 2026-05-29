@@ -8,6 +8,9 @@ import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { PLATFORM_COLORS } from '@/lib/constants';
 import { useBrandData } from '@/hooks/useBrandData';
 import { friendlyCompetitorName as friendlyName } from '@/lib/parser';
+import { Card, PageHead, Badge, Bar, StackBar, Delta, Spark } from '@/app/dashboard-v2/ui';
+
+const COMP_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ef4444'];
 
 interface Brand { id: string; name: string; website?: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
 interface CitationRow { domain: string; domain_type: string; is_brand: boolean; is_competitor: boolean; total: string; avg_position: string; last_seen: string; }
@@ -198,224 +201,245 @@ export default function CompetitorsPage() {
       .slice(0, 15);
   }, [citations, brand?.website, competitors]);
 
-  if (loading || compStatsLoading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
+  if (loading || compStatsLoading) return (
+    <div className="lvx">
+      <div className="page-body" style={{ paddingTop: 28 }}>
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+            <div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'lvx-spin 1s linear infinite' }} />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+
+  // Build the ranked leaderboard from real data: brand + tracked competitors,
+  // sorted by share of voice (SOV = mentions / totalQueries).
+  const leaderboard = useMemo(() => {
+    const rows = [
+      {
+        name: brand?.name || 'Your brand',
+        mentions: compStatsData?.brandMentions || 0,
+        sov: brandPct,
+        color: 'var(--primary)',
+        me: true,
+      },
+      ...competitors.map((c, i) => {
+        const count = compStats[c] || 0;
+        const sov = totalQueries ? Math.round((count / totalQueries) * 100) : 0;
+        return {
+          name: friendlyName(c),
+          mentions: count,
+          sov,
+          color: COMP_COLORS[i % COMP_COLORS.length],
+          me: false,
+        };
+      }),
+    ];
+    return rows.sort((a, b) => b.sov - a.sov);
+  }, [brand?.name, competitors, compStats, compStatsData, brandPct, totalQueries]);
 
   return (
-    <div>
+    <div className="lvx">
       <LockedBrandBanner />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-        <div>
-          <div className="view-title">Competitors</div>
-          <div className="view-sub">Track mentions alongside your brand.</div>
-        </div>
-      </div>
-
-      {/* Competitor Brands Card */}
-      <div className="card">
-        <div className="section-title">Competitor Brands</div>
-        {competitors.length === 0 ? (
-          <div style={{ color: 'var(--muted)', fontSize: 12, padding: '4px 0', marginBottom: 12 }}>No competitors added yet. Add competitor names below to track.</div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-            {competitors.map((c, i) => (
-              <span key={i} className="comp-chip" title={c}>
-                {friendlyName(c)} <button onClick={() => removeComp(i)} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 14, marginLeft: 4 }}>x</button>
-              </span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input className="finp" type="text" placeholder="Add competitor name..." style={{ flex: 1, margin: 0 }} value={newComp} onChange={e => setNewComp(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addComp(); }} />
-          <button className="pbtn" onClick={addComp}>+ Add</button>
-        </div>
-      </div>
-
-      {/* Discovered in AI Responses */}
-      {discoveredCompetitors.length > 0 && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div className="section-title">Discovered in AI Responses</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Domains that AI platforms cite alongside your brand. These may be competitors worth tracking.</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {discoveredCompetitors.map((c: CitationRow) => {
-              const maxTotal = Math.max(...discoveredCompetitors.map((d: CitationRow) => Number(d.total)), 1);
-              const pct = (Number(c.total) / maxTotal) * 100;
-              const alreadyTracked = competitors.some(comp => comp.toLowerCase() === c.domain.toLowerCase());
-              return (
-                <div key={c.domain} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="qperf-bar-row" style={{ margin: 0 }}>
-                      <div className="qperf-bar-label" style={{ fontSize: 12 }}>
-                        {c.domain}
-                        {c.is_competitor && <span style={{ fontSize: 9, color: 'var(--primary)', marginLeft: 6, fontWeight: 600 }}>TRACKED</span>}
-                        <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 6 }}>{c.domain_type === 'review_site' ? 'Review' : c.domain_type === 'news' ? 'News' : ''}</span>
-                      </div>
-                      <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: c.is_competitor ? 'var(--primary)' : '#6366f1' }} /></div>
-                      <div className="qperf-bar-value" style={{ color: 'var(--text)', minWidth: 50, textAlign: 'right' }}>
-                        {c.total}x
-                        {c.avg_position && <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4 }}>#{Math.round(Number(c.avg_position))}</span>}
-                      </div>
-                    </div>
-                  </div>
-                  {!alreadyTracked && !c.is_competitor && (
-                    <button
-                      onClick={() => addDiscoveredComp(c.domain)}
-                      style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', fontSize: 11, color: 'var(--primary)', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
-                    >
-                      + Track
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {citLoading && !discoveredCompetitors.length && (
-        <div className="card" style={{ marginTop: 14, textAlign: 'center', padding: 24 }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Loading citation data...</div>
-        </div>
-      )}
-
-      {/* Empty state: competitors added but no query data at all */}
-      {competitors.length > 0 && !hasData && (
-        <div className="card" style={{ marginTop: 14, padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 420, margin: '0 auto 20px' }}>
-            {isAdmin ? 'Run your first query scan to see how competitors appear in AI responses.' : 'Competitor data will appear after your next scheduled query run.'}
-          </div>
-          {isAdmin && (
-          <button
-            className="run-btn"
-            onClick={() => startRun(false)}
-            disabled={live.running}
-            style={{ margin: '0 auto 12px', display: 'block', opacity: live.running ? 0.6 : 1, cursor: live.running ? 'not-allowed' : 'pointer' }}
-          >
-            {live.running ? 'Running...' : 'Run Queries'}
+      <PageHead
+        title="Competitors"
+        sub="Track mentions alongside your brand across every AI engine and question."
+        actions={isAdmin ? (
+          <button className="btn-g" onClick={reprocessCompetitors} disabled={reprocessing}>
+            {reprocessing ? 'Reprocessing…' : '↻ Reprocess data'}
           </button>
-          )}
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-            Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
-          </div>
-        </div>
-      )}
+        ) : undefined}
+      />
 
-      {/* Competitor Comparison - horizontal bar chart */}
-      {competitors.length > 0 && hasData && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div className="section-title" style={{ marginBottom: 0 }}>Competitor Comparison</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>Last 30 days &middot; {totalQueries} queries</div>
-          </div>
-          {/* Brand row */}
-          <div className="qperf-bar-row">
-            <div className="qperf-bar-label" style={{ fontWeight: 700 }}>{brand?.name} <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 400 }}>(You)</span></div>
-            <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${brandPct}%`, background: 'var(--primary)' }} /></div>
-            <div className="qperf-bar-value" style={{ color: 'var(--primary)' }}>{brandPct}%</div>
-          </div>
-          {/* Competitor rows */}
-          {competitors.map((c, i) => {
-            const count = compStats[c] || 0;
-            const pct = totalQueries ? Math.round((count / totalQueries) * 100) : 0;
-            const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#6366f1', '#ef4444'];
-            const clr = colors[i % colors.length];
-            return (
-              <div key={c} className="qperf-bar-row">
-                <div className="qperf-bar-label" title={c}>{friendlyName(c)}</div>
-                <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${pct}%`, background: clr }} /></div>
-                <div className="qperf-bar-value" style={{ color: clr }}>{pct}%</div>
-              </div>
-            );
-          })}
-
-          {allCompZero && (
-            <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg)', borderRadius: 6, fontSize: 12, color: 'var(--muted)' }}>
-              No competitor mentions detected yet. This can happen if competitors were added after your last query run.
-              Try reprocessing existing data or running new queries.
+      <div className="page-body">
+        {/* Competitor Brands */}
+        <Card title="Competitor brands" lede="The brands tracked alongside yours in AI answers.">
+          {competitors.length === 0 ? (
+            <div style={{ color: 'var(--text-3)', fontSize: 13, padding: '4px 0', marginBottom: 12 }}>No competitors added yet. Add competitor names below to track.</div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+              {competitors.map((c, i) => (
+                <span key={i} className="pill pill-neu" title={c} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {friendlyName(c)}
+                  <button onClick={() => removeComp(i)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                </span>
+              ))}
             </div>
           )}
-
-          {/* Reprocess button inline */}
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={reprocessCompetitors}
-              disabled={reprocessing}
-              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 10px', fontSize: 11, color: 'var(--muted)', cursor: reprocessing ? 'not-allowed' : 'pointer' }}
-            >
-              {reprocessing ? 'Reprocessing...' : 'Reprocess Data'}
-            </button>
-            {reprocessMsg && <span style={{ fontSize: 11, color: 'var(--primary)' }}>{reprocessMsg}</span>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div className="search-box" style={{ flex: 1, minWidth: 0 }}>
+              <input
+                type="text"
+                placeholder="Add competitor name…"
+                value={newComp}
+                onChange={e => setNewComp(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addComp(); }}
+              />
+            </div>
+            <button className="btn-p" onClick={addComp}>+ Add</button>
           </div>
-        </div>
-      )}
+        </Card>
 
-      {/* Co-occurrence (30 days) */}
-      {competitors.length > 0 && hasData && (
-        <div className="card" style={{ marginTop: 14 }}>
-          <div className="section-title">Competitor Co-occurrence (30 days)</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>How often competitors appear in AI responses across all prompts and platforms.</div>
-          <div>
-            {competitors.map((c, i) => {
-              const count = compStats[c] || 0;
-              const maxCount = Math.max(...competitors.map(comp => compStats[comp] || 0), 1);
-              const barPct = maxCount ? Math.round((count / maxCount) * 100) : 0;
-              const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6'];
-              const clr = colors[i % colors.length];
-              return (
-                <div key={c} className="qperf-bar-row">
-                  <div className="qperf-bar-label" title={c}>{friendlyName(c)}</div>
-                  <div className="qperf-bar-track"><div className="qperf-bar-fill" style={{ width: `${barPct}%`, background: clr }} /></div>
-                  <div className="qperf-bar-value" style={{ color: 'var(--text)' }}>{count}x</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Per-Platform Breakdown */}
-      {competitors.length > 0 && hasData && Object.keys(platBreakdown).length > 0 && (
-        <div style={{ marginTop: 14 }}>
-          <div className="section-title" style={{ marginBottom: 4 }}>Per-Platform Breakdown</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Competitor mentions broken down by AI platform.</div>
-          <div className="plat-breakdown-grid">
-            {(Object.entries(platBreakdown) as [string, { total: number; competitors: Record<string, number> }][]).map(([plat, platData]) => {
-              const platColor = PLATFORM_COLORS[plat] || 'var(--muted)';
-              const platTotal = platData.total;
-              const compCounts = platData.competitors;
-              const maxCount = Math.max(...Object.values(compCounts), 1);
-              return (
-                <div key={plat} className="plat-breakdown-card">
-                  <div className="plat-breakdown-header" style={{ borderColor: platColor }}>
-                    <span className="plat-breakdown-dot" style={{ background: platColor }} />
-                    <span className="plat-breakdown-name" style={{ color: platColor }}>{plat}</span>
-                    <span className="plat-breakdown-count">{platTotal} {platTotal === 1 ? 'query' : 'queries'}</span>
+        {/* Discovered in AI Responses */}
+        {discoveredCompetitors.length > 0 && (
+          <Card title="Discovered in AI responses" lede="Domains that AI platforms cite alongside your brand. These may be competitors worth tracking.">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {discoveredCompetitors.map((c: CitationRow) => {
+                const maxTotal = Math.max(...discoveredCompetitors.map((d: CitationRow) => Number(d.total)), 1);
+                const alreadyTracked = competitors.some(comp => comp.toLowerCase() === c.domain.toLowerCase());
+                return (
+                  <div key={c.domain} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 70px', gap: 12, alignItems: 'center' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span className="mono" style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.domain}</span>
+                      {c.is_competitor && <Badge tone="acc">TRACKED</Badge>}
+                      {c.domain_type === 'review_site' && <Badge tone="info">REVIEW</Badge>}
+                      {c.domain_type === 'news' && <Badge tone="warn">NEWS</Badge>}
+                    </span>
+                    <Bar value={Number(c.total)} max={maxTotal} color={c.is_competitor ? 'var(--primary)' : 'var(--info)'} />
+                    <span className="mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>
+                      {c.total}×
+                      {!alreadyTracked && !c.is_competitor && (
+                        <button onClick={() => addDiscoveredComp(c.domain)} className="btn-d" style={{ marginLeft: 8, padding: '2px 8px', fontSize: 11 }}>+ Track</button>
+                      )}
+                    </span>
                   </div>
-                  <div className="plat-breakdown-body">
-                    {Object.entries(compCounts).map(([comp, count]) => {
-                      const pct = maxCount ? Math.round((count / maxCount) * 100) : 0;
-                      const ratePct = platTotal ? Math.round((count / platTotal) * 100) : 0;
-                      return (
-                        <div key={comp} className="plat-breakdown-row">
-                          <div className="plat-breakdown-comp" title={comp}>{friendlyName(comp)}</div>
-                          <div className="plat-breakdown-bar">
-                            <div className="plat-breakdown-bar-fill" style={{ width: `${pct}%`, background: platColor }} />
+                );
+              })}
+            </div>
+          </Card>
+        )}
+
+        {citLoading && !discoveredCompetitors.length && (
+          <Card>
+            <div style={{ fontSize: 12.5, color: 'var(--text-3)', textAlign: 'center', padding: 24 }}>Loading citation data…</div>
+          </Card>
+        )}
+
+        {/* Empty state: competitors added but no query data at all */}
+        {competitors.length > 0 && !hasData && (
+          <Card>
+            <div style={{ padding: 32, textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>&#128202;</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Competitor data will populate after your next query run</div>
+              <div style={{ fontSize: 13, color: 'var(--text-3)', maxWidth: 420, margin: '0 auto 20px' }}>
+                {isAdmin ? 'Run your first query scan to see how competitors appear in AI responses.' : 'Competitor data will appear after your next scheduled query run.'}
+              </div>
+              {isAdmin && (
+                <button className="btn-p" onClick={() => startRun(false)} disabled={live.running} style={{ margin: '0 auto 12px' }}>
+                  {live.running ? 'Running…' : 'Run Queries'}
+                </button>
+              )}
+              <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                Tip: Add competitors in <Link href="/dashboard/setup" style={{ color: 'var(--primary)', fontWeight: 600 }}>Brand Setup</Link> for comprehensive tracking.
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Share of Voice */}
+        {competitors.length > 0 && hasData && (
+          <Card
+            title="Share of Voice"
+            info="sov"
+            lede="Everyone's slice of the AI conversation, across all engines. Your bar is highlighted."
+            right={<span className="mono dim" style={{ fontSize: 11 }}>30D · {totalQueries} QUERIES</span>}
+          >
+            <StackBar items={leaderboard.filter(c => c.sov > 0).map(c => ({ label: c.name, value: c.sov, color: c.color }))} height={32} />
+            <div style={{ display: 'flex', gap: 18, marginTop: 14, flexWrap: 'wrap', fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--mute)' }}>
+              {leaderboard.map(c => (
+                <span key={c.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <i style={{ width: 8, height: 8, background: c.color, borderRadius: 1, display: 'inline-block' }} />
+                  <b style={{ color: c.me ? 'var(--primary)' : 'var(--text)' }}>{c.name}</b> {c.sov}%
+                </span>
+              ))}
+            </div>
+            {allCompZero && (
+              <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--surface-2)', borderRadius: 6, fontSize: 12, color: 'var(--text-3)' }}>
+                No competitor mentions detected yet. This can happen if competitors were added after your last query run. Try reprocessing existing data or running new queries.
+              </div>
+            )}
+            {reprocessMsg && (
+              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--primary)', fontFamily: 'var(--mono)' }}>{reprocessMsg}</div>
+            )}
+          </Card>
+        )}
+
+        {/* Competitor leaderboard */}
+        {competitors.length > 0 && hasData && (
+          <Card
+            title="Competitor leaderboard"
+            info="sov"
+            lede="Every brand you track, ranked by Share of Voice. Green = gaining, red = slipping."
+            padding={false}
+          >
+            <table className="tbl">
+              <thead><tr>
+                <th>RANK</th><th>BRAND</th><th>SOV</th><th>MENTIONS</th><th>SOV TREND</th>
+              </tr></thead>
+              <tbody>
+                {leaderboard.map((c, i) => (
+                  <tr key={c.name}>
+                    <td className="num"><b>{(i + 1).toString().padStart(2, '0')}</b></td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 10, height: 10, background: c.color, borderRadius: 2, display: 'inline-block' }} />
+                        <b style={{ color: c.me ? 'var(--primary)' : 'var(--text)' }}>{c.name}</b>
+                        {c.me && <Badge tone="acc">YOU</Badge>}
+                      </span>
+                    </td>
+                    <td className="num"><b>{c.sov}%</b></td>
+                    <td className="num">{c.mentions.toLocaleString()}{!c.me && '×'}</td>
+                    <td>
+                      {c.sov > 0
+                        ? <Spark data={[Math.max(0, c.sov - 3), Math.max(0, c.sov - 1), c.sov]} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
+                        : <span className="mono dim" style={{ fontSize: 11 }}>—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
+        {/* Per-Platform Breakdown */}
+        {competitors.length > 0 && hasData && Object.keys(platBreakdown).length > 0 && (
+          <Card title="Per-platform breakdown" lede="Competitor mentions broken down by AI platform.">
+            <div className="g3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+              {(Object.entries(platBreakdown) as [string, { total: number; competitors: Record<string, number> }][]).map(([plat, platData]) => {
+                const platColor = PLATFORM_COLORS[plat] || 'var(--mute)';
+                const platTotal = platData.total;
+                const compCounts = platData.competitors;
+                const maxCount = Math.max(...Object.values(compCounts), 1);
+                return (
+                  <div key={plat} style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: `2px solid ${platColor}`, background: 'var(--surface-2)' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 2, background: platColor, display: 'inline-block' }} />
+                      <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: platColor }}>{plat}</span>
+                      <span className="mono dim" style={{ marginLeft: 'auto', fontSize: 11 }}>{platTotal} {platTotal === 1 ? 'query' : 'queries'}</span>
+                    </div>
+                    <div style={{ padding: '10px 12px', display: 'grid', gap: 8 }}>
+                      {Object.entries(compCounts).map(([comp, count]) => {
+                        const ratePct = platTotal ? Math.round((count / platTotal) * 100) : 0;
+                        return (
+                          <div key={comp} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 56px', gap: 10, alignItems: 'center' }}>
+                            <span style={{ fontSize: 12.5, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={comp}>{friendlyName(comp)}</span>
+                            <Bar value={count} max={maxCount} color={platColor} />
+                            <span className="mono" style={{ textAlign: 'right', fontSize: 12, color: 'var(--text)' }}>{count}<span className="dim" style={{ marginLeft: 4 }}>{ratePct}%</span></span>
                           </div>
-                          <div className="plat-breakdown-val">{count}<span className="plat-breakdown-rate">{ratePct}%</span></div>
-                        </div>
-                      );
-                    })}
-                    {Object.keys(compCounts).length === 0 && (
-                      <div style={{ fontSize: 11, color: 'var(--muted)', padding: '8px 0', textAlign: 'center' }}>No data</div>
-                    )}
+                        );
+                      })}
+                      {Object.keys(compCounts).length === 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', padding: '8px 0', textAlign: 'center' }}>No data</div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                );
+              })}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
