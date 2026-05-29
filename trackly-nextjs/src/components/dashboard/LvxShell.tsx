@@ -70,6 +70,8 @@ const THEMED_ROUTES = new Set<string>([
   '/dashboard/account',
   '/dashboard/billing',
   '/dashboard/alerts',
+  '/dashboard/geo-audit',
+  '/dashboard/geo-audits',
 ]);
 
 function NavIcon({ id }: { id: string }) {

@@ -621,161 +621,130 @@ function EditBrandForm({ brand, onUpdated, onDeleted, accountPromptCap = 250, al
           ? `${queries.length} prompts on this brand · ∞ account-wide`
           : `${queries.length + otherBrandsPromptCount} / ${accountPromptCap} prompts account-wide · ${queries.length} on this brand${otherBrandsPromptCount > 0 ? ` · ${otherBrandsPromptCount} on other brands` : ''}`}
       >
-        <div style={{ display: 'none' }} aria-hidden="true"></div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
-              Add, remove, or bulk-manage the queries tracked for this brand.{' '}
-              {isPromptCapUnlimited ? (
-                <span style={{ fontWeight: 700 }}>{queries.length} prompts on this brand · ∞ account-wide</span>
-              ) : (
-                <>
-                  <span style={{ fontWeight: 700 }}>
-                    {queries.length + otherBrandsPromptCount} / {accountPromptCap} prompts account-wide
-                  </span>
-                  <span> · {queries.length} on this brand{otherBrandsPromptCount > 0 ? ` · ${otherBrandsPromptCount} on other brands` : ''}</span>
-                </>
-              )}
-            </div>
+        <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
+          Add, remove, or bulk-manage the queries tracked for this brand.
+        </p>
 
-            {/* Query tags */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 28 }}>
-              {queries.map((q, i) => (
-                <span key={i}
-                  onClick={() => { if (selectMode) { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); } }}
-                  className={`query-tag ${selectMode ? 'query-tag-selectable' : ''} ${selectMode && selected.has(i) ? 'query-tag-selected' : ''} ${duplicateFlashIdx === i ? 'query-tag-duplicate-flash' : ''}`}
-                >
-                  {selectMode && <input type="checkbox" checked={selected.has(i)} readOnly className="query-select-cb" />}
-                  {q}
-                  {!selectMode && (
-                    <button type="button" onClick={() => setQueries(queries.filter((_, j) => j !== i))}>&times;</button>
-                  )}
-                </span>
-              ))}
-              {!queries.length && (
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)' }}>No queries yet. Add queries below.</span>
-              )}
-            </div>
-
-            {/* Action buttons row */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-              <button type="button" onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} className="setup-mono-btn">
-                {selectMode ? 'Cancel' : '\u2610 Select'}
-              </button>
-              {selectMode && (
-                <>
-                  <button type="button" onClick={() => setSelected(new Set(queries.map((_, i) => i)))} className="setup-mono-btn">Select All</button>
-                  <button type="button" onClick={() => setSelected(new Set())} className="setup-mono-btn">Deselect All</button>
-                  <button type="button" onClick={copySelectedQueries} disabled={selected.size === 0}
-                    style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', opacity: selected.size === 0 ? 0.4 : 1 }}>
-                    COPY SELECTED ({selected.size})
-                  </button>
-                  <button type="button" onClick={deleteSelected} disabled={selected.size === 0}
-                    style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', opacity: selected.size === 0 ? 0.4 : 1 }}>
-                    DELETE SELECTED ({selected.size})
-                  </button>
-                </>
-              )}
+        {/* Query tags */}
+        <div className="tag-grid" style={{ marginBottom: 12, minHeight: 28 }}>
+          {queries.map((q, i) => (
+            <span key={i}
+              onClick={() => { if (selectMode) { const s = new Set(selected); s.has(i) ? s.delete(i) : s.add(i); setSelected(s); } }}
+              className={`ttag mono ${selectMode ? 'query-tag-selectable' : ''} ${selectMode && selected.has(i) ? 'query-tag-selected' : ''} ${duplicateFlashIdx === i ? 'query-tag-duplicate-flash' : ''}`}
+              style={selectMode ? { cursor: 'pointer' } : undefined}
+            >
+              {selectMode && <input type="checkbox" checked={selected.has(i)} readOnly className="query-select-cb" />}
+              {q}
               {!selectMode && (
-                <>
-                  <button type="button" onClick={copyAllQueries} disabled={!queries.length}
-                    style={{ background: 'none', border: '1px solid var(--primary)', color: copySuccess ? 'var(--green)' : 'var(--primary)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: queries.length ? 'pointer' : 'not-allowed', borderRadius: 'var(--radius-xs)', opacity: queries.length ? 1 : 0.4, borderColor: copySuccess ? 'var(--green)' : undefined }}>
-                    {copySuccess ? '✓ COPIED' : '⧉ COPY ALL'}
-                  </button>
-                  <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }}
-                    style={{ background: 'none', border: '1px solid var(--red)', color: 'var(--red)', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 12px', cursor: 'pointer', borderRadius: 'var(--radius-xs)' }}>
-                    CLEAR ALL
-                  </button>
-                </>
+                <span className="x" onClick={() => setQueries(queries.filter((_, j) => j !== i))}>×</span>
               )}
-            </div>
+            </span>
+          ))}
+          {!queries.length && (
+            <span className="quiet mono" style={{ fontSize: 11 }}>No queries yet. Add queries below.</span>
+          )}
+        </div>
 
-            {/* Add query input */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input value={queryInput} onChange={e => setQueryInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addQuery(); } }}
-                placeholder="Add a query..." className="finp" style={{ flex: 1, margin: 0 }} />
-              <button type="button" onClick={addQuery} className="setup-add-btn">+ Add</button>
-            </div>
-
-            {/* Bulk add & AI Generate buttons */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-              <button type="button" onClick={() => setShowBulk(!showBulk)} className="setup-mono-btn">BULK ADD</button>
-              <button type="button" onClick={handleSuggestQueries} disabled={suggesting} className="setup-mono-btn" style={{ background: 'var(--success-light)', color: 'var(--green)', borderColor: 'var(--green)', opacity: suggesting ? 0.5 : 1 }}>
-                {suggesting ? 'SUGGESTING...' : 'SUGGEST'}
+        {/* Action buttons row */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          <button type="button" onClick={() => { setSelectMode(!selectMode); setSelected(new Set()); }} className="btn-d">
+            {selectMode ? 'Cancel' : '☐ Select'}
+          </button>
+          {selectMode && (
+            <>
+              <button type="button" onClick={() => setSelected(new Set(queries.map((_, i) => i)))} className="btn-d">Select all</button>
+              <button type="button" onClick={() => setSelected(new Set())} className="btn-d">Deselect all</button>
+              <button type="button" onClick={copySelectedQueries} disabled={selected.size === 0} className="btn-d" style={{ opacity: selected.size === 0 ? 0.4 : 1 }}>
+                Copy selected ({selected.size})
               </button>
-              <button type="button" onClick={handleAiGenerate} disabled={aiGenerating} className="setup-mono-btn" style={{ opacity: aiGenerating ? 0.5 : 1 }}>
-                {aiGenerating ? 'GENERATING...' : 'AI GENERATE'}
+              <button type="button" onClick={deleteSelected} disabled={selected.size === 0} className="btn-d btn-danger" style={{ opacity: selected.size === 0 ? 0.4 : 1 }}>
+                Delete selected ({selected.size})
               </button>
-            </div>
+            </>
+          )}
+          {!selectMode && (
+            <>
+              <button type="button" onClick={copyAllQueries} disabled={!queries.length} className="btn-d" style={{ opacity: queries.length ? 1 : 0.4 }}>
+                {copySuccess ? '✓ Copied' : '⧉ Copy all'}
+              </button>
+              <button type="button" onClick={() => { if (confirm('Clear all queries?')) setQueries([]); }} className="btn-d btn-danger">
+                Clear all
+              </button>
+            </>
+          )}
+        </div>
 
-            {/* Bulk textarea */}
-            {showBulk && (
-              <div style={{ marginTop: 8 }}>
-                <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={5}
-                  placeholder="Paste queries, one per line..." className="finp"
-                  style={{ width: '100%', minHeight: 120, resize: 'vertical', fontFamily: 'var(--mono)', fontSize: 11 }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)' }}>{bulkText.split('\n').filter(Boolean).length} queries detected</span>
-                  <button type="button" onClick={bulkAddQueries} style={{ background: 'var(--green)', border: 'none', color: '#fff', fontFamily: 'var(--mono)', fontSize: 10, padding: '6px 16px', cursor: 'pointer', borderRadius: 'var(--radius-xs)', fontWeight: 700 }}>ADD ALL</button>
-                </div>
-              </div>
-            )}
+        {/* Add query input */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={queryInput} onChange={e => setQueryInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addQuery(); } }}
+            placeholder="Add a query..." className="fld-in" style={{ flex: 1 }} />
+          <button type="button" onClick={addQuery} className="btn-g">+ Add</button>
+        </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
+        {/* Bulk add & AI Generate buttons */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          <button type="button" onClick={() => setShowBulk(!showBulk)} className="btn-d">Bulk add</button>
+          <button type="button" onClick={handleSuggestQueries} disabled={suggesting} className="btn-d" style={{ opacity: suggesting ? 0.5 : 1 }}>
+            {suggesting ? 'Suggesting...' : 'Suggest'}
+          </button>
+          <button type="button" onClick={handleAiGenerate} disabled={aiGenerating} className="btn-d" style={{ opacity: aiGenerating ? 0.5 : 1 }}>
+            {aiGenerating ? 'Generating...' : 'AI generate'}
+          </button>
+        </div>
 
-          {/* SOV Goal */}
-          <SectionField label="SOV Goal (%)" value={String(goal)} onChange={v => setGoal(Number(v))} placeholder="70" type="number" />
-
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-
-          {/* AI Platforms to Track */}
-          <div style={{ marginBottom: 20 }}>
-            <label className="flbl">AI Platforms to Track</label>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8 }}>
-              Select which AI platforms to query when running keyword tracking. Only the platforms you pick will be scanned.
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {ALL_PLATFORMS.map(p => {
-                const checked = selectedPlatforms.includes(p);
-                return (
-                  <button key={p} type="button" onClick={() => togglePlatform(p)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
-                      borderRadius: 100, fontSize: 12, fontWeight: 600,
-                      border: `1px solid ${checked ? 'var(--text-secondary)' : 'var(--border)'}`,
-                      background: checked ? 'var(--bg3)' : 'var(--bg2)',
-                      color: checked ? 'var(--text)' : 'var(--muted)',
-                      cursor: 'pointer', transition: 'all .15s',
-                    }}>
-                    <input type="checkbox" checked={checked} readOnly style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
-                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: selectedPlatforms.length > platformLimit ? 'var(--amber)' : 'var(--muted)', marginTop: 6 }}>
-              {selectedPlatforms.length > platformLimit
-                ? `Plan allows ${platformLimit} platforms - only the first ${platformLimit} you selected will be tracked.`
-                : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
+        {/* Bulk textarea */}
+        {showBulk && (
+          <div style={{ marginTop: 8 }}>
+            <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={5}
+              placeholder="Paste queries, one per line..." className="fld-in mono"
+              style={{ width: '100%', minHeight: 120, resize: 'vertical', fontSize: 11 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+              <span className="quiet mono" style={{ fontSize: 11 }}>{bulkText.split('\n').filter(Boolean).length} queries detected</span>
+              <button type="button" onClick={bulkAddQueries} className="btn-p">Add all</button>
             </div>
           </div>
-
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
-
-          {/* Save Changes */}
-          <button type="submit" disabled={saving} className="btn-primary" style={{ opacity: saving ? 0.5 : 1 }}>
-            {saving ? 'SAVING...' : 'SAVE CHANGES'}
-          </button>
-
-          {/* Delete Brand */}
-          <button type="button" onClick={handleDelete} style={{
-            width: '100%', padding: 10, background: 'none',
-            border: '1px solid var(--red)', color: 'var(--red)',
-            fontFamily: 'var(--font)', fontSize: 12, fontWeight: 700,
-            cursor: 'pointer', marginTop: 10, borderRadius: 'var(--radius-xs)',
-          }}>
-            DELETE BRAND
-          </button>
+        )}
       </Card>
+
+      <Card title="AI platforms to track"
+        right={<Badge tone={selectedPlatforms.length > platformLimit ? 'warn' : 'neu'}>{selectedPlatforms.length} / {ALL_PLATFORMS.length}</Badge>}>
+        <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
+          Select which AI platforms to query when running keyword tracking. Only the platforms you pick will be scanned.
+        </p>
+        <div className="tag-grid">
+          {ALL_PLATFORMS.map(p => {
+            const checked = selectedPlatforms.includes(p);
+            return (
+              <button key={p} type="button" onClick={() => togglePlatform(p)}
+                className="ttag mono"
+                style={{
+                  cursor: 'pointer',
+                  borderColor: checked ? 'var(--primary)' : 'var(--line-2)',
+                  background: checked ? 'var(--primary-50)' : 'var(--surface-2)',
+                  color: checked ? 'var(--primary)' : 'var(--text-2)',
+                }}>
+                <input type="checkbox" checked={checked} readOnly style={{ accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: PLATFORM_COLORS[p] }} />
+                {p}
+              </button>
+            );
+          })}
+        </div>
+        <div className="quiet mono" style={{ fontSize: 11, color: selectedPlatforms.length > platformLimit ? 'var(--warn)' : undefined, marginTop: 8 }}>
+          {selectedPlatforms.length > platformLimit
+            ? `Plan allows ${platformLimit} platforms - only the first ${platformLimit} you selected will be tracked.`
+            : `${selectedPlatforms.length} of ${ALL_PLATFORMS.length} selected (plan limit: ${platformLimit})`}
+        </div>
+      </Card>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="submit" disabled={saving} className="btn-p" style={{ opacity: saving ? 0.5 : 1 }}>
+          {saving ? 'Saving...' : 'Save changes'}
+        </button>
+        <button type="button" onClick={handleDelete} className="btn-d btn-danger">
+          Delete brand
+        </button>
+      </div>
     </form>
   );
 }
@@ -828,25 +797,28 @@ function NearbyAreasSection({ city, areas, onChange, brandId }: { city: string; 
   };
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <label className="flbl">Nearby Areas</label>
-      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
+    <div>
+      <p className="quiet" style={{ fontSize: 13, margin: '0 0 12px', lineHeight: 1.5 }}>
         Add state, nearby cities, and service areas. When a query has no location, these areas will also be checked in AI responses.
-      </div>
-      {error && <p style={{ fontSize: 11, color: 'var(--red)', marginBottom: 8 }}>{error}</p>}
+      </p>
+      {error && <Badge tone="neg" style={{ display: 'block', padding: '8px 12px', fontSize: 11, marginBottom: 8 }}>{error}</Badge>}
 
       {/* Area tags */}
-      <TagList items={areas} onRemove={removeArea} />
+      <div className="tag-grid">
+        {areas.map((a, i) => (
+          <span key={`${a}-${i}`} className="ttag mono">{a} <span className="x" onClick={() => removeArea(i)}>×</span></span>
+        ))}
+      </div>
 
       {/* Input row */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <input value={newArea} onChange={e => setNewArea(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addArea(); } }}
-          className="finp" style={{ flex: 1, margin: 0 }}
+          className="fld-in" style={{ flex: 1 }}
           placeholder="Add nearby area (e.g. Round Rock, Texas)..." />
-        <button type="button" onClick={addArea} className="setup-add-btn">+ Add</button>
-        <button type="button" onClick={fetchNearbyAreas} disabled={fetching || !city.trim()} className="setup-mono-btn" style={{ opacity: (fetching || !city.trim()) ? 0.5 : 1 }}>
-          {fetching ? 'FETCHING...' : 'AUTO-FETCH'}
+        <button type="button" onClick={addArea} className="btn-g">+ Add</button>
+        <button type="button" onClick={fetchNearbyAreas} disabled={fetching || !city.trim()} className="btn-d" style={{ opacity: (fetching || !city.trim()) ? 0.5 : 1 }}>
+          {fetching ? 'Fetching...' : 'Auto-fetch'}
         </button>
       </div>
     </div>
