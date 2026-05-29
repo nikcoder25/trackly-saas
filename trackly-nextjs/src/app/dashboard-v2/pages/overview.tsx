@@ -37,6 +37,9 @@ interface OverviewData {
   queries: QueryRow[];
   recent: RecentItem[];
   insights: InsightItem[];
+  accuracyRate: number | null;
+  openIssues: number;
+  fixedIssues: number;
 }
 
 interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; d: string; cta: string; href: string }
@@ -125,21 +128,28 @@ function buildFallback(): OverviewData {
       { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m' },
     ],
     insights: [],
+    accuracyRate: 88,
+    openIssues: 6,
+    fixedIssues: 3,
   };
 }
 
-function buildFromBrand(brand: any): OverviewData {
+function buildFromBrand(brand: any, accData?: any): OverviewData {
   const fb = buildFallback();
   const runs: any[] = Array.isArray(brand.runs) ? brand.runs : [];
   const sorted = [...runs].sort((a, b) => new Date(a.time || a.date || 0).getTime() - new Date(b.time || b.date || 0).getTime());
   const lastRun = sorted[sorted.length - 1] || null;
   const prevRun = sorted.length >= 2 ? sorted[sorted.length - 2] : null;
   const brandQueries: string[] = Array.isArray(brand.queries) ? brand.queries : [];
+  const accIssues: any[] = accData?.issues || [];
+  const accuracyRate: number | null = accData?.accuracyRate ?? null;
+  const openIssues = accIssues.filter((i: any) => !i.fixed).length;
+  const fixedIssues = accIssues.filter((i: any) => i.fixed).length;
   if (!lastRun) {
-    // Real brand that hasn't been run yet: surface its tracked prompts (with no
-    // data yet) instead of the Acme demo rows so the page reflects this brand.
     return {
       ...fb, hasReal: true, brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
+      competitors: [], sources: [],
+      accuracyRate, openIssues, fixedIssues,
       queries: brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 })),
       recent: [],
       insights: [],
@@ -173,7 +183,7 @@ function buildFromBrand(brand: any): OverviewData {
 
   // competitors
   const compRaw: Record<string, number> = lastRun.competitors || {};
-  let competitors = fb.competitors;
+  let competitors: OverviewData['competitors'] = [];
   const compEntries = Object.entries(compRaw).sort((a, b) => b[1] - a[1]).slice(0, 7);
   if (compEntries.length > 0) {
     const total = compEntries.reduce((s, [, c]) => s + c, 0) + Math.max(1, totalM);
@@ -185,7 +195,7 @@ function buildFromBrand(brand: any): OverviewData {
 
   // sources / citations
   const citeRaw: Record<string, number> = lastRun.citations || {};
-  let sources = fb.sources;
+  let sources: OverviewData['sources'] = [];
   const citeEntries = Object.entries(citeRaw).sort((a, b) => b[1] - a[1]).slice(0, 6);
   if (citeEntries.length > 0) {
     const total = citeEntries.reduce((s, [, c]) => s + c, 0) || 1;
@@ -280,6 +290,9 @@ function buildFromBrand(brand: any): OverviewData {
     queries,
     recent,
     insights: insights.slice(0, 3),
+    accuracyRate,
+    openIssues,
+    fixedIssues,
   };
 }
 function sentTotalSafe(n: number) { return n > 0; }
@@ -295,7 +308,7 @@ export function PageOverview() {
   // With real data we only have the brand's own SOV history, so show just that
   // line rather than fabricated competitor trends. The demo overlay is kept for
   // the no-data fallback so the chart still looks alive.
-  const meLine: LineSeries = { id: 'me', label: d.competitors[0]?.name || d.brandName || 'You', color: 'var(--primary)', bold: true, fill: true, cur: d.sov, data: d.trend };
+  const meLine: LineSeries = { id: 'me', label: d.brandName || 'You', color: 'var(--primary)', bold: true, fill: true, cur: d.sov, data: d.trend };
   const sovSeries: LineSeries[] = d.hasReal ? [meLine] : [
     meLine,
     { id: 'linear', label: 'Linear', color: 'var(--info)', dashed: true, cur: 22.1, data: [26, 25, 25, 24, 24, 23, 22, 23, 22, 22, 22, 22, 22, 22.1] },
@@ -315,7 +328,7 @@ export function PageOverview() {
         </>} />
 
       <div className="page-body">
-        <HealthBanner health={d.health} sentiment={d.sentiment} sov={d.sov} totalQ={d.totalQ} />
+        <HealthBanner health={d.health} sentiment={d.sentiment} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} />
         <GoalCard current={d.sov} />
         <InsightsStrip items={d.insights} />
 
@@ -332,7 +345,7 @@ export function PageOverview() {
           { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
           { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
           { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: +3.1, info: '+0.62 score' },
-          { k: 'FALSE CLAIMS', term: 'hallucination', v: '6', d: -2, info: '3 fixed' },
+          { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '—', d: d.fixedIssues > 0 ? -d.fixedIssues : undefined, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
           { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: +14, info: 'prompts' },
         ]} />
 
@@ -393,8 +406,11 @@ function HBar({ label, v, sub }: { label: string; v: number; sub: string }) {
   );
 }
 
-function HealthBanner({ health, sentiment, sov, totalQ }: { health: number; sentiment: number; sov: number; totalQ: number }) {
+function HealthBanner({ health, sentiment, sov, totalQ, accuracyRate, openIssues, fixedIssues }: { health: number; sentiment: number; sov: number; totalQ: number; accuracyRate: number | null; openIssues: number; fixedIssues: number }) {
   const grade = health >= 80 ? 'Excellent' : health >= 65 ? 'Good' : health >= 45 ? 'Fair' : 'Needs work';
+  const accSub = accuracyRate !== null
+    ? `${openIssues} claim${openIssues !== 1 ? 's' : ''} open${fixedIssues > 0 ? ` / ${fixedIssues} fixed` : ''}`
+    : 'add facts to enable';
   return (
     <section className="hb">
       <div className="hb-score">
@@ -408,7 +424,7 @@ function HealthBanner({ health, sentiment, sov, totalQ }: { health: number; sent
       <div className="hb-bars">
         <HBar label="Visibility" v={Math.round(sov)} sub={`${totalQ} prompts tracked`} />
         <HBar label="Sentiment" v={sentiment} sub="+0.62 avg score" />
-        <HBar label="Accuracy" v={88} sub="6 false claims open" />
+        <HBar label="Accuracy" v={accuracyRate ?? 0} sub={accSub} />
         <HBar label="Competitive" v={68} sub="leads in 5 / 8 categories" />
       </div>
       <div className="hb-art" aria-hidden="true">
@@ -588,20 +604,26 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
     <Card title="Competitor SOV" info="sov"
       lede="Who's winning the AI conversation in your category right now."
       right={<a href="/dashboard/competitors" className="mono dim" style={{ fontSize: 11 }}>COMPETITORS →</a>}>
-      <div style={{ display: 'grid', gap: 14 }}>
-        {rows.map((r, i) => (
-          <div key={i} className="comp-row">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 120 }}>
-              <span style={{ width: 8, height: 8, background: r.color, borderRadius: 2, display: 'inline-block' }} />
-              <b style={{ color: r.me ? 'var(--accent)' : 'var(--text)', fontWeight: 500, fontSize: 13 }}>{r.name}</b>
-              {r.me && <Badge tone="acc">YOU</Badge>}
-            </span>
-            <Bar value={r.sov} max={max} />
-            <span className="mono" style={{ fontSize: 13, minWidth: 60, textAlign: 'right' }}>{r.sov}%</span>
-            <span style={{ minWidth: 60, textAlign: 'right' }}><Delta v={r.d} suffix="%" /></span>
-          </div>
-        ))}
-      </div>
+      {rows.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
+          No competitor data yet — run queries to see how you compare.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 14 }}>
+          {rows.map((r, i) => (
+            <div key={i} className="comp-row">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 120 }}>
+                <span style={{ width: 8, height: 8, background: r.color, borderRadius: 2, display: 'inline-block' }} />
+                <b style={{ color: r.me ? 'var(--accent)' : 'var(--text)', fontWeight: 500, fontSize: 13 }}>{r.name}</b>
+                {r.me && <Badge tone="acc">YOU</Badge>}
+              </span>
+              <Bar value={r.sov} max={max} />
+              <span className="mono" style={{ fontSize: 13, minWidth: 60, textAlign: 'right' }}>{r.sov}%</span>
+              <span style={{ minWidth: 60, textAlign: 'right' }}><Delta v={r.d} suffix="%" /></span>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -612,15 +634,21 @@ function OverviewSources({ rows }: { rows: OverviewData['sources'] }) {
     <Card title="Most cited sources" info="citation"
       lede="The web pages AI leans on when it describes you. Strengthen the helpful ones."
       right={<a href="/dashboard/citations" className="mono dim" style={{ fontSize: 11 }}>CITATIONS →</a>}>
-      <div style={{ display: 'grid', gap: 10 }}>
-        {rows.map((r, i) => (
-          <div key={i} className="src-row">
-            <Cit url={r.d} />
-            <Bar value={r.share} max={max} />
-            <span className="mono" style={{ fontSize: 12, color: 'var(--text)', minWidth: 46, textAlign: 'right' }}>{r.n}</span>
-          </div>
-        ))}
-      </div>
+      {rows.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 12.5 }}>
+          No citations tracked yet.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {rows.map((r, i) => (
+            <div key={i} className="src-row">
+              <Cit url={r.d} />
+              <Bar value={r.share} max={max} />
+              <span className="mono" style={{ fontSize: 12, color: 'var(--text)', minWidth: 46, textAlign: 'right' }}>{r.n}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
