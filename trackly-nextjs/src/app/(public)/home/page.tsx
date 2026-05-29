@@ -1,829 +1,661 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { PRICING_PLANS, PRICING_COMPARISON } from '@/lib/constants';
 import { MARKETING_NAV_LINKS } from '@/lib/marketing-nav';
-import { CookiePreferencesButton } from '@/components/CookieConsent';
+import { newsreader, hankenGrotesk } from './fonts';
+import '@/styles/livesov-home.css';
 
-/* ─── Smooth scroll helper ─── */
+/* ──────────────────────────────────────────────────────────────────────────
+   Livesov editorial home page — recreated from the Claude Design handoff
+   (Livesov.html + home-*.jsx). Visuals match the prototype; CTAs/nav are
+   wired to real routes and the canonical MARKETING_NAV_LINKS set.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* In-page smooth scroll for hrefs that contain a hash to a section on this page. */
 function smoothScrollTo(e: React.MouseEvent<HTMLAnchorElement>, closeMenu?: () => void) {
-  const href = e.currentTarget.getAttribute('href');
-  if (href?.startsWith('#')) {
+  const href = e.currentTarget.getAttribute('href') || '';
+  const hashIndex = href.indexOf('#');
+  if (hashIndex === -1) { closeMenu?.(); return; }
+  const hash = href.slice(hashIndex);
+  const el = typeof document !== 'undefined' ? document.querySelector(hash) : null;
+  if (el) {
     e.preventDefault();
-    const el = document.querySelector(href);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    closeMenu?.();
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  closeMenu?.();
 }
 
-/* ─── Platform data ─── */
-const platforms = [
-  { name: 'ChatGPT', color: '#10a37f', icon: '⬡', href: '/chatgpt-brand-tracking' },
-  { name: 'Perplexity', color: '#9b72ff', icon: '◎', href: '/perplexity-brand-tracking' },
-  { name: 'Claude', color: '#d97706', icon: '◈', href: '/claude-brand-tracking' },
-  { name: 'Gemini', color: '#4285f4', icon: '✦', href: '/gemini-brand-tracking' },
-  { name: 'Grok', color: '#1d9bf0', icon: '⚡', href: '/grok-brand-tracking' },
-];
-
-/* ─── SVG Icon components ─── */
-const icons = {
-  search: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>,
-  chart: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
-  shield: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>,
-  target: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-  settings: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-  trending: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
-  users: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>,
-  zap: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
-};
-
-const features = [
-  { icon: icons.search, title: 'Multi-Platform Tracking', desc: 'Monitor your brand across ChatGPT, Perplexity, Claude, Gemini & Grok - all from a single dashboard.', accent: '#6366f1' },
-  { icon: icons.chart, title: 'Share of Voice', desc: 'Measure what percentage of AI responses mention your brand vs competitors. Track SOV trends over time.', accent: '#8b5cf6' },
-  { icon: icons.shield, title: 'Evidence & Proof', desc: 'Save full AI responses as verifiable proof. Export to CSV, share with clients, build trust with real data.', accent: '#06b6d4' },
-  { icon: icons.target, title: 'Sentiment Analysis', desc: 'Know whether AI recommends your brand positively, negatively, or neutrally. Spot reputation shifts early.', accent: '#10b981' },
-  { icon: icons.settings, title: 'Custom Queries', desc: 'Define exactly what your customers ask. Track performance per query, per platform, per location.', accent: '#f59e0b' },
-  { icon: icons.trending, title: 'Competitor Intelligence', desc: 'Add competitors to see how they appear in AI responses alongside your brand. Benchmark and outrank.', accent: '#ef4444' },
-];
-
-const steps = [
-  { num: '01', title: 'Add Your Brand', desc: 'Enter your brand name, industry, and location. Smart default queries are generated automatically.' },
-  { num: '02', title: 'Auto-Track Daily', desc: 'Livesov queries all 5 AI platforms on your schedule. Results flow into your real-time dashboard.' },
-  { num: '03', title: 'Analyze & Report', desc: 'See what each AI says about you. Track trends, export proof, and share data-backed reports.' },
-];
-
-const pricingPlans = PRICING_PLANS;
-const pricingComparison = PRICING_COMPARISON;
-
-const faqs = [
-  { q: 'What is AI visibility tracking?', a: 'AI visibility tracking monitors how AI platforms like ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand when users ask questions. It reveals your brand\'s presence in the new AI-driven discovery layer.' },
-  { q: 'Which AI platforms does Livesov support?', a: 'Livesov tracks your brand across 5 major AI platforms: ChatGPT (OpenAI), Perplexity AI, Claude (Anthropic), Google Gemini, and Grok (xAI).' },
-  { q: 'What is Share of Voice in AI?', a: 'Share of Voice (SOV) in AI measures what percentage of AI-generated responses mention your brand when relevant queries are asked. A higher SOV means AI is more likely to recommend you.' },
-  { q: 'How is this different from traditional SEO tools?', a: 'SEO tools track Google Search rankings. Livesov tracks your visibility in AI-generated answers - a completely different discovery channel that\'s growing rapidly.' },
-  { q: 'Can I use Livesov for client reporting?', a: 'Yes. Livesov saves complete AI responses as proof, exportable as CSV reports. Agencies use it to deliver data-backed AI visibility audits to clients.' },
-  { q: 'How much does Livesov cost?', a: 'Livesov has a free plan with 150 AI credits/month, 1 brand, 5 tracked prompts per brand, and 2 AI platforms. Paid plans start at $9/mo (Starter) with 750 credits, 3 brands, 15 prompts per brand, and 20 GEO audits. Pro ($29/mo) adds unlimited brands, 2,500 credits, 3 AI platforms, daily auto-runs, sentiment analysis, and 75 GEO audits. Agency ($89/mo) scales to 8,000 credits, all 5 AI platforms, premium AI models, priority support, API access, and 300 GEO audits.' },
-];
-
-const testimonials = [
-  { text: 'We discovered that ChatGPT was consistently recommending a competitor we hadn\'t even considered. Once we saw the data, we adjusted our content strategy and started showing up within weeks.', name: 'S.K.', role: 'Marketing Director at a SaaS startup', initials: 'SK' },
-  { text: 'Our agency needed a way to show clients their AI visibility without manually querying six different chatbots. Livesov replaced hours of manual checking with an actual dashboard and exportable proof.', name: 'M.R.', role: 'Founder of a boutique digital agency', initials: 'MR' },
-  { text: 'As a solo founder, I had no idea whether AI platforms even knew my product existed. Turns out they didn\'t. Now I can track my progress as I work on improving it.', name: 'J.L.', role: 'Indie SaaS founder', initials: 'JL' },
-];
-
-const demoResults = [
-  { name: 'ChatGPT', color: '#10a37f', icon: '⬡', found: true, text: 'Based on available information, <mark>CoolAir Pro</mark> is a well-regarded HVAC provider in Austin TX. Customers praise them for responsive service and transparent pricing...' },
-  { name: 'Perplexity', color: '#9b72ff', icon: '◎', found: true, text: '<mark>CoolAir Pro</mark> is a leading HVAC company in Austin TX [1]. Reviews highlight professional technicians and fair pricing [2]...' },
-  { name: 'Claude', color: '#d97706', icon: '◈', found: true, text: 'I can share that <mark>CoolAir Pro</mark> has developed a solid reputation in the Austin TX HVAC market for professional service...' },
-  { name: 'Gemini', color: '#4285f4', icon: '✦', found: true, text: '<mark>CoolAir Pro</mark> is an HVAC provider in Austin TX with consistent 4+ star ratings. Professional, licensed, transparent...' },
-  { name: 'Grok', color: '#1d9bf0', icon: '⚡', found: false, text: 'For HVAC in Austin TX, I\'d recommend AC Express, Stan\'s Heating, and Green Leaf Air. Solid reviews and competitive pricing...' },
-];
-
-/* ─── Typing animation hook ─── */
-function useTypingEffect(text: string, speed = 50) {
-  const [displayed, setDisplayed] = useState('');
-  const [started, setStarted] = useState(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (!started || done) return;
-    if (displayed.length >= text.length) { setDone(true); return; }
-    const timer = setTimeout(() => setDisplayed(text.slice(0, displayed.length + 1)), speed);
-    return () => clearTimeout(timer);
-  }, [started, displayed, text, speed, done]);
-
-  return { displayed, done, start: () => setStarted(true) };
-}
-
-/* ─── Demo section with typing effect ─── */
-function DemoSection() {
-  const queryText = '"Best HVAC company in Austin TX"';
-  const typing = useTypingEffect(queryText, 40);
-  const [showResults, setShowResults] = useState(false);
-  const sectionRef = (node: HTMLElement | null) => {
-    if (!node) return;
-    const observer = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { typing.start(); observer.unobserve(node); }
-    }, { threshold: 0.2 });
-    observer.observe(node);
-  };
-
-  // Fallback: if typing hasn't started after 3s (e.g. section already in view), start it
-  useEffect(() => {
-    const fallback = setTimeout(() => { typing.start(); }, 3000);
-    return () => clearTimeout(fallback);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (typing.done) {
-      const timer = setTimeout(() => setShowResults(true), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [typing.done]);
-
+/* ─── Shared primitives ─── */
+function Mark({ size = 26 }: { size?: number }) {
   return (
-    <section className="tl-section" id="demo-section" ref={sectionRef}>
-      <div className="tl-section-inner">
-        <div className="tl-section-header">
-          <span className="tl-section-tag">Live Demo</span>
-          <h2>See Livesov in Action</h2>
-          <p>Here&apos;s what happens when you track a brand across all 5 AI platforms.</p>
+    <span className="lv-mk" style={{ width: size, height: size }}>
+      <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} fill="none">
+        <path d="M4 14 L8 14 L11 7 L14 17 L17 11 L20 11" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
+function Logo({ size = 26, word = true }: { size?: number; word?: boolean }) {
+  return (
+    <div className="lv-logo">
+      <Mark size={size} />
+      {word && <span className="lv-word">livesov</span>}
+    </div>
+  );
+}
+
+function Reveal({
+  children, delay = 0, as: As = 'div', className = '', ...rest
+}: { children: React.ReactNode; delay?: number; as?: React.ElementType; className?: string } & Record<string, unknown>) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setTimeout(() => el.classList.add('in'), delay); io.disconnect(); }
+    }, { threshold: 0.12 });
+    io.observe(el);
+    const fallback = setTimeout(() => el.classList.add('in'), 2000 + delay);
+    return () => { io.disconnect(); clearTimeout(fallback); };
+  }, [delay]);
+  return <As ref={ref} className={'reveal ' + className} {...rest}>{children}</As>;
+}
+
+/* Counts up to a value when scrolled into view. */
+function Counter({ to, suffix = '', prefix = '', decimals = 0, duration = 1200 }:
+  { to: number; suffix?: string; prefix?: string; decimals?: number; duration?: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        const start = performance.now();
+        const tick = (t: number) => {
+          const k = Math.min(1, (t - start) / duration);
+          setN(to * (1 - Math.pow(1 - k, 3)));
+          if (k < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        io.disconnect();
+      }
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [to, duration]);
+  return <span ref={ref}>{prefix}{n.toFixed(decimals)}{suffix}</span>;
+}
+
+function SecHead({ eyebrow, title, sub, center = false, className = '' }:
+  { eyebrow?: React.ReactNode; title: React.ReactNode; sub?: React.ReactNode; center?: boolean; className?: string }) {
+  return (
+    <div className={'sec-head ' + (center ? 'center ' : '') + className}>
+      {eyebrow && <div className="eyebrow"><span className="dot" /> {eyebrow}</div>}
+      <h2>{title}</h2>
+      {sub && <p className="sub">{sub}</p>}
+    </div>
+  );
+}
+
+/* ─── Navigation ─── */
+function Nav() {
+  const [open, setOpen] = useState(false);
+  const [solid, setSolid] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setSolid(window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  const closeMenu = () => setOpen(false);
+  return (
+    <nav className={'lv-nav' + (solid ? ' solid' : '') + (open ? ' open' : '')}>
+      <div className="container lv-nav-inner">
+        <Link href="/" aria-label="Livesov home"><Logo /></Link>
+        <ul className="lv-nav-links">
+          {MARKETING_NAV_LINKS.map((link) => {
+            const href = link.homeHref ?? link.href;
+            return (
+              <li key={link.href}>
+                <Link href={href} onClick={(e) => smoothScrollTo(e)}>{link.label}</Link>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="lv-nav-cta">
+          <Link className="btn btn-ghost" href="/login">Sign in</Link>
+          <Link className="btn btn-pri" href="/signup">Start free</Link>
+        </div>
+        <button className="lv-burger" aria-label="Toggle menu" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+          <span /><span /><span />
+        </button>
+      </div>
+      <div className="lv-sheet">
+        <ul>
+          {MARKETING_NAV_LINKS.map((link) => {
+            const href = link.homeHref ?? link.href;
+            return (
+              <li key={link.href}>
+                <Link href={href} onClick={(e) => smoothScrollTo(e, closeMenu)}>{link.label}</Link>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="lv-sheet-cta">
+          <Link className="btn btn-out btn-lg" href="/login" onClick={closeMenu}>Sign in</Link>
+          <Link className="btn btn-pri btn-lg" href="/signup" onClick={closeMenu}>Start free</Link>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/* ─── Hero · Trust strip ─── */
+function Hero() {
+  return (
+    <header className="hero" id="top">
+      <div className="container hero-grid">
+        <div className="hero-copy">
+          <div className="eyebrow"><span className="dot" /> Generative Engine Optimization</div>
+          <h1 className="serif hero-h1">AI is the new search.<br /><em>Are you visible?</em></h1>
+          <p className="hero-sub">See exactly how ChatGPT, Claude, Gemini, Perplexity and Grok answer the questions your buyers ask — and whether your brand gets mentioned, recommended, or ignored.</p>
+          <div className="hero-cta">
+            <Link className="btn btn-pri btn-lg" href="/signup">Start free</Link>
+            <Link className="btn-link" href="/geo-audit">Run a free audit <span className="ar">→</span></Link>
+          </div>
+          <div className="hero-trust">No credit card · Set up in 2 minutes · Plans from $9/mo</div>
+        </div>
+        <div className="hero-visual">
+          <div className="shot hero-shot">
+            <Image src="/dashboard-shot.png" alt="Livesov dashboard showing brand visibility across AI engines" width={924} height={540} priority />
+          </div>
+          <div className="hero-badge">
+            <span className="chip"><span className="pulse" /> Tracking 5 engines · live</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="container logos">
+        <span className="logos-lbl">Trusted by brand &amp; SEO teams at</span>
+        <div className="logos-row">
+          {[104, 84, 120, 92, 78].map((w, i) => (
+            <span key={i} className="logo-ph" style={{ width: w }} aria-hidden="true" />
+          ))}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Check() {
+  return <span className="ic ic-check"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
+}
+function X() {
+  return <span className="ic ic-x"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>;
+}
+
+/* ─── Problem ─── */
+function Problem() {
+  const stats = [
+    { v: 68, suf: '%', l: 'of B2B buyers now consult an LLM before they shortlist vendors' },
+    { v: 0, suf: '', l: 'legacy SEO platforms that surface this in their dashboard today' },
+    { v: 5, suf: '', l: 'AI engines Livesov queries on your behalf, every single day' },
+  ];
+  return (
+    <section className="section problem">
+      <div className="container">
+        <SecHead
+          eyebrow="The problem"
+          title={<>Your SEO tools are blind <em>to AI search.</em></>}
+          sub="Ahrefs, Semrush and Search Console can't see what an LLM said about your brand last Tuesday at 2:14pm. By the time you find out you weren't mentioned, a competitor already was — twice."
+        />
+        <div className="prob-grid">
+          <Reveal className="prob-card prob-old card">
+            <div className="prob-card-top">
+              <span className="prob-kicker">The old way</span>
+              <h3 className="prob-h">Built for Google&apos;s ten blue links</h3>
+            </div>
+            <ul className="prob-list">
+              <li><X /> Tracks Google rankings only</li>
+              <li><X /> No view into ChatGPT, Claude, Gemini, Perplexity or Grok</li>
+              <li><X /> Counts clicks, never citations</li>
+              <li><X /> Keyword-based, not the way buyers actually ask</li>
+            </ul>
+          </Reveal>
+          <Reveal className="prob-card prob-new card" delay={120}>
+            <div className="prob-card-top">
+              <span className="prob-kicker acc">With Livesov</span>
+              <h3 className="prob-h">Built for how AI actually answers</h3>
+            </div>
+            <ul className="prob-list">
+              <li><Check /> Tracks all 5 major AI engines, on a schedule</li>
+              <li><Check /> Share of voice, sentiment and the sources cited</li>
+              <li><Check /> Natural-language queries, the way buyers ask</li>
+              <li><Check /> Flags hallucinations &amp; stale facts about you</li>
+            </ul>
+          </Reveal>
         </div>
 
-        <div className="tl-demo-window">
-          <div className="tl-demo-toolbar">
-            <div className="tl-demo-dots">
-              <span className="tl-dot tl-dot--red" />
-              <span className="tl-dot tl-dot--yellow" />
-              <span className="tl-dot tl-dot--green" />
-            </div>
-            <div className="tl-demo-query">
-              <span className="tl-demo-query-icon">&#x1F50D;</span>
-              {typing.displayed}<span className="tl-cursor">|</span>
-            </div>
-          </div>
-          <div className={`tl-demo-grid ${showResults ? 'tl-demo-grid--visible' : 'tl-demo-grid--hidden'}`}>
-            {demoResults.map((d, i) => (
-              <div key={d.name} className={`tl-demo-card ${!d.found ? 'tl-demo-card--missed' : ''}`} style={{ animationDelay: `${i * 0.1}s` }}>
-                <div className="tl-demo-card-head">
-                  <span style={{ color: d.color, fontSize: 18 }}>{d.icon}</span>
-                  <span className="tl-demo-card-name">{d.name}</span>
-                  <span className={`tl-demo-badge ${d.found ? 'tl-demo-badge--found' : 'tl-demo-badge--missed'}`}>
-                    {d.found ? '✓ Mentioned' : '✗ Not Found'}
-                  </span>
-                </div>
-                <div className="tl-demo-card-text" dangerouslySetInnerHTML={{ __html: d.text }} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="tl-demo-cta">
-          <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-            Try It With Your Brand <span className="tl-arrow">&rarr;</span>
-          </Link>
+        <div className="prob-stats">
+          {stats.map((s, i) => (
+            <Reveal key={i} className="prob-stat" delay={i * 90}>
+              <div className="prob-stat-v serif"><Counter to={s.v} suffix={s.suf} /></div>
+              <div className="prob-stat-l">{s.l}</div>
+            </Reveal>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-/* ─── Auto-rotating Testimonial Carousel ─── */
-function TestimonialCarousel() {
-  const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-
-  useEffect(() => {
-    if (paused) return;
-    const timer = setInterval(() => {
-      setActive(prev => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [paused]);
-
-  const goTo = (index: number) => setActive(index);
-  const goPrev = () => setActive((active - 1 + testimonials.length) % testimonials.length);
-  const goNext = () => setActive((active + 1) % testimonials.length);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowLeft') { goPrev(); setPaused(true); }
-    else if (e.key === 'ArrowRight') { goNext(); setPaused(true); }
-  };
-
+/* ─── How it works ─── */
+function HowItWorks() {
+  const steps = [
+    { n: '01', t: 'Connect your brand', d: 'Add your domain, your competitors, and the prompts your buyers actually ask. We seed 50+ industry queries to get you started in minutes.' },
+    { n: '02', t: 'We query the engines', d: 'Livesov asks ChatGPT, Claude, Gemini, Perplexity and Grok on a schedule. Every answer is parsed for mentions, sentiment and sources.' },
+    { n: '03', t: 'Watch your share of voice', d: 'See where you win, where you lose, and exactly which page each engine cites — with proof you can put in front of your CMO on Monday.' },
+  ];
   return (
-    <div
-      className="tl-carousel"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-      onKeyDown={handleKeyDown}
-      role="region"
-      aria-roledescription="carousel"
-      aria-label="Customer testimonials"
-    >
-      <div className="tl-carousel-track" aria-live={paused ? 'polite' : 'off'} style={{ transform: `translateX(-${active * 100}%)` }}>
-        {testimonials.map((testimonial, i) => (
-          <div key={testimonial.name} className="tl-carousel-slide" role="group" aria-roledescription="slide" aria-label={`Testimonial ${i + 1} of ${testimonials.length}`} aria-hidden={active !== i}>
-            <div className="tl-carousel-quote">
-              <svg className="tl-carousel-quote-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-                <path d="M6 18C6 14.5 8 12 12 10L13 12C10 13.5 9.5 15.5 9.5 16.5H13V22H6V18ZM18 18C18 14.5 20 12 24 10L25 12C22 13.5 21.5 15.5 21.5 16.5H25V22H18V18Z" fill="currentColor" opacity="0.15"/>
-              </svg>
-              <p>&ldquo;{testimonial.text}&rdquo;</p>
-            </div>
-            <div className="tl-carousel-author">
-              <div className="tl-testimonial-avatar">{testimonial.initials}</div>
-              <div>
-                <div className="tl-testimonial-name">{testimonial.name}</div>
-                <div className="tl-testimonial-role">{testimonial.role}</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="tl-carousel-controls">
-        <button className="tl-carousel-arrow" onClick={goPrev} aria-label="Previous testimonial">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 12L6 8l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-        <div className="tl-carousel-dots">
-          {testimonials.map((_, i) => (
-            <button key={i} className={`tl-carousel-dot ${active === i ? 'tl-carousel-dot--active' : ''}`}
-              onClick={() => goTo(i)} aria-label={`Go to testimonial ${i + 1}`} aria-current={active === i ? 'true' : undefined} />
+    <section className="section how" id="how-it-works">
+      <div className="container">
+        <SecHead
+          eyebrow="How it works"
+          title={<>Set up in under <em>two minutes.</em></>}
+          sub="No SDK to install, no script to add. Point Livesov at your domain — we handle the rest, every day, forever."
+        />
+        <div className="how-grid">
+          {steps.map((s, i) => (
+            <Reveal key={s.n} className="how-card" delay={i * 110}>
+              <div className="how-n serif">{s.n}</div>
+              <h3 className="how-t">{s.t}</h3>
+              <p className="how-d">{s.d}</p>
+            </Reveal>
           ))}
         </div>
-        <button className="tl-carousel-arrow" onClick={goNext} aria-label="Next testimonial">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-        <button
-          className="tl-carousel-pause"
-          onClick={() => setPaused(!paused)}
-          aria-label={paused ? 'Play auto-rotation' : 'Pause auto-rotation'}
-        >
-          {paused ? '▶' : '⏸'}
-        </button>
       </div>
-    </div>
+    </section>
   );
 }
 
-/* ─── Email capture component ─── */
-function EmailCapture() {
-  const [email, setEmail] = useState('');
-  const [honeypot, setHoneypot] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (honeypot) { setStatus('success'); return; }
-    if (!email || !email.includes('@')) { setStatus('error'); setErrorMsg('Please enter a valid email address.'); return; }
-
-    setStatus('loading');
-    try {
-      const res = await fetch('/api/newsletter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, website: honeypot }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setStatus('error');
-        setErrorMsg(data.error || 'Something went wrong.');
-        return;
-      }
-      setStatus('success');
-      setEmail('');
-    } catch {
-      setStatus('error');
-      setErrorMsg('Network error. Please try again.');
-    }
-  };
-
-  return (
-    <form className="tl-email-form" onSubmit={handleSubmit}>
-      <div style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }} aria-hidden="true" tabIndex={-1}>
-        <label htmlFor="newsletter-website">Website</label>
-        <input id="newsletter-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
-      </div>
-      {status === 'success' ? (
-        <div className="tl-email-success">
-          <span>✓</span> Thanks! You&apos;re on the list.
-        </div>
-      ) : (
-        <>
-          <div className="tl-email-input-wrap">
-            <input
-              type="email"
-              name="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); if (status === 'error') setStatus('idle'); }}
-              className={`tl-email-input ${status === 'error' ? 'tl-email-input--error' : ''}`}
-              disabled={status === 'loading'}
-              required
-            />
-            <button type="submit" className="tl-btn tl-btn--primary" disabled={status === 'loading'}>
-              {status === 'loading' ? 'Subscribing...' : 'Subscribe'}
-            </button>
-          </div>
-          {status === 'error' && <p className="tl-email-error">{errorMsg}</p>}
-        </>
-      )}
-    </form>
-  );
-}
-
-declare global {
-  interface Window {
-    google?: { accounts: { oauth2: { initTokenClient: (config: Record<string, unknown>) => { requestAccessToken: () => void } } } };
+/* ─── Features ─── */
+type FeatIconName = 'bars' | 'quote' | 'smile' | 'flag' | 'compare' | 'search';
+function FeatIcon({ name }: { name: FeatIconName }) {
+  const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  switch (name) {
+    case 'bars': return <svg {...p}><path d="M4 20V11M10 20V5M16 20V14M22 20H2" /></svg>;
+    case 'quote': return <svg {...p}><path d="M5 15h9l4 4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2Z" /><path d="M7.5 9h7M7.5 12h4" /></svg>;
+    case 'smile': return <svg {...p}><circle cx="12" cy="12" r="9" /><path d="M8.5 14c.9 1.1 2.1 1.7 3.5 1.7s2.6-.6 3.5-1.7" /><path d="M9 9.5h.01M15 9.5h.01" /></svg>;
+    case 'flag': return <svg {...p}><path d="M5 21V4M5 4l8 3 6-2v9l-6 2-8-3" /></svg>;
+    case 'compare': return <svg {...p}><path d="M4 5h6v15H4zM14 9h6v11h-6z" /></svg>;
+    case 'search': return <svg {...p}><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" /></svg>;
+    default: return null;
   }
 }
 
-export default function LivesovHomePage() {
-  const { user, loginWithGoogle } = useAuth();
-  const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [scrolled, setScrolled] = useState(false);
-  const [showBackToTop, setShowBackToTop] = useState(false);
-  const [googleReady, setGoogleReady] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const googleClientIdRef = useRef<string | null>(null);
-  const gsiLoadedRef = useRef(false);
-
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-
-  // Load Google Sign-In SDK
-  useEffect(() => {
-    if (user) return; // Skip if already logged in
-    const initGoogle = (clientId: string) => {
-      googleClientIdRef.current = clientId;
-      if (!gsiLoadedRef.current && !document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
-        const s = document.createElement('script');
-        s.src = 'https://accounts.google.com/gsi/client';
-        s.async = true;
-        s.onload = () => { gsiLoadedRef.current = true; setGoogleReady(true); };
-        document.head.appendChild(s);
-      } else {
-        gsiLoadedRef.current = true;
-        setGoogleReady(true);
-      }
-    };
-    const envClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (envClientId) {
-      initGoogle(envClientId);
-    } else {
-      fetch('/api/config').then(r => r.json()).then(d => {
-        if (d.googleClientId) initGoogle(d.googleClientId);
-      }).catch(() => {});
-    }
-  }, [user]);
-
-  const handleGoogleSignIn = async () => {
-    const clientId = googleClientIdRef.current;
-    if (!clientId) return;
-    if (!window.google?.accounts) {
-      setGoogleLoading(true);
-      await new Promise<void>((resolve, reject) => {
-        let tries = 0;
-        const check = setInterval(() => {
-          if (window.google?.accounts) { clearInterval(check); resolve(); }
-          if (++tries > 30) { clearInterval(check); reject(new Error('timeout')); }
-        }, 200);
-      }).catch(() => { setGoogleLoading(false); return; });
-      setGoogleLoading(false);
-    }
-    if (!window.google?.accounts) return;
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
-      scope: 'openid email profile',
-      callback: async (tokenResponse: Record<string, string>) => {
-        if (tokenResponse.error || !tokenResponse.access_token) return;
-        setGoogleLoading(true);
-        const result = await loginWithGoogle(tokenResponse.access_token);
-        if (!result.error) {
-          router.push('/dashboard');
-        }
-        setGoogleLoading(false);
-      },
-    });
-    tokenClient.requestAccessToken();
-  };
-
-  useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 20);
-      setShowBackToTop(window.scrollY > 600);
-      // Close mobile menu on scroll
-      if (menuOpen) setMenuOpen(false);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [menuOpen]);
-
-  // Close mobile menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.tl-mobile-menu') && !target.closest('.tl-hamburger')) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [menuOpen]);
-
-  // Scroll fade-in animation with 2s fallback
-  useEffect(() => {
-    const els = document.querySelectorAll('.tl-animate');
-    if (!els.length) return;
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('tl-animate--visible'); observer.unobserve(e.target); } }),
-      { threshold: 0.15 }
-    );
-    els.forEach(el => observer.observe(el));
-    const fallback = setTimeout(() => {
-      els.forEach(el => el.classList.add('tl-animate--visible'));
-    }, 2000);
-    return () => { observer.disconnect(); clearTimeout(fallback); };
-  }, []);
-
+function Features() {
+  const feats: { t: string; d: string; icon: FeatIconName }[] = [
+    { t: 'Share of voice', d: 'Daily % share across all five engines. Compare any brand to any competitor over any window.', icon: 'bars' },
+    { t: 'Evidence & proof', d: 'Every mention links to the verbatim model output, the prompt behind it, and the sources cited.', icon: 'quote' },
+    { t: 'Sentiment', d: 'Positive, neutral or negative — scored per mention, charted over time, with alerts on drops.', icon: 'smile' },
+    { t: 'Hallucination detection', d: 'Catches when an engine invents features, pricing or facts about your brand. Send corrections.', icon: 'flag' },
+    { t: 'Competitor benchmarks', d: 'Watch competitors’ mentions in real time. Get alerted the moment they overtake you.', icon: 'compare' },
+    { t: 'Custom queries', d: 'Add your own buyer questions. Track variations, intents and long-tail prompts at scale.', icon: 'search' },
+  ];
   return (
-    <div className="trackly-landing">
-      <a href="#main-content" className="skip-to-content">Skip to content</a>
-
-      {/* ═══════ NAVIGATION ═══════ */}
-      <nav className={`tl-nav ${scrolled ? 'tl-nav--scrolled' : ''}`}>
-        <div className="tl-nav-inner">
-          <Link href="/" className="tl-logo" aria-label="Livesov - Go to homepage">
-            Live<span>sov</span>
-          </Link>
-
-          <button className="tl-hamburger" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle navigation menu" aria-expanded={menuOpen} aria-controls="tl-nav-links">
-            <span className={menuOpen ? 'open' : ''} />
-            <span className={menuOpen ? 'open' : ''} />
-            <span className={menuOpen ? 'open' : ''} />
-          </button>
-
-          <div id="tl-nav-links" className={`tl-nav-links ${menuOpen ? 'tl-nav-links--open' : ''}`}>
-            {MARKETING_NAV_LINKS.map((link) => {
-              const href = link.homeHref ?? link.href;
-              return <Link key={href} href={href} onClick={closeMenu}>{link.label}</Link>;
-            })}
-          </div>
-
-          <div className="tl-nav-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost">Login</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary">Get Started</Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile menu overlay */}
-      {menuOpen && (
-        <div className="tl-mobile-menu">
-          {MARKETING_NAV_LINKS.map((link) => {
-            const href = link.homeHref ?? link.href;
-            return <Link key={href} href={href} onClick={closeMenu}>{link.label}</Link>;
-          })}
-          <div className="tl-mobile-menu-actions">
-            <Link href="/login" className="tl-btn tl-btn--ghost" style={{ width: '100%' }}>Login</Link>
-            <Link href="/signup" className="tl-btn tl-btn--primary" style={{ width: '100%' }}>Get Started</Link>
-          </div>
-        </div>
-      )}
-
-      <main id="main-content">
-      {/* ═══════ HERO ═══════ */}
-      <section className="tl-hero">
-        <div className="tl-hero-grid-bg" />
-        <div className="tl-hero-glow" />
-        <div className="tl-hero-glow tl-hero-glow--2" />
-        <div className="tl-hero-content">
-          <div className="tl-badge">
-            <span className="tl-badge-dot" />
-            AI Visibility Tracker
-          </div>
-          <h1>
-            Is your brand visible in{' '}
-            <span className="tl-gradient-text">AI answers?</span>
-          </h1>
-          <p className="tl-hero-sub">
-            Track how ChatGPT, Perplexity, Claude, Gemini, and Grok mention your brand. Get real proof, measure share of voice, and optimize your GEO strategy.
-          </p>
-          <div className="tl-hero-ctas">
-            <Link href="/signup" className="tl-btn tl-btn--primary tl-btn--lg">
-              Start Tracking <span className="tl-arrow">&rarr;</span>
-            </Link>
-            <a href="#demo-section" onClick={(e) => smoothScrollTo(e)} className="tl-btn tl-btn--outline tl-btn--lg">
-              See Demo
-            </a>
-          </div>
-
-          <p className="tl-hero-note">7-day free trial &middot; No credit card required &middot; All 5 AI platforms included</p>
-        </div>
-
-        {/* Platform pills floating */}
-        <div className="tl-hero-platforms">
-          {platforms.map(p => (
-            <Link key={p.name} href={p.href} className="tl-platform-pill" style={{ '--platform-color': p.color } as React.CSSProperties}>
-              <span className="tl-platform-icon">{p.icon}</span>
-              {p.name}
-            </Link>
+    <section className="section features" id="features">
+      <div className="container">
+        <SecHead
+          eyebrow="What's inside"
+          title={<>Everything you need to make sure <em>the answer is you.</em></>}
+          sub="The full GEO stack, built from scratch for how AI engines answer — not bolted onto a 2010 SEO tool."
+        />
+        <div className="feat-grid">
+          {feats.map((f, i) => (
+            <Reveal key={f.t} className="feat-card" delay={(i % 3) * 80}>
+              <span className="feat-ic"><FeatIcon name={f.icon} /></span>
+              <h3 className="feat-t">{f.t}</h3>
+              <p className="feat-d">{f.d}</p>
+            </Reveal>
           ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ═══════ LIVE DEMO ═══════ */}
-      <DemoSection />
-
-      {/* ═══════ FEATURES ═══════ */}
-      <section className="tl-section tl-section--alt tl-animate" id="features">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Features</span>
-            <h2>Everything you need to dominate AI visibility</h2>
-            <p>Monitor your brand across all major AI platforms from one powerful dashboard.</p>
+/* ─── Showcase ─── */
+function Showcase() {
+  const points = [
+    { t: 'One pane of glass', d: 'Every engine, every brand, every query — in a single live workspace.' },
+    { t: 'Drill to the exact line', d: 'From share-of-voice down to the sentence where an engine named a competitor.' },
+    { t: 'Proof, not vibes', d: 'See the prompt, the verbatim answer, and the page each engine cited.' },
+  ];
+  return (
+    <section className="section showcase" id="dashboard">
+      <div className="container">
+        <SecHead
+          center
+          eyebrow="The dashboard"
+          title={<>A real workspace, <em>not a report PDF.</em></>}
+          sub="Watch share of voice move day to day, then drill into any answer to see precisely why."
+        />
+      </div>
+      <div className="container showcase-frame-wrap">
+        <Reveal className="shot showcase-shot">
+          <div className="sc-bar">
+            <span className="sc-dots"><i /><i /><i /></span>
+            <span className="sc-url">livesov.app / acme / overview</span>
           </div>
+          <Image src="/dashboard-shot.png" alt="Livesov dashboard overview" width={924} height={540} />
+        </Reveal>
+      </div>
+      <div className="container sc-points">
+        {points.map((p, i) => (
+          <Reveal key={i} className="sc-point" delay={i * 90}>
+            <h3 className="sc-point-t">{p.t}</h3>
+            <p className="sc-point-d">{p.d}</p>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-          <div className="tl-features-grid">
-            {features.map(f => (
-              <div key={f.title} className="tl-feature-card" style={{ '--card-accent': f.accent } as React.CSSProperties}>
-                <div className="tl-feature-icon">{f.icon}</div>
-                <h3>{f.title}</h3>
-                <p>{f.desc}</p>
+/* ─── Compare ─── */
+type CellValue = 'yes' | 'no' | 'partial' | { price: string } | string;
+function Cell({ v, hero }: { v: CellValue; hero?: boolean }) {
+  if (typeof v === 'object' && v.price) return <span className="cmp-price serif">{v.price}<i>/mo</i></span>;
+  if (v === 'yes') return <span className={'cmp-mark' + (hero ? ' acc' : '')}><svg width="15" height="15" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
+  if (v === 'no') return <span className="cmp-dash">—</span>;
+  if (v === 'partial') return <span className="cmp-partial">partial</span>;
+  return <span className="cmp-text">{v as string}</span>;
+}
+
+function Compare() {
+  const rows: { f: string; lv: CellValue; ah: CellValue; sm: CellValue }[] = [
+    { f: 'Tracks Google rankings', lv: 'no', ah: 'yes', sm: 'yes' },
+    { f: 'Tracks ChatGPT, Claude, Gemini, Perplexity, Grok', lv: 'yes', ah: 'no', sm: 'no' },
+    { f: 'Share of voice across engines', lv: 'yes', ah: 'no', sm: 'no' },
+    { f: 'Hallucination detection', lv: 'yes', ah: 'no', sm: 'no' },
+    { f: 'Sentiment per mention', lv: 'yes', ah: 'no', sm: 'partial' },
+    { f: 'Cited-source attribution', lv: 'yes', ah: 'no', sm: 'no' },
+    { f: 'Starting price', lv: { price: '$9' }, ah: '$129', sm: '$139' },
+    { f: 'Setup time', lv: '2 min', ah: '~1 hr', sm: '~1 hr' },
+  ];
+  return (
+    <section className="section compare" id="compare">
+      <div className="container">
+        <SecHead
+          eyebrow="How we compare"
+          title={<>The SEO tools haven&apos;t <em>caught up yet.</em></>}
+          sub="Ahrefs and Semrush are the best in the world at what they do — but they were built for Google. The five AI engines aren't on their roadmap. They're already on your buyer's screen."
+        />
+        <Reveal className="cmp-scroll">
+          <table className="cmp">
+            <thead>
+              <tr>
+                <th className="cmp-feat">Feature</th>
+                <th className="cmp-us"><Logo size={22} /></th>
+                <th>Ahrefs</th>
+                <th>Semrush</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="cmp-feat">{r.f}</td>
+                  <td className="cmp-us"><Cell v={r.lv} hero /></td>
+                  <td><Cell v={r.ah} /></td>
+                  <td><Cell v={r.sm} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Reveal>
+        <p className="cmp-note">Pricing as of May 2026, from vendor pricing pages.</p>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Use cases ─── */
+function UseCases() {
+  const cases = [
+    { t: 'SaaS marketing teams', d: 'Track every prompt buyers ask about your category and catch the moment an engine starts recommending a competitor instead of you.', v: '+18%', l: 'avg lift in branded mentions, first 90 days' },
+    { t: 'Agencies', d: 'Add GEO to your client deck without hiring an AI team. White-label reports, client workspaces, bulk audits.', v: '12×', l: 'workspaces per agency seat' },
+    { t: 'E-commerce brands', d: 'When a shopper asks an AI “what’s the best running shoe for flat feet”, be in the answer — and track every review-site citation.', v: '5 / 5', l: 'engines tracked for product queries' },
+    { t: 'Enterprise brand teams', d: 'Catch hallucinations about your products before they spread, submit corrections, and get alerted when share of voice drops.', v: '<10m', l: 'mean time to detect a hallucination spike' },
+  ];
+  return (
+    <section className="section usecases">
+      <div className="container">
+        <SecHead
+          eyebrow="Who it's for"
+          title={<>Built for the teams <em>already in the meeting.</em></>}
+          sub="Whoever owns brand visibility on Google now owns it on the engines too. Livesov fits every shape of that job."
+        />
+        <div className="uc-grid">
+          {cases.map((c, i) => (
+            <Reveal key={c.t} className="uc-card" delay={(i % 2) * 90}>
+              <div className="uc-body">
+                <h3 className="uc-t">{c.t}</h3>
+                <p className="uc-d">{c.d}</p>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ HOW IT WORKS ═══════ */}
-      <section className="tl-section tl-animate" id="how-it-works">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">How it Works</span>
-            <h2>Start tracking in 3 simple steps</h2>
-            <p>Set up in under 2 minutes. No technical skills required.</p>
-          </div>
-
-          <div className="tl-steps">
-            {steps.map((s, i) => (
-              <div key={s.num} className="tl-step">
-                <div className="tl-step-num">{s.num}</div>
-                <h3>{s.title}</h3>
-                <p>{s.desc}</p>
-                {i < steps.length - 1 && (
-                  <div className="tl-step-connector">
-                    <svg width="40" height="12" viewBox="0 0 40 12" fill="none">
-                      <path d="M0 6H32M32 6L26 1M32 6L26 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3"/>
-                    </svg>
-                  </div>
-                )}
+              <div className="uc-stat">
+                <span className="uc-v serif">{c.v}</span>
+                <span className="uc-l">{c.l}</span>
               </div>
-            ))}
-          </div>
+            </Reveal>
+          ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ═══════ WHY AI VISIBILITY ═══════ */}
-      <section className="tl-section tl-section--dark tl-animate">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag tl-section-tag--light">Why it Matters</span>
-            <h2>AI is the new search. Are you visible?</h2>
-            <p>A growing share of searches now use AI chatbots. If AI doesn't recommend you, you're invisible to a growing audience.</p>
-          </div>
+/* ─── Pricing ─── */
+function Tick() {
+  return <span className="tick"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2.5 7.5l3 3 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
+}
 
-          <div className="tl-why-grid">
-            <div className="tl-why-card">
-              <div className="tl-why-stat">Growing</div>
-              <h3>Searches use AI</h3>
-              <p>Users are shifting from Google to ChatGPT and Perplexity for buying decisions.</p>
-            </div>
-            <div className="tl-why-card">
-              <div className="tl-why-stat">&ne;</div>
-              <h3>Traditional SEO wasn&apos;t built for AI platforms</h3>
-              <p>Ranking #1 on Google doesn&apos;t guarantee AI will recommend you. AI visibility requires different signals.</p>
-            </div>
-            <div className="tl-why-card">
-              <div className="tl-why-stat">GEO</div>
-              <h3>Is the future</h3>
-              <p>Generative Engine Optimization is how brands ensure they appear in AI-generated answers.</p>
-            </div>
-            <div className="tl-why-card">
-              <div className="tl-why-stat">📋</div>
-              <h3>Proof for clients</h3>
-              <p>Real API responses, not screenshots. Export verifiable evidence as CSV reports.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ PRICING ═══════ */}
-      <section className="tl-section tl-animate" id="pricing">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Pricing</span>
-            <h2>Simple, transparent pricing</h2>
-            <p>7-day free trial on every paid plan. No credit card required. Plans from $9/mo.</p>
-          </div>
-
-          <div className="tl-pricing-grid">
-            {pricingPlans.map(plan => (
-              <div key={plan.name} className={`tl-price-card ${plan.featured ? 'tl-price-card--featured' : ''}`}>
-                {plan.featured && <div className="tl-price-badge">Most Popular</div>}
-                <h3>{plan.name}</h3>
-                <div className="tl-price-amount">
-                  {plan.price}<span>/mo</span>
-                </div>
-                <div className="tl-price-includes">
-                  <div className="tl-price-includes-label">Includes</div>
-                  <div className="tl-price-includes-value">{plan.headline}</div>
-                </div>
-                <p className="tl-price-sub">{plan.sub}</p>
-                <ul className="tl-price-features">
-                  {plan.features.map(f => {
-                    const isNegative = f.toLowerCase().startsWith('no ');
-                    return (
-                      <li key={f} style={isNegative ? { color: 'var(--tl-text-muted, #9ca3af)' } : undefined}>
-                        {isNegative ? (
-                          <span style={{ color: '#d1d5db', fontSize: 16, lineHeight: 1 }}>&mdash;</span>
-                        ) : (
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3 4.3L6 11.6L2.7 8.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        )}
-                        {f}
-                      </li>
-                    );
-                  })}
-                </ul>
-                <Link href="/signup" className={`tl-btn ${plan.featured ? 'tl-btn--primary' : 'tl-btn--outline'} tl-btn--full`}>
-                  {plan.cta}
-                </Link>
-                {plan.name !== 'Free' && (
-                  <p className="tl-price-trial">7-day free trial · No credit card</p>
-                )}
+function Pricing() {
+  const tiers: { k: string; p: string; credits: string; s: string; f: string[]; cta: string; href: string; pri?: boolean; badge?: string }[] = [
+    {
+      k: 'Free', p: '$0', credits: '150', s: 'Try it out',
+      f: ['1 brand', '5 tracked prompts', '2 AI platforms (Gemini & Grok)', 'Weekly auto-runs', '3 GEO audits / month'],
+      cta: 'Start free', href: '/signup', pri: false,
+    },
+    {
+      k: 'Starter', p: '$9', credits: '750', s: 'Perfect for getting started',
+      f: ['3 brands', '15 tracked prompts', '2 AI platforms (ChatGPT & Claude)', 'Competitor tracking (3)', 'Auto-runs every 2 days', '20 GEO audits / month'],
+      cta: 'Get started', href: '/signup', pri: false,
+    },
+    {
+      k: 'Pro', p: '$29', credits: '2,500', s: 'For growing businesses',
+      f: ['Unlimited brands', '25 tracked prompts', '3 AI platforms', 'Competitor tracking (8)', 'Daily auto-runs', 'Sentiment analysis', '75 GEO audits / month'],
+      cta: 'Get started', href: '/signup', pri: true, badge: 'Most popular',
+    },
+    {
+      k: 'Agency', p: '$89', credits: '8,000', s: 'For agencies & teams',
+      f: ['Unlimited brands', '100 tracked prompts', '5 AI platforms (all)', 'Competitor tracking (20)', 'Premium AI models', 'Daily auto-runs', 'Sentiment analysis', 'White-label reports'],
+      cta: 'Contact sales', href: '/contact', pri: false,
+    },
+  ];
+  return (
+    <section className="section pricing" id="pricing">
+      <div className="container">
+        <SecHead
+          center
+          eyebrow="Pricing"
+          title={<>One coffee a month to see <em>what AI says about you.</em></>}
+          sub="A 7-day free trial on every paid plan — no credit card required. Plans from $9/mo."
+        />
+        <div className="price-grid">
+          {tiers.map((t, i) => (
+            <Reveal key={t.k} className={'price-card' + (t.pri ? ' pri' : '')} delay={i * 70}>
+              {t.badge && <span className="price-badge">{t.badge}</span>}
+              <div className="price-k">{t.k}</div>
+              <div className="price-p"><span className="serif">{t.p}</span><i>/mo</i></div>
+              <div className="price-incl">
+                <span className="price-incl-lbl">Includes</span>
+                <span className="price-incl-v"><b>{t.credits}</b> AI credits / month</span>
               </div>
-            ))}
-          </div>
-
-          <p className="tl-pricing-compare-link">
-            Need a side-by-side breakdown? <Link href="/pricing">View the full plan comparison →</Link>
-          </p>
-
-          {/* Comparison Table */}
-          <div className="tl-comparison">
-            <h3 className="tl-comparison-title">How Livesov compares</h3>
-            <p className="tl-comparison-sub">Purpose-built for AI visibility. Not a bolt-on feature.</p>
-            <div className="tl-comparison-wrap">
-              <table className="tl-comparison-table" aria-label="Livesov vs Ahrefs vs Semrush feature comparison">
-                <caption className="sr-only">Feature comparison between Livesov, Ahrefs, and Semrush</caption>
-                <thead>
-                  <tr>
-                    {pricingComparison.headers.map((h, i) => (
-                      <th key={h} className={i === 1 ? 'tl-comparison-highlight' : ''}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pricingComparison.rows.map((row, ri) => (
-                    <tr key={ri}>
-                      {row.map((cell, ci) => (
-                        <td key={ci} className={`${ci === 1 ? 'tl-comparison-highlight' : ''} ${cell.includes('\u2713') ? 'tl-cell-yes' : cell.includes('\u2717') ? 'tl-cell-no' : ''}`}>
-                          {cell}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="tl-comparison-disclaimer">Comparison based on publicly available features as of April 2026. Competitor pricing and features may have changed.</p>
-          </div>
-
+              <div className="price-s">{t.s}</div>
+              <ul className="price-f">
+                {t.f.map((x, j) => <li key={j}><Tick /> {x}</li>)}
+              </ul>
+              <Link className={'btn price-cta ' + (t.pri ? 'btn-invert' : 'btn-out')} href={t.href}>{t.cta}</Link>
+            </Reveal>
+          ))}
         </div>
-      </section>
+        <p className="price-note">1 credit = 1 AI query checked across the engines. Annual billing saves 20%.</p>
+      </div>
+    </section>
+  );
+}
 
-      {/* ═══════ TESTIMONIALS ═══════ */}
-      <section className="tl-section tl-section--alt tl-animate">
-        <div className="tl-section-inner">
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Early Feedback</span>
-            <h2>What Early Adopters Are Saying</h2>
-            <p>Feedback from early adopters and beta testers.</p>
-          </div>
-
-          <TestimonialCarousel />
+/* ─── Testimonials ─── */
+function Testimonials() {
+  const items = [
+    { q: 'Livesov is the first dashboard I check in the morning. Ahrefs is the second.', a: 'Head of SEO', co: 'B2B SaaS · Series C' },
+    { q: 'We caught Claude recommending a competitor on our own brand query, and fixed our docs the same day.', a: 'CMO', co: 'Dev-tools startup' },
+    { q: 'For $29 it does what we were quoted $4k a month for. Genuinely wild.', a: 'Founder', co: 'E-commerce · DTC' },
+    { q: 'The hallucination detector paid for the whole year in week one.', a: 'Brand Marketing Lead', co: 'Fintech' },
+  ];
+  return (
+    <section className="section tst">
+      <div className="container">
+        <SecHead
+          eyebrow="Early users"
+          title={<>People who already <em>checked their share.</em></>}
+          sub="Anonymized — beta users, May 2026."
+        />
+        <div className="tst-grid">
+          {items.map((it, i) => (
+            <Reveal key={i} className="tst-card" delay={(i % 2) * 90}>
+              <blockquote className="serif">{it.q}</blockquote>
+              <figcaption>
+                <span className="tst-avatar" aria-hidden="true">{it.a.charAt(0)}</span>
+                <span><span className="tst-a">{it.a}</span><span className="tst-co">{it.co}</span></span>
+              </figcaption>
+            </Reveal>
+          ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ═══════ FAQ ═══════ */}
-      <section className="tl-section tl-animate" id="faq">
-        <div className="tl-section-inner" style={{ maxWidth: 760 }}>
-          <div className="tl-section-header">
-            <span className="tl-section-tag">FAQ</span>
-            <h2>Frequently Asked Questions</h2>
-          </div>
-
-          <div className="tl-faq-list" role="list">
-            {faqs.map((f, i) => (
-              <div key={i} className={`tl-faq-item ${openFaq === i ? 'tl-faq-item--open' : ''}`} role="listitem">
-                <button
-                  className="tl-faq-q"
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  aria-expanded={openFaq === i}
-                  aria-controls={`faq-answer-${i}`}
-                >
-                  <span>{f.q}</span>
-                  <svg className="tl-faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-                <div className="tl-faq-a" id={`faq-answer-${i}`} role="region" aria-labelledby={`faq-q-${i}`}>
-                  <p>{f.a}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+/* ─── Final CTA ─── */
+function CTA() {
+  const router = useRouter();
+  return (
+    <section className="section cta" id="audit">
+      <div className="container">
+        <div className="cta-card">
+          <div className="eyebrow"><span className="dot" /> Free GEO audit — no card</div>
+          <h2 className="serif cta-h">See what AI says about your brand <em>in 90 seconds.</em></h2>
+          <p className="cta-sub">Drop your domain. We&apos;ll run 50 buyer-intent queries across all five engines and send you a report with your share of voice, every mention, and where competitors are winning.</p>
+          <form className="cta-form" onSubmit={(e) => { e.preventDefault(); router.push('/geo-audit'); }}>
+            <input type="text" placeholder="yourbrand.com" aria-label="Your domain" />
+            <button type="submit" className="btn btn-pri btn-lg">Run my audit <span className="ar">→</span></button>
+          </form>
+          <div className="cta-meta">No credit card · ~90 seconds · Report + live dashboard</div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ═══════ EMAIL CAPTURE ═══════ */}
-      <section className="tl-section tl-animate" id="newsletter">
-        <div className="tl-section-inner" style={{ maxWidth: 620 }}>
-          <div className="tl-section-header">
-            <span className="tl-section-tag">Stay Updated</span>
-            <h2>Get AI visibility tips in your inbox</h2>
-            <p>Weekly insights on GEO strategy, AI search trends, and brand optimization. No spam.</p>
-          </div>
-          <EmailCapture />
+/* ─── Footer ─── */
+/* Links written explicitly (not mapped) so the canonical public-footer
+   destinations — including the `/#features` anchor — are pinned in source,
+   mirroring src/components/seo/SeoLayout.tsx (see tests/nav-features-anchor). */
+function Footer() {
+  return (
+    <footer className="ft">
+      <div className="container ft-grid">
+        <div className="ft-brand">
+          <Logo size={26} />
+          <p>See what AI says about your brand — across ChatGPT, Claude, Gemini, Perplexity and Grok, every day.</p>
+          <span className="chip"><span className="pulse" /> All engines operational</span>
         </div>
-      </section>
+        <div className="ft-col">
+          <div className="ft-col-t">Platform</div>
+          <ul>
+            <li><Link href="/chatgpt-brand-tracking">ChatGPT tracker</Link></li>
+            <li><Link href="/claude-brand-tracking">Claude tracker</Link></li>
+            <li><Link href="/gemini-brand-tracking">Gemini tracker</Link></li>
+            <li><Link href="/perplexity-brand-tracking">Perplexity tracker</Link></li>
+            <li><Link href="/grok-brand-tracking">Grok tracker</Link></li>
+          </ul>
+        </div>
+        <div className="ft-col">
+          <div className="ft-col-t">Compare</div>
+          <ul>
+            <li><Link href="/vs/ahrefs">vs Ahrefs</Link></li>
+            <li><Link href="/vs/semrush">vs Semrush</Link></li>
+            <li><Link href="/how-it-works">How it works</Link></li>
+            <li><Link href="/#features">Features</Link></li>
+          </ul>
+        </div>
+        <div className="ft-col">
+          <div className="ft-col-t">Resources</div>
+          <ul>
+            <li><Link href="/geo-audit">Free GEO audit</Link></li>
+            <li><Link href="/blog">Blog</Link></li>
+            <li><Link href="/tools">Free Tools</Link></li>
+            <li><Link href="/geo-optimization">GEO guide</Link></li>
+            <li><Link href="/changelog">Changelog</Link></li>
+          </ul>
+        </div>
+        <div className="ft-col">
+          <div className="ft-col-t">Company</div>
+          <ul>
+            <li><Link href="/about">About</Link></li>
+            <li><Link href="/use-cases">Use cases</Link></li>
+            <li><Link href="/#pricing">Pricing</Link></li>
+            <li><Link href="/partners">Partners</Link></li>
+            <li><Link href="/contact">Contact</Link></li>
+          </ul>
+        </div>
+      </div>
+      <div className="container ft-bot">
+        <span>© {new Date().getFullYear()} Livesov, Inc.</span>
+        <span className="ft-legal">
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/cookies">Cookies</Link>
+        </span>
+        <span>The share-of-voice layer for AI search.</span>
+      </div>
+    </footer>
+  );
+}
 
-      {/* ═══════ FINAL CTA ═══════ */}
-      <section className="tl-cta">
-        <div className="tl-cta-glow" />
-        <div className="tl-cta-content">
-          <h2>Ready to track your AI visibility?</h2>
-          <p>Start monitoring your presence across AI platforms today.</p>
-          <Link href="/signup" className="tl-btn tl-btn--white tl-btn--lg">
-            Start Tracking <span className="tl-arrow">&rarr;</span>
-          </Link>
-          <span className="tl-cta-note">Plans start at just $9/mo. Set up in under 2 minutes.</span>
-        </div>
-      </section>
+export default function LivesovHomePage() {
+  return (
+    <div className={`lv-home ${newsreader.variable} ${hankenGrotesk.variable}`}>
+      <Nav />
+      <main>
+        <Hero />
+        <Problem />
+        <HowItWorks />
+        <Features />
+        <Showcase />
+        <Compare />
+        <UseCases />
+        <Pricing />
+        <Testimonials />
+        <CTA />
       </main>
-
-      {/* ═══════ FOOTER ═══════ */}
-      <footer className="tl-footer">
-        <div className="tl-footer-inner">
-          <div className="tl-footer-grid">
-            <div className="tl-footer-brand">
-              <div className="tl-logo" style={{ fontSize: 22 }}>Live<span>sov</span></div>
-              <p>AI Visibility Tracker &mdash; Track how AI platforms mention your brand across ChatGPT, Perplexity, Claude, Gemini &amp; Grok.</p>
-            </div>
-            <div className="tl-footer-col">
-              <h4>Product</h4>
-              <Link href="/#features">Features</Link>
-              <Link href="/#pricing">Pricing</Link>
-              <Link href="/#how-it-works">How it Works</Link>
-              <Link href="/use-cases">Use Cases</Link>
-              <Link href="/integrations">Integrations</Link>
-            </div>
-            <div className="tl-footer-col">
-              <h4>Resources</h4>
-              <Link href="/blog">Blog</Link>
-              <Link href="/geo-optimization">GEO Guide</Link>
-              <Link href="/about">About</Link>
-              <Link href="/contact">Contact</Link>
-              <Link href="/changelog">Changelog</Link>
-              <Link href="/partners">Partners</Link>
-              <Link href="/vs/ahrefs">Livesov vs Ahrefs</Link>
-              <Link href="/vs/semrush">Livesov vs Semrush</Link>
-            </div>
-            <div className="tl-footer-col">
-              <h4>AI Platforms</h4>
-              <Link href="/chatgpt-brand-tracking">ChatGPT Tracking</Link>
-              <Link href="/perplexity-brand-tracking">Perplexity Tracking</Link>
-              <Link href="/claude-brand-tracking">Claude Tracking</Link>
-              <Link href="/gemini-brand-tracking">Gemini Tracking</Link>
-              <Link href="/grok-brand-tracking">Grok Tracking</Link>
-            </div>
-            <div className="tl-footer-col">
-              <h4>Legal</h4>
-              <Link href="/privacy">Privacy Policy</Link>
-              <Link href="/terms">Terms of Service</Link>
-              <Link href="/cookies">Cookie Policy</Link>
-            </div>
-          </div>
-          <div className="tl-footer-bottom">
-            <span>&copy; {new Date().getFullYear()} Livesov. All rights reserved.</span>
-            <CookiePreferencesButton />
-            <div className="tl-footer-social">
-              <a href="mailto:hello@livesov.com" aria-label="Email">✉</a>
-              <a href="https://x.com/livesov" target="_blank" rel="noopener noreferrer" aria-label="X">𝕏</a>
-              <a href="https://linkedin.com/company/livesov" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">in</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* ═══════ BACK TO TOP ═══════ */}
-      {showBackToTop && (
-        <button
-          className="tl-back-to-top"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          aria-label="Back to top"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M10 15V5M10 5L5 10M10 5L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      )}
+      <Footer />
     </div>
   );
 }
