@@ -11,8 +11,12 @@ import {
   LineChart, type LineSeries, Filter, Seg, KPIRail, PageHead, Info, Cit,
 } from '../ui';
 import { GoalCard } from '../shell';
+import { useBrandData } from '@/hooks/useBrandData';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
+
+interface QueryRow { q: string; sov: number; d: number; mentions: number; eng: number }
+interface RecentItem { p: Platform; q: string; tag: string; meta: string; t: string }
 
 interface OverviewData {
   hasReal: boolean;
@@ -20,7 +24,9 @@ interface OverviewData {
   industry?: string;
   city?: string;
   sov: number;
+  sovDelta: number;
   totalM: number;
+  mentionsDelta: number;
   totalQ: number;
   health: number;
   sentiment: number;
@@ -28,9 +34,33 @@ interface OverviewData {
   competitors: { name: string; sov: number; d: number; me?: boolean; color: string }[];
   sources: { d: string; n: number; share: number }[];
   trend: number[];
+  queries: QueryRow[];
+  recent: RecentItem[];
 }
 
 const COMP_COLORS = ['var(--accent)', 'var(--text-2)', 'var(--mute)', 'var(--mute-2)', 'var(--info)', 'var(--warn)', '#a78bfa', '#f472b6'];
+
+/** Map a run result's engine name (e.g. "ChatGPT", "gpt-4o-mini") to a design Platform tile. */
+function matchPlatform(name: string): Platform {
+  const n = String(name || '').toLowerCase();
+  return PLATFORMS.find(p => n.includes(p.id) || n.includes(p.name.toLowerCase()) || p.short.toLowerCase() === n) || PLATFORMS[0];
+}
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+function relTime(iso?: string): string {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  const diff = Date.now() - t;
+  if (diff < 60000) return 'now';
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h';
+  return Math.floor(h / 24) + 'd';
+}
 
 function normPlatform(pd: any): { sov: number; total: number; mentions: number; errors: number } {
   if (typeof pd === 'number') return { sov: pd, total: pd > 0 ? 1 : 0, mentions: pd > 0 ? 1 : 0, errors: 0 };
@@ -39,27 +69,16 @@ function normPlatform(pd: any): { sov: number; total: number; mentions: number; 
 }
 
 export function useOverviewData(): OverviewData | null {
-  const [data, setData] = React.useState<OverviewData | null>(null);
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/brands', { credentials: 'include' });
-        if (!res.ok) { if (!cancelled) setData(buildFallback()); return; }
-        const json = await res.json();
-        const brands: any[] = json.brands || json || [];
-        let selId: string | null = null;
-        try { selId = localStorage.getItem('livesov_brand'); } catch { /* ignore */ }
-        const brand = brands.find(b => b.id === selId) || brands[0];
-        if (!brand) { if (!cancelled) setData(buildFallback()); return; }
-        if (!cancelled) setData(buildFromBrand(brand));
-      } catch {
-        if (!cancelled) setData(buildFallback());
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-  return data;
+  // Consume the shared brand hook so the Overview reacts to the brand selected
+  // in the topbar (BrandContext), auto-reloads on run completion, and reflects
+  // live runs — exactly like every other dashboard page. Previously this made a
+  // one-off /api/brands fetch on mount that never re-ran when the brand changed.
+  const { brand, loading } = useBrandData({ fullData: true });
+  return React.useMemo(() => {
+    if (loading) return null;
+    if (!brand) return buildFallback();
+    return buildFromBrand(brand as any);
+  }, [brand, loading]);
 }
 
 function buildFallback(): OverviewData {
@@ -67,7 +86,7 @@ function buildFallback(): OverviewData {
     hasReal: false,
     brandName: 'Acme PM',
     industry: 'Project management software', city: 'San Francisco',
-    sov: 27.4, totalM: 1284, totalQ: 142, health: 78, sentiment: 74,
+    sov: 27.4, sovDelta: +4.2, totalM: 1284, mentionsDelta: +218, totalQ: 142, health: 78, sentiment: 74,
     platforms: PLATFORMS,
     competitors: [
       { name: 'Acme', sov: 27.4, d: +4.2, me: true, color: 'var(--accent)' },
@@ -86,6 +105,22 @@ function buildFallback(): OverviewData {
       { d: 'producthunt.com/products/acme', n: 41, share: 4 },
     ],
     trend: [18, 19, 20, 22, 20, 22, 24, 23, 25, 24, 26, 27, 27, 27.4],
+    queries: [
+      { q: 'best project management tool', sov: 38, d: +5, mentions: 142, eng: 5 },
+      { q: 'acme vs linear', sov: 61, d: +12, mentions: 89, eng: 5 },
+      { q: 'cheapest pm for startups', sov: 12, d: -4, mentions: 31, eng: 4 },
+      { q: 'pm tool with AI features', sov: 24, d: +2, mentions: 67, eng: 5 },
+      { q: 'is acme worth the price', sov: 44, d: +7, mentions: 22, eng: 3 },
+      { q: 'free alternative to monday.com', sov: 8, d: -1, mentions: 18, eng: 4 },
+    ],
+    recent: [
+      { p: PLATFORMS[1], q: 'best agile pm tool for engineering teams', tag: 'pos', meta: 'Acme · 2nd of 5', t: '2m' },
+      { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m' },
+      { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m' },
+      { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m' },
+      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m' },
+      { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m' },
+    ],
   };
 }
 
@@ -95,16 +130,23 @@ function buildFromBrand(brand: any): OverviewData {
   const sorted = [...runs].sort((a, b) => new Date(a.time || a.date || 0).getTime() - new Date(b.time || b.date || 0).getTime());
   const lastRun = sorted[sorted.length - 1] || null;
   const prevRun = sorted.length >= 2 ? sorted[sorted.length - 2] : null;
+  const brandQueries: string[] = Array.isArray(brand.queries) ? brand.queries : [];
   if (!lastRun) {
-    return { ...fb, hasReal: true, brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city };
+    // Real brand that hasn't been run yet: surface its tracked prompts (with no
+    // data yet) instead of the Acme demo rows so the page reflects this brand.
+    return {
+      ...fb, hasReal: true, brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
+      queries: brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 })),
+      recent: [],
+    };
   }
   const sov = Math.round(Number(lastRun.sov) || 0);
-  const totalM = Number(lastRun.totalM) || 0;
-  const totalQ = Number(lastRun.totalQ) || (brand.queries?.length ?? 0);
+  const totalQ = Number(lastRun.totalQ) || brandQueries.length;
   const prevSov = prevRun ? Math.round(Number(prevRun.sov) || 0) : sov;
 
   // sentiment from per-result data, fallback to mock
   const results: any[] = Array.isArray(lastRun.allResults) ? lastRun.allResults : [];
+  const totalM = Number(lastRun.totalM) || results.filter(r => r.mentioned).length;
   const pos = results.filter(r => r.sentiment === 'positive').length;
   const neu = results.filter(r => r.sentiment === 'neutral').length;
   const neg = results.filter(r => r.sentiment === 'negative').length;
@@ -147,13 +189,69 @@ function buildFromBrand(brand: any): OverviewData {
 
   // trend
   const trend = sorted.slice(-14).map(r => Math.round(Number(r.sov) || 0));
+
+  // recent mentions — newest results from the latest run
+  const runDate = lastRun.date || lastRun.time || lastRun.created_at;
+  const recent: RecentItem[] = results
+    .filter(r => r.query && !r.error)
+    .slice(-8)
+    .reverse()
+    .map(r => {
+      const mentioned = !!r.mentioned;
+      const pos = r.position ?? r.listPosition;
+      const tag = !mentioned ? 'neu'
+        : r.sentiment === 'positive' ? 'pos'
+        : r.sentiment === 'negative' ? 'neg'
+        : 'neu';
+      const meta = mentioned
+        ? (pos ? `${brand.name} · ${ordinal(Number(pos))}` : `${brand.name} · mentioned`)
+        : 'not mentioned';
+      return { p: matchPlatform(r.platform), q: r.query, tag, meta, t: relTime(runDate) };
+    });
+
+  // top tracked queries — aggregate mention rate / engines across all runs
+  const qAgg: Record<string, { mentioned: number; total: number; platforms: Set<string>; hist: number[] }> = {};
+  for (const run of sorted) {
+    const rs: any[] = Array.isArray(run.allResults) ? run.allResults : [];
+    const per: Record<string, { m: number; t: number }> = {};
+    for (const r of rs) {
+      if (!r.query) continue;
+      if (!qAgg[r.query]) qAgg[r.query] = { mentioned: 0, total: 0, platforms: new Set(), hist: [] };
+      if (!per[r.query]) per[r.query] = { m: 0, t: 0 };
+      per[r.query].t++;
+      qAgg[r.query].total++;
+      qAgg[r.query].platforms.add(r.platform);
+      if (r.mentioned) { per[r.query].m++; qAgg[r.query].mentioned++; }
+    }
+    for (const [q, s] of Object.entries(per)) {
+      qAgg[q].hist.push(s.t > 0 ? Math.round((s.m / s.t) * 100) : 0);
+    }
+  }
+  // ensure tracked prompts with no results yet still appear
+  for (const q of brandQueries) {
+    if (!qAgg[q]) qAgg[q] = { mentioned: 0, total: 0, platforms: new Set(), hist: [] };
+  }
+  let queries: QueryRow[] = Object.entries(qAgg).map(([q, s]) => ({
+    q,
+    sov: s.total > 0 ? Math.round((s.mentioned / s.total) * 100) : 0,
+    d: s.hist.length >= 2 ? s.hist[s.hist.length - 1] - s.hist[s.hist.length - 2] : 0,
+    mentions: s.mentioned,
+    eng: s.platforms.size,
+  })).sort((a, b) => b.mentions - a.mentions || b.sov - a.sov).slice(0, 6);
+  if (queries.length === 0) queries = brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 }));
+
+  const prevTotalM = prevRun ? (Number(prevRun.totalM) || 0) : 0;
   return {
     hasReal: true,
     brandName: brand.name || fb.brandName,
     industry: brand.industry, city: brand.city,
-    sov, totalM, totalQ, health, sentiment,
+    sov, sovDelta: prevRun ? sov - prevSov : 0,
+    totalM, mentionsDelta: prevRun ? totalM - prevTotalM : 0,
+    totalQ, health, sentiment,
     platforms, competitors, sources,
     trend: trend.length >= 2 ? trend : fb.trend,
+    queries,
+    recent,
   };
 }
 function sentTotalSafe(n: number) { return n > 0; }
@@ -166,8 +264,12 @@ export function PageOverview() {
   const data = useOverviewData();
   const d = data || buildFallback();
 
-  const sovSeries: LineSeries[] = [
-    { id: 'acme', label: d.competitors[0]?.name || 'You', color: 'var(--primary)', bold: true, fill: true, cur: d.sov, data: d.trend },
+  // With real data we only have the brand's own SOV history, so show just that
+  // line rather than fabricated competitor trends. The demo overlay is kept for
+  // the no-data fallback so the chart still looks alive.
+  const meLine: LineSeries = { id: 'me', label: d.competitors[0]?.name || d.brandName || 'You', color: 'var(--primary)', bold: true, fill: true, cur: d.sov, data: d.trend };
+  const sovSeries: LineSeries[] = d.hasReal ? [meLine] : [
+    meLine,
     { id: 'linear', label: 'Linear', color: 'var(--info)', dashed: true, cur: 22.1, data: [26, 25, 25, 24, 24, 23, 22, 23, 22, 22, 22, 22, 22, 22.1] },
     { id: 'asana', label: 'Asana', color: 'var(--mute)', dashed: true, cur: 14.8, data: [20, 19, 18, 17, 17, 16, 16, 15, 15, 15, 15, 15, 14, 14.8] },
     { id: 'monday', label: 'Monday', color: 'var(--mute-2)', dashed: true, cur: 9.3, data: [12, 12, 11, 11, 11, 10, 10, 10, 9, 9, 9, 9, 9, 9.3] },
@@ -199,8 +301,8 @@ export function PageOverview() {
         </Filter>
 
         <KPIRail items={[
-          { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: +4.2, info: 'vs prev. 7d' },
-          { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: +218, info: '5 engines' },
+          { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
+          { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
           { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: +3.1, info: '+0.62 score' },
           { k: 'FALSE CLAIMS', term: 'hallucination', v: '6', d: -2, info: '3 fixed' },
           { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: +14, info: 'prompts' },
@@ -217,8 +319,8 @@ export function PageOverview() {
         <OverviewEngineGrid platforms={d.platforms} />
 
         <div className="g2">
-          <OverviewRecentMentions onOpen={setDrawer} total={d.totalM} />
-          <OverviewQueriesTable />
+          <OverviewRecentMentions onOpen={setDrawer} total={d.totalM} items={d.recent} />
+          <OverviewQueriesTable rows={d.queries} totalQ={d.totalQ} />
         </div>
 
         <div className="g2">
@@ -396,20 +498,17 @@ function OverviewEngineGrid({ platforms }: { platforms: Platform[] }) {
   );
 }
 
-function OverviewRecentMentions({ onOpen, total }: { onOpen: (it: any) => void; total: number }) {
-  const items = [
-    { p: PLATFORMS[1], q: 'best agile pm tool for engineering teams', tag: 'pos', meta: 'Acme · 2nd of 5', t: '2m' },
-    { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m' },
-    { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m' },
-    { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m' },
-    { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m' },
-    { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m' },
-  ];
+function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: any) => void; total: number; items: RecentItem[] }) {
   return (
     <Card title="Recent mentions" info="mention"
       lede="The newest AI answers that named you — click any row to read the exact wording."
       right={<Pill tone="acc"><span className="pulse" /> Live</Pill>} padding={false}
       foot={<><span>{total.toLocaleString()} total · 7 days</span><a className="dim" href="/dashboard/mentions">Open mentions →</a></>}>
+      {items.length === 0 ? (
+        <div className="quiet" style={{ padding: '24px 16px', fontSize: 13, textAlign: 'center' }}>
+          No mentions yet — run the engines to see how AI answers about this brand.
+        </div>
+      ) : (
       <ul className="feed">
         {items.map((it, i) => (
           <li key={i} className="feed-i" onClick={() => onOpen(it)}>
@@ -425,23 +524,21 @@ function OverviewRecentMentions({ onOpen, total }: { onOpen: (it: any) => void; 
           </li>
         ))}
       </ul>
+      )}
     </Card>
   );
 }
 
-function OverviewQueriesTable() {
-  const rows = [
-    { q: 'best project management tool', sov: 38, d: +5, mentions: 142, eng: 5 },
-    { q: 'acme vs linear', sov: 61, d: +12, mentions: 89, eng: 5 },
-    { q: 'cheapest pm for startups', sov: 12, d: -4, mentions: 31, eng: 4 },
-    { q: 'pm tool with AI features', sov: 24, d: +2, mentions: 67, eng: 5 },
-    { q: 'is acme worth the price', sov: 44, d: +7, mentions: 22, eng: 3 },
-    { q: 'free alternative to monday.com', sov: 8, d: -1, mentions: 18, eng: 4 },
-  ];
+function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: number }) {
   return (
     <Card title="Top tracked queries" info="prompt"
       lede="The buyer questions you watch — and how visible you are on each."
-      right={<a href="/dashboard/query-tracker" className="mono dim" style={{ fontSize: 11 }}>ALL 142 →</a>} padding={false}>
+      right={<a href="/dashboard/query-tracker" className="mono dim" style={{ fontSize: 11 }}>ALL {totalQ} →</a>} padding={false}>
+      {rows.length === 0 ? (
+        <div className="quiet" style={{ padding: '24px 16px', fontSize: 13, textAlign: 'center' }}>
+          No tracked prompts yet — add prompts in Brand Setup to start tracking.
+        </div>
+      ) : (
       <table className="tbl">
         <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th></tr></thead>
         <tbody>
@@ -456,6 +553,7 @@ function OverviewQueriesTable() {
           ))}
         </tbody>
       </table>
+      )}
     </Card>
   );
 }
