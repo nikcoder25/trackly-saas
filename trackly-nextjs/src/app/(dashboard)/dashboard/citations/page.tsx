@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useBrandData } from '@/hooks/useBrandData';
+import { Card, KPIRail, Badge, Bar, Pill, Cit, PageHead } from '@/app/dashboard-v2/ui';
 
 interface Brand { id: string; name: string; runs?: Array<{ allResults?: Array<{ citations?: string[] }> }>; }
 interface CitationData { domains: Record<string, number>; totalCitations: number; ownDomain?: number; ownDomainName?: string; }
@@ -57,60 +58,56 @@ export default function CitationsPage() {
   // Detect own domain (brand website)
   const ownDomainName = citData?.ownDomainName || '';
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}><div style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /></div>;
+  if (loading) return (
+    <div className="lvx">
+      <div className="page-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
+        <span className="spinner" style={{ width: 32, height: 32, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'lvx-spin 1s linear infinite' }} />
+      </div>
+    </div>
+  );
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-        <div>
-          <div className="view-title">Citation Analysis</div>
-          <div className="view-sub">Which domains AI platforms cite when answering queries about your industry.</div>
-        </div>
-      </div>
+    <div className="lvx">
+      <PageHead title="Citation Analysis" sub="Which domains AI platforms cite when answering queries about your industry." />
+      <div className="page-body">
+        <KPIRail items={[
+          { k: 'DOMAINS CITED', v: domainCount },
+          { k: 'TOTAL CITATIONS', v: totalCitations },
+          { k: 'YOUR DOMAIN CITED', v: ownDomainCount },
+        ]} />
 
-      {/* KPI Cards - 3 score cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24, color: 'var(--blue)' }}>{domainCount}</div>
-          <div className="score-label">Domains Cited</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24 }}>{totalCitations}</div>
-          <div className="score-label">Total Citations</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize: 24, color: 'var(--primary)' }}>{ownDomainCount}</div>
-          <div className="score-label">Your Domain Cited</div>
-        </div>
-      </div>
-
-      {/* Top Cited Domains - horizontal bar chart */}
-      <div className="card" style={{ padding: '20px 24px' }}>
-        <div className="section-title">Top Cited Domains</div>
-        {sortedDomains.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 12 }}>
-            No citations captured yet. Citations will appear after your next run.
-          </div>
-        ) : (
-          <div>
-            {sortedDomains.map(([domain, count], i) => {
-              const isOwn = ownDomainName && domain.includes(ownDomainName);
-              const barWidth = Math.max((count / maxCount) * 100, 4);
-              return (
-                <div key={domain} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: i < sortedDomains.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  {isOwn && <span style={{ color: 'var(--primary)', fontSize: 14 }}>★</span>}
-                  <div style={{ minWidth: 180, maxWidth: 220, fontSize: 13, fontWeight: isOwn ? 700 : 500, color: isOwn ? 'var(--primary)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {isOwn && '★ '}{domain}
-                  </div>
-                  <div style={{ flex: 1, height: 6, background: 'var(--bg3)', borderRadius: 3, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', borderRadius: 3, width: `${barWidth}%`, background: isOwn ? 'var(--green)' : 'var(--blue)', transition: 'width .3s' }} />
-                  </div>
-                  <div style={{ minWidth: 28, textAlign: 'right', fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 700, color: 'var(--text)' }}>{count}</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <Card title="All cited sources" right={<Pill>{domainCount} unique</Pill>} padding={false}>
+          {sortedDomains.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12 }}>
+              No citations captured yet. Citations will appear after your next run.
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead><tr>
+                <th>DOMAIN</th><th>CITES</th><th>SHARE</th><th>SHARE BAR</th>
+              </tr></thead>
+              <tbody>
+                {sortedDomains.map(([domain, count]) => {
+                  const isOwn = !!ownDomainName && domain.includes(ownDomainName);
+                  const share = totalCitations > 0 ? (count / totalCitations) * 100 : 0;
+                  return (
+                    <tr key={domain}>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <Cit url={domain} />
+                          {isOwn && <Badge tone="acc">YOU</Badge>}
+                        </span>
+                      </td>
+                      <td className="num"><b>{count}</b></td>
+                      <td className="num">{share.toFixed(1)}%</td>
+                      <td><Bar value={count} max={maxCount} color={isOwn ? 'var(--success)' : undefined} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </div>
     </div>
   );

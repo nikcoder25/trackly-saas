@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrandData } from '@/hooks/useBrandData';
 import { TableSkeleton } from '@/components/dashboard/Skeleton';
+import { Card, KPIRail, Badge, Delta, Spark, Filter, Seg, PageHead, Info } from '@/app/dashboard-v2/ui';
 
 interface KTKeyword { keyword: string; mentionRate: number; change: number | null; totalRuns: number; platformCount: number; avgPosition: number | null; lastUpdated: string; sparkline?: number[]; platforms?: Record<string, number>; }
 interface Brand { id: string; name: string; queries?: string[]; runs?: Array<{ date?: string; time?: string; sov?: number; platforms?: Record<string, unknown>; allResults?: Array<{ query: string; platform: string; mentioned: boolean; position?: number }> }>; }
@@ -151,171 +152,132 @@ export default function QueryTrackerPage() {
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function sparklineSvg(data?: number[]) {
-    if (!data || data.length < 2) return <span style={{ color: 'var(--muted)' }}>-</span>;
-    const max = Math.max(...data, 1);
-    const w = 80, h = 24;
-    const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(' ');
-    const lastVal = data[data.length - 1];
-    const color = lastVal >= 40 ? 'var(--green)' : lastVal > 0 ? 'var(--amber)' : 'var(--red)';
-    return (
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-        <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
+  // Status derived from real visibility — categorises tracked queries for the badge/filter.
+  function statusOf(kw: KTKeyword): 'priority' | 'tracking' | 'losing' | 'none' {
+    if (kw.totalRuns === 0) return 'none';
+    if (kw.mentionRate >= 30) return 'priority';
+    if (kw.mentionRate < 15) return 'losing';
+    return 'tracking';
   }
 
+  // Real KPI metrics computed from the tracked-query set.
+  const totalRunsCount = useMemo(() => keywords.reduce((a, k) => a + k.totalRuns, 0), [keywords]);
+  const winningCount = useMemo(() => keywords.filter(k => k.totalRuns > 0 && k.mentionRate >= 30).length, [keywords]);
+  const atRiskCount = useMemo(() => keywords.filter(k => k.totalRuns > 0 && k.mentionRate < 15).length, [keywords]);
+  const missRate = useMemo(() => {
+    const withData = keywords.filter(k => k.totalRuns > 0);
+    if (withData.length === 0) return 0;
+    return Math.round(withData.filter(k => k.mentionRate === 0).length / withData.length * 100);
+  }, [keywords]);
+
   if (loading) return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
-        <div style={{ height: 13, width: 280, borderRadius: 4, background: 'var(--bg3)' }} />
+    <div className="lvx">
+      <div className="page-head">
+        <div>
+          <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--surface-3)', marginBottom: 8 }} />
+          <div style={{ height: 13, width: 280, borderRadius: 4, background: 'var(--surface-3)' }} />
+        </div>
       </div>
-      <TableSkeleton rows={8} cols={6} />
+      <div className="page-body">
+        <TableSkeleton rows={8} cols={6} />
+      </div>
     </div>
   );
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <div>
-          <div className="view-title">Query Tracker</div>
-          <div className="view-sub">Track visibility and rank changes for each query across AI platforms over time.</div>
-        </div>
-      </div>
+    <div className="lvx">
+      <PageHead
+        title="Query Tracker"
+        sub="Every buyer-intent prompt you're tracking — and how you perform on each across AI engines."
+      />
+      <div className="page-body">
+        <KPIRail items={[
+          { k: 'TRACKED', term: 'prompt', v: keywords.length },
+          { k: 'WINNING (VIS ≥ 30%)', v: winningCount },
+          { k: 'AT RISK (VIS < 15%)', v: atRiskCount, danger: atRiskCount > 0 },
+          { k: 'MISS RATE', v: missRate, suffix: '%' },
+          { k: 'TOTAL RUNS', v: totalRunsCount.toLocaleString() },
+        ]} />
 
-      {/* Period Tabs */}
-      <div className="kt-period-tabs">
-        {['day', 'week', 'month'].map(p => (
-          <button key={p} className={`kt-period-tab ${period === p ? 'active' : ''}`}
-            onClick={() => { setPeriod(p); setExpanded(null); setSortField(null); setFilterText(''); }}
-            aria-label={`Show ${p} view`} aria-pressed={period === p}>
-            {p.charAt(0).toUpperCase() + p.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Filter Input */}
-      <div className="kt-filter-row">
-        <input type="text" className="finp kt-filter-input" placeholder="Type to filter keywords"
-          value={filterText} onChange={e => setFilterText(e.target.value)} aria-label="Filter keywords" />
-      </div>
-
-      {/* Empty State */}
-      {keywords.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: 36, marginBottom: 12, opacity: .3 }}>◇</div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>No Query Data Yet</div>
-          <div style={{ color: 'var(--muted)', fontSize: 12, maxWidth: 340, margin: '0 auto' }}>
-            Run queries from Brand Setup to start tracking keyword visibility over time. Data will appear here after your first completed run.
+        <Filter>
+          <div className="search-box">
+            <span className="dim mono">⌕</span>
+            <input
+              placeholder="Search prompts…"
+              value={filterText}
+              onChange={e => setFilterText(e.target.value)}
+              aria-label="Filter keywords"
+            />
           </div>
-        </div>
-      ) : (
-        <>
-          {/* Table Header */}
-          <div className="kt-table-header">
-            <div className="kt-col kt-col-kw kt-sortable" onClick={() => handleSort('keyword')}>Keyword{sortIcon('keyword')}</div>
-            <div className="kt-col kt-col-vis kt-sortable" onClick={() => handleSort('mentionRate')}>Visibility{sortIcon('mentionRate')}</div>
-            <div className="kt-col kt-col-change kt-sortable" onClick={() => handleSort('change')}>Change{sortIcon('change')}</div>
-            <div className="kt-col kt-col-runs kt-sortable" onClick={() => handleSort('totalRuns')}>Runs{sortIcon('totalRuns')}</div>
-            <div className="kt-col kt-col-plats kt-sortable" onClick={() => handleSort('platformCount')}>Platforms{sortIcon('platformCount')}</div>
-            <div className="kt-col kt-col-pos kt-sortable" onClick={() => handleSort('avgPosition')}>Avg Position{sortIcon('avgPosition')}</div>
-            <div className="kt-col kt-col-spark">Trend</div>
-            <div className="kt-col kt-col-updated kt-sortable" onClick={() => handleSort('lastUpdated')}>Updated{sortIcon('lastUpdated')}</div>
-          </div>
+          <Seg
+            value={period}
+            onChange={(p) => { setPeriod(p); setExpanded(null); setSortField(null); setFilterText(''); }}
+            options={[{ value: 'day', label: 'DAY' }, { value: 'week', label: 'WEEK' }, { value: 'month', label: 'MONTH' }]}
+          />
+        </Filter>
 
-          {/* Keyword Rows */}
-          {filtered.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-              <p style={{ color: 'var(--muted)', fontSize: 12 }}>No keywords match your filter.</p>
+        {keywords.length === 0 ? (
+          <Card>
+            <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+              <div style={{ fontSize: 36, marginBottom: 12, opacity: .3 }}>◇</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: 'var(--text)' }}>No Query Data Yet</div>
+              <div style={{ color: 'var(--mute)', fontSize: 12.5, maxWidth: 340, margin: '0 auto' }}>
+                Run queries from Brand Setup to start tracking keyword visibility over time. Data will appear here after your first completed run.
+              </div>
             </div>
-          ) : (
-            <div>
-              {filtered.map((kw, idx) => {
-                const hasData = kw.totalRuns > 0;
-                const rateColor = !hasData ? 'var(--muted)' : kw.mentionRate >= 40 ? 'var(--green)' : kw.mentionRate > 0 ? 'var(--amber)' : 'var(--muted)';
-                const changeStr = kw.change != null ? (kw.change > 0 ? '+' + kw.change : String(kw.change)) : '-';
-                const changeColor = kw.change != null && kw.change > 0 ? 'var(--green)' : kw.change != null && kw.change < 0 ? 'var(--red)' : 'var(--muted)';
-                const changeArrow = kw.change != null && kw.change > 0 ? '▲ ' : kw.change != null && kw.change < 0 ? '▼ ' : '';
-                const posStr = kw.avgPosition != null ? '#' + kw.avgPosition : '-';
-                const isExpanded = expanded === idx;
-
-                return (
-                  <div key={idx} className={`kt-row-wrap ${isExpanded ? 'kt-expanded' : ''}`}>
-                    <div className="kt-row" role="button" tabIndex={0} onClick={() => setExpanded(isExpanded ? null : idx)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(isExpanded ? null : idx); } }} style={{ cursor: 'pointer' }} aria-expanded={isExpanded}>
-                      <div className="kt-col kt-col-kw">
-                        <span className="kt-expand-icon">{isExpanded ? '▼' : '▶'}</span>
-                        <span className="kt-kw-text" title={kw.keyword}>{kw.keyword}</span>
-                      </div>
-                      <div className="kt-col kt-col-vis"><span style={{ color: rateColor, fontWeight: 700 }}>{kw.mentionRate}%</span></div>
-                      <div className="kt-col kt-col-change"><span style={{ color: changeColor, fontWeight: 600 }}>{changeArrow}{changeStr}</span></div>
-                      <div className="kt-col kt-col-runs">{kw.totalRuns}</div>
-                      <div className="kt-col kt-col-plats">{kw.platformCount}</div>
-                      <div className="kt-col kt-col-pos" style={{ fontWeight: 700, color: 'var(--purple)' }}>{posStr}</div>
-                      <div className="kt-col kt-col-spark">{sparklineSvg(kw.sparkline)}</div>
-                      <div className="kt-col kt-col-updated">{formatDate(kw.lastUpdated)}</div>
-                    </div>
-
-                    {/* Expanded chart panel */}
-                    {isExpanded && (
-                      <div className="kt-graph-panel" style={{ display: 'block', padding: 20 }}>
-                        {kw.platforms ? (
-                          <div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Per-Platform Visibility</div>
-                            {Object.entries(kw.platforms).map(([plat, rate]) => (
-                              <div key={plat} className="qperf-bar-row">
-                                <div className="qperf-bar-label" style={{ color: PLATFORM_COLORS[plat] || 'var(--text)' }}>{plat}</div>
-                                <div className="qperf-bar-track">
-                                  <div className="qperf-bar-fill" style={{ width: `${rate}%`, background: rate > 40 ? 'var(--green)' : 'var(--amber)' }} />
-                                </div>
-                                <div className="qperf-bar-value" style={{ color: rate > 40 ? 'var(--green)' : 'var(--amber)' }}>{rate}%</div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : kw.sparkline && kw.sparkline.length > 1 ? (
-                          <div style={{ padding: '10px 0' }}>
-                            <svg viewBox="0 0 600 200" style={{ width: '100%', maxHeight: 200 }}>
-                              {/* Y-axis labels */}
-                              {[0, 25, 50, 75, 100].map(v => {
-                                const y = 180 - (v / 100) * 160;
-                                return (
-                                  <g key={v}>
-                                    <line x1="40" y1={y} x2="580" y2={y} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="4,4" />
-                                    <text x="35" y={y + 3} textAnchor="end" style={{ fontSize: 9, fontFamily: 'var(--mono)', fill: 'var(--muted)' }}>{v}%</text>
-                                  </g>
-                                );
-                              })}
-                              {/* Line */}
-                              <polyline
-                                points={kw.sparkline.map((v, i) => `${40 + (i / (kw.sparkline!.length - 1)) * 540},${180 - (v / 100) * 160}`).join(' ')}
-                                fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                              />
-                              {/* Data dots */}
-                              {kw.sparkline.map((v, i) => (
-                                <circle key={i} cx={40 + (i / (kw.sparkline!.length - 1)) * 540} cy={180 - (v / 100) * 160} r="3" fill="var(--bg2)" stroke="var(--green)" strokeWidth="2" />
-                              ))}
-                            </svg>
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, fontSize: 10 }}>
-                              {planPlatforms.map(p => (
-                                <span key={p} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORM_COLORS[p] }} /> {p}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>No historical data available for chart.</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
+          </Card>
+        ) : (
+          <Card padding={false} foot={<><span>Showing {filtered.length} of {keywords.length}</span><span>Auto-refreshing · live</span></>}>
+            <table className="tbl">
+              <thead><tr>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('keyword')}>QUERY{sortIcon('keyword')}</th>
+                <th>STATUS</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('mentionRate')}>VISIBILITY{sortIcon('mentionRate')} <Info term="sov" /></th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('change')}>Δ{sortIcon('change')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('totalRuns')}>MENTIONS{sortIcon('totalRuns')}</th>
+                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('platformCount')}>ENGINES{sortIcon('platformCount')}</th>
+                <th>TREND</th>
+                <th className="right" style={{ cursor: 'pointer' }} onClick={() => handleSort('lastUpdated')}>UPDATED{sortIcon('lastUpdated')}</th>
+              </tr></thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: 32, color: 'var(--mute)', fontSize: 12.5 }}>
+                      No keywords match your filter.
+                    </td>
+                  </tr>
+                ) : filtered.map((kw, idx) => {
+                  const status = statusOf(kw);
+                  const statusTone = status === 'priority' ? 'acc' : status === 'losing' ? 'neg' : status === 'none' ? 'neu' : 'neu';
+                  const statusLabel = status === 'none' ? 'NO DATA' : status.toUpperCase();
+                  const isExpanded = expanded === idx;
+                  return (
+                    <tr
+                      key={idx}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setExpanded(isExpanded ? null : idx)}
+                      aria-expanded={isExpanded}
+                    >
+                      <td><b title={kw.keyword}>{kw.keyword}</b></td>
+                      <td><Badge tone={statusTone}>{statusLabel}</Badge></td>
+                      <td className="num"><b>{kw.mentionRate}%</b></td>
+                      <td>{kw.change != null ? <Delta v={kw.change} suffix="%" /> : <span className="dim">—</span>}</td>
+                      <td className="num">{kw.totalRuns}</td>
+                      <td className="num">{kw.platformCount}/{planPlatforms.length}</td>
+                      <td>
+                        {kw.sparkline && kw.sparkline.length > 1
+                          ? <Spark data={kw.sparkline} width={120} height={24} color={(kw.change ?? 0) >= 0 ? 'var(--primary)' : 'var(--danger)'} />
+                          : <span className="dim">—</span>}
+                      </td>
+                      <td className="right num dim">{formatDate(kw.lastUpdated)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

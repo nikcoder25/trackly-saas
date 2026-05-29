@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { renderInlineMarkdown, sanitizeHtml } from '@/lib/sanitize';
-import { PLATFORM_COLORS, getPlanPlatforms } from '@/lib/constants';
+import { getPlanPlatforms } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
@@ -10,11 +10,19 @@ import { KpiCardsSkeleton, TableSkeleton } from '@/components/dashboard/Skeleton
 import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
+import { PLATFORMS, type Platform, PlatformTile, Badge, Card, PageHead, Filter, Seg, Pill, KPIRail, Info } from '@/app/dashboard-v2/ui';
 
 interface Mention { query: string; platform: string; mentioned: boolean; recommended?: boolean; sentiment?: string; position?: number; model?: string; date?: string; snippet?: string; response?: string; error?: string; raw?: string; context?: string; listPosition?: number; errorMessage?: string; }
 interface Run { id?: string; date?: string; created_at?: string; time?: string; sov?: number; allResults?: Mention[]; results?: Mention[]; }
 interface Brand { id: string; name: string; mentions?: Mention[]; runs?: Run[]; }
 type FilterMode = 'all' | 'mentioned' | 'not_mentioned' | 'recommended' | 'errors';
+
+// Map a real platform name (e.g. "ChatGPT") to the design's Platform tile descriptor.
+function platformFor(name: string): Platform {
+  const lc = (name || '').toLowerCase();
+  return PLATFORMS.find(p => p.name.toLowerCase() === lc || p.id === lc)
+    || { id: lc || 'unknown', name: name || 'Unknown', short: (name || '?').slice(0, 3).toUpperCase(), sov: 0, delta: 0, ok: true, ms: 0 };
+}
 
 export default function MentionsPage() {
   const { user } = useAuth();
@@ -118,188 +126,186 @@ export default function MentionsPage() {
   }
 
   if (loading) return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ height: 22, width: 140, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
-        <div style={{ height: 13, width: 300, borderRadius: 4, background: 'var(--bg3)' }} />
+    <div className="lvx">
+      <PageHead title="Mentions" sub="Track how AI platforms mention your brand across all queries." />
+      <div className="page-body">
+        <KpiCardsSkeleton count={4} />
+        <Card padding={false}><TableSkeleton rows={6} cols={5} /></Card>
       </div>
-      <KpiCardsSkeleton count={4} />
-      <TableSkeleton rows={6} cols={5} />
     </div>
   );
 
   return (
-    <div>
+    <div className="lvx">
       <LockedBrandBanner />
-      {/* Header - exact match */}
-      <div className="mentions-page-header" style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4 }}>
-        <div className="mentions-page-header__title">
-          <div className="view-title">AI Mentions</div>
-          <div className="view-sub">Track how AI platforms mention your brand across all queries.</div>
-        </div>
-        <div className="mentions-page-header__controls" style={{ display:'flex',gap:8,alignItems:'center' }}>
-          {showLive && (
-            <span title="A run is in progress - showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
-              <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
-              LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
-            </span>
-          )}
-          <select className="brand-select" style={{ width:210,margin:0,fontSize:11 }} value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} disabled={showLive} title={showLive ? 'Live run in progress - showing current run' : undefined}>
-            {runs.map((r, i) => {
-              const d = new Date(r.time || r.date || 0);
-              const label = isNaN(d.getTime()) ? `Run ${i+1}` : `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})} · SOV`;
-              return <option key={r.id || i} value={r.id || String(i)}>{label}</option>;
-            })}
-            {runs.length === 0 && <option value="">No runs yet</option>}
-          </select>
-          <button className="pbtn" onClick={exportCSV} disabled={!filtered.length}>↓ Export</button>
-        </div>
-      </div>
-
-      {all.length === 0 ? (
-        <div className="card" style={{ textAlign:'center',padding:48 }}>
-          <div style={{ fontSize:36,opacity:.4,marginBottom:12 }}>◎</div>
-          <div style={{ fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:6 }}>No Mentions Yet</div>
-          <p style={{ color:'var(--muted)',fontSize:13,maxWidth:360,margin:'0 auto 16px' }}>Run queries to start tracking how AI platforms mention your brand.</p>
-          <a href="/dashboard" style={{ display:'inline-block',background:'var(--primary)',color:'#fff',padding:'8px 20px',borderRadius:'var(--radius-xs)',fontSize:12,fontWeight:700,textDecoration:'none' }}>Go to Overview</a>
-        </div>
-      ) : (
-        <>
-          {/* KPI Cards - 4 score cards */}
-          <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:12,marginBottom:16 }}>
-            <div className="stat-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--green)' }}>{sovPct}%</div>
-              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }} title="Mention Rate excludes errored queries from the denominator. SOV on the Overview page includes all queries.">Mention Rate</div>
-            </div>
-            <div className="stat-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--text)' }}>{found.length}/{statsSource.length}</div>
-              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Found / Total</div>
-            </div>
-            <div className="stat-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--blue)' }}>{Object.keys(platformCounts).length}</div>
-              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Platforms</div>
-            </div>
-            <div className="stat-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:24,fontWeight:800,fontFamily:'var(--mono)',color:'var(--purple)' }}>{recPct}%</div>
-              <div style={{ fontSize:11,fontWeight:600,color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.5px',marginTop:4 }}>Recommended</div>
-            </div>
-          </div>
-
-          {/* Platform filter chips */}
-          <div style={{ display:'flex',gap:5,marginBottom:14,flexWrap:'wrap' }}>
-            <button type="button" className={`plat-filter ${platformFilter==='all'?'active-filter':''}`} onClick={()=>{setPlatformFilter('all');}} style={{ cursor:'pointer' }}>All</button>
-            {planPlatforms.map(p => {
-              const c = platformCounts[p];
-              return <button type="button" key={p} className={`plat-filter ${platformFilter===p?'active-filter':''}`} onClick={()=>setPlatformFilter(platformFilter===p?'all':p)} style={{ cursor:'pointer', opacity: c?.t ? 1 : 0.45 }}>{p}</button>;
-            })}
-          </div>
-
-          {/* Filter + search */}
-          <div style={{ display:'flex',gap:8,marginBottom:14,alignItems:'center' }}>
-            <select className="brand-select" style={{ width:140,margin:0 }} value={filter} onChange={e=>setFilter(e.target.value as FilterMode)}>
-              <option value="all">All Results</option>
-              <option value="mentioned">Mentioned Only</option>
-              <option value="not_mentioned">Not Mentioned</option>
-              <option value="recommended">Recommended</option>
-              <option value="errors">Errors Only</option>
+      <PageHead
+        title="Mentions"
+        sub="Track how AI platforms mention your brand across all queries."
+        actions={
+          <>
+            {showLive && (
+              <Pill tone="acc">
+                <span className="pulse" style={{ width: 5, height: 5 }} /> LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
+              </Pill>
+            )}
+            <select
+              className="sel"
+              style={{ minWidth: 210 }}
+              value={selectedRunId}
+              onChange={e => setSelectedRunId(e.target.value)}
+              disabled={showLive}
+              title={showLive ? 'Live run in progress - showing current run' : undefined}
+            >
+              {runs.map((r, i) => {
+                const d = new Date(r.time || r.date || 0);
+                const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} · SOV`;
+                return <option key={r.id || i} value={r.id || String(i)}>{label}</option>;
+              })}
+              {runs.length === 0 && <option value="">No runs yet</option>}
             </select>
-            <input className="brand-select" type="text" placeholder="Filter by keyword..." style={{ width:160,margin:0 }} value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
-          </div>
+            <button className="btn-d" onClick={exportCSV} disabled={!filtered.length}>⇣ Export CSV</button>
+          </>
+        }
+      />
 
-          {/* Results Table - matches legacy exactly */}
-          {filtered.length === 0 ? (
-            <div className="card" style={{ textAlign:'center',padding:48 }}>
-              <div style={{ fontSize:36,opacity:.4,marginBottom:12 }}>🔍</div>
-              <div style={{ fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:6 }}>No Matching Results</div>
-              <p style={{ color:'var(--muted)',fontSize:13 }}>Try adjusting your filters to see more results.</p>
+      <div className="page-body">
+        {all.length === 0 ? (
+          <Card>
+            <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+              <div style={{ fontSize: 36, color: 'var(--mute)', marginBottom: 12 }}>◎</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No mentions yet</div>
+              <p className="dim" style={{ fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>Run queries to start tracking how AI platforms mention your brand.</p>
+              <a href="/dashboard" className="btn-p" style={{ textDecoration: 'none' }}>Go to Overview</a>
             </div>
-          ) : (
-            <div className="card" style={{ padding:0,overflow:'hidden' }}>
-              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ width:'100%',borderCollapse:'collapse',fontSize:12,minWidth:600 }}>
-                <thead>
-                  <tr style={{ background:'var(--bg3)' }}>
-                    <th className="th" style={{ width:'14%' }}>Platform</th>
-                    <th className="th">Query</th>
-                    <th className="th" style={{ width:'12%' }}>Status</th>
-                    <th className="th" style={{ width:'12%' }}>Sentiment</th>
-                    <th className="th" style={{ width:'8%' }} title="List position where your brand appears in the AI response. Available when AI provides numbered lists.">Position</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {slice.map((r, i) => {
-                    const globalIdx = from + i;
-                    const isExpanded = expandedRow === globalIdx;
-                    const responseText = r.response || r.raw || r.context || r.snippet || '';
-                    const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : r.mentioned ? 'N/A' : '-';
-                    const sentColor = r.sentiment === 'positive' ? 'var(--green)' : r.sentiment === 'negative' ? 'var(--red)' : 'var(--muted)';
+          </Card>
+        ) : (
+          <>
+            <KPIRail items={[
+              { k: 'MENTION RATE', term: 'mention', v: `${sovPct}%`, info: 'excludes errored queries' },
+              { k: 'FOUND / TOTAL', v: `${found.length}/${statsSource.length}` },
+              { k: 'PLATFORMS', v: Object.keys(platformCounts).length },
+              { k: 'RECOMMENDED', v: `${recPct}%` },
+            ]} />
 
-                    return (
-                      <React.Fragment key={globalIdx}>
-                        <tr className="trow" role={responseText || r.error ? 'button' : undefined} tabIndex={responseText || r.error ? 0 : undefined} style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && (responseText || r.error)) { e.preventDefault(); setExpandedRow(isExpanded ? null : globalIdx); } }}>
-                          <td className="td" style={{ color: PLATFORM_COLORS[r.platform] || '#888', fontWeight:700 }}>{r.platform}</td>
-                          <td className="td">{r.query}</td>
-                          <td className="td">{r.error ? <span style={{ color:'var(--amber)',fontFamily:'var(--mono)',fontSize:11,fontWeight:700 }}>ERROR</span> : r.mentioned ? <span className="status-found">FOUND</span> : <span className="status-notfound">NOT FOUND</span>}</td>
-                          <td className="td">{r.error ? '-' : !r.mentioned ? '-' : <span style={{ color: sentColor }}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase()+r.sentiment.slice(1) : '-'}</span>}</td>
-                          <td className="td">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" style={{ color: 'var(--muted)', cursor: 'help', borderBottom: '1px dotted var(--muted)' }}>N/A</span> : posLabel}</td>
-                        </tr>
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={5} style={{ padding:0 }}>
-                              <div style={{ padding:16,background:'var(--bg)',borderTop:'1px solid var(--bg3)' }}>
-                                {r.error ? (
-                                  <div style={{ fontSize:12,color:'var(--red)',padding:12,background:'rgba(239,68,68,.05)',borderRadius:'var(--radius-xs)',border:'1px solid rgba(239,68,68,.15)' }}>
-                                    {r.errorMessage || r.error}
+            <Filter>
+              <div className="search-box">
+                <span className="dim mono">⌕</span>
+                <input placeholder="Filter mentions, queries, sources…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              </div>
+              <Seg value={filter} onChange={v => setFilter(v as FilterMode)} options={[
+                { value: 'all', label: 'ALL' },
+                { value: 'mentioned', label: 'MENTIONED' },
+                { value: 'not_mentioned', label: 'NOT MENTIONED' },
+                { value: 'recommended', label: 'RECOMMENDED' },
+                { value: 'errors', label: 'ERRORS' },
+              ]} />
+              <select className="sel" value={platformFilter} onChange={e => setPlatformFilter(e.target.value)}>
+                <option value="all">All engines</option>
+                {planPlatforms.map(p => <option key={p} value={p}>{p}{platformCounts[p]?.t ? '' : ' (0)'}</option>)}
+              </select>
+            </Filter>
+
+            {filtered.length === 0 ? (
+              <Card>
+                <div style={{ textAlign: 'center', padding: '40px 16px' }}>
+                  <div style={{ fontSize: 36, color: 'var(--mute)', marginBottom: 12 }}>⌕</div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No matching results</div>
+                  <p className="dim" style={{ fontSize: 13 }}>Try adjusting your filters to see more results.</p>
+                </div>
+              </Card>
+            ) : (
+              <Card
+                title="All mentions"
+                info="mention"
+                lede="One row per AI answer. “Verdict” is how you showed up; “position” is where you ranked in the answer’s list."
+                padding={false}
+                foot={<><span>Showing {from + 1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length}</span>{showLive && <span>Auto-refreshing · live</span>}</>}
+              >
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th>ENGINE</th>
+                        <th>QUERY</th>
+                        <th>VERDICT <Info>How you showed up in this answer — found, not found, or an error.</Info></th>
+                        <th>SENTIMENT <Info term="sentiment" /></th>
+                        <th>POSITION <Info term="position" /></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {slice.map((r, i) => {
+                        const globalIdx = from + i;
+                        const isExpanded = expandedRow === globalIdx;
+                        const responseText = r.response || r.raw || r.context || r.snippet || '';
+                        const posLabel = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : r.mentioned ? 'N/A' : '-';
+                        const sentTone = r.sentiment === 'positive' ? 'pos' : r.sentiment === 'negative' ? 'neg' : 'dim';
+                        const pl = platformFor(r.platform);
+
+                        return (
+                          <React.Fragment key={globalIdx}>
+                            <tr role={responseText || r.error ? 'button' : undefined} tabIndex={responseText || r.error ? 0 : undefined} style={{ cursor: responseText || r.error ? 'pointer' : 'default' }} onClick={() => { if (responseText || r.error) setExpandedRow(isExpanded ? null : globalIdx); }} onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && (responseText || r.error)) { e.preventDefault(); setExpandedRow(isExpanded ? null : globalIdx); } }}>
+                              <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><PlatformTile p={pl} size={22} /> <b>{r.platform}</b></span></td>
+                              <td><span style={{ color: 'var(--text)' }}>{r.query}</span></td>
+                              <td>{r.error ? <Badge tone="warn">ERROR</Badge> : r.mentioned ? <Badge tone="pos">FOUND</Badge> : <Badge tone="miss">NOT FOUND</Badge>}{!r.error && r.recommended && <Badge tone="acc" style={{ marginLeft: 6 }}>REC</Badge>}</td>
+                              <td>{r.error || !r.mentioned ? <span className="dim">-</span> : <span className={sentTone}>{r.sentiment ? r.sentiment.charAt(0).toUpperCase() + r.sentiment.slice(1) : '-'}</span>}</td>
+                              <td className="num">{posLabel === 'N/A' ? <span title="No numbered list detected in this response" className="dim" style={{ cursor: 'help', borderBottom: '1px dotted var(--mute)' }}>N/A</span> : posLabel}</td>
+                            </tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={5} style={{ padding: 0 }}>
+                                  <div style={{ padding: 16, background: 'var(--surface-2)', borderTop: '1px solid var(--line)' }}>
+                                    {r.error ? (
+                                      <div style={{ fontSize: 12, color: 'var(--danger)', padding: 12, background: 'var(--danger-50)', borderRadius: 8, border: '1px solid var(--danger-100)' }}>
+                                        {r.errorMessage || r.error}
+                                      </div>
+                                    ) : (
+                                      <div className="proof-answer" style={{ background: 'var(--surface)', padding: 14, borderRadius: 8, fontSize: 13, lineHeight: 1.7, borderLeft: `3px solid ${r.mentioned ? 'var(--success)' : 'var(--danger)'}`, whiteSpace: 'pre-wrap', maxWidth: 'none' }}
+                                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(responseText)) }} />
+                                    )}
+                                    <div className="mono dim" style={{ marginTop: 8, fontSize: 10 }}>
+                                      Position: {posLabel} · Sentiment: {r.error ? '-' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '-' : (r.recommended ? 'Yes' : 'No')}
+                                    </div>
                                   </div>
-                                ) : (
-                                  <div style={{ background:'var(--bg3)',padding:14,borderRadius:'var(--radius-xs)',fontSize:12,color:'var(--text)',lineHeight:1.7,borderLeft:`3px solid ${r.mentioned ? 'var(--green)' : 'var(--red)'}`,whiteSpace:'pre-wrap' }}
-                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(renderMarkdown(responseText)) }} />
-                                )}
-                                <div style={{ marginTop:8,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)' }}>
-                                  Position: {posLabel} · Sentiment: {r.error ? '-' : (r.sentiment || 'neutral')} · Recommended: {r.error ? '-' : (r.recommended ? 'Yes' : 'No')}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            )}
+
+            {/* Pagination */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div className="mono dim" style={{ fontSize: 11 }}>
+                Showing {from + 1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length} results
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span className="dim" style={{ fontSize: 11 }}>Show:</span>
+                {[15, 25, 50, 100].map(n => (
+                  <button key={n} className={perPage === n ? 'btn-p' : 'btn-g'} style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => { setPerPage(n); setPage(0); setExpandedRow(null); }}>{n}</button>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Pagination - matches legacy exactly */}
-          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',flexWrap:'wrap',gap:8 }}>
-            <div style={{ fontFamily:'var(--mono)',fontSize:11,color:'var(--muted)' }}>
-              Showing {from+1}–{Math.min(from + effectivePerPage, filtered.length)} of {filtered.length} results
-            </div>
-            <div style={{ display:'flex',alignItems:'center',gap:8 }}>
-              <span style={{ fontSize:11,color:'var(--muted)' }}>Show:</span>
-              {[15, 25, 50, 100].map(n => (
-                <button key={n} onClick={() => { setPerPage(n); setPage(0); setExpandedRow(null); }}
-                  style={{ padding:'4px 10px',border:`1px solid ${perPage===n?'var(--primary)':'var(--border)'}`,background:perPage===n?'var(--primary)':'var(--bg2)',color:perPage===n?'#fff':'var(--muted)',fontFamily:'var(--mono)',fontSize:11,fontWeight:600,cursor:'pointer',borderRadius:'var(--radius-xs)' }}>{n}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Page numbers */}
-          {totalPages > 1 && (
-            <div style={{ display:'flex',justifyContent:'center',gap:4,marginTop:4 }}>
-              {page > 0 && <button className="pbtn" onClick={() => { setPage(p => p-1); setExpandedRow(null); }}>‹</button>}
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const ps = Math.max(0, Math.min(page - 2, totalPages - 5));
-                const p = ps + i;
-                if (p >= totalPages) return null;
-                return <button key={p} className="pbtn" style={p===page ? { background:'var(--primary)',color:'#fff',borderColor:'var(--primary)' } : {}} onClick={() => { setPage(p); setExpandedRow(null); }}>{p+1}</button>;
-              })}
-              {page < totalPages-1 && <button className="pbtn" onClick={() => { setPage(p => p+1); setExpandedRow(null); }}>›</button>}
-            </div>
-          )}
-        </>
-      )}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
+                {page > 0 && <button className="btn-g" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => { setPage(p => p - 1); setExpandedRow(null); }}>‹</button>}
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const ps = Math.max(0, Math.min(page - 2, totalPages - 5));
+                  const p = ps + i;
+                  if (p >= totalPages) return null;
+                  return <button key={p} className={p === page ? 'btn-p' : 'btn-g'} style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => { setPage(p); setExpandedRow(null); }}>{p + 1}</button>;
+                })}
+                {page < totalPages - 1 && <button className="btn-g" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => { setPage(p => p + 1); setExpandedRow(null); }}>›</button>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

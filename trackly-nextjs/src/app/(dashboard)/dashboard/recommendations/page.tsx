@@ -6,6 +6,17 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useToast } from '@/components/dashboard/Toast';
 import { logger } from '@/lib/logger';
 import { loadRecsWithRetry, defaultRefresh, type RecommendationRow } from './load-recs';
+import {
+  PageHead,
+  KPIRail,
+  Filter,
+  Seg,
+  Card,
+  Badge,
+  PlatformTile,
+  PLATFORMS,
+  type Platform,
+} from '@/app/dashboard-v2/ui';
 
 type Recommendation = RecommendationRow;
 
@@ -149,164 +160,177 @@ export default function RecommendationsPage() {
     return list;
   }, [allRecs, filterStatus]);
 
-  const sevColors: Record<string, string> = { critical: 'var(--red)', high: 'var(--red)', medium: 'var(--amber)', low: 'var(--blue)' };
-  const sevLabels: Record<string, string> = { critical: 'HIGH', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
+  // Map the real recommendation severity onto the design's priority rail
+  // (high / med / low) and badge label. critical+high collapse to HIGH.
+  const prioClass = (severity: string): string =>
+    severity === 'critical' || severity === 'high' ? 'high' : severity === 'medium' ? 'med' : 'low';
+  const prioLabel = (severity: string): string =>
+    severity === 'critical' || severity === 'high' ? 'HIGH' : severity === 'medium' ? 'MED' : 'LOW';
+  // Badge tone for the recommendation's category (when present).
+  const catTone = (category?: string): string =>
+    category === 'correction' ? 'warn' : category === 'tech' ? 'info' : category === 'content' ? 'acc' : 'neu';
+  // Resolve a real `platform` value onto a design PlatformTile, if it matches a known engine.
+  const platformFor = (platform?: string): Platform | undefined => {
+    if (!platform) return undefined;
+    const key = platform.toLowerCase();
+    return PLATFORMS.find(p => p.id === key || p.short.toLowerCase() === key || p.name.toLowerCase() === key);
+  };
 
   if (loading || (generating && allRecs.length === 0)) return (
-    <div style={{ padding: '20px 0' }}>
-      <div className="view-title">Recommendations</div>
-      <div className="view-sub" style={{ marginBottom: 20 }}>AI-powered suggestions to improve your visibility across all platforms.</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="card" style={{ padding: '20px', opacity: 0.5 }}>
-            <div style={{ height: 14, width: '60%', background: 'var(--bg3)', borderRadius: 4, marginBottom: 10 }} />
-            <div style={{ height: 10, width: '90%', background: 'var(--bg3)', borderRadius: 4, marginBottom: 6 }} />
-            <div style={{ height: 10, width: '40%', background: 'var(--bg3)', borderRadius: 4 }} />
-          </div>
-        ))}
+    <div className="lvx">
+      <PageHead title="Recommendations" sub="AI-powered suggestions to improve your visibility across all platforms." />
+      <div className="page-body">
+        <div style={{ display: 'grid', gap: 12 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rec-card" style={{ opacity: 0.5 }}>
+              <span className="rec-prio low" />
+              <div className="rec-body">
+                <div style={{ height: 15, width: '60%', background: 'var(--surface-3)', borderRadius: 4 }} />
+                <div style={{ height: 12, width: '90%', background: 'var(--surface-3)', borderRadius: 4 }} />
+                <div style={{ height: 12, width: '40%', background: 'var(--surface-3)', borderRadius: 4 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mono dim" style={{ textAlign: 'center', marginTop: 4, fontSize: 12 }}>
+          Analyzing your data and generating recommendations...
+        </div>
       </div>
-      <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--muted)' }}>Analyzing your data and generating recommendations...</div>
     </div>
   );
 
   return (
-    <div>
-      {/* Header — see .recs-page-header in legacy.css for the
-          mobile-stacking rules (PR #469/#470 mentions-page-header
-          pattern). The title block must be min-width:0 so its
-          description wraps instead of forcing the page wider than
-          the viewport. */}
-      <div className="recs-page-header">
-        <div className="recs-page-header__title">
-          <div className="view-title">Recommendations</div>
-          <div className="view-sub">AI-powered suggestions to improve your visibility across all platforms.</div>
-        </div>
-        <button className="pbtn recs-page-header__cta" onClick={() => generate()} disabled={generating}
-          style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,opacity:generating?0.6:1 }}>
-          {generating ? 'Analyzing...' : 'Generate'}
-        </button>
-      </div>
-
-      {/* KPI Cards — see .recs-stat-grid in legacy.css. 2-up <=767px,
-          4-up >=768px. Cards stretch to fill their grid cell, no
-          fixed widths. */}
-      <div className="recs-stat-grid">
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize:24 }}>{allRecs.length}</div>
-          <div className="score-label">Total</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize:24,color:open>0?'var(--amber)':'var(--muted)' }}>{open}</div>
-          <div className="score-label">Open</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize:24,color:'var(--blue)' }}>{inProg}</div>
-          <div className="score-label">In Progress</div>
-        </div>
-        <div className="score-card">
-          <div className="score-val" style={{ fontSize:24,color:'var(--green)' }}>{done}</div>
-          <div className="score-label">Completed</div>
-        </div>
-      </div>
-
-      {/* Filters — see .recs-filter-row in legacy.css. Side-by-side
-          >=640px, stacked full-width <=480px. */}
-      <div className="recs-filter-row">
-        <select className="finp" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ width:140,margin:0 }}>
-          <option value="">All Status</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="done">Done</option>
-          <option value="ignored">Ignored</option>
-        </select>
-        <select className="finp" value={filterSeverity} onChange={e=>setFilterSeverity(e.target.value)} style={{ width:140,margin:0 }}>
-          <option value="">All Severity</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-        </select>
-      </div>
-
-      {/* Error / session-expired states take precedence over the empty
-          state — falling through to "No Recommendations Yet" on a 500
-          was the bug that masked the production failure (see PR #472),
-          and a 401 deserves a different CTA from a 500 because Try-again
-          would just 401 again. */}
-      {sessionExpired ? (
-        <div className="card recs-state-card" role="alert" style={{ borderLeft:'3px solid var(--amber)' }}>
-          <div style={{ fontSize:28,marginBottom:8,color:'var(--amber)' }}>&#128274;</div>
-          <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Session expired</div>
-          <div className="recs-state-card__msg" style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>Please sign in to continue.</div>
-          <Link href="/login" className="pbtn recs-state-card__cta"
-            style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700,textDecoration:'none',display:'inline-block' }}>
-            Sign in
-          </Link>
-        </div>
-      ) : loadError ? (
-        <div className="card recs-state-card" role="alert" style={{ borderLeft:'3px solid var(--red)' }}>
-          <div style={{ fontSize:28,marginBottom:8,color:'var(--red)' }}>&#9888;</div>
-          <div style={{ fontWeight:700,fontSize:14,marginBottom:4,color:'var(--text)' }}>Couldn&apos;t load recommendations</div>
-          <div className="recs-state-card__msg" style={{ fontSize:12,color:'var(--muted)',marginBottom:14 }}>{loadError}</div>
-          <button onClick={loadRecs} className="pbtn recs-state-card__cta"
-            style={{ background:'var(--primary)',color:'#fff',borderColor:'var(--primary)',fontWeight:700 }}>
-            Try again
+    <div className="lvx">
+      <PageHead
+        title="Recommendations"
+        sub="AI-powered suggestions to improve your visibility across all platforms."
+        actions={
+          <button className="btn-p" onClick={() => generate()} disabled={generating} style={{ opacity: generating ? 0.6 : 1 }}>
+            {generating ? 'Analyzing…' : 'Generate'}
           </button>
-        </div>
-      ) : recs.length === 0 ? (
-        <div className="card recs-state-card" style={{ color:'var(--muted)' }}>
-          {allRecs.some(r => r.status === 'done' || r.status === 'ignored') ? (
-            <>
-              <div style={{ fontSize:28,marginBottom:8 }}>&#10003;</div>
-              <div style={{ fontWeight:700,fontSize:14,marginBottom:4 }}>All Caught Up!</div>
-              <div className="recs-state-card__msg" style={{ fontSize:12 }}>{done} recommendation{done!==1?'s':''} completed. Use the status filter to review.</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize:28,marginBottom:8 }}>&#9733;</div>
-              <div style={{ fontWeight:700,fontSize:14,marginBottom:4 }}>No Recommendations Yet</div>
-              <div className="recs-state-card__msg" style={{ fontSize:12 }}>Run your first query scan to get AI recommendations.</div>
-            </>
-          )}
-        </div>
-      ) : (
-        <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
-          {recs.map((r, idx) => {
-            const isDone = r.status === 'done';
-            const isIgnored = r.status === 'ignored';
-            const color = isDone ? 'var(--green)' : isIgnored ? 'var(--muted)' : (sevColors[r.severity] || 'var(--blue)');
-            const label = isDone ? 'DONE' : isIgnored ? 'IGNORED' : (sevLabels[r.severity] || 'LOW');
-            const dimmed = isDone || isIgnored;
-            const bgColor = color==='var(--red)' ? 'rgba(239,68,68,.08)' : color==='var(--amber)' ? 'rgba(245,158,11,.08)' : color==='var(--green)' ? 'rgba(16,185,129,.08)' : 'rgba(59,130,246,.08)';
+        }
+      />
+      <div className="page-body">
+        <KPIRail items={[
+          { k: 'TOTAL', v: allRecs.length },
+          { k: 'OPEN', v: open },
+          { k: 'IN PROGRESS', v: inProg },
+          { k: 'COMPLETED', v: done },
+        ]} />
 
-            return (
-              <div key={r.id||idx} className="card recs-rec-card" style={{ borderLeft:`3px solid ${color}`,opacity:dimmed?0.5:1 }}>
-                <div className="recs-rec-card__row">
-                  <div className="recs-rec-card__main">
-                    <div className="recs-rec-card__title" style={{ textDecoration:isDone?'line-through':'none' }}>{r.title}</div>
-                    <div className="recs-rec-card__desc">{r.description||''}</div>
-                    <div className="recs-rec-card__actions">
-                      {!isDone && (
-                        <button onClick={()=>updateStatus(r.id,'done')} style={{ fontFamily:'var(--mono)',fontSize:11,background:'none',border:'1px solid var(--green)',color:'var(--green)',padding:'10px 14px',cursor:'pointer',borderRadius:100 }}>
-                          &#10003; Mark Done
-                        </button>
+        <Filter>
+          <Seg
+            value={filterStatus || ''}
+            onChange={setFilterStatus}
+            options={[
+              { value: '', label: 'ALL STATUS' },
+              { value: 'open', label: 'OPEN' },
+              { value: 'in_progress', label: 'IN PROGRESS' },
+              { value: 'done', label: 'DONE' },
+              { value: 'ignored', label: 'IGNORED' },
+            ]}
+          />
+          <select className="sel" value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
+            <option value="">All severity</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+          </select>
+        </Filter>
+
+        {/* Error / session-expired states take precedence over the empty
+            state — falling through to "No Recommendations Yet" on a 500
+            was the bug that masked the production failure (see PR #472),
+            and a 401 deserves a different CTA from a 500 because Try-again
+            would just 401 again. */}
+        {sessionExpired ? (
+          <Card>
+            <div role="alert" style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{ fontSize: 28, marginBottom: 8, color: 'var(--warn)' }}>&#128274;</div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Session expired</div>
+              <div className="dim" style={{ fontSize: 12, marginBottom: 14 }}>Please sign in to continue.</div>
+              <Link href="/login" className="btn-p" style={{ textDecoration: 'none' }}>Sign in</Link>
+            </div>
+          </Card>
+        ) : loadError ? (
+          <Card>
+            <div role="alert" style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{ fontSize: 28, marginBottom: 8, color: 'var(--danger)' }}>&#9888;</div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Couldn&apos;t load recommendations</div>
+              <div className="dim" style={{ fontSize: 12, marginBottom: 14 }}>{loadError}</div>
+              <button onClick={loadRecs} className="btn-p">Try again</button>
+            </div>
+          </Card>
+        ) : recs.length === 0 ? (
+          <Card>
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              {allRecs.some(r => r.status === 'done' || r.status === 'ignored') ? (
+                <>
+                  <div style={{ fontSize: 28, marginBottom: 8, color: 'var(--success)' }}>&#10003;</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>All caught up!</div>
+                  <div className="dim" style={{ fontSize: 12 }}>{done} recommendation{done !== 1 ? 's' : ''} completed. Use the status filter to review.</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>&#9733;</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>No recommendations yet</div>
+                  <div className="dim" style={{ fontSize: 12 }}>Run your first query scan to get AI recommendations.</div>
+                </>
+              )}
+            </div>
+          </Card>
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {recs.map((r, idx) => {
+              const isDone = r.status === 'done';
+              const isIgnored = r.status === 'ignored';
+              const p = platformFor(r.platform);
+              return (
+                <article key={r.id || idx} className={'rec-card' + (isDone ? ' rec-done' : '')} style={{ opacity: isIgnored ? 0.5 : undefined }}>
+                  <span className={'rec-prio ' + prioClass(r.severity)}>{isDone ? '✓' : isIgnored ? 'IGNORED' : prioLabel(r.severity)}</span>
+                  <div className="rec-body">
+                    <div className="rec-top">
+                      <h3 className="rec-t">{r.title}</h3>
+                      {r.category && (
+                        <div className="rec-meta mono">
+                          <Badge tone={catTone(r.category)}>{r.category.toUpperCase()}</Badge>
+                        </div>
                       )}
-                      <select className="finp" value={r.status} onChange={e=>updateStatus(r.id,e.target.value)} style={{ width:140,margin:0,fontSize:12 }}>
-                        <option value="open">Open</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="done">Done</option>
-                        <option value="ignored">Ignored</option>
-                      </select>
+                    </div>
+                    {r.description && <p className="rec-d">{r.description}</p>}
+                    <div className="rec-foot">
+                      {p && (
+                        <>
+                          <div className="mono dim" style={{ fontSize: 11, letterSpacing: '0.08em' }}>AFFECTS</div>
+                          <PlatformTile p={p} size={20} />
+                        </>
+                      )}
+                      <div style={{ flex: 1 }} />
+                      {isDone ? (
+                        <span className="rec-done-tag"><span className="pos">✓ Done</span> · nice work</span>
+                      ) : (
+                        <>
+                          <select
+                            className="sel"
+                            value={r.status}
+                            onChange={e => updateStatus(r.id, e.target.value)}
+                          >
+                            <option value="open">Open</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="done">Done</option>
+                            <option value="ignored">Ignored</option>
+                          </select>
+                          <button className="btn-p" style={{ fontSize: 11 }} onClick={() => updateStatus(r.id, 'done')}>Mark done</button>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <span className="recs-rec-card__badge" style={{ color,background:bgColor }}>
-                    {label}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

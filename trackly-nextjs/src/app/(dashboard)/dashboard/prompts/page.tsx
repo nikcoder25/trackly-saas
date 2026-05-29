@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBrands } from '@/contexts/BrandContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { PLAN_LIMITS } from '@/lib/constants';
+import { Card, Badge, Bar, Pill, PageHead, KPIRail, Filter } from '@/app/dashboard-v2/ui';
 
 interface BrandLite {
   id: string;
@@ -172,200 +173,163 @@ export default function TrackedPromptsPage() {
   const usagePct = isUnlimited
     ? 0
     : Math.min(100, cap > 0 ? (totalUsed / cap) * 100 : 0);
-  const ringColor = overLimit ? '#ef4444' : usagePct >= 80 ? '#f59e0b' : '#10b981';
+  const usageTone: any = overLimit ? 'var(--danger)' : usagePct >= 80 ? 'var(--warn)' : 'var(--success)';
+  const promptsLeft = isUnlimited ? '∞' : Math.max(0, cap - totalUsed).toLocaleString();
 
   return (
-    <div>
-      <div className="view-title">Tracked Prompts</div>
-      <div className="view-sub">
-        See and clean up every prompt you&apos;re tracking across all brands. Use this page to trim
-        prompts back into your plan&apos;s account-wide limit.
-      </div>
+    <div className="lvx">
+      <PageHead
+        title="Tracked Prompts"
+        sub="See and clean up every prompt you're tracking across all brands. Trim prompts back into your plan's account-wide limit."
+      />
+      <div className="page-body">
+        <KPIRail
+          items={[
+            {
+              k: 'TRACKED',
+              v: totalUsed.toLocaleString(),
+              info: isUnlimited ? '∞ limit' : `of ${cap.toLocaleString()}`,
+            },
+            { k: 'BRANDS', v: ownedBrands.length.toLocaleString() },
+            { k: 'PLAN', v: String(plan).toUpperCase() },
+            { k: 'SELECTED', v: selected.size.toLocaleString() },
+            ...(isUnlimited
+              ? [{ k: 'USAGE', v: '∞' }]
+              : [{ k: 'OVER BY', v: overBy.toLocaleString(), danger: overBy > 0 }]),
+          ]}
+        />
 
-      {/* ── Usage summary card ─────────────────────────── */}
-      <div
-        className="card"
-        style={{
-          marginTop: 16,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 24,
-          flexWrap: 'wrap',
-          borderColor: overLimit ? 'rgba(239,68,68,.35)' : undefined,
-          background: overLimit ? 'rgba(239,68,68,.04)' : undefined,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: '50%',
-              background: `conic-gradient(${ringColor} ${usagePct * 3.6}deg, var(--bg3) 0)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
+        {/* ── Usage summary card ─────────────────────────── */}
+        <Card
+          title="Account-wide usage"
+          right={
+            <Pill tone={overLimit ? 'neg' : usagePct >= 80 ? 'warn' : 'acc'}>
+              {isUnlimited
+                ? '∞ unlimited'
+                : `${cap.toLocaleString()} plan limit · ${promptsLeft} left`}
+            </Pill>
+          }
+        >
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12.5 }}>
+              <span style={{ color: 'var(--text-2)' }}>
+                Across {ownedBrands.length} brand{ownedBrands.length === 1 ? '' : 's'}
+              </span>
+              <span className="mono">
+                <b>{totalUsed.toLocaleString()}</b>{' '}
+                <span className="dim">/ {isUnlimited ? '∞' : cap.toLocaleString()}</span>
+              </span>
+            </div>
+            <Bar value={usagePct} color={usageTone} />
+          </div>
+
+          {overLimit && (
             <div
               style={{
-                width: 50,
-                height: 50,
-                borderRadius: '50%',
-                background: 'var(--bg2)',
+                marginTop: 14,
+                padding: '12px 14px',
+                borderRadius: 'var(--radius)',
+                background: 'var(--danger-50)',
+                border: '1px solid var(--danger-100)',
+                fontSize: 12.5,
+                color: 'var(--danger)',
+                lineHeight: 1.55,
+              }}
+            >
+              <strong>
+                Over by {overBy} prompt{overBy === 1 ? '' : 's'}.
+              </strong>{' '}
+              Auto-tracking is paused until you&apos;re back within your plan limit. Pick the prompts
+              you no longer want to track, or{' '}
+              <Link href="/dashboard/billing" style={{ fontWeight: 700, textDecoration: 'underline' }}>
+                upgrade your plan
+              </Link>
+              .
+            </div>
+          )}
+        </Card>
+
+        {/* ── Filter / toolbar ───────────────────────────── */}
+        <Filter>
+          <div className="search-box">
+            <span className="dim mono">⌕</span>
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Find a prompt or brand…"
+            />
+          </div>
+          <button type="button" onClick={selectAllVisible} className="btn-d">
+            Select all visible
+          </button>
+          {overLimit && (
+            <button type="button" onClick={selectToFitLimit} className="btn-g">
+              Select to fit limit ({overBy})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="btn-d"
+            disabled={selected.size === 0}
+          >
+            Clear selection
+          </button>
+          <span style={{ flex: 1 }} />
+          <Pill tone={overLimit ? 'neg' : usagePct >= 80 ? 'warn' : 'acc'}>
+            {isUnlimited
+              ? '∞ unlimited'
+              : `${cap.toLocaleString()} plan limit · ${promptsLeft} left`}
+          </Pill>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={selected.size === 0 || busy}
+            className="btn-d btn-danger"
+          >
+            {busy ? 'Deleting…' : `Delete selected (${selected.size})`}
+          </button>
+        </Filter>
+
+        {/* ── States ─────────────────────────────────────── */}
+        {brandsLoading && (
+          <Card>
+            <div
+              style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontFamily: 'var(--mono)',
-                fontSize: 11,
-                fontWeight: 700,
-                color: ringColor,
+                padding: '60px 0',
               }}
             >
-              {isUnlimited ? '∞' : `${Math.round(usagePct)}%`}
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: '2px solid var(--primary)',
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'lvx-spin 1s linear infinite',
+                }}
+              />
             </div>
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: 1.2,
-                textTransform: 'uppercase',
-                color: 'var(--muted)',
-                marginBottom: 4,
-              }}
-            >
-              Account-wide tracked prompts
-            </div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 22, fontWeight: 800 }}>
-              {totalUsed.toLocaleString()}
-              <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 16 }}>
-                {' '}/ {isUnlimited ? '∞' : cap.toLocaleString()}
-              </span>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-              Across {ownedBrands.length} brand{ownedBrands.length === 1 ? '' : 's'}
-              {' · '}
-              <span style={{ textTransform: 'uppercase', fontFamily: 'var(--mono)' }}>{plan}</span> plan
-            </div>
-          </div>
-        </div>
-
-        {overLimit && (
-          <div
-            style={{
-              flex: 1,
-              minWidth: 240,
-              padding: '12px 16px',
-              borderRadius: 'var(--radius-xs)',
-              background: 'rgba(239,68,68,.08)',
-              border: '1px solid rgba(239,68,68,.25)',
-              fontSize: 12,
-              color: '#b91c1c',
-              lineHeight: 1.55,
-            }}
-          >
-            <strong style={{ color: '#991b1b' }}>
-              Over by {overBy} prompt{overBy === 1 ? '' : 's'}.
-            </strong>{' '}
-            Auto-tracking is paused until you&apos;re back within your plan limit. Pick the prompts
-            you no longer want to track, or{' '}
-            <Link href="/dashboard/billing" style={{ color: '#b91c1c', fontWeight: 700 }}>
-              upgrade your plan
-            </Link>
-            .
-          </div>
-        )}
-      </div>
-
-      {/* ── Toolbar ────────────────────────────────────── */}
-      <div
-        className="card"
-        style={{
-          marginTop: 12,
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Search prompts or brand…"
-          className="finp"
-          style={{ flex: '1 1 220px', minWidth: 200, margin: 0 }}
-        />
-        <button type="button" onClick={selectAllVisible} className="setup-mono-btn">
-          Select all visible
-        </button>
-        {overLimit && (
-          <button
-            type="button"
-            onClick={selectToFitLimit}
-            className="setup-mono-btn"
-            style={{ borderColor: 'var(--amber)', color: 'var(--amber)' }}
-            title="Selects the newest prompts that put you over the cap."
-          >
-            Select to fit limit ({overBy})
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={clearSelection}
-          className="setup-mono-btn"
-          disabled={selected.size === 0}
-          style={{ opacity: selected.size === 0 ? 0.5 : 1 }}
-        >
-          Clear selection
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={selected.size === 0 || busy}
-          style={{
-            background: selected.size > 0 ? '#ef4444' : 'var(--bg3)',
-            color: selected.size > 0 ? '#fff' : 'var(--muted)',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: 'var(--radius-xs)',
-            fontSize: 12,
-            fontWeight: 700,
-            fontFamily: 'var(--mono)',
-            letterSpacing: 0.5,
-            cursor: selected.size === 0 || busy ? 'not-allowed' : 'pointer',
-            opacity: busy ? 0.6 : 1,
-            marginLeft: 'auto',
-          }}
-        >
-          {busy ? 'DELETING…' : `DELETE SELECTED (${selected.size})`}
-        </button>
-      </div>
-
-      {/* ── Per-brand prompt lists ─────────────────────── */}
-      <div style={{ marginTop: 12 }}>
-        {brandsLoading && (
-          <div className="card" style={{ textAlign: 'center', color: 'var(--muted)' }}>
-            Loading brands…
-          </div>
+          </Card>
         )}
 
         {!brandsLoading && ownedBrands.length === 0 && (
-          <div className="card" style={{ textAlign: 'center' }}>
-            <p style={{ color: 'var(--muted)', marginBottom: 12 }}>
-              You haven&apos;t added any brands yet.
-            </p>
-            <Link
-              href="/dashboard/setup"
-              style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}
-            >
-              Add your first brand →
-            </Link>
-          </div>
+          <Card>
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <p style={{ color: 'var(--text-3)', marginBottom: 12, fontSize: 13 }}>
+                You haven&apos;t added any brands yet.
+              </p>
+              <Link href="/dashboard/setup" className="btn-p">
+                Add your first brand →
+              </Link>
+            </div>
+          </Card>
         )}
 
+        {/* ── Per-brand prompt tables ────────────────────── */}
         {!brandsLoading &&
           ownedBrands.map((brand) => {
             const brandRows = filteredRows.filter((r) => r.brandId === brand.id);
@@ -373,107 +337,106 @@ export default function TrackedPromptsPage() {
             const totalForBrand = (brand.queries || []).length;
             const selectedForBrand = brandRows.filter((r) => selected.has(rowKey(r))).length;
             return (
-              <div className="card" key={brand.id} style={{ marginBottom: 12 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    marginBottom: 12,
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-                      {brand.name || 'Untitled brand'}
-                      {brand.lockedByPlan && (
-                        <span
-                          style={{
-                            marginLeft: 8,
-                            fontFamily: 'var(--mono)',
-                            fontSize: 9,
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: 100,
-                            background: 'rgba(245,158,11,.1)',
-                            color: 'var(--amber)',
-                            border: '1px solid rgba(245,158,11,.25)',
-                          }}
-                        >
-                          LOCKED
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                      {totalForBrand} prompt{totalForBrand === 1 ? '' : 's'}
-                      {selectedForBrand > 0 && ` · ${selectedForBrand} selected`}
-                    </div>
-                  </div>
-                  <Link
-                    href="/dashboard/setup"
-                    style={{
-                      fontSize: 11,
-                      fontFamily: 'var(--mono)',
-                      color: 'var(--primary)',
-                      textDecoration: 'none',
-                      fontWeight: 600,
-                    }}
-                  >
+              <Card
+                key={brand.id}
+                padding={false}
+                title={
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {brand.name || 'Untitled brand'}
+                    {brand.lockedByPlan && <Badge tone="warn">LOCKED</Badge>}
+                  </span>
+                }
+                lede={
+                  <>
+                    {totalForBrand} prompt{totalForBrand === 1 ? '' : 's'}
+                    {selectedForBrand > 0 && ` · ${selectedForBrand} selected`}
+                  </>
+                }
+                right={
+                  <Link href="/dashboard/setup" className="btn-d">
                     Edit brand →
                   </Link>
-                </div>
-
+                }
+              >
                 {totalForBrand === 0 ? (
                   <div
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--muted)',
-                      fontFamily: 'var(--mono)',
-                      padding: '8px 0',
-                    }}
+                    className="mono dim"
+                    style={{ fontSize: 12, padding: '16px 20px' }}
                   >
                     No prompts on this brand.
                   </div>
                 ) : brandRows.length === 0 ? null : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {brandRows.map((r) => {
-                      const key = rowKey(r);
-                      const isSelected = selected.has(key);
-                      return (
-                        <label
-                          key={key}
-                          htmlFor={`prompt-${key}`}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-xs)',
-                            background: isSelected
-                              ? 'rgba(239,68,68,.06)'
-                              : 'var(--bg2)',
-                            border: `1px solid ${isSelected ? 'rgba(239,68,68,.35)' : 'var(--border)'}`,
-                            fontSize: 13,
-                            color: 'var(--text)',
-                            cursor: 'pointer',
-                            transition: 'background .12s, border-color .12s',
-                          }}
-                        >
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 32 }}>
                           <input
-                            id={`prompt-${key}`}
                             type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggle(key)}
-                            style={{ accentColor: '#ef4444', cursor: 'pointer' }}
+                            checked={
+                              brandRows.length > 0 &&
+                              brandRows.every((r) => selected.has(rowKey(r)))
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelected((prev) => {
+                                  const next = new Set(prev);
+                                  for (const r of brandRows) next.add(rowKey(r));
+                                  return next;
+                                });
+                              } else {
+                                setSelected((prev) => {
+                                  const next = new Set(prev);
+                                  for (const r of brandRows) next.delete(rowKey(r));
+                                  return next;
+                                });
+                              }
+                            }}
                           />
-                          <span style={{ flex: 1, wordBreak: 'break-word' }}>{r.query}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                        </th>
+                        <th>PROMPT</th>
+                        <th>BRAND</th>
+                        <th>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brandRows.map((r) => {
+                        const key = rowKey(r);
+                        const isSelected = selected.has(key);
+                        return (
+                          <tr key={key}>
+                            <td>
+                              <input
+                                id={`prompt-${key}`}
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggle(key)}
+                              />
+                            </td>
+                            <td>
+                              <label
+                                htmlFor={`prompt-${key}`}
+                                style={{ cursor: 'pointer', wordBreak: 'break-word' }}
+                              >
+                                <b>{r.query}</b>
+                              </label>
+                            </td>
+                            <td className="mono dim" style={{ fontSize: 11 }}>
+                              {r.brandName}
+                            </td>
+                            <td>
+                              {r.locked ? (
+                                <Badge tone="warn">LOCKED</Badge>
+                              ) : (
+                                <Badge tone="pos">TRACKING</Badge>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 )}
-              </div>
+              </Card>
             );
           })}
       </div>

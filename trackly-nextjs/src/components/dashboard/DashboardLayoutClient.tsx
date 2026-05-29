@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { BrandProvider, useBrands } from '@/contexts/BrandContext';
 import { RunProvider, useRun } from '@/contexts/RunContext';
 import { CreditsProvider } from '@/contexts/CreditsContext';
 import { PLAN_LIMITS } from '@/lib/constants';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import LvxShell from '@/components/dashboard/LvxShell';
+import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
+import PaymentSuccessBanner from '@/components/dashboard/PaymentSuccessBanner';
 import GlobalRunProgress from '@/components/dashboard/GlobalRunProgress';
 import GlobalLiveToasts from '@/components/dashboard/GlobalLiveToasts';
 import LowBalanceBanner from '@/components/dashboard/LowBalanceBanner';
@@ -441,7 +442,6 @@ function BackgroundRunPoller() {
 }
 
 export default function DashboardLayoutClient({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -462,10 +462,11 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
     <OnboardingModal />
     <BackgroundRunPoller />
     <SkeletonStyles />
-    <div id="app" style={{ display: 'grid', height: '100vh', overflow: 'hidden', gridTemplateColumns: '220px 1fr', gridTemplateRows: '52px 1fr', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
-      <Topbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <main className="main">
+    <>
+      <LvxShell
+        banners={<>
+          <Suspense fallback={null}><PaymentSuccessBanner /></Suspense>
+          <LockedBrandBanner />
           <TrialBanner />
           <TrialEndedBanner />
           <EmailVerificationBanner />
@@ -473,20 +474,12 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           <LowBalanceBanner />
           <UsageLimitBanner />
           <GlobalRunProgress />
-          {children}
-      </main>
+        </>}
+      >
+        {children}
+      </LvxShell>
       <GlobalLiveToasts />
-      <style>{`
-        @media(max-width:1023px){
-          #app{grid-template-columns:1fr!important;}
-          #app .main{padding:12px 16px 24px!important;}
-        }
-        @media(max-width:767px){
-          #app{grid-template-columns:1fr!important;}
-          #app .main{padding:8px 12px 20px!important;}
-        }
-      `}</style>
-    </div>
+    </>
     </ToastProvider>
     </RunProvider>
     </CreditsProvider>

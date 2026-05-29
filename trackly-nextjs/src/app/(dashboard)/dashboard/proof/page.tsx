@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
-import { PLATFORM_COLORS } from '@/lib/constants';
 import { csvSafe } from '@/lib/csv';
 import LockedBrandBanner from '@/components/dashboard/LockedBrandBanner';
 import { KpiCardsSkeleton, CardsSkeleton } from '@/components/dashboard/Skeleton';
 import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
+import { Card, Badge, Pill, PlatformTile, Cit, Filter, Seg, PageHead, type Platform } from '@/app/dashboard-v2/ui';
 
 interface Result { query: string; platform: string; model?: string; mentioned: boolean; sentiment?: string; position?: number; listPosition?: number; recommended?: boolean; response?: string; raw?: string; context?: string; snippet?: string; error?: string; errorMessage?: string; competitorMentions?: string[]; citations?: string[]; }
 interface Run { id?: string; date?: string; time?: string; created_at?: string; sov?: number; durationMs?: number; queries?: string[]; allResults?: Result[]; results?: Result[]; }
@@ -106,6 +106,29 @@ export default function ProofPage() {
     [brand],
   );
 
+  // The single result featured in the "Verbatim model output" card: prefer the
+  // first mentioned result in the current filter, else the first result.
+  const proof = useMemo<Result | null>(() => {
+    if (!filtered.length) return null;
+    return filtered.find(r => r.mentioned && !r.error) || filtered[0];
+  }, [filtered]);
+  const proofQuery = proof?.query || '';
+  // All engines that ran the same query as the featured result.
+  const sameQuery = useMemo(
+    () => (proofQuery ? allResults.filter(r => r.query === proofQuery) : []),
+    [allResults, proofQuery],
+  );
+  // Resolve a v2 Platform descriptor for a given platform name (for PlatformTile).
+  const platformFor = useMemo(
+    () => (name: string): Platform => ({ id: (name || '').toLowerCase().replace(/[^a-z0-9]/g, ''), name, short: (name || '?').slice(0, 3).toUpperCase(), sov: 0, delta: 0, ok: true, ms: 0 }),
+    [],
+  );
+  const proofText = proof && !proof.error ? (proof.raw || proof.response || proof.context || proof.snippet || '') : '';
+  const proofExcerpt = proofText.replace(/[#*_~`]/g, '').replace(/\n/g, ' ').trim();
+  const proofSent = proof?.error ? 'error' : (proof?.sentiment || 'neutral');
+  const proofTone = proofSent === 'positive' ? 'pos' : proofSent === 'negative' ? 'neg' : proofSent === 'error' ? 'warn' : 'neu';
+  const proofPos = proof?.mentioned && (proof.listPosition || proof.position) ? `${proof.listPosition || proof.position}` : '';
+
   function exportCSV() {
     try {
       const rows = [['Platform', 'Query', 'Mentioned', 'Sentiment', 'Recommended', 'Response'].join(',')];
@@ -125,41 +148,38 @@ export default function ProofPage() {
   }
 
   if (loading) return (
-    <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ height: 22, width: 180, borderRadius: 6, background: 'var(--bg3)', marginBottom: 8 }} />
-        <div style={{ height: 13, width: 320, borderRadius: 4, background: 'var(--bg3)' }} />
+    <div className="lvx">
+      <PageHead title="Evidence & Proof" sub="Every AI response about your brand — verified and organized." />
+      <div className="page-body">
+        <KpiCardsSkeleton count={4} />
+        <CardsSkeleton count={4} />
       </div>
-      <KpiCardsSkeleton count={4} />
-      <CardsSkeleton count={4} />
     </div>
   );
 
   return (
-    <div>
+    <div className="lvx">
       <LockedBrandBanner />
-      {/* Header */}
-      <div className="proof-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-        <div>
-          <div className="view-title">Evidence &amp; Proof</div>
-          <div className="view-sub">Every AI response about your brand - verified and organized.</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {showLive && (
-            <span title="A run is in progress - showing live results as they arrive" style={{ display:'inline-flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:999,background:'rgba(16,185,129,.08)',border:'1px solid rgba(16,185,129,.35)',fontFamily:'var(--mono)',fontSize:10,fontWeight:700,color:'var(--green)',letterSpacing:'.04em',animation:'pulseGlow 1.8s ease-in-out infinite' }}>
-              <span style={{ width:6,height:6,borderRadius:'50%',background:'#10b981' }} />
-              LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}
-            </span>
-          )}
-          <button className="pbtn" onClick={exportCSV} style={{ borderRadius: 10 }}>↓ Export CSV</button>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className="proof-toolbar">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Run</label>
-          <select value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run" disabled={showLive} title={showLive ? 'Live run in progress - showing current run' : undefined}>
+      <PageHead
+        title="Evidence & Proof"
+        sub="Every AI response about your brand — verified and organized."
+        actions={
+          <>
+            {showLive && (
+              <Pill tone="acc"><span className="pulse" style={{ width: 5, height: 5 }} /> LIVE · {live.received}/{live.totalExpected || '…'}{runPct ? ` · ${runPct}%` : ''}</Pill>
+            )}
+            <button className="btn-d" onClick={exportCSV}>⇣ Export CSV</button>
+          </>
+        }
+      />
+      <div className="page-body">
+        <Filter>
+          <Seg
+            value={viewMode}
+            onChange={v => setViewMode(v as 'grouped' | 'flat')}
+            options={[{ value: 'grouped', label: 'BY QUERY' }, { value: 'flat', label: 'ALL' }]}
+          />
+          <select className="sel" value={selectedRunId} onChange={e => setSelectedRunId(e.target.value)} aria-label="Select run" disabled={showLive} title={showLive ? 'Live run in progress - showing current run' : undefined}>
             {runs.map((r, i) => {
               const d = new Date(r.time || r.date || 0);
               const label = isNaN(d.getTime()) ? `Run ${i + 1}` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - SOV ${r.sov || 0}%`;
@@ -167,206 +187,173 @@ export default function ProofPage() {
             })}
             {runs.length === 0 && <option value="">No runs yet</option>}
           </select>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Platform</label>
-          <select value={platFilter} onChange={e => setPlatFilter(e.target.value)} aria-label="Filter by platform">
-            <option value="">All Platforms</option>
+          <select className="sel" value={platFilter} onChange={e => setPlatFilter(e.target.value)} aria-label="Filter by platform">
+            <option value="">All engines</option>
             {uniquePlats.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Result</label>
-          <select value={resultFilter} onChange={e => setResultFilter(e.target.value)} aria-label="Filter by result">
-            <option value="">All Results</option>
-            <option value="found">Found Only</option>
-            <option value="notfound">Not Found Only</option>
+          <select className="sel" value={resultFilter} onChange={e => setResultFilter(e.target.value)} aria-label="Filter by result">
+            <option value="">All results</option>
+            <option value="found">Found only</option>
+            <option value="notfound">Not found only</option>
           </select>
-        </div>
-        <div className="proof-vtoggle">
-          <button style={{ background: viewMode === 'grouped' ? 'var(--primary)' : 'var(--bg3)', color: viewMode === 'grouped' ? '#fff' : 'var(--muted)' }} onClick={() => setViewMode('grouped')}>By Query</button>
-          <button style={{ background: viewMode === 'flat' ? 'var(--primary)' : 'var(--bg3)', color: viewMode === 'flat' ? '#fff' : 'var(--muted)' }} onClick={() => setViewMode('flat')}>All</button>
-        </div>
-      </div>
+          {run && <Pill>SOV {sovPct}% · {foundCount}/{totalResults} found</Pill>}
+          <span style={{ flex: 1 }} />
+        </Filter>
 
-      {!run && !showLive ? (
-        <div style={{ textAlign: 'center', padding: '70px 20px' }}>
-          <div style={{ fontSize: 36, opacity: .25, marginBottom: 12 }}>◆</div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', marginBottom: 4 }}>No runs yet</div>
-          <div style={{ color: 'var(--muted)', fontSize: 12 }}>Click <strong style={{ color: 'var(--primary)' }}>Run Queries</strong> to start.</div>
-        </div>
-      ) : (
-        <>
-          {/* Score Banner */}
-          <div className="ep-banner">
-            <div className="ep-banner-ring">
-              <svg viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r="36" fill="none" stroke="var(--bg3)" strokeWidth="5" />
-                <circle cx="40" cy="40" r="36" fill="none" stroke={sovColor} strokeWidth="5"
-                  strokeDasharray="226.2" strokeDashoffset={226.2 - Math.round((sovPct / 100) * 226.2)} strokeLinecap="round"
-                  transform="rotate(-90 40 40)" style={{ transition: 'stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)' }} />
-              </svg>
-              <div className="ep-banner-ring-lbl">
-                <span className="ep-banner-ring-pct" style={{ color: sovColor }}>{sovPct}%</span>
-                <span className="ep-banner-ring-sub">SOV</span>
-              </div>
+        {!run && !showLive ? (
+          <Card title="No runs yet">
+            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--mute)' }}>
+              <div style={{ fontSize: 28, opacity: .35, marginBottom: 12 }}>◆</div>
+              <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>No runs yet</div>
+              <div style={{ fontSize: 12.5 }}>Click <b style={{ color: 'var(--primary)' }}>Run Queries</b> to start.</div>
             </div>
-            <div className="ep-banner-metrics">
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ color: 'var(--green)' }}>{foundCount}</div><div className="ep-banner-metric-lbl">Found</div><div className="ep-banner-metric-bar"><div style={{ width: `${foundPct}%`, background: 'var(--green)' }} /></div></div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ color: 'var(--red)' }}>{notFoundCount}</div><div className="ep-banner-metric-lbl">Not Found</div></div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val">{queries.length}</div><div className="ep-banner-metric-lbl">Queries</div></div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ color: 'var(--blue)' }}>{uniquePlats.length}</div><div className="ep-banner-metric-lbl">Platforms</div></div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val">{totalResults}</div><div className="ep-banner-metric-lbl">Total Checks</div></div>
-              <div className="ep-banner-metric">
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 800, color: 'var(--green)' }}>{sentPos}</span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)' }}>{sentNeu}</span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 800, color: 'var(--red)' }}>{sentNeg}</span>
-                </div>
-                <div className="ep-banner-metric-lbl">Sentiment</div>
-              </div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ color: 'var(--green)' }}>{foundPct}%</div><div className="ep-banner-metric-lbl">Hit Rate</div></div>
-              <div className="ep-banner-metric"><div className="ep-banner-metric-val" style={{ fontSize: 14 }}>{run.durationMs ? (run.durationMs / 1000).toFixed(1) + 's' : '-'}</div><div className="ep-banner-metric-lbl">Run Time</div></div>
+          </Card>
+        ) : filtered.length === 0 ? (
+          <Card title="No matching results">
+            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--mute)' }}>
+              <div style={{ fontSize: 26, opacity: .35, marginBottom: 10 }}>◇</div>
+              <div style={{ fontSize: 12.5 }}>No results match your filters.</div>
             </div>
-          </div>
-
-          {/* Platform Cards Row */}
-          <div className="ep-plat-row">
-            {uniquePlats.map(p => {
-              const ps = platStats[p] || { found: 0, total: 0 };
-              const pPct = ps.total > 0 ? Math.round((ps.found / ps.total) * 100) : 0;
-              const pColor = pPct >= 70 ? 'var(--green)' : pPct >= 40 ? 'var(--amber)' : 'var(--red)';
-              const ringDash = Math.round((pPct / 100) * 62.8);
-              return (
-                <div key={p} className="ep-plat-card">
-                  <span className="ep-plat-dot" style={{ background: PLATFORM_COLORS[p] || '#888' }} />
-                  <div className="ep-plat-info">
-                    <div className="ep-plat-name">{p}</div>
-                    <div className="ep-plat-score" style={{ color: pColor }}>{ps.found}/{ps.total} Found</div>
+          </Card>
+        ) : (
+          <div className="g2">
+            {proof && (
+              <Card
+                title="Verbatim model output"
+                right={<>
+                  <PlatformTile p={platformFor(proof.platform)} size={22} />
+                  <Badge tone={proofTone}>{proof.error ? 'ERROR' : proof.mentioned ? `FOUND${proofPos ? ' · ' + proofPos : ''}` : 'NOT FOUND'}</Badge>
+                </>}
+                style={{ gridColumn: 'span 2' }}
+              >
+                <div className="proof-body">
+                  <div className="proof-q mono"><span className="dim">QUERY ›</span> &ldquo;{proof.query}&rdquo;</div>
+                  <div className="proof-answer">
+                    {proof.error
+                      ? <span style={{ color: 'var(--warn)' }}>{proof.errorMessage || proof.error}</span>
+                      : proofExcerpt
+                        ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(highlightBrand(proofExcerpt)) }} />
+                        : <span className="dim">No response text captured for this result.</span>}
                   </div>
-                  <div className="ep-plat-minibar">
-                    <svg viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10" fill="none" stroke="var(--bg3)" strokeWidth="2.5" />
-                      <circle cx="12" cy="12" r="10" fill="none" stroke={pColor} strokeWidth="2.5"
-                        strokeDasharray="62.8" strokeDashoffset={62.8 - ringDash} strokeLinecap="round" transform="rotate(-90 12 12)" />
-                    </svg>
-                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--mono)', fontSize: 8, fontWeight: 800, color: pColor }}>{pPct}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Insights - Best & Worst Query */}
-          {Object.keys(qStats).length > 1 && (
-            <div className="ep-insights">
-              <div className="ep-insight-card">
-                <div className="ep-insight-badge" style={{ background: 'rgba(16,185,129,.08)', color: 'var(--green)' }}>▲</div>
-                <div className="ep-insight-text">
-                  <div className="ep-insight-label" style={{ color: 'var(--green)' }}>Best Query</div>
-                  <div className="ep-insight-query">{bestQuery.query}</div>
-                </div>
-                <div className="ep-insight-pct" style={{ color: 'var(--green)' }}>{bestQuery.pct}%</div>
-              </div>
-              <div className="ep-insight-card">
-                <div className="ep-insight-badge" style={{ background: 'rgba(239,68,68,.08)', color: 'var(--red)' }}>▼</div>
-                <div className="ep-insight-text">
-                  <div className="ep-insight-label" style={{ color: 'var(--red)' }}>Needs Work</div>
-                  <div className="ep-insight-query">{worstQuery.query}</div>
-                </div>
-                <div className="ep-insight-pct" style={{ color: 'var(--red)' }}>{worstQuery.pct}%</div>
-              </div>
-            </div>
-          )}
-
-          {/* Results - Grouped by Query or Flat */}
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <div style={{ fontSize: 28, opacity: .25, marginBottom: 10 }}>◇</div>
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>No results match your filters.</div>
-            </div>
-          ) : viewMode === 'grouped' ? (
-            <div>
-              {grouped.order.map((q, gi) => {
-                const res = grouped.map[q];
-                const qF = res.filter(r => r.mentioned).length;
-                const qT = res.length;
-                const isOpen = expandedQueries.has(q);
-                const foundOn = res.filter(r => r.mentioned).map(r => r.platform);
-
-                return (
-                  <div key={q} className="ep-qcard">
-                    <button type="button" className={`ep-qcard-head ${isOpen ? '' : 'collapsed'}`} onClick={() => toggleQuery(q)} style={{ cursor: 'pointer', width: '100%', background: 'none', border: 'none', padding: 0, textAlign: 'left', font: 'inherit', color: 'inherit', display: 'flex', alignItems: 'center' }} aria-expanded={isOpen} aria-label={`Toggle details for query: ${q}`}>
-                      <div className="ep-qcard-idx">{gi + 1}</div>
-                      <div className="ep-qcard-mid">
-                        <div className="ep-qcard-title">{q}</div>
-                        <div className="ep-qcard-sub">{foundOn.length ? foundOn.join(', ') : 'Not found on any platform'}</div>
-                      </div>
-                      <div className="ep-qcard-dots">
-                        {res.map((r, ri) => {
-                          const bg = r.error ? 'var(--amber)' : r.mentioned ? 'var(--green)' : 'var(--red)';
-                          return <span key={ri} className="ep-qcard-dot" style={{ background: bg }} title={`${r.platform}: ${r.mentioned ? 'Found' : 'Not Found'}`}>{(r.platform || '?')[0]}</span>;
-                        })}
-                      </div>
-                      <div className="ep-qcard-stat" style={{ color: qF > 0 ? 'var(--text)' : 'var(--muted)' }}>{qF}/{qT}</div>
-                      <div className="ep-qcard-chevron">{isOpen ? '▲' : '▼'}</div>
-                    </button>
-                    {isOpen && (
-                      <div className="ep-qcard-body">
-                        {res.map((r, ri) => <ProofRow key={ri} r={r} highlightBrand={highlightBrand} />)}
-                      </div>
+                  <div className="proof-meta mono">
+                    <span><span className="dim">ENGINE:</span> {proof.platform}{proof.model ? ` · ${proof.model}` : ''}</span>
+                    {proofPos && <><span className="dim">·</span><span><span className="dim">POSITION:</span> {proofPos}</span></>}
+                    <span className="dim">·</span>
+                    <span><span className="dim">SENTIMENT:</span> {proofSent}</span>
+                    {proof.citations && proof.citations.length > 0 && (
+                      <>
+                        <span className="dim">·</span>
+                        <span><span className="dim">CITED:</span> {proof.citations.slice(0, 4).map((c, i) => (
+                          <span key={i}>{i > 0 && ' · '}<Cit url={c} /></span>
+                        ))}</span>
+                      </>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="ep-flat">
-              {filtered.map((r, i) => <ProofRow key={i} r={r} highlightBrand={highlightBrand} showQuery />)}
-            </div>
-          )}
+                </div>
+              </Card>
+            )}
 
-          {filtered.length > 0 && (
-            <div className="ep-footer">Showing {filtered.length} of {totalResults} results across {uniquePlats.length} platform{uniquePlats.length !== 1 ? 's' : ''}</div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
+            {proof && proof.mentioned && proof.competitorMentions && proof.competitorMentions.length > 0 && (
+              <Card title="Mentions in this answer" padding={false}>
+                <table className="tbl">
+                  <thead><tr><th>BRAND</th><th>ROLE</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td><b style={{ color: 'var(--accent)' }}>{brand?.name || 'Your brand'}</b> <Badge tone="acc">YOU</Badge></td>
+                      <td><Badge tone={proofTone}>{proof.mentioned ? `MENTIONED${proofPos ? ' · ' + proofPos : ''}` : 'NOT MENTIONED'}</Badge></td>
+                    </tr>
+                    {proof.competitorMentions.map((c, i) => (
+                      <tr key={i}><td><b>{c}</b></td><td><span className="mono dim" style={{ fontSize: 11 }}>competitor</span></td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            )}
 
-function ProofRow({ r, highlightBrand, showQuery }: { r: { platform: string; model?: string; query: string; mentioned: boolean; error?: string; errorMessage?: string; response?: string; raw?: string; context?: string; snippet?: string; sentiment?: string; recommended?: boolean; listPosition?: number; position?: number; competitorMentions?: string[] }; highlightBrand: (t: string) => string; showQuery?: boolean }) {
-  const txt = r.error ? '' : (r.raw || r.response || r.context || r.snippet || '');
-  const excerpt = txt.replace(/[#*_~`]/g, '').replace(/\n/g, ' ').substring(0, 260);
-  const sent = r.error ? '-' : (r.sentiment || 'neutral');
-  const sentC = sent === 'positive' ? 'var(--green)' : sent === 'negative' ? 'var(--red)' : 'var(--muted)';
-  const pos = r.mentioned && (r.listPosition || r.position) ? `#${r.listPosition || r.position}` : '';
-  const statusLabel = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
-  const statusClass = r.error ? 'error' : r.mentioned ? 'found' : 'notfound';
+            {sameQuery.length > 0 && (
+              <Card title="Same query across engines" padding={false}>
+                <ul className="proof-eng">
+                  {sameQuery.map((r, i) => {
+                    const tone = r.error ? 'warn' : r.mentioned ? 'pos' : 'neg';
+                    const label = r.error ? 'ERROR' : r.mentioned ? `FOUND${r.listPosition || r.position ? ' · ' + (r.listPosition || r.position) : ''}` : 'MISS';
+                    return (
+                      <li key={i}>
+                        <PlatformTile p={platformFor(r.platform)} size={22} />
+                        <span style={{ flex: 1, fontSize: 12.5 }}>{r.platform}</span>
+                        <Badge tone={tone}>{label}</Badge>
+                        {r.sentiment && !r.error && <span className="mono dim" style={{ fontSize: 11 }}>{r.sentiment}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            )}
 
-  return (
-    <div className="ep-row">
-      <div className="ep-row-left">
-        <div className="ep-row-plat">
-          <span className="ep-row-plat-dot" style={{ background: PLATFORM_COLORS[r.platform] || '#888' }} />
-          <span className="ep-row-plat-name" style={{ color: PLATFORM_COLORS[r.platform] || '#888' }}>{r.platform}</span>
-        </div>
-      </div>
-      <div className="ep-row-mid">
-        {showQuery && <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, marginBottom: 4, fontFamily: 'var(--mono)' }}>{r.query}</div>}
-        <div className={`ep-row-excerpt ${statusClass}`}>
-          {r.error ? <span style={{ color: 'var(--amber)' }}>{r.errorMessage || r.error}</span>
-            : <span dangerouslySetInnerHTML={{ __html: sanitizeHtml('\u201c' + highlightBrand(excerpt) + (excerpt.length >= 260 ? '...' : '') + '\u201d') }} />}
-        </div>
-        <div className="ep-row-tags">
-          {pos && <span className="ep-tag"><span className="ep-tag-dot" style={{ background: 'var(--blue)' }} />Rank {pos}</span>}
-          <span className="ep-tag"><span className="ep-tag-dot" style={{ background: sentC }} />{sent.charAt(0).toUpperCase() + sent.slice(1)}</span>
-          {r.recommended && <span className="ep-tag" style={{ color: 'var(--green)' }}><span className="ep-tag-dot" style={{ background: 'var(--green)' }} />Recommended</span>}
-          {r.mentioned && r.competitorMentions && r.competitorMentions.length > 0 && <span className="ep-tag">{r.competitorMentions.length} competitor{r.competitorMentions.length > 1 ? 's' : ''}</span>}
-        </div>
-      </div>
-      <div className="ep-row-right">
-        <span className={`ep-row-status ${statusClass}`}>{statusLabel}</span>
+            {viewMode === 'grouped' ? (
+              <Card title="Coverage by query" right={<Pill>{grouped.order.length} queries</Pill>} padding={false} style={{ gridColumn: 'span 2' }}>
+                <div style={{ display: 'grid', gap: 10, padding: 'var(--pad)' }}>
+                  {grouped.order.map(q => {
+                    const res = grouped.map[q];
+                    const qF = res.filter(r => r.mentioned).length;
+                    const qT = res.length;
+                    const tone = qF === 0 ? 'neg' : qF === qT ? 'pos' : 'neu';
+                    const foundOn = res.filter(r => r.mentioned).map(r => r.platform);
+                    return (
+                      <div key={q} className="hist-row" style={{ gridTemplateColumns: '1fr 90px 70px' }}>
+                        <span style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{q}<span className="mono dim" style={{ display: 'block', fontSize: 10.5, marginTop: 2 }}>{foundOn.length ? foundOn.join(', ') : 'not found on any engine'}</span></span>
+                        <Badge tone={tone}>{qF}/{qT} FOUND</Badge>
+                        <span className="mono num" style={{ textAlign: 'right' }}>{qT > 0 ? Math.round((qF / qT) * 100) : 0}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ) : (
+              <Card title="All results" right={<Pill>{filtered.length} rows</Pill>} padding={false} style={{ gridColumn: 'span 2' }}>
+                <table className="tbl">
+                  <thead><tr><th>ENGINE</th><th>QUERY</th><th>VERDICT</th><th>POSITION</th><th>SENTIMENT</th></tr></thead>
+                  <tbody>
+                    {filtered.map((r, i) => {
+                      const tone = r.error ? 'warn' : r.mentioned ? 'pos' : 'neg';
+                      const verdict = r.error ? 'ERROR' : r.mentioned ? 'FOUND' : 'NOT FOUND';
+                      const rp = r.mentioned && (r.listPosition || r.position) ? `${r.listPosition || r.position}` : '—';
+                      return (
+                        <tr key={i}>
+                          <td><span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><PlatformTile p={platformFor(r.platform)} size={20} /> <b>{r.platform}</b></span></td>
+                          <td><span style={{ color: 'var(--text)' }}>&ldquo;{r.query}&rdquo;</span></td>
+                          <td><Badge tone={tone}>{verdict}</Badge></td>
+                          <td className="num">{rp}</td>
+                          <td><span className="mono dim" style={{ fontSize: 11 }}>{r.error ? '—' : (r.sentiment || 'neutral')}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </Card>
+            )}
+
+            {runs.length > 0 && (
+              <Card title="Run history" right={<span className="mono dim" style={{ fontSize: 11 }}>{runs.length} RUNS</span>} style={{ gridColumn: 'span 2' }}>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {runs.map((r, i) => {
+                    const d = new Date(r.time || r.date || r.created_at || 0);
+                    const t = isNaN(d.getTime()) ? `Run ${runs.length - i}` : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const sv = r.sov || 0;
+                    const tone = sv >= 70 ? 'pos' : sv >= 40 ? 'warn' : 'neg';
+                    const rc = (r.allResults || r.results || []).length;
+                    return (
+                      <div key={r.id || i} className="hist-row">
+                        <span className="mono dim">{t}</span>
+                        <Badge tone={tone}>SOV {sv}%</Badge>
+                        <span style={{ color: 'var(--text-2)', fontSize: 12.5 }}>{rc} result{rc !== 1 ? 's' : ''}{r.queries?.length ? ` · ${r.queries.length} queries` : ''}{r.durationMs ? ` · ${(r.durationMs / 1000).toFixed(1)}s` : ''}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import AuditsListTable, {
   type AuditTableRow,
   type DerivedStatus,
 } from '@/components/dashboard/geo-audits/AuditsListTable';
+import { Card, Badge, PageHead, KPIRail } from '@/app/dashboard-v2/ui';
 
 const MAX_REGIONS_PER_AUDIT = 5;
 const POLL_INTERVAL_MS = 5_000;
@@ -484,104 +485,117 @@ export default function GeoAuditsPage() {
       : (a.mentionRate != null ? [a.mentionRate] : []),
   }));
 
+  // Real-data KPI summary (no invented metrics) — counts derived from
+  // the loaded audits and the currently-filtered subset.
+  const doneCount = allAudits.filter((a) => deriveStatus(a) === 'done').length;
+  const activeCount = allAudits.filter((a) => a.status === 'queued' || a.status === 'running').length;
+  const totalMentions = allAudits.reduce((sum, a) => sum + a.mentionsCount, 0);
+
+  const newAuditDisabled = !brandId || trackedPrompts.length === 0;
+  const newAuditTitle = !brandId
+    ? 'Select a brand first'
+    : (trackedPrompts.length === 0 ? 'Add tracked prompts to your brand first' : '');
+
   return (
-    <div>
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-          marginBottom: 16, gap: 12, flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <div className="view-title">Regional audits</div>
-          <div className="view-sub" style={{ fontFamily: 'var(--mono)', fontVariantNumeric: 'tabular-nums' }}>
-            {audits === null
-              ? 'Loading…'
-              : <><strong style={{ color: 'var(--text)' }}>{allAudits.length}</strong> {allAudits.length === 1 ? 'audit' : 'audits'}</>}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <div className="lvx">
+      <PageHead
+        title="Regional Audits"
+        sub="Run your tracked prompts from a chosen country or region to compare how your brand shows up across markets."
+        actions={
           <button
             type="button"
+            className="btn-p"
             onClick={() => setModalOpen(true)}
-            disabled={!brandId || trackedPrompts.length === 0}
-            title={!brandId ? 'Select a brand first' : (trackedPrompts.length === 0 ? 'Add tracked prompts to your brand first' : '')}
-            style={{
-              minHeight: 40, padding: '8px 16px',
-              background: !brandId || trackedPrompts.length === 0 ? 'var(--bg3)' : 'var(--primary)',
-              color: !brandId || trackedPrompts.length === 0 ? 'var(--muted)' : '#fff',
-              border: 'none', borderRadius: 'var(--radius-xs)',
-              fontSize: 12, fontWeight: 700,
-              cursor: !brandId || trackedPrompts.length === 0 ? 'not-allowed' : 'pointer',
-              whiteSpace: 'nowrap',
-            }}
+            disabled={newAuditDisabled}
+            title={newAuditTitle}
+            style={newAuditDisabled ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
           >
             + New audit
           </button>
-        </div>
-      </div>
-
-      {/* ── Filter pills + search ──────────────────────────────── */}
-      <AuditFilterPills
-        regionOptions={regionOptions}
-        region={region}
-        onRegionChange={setRegion}
-        dateWindow={dateWindow}
-        onDateWindowChange={setDateWindow}
-        status={status}
-        onStatusChange={setStatus}
-        search={search}
-        onSearchChange={setSearch}
+        }
       />
 
-      {/* ── Table / list / empty / error states ────────────────── */}
-      {audits === null && !error ? (
-        <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--muted)', fontSize: 13 }}>
-          Loading regional audits…
-        </div>
-      ) : error ? (
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)', marginBottom: 4 }}>Couldn&apos;t load audits</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>{error}</div>
-          <button onClick={fetchAudits} className="pbtn" style={{ minHeight: 36 }}>Retry</button>
-        </div>
-      ) : allAudits.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-          <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>🌍</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>No regional audits yet</div>
-          <p style={{ color: 'var(--muted)', fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
-            Run your tracked prompts from a chosen country or region to compare how your brand shows up across markets.
-          </p>
-          <button
-            onClick={() => setModalOpen(true)}
-            disabled={!brandId || trackedPrompts.length === 0}
-            style={{
-              display: 'inline-block',
-              background: !brandId || trackedPrompts.length === 0 ? 'var(--bg3)' : 'var(--primary)',
-              color: !brandId || trackedPrompts.length === 0 ? 'var(--muted)' : '#fff',
-              padding: '8px 20px', borderRadius: 'var(--radius-xs)',
-              fontSize: 12, fontWeight: 700, border: 'none',
-              cursor: !brandId || trackedPrompts.length === 0 ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Run your first regional audit
-          </button>
-        </div>
-      ) : tableRows.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--muted)', fontSize: 13 }}>
-          <div style={{ marginBottom: 8 }}>No audits match your current filters.</div>
-          <button
-            onClick={() => { setRegion(''); setDateWindow('30d'); setStatus('all'); setSearch(''); }}
-            className="pbtn"
-            style={{ minHeight: 36 }}
-          >
-            Clear filters
-          </button>
-        </div>
-      ) : (
-        <AuditsListTable rows={tableRows} />
-      )}
+      <div className="page-body">
+        {audits !== null && !error && allAudits.length > 0 && (
+          <KPIRail
+            items={[
+              { k: 'TOTAL AUDITS', v: String(allAudits.length) },
+              { k: 'COMPLETED', v: String(doneCount) },
+              { k: 'IN PROGRESS', v: String(activeCount) },
+              { k: 'TOTAL MENTIONS', v: String(totalMentions) },
+            ]}
+          />
+        )}
+
+        {/* ── Filter pills + search ──────────────────────────────── */}
+        <AuditFilterPills
+          regionOptions={regionOptions}
+          region={region}
+          onRegionChange={setRegion}
+          dateWindow={dateWindow}
+          onDateWindowChange={setDateWindow}
+          status={status}
+          onStatusChange={setStatus}
+          search={search}
+          onSearchChange={setSearch}
+        />
+
+        {/* ── Table / list / empty / error states ────────────────── */}
+        {audits === null && !error ? (
+          <Card title="Audits">
+            <div className="quiet" style={{ textAlign: 'center', padding: 32, fontSize: 13 }}>
+              Loading regional audits…
+            </div>
+          </Card>
+        ) : error ? (
+          <Card title="Audits" right={<Badge tone="neg">ERROR</Badge>}>
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>
+                Couldn&apos;t load audits
+              </div>
+              <div className="quiet" style={{ fontSize: 12, marginBottom: 14 }}>{error}</div>
+              <button onClick={fetchAudits} className="btn-g">Retry</button>
+            </div>
+          </Card>
+        ) : allAudits.length === 0 ? (
+          <Card title="Audits">
+            <div style={{ textAlign: 'center', padding: 48 }}>
+              <div style={{ fontSize: 36, opacity: 0.4, marginBottom: 12 }}>🌍</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+                No regional audits yet
+              </div>
+              <p className="quiet" style={{ fontSize: 13, maxWidth: 360, margin: '0 auto 16px' }}>
+                Run your tracked prompts from a chosen country or region to compare how your brand shows up across markets.
+              </p>
+              <button
+                onClick={() => setModalOpen(true)}
+                disabled={newAuditDisabled}
+                title={newAuditTitle}
+                className="btn-p"
+                style={newAuditDisabled ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+              >
+                Run your first regional audit
+              </button>
+            </div>
+          </Card>
+        ) : tableRows.length === 0 ? (
+          <Card title="Audits" right={<Badge tone="neu">FILTERED</Badge>}>
+            <div style={{ textAlign: 'center', padding: 32 }}>
+              <div className="quiet" style={{ marginBottom: 12, fontSize: 13 }}>
+                No audits match your current filters.
+              </div>
+              <button
+                onClick={() => { setRegion(''); setDateWindow('30d'); setStatus('all'); setSearch(''); }}
+                className="btn-g"
+              >
+                Clear filters
+              </button>
+            </div>
+          </Card>
+        ) : (
+          <AuditsListTable rows={tableRows} />
+        )}
+      </div>
 
       {/* ── New Audit modal (existing flow, preserved) ─────────── */}
       {modalOpen && (

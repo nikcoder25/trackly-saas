@@ -7,12 +7,9 @@ import { PLAN_CREDITS } from '@/lib/plan-config';
 import { useCredits } from '@/contexts/CreditsContext';
 import { useBrands } from '@/contexts/BrandContext';
 import UsageSection from '@/components/dashboard/billing/UsageSection';
-import CurrentPlanCard from '@/components/dashboard/billing/CurrentPlanCard';
-import NextInvoiceCard from '@/components/dashboard/billing/NextInvoiceCard';
-import UsageAlertsCard from '@/components/dashboard/billing/UsageAlertsCard';
-import RecentActivityCard from '@/components/dashboard/billing/RecentActivityCard';
 import type { ActivityEntry } from '@/components/dashboard/billing/RecentActivityCard';
 import ComparePlansGrid from '@/components/dashboard/billing/ComparePlansGrid';
+import { Card, Badge, Bar, Pill, Donut, PageHead } from '@/app/dashboard-v2/ui';
 
 const SURFACE = '#ffffff';
 const SURFACE_BORDER = '#ececec';
@@ -73,6 +70,29 @@ function mapHistoryRow(h: Record<string, unknown>): ActivityEntry {
     amount: (h.amount as string) || '',
     status: (h.status as string) || (eventType ? 'processed' : ''),
   };
+}
+
+function fmtBillDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function UsageMeter({ label, used, limit, unit = '', sub, unlimited }: any) {
+  const pct = unlimited || !limit ? 0 : Math.min(100, Math.round((used / limit) * 100));
+  const tone = unlimited ? 'ok' : pct >= 90 ? 'danger' : pct >= 75 ? 'warn' : 'ok';
+  const limitLabel = unlimited ? '∞' : (limit as number).toLocaleString();
+  return (
+    <div className="umeter">
+      <div className="um-top">
+        <span className="um-label">{label}</span>
+        <span className="um-val mono"><b>{(used as number).toLocaleString()}</b><span className="dim"> / {limitLabel}{unit}</span></span>
+      </div>
+      <div className={'um-track um-' + tone}><i style={{ width: (unlimited ? 40 : pct) + '%' }} /></div>
+      <div className="um-sub">{sub || (unlimited ? 'No limit' : `${pct}% used`)}{!unlimited && pct >= 90 && <span className="um-warn-tx"> · approaching limit</span>}</div>
+    </div>
+  );
 }
 
 export default function BillingPage() {
@@ -232,111 +252,225 @@ export default function BillingPage() {
   // sees their plan card and the API cost breakdown.
   const isOwner = currentPlan === 'owner';
 
-  return (
-    <div style={{ paddingBottom: 24 }}>
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: TEXT_PRIMARY, letterSpacing: -0.3 }}>
-          Billing &amp; usage
-        </h1>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: TEXT_SECONDARY }}>
-          Manage your subscription, track usage, and compare plans.
-        </p>
-      </header>
+  // ── Presentation-only derived values (no new fetches/handlers) ──
+  const monthlyCap = creditStatus?.monthlyCap ?? creditCfg.monthlyCredits;
+  const monthlyUsed = creditStatus?.monthlyUsed ?? 0;
+  const isUnlimitedCredits = isOwner || monthlyCap >= 99999;
+  const creditPct = isUnlimitedCredits || !monthlyCap
+    ? 0
+    : Math.min(100, Math.round((monthlyUsed / monthlyCap) * 100));
+  const planFeatures = currentPlanPricing?.features ?? [];
+  const renewLabel = fmtBillDate(creditStatus?.nextResetAt ?? null);
+  const daysRemaining = periodInfo.daysRemainingInMonth;
+  const planActive = currentPlan !== 'free';
 
-      <CurrentPlanCard
-        planLabel={planLabel}
-        priceLabel={
-          currentPlanPricing?.price === 'Custom'
-            ? 'Custom'
-            : monthlyPriceLabel
-        }
-        cycleSuffix={cycleSuffix}
-        renewsOn={creditStatus?.nextResetAt ?? null}
-        memberSince={user?.createdAt ?? null}
-        daysIntoMonth={periodInfo.daysIntoMonth}
-        daysRemainingInMonth={periodInfo.daysRemainingInMonth}
-        onManagePlan={handleManagePlan}
+  // Owner-only engine cost breakdown → "Queries by engine" card data.
+  const engineCosts = Object.entries(apiCosts)
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const maxEngineCost = engineCosts.length ? Math.max(...engineCosts.map(([, c]) => c)) : 0;
+
+  return (
+    <div className="lvx">
+      <PageHead
+        title="Billing & Usage"
+        sub="Your plan, what you've used this cycle, and your billing activity — all in one place."
+        actions={(
+          <>
+            <button className="btn-d" onClick={handleManagePlan}>Manage plan</button>
+            {planActive && (
+              <a className="btn-g" href={BILLING_PORTAL_URL} target="_blank" rel="noopener">⇣ Customer portal</a>
+            )}
+          </>
+        )}
       />
 
-      <div
-        className="billing-row-2col"
-        style={{
-          marginTop: 16,
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-          gap: 16,
-          alignItems: 'stretch',
-        }}
-      >
-        <NextInvoiceCard
-          nextInvoiceAt={creditStatus?.nextResetAt ?? null}
-          planLabel={planLabel}
-          amountUsd={monthlyPriceUsd}
-          noChargeReason={noChargeReason}
-        />
-        <UsageAlertsCard />
-      </div>
+      <div className="page-body">
 
-      {!isOwner && (
-        <UsageSection numBrandsFromPage={brands.length} />
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        <RecentActivityCard entries={billingHistory} />
-      </div>
-
-      <div style={{ marginTop: 24 }}>
-        <ComparePlansGrid
-          currentPlan={currentPlan}
-          annualBilling={annualBilling}
-          onAnnualToggle={setAnnualBilling}
-          onSwitchPlan={switchPlan}
-          planSwitching={planSwitching}
-        />
-      </div>
-
-      {/* Owner-only API cost breakdown stays as an admin view. */}
-      {currentPlan === 'owner' && Object.keys(apiCosts).length > 0 && (
-        <div
-          style={{
-            marginTop: 24,
-            background: SURFACE,
-            border: `1px solid ${SURFACE_BORDER}`,
-            borderRadius: SURFACE_RADIUS,
-            padding: '20px 22px',
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 700, color: TEXT_PRIMARY, marginBottom: 12 }}>
-            API cost breakdown
+        {/* Plan + spend header */}
+        <section className="bill-head">
+          <div className="bh-plan">
+            <div className="eyebrow">CURRENT PLAN</div>
+            <div className="bh-name">
+              {planLabel}{' '}
+              <Badge tone={planActive ? 'pos' : 'neu'}>{planActive ? 'ACTIVE' : 'FREE'}</Badge>
+            </div>
+            <div className="bh-price">
+              {currentPlanPricing?.price === 'Custom'
+                ? <span className="mono">Custom</span>
+                : <><span className="mono">{currentPlanPricing?.price ?? monthlyPriceLabel}</span><i>/ month</i></>}
+            </div>
+            <div className="bh-renew">
+              {cycleSuffix} · renews <b>{renewLabel}</b>
+            </div>
+            <div className="bh-actions">
+              <button className="btn-p" onClick={handleManagePlan}>Change plan</button>
+              {planActive && (
+                <button
+                  className="btn-g"
+                  onClick={() => switchPlan('free')}
+                  disabled={planSwitching === 'free'}
+                >
+                  {planSwitching === 'free' ? 'Cancelling…' : 'Cancel plan'}
+                </button>
+              )}
+            </div>
+            {planFeatures.length > 0 && (
+              <ul className="bh-feats">
+                {planFeatures.map((f: any, i: number) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+            )}
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: '8px 0', color: TEXT_SECONDARY, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 }}>Platform</th>
-                  <th style={{ textAlign: 'right', padding: '8px 0', color: TEXT_SECONDARY, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6 }}>Total cost</th>
-                </tr>
-              </thead>
+
+          <div className="bh-spend">
+            <div className="eyebrow" style={{ padding: '2px 0 2px' }}>SPEND</div>
+            <div className="bhs-row">
+              <span className="bhs-label">{noChargeReason ? 'This billing period' : 'Next invoice'}</span>
+              <span className="bhs-v mono">{noChargeReason ? 'No charge' : `$${monthlyPriceUsd.toFixed(2)}`}</span>
+            </div>
+            <div className="bhs-meta mono">
+              {noChargeReason === 'free'
+                ? 'free tier'
+                : noChargeReason === 'owner'
+                  ? 'owner account'
+                  : noChargeReason === 'custom'
+                    ? 'invoiced'
+                    : `due ${renewLabel}`}
+            </div>
+            <div className="bhs-row">
+              <span className="bhs-label">Member since</span>
+              <span className="bhs-v mono">{fmtBillDate(user?.createdAt ?? null)}</span>
+            </div>
+            <div className="bhs-meta mono">{daysRemaining} days left in period</div>
+          </div>
+        </section>
+
+        {/* Usage this period */}
+        {!isOwner && (
+          <Card
+            title="Usage this period"
+            lede="How much of your plan you've used since the cycle began. Everything resets at renewal."
+            right={<Pill tone="acc"><span className="pulse" /> resets in {daysRemaining} days</Pill>}
+          >
+            <div className="bill-usage">
+              <div className="bu-ring">
+                <Donut value={creditPct} size={150} label="OF MONTHLY CREDITS" color="var(--accent)" />
+                <div className="bu-ring-sub">
+                  <div className="mono">
+                    <b>{monthlyUsed.toLocaleString()}</b> of {isUnlimitedCredits ? '∞' : monthlyCap.toLocaleString()} credits
+                  </div>
+                  <div className="dim mono" style={{ fontSize: 11, marginTop: 3 }}>renews {renewLabel}</div>
+                </div>
+              </div>
+              <div className="bu-meters">
+                <UsageMeter
+                  label="Monthly credits"
+                  used={monthlyUsed}
+                  limit={monthlyCap}
+                  unlimited={isUnlimitedCredits}
+                />
+                <UsageMeter
+                  label="Brands tracked"
+                  used={brands.length}
+                  limit={creditCfg.brandsCap}
+                  unlimited={creditCfg.brandsCap >= 99999}
+                />
+              </div>
+            </div>
+            <div style={{ marginTop: 18 }}>
+              <UsageSection numBrandsFromPage={brands.length} />
+            </div>
+          </Card>
+        )}
+
+        {/* Queries by engine — owner-only, real API cost data */}
+        {engineCosts.length > 0 && (
+          <Card
+            title="Queries by engine · this period"
+            info="engine"
+            lede="Where your query budget went — totals run against each AI engine this cycle."
+            right={<span className="mono dim" style={{ fontSize: 11 }}>${engineCosts.reduce((a, [, c]) => a + c, 0).toFixed(2)} TOTAL</span>}
+          >
+            <div className="bill-engines">
+              {engineCosts.map(([platform, cost]) => (
+                <div key={platform} style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13 }}>{platform}</span>
+                    <span className="mono" style={{ fontSize: 12.5 }}><b>${cost.toFixed(2)}</b></span>
+                  </div>
+                  <Bar value={cost} max={maxEngineCost} />
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Billing activity / invoice history */}
+        <Card
+          title="Invoice history"
+          info="audit"
+          lede="Every charge and plan change on your account."
+          padding={false}
+        >
+          {billingHistory.length === 0 ? (
+            <div style={{ padding: '28px 24px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+              No billing activity yet.
+            </div>
+          ) : (
+            <table className="tbl">
+              <thead><tr><th>DATE</th><th>EVENT</th><th className="right">AMOUNT</th><th>STATUS</th></tr></thead>
               <tbody>
-                {Object.entries(apiCosts).sort((a, b) => b[1] - a[1]).map(([platform, cost]) => (
-                  <tr key={platform} style={{ borderTop: '1px solid #f1f1ef' }}>
-                    <td style={{ padding: '10px 0', color: TEXT_PRIMARY, fontWeight: 500 }}>{platform}</td>
-                    <td style={{ padding: '10px 0', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: TEXT_PRIMARY }}>
-                      ${cost.toFixed(2)}
+                {billingHistory.map((row, i) => (
+                  <tr key={i}>
+                    <td className="num">{fmtBillDate(row.date)}</td>
+                    <td><b>{row.event}</b></td>
+                    <td className="right num">{row.amount || '—'}</td>
+                    <td>
+                      <Badge tone={/fail|declin|error/i.test(row.status) ? 'neg' : 'pos'}>
+                        {(row.status || 'PROCESSED').toUpperCase()}
+                      </Badge>
                     </td>
                   </tr>
                 ))}
-                <tr style={{ borderTop: '2px solid #ececec' }}>
-                  <td style={{ padding: '10px 0', fontWeight: 700, color: TEXT_PRIMARY }}>Total</td>
-                  <td style={{ padding: '10px 0', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 700, color: TEXT_PRIMARY }}>
-                    ${Object.values(apiCosts).reduce((a, b) => a + b, 0).toFixed(2)}
-                  </td>
+              </tbody>
+            </table>
+          )}
+        </Card>
+
+        {/* Compare plans / change plan */}
+        <div id="plan-comparison">
+          <ComparePlansGrid
+            currentPlan={currentPlan}
+            annualBilling={annualBilling}
+            onAnnualToggle={setAnnualBilling}
+            onSwitchPlan={switchPlan}
+            planSwitching={planSwitching}
+          />
+        </div>
+
+        {/* Owner-only API cost breakdown stays as an admin view. */}
+        {currentPlan === 'owner' && Object.keys(apiCosts).length > 0 && (
+          <Card title="API cost breakdown" padding={false}>
+            <table className="tbl">
+              <thead><tr><th>PLATFORM</th><th className="right">TOTAL COST</th></tr></thead>
+              <tbody>
+                {Object.entries(apiCosts).sort((a, b) => b[1] - a[1]).map(([platform, cost]) => (
+                  <tr key={platform}>
+                    <td><b>{platform}</b></td>
+                    <td className="right num">${cost.toFixed(2)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td><b>Total</b></td>
+                  <td className="right num"><b>${Object.values(apiCosts).reduce((a, b) => a + b, 0).toFixed(2)}</b></td>
                 </tr>
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
+          </Card>
+        )}
+      </div>
 
       {/* Change-Plan modal — kept for any caller that still calls
           setShowPlanModal(true). The new design routes Manage plan to
