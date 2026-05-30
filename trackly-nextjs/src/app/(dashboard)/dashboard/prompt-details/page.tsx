@@ -17,12 +17,33 @@ export default function PromptDetailsPage() {
   const [intentVal, setIntentVal] = useState('');
   const [funnelVal, setFunnelVal] = useState('');
   const [tagsVal, setTagsVal] = useState('');
+  const [classSaved, setClassSaved] = useState(false);
   const [expandedRun, setExpandedRun] = useState<number | null>(null);
 
   const queries = brand?.queries || [];
   const allRuns = brand?.runs || [];
 
   useEffect(() => { if (queries.length && !selectedQuery) setSelectedQuery(queries[0]); }, [queries, selectedQuery]);
+
+  // Prompt classification (intent / funnel / tags) is a per-query annotation.
+  // There is no server endpoint for it, so it is persisted locally per brand+query
+  // and reloaded when the selected query changes — a real save, scoped to this device.
+  const classKey = brand?.id && selectedQuery ? `pd-class:${brand.id}:${selectedQuery}` : '';
+  useEffect(() => {
+    if (!classKey) { setIntentVal(''); setFunnelVal(''); setTagsVal(''); return; }
+    try {
+      const c = JSON.parse(localStorage.getItem(classKey) || '{}');
+      setIntentVal(c.intent || ''); setFunnelVal(c.funnel || ''); setTagsVal(c.tags || '');
+    } catch { setIntentVal(''); setFunnelVal(''); setTagsVal(''); }
+  }, [classKey]);
+  function saveClassification() {
+    if (!classKey) return;
+    try {
+      localStorage.setItem(classKey, JSON.stringify({ intent: intentVal, funnel: funnelVal, tags: tagsVal }));
+      setClassSaved(true);
+      setTimeout(() => setClassSaved(false), 2000);
+    } catch { /* storage unavailable; non-fatal */ }
+  }
 
   // All results for selected query across all runs within period
   const queryResults = useMemo(() => {
@@ -254,7 +275,7 @@ export default function PromptDetailsPage() {
               </div>
             </div>
           </div>
-          <button className="pbtn" style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, marginLeft: 18, marginTop: 24, flexShrink: 0 }}>Save</button>
+          <button className="pbtn" onClick={saveClassification} disabled={!classKey} style={{ background: 'var(--primary)', color: '#fff', borderColor: 'var(--primary)', fontWeight: 700, marginLeft: 18, marginTop: 24, flexShrink: 0, opacity: classKey ? 1 : 0.5 }}>{classSaved ? 'Saved ✓' : 'Save'}</button>
         </div>
       </div>
 

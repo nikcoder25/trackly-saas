@@ -226,7 +226,7 @@ export default function AlertsPage() {
                       <div className="quiet" style={{ fontSize: 11 }}>{n.desc}</div>
                     </div>
                   </div>
-                  <Badge tone="pos">ACTIVE</Badge>
+                  <Badge tone="neu">BUILT-IN</Badge>
                 </div>
               ))}
             </div>
