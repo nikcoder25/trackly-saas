@@ -36,6 +36,7 @@ const NAV: { label: string; items: NavItem[] }[] = [
     { id: 'recommendations', href: '/dashboard/recommendations', label: 'Recommendations' },
   ] },
   { label: 'Tools', items: [
+    { id: 'reports', href: '/dashboard/reports', label: 'Reports' },
     { id: 'geo-audit', href: '/dashboard/geo-audit', label: 'GEO Audit' },
     { id: 'regional', href: '/dashboard/geo-audits', label: 'Regional Audits' },
   ] },

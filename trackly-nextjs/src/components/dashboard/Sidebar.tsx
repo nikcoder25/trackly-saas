@@ -31,6 +31,7 @@ const navGroups = [
   {
     label: 'Tools',
     items: [
+      { href: '/dashboard/reports', label: 'Reports', icon: '🗂️' },
       { href: '/dashboard/geo-audit', label: 'GEO Audit', icon: '◉' },
       { href: '/dashboard/geo-audits', label: 'Regional Audits', icon: '🌍' },
     ],
