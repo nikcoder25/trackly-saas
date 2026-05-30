@@ -178,7 +178,12 @@ export default function ReportsPage() {
 
   // Custom report assembled from the selected mentions/queries.
   function download() {
-    if (!draft.items.length) { toast('Add at least one mention or query first.', 'error'); return; }
+    if (!draft.items.length) {
+      toast('Your custom report is empty. Add mentions (open a recent mention on the Overview) or queries ("+ Report") first — or use “Download report” for the full visibility report.', 'error');
+      // Surface the empty-state guidance below.
+      document.getElementById('report-builder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     downloadFrom('report/custom', `${brand?.name || 'brand'}_Custom_Report.pdf`, setDownloading);
   }
 
@@ -198,8 +203,8 @@ export default function ReportsPage() {
         sub="Download your full AI Visibility report, assemble a custom report from selected items, or schedule automatic reports."
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-g" onClick={download} disabled={downloading || empty}
-              title={empty ? 'Add mentions or queries below to build a custom report' : 'Download the custom report you assembled'}>
+            <button className="btn-g" onClick={download} disabled={downloading}
+              title={empty ? 'Add mentions or queries first to build a custom report' : 'Download the custom report you assembled'}>
               {downloading ? 'Preparing…' : '↓ Custom report'}
             </button>
             <button className="btn-p" onClick={downloadStandard} disabled={downloadingStd}
@@ -248,7 +253,7 @@ export default function ReportsPage() {
 
         {empty ? (
           <Card>
-            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <div id="report-builder" style={{ textAlign: 'center', padding: '40px 20px' }}>
               <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>🗂️</div>
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px' }}>Your report is empty</p>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 auto', maxWidth: 460, lineHeight: 1.6 }}>
