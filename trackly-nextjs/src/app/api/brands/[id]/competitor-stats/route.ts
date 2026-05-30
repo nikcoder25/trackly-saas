@@ -42,6 +42,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const platformCompCounts: Record<string, Record<string, number>> = {};
     const platformTotals: Record<string, number> = {};
 
+    // Per-day buckets for real SOV trend sparklines (brand + each competitor)
+    const dayBuckets = new Map<string, { total: number; brand: number; comp: Record<string, number> }>();
+
     for (const comp of competitors) {
       competitorCounts[comp] = 0;
     }
@@ -55,6 +58,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     for (const row of rows) {
       const plat = row.platform;
       platformTotals[plat] = (platformTotals[plat] || 0) + 1;
+
+      // Day bucket for trend (UTC date of the run)
+      const day = new Date(row.created_at).toISOString().slice(0, 10);
+      let bucket = dayBuckets.get(day);
+      if (!bucket) {
+        bucket = { total: 0, brand: 0, comp: {} };
+        for (const comp of competitors) bucket.comp[comp] = 0;
+        dayBuckets.set(day, bucket);
+      }
+      bucket.total++;
+      if (row.mentioned) bucket.brand++;
 
       if (!platformCompCounts[plat]) {
         platformCompCounts[plat] = {};
@@ -80,8 +94,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           if (platformCompCounts[plat]?.[canonical] !== undefined) {
             platformCompCounts[plat][canonical]++;
           }
+          if (bucket.comp[canonical] !== undefined) {
+            bucket.comp[canonical]++;
+          }
         }
       }
+    }
+
+    // Build chronological day list (oldest → newest), capped to the last 14 days
+    // with data, then derive a real SOV-per-day trend for the brand and each
+    // competitor (percentage of that day's queries that mentioned them).
+    const trendDays = [...dayBuckets.keys()].sort().slice(-14);
+    const pctOf = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+    const brandTrend = trendDays.map(d => { const b = dayBuckets.get(d)!; return pctOf(b.brand, b.total); });
+    const compTrends: Record<string, number[]> = {};
+    for (const comp of competitors) {
+      compTrends[comp] = trendDays.map(d => { const b = dayBuckets.get(d)!; return pctOf(b.comp[comp] || 0, b.total); });
     }
 
     // Build response
@@ -89,6 +117,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       name: comp,
       mentions: competitorCounts[comp] || 0,
       percentage: totalQueries > 0 ? Math.round(((competitorCounts[comp] || 0) / totalQueries) * 100) : 0,
+      trend: compTrends[comp] || [],
     }));
 
     const platforms: Record<string, { total: number; competitors: Record<string, number> }> = {};
@@ -105,6 +134,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       totalQueries,
       brandMentions,
       brandPercentage: totalQueries > 0 ? Math.round((brandMentions / totalQueries) * 100) : 0,
+      brandTrend,
       hasData: totalQueries > 0,
     });
   } catch (err) {
