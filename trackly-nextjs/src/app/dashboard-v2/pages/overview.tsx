@@ -90,7 +90,9 @@ export function useOverviewData(): OverviewData | null {
 
   const loadAccuracy = React.useCallback((signal?: AbortSignal) => {
     if (!brandId) return;
-    fetch(`/api/brands/${brandId}/accuracy`, { credentials: 'include', signal })
+    // no-store: always read the live DB state so a fix made on the Accuracy
+    // Monitor is reflected here immediately, never served from the HTTP cache.
+    fetch(`/api/brands/${brandId}/accuracy`, { credentials: 'include', cache: 'no-store', signal })
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (!signal?.aborted) setAccData(d ?? null); })
       .catch(() => { /* aborted or network error; leave prior value, non-fatal */ });
@@ -109,14 +111,22 @@ export function useOverviewData(): OverviewData | null {
 
   // Re-fetch whenever a run completes or an accuracy issue is toggled/checked
   // anywhere in the app, so fixing claims updates the Overview right away.
+  // Also revalidate when the tab regains focus/visibility — the Accuracy
+  // Monitor and Overview are separate routes, so after fixing claims there and
+  // switching back here (or across browser tabs) this guarantees fresh numbers.
   React.useEffect(() => {
     if (!brandId) return;
     const handler = () => loadAccuracy();
+    const onVisible = () => { if (document.visibilityState === 'visible') loadAccuracy(); };
     window.addEventListener('livesov:run-complete', handler);
     window.addEventListener('livesov:accuracy-updated', handler);
+    window.addEventListener('focus', handler);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.removeEventListener('livesov:run-complete', handler);
       window.removeEventListener('livesov:accuracy-updated', handler);
+      window.removeEventListener('focus', handler);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [brandId, loadAccuracy]);
 
