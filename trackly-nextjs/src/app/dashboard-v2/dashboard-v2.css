@@ -719,6 +719,172 @@
 .lvx .proof-eng li { display: flex; align-items: center; gap: 10px; padding: 9px 22px; border-bottom: 1px solid var(--line); }
 .lvx .proof-eng li:last-child { border-bottom: 0; }
 .lvx .hist-row { display: grid; grid-template-columns: 60px 130px 1fr; gap: 12px; align-items: center; padding: 8px 12px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); }
+
+/* ── Evidence & Proof — redesigned hero + lists ── */
+.lvx .proof-hero {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 28px;
+  align-items: stretch;
+}
+.lvx .proof-hero-engine {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, var(--primary-50), var(--surface-2));
+  border: 1px solid var(--primary-100);
+  align-items: flex-start;
+}
+.lvx .proof-hero-engine-meta { display: grid; gap: 2px; min-width: 0; }
+.lvx .proof-hero-engine-name { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.lvx .proof-hero-engine-model { font-size: 11px; color: var(--text-3); letter-spacing: 0.02em; word-break: break-all; }
+.lvx .proof-hero-content { display: grid; gap: 16px; min-width: 0; }
+.lvx .proof-q-new {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
+  border-left: 3px solid var(--primary);
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.lvx .proof-q-label { font-size: 10px; letter-spacing: 0.14em; color: var(--text-3); font-weight: 600; }
+.lvx .proof-q-text { font-size: 13px; color: var(--text); font-family: var(--sans); font-weight: 500; }
+.lvx .proof-quote {
+  position: relative;
+  margin: 0;
+  padding: 4px 0 4px 36px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text);
+  max-width: 76ch;
+}
+.lvx .proof-quote-mark {
+  position: absolute;
+  left: 0; top: -6px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--primary);
+  opacity: 0.35;
+  font-weight: 700;
+  user-select: none;
+}
+.lvx .proof-quote-text .hl { color: var(--text); font-weight: 500; border-bottom: 1px dashed var(--mute); }
+.lvx .proof-quote-text .hl.me { color: var(--primary); border-color: var(--primary); background: var(--primary-50); padding: 1px 3px; border-radius: 3px; border-bottom-style: solid; }
+.lvx .proof-stat-row {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.lvx .proof-stat { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.lvx .proof-stat-label { font-size: 10px; letter-spacing: 0.12em; color: var(--text-3); font-weight: 600; }
+.lvx .proof-stat-val { font-size: 12.5px; color: var(--text); font-weight: 500; text-transform: capitalize; }
+.lvx .proof-sent-positive { color: var(--success); }
+.lvx .proof-sent-negative { color: var(--danger); }
+.lvx .proof-sent-neutral  { color: var(--text-2); }
+.lvx .proof-sent-error    { color: var(--warn); }
+.lvx .proof-stat-div { width: 1px; height: 14px; background: var(--line-2); }
+.lvx .proof-stat-cites { flex: 1 1 200px; align-items: center; gap: 10px; }
+.lvx .proof-cite-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.lvx .proof-cite-chips .cit {
+  padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--text-2); font-size: 11px;
+  text-decoration: none; transition: border-color .12s, color .12s, background .12s;
+}
+.lvx .proof-cite-chips .cit:hover { color: var(--primary); border-color: var(--primary-200); background: var(--primary-50); }
+
+/* Engine list (same query across engines) */
+.lvx .eng-list { list-style: none; padding: 0; margin: 0; }
+.lvx .eng-row {
+  display: grid;
+  grid-template-columns: 6px 26px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px var(--pad);
+  border-bottom: 1px solid var(--line);
+  transition: background .12s;
+}
+.lvx .eng-row:last-child { border-bottom: 0; }
+.lvx .eng-row:hover { background: var(--surface-2); }
+.lvx .eng-dot { width: 6px; height: 6px; border-radius: 999px; }
+.lvx .eng-dot-pos { background: var(--success); box-shadow: 0 0 0 3px var(--success-50); }
+.lvx .eng-dot-neg { background: var(--danger);  box-shadow: 0 0 0 3px var(--danger-50); }
+.lvx .eng-dot-warn{ background: var(--warn);    box-shadow: 0 0 0 3px var(--warn-50); }
+.lvx .eng-name { font-size: 13px; color: var(--text); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvx .eng-model { font-size: 11px; font-weight: 400; }
+
+/* Engine coverage list */
+.lvx .eng-cov-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.lvx .eng-cov-row {
+  display: grid;
+  grid-template-columns: 22px 90px 1fr 44px auto;
+  align-items: center;
+  gap: 12px;
+}
+.lvx .eng-cov-name { font-size: 13px; color: var(--text); font-weight: 500; }
+.lvx .eng-cov-bar { display: block; height: 8px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.lvx .eng-cov-bar i { display: block; height: 100%; border-radius: inherit; transition: width 1s cubic-bezier(.2,.7,.2,1); }
+.lvx .eng-cov-pct { font-size: 12px; color: var(--text); text-align: right; font-weight: 600; }
+
+/* Coverage by query — visual rows */
+.lvx .q-cov-list { list-style: none; padding: 0; margin: 0; }
+.lvx .q-cov-row {
+  display: grid; gap: 10px;
+  padding: 14px var(--pad);
+  border-bottom: 1px solid var(--line);
+}
+.lvx .q-cov-row:last-child { border-bottom: 0; }
+.lvx .q-cov-row:hover { background: var(--surface-2); }
+.lvx .q-cov-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lvx .q-cov-q { flex: 1 1 auto; font-size: 13.5px; color: var(--text); font-weight: 500; min-width: 0; }
+.lvx .q-cov-pct { font-size: 12.5px; color: var(--text); font-weight: 600; min-width: 40px; text-align: right; }
+.lvx .q-cov-bar { display: block; height: 6px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.lvx .q-cov-bar i { display: block; height: 100%; border-radius: inherit; transition: width 1s cubic-bezier(.2,.7,.2,1); }
+.lvx .q-cov-engines { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.lvx .q-cov-eng-group { display: inline-flex; align-items: center; gap: 8px; font-size: 10.5px; letter-spacing: 0.1em; }
+.lvx .q-cov-eng-tiles { display: inline-flex; gap: 4px; align-items: center; }
+.lvx .q-cov-eng-miss .q-cov-eng-tiles { opacity: 0.45; filter: grayscale(0.4); }
+
+/* Run history — clickable rows */
+.lvx .run-list { list-style: none; padding: 0; margin: 0; }
+.lvx .run-row {
+  display: grid;
+  grid-template-columns: 40px 140px 92px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px var(--pad);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background .12s;
+}
+.lvx .run-row:last-child { border-bottom: 0; }
+.lvx .run-row:hover { background: var(--surface-2); }
+.lvx .run-row-active { background: var(--primary-50); }
+.lvx .run-row-active:hover { background: var(--primary-50); }
+.lvx .run-row { position: relative; }
+.lvx .run-row-active::before {
+  content: ''; position: absolute; left: 0; top: 0; width: 3px; height: 100%; background: var(--primary);
+}
+.lvx .run-idx { color: var(--text-3); font-size: 11px; }
+.lvx .run-time { color: var(--text-2); font-size: 12px; }
+.lvx .run-bar { display: block; height: 6px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.lvx .run-bar i { display: block; height: 100%; border-radius: inherit; transition: width 1s cubic-bezier(.2,.7,.2,1); }
+.lvx .run-meta { font-size: 11px; }
+
+/* Responsive — collapse hero to single column on narrow screens */
+@media (max-width: 980px) {
+  .lvx .proof-hero { grid-template-columns: 1fr; gap: 16px; }
+  .lvx .proof-hero-engine { flex-direction: row; align-items: center; }
+  .lvx .eng-cov-row { grid-template-columns: 22px 1fr auto; }
+  .lvx .eng-cov-name { display: none; }
+  .lvx .run-row { grid-template-columns: 40px 1fr auto; }
+  .lvx .run-bar, .lvx .run-meta { display: none; }
+}
+
 .lvx .plat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
 .lvx .plat-grid > div { display: grid; gap: 6px; }
 .lvx .plat-grid .kpi-v { margin-top: 2px; }
