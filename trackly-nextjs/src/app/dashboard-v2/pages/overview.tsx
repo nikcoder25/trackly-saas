@@ -435,6 +435,23 @@ function normalizeWebsite(raw?: string | null): string {
 
 /* ───────────────────────── page ───────────────────────── */
 
+function DownloadReportButton() {
+  const { selectedBrand } = useBrands();
+  const { toast } = useToast();
+  const brandId = (selectedBrand as any)?.id as string | undefined;
+  const [busy, setBusy] = React.useState(false);
+  const download = async () => {
+    setBusy(true);
+    try { await downloadBrandReport(brandId, (selectedBrand as any)?.name, toast); }
+    finally { setBusy(false); }
+  };
+  return (
+    <button className="btn-g" onClick={download} disabled={busy} title="Download a branded PDF visibility report for this brand">
+      {busy ? 'Preparing…' : '↓ Download report'}
+    </button>
+  );
+}
+
 export function PageOverview() {
   const [range, setRange] = React.useState('7d');
   const [drawer, setDrawer] = React.useState<any>(null);
@@ -459,6 +476,7 @@ export function PageOverview() {
       <PageHead title={<>Welcome back, <span style={{ color: 'var(--primary)' }}>Nikhil</span>.</>}
         sub={<>{d.brandName} is mentioned across the 5 AI engines — here&rsquo;s what changed in the last 7 days.</>}
         actions={<>
+          <DownloadReportButton />
           {(() => {
             const href = normalizeWebsite(d.website);
             if (!href) {
@@ -631,6 +649,33 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
   );
 }
 
+// Fetch the brand's PDF report and trigger a download, handling the Pro+ plan
+// gate gracefully (a toast, not a raw JSON error tab). Shared by the Overview
+// header button and the mention drawer.
+async function downloadBrandReport(brandId: string | undefined, brandName: string | undefined, toast: any) {
+  if (!brandId) { toast('Select a brand first to generate a report.', 'error'); return; }
+  try {
+    const res = await fetch(`/api/brands/${brandId}/report/pdf`, { credentials: 'include' });
+    if (res.status === 403) {
+      const j = await res.json().catch(() => ({}));
+      toast(j.error || 'PDF reports are available on the Pro plan and above.', 'error');
+      return;
+    }
+    if (!res.ok) { toast('Could not generate the report. Please try again.', 'error'); return; }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^"]+)"?/);
+    const name = m ? m[1] : `${brandName || 'brand'}_AI_Visibility_Report.pdf`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast('Report downloaded');
+  } catch {
+    toast('Could not generate the report. Please try again.', 'error');
+  }
+}
+
 function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
   const { startRun } = useRun();
   const { toast } = useToast();
@@ -663,10 +708,7 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
       toast('Could not copy to clipboard', 'error');
     }
   };
-  const handleReport = () => {
-    if (!brandId) { toast('Select a brand first to generate a report.', 'error'); return; }
-    window.open(`/api/brands/${brandId}/report/pdf`, '_blank', 'noopener');
-  };
+  const handleReport = () => { downloadBrandReport(brandId, (selectedBrand as any)?.name, toast); };
 
   return (
     <>
