@@ -21,6 +21,7 @@ interface RecentItem { p: Platform; q: string; tag: string; meta: string; t: str
 interface OverviewData {
   hasReal: boolean;
   brandName: string;
+  website?: string;
   industry?: string;
   city?: string;
   sov: number;
@@ -383,6 +384,7 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   return {
     hasReal: true,
     brandName: brand.name || fb.brandName,
+    website: brand.website,
     industry: brand.industry, city: brand.city,
     sov, sovDelta: prevRun ? sov - prevSov : 0,
     totalM, mentionsDelta: prevRun ? totalM - prevTotalM : 0,
@@ -404,6 +406,24 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   };
 }
 function sentTotalSafe(n: number) { return n > 0; }
+
+/** Coerce a stored brand website (which may be bare like "acme.com") into a
+ *  safe absolute URL we can use as an `<a href>`. Returns '' for empty input
+ *  or for anything that isn't a plausible http(s) URL after normalization. */
+function normalizeWebsite(raw?: string | null): string {
+  if (!raw) return '';
+  const s = String(raw).trim();
+  if (!s) return '';
+  const withScheme = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    if (!u.hostname || !u.hostname.includes('.')) return '';
+    return u.toString();
+  } catch {
+    return '';
+  }
+}
 
 /* ───────────────────────── page ───────────────────────── */
 
@@ -431,7 +451,33 @@ export function PageOverview() {
       <PageHead title={<>Welcome back, <span style={{ color: 'var(--primary)' }}>Nikhil</span>.</>}
         sub={<>{d.brandName} is mentioned across the 5 AI engines — here&rsquo;s what changed in the last 7 days.</>}
         actions={<>
-          <button className="btn-p">↗ View live</button>
+          {(() => {
+            const href = normalizeWebsite(d.website);
+            if (!href) {
+              return (
+                <button
+                  className="btn-p"
+                  disabled
+                  title="Add a website to your brand to open it from here"
+                  style={{ opacity: 0.55, cursor: 'not-allowed' }}
+                >
+                  ↗ View live
+                </button>
+              );
+            }
+            return (
+              <a
+                className="btn-p"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open ${href} in a new tab`}
+                style={{ textDecoration: 'none' }}
+              >
+                ↗ View live
+              </a>
+            );
+          })()}
         </>} />
 
       <div className="page-body">
