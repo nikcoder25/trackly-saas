@@ -42,6 +42,8 @@ export default function ReportsPage() {
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [frequency, setFrequency] = useState<'off' | 'weekly' | 'monthly'>('off');
+  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
 
   const load = useCallback((brandId: string) => {
     fetch(`/api/brands/${brandId}/report/items`, { credentials: 'include', cache: 'no-store' })
@@ -57,7 +59,36 @@ export default function ReportsPage() {
       .catch(() => { /* non-fatal */ });
   }, []);
 
-  useEffect(() => { if (brand?.id) { load(brand.id); loadHistory(brand.id); } }, [brand?.id, load, loadHistory]);
+  const loadSchedule = useCallback((brandId: string) => {
+    fetch(`/api/brands/${brandId}/report/schedule`, { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { frequency?: 'off' | 'weekly' | 'monthly'; lastRunAt?: string | null } | null) => {
+        if (d) { setFrequency(d.frequency || 'off'); setLastRunAt(d.lastRunAt ?? null); }
+      })
+      .catch(() => { /* non-fatal */ });
+  }, []);
+
+  useEffect(() => { if (brand?.id) { load(brand.id); loadHistory(brand.id); loadSchedule(brand.id); } }, [brand?.id, load, loadHistory, loadSchedule]);
+
+  async function saveSchedule(next: 'off' | 'weekly' | 'monthly') {
+    if (!brand?.id) return;
+    const prev = frequency;
+    setFrequency(next);
+    try {
+      const res = await fetch(`/api/brands/${brand.id}/report/schedule`, {
+        method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frequency: next }),
+      });
+      if (res.status === 403) {
+        const j = await res.json().catch(() => ({}));
+        setFrequency(prev);
+        toast(j.error || 'Automatic reports are available on the Pro plan and above.', 'error');
+        return;
+      }
+      if (!res.ok) { setFrequency(prev); toast('Could not update the schedule.', 'error'); return; }
+      toast(next === 'off' ? 'Automatic reports turned off' : `Automatic reports set to ${next}`);
+    } catch { setFrequency(prev); toast('Could not update the schedule.', 'error'); }
+  }
 
   async function reDownload(h: HistoryEntry) {
     if (!brand?.id) return;
@@ -164,6 +195,25 @@ export default function ReportsPage() {
       />
 
       <div className="page-body">
+        {/* Automatic reports */}
+        <Card title="Automatic reports" lede="Generate this brand's visibility report on a schedule — it's saved to the history below, ready to download.">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Frequency</div>
+              <select className="sel" style={{ width: '100%', maxWidth: 220 }} value={frequency} onChange={e => saveSchedule(e.target.value as 'off' | 'weekly' | 'monthly')}>
+                <option value="off">Off — manual only</option>
+                <option value="weekly">Weekly (every Monday)</option>
+                <option value="monthly">Monthly (1st of the month)</option>
+              </select>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.5 }}>
+              {frequency === 'off'
+                ? 'Turn on to auto-generate the AI Visibility report and keep a running history.'
+                : <>Auto-generates {frequency}. {lastRunAt ? <>Last generated <b style={{ color: 'var(--text-2)' }}>{fmtWhen(lastRunAt)}</b>.</> : 'It will appear in history after the next scheduled run.'}</>}
+            </div>
+          </div>
+        </Card>
+
         {/* Report details */}
         <Card title="Report details" lede="Give your report a title and an optional note. These appear on the cover.">
           <div style={{ display: 'grid', gap: 14 }}>
