@@ -534,8 +534,9 @@
 .lvx .stack { display: flex; width: 100%; border-radius: 3px; overflow: hidden; border: 1px solid var(--line); }
 .lvx .stack span { display: block; height: 100%; border-right: 1px solid var(--bg); }
 .lvx .stack span:last-child { border-right: 0; }
-.lvx .cit { font-size: 11px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--line); padding: 2px 6px; border-radius: 3px; }
-.lvx .cit:hover { color: var(--accent); border-color: var(--line-2); }
+.lvx .cit { font-size: 11px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--line); padding: 2px 6px; border-radius: 3px; text-decoration: none; cursor: pointer; transition: color .12s, border-color .12s, background .12s; }
+a.cit, .lvx a.cit { text-decoration: none; }
+.lvx .cit:hover { color: var(--accent); border-color: var(--line-2); background: var(--surface); }
 
 /* ── Info / Term / tooltip / glossary ── */
 .lvx .lv-info { display:inline-flex; align-items:center; justify-content:center; color: var(--mute); cursor:help; vertical-align:middle; margin-left:5px; outline:none; transition:color .12s; position: relative; }
