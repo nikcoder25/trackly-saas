@@ -213,7 +213,7 @@ function ProdSubbar() {
         <b>{meta.label}</b>
       </div>
       <div className="subbar-right">
-        <span className="subbar-run"><span className="pulse" /> Auto-runs · hourly</span>
+        <span className="subbar-run"><span className="pulse" /> Auto-runs</span>
       </div>
     </div>
   );
