@@ -99,7 +99,8 @@ function renderCover(doc, brand, selection, mCount, qCount) {
 function renderSummary(doc, brand, mentions, queries) {
   const { M, cw } = geo(doc);
   const engines = new Set([...mentions.map(m => platMeta(m.platform).short), ...queries.flatMap(q => [])]).size;
-  const avgRate = queries.length ? Math.round(queries.reduce((s, q) => s + (q.rate || 0), 0) / queries.length) : null;
+  const rated = queries.filter(q => q.rate !== undefined && q.rate !== null);
+  const avgRate = rated.length ? Math.round(rated.reduce((s, q) => s + q.rate, 0) / rated.length) : null;
   const cards = [
     { label: 'Mentions', value: String(mentions.length), sub: 'AI answers included', color: C.primary },
     { label: 'Queries', value: String(queries.length), sub: 'prompts included', color: C.violet },
@@ -173,7 +174,8 @@ function renderQueries(doc, queries) {
     doc.font('Helvetica').fontSize(9.5).fillColor(C.text).text(clamp(q.q, 64), M + numW, ry, { width: qW - 8, lineBreak: false, ellipsis: true });
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor(sovColor(q.sov || 0)).text(`${q.sov || 0}%`, M + numW + qW, ry, { width: sovW });
     doc.font('Helvetica').fontSize(9).fillColor(C.muted).text(`${q.engines || 0}/5`, M + numW + qW + sovW, ry, { width: engW });
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(sovColor(q.rate || 0)).text(`${q.rate || 0}%`, M + numW + qW + sovW + engW, ry, { width: rateW });
+    const hasRate = q.rate !== undefined && q.rate !== null;
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(hasRate ? sovColor(q.rate) : C.faint).text(hasRate ? `${q.rate}%` : '—', M + numW + qW + sovW + engW, ry, { width: rateW });
     doc.y = ry + 19;
   });
   doc.y += 4;

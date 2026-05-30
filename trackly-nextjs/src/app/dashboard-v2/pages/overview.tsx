@@ -726,6 +726,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
   const { selectedBrand } = useBrands();
   const brandId = (selectedBrand as any)?.id as string | undefined;
   const [copied, setCopied] = React.useState(false);
+  const [added, setAdded] = React.useState(false);
 
   // Strip light markdown and collapse whitespace so the answer reads as a single
   // clean paragraph in the drawer body — matches the Evidence & Proof excerpt.
@@ -767,7 +768,19 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
       toast('Could not copy to clipboard', 'error');
     }
   };
-  const handleReport = () => { downloadBrandReport(brandId, (selectedBrand as any)?.name, toast); };
+  const handleAddToReport = async () => {
+    if (!brandId) { toast('Select a brand first to build a report.', 'error'); return; }
+    try {
+      const res = await fetch(`/api/brands/${brandId}/report/items`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'mention', payload: { platform: item.platform || item.p?.name, query: item.q, tag: item.tag, meta: item.meta, answer: item.answer || '', sources: item.sources || item.citations || [] } }),
+      });
+      if (!res.ok) { toast('Could not add to report.', 'error'); return; }
+      const j = await res.json().catch(() => ({}));
+      setAdded(true);
+      toast(j.duplicate ? 'Already in your report' : 'Added to report');
+    } catch { toast('Could not add to report.', 'error'); }
+  };
 
   return (
     <>
@@ -833,7 +846,7 @@ function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => voi
             <button className="btn-g" onClick={handleFlag}>⚐ Flag as hallucination</button>
             <button className="btn-g" onClick={handleShare}>↗ {copied ? 'Copied!' : 'Share'}</button>
             <a className="btn-g" href="/dashboard/proof" style={{ textDecoration: 'none' }}>Open in Evidence &amp; Proof</a>
-            <button className="btn-p" onClick={handleReport}>Download report</button>
+            <button className="btn-p" onClick={handleAddToReport} disabled={added}>{added ? 'Added ✓' : '+ Add to report'}</button>
           </div>
         </div>
       </aside>
@@ -903,6 +916,25 @@ function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: RecentI
 }
 
 function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: number }) {
+  const { selectedBrand } = useBrands();
+  const { toast } = useToast();
+  const brandId = (selectedBrand as any)?.id as string | undefined;
+  const [addedQ, setAddedQ] = React.useState<Record<string, boolean>>({});
+
+  const addQuery = async (r: QueryRow) => {
+    if (!brandId) { toast('Select a brand first to build a report.', 'error'); return; }
+    try {
+      const res = await fetch(`/api/brands/${brandId}/report/items`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'query', payload: { q: r.q, sov: r.sov, engines: r.eng } }),
+      });
+      if (!res.ok) { toast('Could not add to report.', 'error'); return; }
+      const j = await res.json().catch(() => ({}));
+      setAddedQ(prev => ({ ...prev, [r.q]: true }));
+      toast(j.duplicate ? 'Already in your report' : 'Added to report');
+    } catch { toast('Could not add to report.', 'error'); }
+  };
+
   return (
     <Card title="Top tracked queries" info="prompt"
       lede="The buyer questions you watch — and how visible you are on each."
@@ -913,7 +945,7 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
         </div>
       ) : (
       <table className="tbl">
-        <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th></tr></thead>
+        <thead><tr><th>QUERY</th><th className="right">SOV</th><th className="right">Δ</th><th className="right">MENTIONS</th><th className="right">ENGINES</th><th /></tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={i}>
@@ -922,6 +954,12 @@ function OverviewQueriesTable({ rows, totalQ }: { rows: QueryRow[]; totalQ: numb
               <td className="right"><Delta v={r.d} suffix="%" /></td>
               <td className="right num">{r.mentions}</td>
               <td className="right num">{r.eng}/5</td>
+              <td className="right">
+                <button className="btn-d" style={{ padding: '3px 8px', fontSize: 10.5, whiteSpace: 'nowrap' }}
+                  onClick={() => addQuery(r)} disabled={!!addedQ[r.q]} title="Add this query to your report">
+                  {addedQ[r.q] ? 'Added ✓' : '+ Report'}
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
