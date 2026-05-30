@@ -216,6 +216,12 @@ function brandApi(brandId: string, path = '', method = 'GET', body?: unknown) {
   return fetch(`/api/brands/${brandId}/accuracy${path}`, opts);
 }
 
+// Notify other pages (e.g. the Overview's Accuracy health bar + FALSE CLAIMS
+// KPI) that accuracy data changed, so they re-fetch and stay in sync.
+function broadcastAccuracyUpdate() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('livesov:accuracy-updated'));
+}
+
 // ── Source URL Link (extracted from IIFE) ──────────────────────
 function SourceUrlLink({ issue }: { issue: Issue }) {
   if (!issue.source_url) return null;
@@ -333,6 +339,7 @@ export default function AccuracyPage() {
       if (d.platformStats) setPlatformStats(d.platformStats);
       if (d.categoryStats) setCategoryStats(d.categoryStats);
       setLastChecked(new Date().toISOString());
+      broadcastAccuracyUpdate();
       // Show message from API or generate a summary
       if (d.message) {
         setCheckMessage({ text: d.message, isError: false });
@@ -422,6 +429,7 @@ export default function AccuracyPage() {
       setIssues(prev => prev.map(iss =>
         iss.id === issue.id ? { ...iss, fixed: d.fixed, fixed_at: d.fixed_at } : iss
       ));
+      broadcastAccuracyUpdate();
       toast(d.fixed ? 'Issue marked as fixed.' : 'Issue marked as unfixed.');
     } catch (err) {
       toast(`Failed to update issue: ${(err as Error).message}`, 'error');
@@ -443,6 +451,7 @@ export default function AccuracyPage() {
         setIssues(prev => prev.map(iss =>
           iss.id === issue.id ? { ...iss, fixed: false, fixed_at: undefined, found: d.found || iss.found, explanation: d.explanation || iss.explanation } : iss
         ));
+        broadcastAccuracyUpdate();
         toast('Issue still present - marked as unfixed.', 'error');
       } else {
         toast('Verified - issue is fixed!');

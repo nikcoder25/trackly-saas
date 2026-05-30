@@ -80,11 +80,47 @@ export function useOverviewData(): OverviewData | null {
   // live runs — exactly like every other dashboard page. Previously this made a
   // one-off /api/brands fetch on mount that never re-ran when the brand changed.
   const { brand, loading } = useBrandData({ fullData: true });
+  const brandId = (brand as any)?.id as string | undefined;
+
+  // Accuracy data lives behind /api/brands/:id/accuracy — the same endpoint the
+  // Accuracy Monitor page reads/writes. We fetch it here so the Overview's
+  // "Accuracy" health bar and "FALSE CLAIMS" KPI reflect the *real* open/fixed
+  // counts, and stay in sync when issues are marked fixed on the monitor page.
+  const [accData, setAccData] = React.useState<any>(null);
+
+  const loadAccuracy = React.useCallback(() => {
+    if (!brandId) return;
+    fetch(`/api/brands/${brandId}/accuracy`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => setAccData(d ?? null))
+      .catch(() => { /* leave prior value; non-fatal */ });
+  }, [brandId]);
+
+  // Reset on brand change (avoids briefly showing the previous brand's numbers),
+  // then load the selected brand's accuracy data.
+  React.useEffect(() => {
+    setAccData(null);
+    loadAccuracy();
+  }, [loadAccuracy]);
+
+  // Re-fetch whenever a run completes or an accuracy issue is toggled/checked
+  // anywhere in the app, so fixing claims updates the Overview right away.
+  React.useEffect(() => {
+    if (!brandId) return;
+    const handler = () => loadAccuracy();
+    window.addEventListener('livesov:run-complete', handler);
+    window.addEventListener('livesov:accuracy-updated', handler);
+    return () => {
+      window.removeEventListener('livesov:run-complete', handler);
+      window.removeEventListener('livesov:accuracy-updated', handler);
+    };
+  }, [brandId, loadAccuracy]);
+
   return React.useMemo(() => {
     if (loading) return null;
     if (!brand) return buildFallback();
-    return buildFromBrand(brand as any);
-  }, [brand, loading]);
+    return buildFromBrand(brand as any, accData);
+  }, [brand, loading, accData]);
 }
 
 function buildFallback(): OverviewData {
