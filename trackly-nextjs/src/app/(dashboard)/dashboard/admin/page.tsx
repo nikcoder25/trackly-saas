@@ -227,36 +227,44 @@ export default function AdminPage() {
           <div>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(99,102,241,0.75)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 4px' }}>Total Users</p>
             <p style={{ fontSize: 42, fontWeight: 900, color: '#6366f1', fontFamily: 'var(--mono)', margin: 0, lineHeight: 1, letterSpacing: '-0.03em' }}>{total}</p>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '6px 0 0' }}>Active platform users</p>
           </div>
         </div>
       </div>
 
-      {/* ── Plan stat cards: 2-col → 3-col → 6-col ── */}
-      <div className="ap-plans-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 28 }}>
-        {STAT_PLANS.map(plan => {
-          const cfg = PLAN_CFG[plan] ?? DEFAULT_CFG;
-          return (
-            <div key={plan} style={{
-              background: 'var(--bg2)',
-              border: '1px solid var(--border)',
-              borderLeft: `3px solid ${cfg.color}`,
-              borderRadius: 12, padding: '14px 16px',
-              position: 'relative', overflow: 'hidden',
-              transition: 'transform .15s, box-shadow .15s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.09)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-            >
-              <div style={{ position: 'absolute', top: -18, right: -18, width: 56, height: 56, borderRadius: '50%', background: cfg.bg, pointerEvents: 'none' }} />
-              <p style={{ fontSize: 10, fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }}>
-                <span>{cfg.icon}</span>{cfg.label}
-              </p>
-              <p style={{ fontSize: 30, fontWeight: 900, color: cfg.color, fontFamily: 'var(--mono)', margin: 0, lineHeight: 1, position: 'relative' }}>
-                {planCounts[plan] ?? 0}
-              </p>
-            </div>
-          );
-        })}
+      {/* ── Plan stat cards: 1-col → 2-col → 3-col → 6-col ── */}
+      <div style={{ width: '100%', maxWidth: '100%', overflow: 'hidden', marginBottom: 28 }}>
+        <div className="ap-plans-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
+          {STAT_PLANS.map(plan => {
+            const cfg = PLAN_CFG[plan] ?? DEFAULT_CFG;
+            const count = planCounts[plan] ?? 0;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            return (
+              <div key={plan} style={{
+                background: 'var(--bg2)',
+                border: '1px solid var(--border)',
+                borderLeft: `3px solid ${cfg.color}`,
+                borderRadius: 12, padding: '14px 16px',
+                position: 'relative', overflow: 'hidden', minWidth: 0, boxSizing: 'border-box',
+                transition: 'transform .15s, box-shadow .15s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.09)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+              >
+                <div style={{ position: 'absolute', top: -18, right: -18, width: 56, height: 56, borderRadius: '50%', background: cfg.bg, pointerEvents: 'none' }} />
+                <p style={{ fontSize: 10, fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }}>
+                  <span>{cfg.icon}</span>{cfg.label}
+                </p>
+                <p style={{ fontSize: 30, fontWeight: 900, color: cfg.color, fontFamily: 'var(--mono)', margin: 0, lineHeight: 1, position: 'relative' }}>
+                  {count}
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', margin: '6px 0 0', position: 'relative' }}>
+                  {pct}% · of {total} {total === 1 ? 'user' : 'users'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Search & Refresh ── */}
@@ -402,7 +410,7 @@ export default function AdminPage() {
             {users.map(u => {
               const planColor = PLAN_CFG[u.plan?.toLowerCase()]?.color ?? DEFAULT_CFG.color;
               return (
-                <div key={u.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                <div key={u.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
                   <div style={{ height: 3, background: `linear-gradient(90deg,${planColor},transparent)` }} />
                   <div style={{ padding: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
@@ -420,15 +428,15 @@ export default function AdminPage() {
                       <VerifiedBadge verified={u.email_verified} />
                       {u.created_at && <span style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <button
                         onClick={() => { setEditingUser(u); setEditPlan(u.plan); }}
-                        style={{ flex: 1, padding: '9px 0', borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)', background: 'rgba(99,102,241,.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,.25)', cursor: 'pointer' }}
+                        style={{ width: '100%', padding: '9px 0', borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)', background: 'rgba(99,102,241,.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,.25)', cursor: 'pointer', boxSizing: 'border-box' }}
                       >Edit</button>
                       {u.role !== 'admin' && (
                         <button
                           onClick={() => deleteUser(u.id, u.email)}
-                          style={{ flex: 1, padding: '9px 0', borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)', background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all .15s' }}
+                          style={{ width: '100%', padding: '9px 0', borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: 'var(--font)', background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', boxSizing: 'border-box', transition: 'all .15s' }}
                           onMouseEnter={e => { e.currentTarget.style.color = '#dc2626'; e.currentTarget.style.borderColor = 'rgba(220,38,38,.3)'; e.currentTarget.style.background = 'rgba(220,38,38,.06)'; }}
                           onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; }}
                         >Delete</button>
@@ -562,12 +570,13 @@ export default function AdminPage() {
       <style>{`
         @keyframes apModalIn { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:none; } }
 
-        /* Plans grid: 2-col → 3-col → 6-col */
+        /* Plans grid: 1-col → 2-col → 3-col → 6-col */
+        @media (min-width: 420px)  { .ap-plans-grid { grid-template-columns: repeat(2,1fr) !important; } }
         @media (min-width: 640px)  { .ap-plans-grid { grid-template-columns: repeat(3,1fr) !important; } }
         @media (min-width: 1024px) { .ap-plans-grid { grid-template-columns: repeat(6,1fr) !important; } }
 
         /* Mobile cards: hidden by default, shown < 768px */
-        .ap-mobile-cards { display: none; flex-direction: column; gap: 10; }
+        .ap-mobile-cards { display: none; flex-direction: column; gap: 10px; width: 100%; max-width: 100%; }
         @media (max-width: 767px) {
           .ap-table-wrap   { display: none !important; }
           .ap-mobile-cards { display: flex !important; }
