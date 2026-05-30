@@ -88,19 +88,23 @@ export function useOverviewData(): OverviewData | null {
   // counts, and stay in sync when issues are marked fixed on the monitor page.
   const [accData, setAccData] = React.useState<any>(null);
 
-  const loadAccuracy = React.useCallback(() => {
+  const loadAccuracy = React.useCallback((signal?: AbortSignal) => {
     if (!brandId) return;
-    fetch(`/api/brands/${brandId}/accuracy`, { credentials: 'include' })
+    fetch(`/api/brands/${brandId}/accuracy`, { credentials: 'include', signal })
       .then(r => (r.ok ? r.json() : null))
-      .then(d => setAccData(d ?? null))
-      .catch(() => { /* leave prior value; non-fatal */ });
+      .then(d => { if (!signal?.aborted) setAccData(d ?? null); })
+      .catch(() => { /* aborted or network error; leave prior value, non-fatal */ });
   }, [brandId]);
 
   // Reset on brand change (avoids briefly showing the previous brand's numbers),
-  // then load the selected brand's accuracy data.
+  // then load the selected brand's accuracy data. The AbortController guards
+  // against a slow response for a previous brand landing after a faster one for
+  // the newly-selected brand.
   React.useEffect(() => {
+    const controller = new AbortController();
     setAccData(null);
-    loadAccuracy();
+    loadAccuracy(controller.signal);
+    return () => controller.abort();
   }, [loadAccuracy]);
 
   // Re-fetch whenever a run completes or an accuracy issue is toggled/checked
