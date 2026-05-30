@@ -9,6 +9,20 @@ import { Card, Badge, PageHead, PlatformTile, PLATFORMS, type Platform } from '@
 interface Brand { id: string; name?: string }
 interface ReportItem { id: string; kind: 'mention' | 'query'; payload: Record<string, unknown>; position: number }
 interface Draft { title: string; note: string; items: ReportItem[] }
+interface HistoryEntry { id: string; kind: 'standard' | 'custom'; title: string; filename: string; sizeBytes: number; meta: Record<string, unknown>; createdAt: string }
+
+function fmtBytes(n: number) { return n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`; }
+function fmtWhen(iso: string) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+function historyMeta(h: HistoryEntry): string {
+  if (h.kind === 'custom') {
+    const m = Number(h.meta.mentions) || 0, q = Number(h.meta.queries) || 0;
+    return `${m} mention${m !== 1 ? 's' : ''} · ${q} quer${q !== 1 ? 'ies' : 'y'}`;
+  }
+  return h.meta.sov != null ? `${h.meta.sov}% Share of Voice` : 'Full visibility report';
+}
 
 function platformFor(name: string): Platform {
   const lc = (name || '').toLowerCase();
@@ -27,6 +41,7 @@ export default function ReportsPage() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const load = useCallback((brandId: string) => {
     fetch(`/api/brands/${brandId}/report/items`, { credentials: 'include', cache: 'no-store' })
@@ -35,7 +50,32 @@ export default function ReportsPage() {
       .catch(() => { /* non-fatal */ });
   }, []);
 
-  useEffect(() => { if (brand?.id) load(brand.id); }, [brand?.id, load]);
+  const loadHistory = useCallback((brandId: string) => {
+    fetch(`/api/brands/${brandId}/report/history`, { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { history?: HistoryEntry[] } | null) => { if (d) setHistory(d.history || []); })
+      .catch(() => { /* non-fatal */ });
+  }, []);
+
+  useEffect(() => { if (brand?.id) { load(brand.id); loadHistory(brand.id); } }, [brand?.id, load, loadHistory]);
+
+  async function reDownload(h: HistoryEntry) {
+    if (!brand?.id) return;
+    try {
+      const res = await fetch(`/api/brands/${brand.id}/report/history/${h.id}`, { credentials: 'include' });
+      if (!res.ok) { toast('That report is no longer available.', 'error'); loadHistory(brand.id); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = h.filename;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    } catch { toast('Could not download. Please try again.', 'error'); }
+  }
+
+  async function delHistory(h: HistoryEntry) {
+    if (!brand?.id) return;
+    await fetch(`/api/brands/${brand.id}/report/history?id=${h.id}`, { method: 'DELETE', credentials: 'include' }).catch(() => {});
+    setHistory(prev => prev.filter(x => x.id !== h.id));
+  }
 
   const mentions = draft.items.filter(i => i.kind === 'mention');
   const queries = draft.items.filter(i => i.kind === 'query');
@@ -93,6 +133,7 @@ export default function ReportsPage() {
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
       toast('Report downloaded');
+      loadHistory(brand.id);
     } catch {
       toast('Could not generate the report. Please try again.', 'error');
     } finally { setDownloading(false); }
@@ -207,6 +248,30 @@ export default function ReportsPage() {
             </Card>
           </>
         )}
+
+        {/* Report history */}
+        <Card title="Report history" right={history.length ? <Badge tone="neu">{history.length}</Badge> : undefined}
+          lede="Reports you've generated for this brand — re-download anytime." padding={false}>
+          {history.length === 0 ? (
+            <div className="quiet" style={{ padding: '24px 16px', fontSize: 13, textAlign: 'center' }}>
+              No reports generated yet. Download a report above or from the Overview to see it here.
+            </div>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {history.map(h => (
+                <li key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px', borderBottom: '1px solid var(--line)' }}>
+                  <Badge tone={h.kind === 'custom' ? 'acc' : 'neu'}>{h.kind === 'custom' ? 'CUSTOM' : 'VISIBILITY'}</Badge>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.title || h.filename}</div>
+                    <div className="quiet" style={{ fontSize: 11 }}>{fmtWhen(h.createdAt)} · {historyMeta(h)} · {fmtBytes(h.sizeBytes)}</div>
+                  </div>
+                  <button className="btn-g" style={{ flexShrink: 0, padding: '4px 10px', fontSize: 11 }} onClick={() => reDownload(h)}>↓ Download</button>
+                  <button className="btn-d" style={{ flexShrink: 0, padding: '4px 8px', fontSize: 11 }} onClick={() => delHistory(h)}>Delete</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
     </div>
   );
