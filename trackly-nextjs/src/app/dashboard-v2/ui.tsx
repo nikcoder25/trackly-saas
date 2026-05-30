@@ -299,7 +299,29 @@ export function StackBar({ items, height = 14 }: { items: { label: string; value
 }
 
 export function Cit({ url }: { url: string }) {
-  return <a className="cit mono" href="#" onClick={e => e.preventDefault()}>{url}</a>;
+  const href = (() => {
+    const s = String(url || '').trim();
+    if (!s) return '';
+    const withScheme = /^https?:\/\//i.test(s) ? s : `https://${s}`;
+    try {
+      const u = new URL(withScheme);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+      if (!u.hostname || !u.hostname.includes('.')) return '';
+      return u.toString();
+    } catch { return ''; }
+  })();
+  if (!href) return <span className="cit mono">{url}</span>;
+  return (
+    <a
+      className="cit mono"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open ${href} in a new tab`}
+    >
+      {url}
+    </a>
+  );
 }
 
 /* ───────────────────────────── Glossary + tooltips ───────────────────────────── */
