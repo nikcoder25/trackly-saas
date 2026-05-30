@@ -15,11 +15,31 @@ import { useBrandData } from '@/hooks/useBrandData';
 import { useRun } from '@/contexts/RunContext';
 import { useToast } from '@/components/dashboard/Toast';
 import { useBrands } from '@/contexts/BrandContext';
+import { highlightBrand as highlightBrandText, sanitizeHtml } from '@/lib/sanitize';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
 
 interface QueryRow { q: string; sov: number; d: number; mentions: number; eng: number }
-interface RecentItem { p: Platform; q: string; tag: string; meta: string; t: string; answer?: string; sources?: string[] }
+interface RecentItem {
+  p: Platform;
+  q: string;
+  tag: string;
+  meta: string;
+  t: string;
+  answer?: string;
+  // Legacy field name kept for the share/report action handlers.
+  sources?: string[];
+  // Full result context for the drawer presentation.
+  platform: string;
+  model?: string;
+  mentioned: boolean;
+  position?: number;
+  sentiment?: string;
+  citations?: string[];
+  competitorMentions?: string[];
+  error?: string;
+  brandName: string;
+}
 
 interface OverviewData {
   hasReal: boolean;
@@ -180,12 +200,12 @@ function buildFallback(): OverviewData {
       { q: 'free alternative to monday.com', sov: 8, d: -1, mentions: 18, eng: 4 },
     ],
     recent: [
-      { p: PLATFORMS[1], q: 'best agile pm tool for engineering teams', tag: 'pos', meta: 'Acme · 2nd of 5', t: '2m', answer: 'For engineering teams, the most-recommended tools are Linear, Acme, and Asana. Acme is praised for its GitHub-native workflow and AI summaries.', sources: ['linear.app/why', 'acme.com/customers', 'asana.com/eng', 'g2.com/category/pm'] },
-      { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m', answer: 'Both Linear and Acme are popular with startups. Linear is known for speed; Acme for its AI-assisted planning and GitHub integration.', sources: ['linear.app', 'acme.com/startups'] },
-      { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m', answer: 'The most affordable AI-enabled options include Trello, ClickUp, and Notion. (Acme was not mentioned in this answer.)', sources: ['trello.com', 'clickup.com'] },
-      { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m', answer: 'Acme costs about $8 per seat per month, so 50 seats would be roughly $400/month.', sources: ['acme.com/pricing'] },
-      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m', answer: 'Yes — Acme is frequently cited as a strong choice for product teams thanks to its roadmap views and AI summaries.', sources: ['acme.com/product', 'producthunt.com/products/acme'] },
-      { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m', answer: 'Large enterprises like Intuit are often associated with Jira and Asana; Acme is also mentioned as a growing alternative.', sources: ['g2.com/category/pm'] },
+      { p: PLATFORMS[1], q: 'best agile pm tool for engineering teams', tag: 'pos', meta: 'Acme · 2nd of 5', t: '2m', platform: 'Claude', mentioned: true, position: 2, sentiment: 'positive', brandName: 'Acme PM', answer: 'For engineering teams, the most-recommended tools are Linear, Acme, and Asana. Acme is praised for its GitHub-native workflow and AI summaries.', sources: ['linear.app/why', 'acme.com/customers', 'asana.com/eng', 'g2.com/category/pm'], citations: ['linear.app/why', 'acme.com/customers', 'asana.com/eng', 'g2.com/category/pm'] },
+      { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m', platform: 'ChatGPT', mentioned: true, brandName: 'Acme PM', answer: 'Both Linear and Acme are popular with startups. Linear is known for speed; Acme for its AI-assisted planning and GitHub integration.', sources: ['linear.app', 'acme.com/startups'], citations: ['linear.app', 'acme.com/startups'] },
+      { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m', platform: 'Gemini', mentioned: false, brandName: 'Acme PM', answer: 'The most affordable AI-enabled options include Trello, ClickUp, and Notion. (Acme was not mentioned in this answer.)', sources: ['trello.com', 'clickup.com'], citations: ['trello.com', 'clickup.com'] },
+      { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m', platform: 'Perplexity', mentioned: true, brandName: 'Acme PM', answer: 'Acme costs about $8 per seat per month, so 50 seats would be roughly $400/month.', sources: ['acme.com/pricing'], citations: ['acme.com/pricing'] },
+      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m', platform: 'Grok', mentioned: true, position: 1, sentiment: 'positive', brandName: 'Acme PM', answer: 'Yes — Acme is frequently cited as a strong choice for product teams thanks to its roadmap views and AI summaries.', sources: ['acme.com/product', 'producthunt.com/products/acme'], citations: ['acme.com/product', 'producthunt.com/products/acme'] },
+      { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m', platform: 'ChatGPT', mentioned: true, position: 3, brandName: 'Acme PM', answer: 'Large enterprises like Intuit are often associated with Jira and Asana; Acme is also mentioned as a growing alternative.', sources: ['g2.com/category/pm'], citations: ['g2.com/category/pm'] },
     ],
     insights: [],
     accuracyRate: 88,
@@ -329,10 +349,34 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
         : 'not mentioned';
       const answer = r.response || r.snippet || r.raw || r.context || '';
       const rawSources = Array.isArray(r.sources) ? r.sources : Array.isArray(r.citations) ? r.citations : [];
-      const sources = rawSources
+      const sources: string[] = rawSources
         .map((s: any) => (typeof s === 'string' ? s : s?.url || s?.domain || ''))
         .filter(Boolean);
-      return { p: matchPlatform(r.platform), q: r.query, tag, meta, t: relTime(runDate), answer, sources };
+      const citations = Array.isArray(r.citations)
+        ? r.citations
+            .map((c: any) => (typeof c === 'string' ? c : c?.url || c?.domain || ''))
+            .filter((c: string) => Boolean(c))
+        : sources;
+      return {
+        p: matchPlatform(r.platform),
+        q: r.query,
+        tag,
+        meta,
+        t: relTime(runDate),
+        answer,
+        sources,
+        platform: String(r.platform || ''),
+        model: typeof r.model === 'string' ? r.model : undefined,
+        mentioned,
+        position: pos != null ? Number(pos) : undefined,
+        sentiment: typeof r.sentiment === 'string' ? r.sentiment : undefined,
+        citations,
+        competitorMentions: Array.isArray(r.competitorMentions)
+          ? r.competitorMentions.filter((c: unknown): c is string => typeof c === 'string')
+          : undefined,
+        error: typeof r.errorMessage === 'string' ? r.errorMessage : (typeof r.error === 'string' ? r.error : undefined),
+        brandName: brand.name || '',
+      };
     });
 
   // top tracked queries — aggregate mention rate / engines across all runs
@@ -454,7 +498,7 @@ function DownloadReportButton() {
 
 export function PageOverview() {
   const [range, setRange] = React.useState('7d');
-  const [drawer, setDrawer] = React.useState<any>(null);
+  const [drawer, setDrawer] = React.useState<RecentItem | null>(null);
   const data = useOverviewData();
   const d = data || buildFallback();
 
@@ -676,15 +720,30 @@ async function downloadBrandReport(brandId: string | undefined, brandName: strin
   }
 }
 
-function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
+function MentionDrawer({ item, onClose }: { item: RecentItem; onClose: () => void }) {
   const { startRun } = useRun();
   const { toast } = useToast();
   const { selectedBrand } = useBrands();
   const brandId = (selectedBrand as any)?.id as string | undefined;
   const [copied, setCopied] = React.useState(false);
 
-  const answer: string = item.answer || '';
-  const sources: string[] = Array.isArray(item.sources) ? item.sources : [];
+  // Strip light markdown and collapse whitespace so the answer reads as a single
+  // clean paragraph in the drawer body — matches the Evidence & Proof excerpt.
+  const answerExcerpt = (item.answer || '')
+    .replace(/[#*_~`]/g, '')
+    .replace(/\n+/g, ' ')
+    .trim();
+  const highlighted = answerExcerpt
+    ? sanitizeHtml(highlightBrandText(answerExcerpt, item.brandName))
+    : '';
+  const verdictTone = item.error ? 'warn' : item.mentioned ? 'pos' : 'neg';
+  const verdictLabel = item.error
+    ? 'ERROR'
+    : item.mentioned
+      ? `FOUND${item.position ? ` · #${item.position}` : ''}`
+      : 'NOT FOUND';
+  const sentiment = item.sentiment || (item.mentioned ? 'neutral' : '—');
+  const modelLine = [item.platform || item.p.name, item.model, item.t].filter(Boolean).join(' · ');
 
   const handleRerun = () => {
     if (!brandId) { toast('Select a brand first to run queries.', 'error'); return; }
@@ -698,7 +757,7 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
     window.location.href = '/dashboard/accuracy';
   };
   const handleShare = async () => {
-    const text = `${item.p?.name} · "${item.q}"\nVerdict: ${(item.tag || 'neu').toUpperCase()} — ${item.meta}\n\n${answer || '(no response text captured)'}`;
+    const text = `${item.platform || item.p?.name} · "${item.q}"\nVerdict: ${verdictLabel} — ${item.meta}\n\n${item.answer || '(no response text captured)'}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -718,8 +777,8 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <PlatformTile p={item.p} size={30} />
             <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{item.p.name}</div>
-              <div className="mono dim" style={{ fontSize: 11 }}>{item.t}</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{item.platform || item.p.name}</div>
+              <div className="mono dim" style={{ fontSize: 11 }}>{modelLine}</div>
             </div>
           </div>
           <button className="icon-btn" onClick={onClose} title="Close">
@@ -730,18 +789,41 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
           <div className="eyebrow">QUERY</div>
           <div style={{ fontSize: 14.5, color: 'var(--text)', padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 6, margin: '8px 0 18px', fontFamily: 'var(--mono)' }}>&ldquo;{item.q}&rdquo;</div>
           <div className="eyebrow">VERDICT</div>
-          <div style={{ display: 'flex', gap: 8, margin: '8px 0 18px' }}><Badge tone={item.tag}>{(item.tag || 'neu').toUpperCase()}</Badge> <span className="quiet" style={{ fontSize: 13 }}>{item.meta}</span></div>
+          <div style={{ display: 'flex', gap: 8, margin: '8px 0 18px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Badge tone={verdictTone}>{verdictLabel}</Badge>
+            <span className="quiet" style={{ fontSize: 13 }}>{item.meta}</span>
+            {!item.error && (
+              <span className="mono dim" style={{ fontSize: 11 }}>· sentiment: {sentiment}</span>
+            )}
+          </div>
           <div className="eyebrow">VERBATIM ANSWER</div>
-          {answer ? (
-            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text)', margin: '8px 0 18px', whiteSpace: 'pre-wrap' }}>{answer}</p>
+          {item.error ? (
+            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--warn)', margin: '8px 0 18px' }}>{item.error}</p>
+          ) : highlighted ? (
+            <p
+              style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text)', margin: '8px 0 18px' }}
+              dangerouslySetInnerHTML={{ __html: highlighted }}
+            />
           ) : (
-            <p className="quiet" style={{ fontSize: 13, margin: '8px 0 18px' }}>No response text was captured for this mention.</p>
+            <p className="quiet" style={{ fontSize: 13, margin: '8px 0 18px' }}>
+              No response text captured for this result.
+            </p>
           )}
-          {sources.length > 0 && (
+          {item.competitorMentions && item.competitorMentions.length > 0 && (
+            <>
+              <div className="eyebrow">ALSO MENTIONED</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
+                {item.competitorMentions.map((c, i) => (
+                  <span key={i} className="badge badge-neu">{c}</span>
+                ))}
+              </div>
+            </>
+          )}
+          {item.citations && item.citations.length > 0 && (
             <>
               <div className="eyebrow">SOURCES CITED</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
-                {sources.map((s, i) => <Cit key={i} url={s} />)}
+                {item.citations.map((c, i) => <Cit key={i} url={c} />)}
               </div>
             </>
           )}
@@ -750,6 +832,7 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
             <button className="btn-g" onClick={handleRerun}>↻ Re-run this query</button>
             <button className="btn-g" onClick={handleFlag}>⚐ Flag as hallucination</button>
             <button className="btn-g" onClick={handleShare}>↗ {copied ? 'Copied!' : 'Share'}</button>
+            <a className="btn-g" href="/dashboard/proof" style={{ textDecoration: 'none' }}>Open in Evidence &amp; Proof</a>
             <button className="btn-p" onClick={handleReport}>Download report</button>
           </div>
         </div>
@@ -788,7 +871,7 @@ function OverviewEngineGrid({ platforms }: { platforms: Platform[] }) {
   );
 }
 
-function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: any) => void; total: number; items: RecentItem[] }) {
+function OverviewRecentMentions({ onOpen, total, items }: { onOpen: (it: RecentItem) => void; total: number; items: RecentItem[] }) {
   return (
     <Card title="Recent mentions" info="mention"
       lede="The newest AI answers that named you — click any row to read the exact wording."
