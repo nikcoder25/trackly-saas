@@ -63,6 +63,45 @@ export default function PromptDetailsPage() {
   const ranked = queryResults.filter(r => r.position || r.listPosition);
   const avgPos = ranked.length > 0 ? (ranked.reduce((s, r) => s + (r.listPosition || r.position || 0), 0) / ranked.length) : 0;
 
+  // Previous-period visibility (the equal-length window immediately before the
+  // current one) → a *real* "vs prev period" delta instead of a hardcoded 0%.
+  const prevVisRate = useMemo(() => {
+    const now = Date.now();
+    const curStart = now - periodDays * 86400000;
+    const prevStart = now - periodDays * 2 * 86400000;
+    let total = 0, found = 0;
+    allRuns.forEach(run => {
+      const t = run.date ? new Date(run.date).getTime() : NaN;
+      if (isNaN(t) || t < prevStart || t >= curStart) return;
+      (run.allResults || run.results || []).forEach(r => {
+        if (r.query === selectedQuery && (!platFilter || r.platform === platFilter)) {
+          total++; if (r.mentioned) found++;
+        }
+      });
+    });
+    return total > 0 ? (found / total) * 100 : null;
+  }, [allRuns, selectedQuery, platFilter, periodDays]);
+  const visDelta = prevVisRate != null ? visRate - prevVisRate : null;
+
+  // Per-run visibility series (oldest → newest) for this query — shared by the
+  // "Visibility Over Time" chart and its trend badge so they always agree.
+  const runVis = useMemo(() => {
+    return allRuns.slice(-10).map(run => {
+      const items = (run.allResults || run.results || []).filter(r => r.query === selectedQuery);
+      const m = items.filter(r => r.mentioned).length;
+      return { date: run.date || run.time || '', rate: items.length > 0 ? Math.round((m / items.length) * 100) : 0 };
+    }).filter(rv => rv.date);
+  }, [allRuns, selectedQuery]);
+
+  // Real trend direction from that series, replacing a permanently-"Stable" badge.
+  const visTrend = useMemo(() => {
+    if (runVis.length < 2) return { label: 'Not enough data', mod: 'flat' as const };
+    const delta = runVis[runVis.length - 1].rate - runVis[0].rate;
+    if (delta > 3) return { label: `Rising +${delta}%`, mod: 'up' as const };
+    if (delta < -3) return { label: `Falling ${delta}%`, mod: 'down' as const };
+    return { label: 'Stable', mod: 'flat' as const };
+  }, [runVis]);
+
   // Per-platform performance
   const platPerf = useMemo(() => {
     const m: Record<string, { total: number; found: number; posSum: number; posCount: number; sentPos: number; sentTotal: number; recommended: number }> = {};
@@ -162,7 +201,7 @@ export default function PromptDetailsPage() {
           <div className="pd-metric-top"><div className="pd-metric-label">Visibility Rate</div><div className="pd-metric-icon">◉</div></div>
           <div className="pd-metric-val" style={{ color: visRate >= 40 ? 'var(--green)' : visRate > 0 ? 'var(--amber)' : 'var(--red)' }}>{visRate.toFixed(1)}%</div>
           <div className="pd-metric-bar"><div className="pd-metric-bar-fill" style={{ width: `${Math.min(visRate, 100)}%`, background: visRate >= 40 ? 'var(--green)' : visRate > 0 ? 'var(--amber)' : 'var(--red)' }} /></div>
-          <div className="pd-metric-sub">- 0% vs prev period</div>
+          <div className="pd-metric-sub">{visDelta != null ? `${visDelta >= 0 ? '+' : ''}${visDelta.toFixed(1)}% vs prev period` : 'no prior period to compare'}</div>
         </div>
         <div className="pd-metric-card pd-m-plat">
           <div className="pd-metric-top"><div className="pd-metric-label">Platforms Found</div><div className="pd-metric-icon">■</div></div>
@@ -224,15 +263,10 @@ export default function PromptDetailsPage() {
         <div className="card pd-chart-card">
           <div className="pd-chart-header">
             <div className="card-title" style={{ marginBottom: 0 }}>Visibility Over Time</div>
-            <div className="pd-trend-badge pd-trend-flat">- Stable</div>
+            <div className={`pd-trend-badge ${visTrend.mod}`}>{visTrend.label}</div>
           </div>
           <div className="pd-chart-wrap">
             {queryResults.length > 0 ? (() => {
-              const runVis = allRuns.slice(-10).map(run => {
-                const items = (run.allResults || run.results || []).filter(r => r.query === selectedQuery);
-                const m = items.filter(r => r.mentioned).length;
-                return { date: run.date || run.time || '', rate: items.length > 0 ? Math.round((m / items.length) * 100) : 0 };
-              }).filter(rv => rv.date);
               if (runVis.length < 2) return <div className="pd-chart-placeholder"><div className="pd-placeholder-icon">○</div><span>Need more runs for chart</span></div>;
               return (
                 <svg viewBox="0 0 500 200" style={{ width: '100%', maxHeight: 200 }}>

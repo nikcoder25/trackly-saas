@@ -160,17 +160,18 @@ export default function ActivityPage() {
       {tab === 'key-status' && (
         <div className="card" style={{ padding: '20px 24px' }}>
           <div className="section-title">API Key Status</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {(keyStatus.length > 0 ? keyStatus : [
-              { platform: 'openai', count: 0 }, { platform: 'perplexity', count: 0 },
-              { platform: 'gemini', count: 0 }, { platform: 'claude', count: 0 }, { platform: 'grok', count: 0 }
-            ]).map(k => (
-              <div key={k.platform} style={{ padding: '16px 24px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center', minWidth: 120 }}>
-                <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: k.count > 0 ? 'var(--green)' : 'var(--muted)' }}>{k.count}</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{k.platform} keys</div>
-              </div>
-            ))}
-          </div>
+          {keyStatus.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {keyStatus.map(k => (
+                <div key={k.platform} style={{ padding: '16px 24px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', textAlign: 'center', minWidth: 120 }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--mono)', color: k.count > 0 ? 'var(--green)' : 'var(--muted)' }}>{k.count}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{k.platform} keys</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: 24, color: 'var(--muted)', fontSize: 12 }}>No API key usage recorded yet.</div>
+          )}
         </div>
       )}
     </div>
