@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
@@ -64,11 +65,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const filename = `${safeName}_AI_Visibility_Report_${dateStr}.pdf`;
 
     // Record in history (best-effort) so it's re-downloadable from /dashboard/reports.
-    const brandRec = brand as Record<string, unknown>;
-    const runs = (Array.isArray(brandRec.runs) ? brandRec.runs : []) as { sov?: number }[];
-    const lastSov = runs.length ? Math.round(runs[runs.length - 1].sov || 0) : 0;
-    await ensureReportSchema();
-    await recordReport(id, user.id, 'standard', `${brand.name || 'Brand'} — AI Visibility Report`, filename, buffer, { sov: lastSov });
+    // Must never block the download: a schema migration glitch or transient DB
+    // error here used to surface as a confusing "Could not generate the report"
+    // toast for the user even though the PDF rendered fine.
+    try {
+      const brandRec = brand as Record<string, unknown>;
+      const runs = (Array.isArray(brandRec.runs) ? brandRec.runs : []) as { sov?: number }[];
+      const lastSov = runs.length ? Math.round(runs[runs.length - 1].sov || 0) : 0;
+      await ensureReportSchema();
+      await recordReport(id, user.id, 'standard', `${brand.name || 'Brand'} — AI Visibility Report`, filename, buffer, { sov: lastSov });
+    } catch (recErr) {
+      console.error('[PDF Report] History record failed (non-fatal):', (recErr as Error).message);
+      Sentry.captureException(recErr, { tags: { route: 'brands.report.pdf', step: 'history-record' } });
+    }
 
     return new Response(new Uint8Array(buffer), {
       status: 200,
@@ -86,6 +95,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     } else {
       console.error('[PDF Report] Failed:', msg, (e as Error).stack);
     }
+    Sentry.captureException(e, { tags: { route: 'brands.report.pdf' } });
     return Response.json({ error: 'Failed to generate PDF report' }, { status: 500 });
   }
 }
