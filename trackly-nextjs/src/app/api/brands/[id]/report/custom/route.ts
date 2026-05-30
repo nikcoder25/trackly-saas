@@ -3,7 +3,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getEffectivePlan } from '@/lib/constants';
 import { generateCustomReport } from '@/lib/pdf-custom-report';
-import { ensureReportSchema, getReport, draftToSelection } from '@/lib/report-builder';
+import { ensureReportSchema, getReport, draftToSelection, recordReport } from '@/lib/report-builder';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -54,6 +54,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const safeName = String(brand.name || 'report').replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `${safeName}_Custom_Report_${dateStr}.pdf`;
+
+    const mentions = draft.items.filter(i => i.kind === 'mention').length;
+    const queries = draft.items.filter(i => i.kind === 'query').length;
+    await recordReport(id, user.id, 'custom', draft.title || `${brand.name || 'Brand'} — Custom Report`, filename, buffer, { mentions, queries });
 
     return new Response(new Uint8Array(buffer), {
       status: 200,

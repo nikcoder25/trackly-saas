@@ -3,6 +3,7 @@ import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
 import { getEffectivePlan } from '@/lib/constants';
 import { generateReport } from '@/lib/pdf-report';
+import { ensureReportSchema, recordReport } from '@/lib/report-builder';
 import { checkUserIpRateLimit, getClientIp, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
@@ -61,6 +62,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const safeName = String(brand.name || 'report').replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_');
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `${safeName}_AI_Visibility_Report_${dateStr}.pdf`;
+
+    // Record in history (best-effort) so it's re-downloadable from /dashboard/reports.
+    const brandRec = brand as Record<string, unknown>;
+    const runs = (Array.isArray(brandRec.runs) ? brandRec.runs : []) as { sov?: number }[];
+    const lastSov = runs.length ? Math.round(runs[runs.length - 1].sov || 0) : 0;
+    await ensureReportSchema();
+    await recordReport(id, user.id, 'standard', `${brand.name || 'Brand'} — AI Visibility Report`, filename, buffer, { sov: lastSov });
 
     return new Response(new Uint8Array(buffer), {
       status: 200,
