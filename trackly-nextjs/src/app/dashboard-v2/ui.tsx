@@ -74,7 +74,7 @@ export function KPI({ k, v, d, suffix = '', danger = false, info, term }: {
     <div className="kpi">
       <div className="kpi-k mono">{k}{term && <Info term={term} />}</div>
       <div className={'kpi-v mono ' + (danger ? 'neg' : '')}>{v}{suffix && <i>{suffix}</i>}</div>
-      {d != null && <div className="kpi-d"><Delta v={d} /> {info && <span className="kpi-info mono">{info}</span>}</div>}
+      {(d != null || info) && <div className="kpi-d">{d != null && <Delta v={d} />}{info && <span className="kpi-info mono">{info}</span>}</div>}
     </div>
   );
 }
