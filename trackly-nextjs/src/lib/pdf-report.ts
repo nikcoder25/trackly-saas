@@ -1,538 +1,526 @@
 // @ts-nocheck
 /**
- * PDF Report Generator - White-label AI Visibility Report
+ * PDF Report Generator — White-label AI Visibility Report.
  *
- * Ported from the Express monolith (lib/pdf-report.js) with minimal
- * changes. Types are intentionally opt-in: the module exposes a single
- * `generateReport(brand)` entry point that returns a PDFKit document
- * stream. The `@ts-nocheck` at the top is intentional - strict-mode
- * typing against PDFKit's internal API is low-value for a pure-output
- * module, and deferring it keeps this port reviewable.
+ * Produces a polished, print-ready A4 report from a brand's stored runs.
+ * Single entry point `generateReport(brand)` returns a PDFKit document
+ * stream (the caller buffers it). `@ts-nocheck` is intentional: strict
+ * typing against PDFKit's drawing API is low value for a pure-output module.
+ *
+ * Design language is kept in sync with the dashboard: indigo→violet accent,
+ * slate text scale, rounded cards, soft separators, and an honest empty
+ * state when a brand has no run data yet.
  */
 import PDFDocument from 'pdfkit';
 
-// ─── WHITE-LABEL BRANDING CONSTANTS ─────────────────────────────
-// Customize these to rebrand the report for different clients
+// ─── Brand / palette ────────────────────────────────────────────
 const BRANDING = {
   companyName: 'Livesov',
-  tagline: 'AI Visibility Report',
-  headerBg: '#1a1a2e',
-  headerText: '#ffffff',
-  accentColor: '#14b8a6',      // Teal accent
-  textColor: '#1e293b',
-  mutedColor: '#64748b',
-  greenColor: '#22c55e',
-  amberColor: '#f59e0b',
-  redColor: '#ef4444',
-  blueColor: '#3b82f6',
-  gridColor: '#e2e8f0',
-  bgLight: '#f8fafc',
+  tagline: 'AI VISIBILITY REPORT',
+};
+
+const C = {
+  primary:   '#6366F1', // indigo
+  primaryDk: '#4F46E5',
+  violet:    '#8B5CF6',
+  ink:       '#0F172A', // headings
+  text:      '#1E293B',
+  muted:     '#64748B',
+  faint:     '#94A3B8',
+  line:      '#E2E8F0',
+  lineSoft:  '#EEF2F6',
+  bg:        '#F8FAFC',
+  white:     '#FFFFFF',
+  green:     '#16A34A',
+  amber:     '#D97706',
+  red:       '#DC2626',
+  blue:      '#2563EB',
 };
 
 const PLATFORMS = ['ChatGPT', 'Perplexity', 'Claude', 'Gemini', 'Grok'];
+const PLATFORM_COLOR = {
+  ChatGPT: '#10A37F', Perplexity: '#20808D', Claude: '#D97757', Gemini: '#4285F4', Grok: '#111827',
+};
 
-// ─── HELPERS ────────────────────────────────────────────────────
-
-function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
+// ─── Small helpers ──────────────────────────────────────────────
+function sovColor(v) {
+  if (v >= 70) return C.green;
+  if (v >= 40) return C.amber;
+  if (v > 0) return C.red;
+  return C.faint;
+}
+function grade(v) {
+  if (v >= 70) return 'Excellent';
+  if (v >= 40) return 'Good';
+  if (v >= 20) return 'Fair';
+  if (v > 0) return 'Emerging';
+  return 'Not yet visible';
+}
+function platSov(raw) {
+  if (typeof raw === 'number') return Math.round(raw);
+  if (raw && typeof raw === 'object') return Math.round(raw.sov || 0);
+  return 0;
+}
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function sovColor(val) {
-  if (val >= 70) return BRANDING.greenColor;
-  if (val >= 40) return BRANDING.amberColor;
-  if (val > 0) return BRANDING.redColor;
-  return BRANDING.mutedColor;
+// Geometry resolved per-doc
+function geo(doc) {
+  const W = doc.page.width, H = doc.page.height;
+  const M = 44;
+  return { W, H, M, cw: W - M * 2, bottom: H - 56 };
 }
 
-function trendArrow(diff) {
-  if (diff > 0) return `+${diff}%`;
-  if (diff < 0) return `${diff}%`;
-  return 'No change';
-}
-
-function ensurePage(doc, needed) {
-  if (doc.y + needed > doc.page.height - 60) {
+/** Ensure `need` vertical space remains; add a page (and reset cursor) if not. */
+function ensure(doc, need) {
+  const { bottom, M } = geo(doc);
+  if (doc.y + need > bottom) {
     doc.addPage();
+    doc.y = M;
     return true;
   }
   return false;
 }
 
-// ─── SECTION RENDERERS ──────────────────────────────────────────
-
-function renderHeader(doc, brandName, reportDate) {
-  const headerHeight = 80;
-  doc.save();
-  doc.rect(0, 0, doc.page.width, headerHeight).fill(BRANDING.headerBg);
-
-  // Company name
-  doc.font('Helvetica-Bold').fontSize(22).fillColor(BRANDING.headerText);
-  doc.text(BRANDING.companyName, 40, 22, { continued: false });
-
-  // Tagline
-  doc.font('Helvetica').fontSize(10).fillColor(BRANDING.headerText);
-  doc.text(BRANDING.tagline, 40, 50);
-
-  // Report date (right-aligned)
-  doc.font('Helvetica').fontSize(10).fillColor(BRANDING.headerText);
-  doc.text(reportDate, doc.page.width - 200, 50, { width: 160, align: 'right' });
-
-  doc.restore();
-  doc.y = headerHeight + 20;
-
-  // Brand name below header
-  doc.font('Helvetica-Bold').fontSize(18).fillColor(BRANDING.textColor);
-  doc.text(brandName, 40, doc.y, { width: doc.page.width - 80 });
-  doc.moveDown(0.3);
-
-  // Thin accent line
-  doc.save();
-  doc.moveTo(40, doc.y).lineTo(200, doc.y).lineWidth(2).strokeColor(BRANDING.accentColor).stroke();
-  doc.restore();
-  doc.moveDown(1);
+function eyebrow(doc, text, x, y, color = C.faint) {
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(color)
+    .text(String(text).toUpperCase(), x, y, { characterSpacing: 1.2 });
 }
 
-function renderSectionTitle(doc, title) {
-  ensurePage(doc, 40);
-  doc.moveDown(0.5);
-  doc.font('Helvetica-Bold').fontSize(13).fillColor(BRANDING.headerBg);
-  doc.text(title, 40, doc.y, { width: doc.page.width - 80 });
-  doc.moveDown(0.2);
-  // Subtle underline
+// Rounded progress bar (track + fill)
+function bar(doc, x, y, w, h, pct, color) {
+  const p = Math.max(0, Math.min(100, pct));
   doc.save();
-  doc.moveTo(40, doc.y).lineTo(doc.page.width - 40, doc.y).lineWidth(0.5).strokeColor(BRANDING.gridColor).stroke();
+  doc.roundedRect(x, y, w, h, h / 2).fill(C.lineSoft);
+  if (p > 0) doc.roundedRect(x, y, Math.max(h, (w * p) / 100), h, h / 2).fill(color);
   doc.restore();
-  doc.moveDown(0.5);
 }
 
-function renderVisibilitySummary(doc, lastRun, prevRun) {
-  renderSectionTitle(doc, 'AI Visibility Summary');
-
-  const sov = lastRun ? (lastRun.sov || 0) : 0;
-  const prevSOV = prevRun ? (prevRun.sov || 0) : null;
-  const diff = prevSOV !== null ? sov - prevSOV : null;
-
-  const x = 40;
-
-  // SOV score - large
-  doc.font('Helvetica-Bold').fontSize(36).fillColor(sovColor(sov));
-  doc.text(`${sov}%`, x, doc.y, { continued: false });
-
-  // Trend indicator
-  if (diff !== null && diff !== 0) {
-    doc.font('Helvetica').fontSize(12).fillColor(diff > 0 ? BRANDING.greenColor : BRANDING.redColor);
-    doc.text(`${trendArrow(diff)} vs previous run`, x, doc.y);
+// Section heading: accent tab + title + optional subtitle + hairline.
+function section(doc, title, subtitle) {
+  const { M, W } = geo(doc);
+  ensure(doc, subtitle ? 64 : 52);
+  doc.y += 6;
+  const y = doc.y;
+  doc.save();
+  doc.roundedRect(M, y + 1, 4, 16, 2).fill(C.primary);
+  doc.restore();
+  doc.font('Helvetica-Bold').fontSize(13.5).fillColor(C.ink)
+    .text(title, M + 14, y, { width: W - M * 2 - 14 });
+  let ny = doc.y;
+  if (subtitle) {
+    doc.font('Helvetica').fontSize(9).fillColor(C.muted)
+      .text(subtitle, M + 14, ny + 2, { width: W - M * 2 - 14 });
+    ny = doc.y;
   }
-
-  doc.moveDown(0.3);
-  doc.font('Helvetica').fontSize(10).fillColor(BRANDING.mutedColor);
-  doc.text('Overall Share of Voice across all AI platforms', x, doc.y);
-  doc.moveDown(0.8);
-
-  // Quick stats row
-  if (lastRun) {
-    const mentions = (lastRun.mentions || []).length;
-    const totalResults = (lastRun.allResults || []).length;
-    const activePlats = Object.keys(lastRun.platforms || {}).length;
-    const validResults = (lastRun.allResults || []).filter(r => !r.error).length;
-
-    const stats = [
-      { label: 'Mentions', value: `${mentions} / ${totalResults}` },
-      { label: 'Platforms Active', value: `${activePlats} / ${PLATFORMS.length}` },
-      { label: 'Valid Responses', value: `${validResults}` },
-    ];
-
-    const colWidth = (doc.page.width - 80) / stats.length;
-    const startY = doc.y;
-    stats.forEach((s, i) => {
-      const cx = x + i * colWidth;
-      doc.font('Helvetica-Bold').fontSize(14).fillColor(BRANDING.textColor);
-      doc.text(s.value, cx, startY, { width: colWidth - 10 });
-      doc.font('Helvetica').fontSize(9).fillColor(BRANDING.mutedColor);
-      doc.text(s.label, cx, startY + 18, { width: colWidth - 10 });
-    });
-    doc.y = startY + 38;
-    doc.moveDown(0.5);
-  }
+  ny += 8;
+  doc.save();
+  doc.moveTo(M, ny).lineTo(W - M, ny).lineWidth(0.6).strokeColor(C.line).stroke();
+  doc.restore();
+  doc.y = ny + 12;
 }
 
-function renderPlatformBreakdown(doc, lastRun) {
+// ─── Cover band (page 1) ────────────────────────────────────────
+function renderCover(doc, brand, reportDate, sov, prevSov) {
+  const { W, M } = geo(doc);
+  const bandH = 196;
+
+  // Gradient band, full bleed
+  const grad = doc.linearGradient(0, 0, W, bandH);
+  grad.stop(0, C.primaryDk).stop(0.55, C.primary).stop(1, C.violet);
+  doc.save();
+  doc.rect(0, 0, W, bandH).fill(grad);
+  // soft decorative circles
+  doc.fillOpacity(0.08).fill(C.white);
+  doc.circle(W - 60, 36, 120).fill(C.white);
+  doc.circle(W - 140, bandH - 10, 70).fill(C.white);
+  doc.fillOpacity(1);
+  doc.restore();
+
+  // Logo mark + wordmark
+  doc.save();
+  doc.roundedRect(M, 40, 26, 26, 7).fill(C.white);
+  doc.lineWidth(2).strokeColor(C.primary).lineCap('round').lineJoin('round');
+  // wave glyph (scaled from the app logo)
+  const gx = M + 5, gy = 40 + 5, s = 16 / 14;
+  doc.moveTo(gx + 2 * s, gy + 9 * s)
+    .lineTo(gx + 4.5 * s, gy + 9 * s)
+    .lineTo(gx + 6 * s, gy + 4 * s)
+    .lineTo(gx + 8 * s, gy + 11 * s)
+    .lineTo(gx + 9.5 * s, gy + 7 * s)
+    .lineTo(gx + 12 * s, gy + 7 * s).stroke();
+  doc.restore();
+
+  doc.font('Helvetica-Bold').fontSize(15).fillColor(C.white)
+    .text(BRANDING.companyName.toLowerCase(), M + 34, 46);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.white).fillOpacity(0.85)
+    .text(BRANDING.tagline, M + 34, 65, { characterSpacing: 1.6 });
+  doc.fillOpacity(1);
+
+  // Title + brand name
+  doc.font('Helvetica').fontSize(10).fillColor(C.white).fillOpacity(0.85)
+    .text('Prepared for', M, 104);
+  doc.fillOpacity(1);
+  doc.font('Helvetica-Bold').fontSize(28).fillColor(C.white)
+    .text(brand.name || 'Your Brand', M, 118, { width: W - M * 2 - 150, lineBreak: false, ellipsis: true });
+
+  // Date chip (right)
+  doc.font('Helvetica').fontSize(9.5).fillColor(C.white).fillOpacity(0.9)
+    .text(reportDate, W - M - 200, 122, { width: 200, align: 'right' });
+  doc.fillOpacity(1);
+
+  // Headline SOV pill overlapping the band bottom
+  const pillW = W - M * 2, pillY = bandH - 32, pillH = 66;
+  doc.save();
+  doc.roundedRect(M, pillY, pillW, pillH, 12).fill(C.white);
+  doc.restore();
+  eyebrow(doc, 'Overall Share of Voice', M + 22, pillY + 13, C.faint);
+  doc.font('Helvetica-Bold').fontSize(30).fillColor(sovColor(sov))
+    .text(`${sov}%`, M + 22, pillY + 26);
+  const afterNumX = M + 22 + doc.widthOfString(`${sov}%`) + 16;
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(C.ink)
+    .text(grade(sov), afterNumX, pillY + 28);
+  if (prevSov !== null && prevSov !== undefined) {
+    const diff = sov - prevSov;
+    const col = diff > 0 ? C.green : diff < 0 ? C.red : C.muted;
+    const txt = diff === 0 ? 'No change vs previous run' : `${diff > 0 ? '+' : ''}${diff} pts vs previous run`;
+    doc.font('Helvetica').fontSize(9).fillColor(col).text(txt, afterNumX, pillY + 46);
+  } else {
+    doc.font('Helvetica').fontSize(9).fillColor(C.muted).text('First tracked run', afterNumX, pillY + 46);
+  }
+  // right: mini SOV bar
+  const barW = 150, barX = W - M - barW - 22;
+  bar(doc, barX, pillY + 30, barW, 8, sov, sovColor(sov));
+  doc.font('Helvetica').fontSize(8).fillColor(C.faint)
+    .text('0', barX, pillY + 42).text('100', barX + barW - 16, pillY + 42, { width: 16, align: 'right' });
+
+  doc.y = pillY + pillH + 18;
+}
+
+// ─── Executive summary KPI cards ────────────────────────────────
+function renderSummary(doc, lastRun) {
+  const { M, cw } = geo(doc);
+  section(doc, 'Executive Summary', 'Key visibility metrics from your most recent run across all AI engines.');
+
+  const results = (lastRun && Array.isArray(lastRun.allResults)) ? lastRun.allResults : [];
+  const valid = results.filter(r => !r.error);
+  const total = valid.length || results.length;
+  const mentions = valid.filter(r => r.mentioned).length;
+  const pos = valid.filter(r => r.sentiment === 'positive').length;
+  const neu = valid.filter(r => r.sentiment === 'neutral').length;
+  const neg = valid.filter(r => r.sentiment === 'negative').length;
+  const sentTotal = pos + neu + neg;
+  const posPct = sentTotal > 0 ? Math.round((pos / sentTotal) * 100) : null;
+  const activePlats = lastRun && lastRun.platforms ? Object.keys(lastRun.platforms).length : new Set(valid.map(r => r.platform)).size;
+  const distinctQ = new Set(valid.map(r => r.query)).size;
+
+  const cards = [
+    { label: 'Mentions', value: total ? `${mentions}/${total}` : '—', sub: 'AI answers naming you', color: C.primary },
+    { label: 'Positive sentiment', value: posPct !== null ? `${posPct}%` : '—', sub: posPct !== null ? `${pos} positive of ${sentTotal}` : 'no sentiment yet', color: posPct === null ? C.faint : posPct >= 60 ? C.green : posPct >= 40 ? C.amber : C.red },
+    { label: 'Engines active', value: `${activePlats}/${PLATFORMS.length}`, sub: 'platforms responding', color: C.blue },
+    { label: 'Prompts tracked', value: String(distinctQ || 0), sub: 'unique queries', color: C.violet },
+  ];
+
+  const gap = 12;
+  const cardW = (cw - gap * (cards.length - 1)) / cards.length;
+  const cardH = 78;
+  ensure(doc, cardH + 6);
+  const y = doc.y;
+  cards.forEach((c, i) => {
+    const x = M + i * (cardW + gap);
+    doc.save();
+    doc.roundedRect(x, y, cardW, cardH, 10).fill(C.bg);
+    doc.roundedRect(x, y, cardW, cardH, 10).lineWidth(0.8).strokeColor(C.line).stroke();
+    doc.roundedRect(x, y, 3, cardH, 1.5).fill(c.color); // left accent
+    doc.restore();
+    eyebrow(doc, c.label, x + 14, y + 13, C.muted);
+    doc.font('Helvetica-Bold').fontSize(22).fillColor(c.color).text(c.value, x + 13, y + 26, { width: cardW - 20 });
+    doc.font('Helvetica').fontSize(8).fillColor(C.faint).text(c.sub, x + 14, y + 56, { width: cardW - 22 });
+  });
+  doc.y = y + cardH + 6;
+}
+
+// ─── Platform breakdown ─────────────────────────────────────────
+function renderPlatforms(doc, lastRun) {
   if (!lastRun || !lastRun.platforms) return;
-  renderSectionTitle(doc, 'Platform Breakdown');
+  const { M, W, cw } = geo(doc);
+  section(doc, 'Platform Breakdown', 'Share of Voice within each AI assistant.');
 
   const platforms = lastRun.platforms || {};
-  const x = 40;
-  const barMaxWidth = 280;
-  const rowHeight = 28;
+  const labelW = 110, valW = 46;
+  const barX = M + labelW + valW;
+  const barW = W - M - barX - 20;
+  const rowH = 30;
 
-  // Table header
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(BRANDING.mutedColor);
-  doc.text('PLATFORM', x, doc.y, { width: 100 });
-  doc.text('SOV', x + 100, doc.y - 11, { width: 50 });
-  doc.text('VISIBILITY', x + 160, doc.y - 11, { width: barMaxWidth });
-  doc.moveDown(0.5);
-
-  // Subtle header line
-  doc.save();
-  doc.moveTo(x, doc.y).lineTo(doc.page.width - 40, doc.y).lineWidth(0.3).strokeColor(BRANDING.gridColor).stroke();
-  doc.restore();
-  doc.moveDown(0.3);
-
-  PLATFORMS.forEach(plat => {
-    ensurePage(doc, rowHeight + 5);
-    const pSov = platforms[plat] || 0;
-    const rowY = doc.y;
-
-    // Platform name
-    doc.font('Helvetica').fontSize(10).fillColor(BRANDING.textColor);
-    doc.text(plat, x, rowY, { width: 100 });
-
-    // SOV value
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(sovColor(pSov));
-    doc.text(`${pSov}%`, x + 100, rowY, { width: 50 });
-
-    // Bar background
-    const barY = rowY + 2;
-    doc.save();
-    doc.rect(x + 160, barY, barMaxWidth, 10).fill(BRANDING.bgLight);
-    // Bar fill
-    if (pSov > 0) {
-      doc.rect(x + 160, barY, Math.max(2, barMaxWidth * pSov / 100), 10).fill(sovColor(pSov));
-    }
-    doc.restore();
-
-    // Grid line
-    doc.save();
-    doc.moveTo(x, rowY + rowHeight - 5).lineTo(doc.page.width - 40, rowY + rowHeight - 5)
-      .lineWidth(0.2).strokeColor(BRANDING.gridColor).stroke();
-    doc.restore();
-
-    doc.y = rowY + rowHeight;
+  PLATFORMS.forEach((plat, i) => {
+    ensure(doc, rowH + 2);
+    const y = doc.y;
+    if (i % 2 === 0) { doc.save(); doc.roundedRect(M - 6, y - 4, cw + 12, rowH, 6).fill(C.bg); doc.restore(); }
+    const v = platSov(platforms[plat]);
+    // dot + name
+    doc.save(); doc.circle(M + 5, y + 9, 4).fill(PLATFORM_COLOR[plat] || C.muted); doc.restore();
+    doc.font('Helvetica').fontSize(10).fillColor(C.text).text(plat, M + 16, y + 4, { width: labelW - 16 });
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(sovColor(v)).text(`${v}%`, M + labelW, y + 4, { width: valW });
+    bar(doc, barX, y + 6, barW, 9, v, sovColor(v));
+    doc.y = y + rowH;
   });
-  doc.moveDown(0.5);
+  doc.y += 4;
 }
 
+// ─── Top queries table ──────────────────────────────────────────
 function renderTopQueries(doc, lastRun) {
-  if (!lastRun || !lastRun.allResults || !lastRun.allResults.length) return;
-  renderSectionTitle(doc, 'Top Performing Queries');
+  if (!lastRun || !Array.isArray(lastRun.allResults) || !lastRun.allResults.length) return;
+  const { M, W, cw } = geo(doc);
 
-  const queryStats = {};
+  const stats = {};
   lastRun.allResults.filter(r => !r.error).forEach(r => {
     const q = r.query || 'Unknown';
-    if (!queryStats[q]) queryStats[q] = { total: 0, found: 0 };
-    queryStats[q].total++;
-    if (r.mentioned) queryStats[q].found++;
+    if (!stats[q]) stats[q] = { total: 0, found: 0 };
+    stats[q].total++;
+    if (r.mentioned) stats[q].found++;
   });
+  const rows = Object.entries(stats)
+    .map(([q, s]) => ({ q, ...s, rate: s.total ? Math.round((s.found / s.total) * 100) : 0 }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 10);
+  if (!rows.length) return;
 
-  const sorted = Object.entries(queryStats)
-    .map(([q, s]) => ({ query: q, ...s, rate: s.total > 0 ? Math.round(s.found / s.total * 100) : 0 }))
-    .sort((a, b) => b.rate - a.rate)
-    .slice(0, 10);
+  section(doc, 'Top Performing Queries', 'Where you are most visible — mention rate per tracked prompt.');
 
-  if (sorted.length === 0) return;
+  const numW = 22, rateW = 50, foundW = 56;
+  const qW = cw - numW - rateW - foundW;
+  // header
+  let y = doc.y;
+  eyebrow(doc, '#', M, y, C.faint);
+  eyebrow(doc, 'Query', M + numW, y, C.faint);
+  eyebrow(doc, 'Found', M + numW + qW, y, C.faint);
+  eyebrow(doc, 'Rate', M + numW + qW + foundW, y, C.faint);
+  y += 14;
+  doc.save(); doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.6).strokeColor(C.line).stroke(); doc.restore();
+  y += 6;
+  doc.y = y;
 
-  const x = 40;
-
-  // Table header
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(BRANDING.mutedColor);
-  doc.text('#', x, doc.y, { width: 20 });
-  doc.text('QUERY', x + 20, doc.y - 11, { width: 300 });
-  doc.text('FOUND', x + 330, doc.y - 11, { width: 50 });
-  doc.text('RATE', x + 390, doc.y - 11, { width: 50 });
-  doc.moveDown(0.5);
-
-  doc.save();
-  doc.moveTo(x, doc.y).lineTo(doc.page.width - 40, doc.y).lineWidth(0.3).strokeColor(BRANDING.gridColor).stroke();
-  doc.restore();
-  doc.moveDown(0.3);
-
-  sorted.forEach((s, i) => {
-    ensurePage(doc, 22);
-    const rowY = doc.y;
-
-    doc.font('Helvetica').fontSize(9).fillColor(BRANDING.mutedColor);
-    doc.text(`${i + 1}`, x, rowY, { width: 20 });
-
-    doc.font('Helvetica').fontSize(9).fillColor(BRANDING.textColor);
-    doc.text(s.query, x + 20, rowY, { width: 300, ellipsis: true });
-
-    doc.font('Helvetica').fontSize(9).fillColor(BRANDING.mutedColor);
-    doc.text(`${s.found}/${s.total}`, x + 330, rowY, { width: 50 });
-
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(sovColor(s.rate));
-    doc.text(`${s.rate}%`, x + 390, rowY, { width: 50 });
-
-    doc.y = rowY + 18;
+  rows.forEach((r, i) => {
+    ensure(doc, 24);
+    const ry = doc.y;
+    if (i % 2 === 0) { doc.save(); doc.roundedRect(M - 6, ry - 3, cw + 12, 22, 5).fill(C.bg); doc.restore(); }
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(C.faint).text(String(i + 1), M, ry, { width: numW });
+    doc.font('Helvetica').fontSize(9.5).fillColor(C.text).text(r.q, M + numW, ry, { width: qW - 8, ellipsis: true, lineBreak: false });
+    doc.font('Helvetica').fontSize(9).fillColor(C.muted).text(`${r.found}/${r.total}`, M + numW + qW, ry, { width: foundW });
+    // rate chip
+    const chipX = M + numW + qW + foundW;
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(sovColor(r.rate)).text(`${r.rate}%`, chipX, ry, { width: rateW });
+    doc.y = ry + 19;
   });
-  doc.moveDown(0.5);
+  doc.y += 4;
 }
 
-function renderCompetitorComparison(doc, brand, lastRun) {
-  if (!lastRun || !lastRun.allResults || !lastRun.allResults.length) return;
-  renderSectionTitle(doc, 'Competitor Comparison');
+// ─── Competitor comparison ──────────────────────────────────────
+function renderCompetitors(doc, brand, lastRun) {
+  if (!lastRun || !Array.isArray(lastRun.allResults) || !lastRun.allResults.length) return;
+  const { M, W, cw } = geo(doc);
 
   const brandName = (brand.name || '').toLowerCase();
-  const competitors = {};
-
+  const comp = {};
   lastRun.allResults.forEach(r => {
-    if (!r.raw && !r.context) return;
     const text = r.raw || r.context || '';
-    const patterns = [
+    if (!text) return;
+    const pats = [
       /(?:^|\n)\s*\d+[.)]\s*\*?\*?([A-Z][A-Za-z0-9' &\-.]+)\*?\*?/g,
-      /(?:^|\n)\s*[-\u2022]\s*\*?\*?([A-Z][A-Za-z0-9' &\-.]+)\*?\*?/g
+      /(?:^|\n)\s*[-•]\s*\*?\*?([A-Z][A-Za-z0-9' &\-.]+)\*?\*?/g,
     ];
-    patterns.forEach(pat => {
+    pats.forEach(pat => {
       let m;
       while ((m = pat.exec(text)) !== null) {
-        const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-\u2014:].*/,'').trim();
-        if (name.length >= 3 && name.length <= 50 && name.toLowerCase() !== brandName &&
-            !/^(the|and|for|with|best|top|most|also|here|this|that|these|note)$/i.test(name)) {
-          competitors[name] = (competitors[name] || 0) + 1;
+        const name = m[1].trim().replace(/\*+/g, '').replace(/\s*[-—:].*/, '').trim();
+        if (name.length >= 3 && name.length <= 40 && name.toLowerCase() !== brandName &&
+          !/^(the|and|for|with|best|top|most|also|here|this|that|these|note)$/i.test(name)) {
+          comp[name] = (comp[name] || 0) + 1;
         }
       }
     });
   });
+  const brandMentions = lastRun.allResults.filter(r => r.mentioned).length;
+  const top = Object.entries(comp).sort((a, b) => b[1] - a[1]).slice(0, 7);
+  if (!top.length) return;
 
-  // Also count brand mentions
-  const brandMentions = (lastRun.allResults || []).filter(r => r.mentioned).length;
+  section(doc, 'Competitor Comparison', 'How often each brand appears in the same AI answers.');
 
-  const topComp = Object.entries(competitors).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  if (topComp.length === 0) {
-    doc.font('Helvetica').fontSize(10).fillColor(BRANDING.mutedColor);
-    doc.text('No competitors detected in AI responses yet.', 40, doc.y);
-    doc.moveDown(0.5);
-    return;
-  }
+  const labelW = 150, valW = 40;
+  const barX = M + labelW;
+  const barW = W - M - barX - valW - 8;
+  const maxCount = Math.max(brandMentions, top[0][1], 1);
+  const rowH = 26;
 
-  const x = 40;
-  const maxCount = Math.max(brandMentions, topComp[0][1]);
-  const barMaxWidth = 200;
-
-  // Show brand first
-  ensurePage(doc, 22);
-  let rowY = doc.y;
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(BRANDING.accentColor);
-  doc.text(`${brand.name} (You)`, x, rowY, { width: 180 });
-  doc.font('Helvetica-Bold').fontSize(10).fillColor(BRANDING.accentColor);
-  doc.text(`${brandMentions}x`, x + 400, rowY, { width: 50 });
-
-  // Bar for brand
-  doc.save();
-  doc.rect(x + 190, rowY + 2, barMaxWidth, 10).fill(BRANDING.bgLight);
-  if (brandMentions > 0 && maxCount > 0) {
-    doc.rect(x + 190, rowY + 2, Math.max(2, barMaxWidth * brandMentions / maxCount), 10).fill(BRANDING.accentColor);
-  }
-  doc.restore();
-  doc.y = rowY + 22;
-
-  // Competitors
-  topComp.forEach(([name, count]) => {
-    ensurePage(doc, 22);
-    rowY = doc.y;
-    doc.font('Helvetica').fontSize(10).fillColor(BRANDING.textColor);
-    doc.text(name, x, rowY, { width: 180, ellipsis: true });
-    doc.font('Helvetica').fontSize(10).fillColor(BRANDING.mutedColor);
-    doc.text(`${count}x`, x + 400, rowY, { width: 50 });
-
-    doc.save();
-    doc.rect(x + 190, rowY + 2, barMaxWidth, 10).fill(BRANDING.bgLight);
-    if (count > 0 && maxCount > 0) {
-      doc.rect(x + 190, rowY + 2, Math.max(2, barMaxWidth * count / maxCount), 10).fill(BRANDING.mutedColor);
-    }
-    doc.restore();
-    doc.y = rowY + 22;
-  });
-  doc.moveDown(0.5);
+  const draw = (name, count, isYou) => {
+    ensure(doc, rowH);
+    const y = doc.y;
+    doc.font(isYou ? 'Helvetica-Bold' : 'Helvetica').fontSize(10)
+      .fillColor(isYou ? C.primary : C.text)
+      .text(isYou ? `${name} (You)` : name, M, y + 2, { width: labelW - 8, ellipsis: true, lineBreak: false });
+    bar(doc, barX, y + 4, barW, 9, (count / maxCount) * 100, isYou ? C.primary : C.faint);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(isYou ? C.primary : C.muted)
+      .text(`${count}×`, barX + barW + 6, y + 3, { width: valW });
+    doc.y = y + rowH;
+  };
+  draw(brand.name || 'Your brand', brandMentions, true);
+  top.forEach(([n, c]) => draw(n, c, false));
+  doc.y += 4;
 }
 
-function renderCitationSources(doc, brand, lastRun) {
-  if (!lastRun || !lastRun.allResults) return;
+// ─── Citation sources ───────────────────────────────────────────
+function renderCitations(doc, brand, lastRun) {
+  if (!lastRun || !Array.isArray(lastRun.allResults)) return;
+  const cites = [];
+  lastRun.allResults.forEach(r => (r.citations || r.cites || []).forEach(u => cites.push(u)));
+  if (!cites.length) return;
+  const { M, W, cw } = geo(doc);
 
-  const allCites = [];
-  lastRun.allResults.forEach(r => {
-    const citeArr = r.citations || r.cites || [];
-    citeArr.forEach(url => allCites.push(url));
-  });
-  if (allCites.length === 0) return;
+  const counts = {};
+  cites.forEach(u => { try { const d = new URL(u).hostname.replace(/^www\./, ''); counts[d] = (counts[d] || 0) + 1; } catch { /* skip */ } });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  if (!top.length) return;
 
-  renderSectionTitle(doc, 'Citation Sources');
-
-  const domainCounts = {};
-  allCites.forEach(url => {
-    try {
-      const domain = new URL(url).hostname.replace(/^www\./, '');
-      domainCounts[domain] = (domainCounts[domain] || 0) + 1;
-    } catch (e) { /* skip malformed */ }
-  });
-
-  const topDomains = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  section(doc, 'Citation Sources', `${top.length} domains referenced across ${cites.length} citations in AI answers.`);
   const brandDomain = brand.website ? brand.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase() : '';
+  const labelW = 230, valW = 36;
+  const barX = M + labelW, barW = W - M - barX - valW - 8, max = top[0][1];
 
-  const x = 40;
-  doc.font('Helvetica').fontSize(9).fillColor(BRANDING.mutedColor);
-  doc.text(`${topDomains.length} domains cited across ${allCites.length} total citations`, x, doc.y);
-  doc.moveDown(0.5);
-
-  topDomains.forEach(([domain, count]) => {
-    ensurePage(doc, 18);
-    const rowY = doc.y;
-    const isOwn = brandDomain && domain.includes(brandDomain);
-
-    doc.font(isOwn ? 'Helvetica-Bold' : 'Helvetica').fontSize(9)
-      .fillColor(isOwn ? BRANDING.accentColor : BRANDING.textColor);
-    doc.text(`${isOwn ? '\u2605 ' : ''}${domain}`, x, rowY, { width: 250 });
-
-    doc.font('Helvetica').fontSize(9).fillColor(BRANDING.mutedColor);
-    doc.text(`${count}x`, x + 400, rowY, { width: 40 });
-
-    // Bar
-    const barMax = 150;
-    doc.save();
-    doc.rect(x + 260, rowY + 1, barMax, 8).fill(BRANDING.bgLight);
-    doc.rect(x + 260, rowY + 1, Math.max(1, barMax * count / topDomains[0][1]), 8)
-      .fill(isOwn ? BRANDING.accentColor : BRANDING.blueColor);
-    doc.restore();
-
-    doc.y = rowY + 16;
+  top.forEach(([domain, count]) => {
+    ensure(doc, 22);
+    const y = doc.y;
+    const own = brandDomain && domain.includes(brandDomain);
+    let tx = M;
+    if (own) { doc.save(); doc.circle(M + 4, y + 6, 3).fill(C.primary); doc.restore(); tx = M + 12; }
+    doc.font(own ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5).fillColor(own ? C.primary : C.text)
+      .text(domain, tx, y + 1, { width: labelW - (own ? 20 : 8), ellipsis: true, lineBreak: false });
+    bar(doc, barX, y + 3, barW, 8, (count / max) * 100, own ? C.primary : C.blue);
+    doc.font('Helvetica').fontSize(9).fillColor(C.muted).text(`${count}×`, barX + barW + 6, y + 1, { width: valW });
+    doc.y = y + 19;
   });
-  doc.moveDown(0.5);
+  doc.y += 4;
 }
 
+// ─── Recommendations ────────────────────────────────────────────
 function renderRecommendations(doc, brand, lastRun) {
-  renderSectionTitle(doc, 'Recommendations');
-
+  const { M, W, cw } = geo(doc);
   const tips = [];
-  const sov = lastRun ? (lastRun.sov || 0) : 0;
+  const sov = lastRun ? Math.round(lastRun.sov || 0) : 0;
 
-  if (lastRun && lastRun.allResults) {
-    // Analyze platform performance
-    const platStats = {};
-    let mentioned = 0, total = 0, recommended = 0, negCount = 0;
-
+  if (lastRun && Array.isArray(lastRun.allResults)) {
+    const platStats = {}; let mentioned = 0, total = 0, recommended = 0, neg = 0;
     lastRun.allResults.filter(r => !r.error).forEach(r => {
       total++;
-      if (!platStats[r.platform]) platStats[r.platform] = { total: 0, found: 0 };
-      platStats[r.platform].total++;
-      if (r.mentioned) {
-        mentioned++;
-        platStats[r.platform].found++;
-        if (r.recommended) recommended++;
-        if (r.sentiment === 'negative') negCount++;
-      }
+      (platStats[r.platform] = platStats[r.platform] || { t: 0, f: 0 }).t++;
+      if (r.mentioned) { mentioned++; platStats[r.platform].f++; if (r.recommended) recommended++; if (r.sentiment === 'negative') neg++; }
     });
-
-    const strongPlats = [];
-    const weakPlats = [];
-    Object.entries(platStats).forEach(([p, s]) => {
-      const rate = s.total > 0 ? s.found / s.total : 0;
-      if (rate >= 0.5) strongPlats.push(p);
-      else weakPlats.push(p);
-    });
-
-    // Tip 1: Platform gaps
-    if (strongPlats.length > 0 && weakPlats.length > 0) {
-      tips.push(`Platform Gap: Strong on ${strongPlats.join(', ')} but weak on ${weakPlats.join(', ')}. Different AI platforms pull from different sources - diversify your online presence and optimize content for each.`);
-    }
-
-    // Tip 2: Low SOV
-    if (sov === 0 && total > 0) {
-      tips.push('Build Foundation: AI platforms haven\'t picked up your brand yet. Focus on structured data, review profiles (Google, Yelp), and authoritative backlinks - these are what AI models reference.');
-    } else if (sov > 0 && sov < 30) {
-      tips.push(`Grow Visibility: You appear in ${sov}% of queries. Create FAQ-style content that directly answers common questions, and ensure your Google Business Profile is fully optimized.`);
-    }
-
-    // Tip 3: Negative sentiment
-    if (negCount > 0) {
-      tips.push(`Address Negative Sentiment: ${negCount} AI response${negCount > 1 ? 's' : ''} show negative sentiment. Review what AI platforms say about your brand and address underlying issues through customer experience improvements.`);
-    }
-
-    // Tip 4: Low recommendation rate
+    const strong = [], weak = [];
+    Object.entries(platStats).forEach(([p, s]) => ((s.t > 0 && s.f / s.t >= 0.5) ? strong : weak).push(p));
+    if (strong.length && weak.length) tips.push({ t: 'Close platform gaps', d: `You're strong on ${strong.join(', ')} but weak on ${weak.join(', ')}. Different engines pull from different sources — diversify your presence and tailor content per platform.` });
+    if (sov === 0 && total > 0) tips.push({ t: 'Build a foundation', d: "AI engines haven't picked up your brand yet. Prioritise structured data, review profiles (Google, Yelp) and authoritative backlinks — the sources models reference." });
+    else if (sov > 0 && sov < 30) tips.push({ t: 'Grow visibility', d: `You appear in ${sov}% of queries. Publish FAQ-style content that directly answers buyer questions and fully optimise your Google Business Profile.` });
+    if (neg > 0) tips.push({ t: 'Address negative sentiment', d: `${neg} response${neg > 1 ? 's' : ''} show negative sentiment. Review what AI says about you and fix the underlying customer-experience issues.` });
     const recRate = mentioned > 0 ? recommended / mentioned : 0;
-    if (mentioned > 0 && recRate < 0.3) {
-      tips.push('Boost Recommendations: AI mentions your brand but rarely recommends it. Earn more positive reviews, add customer testimonials, and build authority with case studies and industry awards.');
-    }
-
-    // Tip 5: Citation optimization
-    const allCites = [];
-    lastRun.allResults.forEach(r => {
-      (r.citations || r.cites || []).forEach(url => allCites.push(url));
-    });
-    if (allCites.length > 0 && brand.website) {
-      const brandDomain = brand.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
-      const hasBrandCite = allCites.some(url => {
-        try { return new URL(url).hostname.replace(/^www\./, '').includes(brandDomain); } catch (e) { return false; }
-      });
-      if (!hasBrandCite) {
-        tips.push(`Earn Citations: AI platforms cite external sources but not your website. Create authoritative, AI-crawlable content and build domain authority to become a cited source.`);
-      }
+    if (mentioned > 0 && recRate < 0.3) tips.push({ t: 'Earn more recommendations', d: 'AI mentions you but rarely recommends you. Grow positive reviews, add testimonials and build authority with case studies.' });
+    const cites = []; lastRun.allResults.forEach(r => (r.citations || r.cites || []).forEach(u => cites.push(u)));
+    if (cites.length && brand.website) {
+      const bd = brand.website.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0].toLowerCase();
+      const has = cites.some(u => { try { return new URL(u).hostname.replace(/^www\./, '').includes(bd); } catch { return false; } });
+      if (!has) tips.push({ t: 'Earn citations', d: 'AI cites external sources but not your site. Publish authoritative, crawlable content and build domain authority to become a cited source.' });
     }
   }
+  if (!tips.length) tips.push({ t: 'Keep monitoring', d: 'Run your prompts regularly to track AI visibility over time and catch changes early.' });
 
-  if (tips.length === 0) {
-    tips.push('Keep monitoring your AI visibility and run queries regularly to track changes over time.');
-  }
+  section(doc, 'Recommendations', 'Prioritised actions to grow your AI share of voice.');
 
-  const x = 40;
   tips.slice(0, 5).forEach((tip, i) => {
-    ensurePage(doc, 35);
-    const rowY = doc.y;
-
-    // Numbered bullet
-    doc.font('Helvetica-Bold').fontSize(10).fillColor(BRANDING.accentColor);
-    doc.text(`${i + 1}.`, x, rowY, { width: 18 });
-
-    doc.font('Helvetica').fontSize(9.5).fillColor(BRANDING.textColor);
-    doc.text(tip, x + 20, rowY, { width: doc.page.width - 100 });
-    doc.moveDown(0.4);
+    // measure description height for the card
+    doc.font('Helvetica').fontSize(9.5);
+    const descH = doc.heightOfString(tip.d, { width: cw - 58 });
+    const cardH = Math.max(44, descH + 30);
+    ensure(doc, cardH + 8);
+    const y = doc.y;
+    doc.save();
+    doc.roundedRect(M, y, cw, cardH, 9).fill(C.bg);
+    doc.roundedRect(M, y, cw, cardH, 9).lineWidth(0.8).strokeColor(C.line).stroke();
+    // number badge
+    doc.circle(M + 22, y + 22, 12).fill(C.primary);
+    doc.restore();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(C.white).text(String(i + 1), M + 16, y + 16, { width: 12, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(C.ink).text(tip.t, M + 44, y + 12, { width: cw - 58 });
+    doc.font('Helvetica').fontSize(9.5).fillColor(C.text).text(tip.d, M + 44, y + 27, { width: cw - 58 });
+    doc.y = y + cardH + 8;
   });
 }
 
-function renderFooter(doc) {
-  const y = doc.page.height - 35;
+// ─── Empty state (no runs yet) ──────────────────────────────────
+function renderEmpty(doc) {
+  const { M, W, cw } = geo(doc);
+  section(doc, 'Executive Summary');
+  ensure(doc, 120);
+  const y = doc.y;
   doc.save();
-  doc.moveTo(40, y).lineTo(doc.page.width - 40, y).lineWidth(0.3).strokeColor(BRANDING.gridColor).stroke();
-  doc.font('Helvetica').fontSize(8).fillColor(BRANDING.mutedColor);
-  doc.text(`Generated by ${BRANDING.companyName} · ${new Date().toISOString().split('T')[0]}`, 40, y + 8, { width: doc.page.width - 80, align: 'center' });
+  doc.roundedRect(M, y, cw, 96, 10).fill(C.bg);
+  doc.roundedRect(M, y, cw, 96, 10).lineWidth(0.8).strokeColor(C.line).stroke();
   doc.restore();
+  doc.font('Helvetica-Bold').fontSize(13).fillColor(C.ink).text('No run data yet', M, y + 28, { width: cw, align: 'center' });
+  doc.font('Helvetica').fontSize(10).fillColor(C.muted)
+    .text('Run your prompts across the AI engines to populate this report with real visibility data.', M + 40, y + 50, { width: cw - 80, align: 'center' });
+  doc.y = y + 96 + 8;
 }
 
-// ─── MAIN GENERATOR ─────────────────────────────────────────────
+// ─── Footer (all pages) ─────────────────────────────────────────
+function renderFooter(doc, idx, count) {
+  const { W, M, H } = geo(doc);
+  const y = H - 40;
+  // Writing into the bottom-margin band makes PDFKit auto-add a page; drop the
+  // bottom margin for the duration of the footer draw so it stays on this page.
+  const savedBottom = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
+  doc.save();
+  doc.moveTo(M, y).lineTo(W - M, y).lineWidth(0.5).strokeColor(C.line).stroke();
+  doc.font('Helvetica').fontSize(8).fillColor(C.faint);
+  doc.text(`Generated by ${BRANDING.companyName}`, M, y + 8, { width: 200, lineBreak: false });
+  doc.text(new Date().toISOString().split('T')[0], M, y + 8, { width: W - M * 2, align: 'center', lineBreak: false });
+  doc.text(`Page ${idx + 1} of ${count}`, W - M - 120, y + 8, { width: 120, align: 'right', lineBreak: false });
+  doc.restore();
+  doc.page.margins.bottom = savedBottom;
+}
 
+// ─── Main generator ─────────────────────────────────────────────
 function generateReport(brand) {
   const doc = new PDFDocument({
-    size: 'A4',
-    margin: 40,
+    size: 'A4', margin: 44, autoFirstPage: true, bufferPages: true,
     info: {
-      Title: `${brand.name} - AI Visibility Report`,
-      Author: BRANDING.companyName,
-      Subject: 'AI Visibility Report',
-      Creator: BRANDING.companyName,
+      Title: `${brand.name || 'Brand'} — AI Visibility Report`,
+      Author: BRANDING.companyName, Subject: 'AI Visibility Report', Creator: BRANDING.companyName,
     },
-    autoFirstPage: true,
-    bufferPages: true,
   });
 
-  const lastRun = brand.runs && brand.runs.length ? brand.runs[brand.runs.length - 1] : null;
-  const prevRun = brand.runs && brand.runs.length > 1 ? brand.runs[brand.runs.length - 2] : null;
-  const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const runs = Array.isArray(brand.runs) ? brand.runs : [];
+  const lastRun = runs.length ? runs[runs.length - 1] : null;
+  const prevRun = runs.length > 1 ? runs[runs.length - 2] : null;
+  const sov = lastRun ? Math.round(lastRun.sov || 0) : 0;
+  const prevSov = prevRun ? Math.round(prevRun.sov || 0) : null;
 
-  // Render sections
-  renderHeader(doc, brand.name, reportDate);
-  renderVisibilitySummary(doc, lastRun, prevRun);
-  renderPlatformBreakdown(doc, lastRun);
-  renderTopQueries(doc, lastRun);
-  renderCompetitorComparison(doc, brand, lastRun);
-  renderCitationSources(doc, brand, lastRun);
-  renderRecommendations(doc, brand, lastRun);
+  renderCover(doc, brand, fmtDate(Date.now()), sov, prevSov);
 
-  // Add footer to all pages
-  const pageCount = doc.bufferedPageRange().count;
-  for (let i = 0; i < pageCount; i++) {
-    doc.switchToPage(i);
-    renderFooter(doc);
+  if (!lastRun) {
+    renderEmpty(doc);
+  } else {
+    renderSummary(doc, lastRun);
+    renderPlatforms(doc, lastRun);
+    renderTopQueries(doc, lastRun);
+    renderCompetitors(doc, brand, lastRun);
+    renderCitations(doc, brand, lastRun);
+    renderRecommendations(doc, brand, lastRun);
+  }
+
+  // Footer with page numbers on every page
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(range.start + i);
+    renderFooter(doc, i, range.count);
   }
 
   doc.end();
