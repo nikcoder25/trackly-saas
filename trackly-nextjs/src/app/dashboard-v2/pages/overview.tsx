@@ -359,7 +359,6 @@ export function PageOverview() {
       <PageHead title={<>Welcome back, <span style={{ color: 'var(--primary)' }}>Nikhil</span>.</>}
         sub={<>{d.brandName} is mentioned across the 5 AI engines — here&rsquo;s what changed in the last 7 days.</>}
         actions={<>
-          <button className="btn-g">+ Compare brand</button>
           <button className="btn-p">↗ View live</button>
         </>} />
 
