@@ -630,7 +630,10 @@
 .lvx .feed-m { font-size: 11px; color: var(--text-2); margin-top: 5px; display: flex; align-items: center; gap: 4px; }
 
 /* Comparison/Source rows */
-.lvx .comp-row { display: grid; grid-template-columns: 140px 1fr 60px 70px; gap: 12px; align-items: center; }
+.lvx .comp-row { display: grid; grid-template-columns: minmax(180px, 240px) 1fr 56px 64px; gap: 14px; align-items: center; }
+.lvx .comp-row .comp-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.lvx .comp-row .comp-name b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvx .comp-row .comp-name b:hover { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: help; }
 .lvx .src-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px 50px; gap: 12px; align-items: center; }
 .lvx .src-row .cit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

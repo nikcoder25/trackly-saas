@@ -653,14 +653,14 @@ function OverviewCompetitors({ rows }: { rows: OverviewData['competitors'] }) {
         <div style={{ display: 'grid', gap: 14 }}>
           {rows.map((r, i) => (
             <div key={i} className="comp-row">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 120 }}>
-                <span style={{ width: 8, height: 8, background: r.color, borderRadius: 2, display: 'inline-block' }} />
-                <b style={{ color: r.me ? 'var(--accent)' : 'var(--text)', fontWeight: 500, fontSize: 13 }}>{r.name}</b>
+              <span className="comp-name">
+                <span style={{ width: 8, height: 8, background: r.color, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
+                <b title={r.name} style={{ color: r.me ? 'var(--accent)' : 'var(--text)', fontWeight: 500, fontSize: 13 }}>{r.name}</b>
                 {r.me && <Badge tone="acc">YOU</Badge>}
               </span>
               <Bar value={r.sov} max={max} />
-              <span className="mono" style={{ fontSize: 13, minWidth: 60, textAlign: 'right' }}>{r.sov}%</span>
-              <span style={{ minWidth: 60, textAlign: 'right' }}><Delta v={r.d} suffix="%" /></span>
+              <span className="mono" style={{ fontSize: 13, textAlign: 'right' }}>{r.sov}%</span>
+              <span style={{ textAlign: 'right' }}><Delta v={r.d} suffix="%" /></span>
             </div>
           ))}
         </div>
