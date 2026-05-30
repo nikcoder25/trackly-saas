@@ -4,6 +4,11 @@ import { withSentryConfig } from '@sentry/nextjs';
 const nextConfig: NextConfig = {
     reactStrictMode: true,
     poweredByHeader: false,
+    // PDFKit reads its font-metric (.afm) data files from disk at runtime.
+    // If it's bundled by webpack those reads fail (ENOENT) and PDF generation
+    // throws ("Failed to generate PDF report"). Keeping it external makes Next
+    // require it from node_modules so the font data loads correctly.
+    serverExternalPackages: ['pdfkit'],
     images: {
           remotePatterns: [
             { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
