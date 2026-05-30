@@ -530,7 +530,9 @@ function OverviewEngineGrid({ platforms }: { platforms: Platform[] }) {
             </div>
             <div className="eg-v mono">{p.sov}<i>%</i></div>
             <Bar value={p.sov} />
-            <Spark data={[12, 14, 11, 18, 16, 22, 20, 24, 22, 28, 26, 30, p.sov]} width={200} height={26} color={p.delta >= 0 ? 'var(--accent)' : 'var(--mute)'} fill />
+            <div className="eg-spark">
+              <Spark data={[12, 14, 11, 18, 16, 22, 20, 24, 22, 28, 26, 30, p.sov]} width={200} height={26} color={p.delta >= 0 ? 'var(--accent)' : 'var(--mute)'} fill />
+            </div>
           </div>
         ))}
       </div>
