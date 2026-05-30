@@ -338,7 +338,7 @@ export function PageOverview() {
           <select className="sel"><option>All intents</option><option>Comparison</option><option>Recommendation</option><option>Pricing</option><option>Feature</option></select>
           <select className="sel"><option>vs Top 3 competitors</option><option>vs All competitors</option></select>
           <span style={{ flex: 1 }} />
-          <Pill tone="acc"><span className="pulse" /> Auto-runs on · hourly</Pill>
+          <Pill tone="acc"><span className="pulse" /> Auto-runs on</Pill>
         </Filter>
 
         <KPIRail items={[
