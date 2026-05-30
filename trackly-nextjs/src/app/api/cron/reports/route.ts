@@ -3,6 +3,7 @@ import { pool } from '@/lib/db';
 import { acquireCronLock } from '@/lib/cron-lock';
 import { logger } from '@/lib/logger';
 import { sendReportEmail, type ScheduledReportSummary } from '@/lib/email';
+import { runDueReportSchedules } from '@/lib/report-schedule';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -148,11 +149,17 @@ export async function GET(request: Request) {
       emails_failed: emailsFailed,
       ms: Date.now() - started,
     });
+
+    // Auto-generate the standard PDF into report history for brands with a
+    // matching auto-generate schedule (independent of the email schedule above).
+    const autoReports = await runDueReportSchedules(frequency);
+
     return Response.json({
       frequency,
       usersTargeted,
       emailsSent,
       emailsFailed,
+      autoReports,
       ms: Date.now() - started,
     });
   } catch (e) {

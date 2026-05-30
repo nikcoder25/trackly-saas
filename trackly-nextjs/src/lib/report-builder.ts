@@ -57,7 +57,40 @@ export async function ensureReportSchema(): Promise<void> {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_report_history_brand ON report_history (brand_id, created_at DESC)`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS report_schedules (
+      brand_id    TEXT PRIMARY KEY,
+      frequency   TEXT NOT NULL DEFAULT 'off' CHECK (frequency IN ('off','weekly','monthly')),
+      last_run_at TIMESTAMPTZ,
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT report_schedules_brand_fk
+        FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE
+    )
+  `);
   schemaEnsured = true;
+}
+
+export type ReportFrequency = 'off' | 'weekly' | 'monthly';
+
+export async function getSchedule(brandId: string): Promise<{ frequency: ReportFrequency; lastRunAt: string | null }> {
+  const res = await pool.query('SELECT frequency, last_run_at FROM report_schedules WHERE brand_id = $1', [brandId]);
+  const row = res.rows[0];
+  return {
+    frequency: (row?.frequency as ReportFrequency) || 'off',
+    lastRunAt: row?.last_run_at ? new Date(row.last_run_at).toISOString() : null,
+  };
+}
+
+export async function setSchedule(brandId: string, frequency: ReportFrequency): Promise<void> {
+  await pool.query(
+    `INSERT INTO report_schedules (brand_id, frequency, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (brand_id) DO UPDATE SET frequency = EXCLUDED.frequency, updated_at = NOW()`,
+    [brandId, frequency]
+  );
+}
+
+export async function markScheduleRun(brandId: string): Promise<void> {
+  await pool.query('UPDATE report_schedules SET last_run_at = NOW() WHERE brand_id = $1', [brandId]);
 }
 
 const HISTORY_KEEP = 20;
