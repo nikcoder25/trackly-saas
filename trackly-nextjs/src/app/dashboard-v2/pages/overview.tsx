@@ -40,6 +40,12 @@ interface OverviewData {
   accuracyRate: number | null;
   openIssues: number;
   fixedIssues: number;
+  healthDelta: number | null;
+  sentimentDelta: number | null;
+  coverageDelta: number | null;
+  sentimentSub: string;
+  competitive: number | null;
+  competitiveSub: string;
 }
 
 interface InsightItem { icon: string; tone: 'pos' | 'warn' | 'info'; t: string; d: string; cta: string; href: string }
@@ -181,6 +187,12 @@ function buildFallback(): OverviewData {
     accuracyRate: 88,
     openIssues: 6,
     fixedIssues: 3,
+    healthDelta: 6,
+    sentimentDelta: 3,
+    coverageDelta: 14,
+    sentimentSub: '61% positive',
+    competitive: 68,
+    competitiveSub: '#2 of 6 tracked',
   };
 }
 
@@ -200,6 +212,8 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       ...fb, hasReal: true, brandName: brand.name || fb.brandName, industry: brand.industry, city: brand.city,
       competitors: [], sources: [],
       accuracyRate, openIssues, fixedIssues,
+      healthDelta: null, sentimentDelta: null, coverageDelta: null,
+      sentimentSub: '', competitive: null, competitiveSub: '',
       queries: brandQueries.slice(0, 6).map(q => ({ q, sov: 0, d: 0, mentions: 0, eng: 0 })),
       recent: [],
       insights: [],
@@ -222,6 +236,32 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
   const mRate = totalQ > 0 ? totalM / totalQ : 0;
   const health = sentTotalSafe(sentTotal) ? Math.round(Math.min(100, mRate * 55 + (sentiment / 100) * 45)) : fb.health;
 
+  // Real subtitle for the Sentiment bar: the share of mentions that are positive.
+  const sentimentSub = sentTotal > 0 ? `${Math.round((pos / sentTotal) * 100)}% positive` : 'no sentiment data yet';
+
+  // Previous-run metrics, used to show *real* week-over-week deltas instead of
+  // hardcoded numbers. Null when there is no prior run to compare against.
+  let prevSentiment: number | null = null;
+  let prevHealth: number | null = null;
+  let prevTotalQ: number | null = null;
+  if (prevRun) {
+    const pResults: any[] = Array.isArray(prevRun.allResults) ? prevRun.allResults : [];
+    const pTotalM = Number(prevRun.totalM) || pResults.filter(r => r.mentioned).length;
+    prevTotalQ = Number(prevRun.totalQ) || brandQueries.length;
+    const pPos = pResults.filter(r => r.sentiment === 'positive').length;
+    const pNeu = pResults.filter(r => r.sentiment === 'neutral').length;
+    const pNeg = pResults.filter(r => r.sentiment === 'negative').length;
+    const pSentTotal = pPos + pNeu + pNeg;
+    if (pSentTotal > 0) {
+      prevSentiment = Math.round((pPos * 100 + pNeu * 50) / pSentTotal);
+      const pMRate = prevTotalQ > 0 ? pTotalM / prevTotalQ : 0;
+      prevHealth = Math.round(Math.min(100, pMRate * 55 + (prevSentiment / 100) * 45));
+    }
+  }
+  const healthDelta = prevHealth !== null ? health - prevHealth : null;
+  const sentimentDelta = prevSentiment !== null ? sentiment - prevSentiment : null;
+  const coverageDelta = prevTotalQ !== null ? totalQ - prevTotalQ : null;
+
   // platforms: override design tiles with real SOV/mentions where present
   const rawPlatforms = lastRun.platforms || {};
   const platforms: Platform[] = PLATFORMS.map(p => {
@@ -241,6 +281,18 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       { name: brand.name || 'You', sov, d: sov - prevSov, me: true, color: 'var(--accent)' },
       ...compEntries.map(([name, c], i) => ({ name, sov: Math.round((c / total) * 100), d: 0, color: COMP_COLORS[(i + 1) % COMP_COLORS.length] })),
     ].sort((a, b) => b.sov - a.sov);
+  }
+
+  // Real "Competitive" standing derived from the competitor SOV table: how close
+  // you are to the category leader (100 = you lead it), plus your rank. Null when
+  // no rivals are tracked, so the banner can show an honest empty state.
+  let competitive: number | null = null;
+  let competitiveSub = '';
+  if (competitors.length > 0) {
+    const rank = competitors.findIndex(c => c.me) + 1;
+    const leaderSov = competitors[0].sov || 0;
+    competitive = leaderSov > 0 ? Math.round(Math.min(100, (sov / leaderSov) * 100)) : 0;
+    competitiveSub = `#${rank} of ${competitors.length} tracked`;
   }
 
   // sources / citations
@@ -343,6 +395,12 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
     accuracyRate,
     openIssues,
     fixedIssues,
+    healthDelta,
+    sentimentDelta,
+    coverageDelta,
+    sentimentSub,
+    competitive,
+    competitiveSub,
   };
 }
 function sentTotalSafe(n: number) { return n > 0; }
@@ -377,7 +435,7 @@ export function PageOverview() {
         </>} />
 
       <div className="page-body">
-        <HealthBanner health={d.health} sentiment={d.sentiment} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} />
+        <HealthBanner health={d.health} healthDelta={d.healthDelta} sentiment={d.sentiment} sentimentSub={d.sentimentSub} sov={d.sov} totalQ={d.totalQ} accuracyRate={d.accuracyRate} openIssues={d.openIssues} fixedIssues={d.fixedIssues} competitive={d.competitive} competitiveSub={d.competitiveSub} />
         <GoalCard current={d.sov} />
         <InsightsStrip items={d.insights} />
 
@@ -393,9 +451,9 @@ export function PageOverview() {
         <KPIRail items={[
           { k: 'SHARE OF VOICE', term: 'sov', v: String(d.sov), suffix: '%', d: d.sovDelta, info: 'vs prev. run' },
           { k: 'MENTIONS', term: 'mention', v: fmt(d.totalM), d: d.mentionsDelta, info: '5 engines' },
-          { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: +3.1, info: '+0.62 score' },
+          { k: 'SENTIMENT', term: 'sentiment', v: String(d.sentiment), suffix: '%', d: d.sentimentDelta ?? undefined, info: d.sentimentDelta != null ? 'vs prev. run' : undefined },
           { k: 'FALSE CLAIMS', term: 'hallucination', v: d.accuracyRate !== null ? String(d.openIssues) : '—', danger: d.accuracyRate !== null && d.openIssues > 0, info: d.accuracyRate !== null ? (d.fixedIssues > 0 ? `${d.fixedIssues} fixed` : 'none fixed') : 'not set up' },
-          { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: +14, info: 'prompts' },
+          { k: 'COVERAGE', term: 'coverage', v: String(d.totalQ), d: d.coverageDelta ?? undefined, info: 'prompts' },
         ]} />
 
         <div className="g2">
@@ -455,7 +513,7 @@ function HBar({ label, v, sub }: { label: string; v: number; sub: string }) {
   );
 }
 
-function HealthBanner({ health, sentiment, sov, totalQ, accuracyRate, openIssues, fixedIssues }: { health: number; sentiment: number; sov: number; totalQ: number; accuracyRate: number | null; openIssues: number; fixedIssues: number }) {
+function HealthBanner({ health, healthDelta, sentiment, sentimentSub, sov, totalQ, accuracyRate, openIssues, fixedIssues, competitive, competitiveSub }: { health: number; healthDelta: number | null; sentiment: number; sentimentSub: string; sov: number; totalQ: number; accuracyRate: number | null; openIssues: number; fixedIssues: number; competitive: number | null; competitiveSub: string }) {
   const grade = health >= 80 ? 'Excellent' : health >= 65 ? 'Good' : health >= 45 ? 'Fair' : 'Needs work';
   const accSub = accuracyRate !== null
     ? `${openIssues} claim${openIssues !== 1 ? 's' : ''} open${fixedIssues > 0 ? ` / ${fixedIssues} fixed` : ''}`
@@ -467,14 +525,17 @@ function HealthBanner({ health, sentiment, sov, totalQ, accuracyRate, openIssues
         <div>
           <div className="eyebrow" style={{ color: 'rgba(255,255,255,.7)', display: 'flex', alignItems: 'center' }}>BRAND HEALTH <Info term="health" /></div>
           <div className="hb-grade">{grade}</div>
-          <div className="hb-d"><Delta v={+6} /> <span style={{ color: 'rgba(255,255,255,.7)' }}>vs last week · on track for your goal</span></div>
+          <div className="hb-d">
+            {healthDelta != null && <Delta v={healthDelta} />}
+            <span style={{ color: 'rgba(255,255,255,.7)' }}>{healthDelta != null ? 'vs previous run' : 'no prior run to compare'}</span>
+          </div>
         </div>
       </div>
       <div className="hb-bars">
         <HBar label="Visibility" v={Math.round(sov)} sub={`${totalQ} prompts tracked`} />
-        <HBar label="Sentiment" v={sentiment} sub="+0.62 avg score" />
+        <HBar label="Sentiment" v={sentiment} sub={sentimentSub} />
         <HBar label="Accuracy" v={accuracyRate ?? 0} sub={accSub} />
-        <HBar label="Competitive" v={68} sub="leads in 5 / 8 categories" />
+        <HBar label="Competitive" v={competitive ?? 0} sub={competitive != null ? competitiveSub : 'no rivals tracked'} />
       </div>
       <div className="hb-art" aria-hidden="true">
         <svg viewBox="0 0 240 140" preserveAspectRatio="none">
