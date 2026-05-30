@@ -14,13 +14,14 @@ const COMP_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14
 
 interface Brand { id: string; name: string; website?: string; competitors?: string[]; runs?: Array<{ allResults?: Array<{ query: string; platform: string; mentioned: boolean; competitorMentions?: string[] }> }>; }
 interface CitationRow { domain: string; domain_type: string; is_brand: boolean; is_competitor: boolean; total: string; avg_position: string; last_seen: string; }
-interface CompetitorStat { name: string; mentions: number; percentage: number; }
+interface CompetitorStat { name: string; mentions: number; percentage: number; trend?: number[]; }
 interface CompetitorStatsData {
   competitors: CompetitorStat[];
   platforms: Record<string, { total: number; competitors: Record<string, number> }>;
   totalQueries: number;
   brandMentions: number;
   brandPercentage: number;
+  brandTrend?: number[];
   hasData: boolean;
 }
 
@@ -201,6 +202,16 @@ export default function CompetitorsPage() {
       .slice(0, 15);
   }, [citations, brand?.website, competitors]);
 
+  // Real per-competitor SOV-over-time trend (daily) from the stats API, keyed
+  // by competitor name for quick lookup when building the leaderboard.
+  const compTrends = useMemo(() => {
+    const map: Record<string, number[]> = {};
+    for (const cs of compStatsData?.competitors || []) {
+      if (cs.trend && cs.trend.length) map[cs.name] = cs.trend;
+    }
+    return map;
+  }, [compStatsData]);
+
   // Build the ranked leaderboard from real data: brand + tracked competitors,
   // sorted by share of voice (SOV = mentions / totalQueries).
   const leaderboard = useMemo(() => {
@@ -211,6 +222,7 @@ export default function CompetitorsPage() {
         sov: brandPct,
         color: 'var(--primary)',
         me: true,
+        trend: compStatsData?.brandTrend || [],
       },
       ...competitors.map((c, i) => {
         const count = compStats[c] || 0;
@@ -221,11 +233,12 @@ export default function CompetitorsPage() {
           sov,
           color: COMP_COLORS[i % COMP_COLORS.length],
           me: false,
+          trend: compTrends[c] || [],
         };
       }),
     ];
     return rows.sort((a, b) => b.sov - a.sov);
-  }, [brand?.name, competitors, compStats, compStatsData, brandPct, totalQueries]);
+  }, [brand?.name, competitors, compStats, compStatsData, brandPct, totalQueries, compTrends]);
 
   if (loading || compStatsLoading) return (
     <div className="lvx">
@@ -391,8 +404,8 @@ export default function CompetitorsPage() {
                     <td className="num"><b>{c.sov}%</b></td>
                     <td className="num">{c.mentions.toLocaleString()}{!c.me && '×'}</td>
                     <td>
-                      {c.sov > 0
-                        ? <Spark data={[Math.max(0, c.sov - 3), Math.max(0, c.sov - 1), c.sov]} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
+                      {c.trend && c.trend.length >= 2
+                        ? <Spark data={c.trend} width={120} height={24} color={c.me ? 'var(--primary)' : c.color} />
                         : <span className="mono dim" style={{ fontSize: 11 }}>—</span>}
                     </td>
                   </tr>
