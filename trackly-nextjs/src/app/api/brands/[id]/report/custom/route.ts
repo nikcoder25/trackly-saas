@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { pool } from '@/lib/db';
 import { requireVerifiedAuth } from '@/lib/auth';
 import { getBrandWithAccess } from '@/lib/helpers';
@@ -55,9 +56,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `${safeName}_Custom_Report_${dateStr}.pdf`;
 
-    const mentions = draft.items.filter(i => i.kind === 'mention').length;
-    const queries = draft.items.filter(i => i.kind === 'query').length;
-    await recordReport(id, user.id, 'custom', draft.title || `${brand.name || 'Brand'} — Custom Report`, filename, buffer, { mentions, queries });
+    // History recording is best-effort — never block the actual download
+    // on a transient DB error or schema glitch.
+    try {
+      const mentions = draft.items.filter(i => i.kind === 'mention').length;
+      const queries = draft.items.filter(i => i.kind === 'query').length;
+      await recordReport(id, user.id, 'custom', draft.title || `${brand.name || 'Brand'} — Custom Report`, filename, buffer, { mentions, queries });
+    } catch (recErr) {
+      console.error('[Custom Report] History record failed (non-fatal):', (recErr as Error).message);
+      Sentry.captureException(recErr, { tags: { route: 'brands.report.custom', step: 'history-record' } });
+    }
 
     return new Response(new Uint8Array(buffer), {
       status: 200,
@@ -72,6 +80,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const msg = (e as Error).message;
     if (process.env.NODE_ENV === 'production') console.error('[Custom Report] Failed:', msg);
     else console.error('[Custom Report] Failed:', msg, (e as Error).stack);
+    Sentry.captureException(e, { tags: { route: 'brands.report.custom' } });
     return Response.json({ error: 'Failed to generate the custom report' }, { status: 500 });
   }
 }

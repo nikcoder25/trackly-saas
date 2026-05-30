@@ -705,7 +705,17 @@ async function downloadBrandReport(brandId: string | undefined, brandName: strin
       toast(j.error || 'PDF reports are available on the Pro plan and above.', 'error');
       return;
     }
-    if (!res.ok) { toast('Could not generate the report. Please try again.', 'error'); return; }
+    if (res.status === 429) {
+      toast('Too many downloads — please wait a moment and try again.', 'error');
+      return;
+    }
+    if (!res.ok) {
+      // Surface the server's specific message when available (e.g. "Brand not
+      // found") so the user knows what to do, instead of a generic "try again".
+      const j = await res.clone().json().catch(() => null);
+      toast((j && j.error) || 'Could not generate the report. Please try again.', 'error');
+      return;
+    }
     const blob = await res.blob();
     const cd = res.headers.get('Content-Disposition') || '';
     const m = cd.match(/filename="?([^"]+)"?/);
