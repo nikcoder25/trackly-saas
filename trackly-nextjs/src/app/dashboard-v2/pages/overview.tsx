@@ -12,11 +12,14 @@ import {
 } from '../ui';
 import { GoalCard } from '../shell';
 import { useBrandData } from '@/hooks/useBrandData';
+import { useRun } from '@/contexts/RunContext';
+import { useToast } from '@/components/dashboard/Toast';
+import { useBrands } from '@/contexts/BrandContext';
 
 /* ───────────────────────── real-data hook ───────────────────────── */
 
 interface QueryRow { q: string; sov: number; d: number; mentions: number; eng: number }
-interface RecentItem { p: Platform; q: string; tag: string; meta: string; t: string }
+interface RecentItem { p: Platform; q: string; tag: string; meta: string; t: string; answer?: string; sources?: string[] }
 
 interface OverviewData {
   hasReal: boolean;
@@ -177,12 +180,12 @@ function buildFallback(): OverviewData {
       { q: 'free alternative to monday.com', sov: 8, d: -1, mentions: 18, eng: 4 },
     ],
     recent: [
-      { p: PLATFORMS[1], q: 'best agile pm tool for engineering teams', tag: 'pos', meta: 'Acme · 2nd of 5', t: '2m' },
-      { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m' },
-      { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m' },
-      { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m' },
-      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m' },
-      { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m' },
+      { p: PLATFORMS[1], q: 'best agile pm tool for engineering teams', tag: 'pos', meta: 'Acme · 2nd of 5', t: '2m', answer: 'For engineering teams, the most-recommended tools are Linear, Acme, and Asana. Acme is praised for its GitHub-native workflow and AI summaries.', sources: ['linear.app/why', 'acme.com/customers', 'asana.com/eng', 'g2.com/category/pm'] },
+      { p: PLATFORMS[0], q: 'linear vs acme for startups', tag: 'neu', meta: 'Acme · mentioned', t: '4m', answer: 'Both Linear and Acme are popular with startups. Linear is known for speed; Acme for its AI-assisted planning and GitHub integration.', sources: ['linear.app', 'acme.com/startups'] },
+      { p: PLATFORMS[2], q: 'cheapest project mgmt with AI', tag: 'neg', meta: 'not mentioned', t: '7m', answer: 'The most affordable AI-enabled options include Trello, ClickUp, and Notion. (Acme was not mentioned in this answer.)', sources: ['trello.com', 'clickup.com'] },
+      { p: PLATFORMS[3], q: 'acme pricing for 50 seats', tag: 'warn', meta: 'Hallucination · stale price', t: '12m', answer: 'Acme costs about $8 per seat per month, so 50 seats would be roughly $400/month.', sources: ['acme.com/pricing'] },
+      { p: PLATFORMS[4], q: 'is acme good for product teams', tag: 'pos', meta: 'Acme · 1st', t: '18m', answer: 'Yes — Acme is frequently cited as a strong choice for product teams thanks to its roadmap views and AI summaries.', sources: ['acme.com/product', 'producthunt.com/products/acme'] },
+      { p: PLATFORMS[0], q: 'what pm tool does intuit use', tag: 'neu', meta: 'Acme · 3rd of 4', t: '24m', answer: 'Large enterprises like Intuit are often associated with Jira and Asana; Acme is also mentioned as a growing alternative.', sources: ['g2.com/category/pm'] },
     ],
     insights: [],
     accuracyRate: 88,
@@ -324,7 +327,12 @@ function buildFromBrand(brand: any, accData?: any): OverviewData {
       const meta = mentioned
         ? (pos ? `${brand.name} · ${ordinal(Number(pos))}` : `${brand.name} · mentioned`)
         : 'not mentioned';
-      return { p: matchPlatform(r.platform), q: r.query, tag, meta, t: relTime(runDate) };
+      const answer = r.response || r.snippet || r.raw || r.context || '';
+      const rawSources = Array.isArray(r.sources) ? r.sources : Array.isArray(r.citations) ? r.citations : [];
+      const sources = rawSources
+        .map((s: any) => (typeof s === 'string' ? s : s?.url || s?.domain || ''))
+        .filter(Boolean);
+      return { p: matchPlatform(r.platform), q: r.query, tag, meta, t: relTime(runDate), answer, sources };
     });
 
   // top tracked queries — aggregate mention rate / engines across all runs
@@ -624,6 +632,42 @@ function InsightsStrip({ items }: { items: InsightItem[] }) {
 }
 
 function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
+  const { startRun } = useRun();
+  const { toast } = useToast();
+  const { selectedBrand } = useBrands();
+  const brandId = (selectedBrand as any)?.id as string | undefined;
+  const [copied, setCopied] = React.useState(false);
+
+  const answer: string = item.answer || '';
+  const sources: string[] = Array.isArray(item.sources) ? item.sources : [];
+
+  const handleRerun = () => {
+    if (!brandId) { toast('Select a brand first to run queries.', 'error'); return; }
+    startRun(false);
+    toast('Re-running your prompts across all engines…');
+    onClose();
+  };
+  const handleFlag = () => {
+    // Hallucinations / false claims are managed on the Accuracy Monitor.
+    onClose();
+    window.location.href = '/dashboard/accuracy';
+  };
+  const handleShare = async () => {
+    const text = `${item.p?.name} · "${item.q}"\nVerdict: ${(item.tag || 'neu').toUpperCase()} — ${item.meta}\n\n${answer || '(no response text captured)'}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast('Copied to clipboard');
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast('Could not copy to clipboard', 'error');
+    }
+  };
+  const handleReport = () => {
+    if (!brandId) { toast('Select a brand first to generate a report.', 'error'); return; }
+    window.open(`/api/brands/${brandId}/report/pdf`, '_blank', 'noopener');
+  };
+
   return (
     <>
       <div className="drawer-bg" onClick={onClose} />
@@ -633,7 +677,7 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
             <PlatformTile p={item.p} size={30} />
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{item.p.name}</div>
-              <div className="mono dim" style={{ fontSize: 11 }}>{['gpt-4o-mini', 'claude-3-7-sonnet', 'gemini-2.5-flash', 'sonar-pro', 'grok-2'][PLATFORMS.indexOf(item.p)]} · {item.t}</div>
+              <div className="mono dim" style={{ fontSize: 11 }}>{item.t}</div>
             </div>
           </div>
           <button className="icon-btn" onClick={onClose} title="Close">
@@ -646,19 +690,25 @@ function MentionDrawer({ item, onClose }: { item: any; onClose: () => void }) {
           <div className="eyebrow">VERDICT</div>
           <div style={{ display: 'flex', gap: 8, margin: '8px 0 18px' }}><Badge tone={item.tag}>{(item.tag || 'neu').toUpperCase()}</Badge> <span className="quiet" style={{ fontSize: 13 }}>{item.meta}</span></div>
           <div className="eyebrow">VERBATIM ANSWER</div>
-          <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text)', margin: '8px 0 18px' }}>
-            For engineering teams, the most-recommended tools are <span style={{ color: 'var(--info)', fontWeight: 500 }}>Linear</span>, <span style={{ color: 'var(--primary)', fontWeight: 600, borderBottom: '1px dashed var(--primary)' }}>Acme</span>, and <span style={{ color: 'var(--text-2)', fontWeight: 500 }}>Asana</span>. Acme is praised for its GitHub-native workflow and AI summaries.
-          </p>
-          <div className="eyebrow">SOURCES CITED</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
-            <Cit url="linear.app/why" /><Cit url="acme.com/customers" /><Cit url="asana.com/eng" /><Cit url="g2.com/category/pm" />
-          </div>
+          {answer ? (
+            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text)', margin: '8px 0 18px', whiteSpace: 'pre-wrap' }}>{answer}</p>
+          ) : (
+            <p className="quiet" style={{ fontSize: 13, margin: '8px 0 18px' }}>No response text was captured for this mention.</p>
+          )}
+          {sources.length > 0 && (
+            <>
+              <div className="eyebrow">SOURCES CITED</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 18px' }}>
+                {sources.map((s, i) => <Cit key={i} url={s} />)}
+              </div>
+            </>
+          )}
           <div className="eyebrow">ACTIONS</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            <button className="btn-g">↻ Re-run this query</button>
-            <button className="btn-g">⚐ Flag as hallucination</button>
-            <button className="btn-g">↗ Share</button>
-            <button className="btn-p">Add to report</button>
+            <button className="btn-g" onClick={handleRerun}>↻ Re-run this query</button>
+            <button className="btn-g" onClick={handleFlag}>⚐ Flag as hallucination</button>
+            <button className="btn-g" onClick={handleShare}>↗ {copied ? 'Copied!' : 'Share'}</button>
+            <button className="btn-p" onClick={handleReport}>Download report</button>
           </div>
         </div>
       </aside>
