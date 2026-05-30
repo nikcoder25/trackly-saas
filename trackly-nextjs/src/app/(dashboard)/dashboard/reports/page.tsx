@@ -41,6 +41,7 @@ export default function ReportsPage() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadingStd, setDownloadingStd] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [frequency, setFrequency] = useState<'off' | 'weekly' | 'monthly'>('off');
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
@@ -139,12 +140,12 @@ export default function ReportsPage() {
     } finally { setBusy(false); }
   }
 
-  async function download() {
+  // Shared blob-download with graceful Pro+ gate handling.
+  async function downloadFrom(path: string, fallbackName: string, setFlag: (b: boolean) => void) {
     if (!brand?.id) { toast('Select a brand first.', 'error'); return; }
-    if (!draft.items.length) { toast('Add at least one mention or query first.', 'error'); return; }
-    setDownloading(true);
+    setFlag(true);
     try {
-      const res = await fetch(`/api/brands/${brand.id}/report/custom`, { credentials: 'include' });
+      const res = await fetch(`/api/brands/${brand.id}/${path}`, { credentials: 'include' });
       if (res.status === 403) {
         const j = await res.json().catch(() => ({}));
         toast(j.error || 'PDF reports are available on the Pro plan and above.', 'error');
@@ -160,14 +161,25 @@ export default function ReportsPage() {
       const m = cd.match(/filename="?([^"]+)"?/);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = m ? m[1] : `${brand.name || 'brand'}_Custom_Report.pdf`;
+      a.href = url; a.download = m ? m[1] : fallbackName;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
       toast('Report downloaded');
       loadHistory(brand.id);
     } catch {
       toast('Could not generate the report. Please try again.', 'error');
-    } finally { setDownloading(false); }
+    } finally { setFlag(false); }
+  }
+
+  // Standard full AI Visibility report — always available (no draft required).
+  function downloadStandard() {
+    downloadFrom('report/pdf', `${brand?.name || 'brand'}_AI_Visibility_Report.pdf`, setDownloadingStd);
+  }
+
+  // Custom report assembled from the selected mentions/queries.
+  function download() {
+    if (!draft.items.length) { toast('Add at least one mention or query first.', 'error'); return; }
+    downloadFrom('report/custom', `${brand?.name || 'brand'}_Custom_Report.pdf`, setDownloading);
   }
 
   if (loading) return (
@@ -183,12 +195,16 @@ export default function ReportsPage() {
       <LockedBrandBanner />
       <PageHead
         title="Reports"
-        sub="Assemble a custom report from the mentions and queries you care about, then download it as a branded PDF."
+        sub="Download your full AI Visibility report, assemble a custom report from selected items, or schedule automatic reports."
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            {!empty && <button className="btn-g" onClick={clearAll} disabled={busy}>Clear</button>}
-            <button className="btn-p" onClick={download} disabled={downloading || empty}>
-              {downloading ? 'Preparing…' : '↓ Download report'}
+            <button className="btn-g" onClick={download} disabled={downloading || empty}
+              title={empty ? 'Add mentions or queries below to build a custom report' : 'Download the custom report you assembled'}>
+              {downloading ? 'Preparing…' : '↓ Custom report'}
+            </button>
+            <button className="btn-p" onClick={downloadStandard} disabled={downloadingStd}
+              title="Download the full AI Visibility report for this brand">
+              {downloadingStd ? 'Preparing…' : '↓ Download report'}
             </button>
           </div>
         }
@@ -245,7 +261,7 @@ export default function ReportsPage() {
         ) : (
           <>
             {/* Selected mentions */}
-            <Card title="Selected mentions" right={<Badge tone="neu">{mentions.length}</Badge>}
+            <Card title="Selected mentions" right={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Badge tone="neu">{mentions.length}</Badge><button className="btn-g" onClick={clearAll} disabled={busy} style={{ padding: '4px 10px', fontSize: 11 }}>Clear all</button></span>}
               lede="The specific AI answers included, with the verbatim response." padding={false}>
               {mentions.length === 0 ? (
                 <div className="quiet" style={{ padding: '20px 16px', fontSize: 13, textAlign: 'center' }}>No mentions added yet.</div>
