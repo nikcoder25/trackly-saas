@@ -839,6 +839,63 @@ export function getDefaultModel(platform: string): string {
   return def ? def.id : models[0].id;
 }
 
+// ── ChatGPT cost-reduction knobs ─────────────────────────
+// Both of these gates are env-driven so an operator can roll them back
+// without a redeploy if the cheaper path ever degrades answer quality.
+
+const VALID_SEARCH_CONTEXT_SIZES = new Set(['low', 'medium', 'high']);
+
+/**
+ * `search_context_size` value to attach under `web_search_options` on
+ * every ChatGPT web_search-enabled call. OpenAI bills the hosted
+ * web_search tool at a higher rate when the field is unset (server
+ * default is "medium"); for brand-mention detection "low" context is
+ * sufficient — we only need to know IF a brand appears, not deep
+ * detail — and is materially cheaper per billed search.
+ *
+ * Override: CHATGPT_SEARCH_CONTEXT_SIZE=low|medium|high. Invalid /
+ * empty values fall back to "low". Read at call time so a runtime
+ * env flip (e.g. via process.env in a test or an incident) takes
+ * effect immediately on the next request.
+ */
+export function getChatGPTSearchContextSize(): 'low' | 'medium' | 'high' {
+  const raw = (process.env.CHATGPT_SEARCH_CONTEXT_SIZE || '').toLowerCase().trim();
+  if (VALID_SEARCH_CONTEXT_SIZES.has(raw)) return raw as 'low' | 'medium' | 'high';
+  return 'low';
+}
+
+// Fallback chain used when the auto-downgraded no-search model errors.
+// Order is intentional: try the previous default first (gpt-5.4-mini),
+// then gpt-4o as a last resort. Reads of this list filter out the
+// downgrade target itself so we never retry the same model.
+const NONSEARCH_DOWNGRADE_FALLBACKS = ['gpt-5.4-mini', 'gpt-4o'];
+
+/**
+ * Resolve the ChatGPT model to use when the call will NOT attach the
+ * hosted web_search tool. mention-detection is capped at
+ * MAX_OUTPUT_TOKENS=100 and doesn't need the extra capability of the
+ * default `gpt-5.4-mini` — gpt-5.4-nano answers the same prompts at
+ * roughly a quarter of the per-token cost.
+ *
+ * Returns the downgraded model id, or `null` when the downgrade is
+ * disabled. Caller is responsible for the "should this call be
+ * downgraded" check (search-preview models and admin-selected models
+ * are honored upstream).
+ *
+ * Override: CHATGPT_NONSEARCH_MODEL=<model id>. Unset → defaults to
+ * 'gpt-5.4-nano'. Set to "" / "off" / "false" → disables the downgrade
+ * entirely (every call uses whatever the caller passed in).
+ */
+export function getChatGPTNonSearchModel(): string | null {
+  const env = process.env.CHATGPT_NONSEARCH_MODEL;
+  if (env === undefined) return 'gpt-5.4-nano';
+  const trimmed = env.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower === 'off' || lower === 'false' || lower === 'disabled') return null;
+  return trimmed;
+}
+
 /**
  * Count billable web_search tool invocations from an OpenAI Chat Completions
  * response. Accepts both shapes the API returns today:
@@ -1357,6 +1414,13 @@ export interface QueryOptions {
   brandId?: string;
   runId?: string;
   requestId?: string;
+  // ChatGPT only: signals that `model` reflects an explicit
+  // admin/user pick (vs. the platform default cascading in). Honored
+  // by the no-search auto-downgrade — see `getChatGPTNonSearchModel`
+  // and the ChatGPT branch of queryAI. Setting this to `true`
+  // suppresses the downgrade so an admin's selection (including the
+  // default model picked deliberately) is preserved verbatim.
+  adminSelectedModel?: boolean;
 }
 
 // Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
@@ -1610,35 +1674,12 @@ export async function queryAI(
 
       if (platform === 'ChatGPT') {
         const isSearch = useModel.includes('search');
-        // OpenAI deprecated `max_tokens` in favour of `max_completion_tokens`
-        // for the gpt-5 family (and o1/o3 reasoning models) — passing the old
-        // name is silently ignored, so output runs to the full model budget
-        // and gets billed in full. `max_completion_tokens` is also accepted
-        // by gpt-4o/gpt-4o-mini and the *-search-preview models, so we use
-        // it uniformly for every ChatGPT call.
-        interface OpenAiPayload {
-          model: string;
-          max_completion_tokens: number;
-          messages: Array<{ role: string; content: string }>;
-          web_search_options?: {
-            user_location?: {
-              type: 'approximate';
-              approximate: { city: string; country: string };
-            };
-          };
-        }
-        const payload: OpenAiPayload = {
-          model: useModel, max_completion_tokens: maxTok,
-          messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
-        };
-        if (isSearch && shouldAttachChatGPTWebSearch(query)) {
-          payload.web_search_options = {};
-          if (brand?.city) payload.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
-        } else if (isSearch) {
-          // Telemetry: emit the classifier reason when the strict path is
-          // active so the gate allow-rate dashboard can break down denials
-          // by reason. When the flag is off (legacy regex path) the reason
-          // is `legacy_regex_gate`.
+        const attachWebSearch = isSearch && shouldAttachChatGPTWebSearch(query);
+        // Telemetry parity with the pre-downgrade code path: when the
+        // call uses a search-preview model but the freshness gate
+        // denied web_search, emit the classifier reason so the
+        // dashboard can break down denials.
+        if (isSearch && !attachWebSearch) {
           const strictMode = process.env.WEB_SEARCH_DEFAULT_OFF === 'true';
           const reason = strictMode
             ? decideRequiresFreshness(query).reason
@@ -1652,34 +1693,114 @@ export async function queryAI(
             query: query.trim().slice(0, 120),
           });
         }
+        // Auto-downgrade for no-search default calls. Conditions:
+        //   - Caller did not explicitly select a model
+        //     (options.adminSelectedModel !== true).
+        //   - useModel is the platform default (gpt-5.4-mini today).
+        //     Any non-default selection (gpt-5.4 full, gpt-5.4-nano,
+        //     gpt-4o, *-search-preview, …) is honored verbatim.
+        //   - web_search is NOT going to be attached. Search-preview
+        //     model selection is owned by `resolveChatGPTModel` /
+        //     `applyChatGPTCohortOverride` upstream and is never
+        //     touched here.
+        //   - CHATGPT_NONSEARCH_MODEL is enabled (default
+        //     'gpt-5.4-nano'; unset/'off' disables).
+        const nonSearchDowngrade = getChatGPTNonSearchModel();
+        const shouldDowngrade =
+          !isSearch
+          && !options?.adminSelectedModel
+          && useModel === getDefaultModel('ChatGPT')
+          && nonSearchDowngrade !== null
+          && nonSearchDowngrade !== useModel;
+        const modelChain = shouldDowngrade
+          ? [
+              nonSearchDowngrade!,
+              ...NONSEARCH_DOWNGRADE_FALLBACKS.filter(m => m !== nonSearchDowngrade),
+            ]
+          : [useModel];
+        // OpenAI deprecated `max_tokens` in favour of `max_completion_tokens`
+        // for the gpt-5 family (and o1/o3 reasoning models) — passing the old
+        // name is silently ignored, so output runs to the full model budget
+        // and gets billed in full. `max_completion_tokens` is also accepted
+        // by gpt-4o/gpt-4o-mini and the *-search-preview models, so we use
+        // it uniformly for every ChatGPT call.
+        interface OpenAiPayload {
+          model: string;
+          max_completion_tokens: number;
+          messages: Array<{ role: string; content: string }>;
+          web_search_options?: {
+            search_context_size?: 'low' | 'medium' | 'high';
+            user_location?: {
+              type: 'approximate';
+              approximate: { city: string; country: string };
+            };
+          };
+        }
+        const buildPayload = (m: string): OpenAiPayload => {
+          const p: OpenAiPayload = {
+            model: m, max_completion_tokens: maxTok,
+            messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
+          };
+          if (attachWebSearch) {
+            // `search_context_size: 'low'` by default — OpenAI bills the
+            // hosted web_search tool at its "medium" rate when the field
+            // is omitted. Override via CHATGPT_SEARCH_CONTEXT_SIZE.
+            p.web_search_options = { search_context_size: getChatGPTSearchContextSize() };
+            if (brand?.city) p.web_search_options.user_location = { type: 'approximate', approximate: { city: brand.city, country: 'US' } };
+          }
+          return p;
+        };
         // ChatGPT-specific retry config. Search-Preview model pool is
         // tight, so we allow more attempts (default 6 vs. 2) and a larger
         // per-call sleep budget (default 60s vs. 15s) to honour OpenAI's
         // Retry-After hints. `logPrefix: '[chatgpt.ratelimit]'` emits
         // structured logs on every 429 so DO runtime logs can confirm
         // the fix without a deploy.
-        const d = await fetchAI(API_ENDPOINTS.openai.chat, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify(payload),
-          signal,
-        }, AI_CHATGPT_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
-          // Defaults tightened from 6/60000 — once smart routing and the
-          // gpt-4o-mini-search-preview cohort relieve Search-Preview pool
-          // pressure, 3 attempts over 30s covers transient blips while
-          // capping cost from billed-200 retries. Override via
-          // AI_CHATGPT_MAX_RETRIES / AI_CHATGPT_MAX_RETRY_SLEEP_MS.
-          maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 3,
-          maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 30000,
-          logPrefix: '[chatgpt.ratelimit]',
-          queryId: options?.queryId,
-          model: useModel,
-        });
+        let d: AiResponseData | null = null;
+        let chosenModel = modelChain[0];
+        let chainErr: AiError | undefined;
+        for (let mi = 0; mi < modelChain.length; mi++) {
+          chosenModel = modelChain[mi];
+          try {
+            d = await fetchAI(API_ENDPOINTS.openai.chat, {
+              method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+              body: JSON.stringify(buildPayload(chosenModel)),
+              signal,
+            }, AI_CHATGPT_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
+              maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 3,
+              maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 30000,
+              logPrefix: '[chatgpt.ratelimit]',
+              queryId: options?.queryId,
+              model: chosenModel,
+            });
+            break;
+          } catch (e) {
+            chainErr = e as AiError;
+            // Only walk the fallback chain when (a) the downgrade was
+            // actually applied (modelChain.length > 1) and (b) the
+            // failure is transient. Auth / cost-cap / bad-request
+            // errors should NOT trigger a quiet model swap.
+            if (shouldDowngrade && mi < modelChain.length - 1 && isTransientError(e)) {
+              logger.warn('[chatgpt.nonsearch_fallback]', {
+                event: 'fallback',
+                platform: 'ChatGPT',
+                fromModel: chosenModel,
+                toModel: modelChain[mi + 1],
+                errorClass: chainErr.name || 'AiError',
+                errorMessage: (chainErr.message || '').slice(0, 240),
+              });
+              continue;
+            }
+            throw e;
+          }
+        }
+        if (!d) throw chainErr || tagError('ChatGPT: model chain exhausted', { isTransient: true });
         const citations = (d.choices?.[0]?.message?.annotations || [])
           .filter((a: { type: string; url?: string }) => a.type === 'url_citation' && a.url)
           .map((a: { url: string }) => a.url);
         result = {
           text: d.choices?.[0]?.message?.content || '',
-          model: d.model || useModel,
+          model: d.model || chosenModel,
           tokensIn: d.usage?.prompt_tokens || 0,
           tokensOut: d.usage?.completion_tokens || 0,
           citations: [...new Set(citations)].slice(0, 10) as string[],
@@ -1701,8 +1822,8 @@ export async function queryAI(
         // so the in-app daily_cost_tracker under-reported spend whenever
         // an admin pointed ChatGPT at a different search-preview model.
         let searchSurcharge = 0;
-        if (webSearchCalls > 0 && useModel.includes('search')) {
-          const perCallUsd = useModel === 'gpt-4o-mini-search-preview'
+        if (webSearchCalls > 0 && chosenModel.includes('search')) {
+          const perCallUsd = chosenModel === 'gpt-4o-mini-search-preview'
             ? CHATGPT_WEB_SEARCH_CALL_USD
             : 0.030;
           searchSurcharge = webSearchCalls * perCallUsd;
