@@ -93,13 +93,16 @@ describe('buildCacheKey', () => {
 });
 
 describe('getCacheTtl', () => {
-  it('returns 7d for non-search default and 24h for search-enabled', () => {
-    // Search-class responses stay at 24h — freshness is the whole
-    // point of attaching web_search. Non-search responses default to
-    // 7d: with the gpt-5.4 lineup the default path is non-search and
-    // training-data answers don't drift inside a week.
-    expect(getCacheTtl(true)).toBe(24 * 60 * 60);
-    expect(getCacheTtl(false)).toBe(7 * 24 * 60 * 60);
+  it('returns 14d for non-search default and 7d for search-enabled', () => {
+    // June 2026 cost-reduction tuning: with WEB_SEARCH_DEFAULT_OFF in
+    // prod and tracking reduced to daily cadence, evergreen non-search
+    // answers don't drift inside 14d and a longer TTL is the highest
+    // remaining lever on the OpenAI bill. Search responses (the
+    // expensive web_search-tool path) held to 7d — long enough to make
+    // a real dent in spend, short enough to retain freshness sanity
+    // for queries explicitly asked to consult the live web.
+    expect(getCacheTtl(true)).toBe(7 * 24 * 60 * 60);
+    expect(getCacheTtl(false)).toBe(14 * 24 * 60 * 60);
   });
 
   // The env-var aliasing (RESPONSE_CACHE_TTL_NO_SEARCH_S as primary,
@@ -235,6 +238,21 @@ describe('setCached', () => {
 // drift that accidentally re-introduces a per-tenant field into the
 // SHA-256 input.
 describe('cache_key dedup invariant', () => {
+  // Regression coverage for the June 2026 cost review: pin that the
+  // SHA-256 input contains ONLY (prompt, platform, model, searchEnabled,
+  // city). Any future drift that hashes brand_id / user_id / tenant_id
+  // into the key would silently break cross-tenant dedup — caught here.
+  it('cache_key SHA-256 material is exactly prompt|platform|model|isSearch|city', () => {
+    const material = 'best plumber in boston|ChatGPT|gpt-4o|0|';
+    const expected = require('crypto')
+      .createHash('sha256').update(material).digest('hex');
+    const actual = buildCacheKey({
+      prompt: 'best plumber in Boston', platform: 'ChatGPT',
+      model: 'gpt-4o', searchEnabled: false,
+    });
+    expect(actual).toBe(expected);
+  });
+
   it('two different brand_ids with identical (platform, model, query, city, is_search) produce the same cache_key', () => {
     // Tenant A
     const keyA = buildCacheKey({

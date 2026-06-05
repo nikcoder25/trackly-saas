@@ -6,7 +6,7 @@
  * deploys carrying the old name don't silently fall back to the
  * hardcoded 7-day default after this rename.
  *
- * The TTL is captured at module load (`Number(process.env...) || 7d`),
+ * The TTL is captured at module load (`Number(process.env...) || 14d`),
  * so each scenario must run against a freshly imported module. We use
  * vi.resetModules + dynamic `await import()` inside each `it` to set
  * up env BEFORE module evaluation.
@@ -46,9 +46,14 @@ describe('getCacheTtl env var aliasing', () => {
     expect(getCacheTtl(false)).toBe(1234);
   });
 
-  it('uses hardcoded 7d default when neither name is set', async () => {
+  it('uses hardcoded 14d default when neither name is set', async () => {
     const { getCacheTtl } = await import('../src/lib/response-cache');
-    expect(getCacheTtl(false)).toBe(7 * 24 * 60 * 60);
+    expect(getCacheTtl(false)).toBe(14 * 24 * 60 * 60);
+  });
+
+  it('uses hardcoded 7d search default when RESPONSE_CACHE_TTL_SEARCH_S is unset', async () => {
+    const { getCacheTtl } = await import('../src/lib/response-cache');
+    expect(getCacheTtl(true)).toBe(7 * 24 * 60 * 60);
   });
 
   it('search TTL is independent of either non-search name', async () => {

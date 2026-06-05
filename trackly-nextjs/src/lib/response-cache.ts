@@ -15,22 +15,29 @@ import crypto from 'crypto';
 import { pool } from './db';
 import { logger } from './logger';
 
-// Cron cadence is daily; sub-24h TTLs guarantee a cold start on every
-// run and were the dominant cause of the 27.68% hit rate observed
-// during the May 6-8 cost-spike incident. Search-enabled responses
-// stay at 24h because freshness is the whole point of attaching
-// web_search. Non-search responses default to 7 days: with the gpt-5.4
-// lineup the default path is non-search, brand-tracking answers from
-// training data don't drift inside a week, and a 7-day TTL maximises
-// repeat hits within the daily-scan cadence.
+// June 2026 cost-reduction tuning: defaults raised after the tracking
+// tick was reduced from hourly to daily and per-brand schedule floors
+// were confirmed to be >= 24h. Brand-tracking prompts are dominated by
+// evergreen queries ("best <category> in <city>"), so a TTL shorter
+// than the natural answer-drift window just throws away free hits.
+//   - Non-search default: 14 days. The default path is non-search
+//     (WEB_SEARCH_DEFAULT_OFF=true in prod) and training-data answers
+//     don't move meaningfully inside two weeks. With a daily-scan
+//     cadence a 14d TTL gives ~14 repeat hits per entry vs ~7 at 7d.
+//   - Search-enabled default: 7 days. Freshness still matters for the
+//     web_search-enabled path, but the hosted web_search tool (~$25/1k
+//     calls on gpt-4o-search-preview) drives almost the entire OpenAI
+//     bill (798 calls / two weeks per the June review). Holding search
+//     responses for a week instead of a day is the largest single lever
+//     left on cost now that WEB_SEARCH_DEFAULT_OFF is in place.
 // Two-name read for backwards compatibility: RESPONSE_CACHE_TTL_NO_SEARCH_S
 // is the documented name; RESPONSE_CACHE_TTL_DEFAULT_S is kept working as
 // a legacy alias so existing deploys don't break on this rename.
-const TTL_SEARCH_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_SEARCH_S) || 24 * 60 * 60;
+const TTL_SEARCH_SECONDS = Number(process.env.RESPONSE_CACHE_TTL_SEARCH_S) || 7 * 24 * 60 * 60;
 const TTL_DEFAULT_SECONDS =
   Number(process.env.RESPONSE_CACHE_TTL_NO_SEARCH_S) ||
   Number(process.env.RESPONSE_CACHE_TTL_DEFAULT_S) ||
-  7 * 24 * 60 * 60;
+  14 * 24 * 60 * 60;
 
 export interface CacheKeyParams {
   prompt: string;
@@ -97,6 +104,17 @@ function normalize(prompt: string): string {
     .replace(/[\s.!?,;:]+$/, '');
 }
 
+// Cross-tenant dedup invariant: brand_id / user_id / tenant_id MUST NOT
+// be hashed into the cache key. The June 2026 cost review re-verified
+// this — two brands asking the same generic question for the same city
+// hit the same row. brand_id and city ARE persisted as separate columns
+// in setCached() for ops/debug visibility, but the read path keys only
+// on this hash, so a row written by Brand A still serves Brand B.
+// `city` IS part of the key on purpose: "best plumber" returns different
+// answers in Boston vs NYC and a city-blind shared row would corrupt
+// localized results. Brand-personalized prompts naturally diverge in
+// the prompt text (they embed the brand name verbatim) and so already
+// produce per-brand keys without needing a brand_id field.
 export function buildCacheKey(params: CacheKeyParams): string {
   const { prompt, platform, model, searchEnabled, city } = params;
   const cityPart = (city ?? '').toLowerCase().trim();

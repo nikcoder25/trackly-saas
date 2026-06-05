@@ -1,9 +1,12 @@
 /**
- * Cron endpoint for scheduled brand runs. Called every hour by GitHub
- * Actions (.github/workflows/cron.yml) and also by the in-process
- * instrumentation trigger in src/instrumentation.ts. Authorized via the
- * `Authorization: Bearer $CRON_SECRET` header; cron_locks dedupes
- * concurrent triggers so running both schedulers is safe.
+ * Cron endpoint for scheduled brand runs. Called once daily (14:30 UTC)
+ * by GitHub Actions (.github/workflows/cron-hourly.yml — filename
+ * retained, schedule reduced to daily in the June 2026 cost cut) and
+ * also by the in-process instrumentation trigger in src/instrumentation.ts.
+ * Authorized via the `Authorization: Bearer $CRON_SECRET` header;
+ * cron_locks dedupes concurrent triggers so running both schedulers is
+ * safe. The "hourly" mode label below is preserved for log-filter
+ * compatibility (the alert queries match `mode:"hourly"`).
  */
 import crypto from 'crypto';
 import { pool } from '@/lib/db';
@@ -175,11 +178,11 @@ export async function GET(request: Request) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // `mode=daily_floor` is called once per UTC day by the workflow's daily
-  // schedule. It runs under a separate lock so the hourly tick can't starve
-  // it, and it ignores the per-brand interval gate so any brand that missed
-  // its 24h slot (e.g. off-by-a-few-minutes drift) still runs at least once
-  // per day.
+  // `mode=daily_floor` is called once per UTC day at 02:30 by the
+  // workflow's daily_floor schedule. It runs under a separate lock so
+  // the 14:30 scheduled tick can't starve it, and it ignores the
+  // per-brand interval gate so any brand that missed its 24h slot
+  // (e.g. off-by-a-few-minutes drift) still runs at least once per day.
   const url = new URL(request.url);
   const isDailyFloor = url.searchParams.get('mode') === 'daily_floor';
   const mode: 'hourly' | 'daily_floor' = isDailyFloor ? 'daily_floor' : 'hourly';
@@ -188,7 +191,7 @@ export async function GET(request: Request) {
   // + in-process instrumentation all hit this endpoint). Redis-backed when
   // REDIS_URL is set, with a Postgres fallback table so this never 500s
   // if Redis is briefly unreachable. Daily floor uses its own lock name so
-  // the hourly scheduler can't block it.
+  // the regular scheduled tick can't block it.
   const lockName = isDailyFloor ? 'scheduler_daily' : 'scheduler';
   const lockTtlMinutes = isDailyFloor ? 15 : 10;
   const lock = await acquireCronLock(lockName, lockTtlMinutes);
@@ -372,11 +375,10 @@ export async function GET(request: Request) {
       }
 
       // Crash-backoff gate: if this brand's recent history is all errors
-      // (no 'done' mixed in), it's stuck on something the hourly retry
-      // can't fix - a 24h-saturated API quota, a misconfigured key, a
-      // query the provider is refusing. Stop burning budget on it and
-      // back off exponentially. A single successful run resets the
-      // counter.
+      // (no 'done' mixed in), it's stuck on something a retry can't fix
+      // - a 24h-saturated API quota, a misconfigured key, a query the
+      // provider is refusing. Stop burning budget on it and back off
+      // exponentially. A single successful run resets the counter.
       const backoffCheck = inCrashBackoff(crashInfo.get(row.id));
       if (backoffCheck.backoff) {
         logSkip('crash_backoff', {

@@ -16,7 +16,8 @@
  * still in `running`, and the brands.runs append is keyed by runId).
  *
  * Called from two places:
- *   - /api/cron (hourly tick, reaps anything > stale threshold)
+ *   - /api/cron/reap-stale-runs (every 5 min, primary reaper)
+ *   - /api/cron (daily scheduled tick, opportunistic reap before dispatch)
  *   - /api/brands/[id]/run-status/[runId] (defensive, per-request, only
  *     reconciles the exact runId being polled so a stuck run surfaces
  *     as 'error' within the 10-min threshold regardless of cron cadence)

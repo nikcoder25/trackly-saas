@@ -1,24 +1,34 @@
-# Hourly cron for /api/cron (per-brand scheduled runs).
+# Daily cron for /api/cron (per-brand scheduled runs).
 #
-# Split out from cron.yml so the 0 * * * * tick has its own dedicated
-# workflow run with no schedule collision. When two cron schedules in
-# the same workflow file overlap at the same minute, GitHub fires a
-# single run and only one cron string wins github.event.schedule, which
-# was causing the Hourly cron job to be skipped at the top of every hour.
+# Was hourly until the cost-reduction review (June 2026): with every plan's
+# minScheduleHours >= 24 the hourly tick was firing 23 times a day only to
+# log "interval_not_elapsed" for every brand. The hosted web_search tool
+# (~$25/1k calls on gpt-4o-search-preview) dominated OpenAI spend and was
+# being driven by the search-enabled retries on each of those wasted ticks.
+# Daily cadence aligns with the actual per-brand schedule floor and pairs
+# with the 02:30 UTC daily_floor in cron.yml as a second-chance window.
+#
+# Filename retained as cron-hourly.yml so existing GitHub Actions URLs,
+# branch protection checks, and required-status entries continue to resolve.
+#
+# Time chosen (14:30 UTC) is ~12h offset from daily_floor (02:30 UTC) so
+# a brand that missed one window still runs at least once per calendar day.
+# Stale-run reaping is NOT on this workflow — it has its own dedicated
+# 5-minute cron in cron-reap-stale-runs.yml and is unaffected.
 #
 # Required repository secrets: CRON_SECRET (matches the env var on
 # DigitalOcean).
 
-name: Hourly cron
+name: Daily tracking cron
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "30 14 * * *"
   workflow_dispatch:
 
 jobs:
   hourly:
-    name: Hourly cron
+    name: Daily tracking cron
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
