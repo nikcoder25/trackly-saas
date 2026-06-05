@@ -934,6 +934,47 @@ export function getChatGPTNonSearchModel(): string | null {
 }
 
 /**
+ * ChatGPT determinism knobs (gpt-5.x only). Setting `temperature: 0`
+ * and a fixed `seed` makes identical (prompt, model) pairs return
+ * byte-identical answers, which keeps the Postgres response cache
+ * stable across runs and turns repeat queries into cache hits — every
+ * cache hit = one ChatGPT call we don't pay for. The "list 3-6
+ * businesses" task is recall-bound, not creativity-bound, so removing
+ * sampling jitter does not reduce brand-mention quality.
+ *
+ * Both env vars are read at call time inside the payload builder so a
+ * flip in the env takes effect on the next request with no redeploy.
+ * Empty string disables that field independently — useful for incident
+ * rollback when only one of the two needs to be unset.
+ *
+ * Only attached to the gpt-5.x family. Older OpenAI models silently
+ * ignore `seed` and the legacy `*-search-preview` cohort can outright
+ * reject these fields, so we narrow attachment to the family that
+ * actually supports them.
+ */
+export function isGpt5xModel(model: string): boolean {
+  return /^gpt-5(\.|-)/i.test(model);
+}
+
+export function getChatGPTTemperature(): number | null {
+  const raw = process.env.CHATGPT_TEMPERATURE;
+  if (raw === '') return null;
+  if (raw === undefined) return 0;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return n;
+}
+
+export function getChatGPTSeed(): number | null {
+  const raw = process.env.CHATGPT_SEED;
+  if (raw === '') return null;
+  if (raw === undefined) return 7;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 7;
+  return Math.trunc(n);
+}
+
+/**
  * Count billable web_search tool invocations from an OpenAI Chat Completions
  * response. Accepts both shapes the API returns today:
  *   - usage.tool_calls as a `{ web_search: N }` map or a flat number
@@ -1775,6 +1816,8 @@ export async function queryAI(
           model: string;
           max_completion_tokens: number;
           messages: Array<{ role: string; content: string }>;
+          temperature?: number;
+          seed?: number;
           web_search_options?: {
             search_context_size?: 'low' | 'medium' | 'high';
             user_location?: {
@@ -1788,6 +1831,18 @@ export async function queryAI(
             model: m, max_completion_tokens: maxTok,
             messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
           };
+          // Determinism for the gpt-5.x family only — see
+          // getChatGPTTemperature / getChatGPTSeed. Gate on `m` (not
+          // useModel) so the downgrade fallback chain re-evaluates per
+          // attempt — a fallback to gpt-4o must NOT carry these fields.
+          // Each env knob is independent so ops can disable one without
+          // the other by setting it to "".
+          if (isGpt5xModel(m)) {
+            const temp = getChatGPTTemperature();
+            if (temp !== null) p.temperature = temp;
+            const seed = getChatGPTSeed();
+            if (seed !== null) p.seed = seed;
+          }
           if (attachWebSearch) {
             // `search_context_size: 'low'` by default — OpenAI bills the
             // hosted web_search tool at its "medium" rate when the field
