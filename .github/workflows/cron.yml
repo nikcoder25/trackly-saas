@@ -4,10 +4,11 @@
 # scheduler to hit /api/cron* routes. GitHub Actions is the cheapest option
 # (free, already wired to this repo).
 #
-# Note: the hourly tick (0 * * * *) lives in .github/workflows/cron-hourly.yml
-# in its own workflow file to avoid GitHub Actions schedule-collision when
-# two cron strings in the same workflow fire at the same minute. See that
-# file's header comment for details.
+# Note: the per-brand scheduling tick lives in
+# .github/workflows/cron-hourly.yml (kept under its original filename so
+# existing required-status-check entries continue to resolve). Despite the
+# name it now runs once daily at 14:30 UTC — see that file's header for
+# the cost-reduction rationale.
 #
 # Required repository secrets (Settings > Secrets and variables > Actions):
 #   CRON_SECRET - same value as the CRON_SECRET env var on DigitalOcean
@@ -39,10 +40,11 @@ jobs:
   daily_floor:
     # Once-per-day safety net. Calls /api/cron?mode=daily_floor which takes
     # a separate Redis lock and bypasses the per-brand interval gate, so any
-    # brand that drifted past its 24h slot (missed hourly tick, clock drift,
-    # extended lock contention) still runs at least once every 24h. 02:30
-    # UTC is deliberately off-cycle from the 0 * * * * hourly to avoid
-    # racing the lock at the top of the hour.
+    # brand that drifted past its 24h slot (missed scheduled tick, clock
+    # drift, extended lock contention) still runs at least once every 24h.
+    # 02:30 UTC is ~12h offset from the 14:30 UTC scheduled tick in
+    # cron-hourly.yml so the two together provide two attempts per calendar
+    # day with a wide window between them.
     name: Daily floor cron
     if: github.event.schedule == '30 2 * * *' || (github.event_name == 'workflow_dispatch' && inputs.job == 'daily')
     runs-on: ubuntu-latest

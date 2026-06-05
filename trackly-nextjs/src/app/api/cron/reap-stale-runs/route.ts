@@ -4,11 +4,11 @@
  * GET /api/cron/reap-stale-runs
  * Auth: `Authorization: Bearer $CRON_SECRET` (same as /api/cron/*).
  *
- * Independent failure mode from the hourly /api/cron scheduler. If
- * the hourly tick is wedged (deploy mid-flight, network blip, DB
- * lock pile-up), this 5-minute cron still runs and reaps anything
- * past RUN_WATCHDOG_STALE_MINUTES so brand "Last Run" clocks
- * advance and the dashboard doesn't appear frozen for an hour.
+ * Independent failure mode from the /api/cron scheduler. If the
+ * daily scheduled tick is wedged (deploy mid-flight, network blip,
+ * DB lock pile-up), this 5-minute cron still runs and reaps
+ * anything past RUN_WATCHDOG_STALE_MINUTES so brand "Last Run"
+ * clocks advance and the dashboard doesn't appear frozen.
  *
  * Takes its own `reap_stale_runs` cron lock with a 10-min stale
  * window so two ticks can't race on the same select-for-update.

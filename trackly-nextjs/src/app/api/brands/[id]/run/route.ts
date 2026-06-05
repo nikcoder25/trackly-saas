@@ -395,7 +395,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Auto-skip notification: a cron tick that gets blocked by the
     // monthly cap is the user-facing "we couldn't run your scheduled
     // scan because you're out of credits" — fire one email per claim
-    // to avoid spamming on every hourly tick.
+    // to avoid spamming on every scheduled tick.
     if (isCronCall && reservation.code === 'monthly_exhausted') {
       try {
         const claimed = await tryClaimLowBalanceNotify(ownerId);
@@ -484,7 +484,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // (brand_id) WHERE status='running' otherwise rejects the next
   // legitimate trigger with HTTP 409 even when the prior run is
   // wedged past the watchdog threshold but still hasn't been touched
-  // by the hourly cron tick. Scoped to this brand id so we don't
+  // by the scheduled cron tick or the 5-min reap-stale-runs cron.
+  // Scoped to this brand id so we don't
   // sweep the fleet on every manual click. Cheap when there's
   // nothing to reap (single indexed query).
   try {
