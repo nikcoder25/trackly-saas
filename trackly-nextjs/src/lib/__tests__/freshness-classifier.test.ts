@@ -28,11 +28,18 @@ describe('decideRequiresFreshness — strict allowlist', () => {
     }
   });
 
-  it('flags short-horizon "this <period>" anchors', () => {
-    for (const q of ['events this week', 'launches this month', 'tasks this morning']) {
+  // `current_period` ("this week / this month / this morning / afternoon
+  // / evening") was DROPPED in the May-cycle cost-reduction pass. The
+  // pattern matched recommendation/landscape queries too freely
+  // ("best deals this month", "tasks this morning" → general planning),
+  // and the surcharge per false-positive is $0.030. Genuinely time-
+  // sensitive variants still trip via an explicit day anchor (e.g.
+  // "events tomorrow") or breaking-news/market patterns.
+  it('does NOT flag short-horizon "this <period>" anchors (current_period dropped)', () => {
+    for (const q of ['events this week', 'launches this month', 'tasks this morning', 'plans this afternoon', 'meetings this evening']) {
       const d = decideRequiresFreshness(q);
-      expect(d.requires_freshness).toBe(true);
-      expect(d.reason).toBe('current_period');
+      expect(d.requires_freshness).toBe(false);
+      expect(d.reason).toBe('no_freshness_anchor');
     }
   });
 
@@ -61,12 +68,25 @@ describe('decideRequiresFreshness — strict allowlist', () => {
     expect(decideRequiresFreshness('weather tomorrow').requires_freshness).toBe(true);
   });
 
-  it('flags explicit present-tense anchors', () => {
-    expect(decideRequiresFreshness('outages right now').reason).toBe('present_tense_anchor');
-    expect(decideRequiresFreshness('what is currently trending').reason).toBe('present_tense_anchor');
-    // `as of today` overlaps with the single-day anchor on `today`; only
-    // assert it still trips the gate.
-    expect(decideRequiresFreshness('Stripe headcount as of today').requires_freshness).toBe(true);
+  // `present_tense_anchor` ("right now / currently / as of today / as of
+  // now") was DROPPED in the same pass. `currently` in particular was
+  // matching brand-tracking and recommendation queries that don't need
+  // live web data ("currently popular CRMs", "what is currently the
+  // cheapest option"). `as of today` still trips via the single-day
+  // anchor on `today`, which preserves brand-mention recall for the one
+  // sub-case that genuinely is time-sensitive.
+  it('does NOT flag standalone present-tense anchors (present_tense_anchor dropped)', () => {
+    expect(decideRequiresFreshness('outages right now').requires_freshness).toBe(false);
+    expect(decideRequiresFreshness('what is currently trending').requires_freshness).toBe(false);
+    expect(decideRequiresFreshness('as of now Stripe headcount').requires_freshness).toBe(false);
+  });
+
+  it('still flags "as of today" via the surviving day anchor', () => {
+    // `as of today` overlaps with the single-day anchor on `today`; the
+    // surviving rule keeps brand-mention recall on this one sub-case.
+    const d = decideRequiresFreshness('Stripe headcount as of today');
+    expect(d.requires_freshness).toBe(true);
+    expect(d.reason).toBe('explicit_day_reference');
   });
 
   // The whole point of the strict allowlist is to DROP these long-tail

@@ -75,10 +75,20 @@ describe('shouldAttachChatGPTWebSearch — WEB_SEARCH_DEFAULT_OFF=true (strict c
   it('attaches web_search ONLY for strict freshness anchors', () => {
     process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
     expect(shouldAttachChatGPTWebSearch('news today')).toBe(true);
-    expect(shouldAttachChatGPTWebSearch('events this week')).toBe(true);
+    expect(shouldAttachChatGPTWebSearch('breaking news on Stripe')).toBe(true);
     expect(shouldAttachChatGPTWebSearch('Tesla stock price')).toBe(true);
     expect(shouldAttachChatGPTWebSearch('weather in Austin')).toBe(true);
-    expect(shouldAttachChatGPTWebSearch('outages right now')).toBe(true);
+  });
+
+  it('drops "this <period>" and standalone present-tense queries (narrowed allowlist)', () => {
+    process.env.WEB_SEARCH_DEFAULT_OFF = 'true';
+    // `current_period` and `present_tense_anchor` were dropped from the
+    // strict allowlist in the May cost-reduction pass — these no longer
+    // attach web_search even under strict mode.
+    expect(shouldAttachChatGPTWebSearch('events this week')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('launches this month')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('outages right now')).toBe(false);
+    expect(shouldAttachChatGPTWebSearch('what is currently trending')).toBe(false);
   });
 
   it('drops everything the legacy regex would have caught without a freshness anchor', () => {
