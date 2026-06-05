@@ -41,6 +41,11 @@ import {
   getCacheTtl,
 } from './response-cache';
 import { decideRequiresFreshness } from './freshness-classifier';
+import {
+  isChatGPTBatchEnabled,
+  submitChatGPTBatch,
+  ChatGPTBatchError,
+} from './chatgpt-batch';
 
 // MUST stay byte-identical across calls. OpenAI's automatic prompt
 // caching keys off the longest exact-match prefix of the request; any
@@ -1453,6 +1458,16 @@ export interface QueryOptions {
   // suppresses the downgrade so an admin's selection (including the
   // default model picked deliberately) is preserved verbatim.
   adminSelectedModel?: boolean;
+  // ChatGPT only: caller asserts this call is background / scheduled
+  // (daily-cron tracking tick) and can tolerate up to
+  // CHATGPT_BATCH_MAX_WAIT_MS of asynchronous completion. When both
+  // this flag AND CHATGPT_BATCH_ENABLED are true AND the call is on
+  // the no-search path, the request is routed through OpenAI's Batch
+  // API (50% discount). Any batch failure / timeout falls back to the
+  // synchronous nano path so no tracking tick is silently dropped.
+  // User-facing routes (public tools, /api/free-check, etc.) leave
+  // this unset and always run on the synchronous path.
+  batchEligible?: boolean;
 }
 
 // Gemini fallback chain - pro → flash → flash-lite. Each tier runs on a
@@ -1806,20 +1821,68 @@ export async function queryAI(
         const chatgptMaxRetries = searchPath
           ? Math.max(0, getChatGPTSearchMaxAttempts() - 1)
           : (Number(process.env.AI_CHATGPT_MAX_RETRIES) || 3);
+        // Per-attempt dispatch helper. Tries the OpenAI Batch API
+        // (CHATGPT_BATCH_ENABLED, no-search, caller marked
+        // batchEligible) for the 50% discount; on any batch error
+        // falls back to the synchronous Chat Completions path so the
+        // tracking tick still lands and mention recall is preserved.
+        // The web_search path is never routed here — `searchPath` is
+        // checked inline. Response parsing is identical because the
+        // batch row's `response.body` IS a Chat Completions response.
+        const batchPathEnabled =
+          !searchPath
+          && options?.batchEligible === true
+          && isChatGPTBatchEnabled();
+        const dispatchChatGPT = async (m: string): Promise<AiResponseData> => {
+          if (batchPathEnabled) {
+            try {
+              const customId = options?.queryId
+                ? `q-${options.queryId}`
+                : `cgpt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+              const results = await submitChatGPTBatch(
+                [{ customId, body: buildPayload(m) as unknown as Record<string, unknown> }],
+                apiKey,
+                { signal },
+              );
+              const r = results[0];
+              if (!r) {
+                throw new ChatGPTBatchError('batch returned no rows', { stage: 'item' });
+              }
+              if (r.error || !r.response) {
+                throw new ChatGPTBatchError(
+                  r.error?.message || 'batch row missing response',
+                  { stage: 'item' },
+                );
+              }
+              return r.response;
+            } catch (e) {
+              logger.warn('[chatgpt.batch_fallback]', {
+                event: 'fallback_to_sync',
+                platform: 'ChatGPT',
+                model: m,
+                queryId: options?.queryId,
+                errorClass: (e as Error).name || 'Error',
+                errorMessage: ((e as Error).message || '').slice(0, 240),
+              });
+              // Fall through to sync below.
+            }
+          }
+          return await fetchAI(API_ENDPOINTS.openai.chat, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify(buildPayload(m)),
+            signal,
+          }, chatgptTimeoutMs, apiKey, 'ChatGPT', {
+            maxRetries: chatgptMaxRetries,
+            maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 30000,
+            logPrefix: '[chatgpt.ratelimit]',
+            queryId: options?.queryId,
+            model: m,
+          });
+        };
         for (let mi = 0; mi < modelChain.length; mi++) {
           chosenModel = modelChain[mi];
           try {
-            d = await fetchAI(API_ENDPOINTS.openai.chat, {
-              method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-              body: JSON.stringify(buildPayload(chosenModel)),
-              signal,
-            }, chatgptTimeoutMs, apiKey, 'ChatGPT', {
-              maxRetries: chatgptMaxRetries,
-              maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 30000,
-              logPrefix: '[chatgpt.ratelimit]',
-              queryId: options?.queryId,
-              model: chosenModel,
-            });
+            d = await dispatchChatGPT(chosenModel);
             break;
           } catch (e) {
             chainErr = e as AiError;

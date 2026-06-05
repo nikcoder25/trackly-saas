@@ -563,12 +563,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const shouldEnqueue = await isQueueAvailable();
   const runInProcess = () => {
     after(async () => {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass, isCronCall);
     });
   };
   if (syncMode && (isCronCall || callerIsAdminOrOwner)) {
     try {
-      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass);
+      await executeRunBackground(brand, id, user.id, runId, totalExpected, activePlatforms, queries, serverKeys, userKeys, requestId, ownerId, reserveKind, ownerPlan, freshBypass, isCronCall);
       const resp = Response.json({ runId, totalExpected, platforms: activePlatforms, queries, syncCompleted: true });
       if (requestId) resp.headers.set('x-request-id', requestId);
       return resp;
@@ -623,12 +623,14 @@ async function executeRunBackground(
   creditKind?: 'manual' | 'auto',
   ownerPlan?: string,
   freshBypass?: boolean,
+  isCronCall?: boolean,
 ) {
   try {
     return await executeRunBackgroundInner(
       brand, brandId, userId, runId, totalExpected,
       activePlatforms, queries, serverKeys, userKeys, requestId, ownerPlan,
       freshBypass,
+      isCronCall,
     );
   } finally {
     // Belt-and-suspenders terminal-state guard. If executeRunBackgroundInner
@@ -699,6 +701,12 @@ async function executeRunBackgroundInner(
   requestId?: string,
   ownerPlan?: string,
   freshBypass?: boolean,
+  // True when the brand run was triggered by the daily cron (via the
+  // x-cron-secret header on the POST handler). Threaded down here so
+  // queryAI can opt the no-search ChatGPT calls into the OpenAI Batch
+  // API (CHATGPT_BATCH_ENABLED). User-triggered runs leave this false
+  // and stay on the synchronous path.
+  isCronCall?: boolean,
 ) {
   const startTime = Date.now();
   const matcher = buildBrandMatcher(brand);
@@ -1014,6 +1022,11 @@ async function executeRunBackgroundInner(
                 brandId,
                 runId,
                 requestId,
+                // ChatGPT batch path (CHATGPT_BATCH_ENABLED) opts in
+                // only for cron-scheduled ticks. Manual user-clicked
+                // runs stay synchronous so the dashboard isn't waiting
+                // hours for a "Run now" result.
+                batchEligible: isCronCall,
               },
             );
             runLog.info('run.query_ai_resolved', {
