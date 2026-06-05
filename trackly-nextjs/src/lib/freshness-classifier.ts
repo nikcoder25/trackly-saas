@@ -38,10 +38,6 @@ const STRICT_FRESHNESS_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string
   // "yesterday" cannot be answered from training data even if the rest of
   // the query looks static.
   { pattern: /\b(today|tonight|tomorrow|yesterday)\b/i, reason: 'explicit_day_reference' },
-  // Short-horizon recency. "this week", "this month", "this morning",
-  // "this afternoon", "this evening" anchor the query to a window that
-  // post-dates the training cutoff.
-  { pattern: /\bthis\s+(week|month|morning|afternoon|evening)\b/i, reason: 'current_period' },
   // Breaking-news intent. Bare `news` alone is too permissive (e.g.
   // "Acme Corp news section"); we require a freshness adjective or a
   // companion freshness word.
@@ -52,8 +48,15 @@ const STRICT_FRESHNESS_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string
   // Weather. Hyper-local AND time-sensitive; training-data answers are
   // useless here.
   { pattern: /\bweather\s+(?:in|for|today|tomorrow|forecast|this)\b/i, reason: 'weather' },
-  // Explicit present-tense anchors.
-  { pattern: /\b(right\s+now|currently|as\s+of\s+(?:today|now))\b/i, reason: 'present_tense_anchor' },
+  // NOTE: `current_period` ("this week / this month / this morning") and
+  // `present_tense_anchor` ("right now / currently / as of today") were
+  // intentionally DROPPED in the May-cycle cost reduction pass. Both
+  // were broad enough to catch recommendation/landscape queries
+  // ("currently popular CRMs", "best deals this month") that don't
+  // genuinely need live web data, and the surcharge per false-positive
+  // is $0.030. The four anchors above (explicit day, breaking news,
+  // live market, weather) cover every category the strict allowlist is
+  // there to protect.
 ];
 
 export function decideRequiresFreshness(query: string): FreshnessDecision {

@@ -864,6 +864,38 @@ export function getChatGPTSearchContextSize(): 'low' | 'medium' | 'high' {
   return 'low';
 }
 
+/**
+ * Total attempts (including the initial one) for a ChatGPT call that
+ * attaches the hosted `web_search` tool. Each completed search call is
+ * billed at $0.030 by OpenAI regardless of whether the rest of the
+ * response was useful, so a single transient failure that triggers the
+ * generic ChatGPT retry budget (default 3 retries) can multiply the
+ * search surcharge 4x for the same query. Default is 1 (no retries on
+ * the search path) — the cheap NO-search path keeps its full retry
+ * budget. Override via CHATGPT_SEARCH_MAX_ATTEMPTS to raise the cap
+ * without a redeploy.
+ */
+export function getChatGPTSearchMaxAttempts(): number {
+  const raw = Number(process.env.CHATGPT_SEARCH_MAX_ATTEMPTS);
+  if (Number.isFinite(raw) && raw >= 1) return Math.floor(raw);
+  return 1;
+}
+
+/**
+ * Per-attempt fetch timeout (ms) for a ChatGPT call that attaches the
+ * hosted `web_search` tool. The generic per-attempt timeout
+ * (AI_CHATGPT_REQUEST_TIMEOUT_MS, default 30s) applies to every non-
+ * search call; this knob lets ops tighten search calls independently.
+ * A hung search request still gets billed once OpenAI's side dispatches
+ * the tool call, so keeping this tight bounds the worst-case spend per
+ * outage. Default 30s; override via CHATGPT_SEARCH_TIMEOUT_MS.
+ */
+export function getChatGPTSearchTimeoutMs(): number {
+  const raw = Number(process.env.CHATGPT_SEARCH_TIMEOUT_MS);
+  if (Number.isFinite(raw) && raw > 0) return Math.floor(raw);
+  return 30000;
+}
+
 // Fallback chain used when the auto-downgraded no-search model errors.
 // Order is intentional: try the previous default first (gpt-5.4-mini),
 // then gpt-4o as a last resort. Reads of this list filter out the
@@ -1759,6 +1791,21 @@ export async function queryAI(
         let d: AiResponseData | null = null;
         let chosenModel = modelChain[0];
         let chainErr: AiError | undefined;
+        // Search-vs-no-search per-attempt knobs. The web_search tool is
+        // billed per completed invocation, so a retry on the SEARCH path
+        // re-attaches web_search and re-bills the surcharge on every
+        // attempt that completes. Cap to a single attempt by default and
+        // tighten the per-attempt timeout to bound worst-case spend on
+        // hung requests. NO-search calls keep the existing retry budget
+        // and the standard ChatGPT timeout, so transient 5xx/network
+        // hiccups still recover for free.
+        const searchPath = attachWebSearch;
+        const chatgptTimeoutMs = searchPath
+          ? getChatGPTSearchTimeoutMs()
+          : AI_CHATGPT_REQUEST_TIMEOUT_MS;
+        const chatgptMaxRetries = searchPath
+          ? Math.max(0, getChatGPTSearchMaxAttempts() - 1)
+          : (Number(process.env.AI_CHATGPT_MAX_RETRIES) || 3);
         for (let mi = 0; mi < modelChain.length; mi++) {
           chosenModel = modelChain[mi];
           try {
@@ -1766,8 +1813,8 @@ export async function queryAI(
               method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
               body: JSON.stringify(buildPayload(chosenModel)),
               signal,
-            }, AI_CHATGPT_REQUEST_TIMEOUT_MS, apiKey, 'ChatGPT', {
-              maxRetries: Number(process.env.AI_CHATGPT_MAX_RETRIES) || 3,
+            }, chatgptTimeoutMs, apiKey, 'ChatGPT', {
+              maxRetries: chatgptMaxRetries,
               maxSleepMs: Number(process.env.AI_CHATGPT_MAX_RETRY_SLEEP_MS) || 30000,
               logPrefix: '[chatgpt.ratelimit]',
               queryId: options?.queryId,

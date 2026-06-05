@@ -103,9 +103,13 @@ describe('getSearchBudgetLimit', () => {
     expect(getSearchBudgetLimit('Perplexity')).toBe(500);
   });
 
-  it('returns the ChatGPT default cap of 150 when no env vars are set', () => {
-    // 150 calls/day = $3.75/day ceiling at $25/1k web_search invocations.
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
+  it('returns the ChatGPT default cap of 50 when no env vars are set', () => {
+    // 50 calls/day = $1.25/day ceiling at $25/1k web_search invocations.
+    // Tightened from 150 once web_search defaulted OFF — the daily cron
+    // only attaches search for the small minority of queries that carry
+    // an explicit freshness anchor, so a 50/day cap is a comfortable
+    // backstop against a retry-storm or misfire.
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(50);
   });
 
   it('has no default cap for non-ChatGPT platforms', () => {
@@ -129,9 +133,9 @@ describe('getSearchBudgetLimit', () => {
 
   it('treats negative or non-numeric ChatGPT overrides as unset (falls back to default cap)', () => {
     process.env.AI_SEARCH_BUDGET_CHATGPT = '-5';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(50);
     process.env.AI_SEARCH_BUDGET_CHATGPT = 'banana';
-    expect(getSearchBudgetLimit('ChatGPT')).toBe(150);
+    expect(getSearchBudgetLimit('ChatGPT')).toBe(50);
   });
 
   it('CHATGPT_SEARCH_BUDGET_DAILY is the canonical ChatGPT override name', () => {
@@ -179,13 +183,13 @@ describe('getSearchFallbackModel', () => {
 
 describe('tryConsumeSearchBudget', () => {
   it('engages the budget by default when AI_SEARCH_BUDGET_ENABLED is unset', async () => {
-    // Post-incident default: enabled. ChatGPT's 150-call cap means the
+    // Post-incident default: enabled. ChatGPT's 50-call cap means the
     // very first call lands at used=1, not at the no-op disabled path.
     const result = await tryConsumeSearchBudget('ChatGPT');
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('consumed');
     expect(result.used).toBe(1);
-    expect(result.limit).toBe(150);
+    expect(result.limit).toBe(50);
     expect((fake.eval as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
   });
 

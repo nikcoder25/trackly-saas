@@ -23,10 +23,16 @@
  *     OpenAI spend; the May 11 incident (~$48/day on web_search alone)
  *     showed that "off-by-default + unset" is the wrong posture. Set
  *     `AI_SEARCH_BUDGET_ENABLED=false` to opt out.
- *   - ChatGPT default cap is 150 calls/day (~$3.75/day at $25/1k). Other
- *     platforms have no default cap (set the env override to add one).
- *     Perplexity is search-native and fail-opens on exhaustion, so a
- *     default cap there would only produce log noise.
+ *   - ChatGPT default cap is 50 calls/day (~$1.25/day at $25/1k). The
+ *     cap was tightened from 150 → 50 once web_search defaulted OFF (a
+ *     daily run only attaches web_search for a small minority of
+ *     genuinely time-sensitive queries), so a misfire / retry storm
+ *     cannot run up the search bill before an operator notices. The
+ *     env override (CHATGPT_SEARCH_BUDGET_DAILY) still wins for
+ *     operators that need a higher cap. Other platforms have no
+ *     default cap (set the env override to add one). Perplexity is
+ *     search-native and fail-opens on exhaustion, so a default cap
+ *     there would only produce log noise.
  */
 import { getLimiterRedis, type RedisLikeClient } from './redis';
 import { logger } from './logger';
@@ -39,7 +45,7 @@ const KEY_TTL_SECONDS = 90_000;
 // invocation, and Claude/Gemini/Grok don't have a billable tool. An
 // env override (AI_SEARCH_BUDGET_<PLATFORM>) always takes precedence.
 const PLATFORM_DEFAULT_DAILY_CAP: Record<string, number> = {
-  ChatGPT: 150,
+  ChatGPT: 50,
 };
 
 export type SearchBudgetReason =
@@ -81,7 +87,7 @@ function envInt(name: string): number | undefined {
  *   1. CHATGPT_SEARCH_BUDGET_DAILY env var (ChatGPT-only, documented name)
  *   2. AI_SEARCH_BUDGET_<PLATFORM> env override (legacy alias, all platforms)
  *   3. AI_SEARCH_BUDGET_DEFAULT env override
- *   4. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 150)
+ *   4. PLATFORM_DEFAULT_DAILY_CAP (ChatGPT: 50)
  *   5. 0 (no limit)
  * Set the platform-specific env var to 0 to opt that platform out
  * without disabling the feature globally.
