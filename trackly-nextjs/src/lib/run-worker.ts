@@ -289,6 +289,11 @@ async function processRun(job: Job<BrandRunJobData>) {
                 signal: taskController.signal,
                 tenantId: userId,
                 runId,
+                // BullMQ worker processes background queued tasks
+                // only — never user-blocking — so no-search ChatGPT
+                // calls here can ride the OpenAI Batch API when
+                // CHATGPT_BATCH_ENABLED is on.
+                batchEligible: true,
               },
             ),
           );
