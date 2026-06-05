@@ -933,6 +933,56 @@ export function getChatGPTNonSearchModel(): string | null {
   return trimmed;
 }
 
+// The gpt-5 family are reasoning models. Without an explicit
+// `reasoning_effort` the server defaults to "medium", which burns
+// hidden reasoning tokens (billed as output) even for the trivial
+// "list 3-6 businesses, max 80 words" prompt. `verbosity` likewise
+// defaults to "medium" on gpt-5 and lets the model exceed the
+// SYSTEM_PROMPT word budget. Both fields are gpt-5-only — gpt-4o /
+// search-preview / o-series chat-completion endpoints reject them.
+const VALID_REASONING_EFFORTS = new Set(['minimal', 'low', 'medium', 'high']);
+const VALID_VERBOSITIES = new Set(['low', 'medium', 'high']);
+
+function chatgptModelSupportsGpt5Params(model: string): boolean {
+  return /^gpt-5/i.test(model);
+}
+
+/**
+ * `reasoning_effort` to attach to ChatGPT calls on gpt-5-family models.
+ * Default "minimal" — the prompt asks for 3-6 business names with one-
+ * line descriptions, no reasoning chain is required to satisfy it.
+ *
+ * Override: CHATGPT_REASONING_EFFORT=minimal|low|medium|high. Empty
+ * string disables the field entirely (so ops can A/B against the
+ * server default). Invalid values fall back to "minimal".
+ */
+export function getChatGPTReasoningEffort(): 'minimal' | 'low' | 'medium' | 'high' | null {
+  const env = process.env.CHATGPT_REASONING_EFFORT;
+  if (env === undefined) return 'minimal';
+  const raw = env.toLowerCase().trim();
+  if (raw === '') return null;
+  if (VALID_REASONING_EFFORTS.has(raw)) return raw as 'minimal' | 'low' | 'medium' | 'high';
+  return 'minimal';
+}
+
+/**
+ * `verbosity` to attach to ChatGPT calls on gpt-5-family models.
+ * Default "low" — reinforces the existing SYSTEM_PROMPT "Max 80 words"
+ * budget at the decoder rather than relying on the model to obey the
+ * instruction.
+ *
+ * Override: CHATGPT_VERBOSITY=low|medium|high. Empty string disables
+ * the field entirely. Invalid values fall back to "low".
+ */
+export function getChatGPTVerbosity(): 'low' | 'medium' | 'high' | null {
+  const env = process.env.CHATGPT_VERBOSITY;
+  if (env === undefined) return 'low';
+  const raw = env.toLowerCase().trim();
+  if (raw === '') return null;
+  if (VALID_VERBOSITIES.has(raw)) return raw as 'low' | 'medium' | 'high';
+  return 'low';
+}
+
 /**
  * Count billable web_search tool invocations from an OpenAI Chat Completions
  * response. Accepts both shapes the API returns today:
@@ -1775,6 +1825,8 @@ export async function queryAI(
           model: string;
           max_completion_tokens: number;
           messages: Array<{ role: string; content: string }>;
+          reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
+          verbosity?: 'low' | 'medium' | 'high';
           web_search_options?: {
             search_context_size?: 'low' | 'medium' | 'high';
             user_location?: {
@@ -1788,6 +1840,14 @@ export async function queryAI(
             model: m, max_completion_tokens: maxTok,
             messages: isSearch ? [{ role: 'user', content: query }] : [{ role: 'system', content: sysPrompt }, { role: 'user', content: query }],
           };
+          // gpt-5-only reasoning/verbosity knobs. Skipped for gpt-4o
+          // and the *-search-preview models, which reject the fields.
+          if (chatgptModelSupportsGpt5Params(m)) {
+            const effort = getChatGPTReasoningEffort();
+            if (effort) p.reasoning_effort = effort;
+            const verbosity = getChatGPTVerbosity();
+            if (verbosity) p.verbosity = verbosity;
+          }
           if (attachWebSearch) {
             // `search_context_size: 'low'` by default — OpenAI bills the
             // hosted web_search tool at its "medium" rate when the field
